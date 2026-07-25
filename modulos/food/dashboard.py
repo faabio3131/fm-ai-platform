@@ -1,5 +1,27 @@
+import subprocess
+import sys
+import time
+import socket
 import streamlit as st
 import requests
+
+# ==========================================
+# --- MOTOR DE ARRANQUE DO FASTAPI NA NUVEM ---
+# ==========================================
+@st.cache_resource
+def iniciar_backend_fastapi():
+    """Verifica se o servidor FastAPI está rodando na porta 8000. Se não estiver, inicia em segundo plano."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    porta_livre = sock.connect_ex(('127.0.0.1', 8000)) != 0
+    sock.close()
+    
+    if porta_livre:
+        # Liga o servidor FastAPI (main.py) em segundo plano
+        subprocess.Popen([sys.executable, "-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "8000"])
+        time.sleep(3)  # Aguarda 3 segundos para o servidor iniciar e liberar as rotas
+
+iniciar_backend_fastapi()
+# ==========================================
 
 # Configuração Visual da Página
 st.set_page_config(
