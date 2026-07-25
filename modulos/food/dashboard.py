@@ -6,11 +6,18 @@ import streamlit as st
 import requests
 
 # ==========================================
-# --- MOTOR DE ARRANQUE DO FASTAPI NA NUVEM ---
+# --- MOTOR DE ARRANQUE COM LIMPEZA DE MEMÓRIA ---
 # ==========================================
 @st.cache_resource
 def iniciar_backend_fastapi():
-    """Verifica se o servidor FastAPI está rodando na porta 8000. Se não estiver, inicia em segundo plano."""
+    """Mata processos antigos do Uvicorn na nuvem e inicia um novo servidor limpo na porta 8000."""
+    try:
+        # Força o encerramento de qualquer uvicorn antigo preso na memória do Linux da nuvem
+        subprocess.run(["pkill", "-f", "uvicorn"], check=False)
+        time.sleep(1)
+    except Exception:
+        pass
+
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     porta_livre = sock.connect_ex(('127.0.0.1', 8000)) != 0
     sock.close()
@@ -45,7 +52,7 @@ with st.sidebar:
     
     if not st.session_state["token"]:
         st.info("Faça login com sua conta da Mica Burguer para liberar as ferramentas do ERP.")
-        email = st.text_input("E-mail corporativo", value="contato@micaburger.com")
+        email = st.text_input("E-mail corporativo", value="admin@micaburger.com")
         senha = st.text_input("Senha", value="123456", type="password")
         
         col_btn1, col_btn2 = st.columns(2)
@@ -67,37 +74,33 @@ with st.sidebar:
                     st.error(f"⚠️ Erro de conexão com o servidor ({e})")
                     
         with col_btn2:
-            # BOTÃO EXPLORADOR INTELIGENTE DE ROTAS
+            # BOTÃO COM RAIO-X DE ERRO
             if st.button("✨ Criar Conta", use_container_width=True):
-                rotas_para_testar = [
-                    "/auth/register", "/usuarios/", "/users/", 
-                    "/auth/cadastrar", "/cadastrar", "/register", "/usuarios/cadastrar"
-                ]
+                rotas_para_testar = ["/auth/cadastrar", "/cadastrar", "/auth/register", "/usuarios/", "/users/"]
                 sucesso = False
+                ultimo_erro = "Nenhuma resposta recebida do servidor."
                 
-                with st.spinner("Buscando rota no banco AWS..."):
+                with st.spinner("Conectando ao banco AWS..."):
                     for rota in rotas_para_testar:
                         try:
-                            # Tenta enviando email e senha
                             res = requests.post(f"{API_URL}{rota}", json={"email": email, "senha": senha})
                             
-                            # Se der erro 422 (campos incompatíveis), tenta enviando username e password
-                            if res.status_code == 422:
-                                res = requests.post(f"{API_URL}{rota}", json={"username": email, "password": senha})
-                            
                             if res.status_code in [200, 201]:
-                                st.success(f"🎉 Sucesso! Conta criada na rota `{rota}`! Agora clique em 'Entrar'.")
+                                st.success(f"🎉 Conta criada com sucesso! Agora clique em 'Entrar'.")
                                 sucesso = True
                                 break
-                            elif res.status_code == 400 and "já" in res.text.lower():
+                            elif res.status_code == 400 and any(palavra in res.text.lower() for palavra in ["já", "exist", "cadastrado"]):
                                 st.warning("⚠️ Esse e-mail já está cadastrado no banco! Basta clicar em 'Entrar'.")
                                 sucesso = True
                                 break
-                        except Exception:
+                            else:
+                                ultimo_erro = f"Rota `{rota}` -> Status: **{res.status_code}** | Resposta do Banco: `{res.text}`"
+                        except Exception as e:
+                            ultimo_erro = f"Erro de conexão na rota `{rota}`: `{e}`"
                             continue
                 
                 if not sucesso:
-                    st.error("❌ Rota de cadastro não encontrada no main.py. Me envie uma foto do arquivo main.py para eu ver o nome exato da rota!")
+                    st.error(f"❌ **Não foi possível criar a conta.**\n\n**Motivo exato retornado pelo servidor:**\n{ultimo_erro}")
     else:
         st.success("🟢 Conectado na Nuvem AWS")
         st.write("**Loja Ativa:** Mica Burguer & Restaurante")
