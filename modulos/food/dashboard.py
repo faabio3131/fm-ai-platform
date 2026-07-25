@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 import time
@@ -6,22 +7,25 @@ import streamlit as st
 import requests
 
 # ==========================================
-# --- MOTOR DE ARRANQUE NA PORTA 9000 ---
+# --- MOTOR DE ARRANQUE NA PORTA VIRGEM 7777 ---
 # ==========================================
 @st.cache_resource
 def iniciar_backend_fastapi():
     try:
-        subprocess.run(["pkill", "-f", "uvicorn"], check=False)
+        # Força a faxina de qualquer uvicorn zumbi preso na RAM da nuvem
+        os.system("pkill -9 -f uvicorn")
+        os.system("killall -9 uvicorn")
         time.sleep(1)
     except Exception:
         pass
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    porta_livre = sock.connect_ex(('127.0.0.1', 9000)) != 0
+    porta_livre = sock.connect_ex(('127.0.0.1', 7777)) != 0
     sock.close()
     
     if porta_livre:
-        subprocess.Popen([sys.executable, "-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "9000"])
+        # Liga o servidor limpo na porta virgem 7777
+        subprocess.Popen([sys.executable, "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7777"])
         time.sleep(3)
 
 iniciar_backend_fastapi()
@@ -33,7 +37,8 @@ st.set_page_config(
     layout="wide"
 )
 
-API_URL = "http://127.0.0.1:9000"
+# CONECTANDO NA NOVA PORTA 7777
+API_URL = "http://127.0.0.1:7777"
 
 if "token" not in st.session_state:
     st.session_state["token"] = None
@@ -66,9 +71,9 @@ with st.sidebar:
                         st.success("✅ Conectado à nuvem AWS!")
                         st.rerun()
                     else:
-                        st.error("❌ E-mail ou senha incorretos. Tente clicar em 'Criar Conta' para consertar a senha.")
+                        st.error("❌ E-mail ou senha incorretos. Clique no botão '✨ Criar Conta' logo ao lado para atualizar e consertar a senha!")
                 except Exception as e:
-                    st.error(f"⚠️ Erro de conexão com o servidor ({e})")
+                    st.error(f"⚠️ Erro ao conectar na porta 7777 ({e})")
                     
         with col_btn2:
             if st.button("✨ Criar Conta", use_container_width=True):
@@ -78,13 +83,28 @@ with st.sidebar:
                         json={"email": email, "senha": senha}
                     )
                     if res.status_code in [200, 201]:
-                        st.success(f"🎉 {res.json().get('mensagem', 'Conta pronta!')} Clique em 'Entrar'.")
+                        # Mostra a mensagem do nosso código NOVO!
+                        msg = res.json().get('mensagem', 'Conta criada/atualizada na porta 7777!')
+                        st.success(f"🎉 {msg} Agora clique em 'Entrar'.")
                     else:
-                        st.error(f"Erro do Banco: {res.text}")
+                        st.error(f"Erro do Banco ({res.status_code}): {res.text}")
                 except Exception as e:
-                    st.error(f"Erro: {e}")
+                    st.error(f"⚠️ Erro de conexão com a API: {e}")
+        
+        st.markdown("---")
+        # BOTÃO NUCLEAR PARA LIMPAR A MEMÓRIA EM CASO DE TRAVAMENTO
+        if st.button("🔄 Destravar / Reiniciar API", use_container_width=True):
+            st.cache_resource.clear()
+            try:
+                os.system("pkill -9 -f uvicorn")
+            except Exception:
+                pass
+            st.warning("🧹 Memória limpa com sucesso! Recarregando a tela...")
+            time.sleep(1)
+            st.rerun()
+            
     else:
-        st.success("🟢 Conectado na Nuvem AWS")
+        st.success("🟢 Conectado na Nuvem AWS (Porta 7777)")
         st.write("**Loja Ativa:** Mica Burguer & Restaurante")
         if st.button("Sair (Logout)", use_container_width=True):
             st.session_state["token"] = None
