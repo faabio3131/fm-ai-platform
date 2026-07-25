@@ -1,0 +1,15 @@
+# Ambiente Virtual Python
+venv/
+env/
+*.venv/
+
+# Variáveis de Ambiente e Senhas (NUNCA SUBIR PARA A NUVEM!)
+.env
+*.db
+*.sqlite3
+
+# Arquivos temporários e cache do sistema
+__pycache__/
+*.pyc
+.pytest_cache/
+.VSCode/
