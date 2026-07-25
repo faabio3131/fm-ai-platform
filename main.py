@@ -15,7 +15,8 @@ load_dotenv()
 # ==========================================
 # --- BANCO DE DADOS BLINDADO ---
 # ==========================================
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./banco_erp_local.db")
+# FORÇANDO O BANCO LOCAL LIMPO NA NUVEM
+DATABASE_URL = "sqlite:///./banco_erp_local.db"
 
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
