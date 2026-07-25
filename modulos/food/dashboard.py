@@ -6,24 +6,18 @@ import streamlit as st
 import requests
 
 # ==========================================
-# --- MOTOR DE ARRANQUE COM LIMPEZA DE MEMÓRIA ---
+# --- MOTOR DE ARRANQUE NA PORTA 9000 ---
 # ==========================================
 @st.cache_resource
 def iniciar_backend_fastapi():
-    """Mata processos antigos do Uvicorn na nuvem e inicia um novo servidor limpo na porta 8000."""
-    try:
-        # Força o encerramento de qualquer uvicorn antigo preso na memória do Linux da nuvem
-        subprocess.run(["pkill", "-f", "uvicorn"], check=False)
-        time.sleep(1)
-    except Exception:
-        pass
-
+    """Inicia o servidor limpo na porta 9000, driblando processos antigos travados na nuvem."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    porta_livre = sock.connect_ex(('127.0.0.1', 8000)) != 0
+    porta_livre = sock.connect_ex(('127.0.0.1', 9000)) != 0
     sock.close()
     
     if porta_livre:
-        subprocess.Popen([sys.executable, "-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "8000"])
+        # Liga na porta 9000 intocada!
+        subprocess.Popen([sys.executable, "-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "9000"])
         time.sleep(3)
 
 iniciar_backend_fastapi()
@@ -36,7 +30,8 @@ st.set_page_config(
     layout="wide"
 )
 
-API_URL = "http://127.0.0.1:8000"
+# APONTANDO PARA A NOVA PORTA 9000
+API_URL = "http://127.0.0.1:9000"
 
 if "token" not in st.session_state:
     st.session_state["token"] = None
@@ -71,36 +66,23 @@ with st.sidebar:
                     else:
                         st.error("❌ E-mail ou senha incorretos.")
                 except Exception as e:
-                    st.error(f"⚠️ Erro de conexão com o servidor ({e})")
+                    st.error(f"⚠️ Erro de conexão com a porta 9000 ({e})")
                     
         with col_btn2:
-            # BOTÃO COM RAIO-X DE ERRO
             if st.button("✨ Criar Conta", use_container_width=True):
-                rotas_para_testar = ["/auth/cadastrar", "/cadastrar", "/auth/register", "/usuarios/", "/users/"]
-                sucesso = False
-                ultimo_erro = "Nenhuma resposta recebida do servidor."
-                
-                with st.spinner("Conectando ao banco AWS..."):
-                    for rota in rotas_para_testar:
-                        try:
-                            res = requests.post(f"{API_URL}{rota}", json={"email": email, "senha": senha})
-                            
-                            if res.status_code in [200, 201]:
-                                st.success(f"🎉 Conta criada com sucesso! Agora clique em 'Entrar'.")
-                                sucesso = True
-                                break
-                            elif res.status_code == 400 and any(palavra in res.text.lower() for palavra in ["já", "exist", "cadastrado"]):
-                                st.warning("⚠️ Esse e-mail já está cadastrado no banco! Basta clicar em 'Entrar'.")
-                                sucesso = True
-                                break
-                            else:
-                                ultimo_erro = f"Rota `{rota}` -> Status: **{res.status_code}** | Resposta do Banco: `{res.text}`"
-                        except Exception as e:
-                            ultimo_erro = f"Erro de conexão na rota `{rota}`: `{e}`"
-                            continue
-                
-                if not sucesso:
-                    st.error(f"❌ **Não foi possível criar a conta.**\n\n**Motivo exato retornado pelo servidor:**\n{ultimo_erro}")
+                try:
+                    res = requests.post(
+                        f"{API_URL}/auth/cadastrar",
+                        json={"email": email, "senha": senha}
+                    )
+                    if res.status_code in [200, 201]:
+                        st.success("🎉 Conta criada com sucesso na porta 9000! Agora clique em 'Entrar'.")
+                    elif res.status_code == 400 and "já" in res.text.lower():
+                        st.warning("⚠️ Esse e-mail já está cadastrado! Basta clicar em 'Entrar'.")
+                    else:
+                        st.error(f"Erro do Banco: {res.text}")
+                except Exception as e:
+                    st.error(f"Erro: {e}")
     else:
         st.success("🟢 Conectado na Nuvem AWS")
         st.write("**Loja Ativa:** Mica Burguer & Restaurante")
