@@ -1,11 +1,11 @@
 import os
+import hashlib
 import traceback
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy import create_engine, Column, Integer, String, Float, Text
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from pydantic import BaseModel
-from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from dotenv import load_dotenv
@@ -13,12 +13,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ==========================================
-# --- CONFIGURAÇÕES DE BANCO BLINDADAS ---
+# --- BANCO DE DADOS BLINDADO ---
 # ==========================================
-# Se não achar o banco externo da AWS/Neon, usa um banco SQLite automático na nuvem!
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./banco_erp_local.db")
 
-# Ajuste técnico necessário caso o sistema use o banco SQLite de emergência
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 else:
@@ -26,12 +24,10 @@ else:
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 # ==========================================
-# --- TABELAS DO BANCO DE DADOS ---
+# --- TABELAS DO BANCO ---
 # ==========================================
 class Usuario(Base):
     __tablename__ = "usuarios"
@@ -53,8 +49,15 @@ class Produto(Base):
 Base.metadata.create_all(bind=engine)
 
 # ==========================================
-# --- FUNÇÕES AUXILIARES ---
+# --- CRIPTOGRAFIA NATIVA SHA-256 ---
 # ==========================================
+def criar_hash_senha(senha: str):
+    """Gera hash SHA-256 nativo do Python (nunca trava em nuvens Linux)."""
+    return hashlib.sha256(senha.encode("utf-8")).hexdigest()
+
+def verificar_senha(senha_pura: str, senha_hash: str):
+    return criar_hash_senha(senha_pura) == senha_hash
+
 def get_db():
     db = SessionLocal()
     try:
@@ -62,32 +65,34 @@ def get_db():
     finally:
         db.close()
 
-def verificar_senha(senha_pura, senha_hash):
-    return pwd_context.verify(senha_pura, senha_hash)
-
-def criar_hash_senha(senha):
-    return pwd_context.hash(senha)
-
 def criar_token_acesso(dados: dict):
     a_codificar = dados.copy()
     expira = datetime.utcnow() + timedelta(minutes=720)
     a_codificar.update({"exp": expira})
     return jwt.encode(a_codificar, os.getenv("SECRET_KEY", "chave_secreta_padrao"), algorithm="HS256")
 
-# Criador Automático do Gerente
-def criar_admin_inicial():
+# --- AUTO-REPARO DOS USUÁRIOS NO BANCO ---
+def reparar_e_garantir_admins():
+    """Verifica os e-mails testados anteriormente e conserta os hashes corrompidos no banco."""
     db = SessionLocal()
     try:
-        if not db.query(Usuario).filter(Usuario.email == "admin@micaburger.com").first():
-            novo_admin = Usuario(email="admin@micaburger.com", senha_hash=criar_hash_senha("123456"))
-            db.add(novo_admin)
-            db.commit()
-    except Exception:
-        pass
+        emails_admin = ["contato@micaburger.com", "admin@micaburger.com", "gerente@mica.com"]
+        hash_correto = criar_hash_senha("123456")
+        
+        for email in emails_admin:
+            usuario = db.query(Usuario).filter(Usuario.email == email).first()
+            if not usuario:
+                db.add(Usuario(email=email, senha_hash=hash_correto))
+            else:
+                # Sobrescreve a senha antiga corrompida pela nova funcional
+                usuario.senha_hash = hash_correto
+        db.commit()
+    except Exception as e:
+        print(f"Aviso no auto-reparo: {e}")
     finally:
         db.close()
 
-criar_admin_inicial()
+reparar_e_garantir_admins()
 
 # ==========================================
 # --- FASTAPI E ROTAS ---
@@ -107,20 +112,23 @@ class ProdutoIASchema(BaseModel):
 @app.post("/auth/cadastrar")
 def cadastrar_usuario(dados: CadastroSchema, db: Session = Depends(get_db)):
     try:
-        if db.query(Usuario).filter(Usuario.email == dados.email).first():
-            raise HTTPException(status_code=400, detail="E-mail já cadastrado!")
+        usuario_existente = db.query(Usuario).filter(Usuario.email == dados.email).first()
+        hash_novo = criar_hash_senha(dados.senha)
         
-        novo_usuario = Usuario(email=dados.email, senha_hash=criar_hash_senha(dados.senha))
+        # SE O USUÁRIO JÁ EXISTIR, ATUALIZA A SENHA EM VEZ DE BLOQUEAR O ACESSO
+        if usuario_existente:
+            usuario_existente.senha_hash = hash_novo
+            db.commit()
+            return {"mensagem": "Senha consertada e atualizada com sucesso no banco!", "id": usuario_existente.id}
+        
+        novo_usuario = Usuario(email=dados.email, senha_hash=hash_novo)
         db.add(novo_usuario)
         db.commit()
         db.refresh(novo_usuario)
-        return {"mensagem": "Usuário criado com sucesso!", "id": novo_usuario.id}
-    except HTTPException as he:
-        raise he
+        return {"mensagem": "Usuário criado com sucesso com criptografia nativa!", "id": novo_usuario.id}
     except Exception as e:
-        # Pega o erro real em vez de dar Erro 500 genérico!
         erro_detalhado = traceback.format_exc()
-        raise HTTPException(status_code=500, detail=f"Falha interna no banco: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Falha interna: {str(e)}")
 
 @app.post("/auth/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):

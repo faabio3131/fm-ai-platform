@@ -10,27 +10,29 @@ import requests
 # ==========================================
 @st.cache_resource
 def iniciar_backend_fastapi():
-    """Inicia o servidor limpo na porta 9000, driblando processos antigos travados na nuvem."""
+    try:
+        subprocess.run(["pkill", "-f", "uvicorn"], check=False)
+        time.sleep(1)
+    except Exception:
+        pass
+
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     porta_livre = sock.connect_ex(('127.0.0.1', 9000)) != 0
     sock.close()
     
     if porta_livre:
-        # Liga na porta 9000 intocada!
         subprocess.Popen([sys.executable, "-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "9000"])
         time.sleep(3)
 
 iniciar_backend_fastapi()
 # ==========================================
 
-# Configuração Visual da Página
 st.set_page_config(
     page_title="F&M AI FOOD - ERP Gastronômico",
     page_icon="🍔",
     layout="wide"
 )
 
-# APONTANDO PARA A NOVA PORTA 9000
 API_URL = "http://127.0.0.1:9000"
 
 if "token" not in st.session_state:
@@ -64,9 +66,9 @@ with st.sidebar:
                         st.success("✅ Conectado à nuvem AWS!")
                         st.rerun()
                     else:
-                        st.error("❌ E-mail ou senha incorretos.")
+                        st.error("❌ E-mail ou senha incorretos. Tente clicar em 'Criar Conta' para consertar a senha.")
                 except Exception as e:
-                    st.error(f"⚠️ Erro de conexão com a porta 9000 ({e})")
+                    st.error(f"⚠️ Erro de conexão com o servidor ({e})")
                     
         with col_btn2:
             if st.button("✨ Criar Conta", use_container_width=True):
@@ -76,9 +78,7 @@ with st.sidebar:
                         json={"email": email, "senha": senha}
                     )
                     if res.status_code in [200, 201]:
-                        st.success("🎉 Conta criada com sucesso na porta 9000! Agora clique em 'Entrar'.")
-                    elif res.status_code == 400 and "já" in res.text.lower():
-                        st.warning("⚠️ Esse e-mail já está cadastrado! Basta clicar em 'Entrar'.")
+                        st.success(f"🎉 {res.json().get('mensagem', 'Conta pronta!')} Clique em 'Entrar'.")
                     else:
                         st.error(f"Erro do Banco: {res.text}")
                 except Exception as e:
@@ -98,7 +98,6 @@ if not st.session_state["token"]:
 else:
     aba_cardapio, aba_pdv = st.tabs(["🤖 Engenharia de Cardápio com I.A.", "🛒 Frente de Caixa (PDV & Estoque)"])
 
-    # --- ABA 1: CADASTRAR PRODUTO COM INTELIGÊNCIA ARTIFICIAL ---
     with aba_cardapio:
         st.subheader("✨ Criador Gourmet Automatizado")
         st.write("Digite os dados simples e deixe a Inteligência Artificial gerar a descrição persuasiva e calcular a margem de lucro.")
@@ -140,7 +139,6 @@ else:
                 except Exception as e:
                     st.error(f"Erro na requisição: {e}")
 
-    # --- ABA 2: CAIXA E PDV ---
     with aba_pdv:
         st.subheader("🍟 Frente de Caixa e Baixa Automática de Insumos")
         st.write("Registre pedidos em tempo real e assista ao sistema descontando os ingredientes na nuvem.")
