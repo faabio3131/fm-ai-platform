@@ -67,21 +67,37 @@ with st.sidebar:
                     st.error(f"⚠️ Erro de conexão com o servidor ({e})")
                     
         with col_btn2:
-            # BOTÃO MÁGICO PARA CRIAR O USUÁRIO NO BANCO DE DADOS VAZIO
+            # BOTÃO EXPLORADOR INTELIGENTE DE ROTAS
             if st.button("✨ Criar Conta", use_container_width=True):
-                try:
-                    res = requests.post(
-                        f"{API_URL}/auth/cadastrar",
-                        json={"email": email, "senha": senha}
-                    )
-                    if res.status_code == 200:
-                        st.success("🎉 Usuário criado no banco AWS! Agora clique em 'Entrar'.")
-                    elif res.status_code == 400:
-                        st.warning("⚠️ Esse e-mail já está cadastrado! Basta clicar em 'Entrar'.")
-                    else:
-                        st.error(f"Erro ao criar: {res.text}")
-                except Exception as e:
-                    st.error(f"Erro: {e}")
+                rotas_para_testar = [
+                    "/auth/register", "/usuarios/", "/users/", 
+                    "/auth/cadastrar", "/cadastrar", "/register", "/usuarios/cadastrar"
+                ]
+                sucesso = False
+                
+                with st.spinner("Buscando rota no banco AWS..."):
+                    for rota in rotas_para_testar:
+                        try:
+                            # Tenta enviando email e senha
+                            res = requests.post(f"{API_URL}{rota}", json={"email": email, "senha": senha})
+                            
+                            # Se der erro 422 (campos incompatíveis), tenta enviando username e password
+                            if res.status_code == 422:
+                                res = requests.post(f"{API_URL}{rota}", json={"username": email, "password": senha})
+                            
+                            if res.status_code in [200, 201]:
+                                st.success(f"🎉 Sucesso! Conta criada na rota `{rota}`! Agora clique em 'Entrar'.")
+                                sucesso = True
+                                break
+                            elif res.status_code == 400 and "já" in res.text.lower():
+                                st.warning("⚠️ Esse e-mail já está cadastrado no banco! Basta clicar em 'Entrar'.")
+                                sucesso = True
+                                break
+                        except Exception:
+                            continue
+                
+                if not sucesso:
+                    st.error("❌ Rota de cadastro não encontrada no main.py. Me envie uma foto do arquivo main.py para eu ver o nome exato da rota!")
     else:
         st.success("🟢 Conectado na Nuvem AWS")
         st.write("**Loja Ativa:** Mica Burguer & Restaurante")
