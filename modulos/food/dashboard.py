@@ -16,9 +16,8 @@ def iniciar_backend_fastapi():
     sock.close()
     
     if porta_livre:
-        # Liga o servidor FastAPI (main.py) em segundo plano
         subprocess.Popen([sys.executable, "-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "8000"])
-        time.sleep(3)  # Aguarda 3 segundos para o servidor iniciar e liberar as rotas
+        time.sleep(3)
 
 iniciar_backend_fastapi()
 # ==========================================
@@ -32,7 +31,6 @@ st.set_page_config(
 
 API_URL = "http://127.0.0.1:8000"
 
-# Memória de sessão para guardar o Token de acesso
 if "token" not in st.session_state:
     st.session_state["token"] = None
 
@@ -40,7 +38,7 @@ st.title("🍔 F&M AI FOOD — Painel de Gestão & PDV")
 st.markdown("---")
 
 # ==========================================
-# --- BARRA LATERAL: LOGIN CORPORATIVO ---
+# --- BARRA LATERAL: LOGIN E CADASTRO ---
 # ==========================================
 with st.sidebar:
     st.header("🔒 Acesso Corporativo")
@@ -50,20 +48,40 @@ with st.sidebar:
         email = st.text_input("E-mail corporativo", value="contato@micaburger.com")
         senha = st.text_input("Senha", value="123456", type="password")
         
-        if st.button("Entrar no Sistema", type="primary", use_container_width=True):
-            try:
-                res = requests.post(
-                    f"{API_URL}/auth/login",
-                    data={"username": email, "password": senha, "grant_type": "password"}
-                )
-                if res.status_code == 200:
-                    st.session_state["token"] = res.json()["access_token"]
-                    st.success("✅ Conectado à nuvem AWS!")
-                    st.rerun()
-                else:
-                    st.error("❌ E-mail ou senha incorretos.")
-            except Exception as e:
-                st.error(f"⚠️ Erro de conexão: O servidor FastAPI está rodando? ({e})")
+        col_btn1, col_btn2 = st.columns(2)
+        
+        with col_btn1:
+            if st.button("Entrar", type="primary", use_container_width=True):
+                try:
+                    res = requests.post(
+                        f"{API_URL}/auth/login",
+                        data={"username": email, "password": senha, "grant_type": "password"}
+                    )
+                    if res.status_code == 200:
+                        st.session_state["token"] = res.json()["access_token"]
+                        st.success("✅ Conectado à nuvem AWS!")
+                        st.rerun()
+                    else:
+                        st.error("❌ E-mail ou senha incorretos.")
+                except Exception as e:
+                    st.error(f"⚠️ Erro de conexão com o servidor ({e})")
+                    
+        with col_btn2:
+            # BOTÃO MÁGICO PARA CRIAR O USUÁRIO NO BANCO DE DADOS VAZIO
+            if st.button("✨ Criar Conta", use_container_width=True):
+                try:
+                    res = requests.post(
+                        f"{API_URL}/auth/cadastrar",
+                        json={"email": email, "senha": senha}
+                    )
+                    if res.status_code == 200:
+                        st.success("🎉 Usuário criado no banco AWS! Agora clique em 'Entrar'.")
+                    elif res.status_code == 400:
+                        st.warning("⚠️ Esse e-mail já está cadastrado! Basta clicar em 'Entrar'.")
+                    else:
+                        st.error(f"Erro ao criar: {res.text}")
+                except Exception as e:
+                    st.error(f"Erro: {e}")
     else:
         st.success("🟢 Conectado na Nuvem AWS")
         st.write("**Loja Ativa:** Mica Burguer & Restaurante")
@@ -110,7 +128,6 @@ else:
                         dados_ia = res.json()
                         st.success(f"🎉 Produto #{dados_ia['id']} salvo no banco de dados com sucesso!")
                         
-                        # Exibição de Métricas Financeiras
                         c1, c2, c3 = st.columns(3)
                         c1.metric("Preço Final", f"R$ {dados_ia['preco_venda']:.2f}")
                         c2.metric("Custo Teórico (CMV)", f"R$ {dados_ia['custo_total_cmv']:.2f}")
