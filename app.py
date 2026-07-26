@@ -19,6 +19,7 @@ load_dotenv()
 # --- CONFIGURAÇÃO DA PÁGINA ---
 # ==========================================
 st.set_page_config(page_title="F&M AI FOOD - ERP", page_icon="🍔", layout="wide")
+
 # ==========================================
 # --- IDENTIDADE VISUAL CORPORATIVA (CSS) ---
 # ==========================================
@@ -52,6 +53,7 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
+
 # ==========================================
 # --- BANCO DE DADOS LOCAL BLINDADO ---
 # ==========================================
@@ -152,16 +154,11 @@ except Exception:
     st.sidebar.markdown("<h2 style='text-align: center; color: #1E3A8A;'>F&M AI FOOD</h2>", unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
-
-# ---> TÍTULO DE ACESSO (APENAS UMA VEZ) <---
 st.sidebar.title("🔐 Acesso Corporativo")
 
-if not st.session_state['autenticado']:
-    st.sidebar.info("Faça login para liberar as ferramentas do ERP.")
 # ==========================================
 # --- BARRA LATERAL (LOGIN) ---
 # ==========================================
-
 if not st.session_state['autenticado']:
     st.sidebar.info("Faça login para liberar as ferramentas do ERP.")
     email_input = st.sidebar.text_input("E-mail corporativo", value="admin@micaburger.com")
@@ -269,55 +266,6 @@ else:
                             if response_img.generated_images:
                                 img_bytes = response_img.generated_images[0].image.image_bytes
                                 imagem_gerada_pil = Image.open(BytesIO(img_bytes))
-   # --- ABA 1: CADASTRAR PRODUTO COM I.A. & GERAÇÃO DE IMAGEM ---
-    with aba_cardapio:
-        st.subheader("✨ Criador Gourmet Automatizado com Google Gemini & Imagen")
-        st.write("Digite os dados simples e deixe a Inteligência Artificial gerar uma descrição irresistível e uma foto promocional exclusiva para o seu cardápio.")
-        
-        with st.form("form_novo_produto"):
-            col1, col2 = st.columns(2)
-            with col1:
-                nome_prod = st.text_input("Nome do Prato / Lanche", value="Mica Royal Truffle Bacon")
-                categoria_prod = st.selectbox("Categoria", ["Burgers", "Bebidas", "Acompanhamentos", "Sobremesas"])
-            with col2:
-                preco_prod = st.number_input("Preço de Venda (R$)", value=46.90, step=1.0)
-            
-            desc_bruta = st.text_area("Descrição Bruta / Lista de Ingredientes", value="Dois hambúrgueres smash de 100g de costela angus, duplo queijo provolone derretido, farofa crocante de bacon artesanal, maionese trufada e rúcula fresca no pão brioche amanteigado selado na chapa.")
-            
-            btn_gerar_ia = st.form_submit_button("🚀 Processar Texto & Imagem com Google I.A.", type="primary")
-            
-            if btn_gerar_ia:
-                try:
-                    custo_cmv = round(preco_prod * 0.32, 2)
-                    margem = round(((preco_prod - custo_cmv) / preco_prod) * 100, 1)
-                    
-                    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-                    desc_gerada = ""
-                    imagem_gerada_pil = None
-                    
-                    if api_key:
-                        try:
-                            client = genai.Client(api_key=api_key)
-                            
-                            prompt_texto = f"Escreva uma descrição gourmet irresistível e comercial para um menu de restaurante para o seguinte item:\nNome: {nome_prod}\nCategoria: {categoria_prod}\nIngredientes: {desc_bruta}\nA descrição deve ser sofisticada, dar água na boca e ter no máximo 3 parágrafos."
-                            response_txt = client.models.generate_content(
-                                model='gemini-2.5-flash',
-                                contents=prompt_texto
-                            )
-                            desc_gerada = response_txt.text
-                            
-                            prompt_img = f"Professional high-end restaurant food photography of {nome_prod}, featuring {desc_bruta}, magazine style, gourmet lighting, appetizing presentation"
-                            response_img = client.models.generate_images(
-                                model='imagen-3.0-generate-002',
-                                prompt=prompt_img,
-                                config=types.GenerateImagesConfig(
-                                    number_of_images=1,
-                                    output_mime_type="image/jpeg",
-                                ),
-                            )
-                            if response_img.generated_images:
-                                img_bytes = response_img.generated_images[0].image.image_bytes
-                                imagem_gerada_pil = Image.open(BytesIO(img_bytes))
                                 
                         except Exception as e:
                             st.warning(f"⚠️ A IA do Google encontrou uma limitação no momento: {e}")
@@ -361,300 +309,212 @@ else:
         db = get_db()
         todos_produtos = db.query(Produto).all()
         db.close()
-        todos_produtos = db.query(Produto).all()
-        db.close()
         
         if todos_produtos:
-            texto_cardapio = "=== CARDÁPIO OFICIAL MICA BURGER & RESTAURANTE ===\n\n"
+            texto_cardapio = "=== CARDÁPIO OFICIAL MICA BURGUER & RESTAURANTE ===\n\n"
             for p in todos_produtos:
                 texto_cardapio += f"[{p.categoria.upper()}] {p.nome} - R$ {p.preco_venda:.2f}\n"
-                texto_cardapio += f"{p.descricao_ai}\n"
-                texto_cardapio += "-" * 50 + "\n\n"
+                texto_cardapio += f"{p.descricao_ai}\n\n"
             
             st.download_button(
                 label="📥 Baixar Cardápio Completo (TXT)",
                 data=texto_cardapio,
-                file_name="cardapio_mica_burger.txt",
+                file_name="cardapio_mica_burguer.txt",
                 mime="text/plain"
             )
+        else:
+            st.info("Nenhum produto cadastrado no momento. Utilize o gerador acima para adicionar itens ao cardápio.")
 
-    # --- ABA 2: GERADOR DE PROMOÇÕES & AUTOMAÇÃO SOCIAL ---
+    # --- ABA 2: CAMPANHAS & AUTOMAÇÃO SOCIAL ---
     with aba_promos:
-        st.subheader("📢 Campanhas Inteligentes & Postagem Automática (Meta API)")
-        st.write("Gere copys comerciais com I.A. e dispare de forma automática para o Facebook/Instagram ou segura para o WhatsApp.")
-        
-        with st.form("form_promocao"):
-            tipo_promo = st.selectbox("Objetivo da Campanha", [
-                "Combo de Fim de Semana (Lanche + Batata + Bebida)", 
-                "Desconto Relâmpago de Terça-feira", 
-                "Aniversário da Loja / Frete Grátis",
-                "Lançamento de Novo Prato"
-            ])
-            detalhes_oferta = st.text_area("Detalhes da Oferta / Preço Promocional", value="Na compra de qualquer burger gourmet, leve uma batata rústica por mais R$ 9,90 apenas hoje!")
-            
-            btn_criar_promo = st.form_submit_button("✨ Gerar Campanhas com Google I.A.", type="primary")
-            
-            if btn_criar_promo:
-                api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-                wa_txt, ig_txt, fb_txt = "", "", ""
-                
-                if api_key:
-                    try:
-                        client = genai.Client(api_key=api_key)
-                        prompt_multi = f"""
-                        Crie campanhas de marketing para o restaurante hamburgueria artesanal Mica Burger com base nestes dados:
-                        Tipo de Campanha: {tipo_promo}
-                        Detalhes: {detalhes_oferta}
-
-                        Divida obrigatoriamente a sua resposta usando estas exatas marcações:
-                        === WHATSAPP ===
-                        (Mensagem direta, alegre, com emojis e chamada para ação curta)
-
-                        === INSTAGRAM ===
-                        (Legenda altamente visual, estilo estético, engajadora e com hashtags gourmet como #MicaBurger #BurgerGourmet #Promocao)
-
-                        === FACEBOOK ===
-                        (Post engajador para comunidade, detalhado e convidativo)
-                        """
-                        response_m = client.models.generate_content(
-                            model='gemini-2.5-flash',
-                            contents=prompt_multi
-                        )
-                        full_resp = response_m.text
-                        
-                        if "=== INSTAGRAM ===" in full_resp and "=== FACEBOOK ===" in full_resp:
-                            parts = full_resp.split("=== INSTAGRAM ===")
-                            wa_txt = parts[0].replace("=== WHATSAPP ===", "").strip()
-                            ig_fb = parts[1].split("=== FACEBOOK ===")
-                            ig_txt = ig_fb[0].strip()
-                            fb_txt = ig_fb[1].strip() if len(ig_fb) > 1 else ""
-                        else:
-                            wa_txt, ig_txt, fb_txt = full_resp, full_resp, full_resp
-                    except Exception as e:
-                        wa_txt = f"🔥 *PROMOÇÃO MICA BURGER* 🔥\n\n{detalhes_oferta}"
-                        ig_txt = f"🔥 *PROMOÇÃO MICA BURGER* 🔥\n\n{detalhes_oferta}\n\n#MicaBurger"
-                        fb_txt = f"🔥 *PROMOÇÃO MICA BURGER* 🔥\n\n{detalhes_oferta}"
-                else:
-                    wa_txt = f"🔥 *PROMOÇÃO MICA BURGER* 🔥\n\n{detalhes_oferta}"
-                    ig_txt = f"🔥 *PROMOÇÃO MICA BURGER* 🔥\n\n{detalhes_oferta}\n\n#MicaBurger"
-                    fb_txt = f"🔥 *PROMOÇÃO MICA BURGER* 🔥\n\n{detalhes_oferta}"
-                
-                st.session_state['promo_wa'] = wa_txt
-                st.session_state['promo_ig'] = ig_txt
-                st.session_state['promo_fb'] = fb_txt
-                st.success("🎉 Campanhas geradas com sucesso!")
-
-        if 'promo_wa' in st.session_state and st.session_state['promo_wa']:
-            st.divider()
-            sub_wa, sub_ig, sub_fb = st.tabs(["📱 WhatsApp (Um Clique)", "📸 Instagram (Automático)", "📘 Facebook (Automático)"])
-            
-            with sub_wa:
-                st.info(st.session_state['promo_wa'])
-                msg_cod = st.session_state['promo_wa'].replace('\n', '%0A').replace(' ', '%20')
-                link_w = f"https://wa.me/?text={msg_cod}"
-                st.markdown(f"### 📲 [Clique aqui para disparar no WhatsApp]({link_w})", unsafe_allow_html=True)
-                
-            with sub_ig:
-                st.info(st.session_state['promo_ig'])
-                if st.button("🚀 Publicar Automaticamente no Instagram (API Meta)"):
-                    token = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN")
-                    ig_id = os.getenv("INSTAGRAM_ACCOUNT_ID")
-                    if not token or not ig_id:
-                        st.error("⚠️ Chaves da API do Instagram não configuradas no arquivo .env")
-                    else:
-                        st.info("🔄 Conectando à API da Meta para publicar no Instagram...")
-                        # Estrutura de requisição Graph API para o Instagram
-                        # Nota: Requer URL pública da imagem para o container do IG
-                        try:
-                            url_container = f"https://graph.facebook.com/v19.0/{ig_id}/media"
-                            payload = {
-                                "image_url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd", # Exemplo de imagem pública
-                                "caption": st.session_state['promo_ig'],
-                                "access_token": token
-                            }
-                            res = requests.post(url_container, data=payload).json()
-                            if "id" in res:
-                                creation_id = res["id"]
-                                url_publish = f"https://graph.facebook.com/v19.0/{ig_id}/media_publish"
-                                res_pub = requests.post(url_publish, data={"creation_id": creation_id, "access_token": token}).json()
-                                if "id" in res_pub:
-                                    st.success("✅ Publicado com sucesso no Instagram!")
-                                else:
-                                    st.error(f"Erro ao publicar: {res_pub}")
-                            else:
-                                st.error(f"Erro ao criar container de mídia: {res}")
-                        except Exception as ex:
-                            st.error(f"Erro de conexão com a API da Meta: {ex}")
-                
-            with sub_fb:
-                st.info(st.session_state['promo_fb'])
-                if st.button("🚀 Publicar Automaticamente na Página do Facebook"):
-                    token = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN")
-                    page_id = os.getenv("FACEBOOK_PAGE_ID")
-                    if not token or not page_id:
-                        st.error("⚠️ Chaves da API do Facebook não configuradas no arquivo .env")
-                    else:
-                        st.info("🔄 Conectando à API da Meta para publicar no Facebook...")
-                        try:
-                            url_fb = f"https://graph.facebook.com/v19.0/{page_id}/feed"
-                            payload_fb = {
-                                "message": st.session_state['promo_fb'],
-                                "access_token": token
-                            }
-                            res_fb = requests.post(url_fb, data=payload_fb).json()
-                            if "id" in res_fb:
-                                st.success("✅ Publicado com sucesso no Facebook!")
-                            else:
-                                st.error(f"Erro ao publicar: {res_fb}")
-                        except Exception as ex:
-                            st.error(f"Erro de conexão com a API da Meta: {ex}")
-
-    # --- ABA 3: FRENTE DE CAIXA (PDV & WHATSAPP) ---
-    with aba_pdv:
-        st.subheader("🛒 Frente de Caixa & Envio de Pedido via WhatsApp")
+        st.subheader("📢 Gerador de Campanhas & Automação de Marketing")
+        st.write("Crie chamadas comerciais persuasivas para WhatsApp, Instagram e Delivery em segundos.")
         
         db = get_db()
         produtos_cadastrados = db.query(Produto).all()
         db.close()
         
         if not produtos_cadastrados:
-            st.warning("⚠️ Nenhum produto cadastrado no banco. Vá na aba de I.A. e cadastre um lanche primeiro!")
+            st.info("Cadastre pelo menos um produto na aba 'Engenharia de Cardápio' para gerar campanhas.")
         else:
-            with st.form("form_venda"):
-                produto_escolhido = st.selectbox(
-                    "Selecione o Produto para Venda", 
-                    options=produtos_cadastrados, 
-                    format_func=lambda p: f"#{p.id} - {p.nome} (R$ {p.preco_venda:.2f})"
-                )
-                qtd_venda = st.number_input("Quantidade", min_value=1, value=1, step=1)
-                btn_vender = st.form_submit_button("💳 Registrar Venda, Baixar Estoque e Gerar WhatsApp", type="primary")
+            nomes_produtos = [p.nome for p in produtos_cadastrados]
+            
+            col_p1, col_p2, col_p3 = st.columns(3)
+            with col_p1:
+                prato_alvo = st.selectbox("Selecione o Prato/Lanche", nomes_produtos)
+            with col_p2:
+                tipo_promo = st.selectbox("Tipo de Promoção", [
+                    "Combo Especiais (Ex: Lanche + Bebida com desconto)",
+                    "Happy Hour / Desconto de Horário",
+                    "Frete Grátis na Região",
+                    "Lançamento Exclusivo do Dia"
+                ])
+            with col_p3:
+                canal_dest = st.selectbox("Canal de Divulgação", ["WhatsApp (Texto Direto & Emojis)", "Instagram (Legenda + Hashtags)", "Push Notification (App de Delivery)"])
                 
-                if btn_vender:
+            if st.button("📢 Gerar Campanha com I.A.", type="primary"):
+                api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+                texto_campanha = ""
+                
+                if api_key:
+                    try:
+                        client = genai.Client(api_key=api_key)
+                        prompt_promo = f"Atue como um especialista em marketing gastronômico. Crie um texto promocional altamente conversivo para o seguinte cenário:\n- Produto: {prato_alvo}\n- Tipo de Oferta: {tipo_promo}\n- Canal: {canal_dest}\nUse gatilhos mentais de urgência e apetite, inclua emojis apropriados e uma Chamada para Ação (CTA) irresistível."
+                        
+                        response_promo = client.models.generate_content(
+                            model='gemini-2.5-flash',
+                            contents=prompt_promo
+                        )
+                        texto_campanha = response_promo.text
+                    except Exception as e:
+                        texto_campanha = f"🔥 *OFERTA IMPERDÍVEL MICA BURGUER!* 🔥\n\nHoje é dia de saborear o incrível *{prato_alvo}* com nossa condição especial de *{tipo_promo}*!\n\n🍔 Peça agora mesmo pelo nosso WhatsApp ou Delivery e receba quentinho em casa!\n\n📲 *Clique aqui e faça seu pedido!* #MicaBurguer #Gastronomia #Delivery"
+                else:
+                    texto_campanha = f"🔥 *OFERTA IMPERDÍVEL MICA BURGUER!* 🔥\n\nHoje é dia de saborear o incrível *{prato_alvo}* com nossa condição especial de *{tipo_promo}*!\n\n🍔 Peça agora mesmo pelo nosso WhatsApp ou Delivery e receba quentinho em casa!\n\n📲 *Clique aqui e faça seu pedido!* #MicaBurguer #Gastronomia #Delivery"
+                
+                st.markdown("### 🎯 Campanha Pronta para Uso:")
+                st.success(texto_campanha)
+
+    # --- ABA 3: FRENTE DE CAIXA (PDV) ---
+    with aba_pdv:
+        st.subheader("🛒 Frente de Caixa Rápida (PDV Touch)")
+        
+        db = get_db()
+        produtos_pdv = db.query(Produto).all()
+        db.close()
+        
+        if not produtos_pdv:
+            st.info("Cadastre produtos na aba de Engenharia de Cardápio para abrir as vendas no caixa.")
+        else:
+            col_cx1, col_cx2 = st.columns([2, 1])
+            with col_cx1:
+                st.markdown("#### 🍔 Selecione o Produto para Venda:")
+                mapa_prod = {f"{p.nome} - R$ {p.preco_venda:.2f}": p for p in produtos_pdv}
+                item_selecionado = st.selectbox("Prato / Lanche", list(mapa_prod.keys()))
+                qtd_venda = st.number_input("Quantidade", min_value=1, value=1, step=1)
+                
+                prod_obj = mapa_prod[item_selecionado]
+                total_venda = round(prod_obj.preco_venda * qtd_venda, 2)
+                cmv_total_venda = round(prod_obj.custo_total_cmv * qtd_venda, 2)
+                
+                st.markdown(f"### Total do Pedido: **R$ {total_venda:.2f}**")
+                
+                if st.button("✅ Confirmar Pedido & Baixar Estoque", type="primary"):
                     db = get_db()
-                    total_v = produto_escolhido.preco_venda * qtd_venda
-                    cmv_v = produto_escolhido.custo_total_cmv * qtd_venda
-                    data_atual = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                    
                     nova_venda = Venda(
-                        produto_nome=produto_escolhido.nome,
+                        produto_nome=prod_obj.nome,
                         quantidade=qtd_venda,
-                        valor_total=total_v,
-                        cmv_total=cmv_v,
-                        data_hora=data_atual
+                        valor_total=total_venda,
+                        cmv_total=cmv_total_venda,
+                        data_hora=datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     )
                     db.add(nova_venda)
                     
-                    consumo_map = {
-                        "Hambúrguer 90g": 2.0 * qtd_venda,
-                        "Queijo Cheddar": 2.0 * qtd_venda,
-                        "Pão Brioche": 1.0 * qtd_venda,
-                        "Bacon Artesanal": 50.0 * qtd_venda,
-                        "Maionese Trufada": 30.0 * qtd_venda
-                    }
-                    
-                    baixas_realizadas = []
-                    for nome_insumo, qtd_gasta in consumo_map.items():
-                        ins = db.query(Insumo).filter(Insumo.nome == nome_insumo).first()
-                        if ins:
-                            ins.quantidade_atual = max(0.0, ins.quantidade_atual - qtd_gasta)
-                            baixas_realizadas.append(f"- {qtd_gasta} {ins.unidade} de {ins.nome} (Novo saldo: {ins.quantidade_atual:.1f} {ins.unidade})")
-                    
+                    # Deduz automaticamente do estoque de insumos
+                    insumos_db = db.query(Insumo).all()
+                    for ins em insumos_db:
+                        ins.quantidade_atual = max(0.0, ins.quantidade_atual - (1.0 * qtd_venda))
+                        
                     db.commit()
                     db.close()
-                    
-                    st.success(f"✅ Venda registrada com sucesso!")
-                    st.write(f"**Item:** {produto_escolhido.nome} | **Qtd:** {qtd_venda}")
-                    st.write(f"### 💰 Total a Pagar: R$ {total_v:.2f}")
-                    
-                    msg_wa = f"🍔 *NOVO PEDIDO - MICA BURGER* 🍔%0A%0A*Item:* {produto_escolhido.nome}%0A*Quantidade:* {qtd_venda}%0A*Valor Total:* R$ {total_v:.2f}%0A*Horário:* {data_atual}%0A%0A_Pedido processado via F&M AI FOOD ERP_"
-                    link_whatsapp = f"https://wa.me/?text={msg_wa}"
-                    
-                    st.markdown(f"### 📲 [Clique aqui para enviar o pedido para a Cozinha / Cliente via WhatsApp]({link_whatsapp})", unsafe_allow_html=True)
-                    
-                    st.markdown("#### 📦 Relatório de Baixa Real no Banco de Dados:")
-                    for baixa in baixas_realizadas:
-                        st.warning(baixa)
+                    st.success(f"Pedido de {qtd_venda}x {prod_obj.nome} registrado com sucesso!")
+            
+            with col_cx2:
+                st.markdown("#### 📜 Últimas Vendas do Dia")
+                db = get_db()
+                ultimas_vendas = db.query(Venda).order_by(Venda.id.desc()).limit(5).all()
+                db.close()
+                
+                if ultimas_vendas:
+                    for v in ultimas_vendas:
+                        st.info(f"**{v.quantidade}x {v.produto_nome}**\nTotal: R$ {v.valor_total:.2f}\n*{v.data_hora}*")
+                else:
+                    st.write("Nenhuma venda registrada ainda.")
 
-    # --- ABA 4: GESTÃO DE ESTOQUE ---
+    # --- ABA 4: ESTOQUE DE INSUMOS ---
     with aba_estoque:
-        st.subheader("📦 Monitoramento de Insumos em Tempo Real")
-        st.write("Acompanhe o saldo atual de cada ingrediente cadastrado no banco de dados do seu restaurante.")
+        st.subheader("📦 Gestão Inteligente de Insumos & Estoque")
         
         db = get_db()
-        lista_insumos = db.query(Insumo).all()
+        insumos = db.query(Insumo).all()
         db.close()
         
-        if lista_insumos:
-            for ins in lista_insumos:
-                col_i1, col_i2, col_i3 = st.columns([3, 2, 2])
-                col_i1.markdown(f"**{ins.nome}**")
-                col_i2.metric("Saldo em Estoque", f"{ins.quantidade_atual:.1f} {ins.unidade}")
+        if insumos:
+            dados_estoque = []
+            for idx, item em enumerate(insumos):
+                status = "🟢 Normal" if item.quantidade_atual > item.alerta_minimo else "🔴 Alerta de Reposição"
+                dados_estoque.append({
+                    "ID": item.id,
+                    "Insumo": item.nome,
+                    "Quantidade Atual": f"{item.quantidade_atual} {item.unidade}",
+                    "Alerta Mínimo": f"{item.alerta_minimo} {item.unidade}",
+                    "Status": status
+                })
+            
+            df_estoque = pd.DataFrame(dados_estoque)
+            st.dataframe(df_estoque, use_container_width=True, hide_index=True)
+            
+            st.divider()
+            st.markdown("#### 🔄 Atualização de Saldo Rápida")
+            with st.form("form_atualiza_estoque"):
+                col_e1, col_e2 = st.columns(2)
+                with col_e1:
+                    insumo_sel = st.selectbox("Selecione o Insumo para Atualizar", [i.nome for i in insumos])
+                with col_e2:
+                    nova_qtd = st.number_input("Nova Quantidade em Estoque", min_value=0.0, step=10.0, value=100.0)
                 
-                if ins.quantidade_atual <= ins.alerta_minimo:
-                    col_i3.error("⚠️ Estoque Crítico!")
-                else:
-                    col_i3.success("✅ Estoque Saudável")
-                st.divider()
-        else:
-            st.info("Nenhum insumo cadastrado no momento.")
+                if st.form_submit_button("Atualizar Estoque", type="primary"):
+                    db = get_db()
+                    item_db = db.query(Insumo).filter(Insumo.nome == insumo_sel).first()
+                    if item_db:
+                        item_db.quantidade_atual = nova_qtd
+                        db.commit()
+                        st.success(f"Estoque de {insumo_sel} atualizado para {nova_qtd}!")
+                    db.close()
+                    st.rerun()
 
     # --- ABA 5: DASHBOARD FINANCEIRO & GRÁFICOS ---
     with aba_dashboard:
-        st.subheader("📊 Indicadores de Desempenho & Gráficos Avançados")
-        st.write("Acompanhe o faturamento, CMV consolidado e gráficos de desempenho comercial em tempo real.")
+        st.subheader("📊 Dashboard Financeiro & Inteligência de Lucratividade")
         
         db = get_db()
-        vendas_realizadas = db.query(Venda).all()
+        vendas = db.query(Venda).all()
         db.close()
         
-        if vendas_realizadas:
-            faturamento_total = sum(v.valor_total for v in vendas_realizadas)
-            cmv_total_gasto = sum(v.cmv_total for v in vendas_realizadas)
-            lucro_bruto = faturamento_total - cmv_total_gasto
-            total_itens = sum(v.quantidade for v in vendas_realizadas)
+        if not vendas:
+            st.info("Realize vendas no PDV para alimentar os gráficos financeiros em tempo real.")
+        else:
+            faturamento_total = sum(v.valor_total for v in vendas)
+            cmv_total_acumulado = sum(v.cmv_total for v in vendas)
+            lucro_bruto = faturamento_total - cmv_total_acumulado
+            pct_cmv = round((cmv_total_acumulado / faturamento_total) * 100, 1) if faturamento_total > 0 else 0
             
-            c_d1, c_d2, c_d3, c_d4 = st.columns(4)
-            c_d1.metric("Faturamento Total", f"R$ {faturamento_total:.2f}")
-            c_d2.metric("Custo Total (CMV)", f"R$ {cmv_total_gasto:.2f}")
-            c_d3.metric("Lucro Bruto", f"R$ {lucro_bruto:[.2f]}" if False else f"R$ {lucro_bruto:.2f}")
-            c_d4.metric("Itens Vendidos", f"{total_itens} un")
+            col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+            col_f1.metric("Faturamento Acumulado", f"R$ {faturamento_total:.2f}")
+            col_f2.metric("Custo Total (CMV)", f"R$ {cmv_total_acumulado:.2f}")
+            col_f3.metric("Lucro Bruto", f"R$ {lucro_bruto:.2f}")
+            col_f4.metric("CMV Médio", f"{pct_cmv}%")
             
             st.divider()
-            st.markdown("### 📈 Gráficos de Vendas por Produto")
             
-            df_vendas = pd.DataFrame([
-                {
+            col_g1, col_g2 = st.columns(2)
+            
+            with col_g1:
+                st.markdown("#### 📈 Vendas por Prato / Lanche")
+                df_vendas = pd.DataFrame([{
                     "Produto": v.produto_nome,
                     "Quantidade": v.quantidade,
-                    "Faturamento": v.valor_total
-                }
-                for v in vendas_realizadas
-            ])
-            
-            if not df_vendas.empty:
-                df_chart = df_vendas.groupby("Produto")[["Faturamento", "Quantidade"]].sum()
+                    "Valor Total": v.valor_total
+                } for v in vendas])
                 
-                col_g1, col_g2 = st.columns(2)
-                with col_g1:
-                    st.markdown("#### Faturamento por Produto (R$)")
-                    st.bar_chart(df_chart["Faturamento"])
-                with col_g2:
-                    st.markdown("#### Quantidade Vendida (un)")
-                    st.bar_chart(df_chart["Quantidade"])
-            
-            st.divider()
-            st.markdown("### 📋 Histórico de Transações do PDV")
-            dados_tabela = [
-                {
-                    "ID": v.id,
+                df_resumo = df_vendas.groupby("Produto").sum().reset_index()
+                st.bar_chart(data=df_resumo, x="Produto", y="Valor Total")
+                
+            with col_g2:
+                st.markdown("#### 📋 Histórico Detalhado de Transações")
+                df_historico = pd.DataFrame([{
                     "Data/Hora": v.data_hora,
                     "Produto": v.produto_nome,
                     "Qtd": v.quantidade,
-                    "Total (R$)": f"R$ {v.valor_total:.2f}",
-                    "CMV (R$)": f"R$ {v.cmv_total:.2f}"
-                }
-                for v in vendas_realizadas
-            ]
-            st.dataframe(dados_tabela, use_container_width=True)
-        else:
-            st.info("Nenhuma venda registrada até o momento. Realize vendas na aba de Frente de Caixa para visualizar os gráficos e indicadores.")
+                    "Total (R$)": f"{v.valor_total:.2f}"
+                } for v in vendas])
+                st.dataframe(df_historico, use_container_width=True, hide_index=True)
