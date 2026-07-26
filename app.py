@@ -161,7 +161,6 @@ if not st.session_state['autenticado']:
 # ==========================================
 # --- BARRA LATERAL (LOGIN) ---
 # ==========================================
-st.sidebar.title("🔐 Acesso Corporativo")
 
 if not st.session_state['autenticado']:
     st.sidebar.info("Faça login para liberar as ferramentas do ERP.")
