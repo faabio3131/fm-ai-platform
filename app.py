@@ -3,6 +3,7 @@ import hashlib
 from datetime import datetime
 from io import BytesIO
 from PIL import Image
+import requests
 import pandas as pd
 import streamlit as st
 from google import genai
@@ -167,7 +168,7 @@ if not st.session_state['autenticado']:
 else:
     aba_cardapio, aba_promos, aba_pdv, aba_estoque, aba_dashboard = st.tabs([
         "🤖 Engenharia de Cardápio com I.A.", 
-        "📢 Campanhas Multi-Plataforma (Zap, Insta, Face)",
+        "📢 Campanhas & Automação Social",
         "🛒 Frente de Caixa (PDV)", 
         "📦 Estoque de Insumos",
         "📊 Dashboard Financeiro & Gráficos"
@@ -203,7 +204,6 @@ else:
                         try:
                             client = genai.Client(api_key=api_key)
                             
-                            # 1. Geração da Descrição Gourmet via Gemini
                             prompt_texto = f"Escreva uma descrição gourmet irresistível e comercial para um menu de restaurante para o seguinte item:\nNome: {nome_prod}\nCategoria: {categoria_prod}\nIngredientes: {desc_bruta}\nA descrição deve ser sofisticada, dar água na boca e ter no máximo 3 parágrafos."
                             response_txt = client.models.generate_content(
                                 model='gemini-2.5-flash',
@@ -211,7 +211,6 @@ else:
                             )
                             desc_gerada = response_txt.text
                             
-                            # 2. Geração da Imagem do Prato via Google Imagen
                             prompt_img = f"Professional high-end restaurant food photography of {nome_prod}, featuring {desc_bruta}, magazine style, gourmet lighting, appetizing presentation"
                             response_img = client.models.generate_images(
                                 model='imagen-3.0-generate-002',
@@ -280,10 +279,10 @@ else:
                 mime="text/plain"
             )
 
-    # --- ABA 2: GERADOR DE PROMOÇÕES MULTI-PLATAFORMA ---
+    # --- ABA 2: GERADOR DE PROMOÇÕES & AUTOMAÇÃO SOCIAL ---
     with aba_promos:
-        st.subheader("📢 Campanhas & Promoções para Redes Sociais com I.A.")
-        st.write("Gere copys comerciais personalizadas para WhatsApp, Instagram e Facebook de forma simultânea.")
+        st.subheader("📢 Campanhas Inteligentes & Postagem Automática (Meta API)")
+        st.write("Gere copys comerciais com I.A. e dispare de forma automática para o Facebook/Instagram ou segura para o WhatsApp.")
         
         with st.form("form_promocao"):
             tipo_promo = st.selectbox("Objetivo da Campanha", [
@@ -294,14 +293,11 @@ else:
             ])
             detalhes_oferta = st.text_area("Detalhes da Oferta / Preço Promocional", value="Na compra de qualquer burger gourmet, leve uma batata rústica por mais R$ 9,90 apenas hoje!")
             
-            btn_criar_promo = st.form_submit_button("✨ Gerar Campanhas para todas as Redes", type="primary")
+            btn_criar_promo = st.form_submit_button("✨ Gerar Campanhas com Google I.A.", type="primary")
             
             if btn_criar_promo:
                 api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-                
-                wa_txt = ""
-                ig_txt = ""
-                fb_txt = ""
+                wa_txt, ig_txt, fb_txt = "", "", ""
                 
                 if api_key:
                     try:
@@ -311,7 +307,7 @@ else:
                         Tipo de Campanha: {tipo_promo}
                         Detalhes: {detalhes_oferta}
 
-                        Divida obrigatoriamente a sua resposta usando estas exatas marcações para que eu possa separar as redes sociais:
+                        Divida obrigatoriamente a sua resposta usando estas exatas marcações:
                         === WHATSAPP ===
                         (Mensagem direta, alegre, com emojis e chamada para ação curta)
 
@@ -334,29 +330,24 @@ else:
                             ig_txt = ig_fb[0].strip()
                             fb_txt = ig_fb[1].strip() if len(ig_fb) > 1 else ""
                         else:
-                            wa_txt = full_resp
-                            ig_txt = full_resp
-                            fb_txt = full_resp
-                            
+                            wa_txt, ig_txt, fb_txt = full_resp, full_resp, full_resp
                     except Exception as e:
                         wa_txt = f"🔥 *PROMOÇÃO MICA BURGER* 🔥\n\n{detalhes_oferta}"
-                        ig_txt = f"🔥 *PROMOÇÃO MICA BURGER* 🔥\n\n{detalhes_oferta}\n\n#MicaBurger #BurgerGourmet"
+                        ig_txt = f"🔥 *PROMOÇÃO MICA BURGER* 🔥\n\n{detalhes_oferta}\n\n#MicaBurger"
                         fb_txt = f"🔥 *PROMOÇÃO MICA BURGER* 🔥\n\n{detalhes_oferta}"
                 else:
                     wa_txt = f"🔥 *PROMOÇÃO MICA BURGER* 🔥\n\n{detalhes_oferta}"
-                    ig_txt = f"🔥 *PROMOÇÃO MICA BURGER* 🔥\n\n{detalhes_oferta}\n\n#MicaBurger #BurgerGourmet"
+                    ig_txt = f"🔥 *PROMOÇÃO MICA BURGER* 🔥\n\n{detalhes_oferta}\n\n#MicaBurger"
                     fb_txt = f"🔥 *PROMOÇÃO MICA BURGER* 🔥\n\n{detalhes_oferta}"
                 
                 st.session_state['promo_wa'] = wa_txt
                 st.session_state['promo_ig'] = ig_txt
                 st.session_state['promo_fb'] = fb_txt
-                st.success("🎉 Campanhas geradas com sucesso para todas as plataformas!")
+                st.success("🎉 Campanhas geradas com sucesso!")
 
         if 'promo_wa' in st.session_state and st.session_state['promo_wa']:
             st.divider()
-            st.markdown("### 📲 Escolha a Rede Social para Divulgar:")
-            
-            sub_wa, sub_ig, sub_fb = st.tabs(["📱 WhatsApp", "📸 Instagram", "📘 Facebook"])
+            sub_wa, sub_ig, sub_fb = st.tabs(["📱 WhatsApp (Um Clique)", "📸 Instagram (Automático)", "📘 Facebook (Automático)"])
             
             with sub_wa:
                 st.info(st.session_state['promo_wa'])
@@ -366,11 +357,58 @@ else:
                 
             with sub_ig:
                 st.info(st.session_state['promo_ig'])
-                st.write("💡 *Dica:* Copie o texto acima e cole junto com a foto gerada do seu lanche no Instagram ou Meta Business Suite.")
+                if st.button("🚀 Publicar Automaticamente no Instagram (API Meta)"):
+                    token = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN")
+                    ig_id = os.getenv("INSTAGRAM_ACCOUNT_ID")
+                    if not token or not ig_id:
+                        st.error("⚠️ Chaves da API do Instagram não configuradas no arquivo .env")
+                    else:
+                        st.info("🔄 Conectando à API da Meta para publicar no Instagram...")
+                        # Estrutura de requisição Graph API para o Instagram
+                        # Nota: Requer URL pública da imagem para o container do IG
+                        try:
+                            url_container = f"https://graph.facebook.com/v19.0/{ig_id}/media"
+                            payload = {
+                                "image_url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd", # Exemplo de imagem pública
+                                "caption": st.session_state['promo_ig'],
+                                "access_token": token
+                            }
+                            res = requests.post(url_container, data=payload).json()
+                            if "id" in res:
+                                creation_id = res["id"]
+                                url_publish = f"https://graph.facebook.com/v19.0/{ig_id}/media_publish"
+                                res_pub = requests.post(url_publish, data={"creation_id": creation_id, "access_token": token}).json()
+                                if "id" in res_pub:
+                                    st.success("✅ Publicado com sucesso no Instagram!")
+                                else:
+                                    st.error(f"Erro ao publicar: {res_pub}")
+                            else:
+                                st.error(f"Erro ao criar container de mídia: {res}")
+                        except Exception as ex:
+                            st.error(f"Erro de conexão com a API da Meta: {ex}")
                 
             with sub_fb:
                 st.info(st.session_state['promo_fb'])
-                st.write("💡 *Dica:* Copie o texto acima e cole na sua página do Facebook para atrair clientes locais.")
+                if st.button("🚀 Publicar Automaticamente na Página do Facebook"):
+                    token = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN")
+                    page_id = os.getenv("FACEBOOK_PAGE_ID")
+                    if not token or not page_id:
+                        st.error("⚠️ Chaves da API do Facebook não configuradas no arquivo .env")
+                    else:
+                        st.info("🔄 Conectando à API da Meta para publicar no Facebook...")
+                        try:
+                            url_fb = f"https://graph.facebook.com/v19.0/{page_id}/feed"
+                            payload_fb = {
+                                "message": st.session_state['promo_fb'],
+                                "access_token": token
+                            }
+                            res_fb = requests.post(url_fb, data=payload_fb).json()
+                            if "id" in res_fb:
+                                st.success("✅ Publicado com sucesso no Facebook!")
+                            else:
+                                st.error(f"Erro ao publicar: {res_fb}")
+                        except Exception as ex:
+                            st.error(f"Erro de conexão com a API da Meta: {ex}")
 
     # --- ABA 3: FRENTE DE CAIXA (PDV & WHATSAPP) ---
     with aba_pdv:
@@ -479,7 +517,7 @@ else:
             c_d1, c_d2, c_d3, c_d4 = st.columns(4)
             c_d1.metric("Faturamento Total", f"R$ {faturamento_total:.2f}")
             c_d2.metric("Custo Total (CMV)", f"R$ {cmv_total_gasto:.2f}")
-            c_d3.metric("Lucro Bruto", f"R$ {lucro_bruto:.2f}")
+            c_d3.metric("Lucro Bruto", f"R$ {lucro_bruto:[.2f]}" if False else f"R$ {lucro_bruto:.2f}")
             c_d4.metric("Itens Vendidos", f"{total_itens} un")
             
             st.divider()
