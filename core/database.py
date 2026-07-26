@@ -33,7 +33,6 @@ class Produto(Base):
     margem_lucro = Column(Float, default=0.0)
     imagem_path = Column(String, nullable=True)
 
-    # Relacionamento com a Ficha Técnica (Receita do Prato - Fase 2)
     ingredientes = relationship(
         "FichaTecnica", back_populates="produto", cascade="all, delete-orphan"
     )
@@ -47,33 +46,29 @@ class Insumo(Base):
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String, unique=True, index=True, nullable=False)
     quantidade_atual = Column(Float, default=0.0)
-    unidade_medida = Column(String, default="un")  # un, g, kg, fatias, ml, L
+    unidade_medida = Column(String, default="un")
     alerta_minimo = Column(Float, default=10.0)
     custo_unitario = Column(Float, default=0.0)
 
-    # Relacionamento reverso com a Ficha Técnica
     receitas_vinculadas = relationship(
         "FichaTecnica", back_populates="insumo", cascade="all, delete-orphan"
     )
 
 
-# --- TABELA FICHA TÉCNICA (CAMADA DE INTELIGÊNCIA 2) ---
+# --- TABELA FICHA TÉCNICA ---
 class FichaTecnica(Base):
     __tablename__ = "ficha_tecnica"
 
     id = Column(Integer, primary_key=True, index=True)
     produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=False)
     insumo_id = Column(Integer, ForeignKey("insumos.id"), nullable=False)
-    quantidade_gasta = Column(
-        Float, nullable=False
-    )  # Ex: 0.180 (180g de carne por lanche)
+    quantidade_gasta = Column(Float, nullable=False)
 
-    # Conexões relacionais para o ORM navegar rapidamente no PDV
     produto = relationship("Produto", back_populates="ingredientes")
     insumo = relationship("Insumo", back_populates="receitas_vinculadas")
 
 
-# --- TABELA DE VENDAS (PDV / FINANCEIRO) ---
+# --- TABELA DE VENDAS ---
 class Venda(Base):
     __tablename__ = "vendas"
 
@@ -87,9 +82,7 @@ class Venda(Base):
     produto = relationship("Produto", back_populates="vendas")
 
 
-# ==============================================================================
-# 🛠️ AUTO-CURA DE ESQUEMA DO BANCO DE DADOS
-# ==============================================================================
+# --- AUTO-CURA DE ESQUEMA ---
 precisa_recriar = False
 if os.path.exists(DB_PATH):
     try:

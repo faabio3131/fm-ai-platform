@@ -515,7 +515,7 @@ with aba4:
                                 nome=nome_ins,
                                 quantidade_atual=qtd_inicial,
                                 unidade_medida=unidade,
-                                alarme_minimo=alerta_min,
+                                alerta_minimo=alerta_min,
                                 custo_unitario=custo_ins,
                             )
                             db.add(novo_ins)
