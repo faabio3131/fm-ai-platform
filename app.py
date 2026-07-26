@@ -142,40 +142,18 @@ if 'autenticado' not in st.session_state:
     st.session_state['autenticado'] = False
 if 'usuario' not in st.session_state:
     st.session_state['usuario'] = ""
-# [LINHA 148 OU SUPERIOR] COLE O BLOCO DA PLACA AQUI:
-# ==========================================
-# --- LOGOTIPO OFICIAL (PLACA DE METAL) ---
-# ==========================================
-st.sidebar.markdown("""
-    <div style="text-align: center; padding: 25px 15px; background: linear-gradient(145deg, #e6e6e6, #ffffff); border-radius: 12px; border: 2px solid #ccc; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); margin-bottom: 25px;">
-        <svg viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="max-width: 60px; margin: 0 auto 15px auto;">
-            <path d="M10 50 L110 50" stroke="#1E3A8A" stroke-width="4"/>
-            <circle cx="10" cy="50" r="4" fill="#1E3A8A"/>
-            <circle cx="30" cy="30" r="4" fill="#1E3A8A"/>
-            <circle cx="30" cy="50" r="4" fill="#1E3A8A"/>
-            <circle cx="30" cy="70" r="4" fill="#1E3A8A"/>
-            <line x1="10" y1="50" x2="30" y2="30" stroke="#1E3A8A" stroke-width="2"/>
-            <line x1="10" y1="50" x2="30" y2="50" stroke="#1E3A8A" stroke-width="2"/>
-            <line x1="10" y1="50" x2="30" y2="70" stroke="#1E3A8A" stroke-width="2"/>
-            <line x1="50" y1="42" x2="50" y2="58" stroke="#ccc" stroke-width="3"/>
-            <line x1="65" y1="38" x2="65" y2="62" stroke="#ccc" stroke-width="3"/>
-            <line x1="80" y1="34" x2="80" y2="66" stroke="#ccc" stroke-width="3"/>
-            <line x1="95" y1="30" x2="95" y2="70" stroke="#ccc" stroke-width="3"/>
-            <circle cx="30" cy="30" r="4" fill="#D97706"/>
-            <line x1="80" y1="34" x2="80" y2="66" stroke="#D97706" stroke-width="3"/>
-            <line x1="95" y1="30" x2="95" y2="70" stroke="#D97706" stroke-width="3"/>
-        </svg>
-        <h2 style="color: #1E3A8A; font-size: 24px; font-weight: 800; margin: 0; letter-spacing: -0.5px; font-family: serif;">
-            F&M AI FOOD
-        </h2>
-        <p style="color: #64748B; font-size: 11px; font-weight: 600; text-transform: uppercase; margin: 6px 0 0 0; letter-spacing: 1.5px;">
-            Professional Gastronomy ERP
-        </p>
-    </div>
-""", unsafe_allow_html=True)
 
-# --- SEU CÓDIGO ORIGINAL CONTINUA LOGO ABAIXO ---
 # ==========================================
+# --- BARRA LATERAL (LOGOTIPO OFICIAL) ---
+# ==========================================
+try:
+    st.sidebar.image("logo.png", use_container_width=True)
+except Exception:
+    st.sidebar.markdown("<h2 style='text-align: center; color: #1E3A8A;'>F&M AI FOOD</h2>", unsafe_allow_html=True)
+
+st.sidebar.markdown("---")
+
+# ---> TÍTULO DE ACESSO (APENAS UMA VEZ) <---
 st.sidebar.title("🔐 Acesso Corporativo")
 
 if not st.session_state['autenticado']:
