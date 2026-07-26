@@ -1,5 +1,6 @@
 import os
 import hashlib
+from datetime import datetime
 import streamlit as st
 from google import genai
 from dotenv import load_dotenv
@@ -47,6 +48,15 @@ class Insumo(Base):
     quantidade_atual = Column(Float, default=100.0)
     unidade = Column(String)
     alerta_minimo = Column(Float, default=10.0)
+
+class Venda(Base):
+    __tablename__ = "vendas"
+    id = Column(Integer, primary_key=True, index=True)
+    produto_nome = Column(String)
+    quantidade = Column(Integer)
+    valor_total = Column(Float)
+    cmv_total = Column(Float)
+    data_hora = Column(String)
 
 # Cria as tabelas de forma segura
 try:
@@ -151,10 +161,11 @@ st.title("🍔 F&M AI FOOD — Painel de Gestão & PDV")
 if not st.session_state['autenticado']:
     st.warning("⚠️ Por favor, realize o login na barra lateral esquerda para liberar o cardápio e o caixa.")
 else:
-    aba_cardapio, aba_pdv, aba_estoque = st.tabs([
+    aba_cardapio, aba_pdv, aba_estoque, aba_dashboard = st.tabs([
         "🤖 Engenharia de Cardápio com I.A.", 
         "🛒 Frente de Caixa (PDV)", 
-        "📦 Estoque de Insumos"
+        "📦 Estoque de Insumos",
+        "📊 Dashboard Financeiro"
     ])
     
     # --- ABA 1: CADASTRAR PRODUTO COM I.A. ---
@@ -184,7 +195,6 @@ else:
                     
                     if api_key:
                         try:
-                            # Utilizando o novo SDK oficial do Google (google-genai)
                             client = genai.Client(api_key=api_key)
                             prompt = f"Escreva uma descrição gourmet irresistível e comercial para um menu de restaurante para o seguinte item:\nNome: {nome_prod}\nCategoria: {categoria_prod}\nIngredientes: {desc_bruta}\nA descrição deve ser sofisticada, dar água na boca e ter no máximo 3 parágrafos."
                             response = client.models.generate_content(
@@ -247,7 +257,19 @@ else:
                 if btn_vender:
                     db = get_db()
                     total_v = produto_escolhido.preco_venda * qtd_venda
+                    cmv_v = produto_escolhido.custo_total_cmv * qtd_venda
                     
+                    # Salva a venda na tabela de Vendas para o Dashboard
+                    nova_venda = Venda(
+                        produto_nome=produto_escolhido.nome,
+                        quantidade=qtd_venda,
+                        valor_total=total_v,
+                        cmv_total=cmv_v,
+                        data_hora=datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                    )
+                    db.add(nova_venda)
+                    
+                    # Regra de baixa dinâmica de insumos no estoque real
                     consumo_map = {
                         "Hambúrguer 90g": 2.0 * qtd_venda,
                         "Queijo Cheddar": 2.0 * qtd_venda,
@@ -296,3 +318,42 @@ else:
                 st.divider()
         else:
             st.info("Nenhum insumo cadastrado no momento.")
+
+    # --- ABA 4: DASHBOARD FINANCEIRO ---
+    with aba_dashboard:
+        st.subheader("📊 Indicadores de Desempenho & Relatório Financeiro")
+        st.write("Acompanhe o faturamento total, CMV consolidado e as vendas realizadas em tempo real.")
+        
+        db = get_db()
+        vendas_realizadas = db.query(Venda).all()
+        db.close()
+        
+        if vendas_realizadas:
+            faturamento_total = sum(v.valor_total for v in vendas_realizadas)
+            cmv_total_gasto = sum(v.cmv_total for v in vendas_realizadas)
+            lucro_bruto = faturamento_total - cmv_total_gasto
+            total_itens = sum(v.quantidade for v in vendas_realizadas)
+            
+            c_d1, c_d2, c_d3, c_d4 = st.columns(4)
+            c_d1.metric("Faturamento Total", f"R$ {faturamento_total:.2f}")
+            c_d2.metric("Custo Total (CMV)", f"R$ {cmv_total_gasto:.2f}")
+            c_d3.metric("Lucro Bruto", f"R$ {lucro_bruto:.2f}")
+            c_d4.metric("Itens Vendidos", f"{total_itens} un")
+            
+            st.divider()
+            st.markdown("### 📋 Histórico de Transações do PDV")
+            
+            dados_tabela = [
+                {
+                    "ID": v.id,
+                    "Data/Hora": v.data_hora,
+                    "Produto": v.produto_nome,
+                    "Qtd": v.quantidade,
+                    "Total (R$)": f"R$ {v.valor_total:.2f}",
+                    "CMV (R$)": f"R$ {v.cmv_total:.2f}"
+                }
+                for v in vendas_realizadas
+            ]
+            st.dataframe(dados_tabela, use_container_width=True)
+        else:
+            st.info("Nenhuma venda registrada até o momento. Realize vendas na aba de Frente de Caixa para visualizar os indicadores.")
