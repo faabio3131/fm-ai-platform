@@ -269,8 +269,8 @@ else:
                             if response_img.generated_images:
                                 img_bytes = response_img.generated_images[0].image.image_bytes
                                 imagem_gerada_pil = Image.open(BytesIO(img_bytes))
-                                
-                        except Exception as e:
+    except Exception as e:
+                            st.warning(f"⚠️ A IA do Google encontrou uma limitação no momento: {e}")
                             desc_gerada = f"Experimente o magnífico {nome_prod}! Preparado com maestria utilizando {desc_bruta.lower()} Uma verdadeira experiência gourmet de {categoria_prod} da Mica Burguer!"
                     else:
                         desc_gerada = f"Experimente o magnífico {nome_prod}! Preparado com maestria utilizando {desc_bruta.lower()} Uma verdadeira experiência gourmet de {categoria_prod} da Mica Burguer!"
@@ -299,7 +299,10 @@ else:
                     c3.metric("Margem Real", f"{margem}%")
                     
                     if imagem_gerada_pil:
-                        st.image(imagem_gerada_pil, caption=f"Foto Gerada por I.A. para {nome_prod}", use_container_width=True)
+                        st.image(imagem_gerada_pil, caption=f"📸 Foto Promocional gerada por IA: {nome_prod}", use_container_width=True)
+                    
+                    st.markdown("### ✍️ Descrição Gourmet Otimizada:")
+                    st.info(desc_gerada)
                     
                     st.info(f"**Descrição Gourmet Otimizada:**\n\n{desc_gerada}")
                 except Exception as e:
