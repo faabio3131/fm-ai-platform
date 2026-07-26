@@ -411,7 +411,7 @@ else:
                     
                     # Deduz automaticamente do estoque de insumos
                     insumos_db = db.query(Insumo).all()
-                    for ins em insumos_db:
+                    for ins in insumos_db:
                         ins.quantidade_atual = max(0.0, ins.quantidade_atual - (1.0 * qtd_venda))
                         
                     db.commit()
@@ -440,7 +440,7 @@ else:
         
         if insumos:
             dados_estoque = []
-            for idx, item em enumerate(insumos):
+            for idx, item in enumerate(insumos):
                 status = "🟢 Normal" if item.quantidade_atual > item.alerta_minimo else "🔴 Alerta de Reposição"
                 dados_estoque.append({
                     "ID": item.id,
