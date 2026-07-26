@@ -1,7 +1,7 @@
 import os
 import hashlib
 import streamlit as st
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, Column, Integer, String, Float, Text
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
@@ -136,7 +136,7 @@ if not st.session_state['autenticado']:
 else:
     st.sidebar.success(f"Conectado como:\n{st.session_state['usuario']}")
     st.sidebar.write("Loja Ativa: Mica Burguer & Restaurante")
-    st.sidebar.success("🤖 Google I.A. Conectada automaticamente via .env")
+    st.sidebar.success("🤖 Google GenAI SDK Conectado (.env)")
     
     if st.sidebar.button("Sair (Logout)"):
         st.session_state['autenticado'] = False
@@ -179,16 +179,18 @@ else:
                     custo_cmv = round(preco_prod * 0.32, 2)
                     margem = round(((preco_prod - custo_cmv) / preco_prod) * 100, 1)
                     
-                    # Tenta usar a API real do Gemini usando a chave do .env
                     desc_gerada = ""
                     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
                     
                     if api_key:
                         try:
-                            genai.configure(api_key=api_key)
-                            model = genai.GenerativeModel('gemini-1.5-flash')
+                            # Utilizando o novo SDK oficial do Google (google-genai)
+                            client = genai.Client(api_key=api_key)
                             prompt = f"Escreva uma descrição gourmet irresistível e comercial para um menu de restaurante para o seguinte item:\nNome: {nome_prod}\nCategoria: {categoria_prod}\nIngredientes: {desc_bruta}\nA descrição deve ser sofisticada, dar água na boca e ter no máximo 3 parágrafos."
-                            response = model.generate_content(prompt)
+                            response = client.models.generate_content(
+                                model='gemini-2.5-flash',
+                                contents=prompt
+                            )
                             desc_gerada = response.text
                         except Exception as e:
                             desc_gerada = f"Experimente o magnífico {nome_prod}! Preparado com maestria utilizando {desc_bruta.lower()} Uma verdadeira experiência gourmet de {categoria_prod} da Mica Burguer!"
