@@ -9,7 +9,7 @@ import streamlit as st
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, Column, Integer, String, Float, Text
+from sqlalchemy import create_engine, Column, Integer, String, Float, Text, text
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 
 # Carrega variáveis do arquivo .env automaticamente
@@ -79,6 +79,7 @@ class Produto(Base):
     preco_venda = Column(Float)
     custo_total_cmv = Column(Float)
     margem_exibicao = Column(String)
+    imagem_path = Column(String, nullable=True)  # Caminho da foto salva em disco
 
 class Insumo(Base):
     __tablename__ = "insumos"
@@ -97,13 +98,14 @@ class Venda(Base):
     cmv_total = Column(Float)
     data_hora = Column(String)
 
-# Cria as tabelas de forma segura
+# Cria as tabelas de forma segura e adiciona coluna de imagem se já existir banco antigo
 try:
     Base.metadata.create_all(bind=engine)
+    with engine.connect() as connection:
+        connection.execute(text("ALTER TABLE produtos ADD COLUMN imagem_path VARCHAR"))
+        connection.commit()
 except Exception:
-    if os.path.exists("banco_erp_local.db"):
-        os.remove("banco_erp_local.db")
-    Base.metadata.create_all(bind=engine)
+    pass
 
 def criar_hash(senha):
     return hashlib.sha256(senha.encode("utf-8")).hexdigest()
@@ -242,6 +244,7 @@ else:
                     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
                     desc_gerada = ""
                     imagem_gerada_pil = None
+                    imagem_path_db = None
                     
                     if api_key:
                         try:
@@ -267,8 +270,17 @@ else:
                                 img_bytes = response_img.generated_images[0].image.image_bytes
                                 imagem_gerada_pil = Image.open(BytesIO(img_bytes))
                                 
+                                # Salva a imagem permanentemente na pasta 'imagens/'
+                                os.makedirs("imagens", exist_ok=True)
+                                safe_name = "".join([c for c in nome_prod if c.isalnum() or c.isspace()]).strip().replace(" ", "_").lower()
+                                if not safe_name:
+                                    safe_name = "produto"
+                                img_filename = f"imagens/{safe_name}_{int(datetime.now().timestamp())}.jpg"
+                                imagem_gerada_pil.save(img_filename)
+                                imagem_path_db = img_filename
+                                
                         except Exception as e:
-                            st.warning(f"⚠️ A IA do Google encontrou uma limitação no momento: {e}")
+                            st.warning(f"⚠️ A IA do Google encontrou uma limitação na geração de imagem: {e}")
                             desc_gerada = f"Experimente o magnífico {nome_prod}! Preparado com maestria utilizando {desc_bruta.lower()} Uma verdadeira experiência gourmet de {categoria_prod} da Mica Burguer!"
                     else:
                         desc_gerada = f"Experimente o magnífico {nome_prod}! Preparado com maestria utilizando {desc_bruta.lower()} Uma verdadeira experiência gourmet de {categoria_prod} da Mica Burguer!"
@@ -281,7 +293,8 @@ else:
                         descricao_ai=desc_gerada,
                         preco_venda=preco_prod,
                         custo_total_cmv=custo_cmv,
-                        margem_exibicao=f"{margem}%"
+                        margem_exibicao=f"{margem}%",
+                        imagem_path=imagem_path_db
                     )
                     db.add(novo_prod)
                     db.commit()
@@ -289,7 +302,7 @@ else:
                     prod_id = novo_prod.id
                     db.close()
                     
-                    st.success(f"🎉 Produto #{prod_id} salvo no banco de dados com sucesso!")
+                    st.success(f"🎉 Produto #{prod_id} salvo no banco de dados com sucesso e foto armazenada permanentemente!")
                     
                     c1, c2, c3 = st.columns(3)
                     c1.metric("Preço Final", f"R$ {preco_prod:.2f}")
@@ -297,7 +310,7 @@ else:
                     c3.metric("Margem Real", f"{margem}%")
                     
                     if imagem_gerada_pil:
-                        st.image(imagem_gerada_pil, caption=f"📸 Foto Promocional gerada por IA: {nome_prod}", use_container_width=True)
+                        st.image(imagem_gerada_pil, caption=f"📸 Foto Promocional salva: {nome_prod}", use_container_width=True)
                     
                     st.markdown("### ✍️ Descrição Gourmet Otimizada:")
                     st.info(desc_gerada)
@@ -314,7 +327,10 @@ else:
             texto_cardapio = "=== CARDÁPIO OFICIAL MICA BURGUER & RESTAURANTE ===\n\n"
             for p in todos_produtos:
                 texto_cardapio += f"[{p.categoria.upper()}] {p.nome} - R$ {p.preco_venda:.2f}\n"
-                texto_cardapio += f"{p.descricao_ai}\n\n"
+                texto_cardapio += f"{p.descricao_ai}\n"
+                if p.imagem_path:
+                    texto_cardapio += f"📷 Foto do Prato: {p.imagem_path}\n"
+                texto_cardapio += "\n"
             
             st.download_button(
                 label="📥 Baixar Cardápio Completo (TXT)",
@@ -322,6 +338,15 @@ else:
                 file_name="cardapio_mica_burguer.txt",
                 mime="text/plain"
             )
+            
+            st.markdown("### 🖼️ Galeria de Fotos dos Produtos Cadastrados")
+            cols_galeria = st.columns(3)
+            idx_col = 0
+            for p in todos_produtos:
+                if p.imagem_path and os.path.exists(p.imagem_path):
+                    with cols_galeria[idx_col % 3]:
+                        st.image(p.imagem_path, caption=f"{p.nome} (R$ {p.preco_venda:.2f})", use_container_width=True)
+                    idx_col += 1
         else:
             st.info("Nenhum produto cadastrado no momento. Utilize o gerador acima para adicionar itens ao cardápio.")
 
@@ -373,6 +398,11 @@ else:
                 
                 st.markdown("### 🎯 Campanha Pronta para Uso:")
                 st.success(texto_campanha)
+                
+                # Exibe a foto do produto vinculado à campanha para facilitar postagens no Instagram/WhatsApp
+                produto_selecionado_obj = next((p for p in produtos_cadastrados if p.nome == prato_alvo), None)
+                if produto_selecionado_obj and produto_selecionado_obj.imagem_path and os.path.exists(produto_selecionado_obj.imagem_path):
+                    st.image(produto_selecionado_obj.imagem_path, caption=f"📸 Imagem Promocional para a Campanha de {prato_alvo}", width=400)
 
     # --- ABA 3: FRENTE DE CAIXA (PDV) ---
     with aba_pdv:
