@@ -3,6 +3,7 @@ import hashlib
 import os
 from dotenv import load_dotenv
 import pandas as pd
+import sqlalchemy
 from sqlalchemy import (
     Column,
     DateTime,
@@ -61,6 +62,23 @@ class Venda(Base):
 
 Base.metadata.create_all(bind=engine)
 
+# Auto-migração para garantir a coluna imagem_path
+with engine.connect() as conexao:
+    try:
+        result = conexao.execute(
+            sqlalchemy.text("PRAGMA table_info(produtos);")
+        ).fetchall()
+        colunas_existentes = [col[1] for col in result]
+        if "imagem_path" not in colunas_existentes:
+            conexao.execute(
+                sqlalchemy.text(
+                    "ALTER TABLE produtos ADD COLUMN imagem_path VARCHAR;"
+                )
+            )
+            conexao.commit()
+    except Exception:
+        pass
+
 
 def get_db():
     db = SessionLocal()
@@ -103,28 +121,43 @@ st.set_page_config(
     page_title="F&M AI FOOD — ERP Gastronômico", page_icon="🍔", layout="wide"
 )
 
+# Carregamento seguro da chave da API (Streamlit Secrets + dotenv)
 GENAI_DISPONIVEL = False
-try:
-    import google.generativeai as genai
+api_key = None
 
-    api_key = os.getenv("GEMINI_API_KEY")
-    if api_key:
-        genai.configure(api_key=api_key)
-        GENAI_DISPONIVEL = True
-except ImportError:
+try:
+    if "GEMINI_API_KEY" in st.secrets:
+        api_key = st.secrets["GEMINI_API_KEY"]
+except Exception:
     pass
 
-# --- BARRA LATERAL (SIDEBAR) ---
+if not api_key:
+    api_key = os.getenv("GEMINI_API_KEY")
+
+if api_key:
+    try:
+        import google.generativeai as genai
+
+        genai.configure(api_key=api_key)
+        GENAI_DISPONIVEL = True
+    except ImportError:
+        pass
+
+# --- BARRA LATERAL (SIDEBAR) COM LOGO OFICIAL ---
 with st.sidebar:
-    st.image(
-        "https://cdn-icons-png.flaticon.com/512/3075/3075977.png", width=70
-    )
+    if os.path.exists("logo.png"):
+        st.image("logo.png", width=70)
+    else:
+        st.image(
+            "https://cdn-icons-png.flaticon.com/512/3075/3075977.png", width=70
+        )
+
     st.title("F&M AI FOOD")
     st.caption("Professional Gastronomy ERP & AI")
     st.markdown("---")
 
     st.subheader("🔐 Acesso Corporativo")
-    st.success("Conectado como:\n**admin@micaburger.com**")
+    st.success("Conectado como:\n**admin@micaburguer.com**")
     st.info("🏪 **Loja Ativa:**\nMica Burguer & Restaurante")
 
     if GENAI_DISPONIVEL:
