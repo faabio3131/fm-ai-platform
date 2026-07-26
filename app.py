@@ -17,7 +17,12 @@ from sqlalchemy import (
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 import streamlit as st
 
-# --- 1. CONFIGURAÇÃO DO AMBIENTE E BANCO DE DADOS LOCAL ---
+# --- 1. CONFIGURAÇÃO DA PÁGINA ---
+st.set_page_config(
+    page_title="F&M AI FOOD — ERP Gastronômico", page_icon="🍔", layout="wide"
+)
+
+# --- 2. CONFIGURAÇÃO DO AMBIENTE E BANCO DE DADOS LOCAL ---
 load_dotenv()
 os.makedirs("imagens", exist_ok=True)
 
@@ -62,20 +67,31 @@ class Venda(Base):
 
 Base.metadata.create_all(bind=engine)
 
-# Auto-migração para garantir a coluna imagem_path
+# --- AUTO-CORREÇÃO ROBUSTA DE COLUNAS NO SQLITE ---
 with engine.connect() as conexao:
     try:
         result = conexao.execute(
             sqlalchemy.text("PRAGMA table_info(produtos);")
         ).fetchall()
         colunas_existentes = [col[1] for col in result]
-        if "imagem_path" not in colunas_existentes:
-            conexao.execute(
-                sqlalchemy.text(
-                    "ALTER TABLE produtos ADD COLUMN imagem_path VARCHAR;"
+
+        colunas_necessarias = {
+            "descricao_bruta": "TEXT",
+            "descricao_ai": "TEXT",
+            "preco_venda": "FLOAT",
+            "custo_total_cmv": "FLOAT",
+            "margem_exibicao": "VARCHAR",
+            "imagem_path": "VARCHAR",
+        }
+
+        for col_nome, col_tipo in colunas_necessarias.items():
+            if col_nome not in colunas_existentes:
+                conexao.execute(
+                    sqlalchemy.text(
+                        f"ALTER TABLE produtos ADD COLUMN {col_nome} {col_tipo};"
+                    )
                 )
-            )
-            conexao.commit()
+                conexao.commit()
     except Exception:
         pass
 
@@ -116,12 +132,7 @@ def criar_admin():
 
 criar_admin()
 
-# --- 2. CONFIGURAÇÃO DA INTERFACE STREAMLIT ---
-st.set_page_config(
-    page_title="F&M AI FOOD — ERP Gastronômico", page_icon="🍔", layout="wide"
-)
-
-# Carregamento seguro da chave da API (Streamlit Secrets + dotenv)
+# --- 3. CARREGAMENTO SEGURO DA CHAVE DE API (GEMINI) ---
 GENAI_DISPONIVEL = False
 api_key = None
 
@@ -143,13 +154,14 @@ if api_key:
     except ImportError:
         pass
 
-# --- BARRA LATERAL (SIDEBAR) COM LOGO OFICIAL ---
+# --- 4. BARRA LATERAL (SIDEBAR) COM LOGO PROPORCIONAL ---
 with st.sidebar:
     if os.path.exists("logo.png"):
-        st.image("logo.png", width=70)
+        st.image("logo.png", use_container_width=True)
     else:
         st.image(
-            "https://cdn-icons-png.flaticon.com/512/3075/3075977.png", width=70
+            "https://cdn-icons-png.flaticon.com/512/3075/3075977.png",
+            use_container_width=True,
         )
 
     st.title("F&M AI FOOD")
@@ -157,7 +169,7 @@ with st.sidebar:
     st.markdown("---")
 
     st.subheader("🔐 Acesso Corporativo")
-    st.success("Conectado como:\n**admin@micaburguer.com**")
+    st.success("Conectado como:\n**admin@micaburger.com**")
     st.info("🏪 **Loja Ativa:**\nMica Burguer & Restaurante")
 
     if GENAI_DISPONIVEL:
@@ -169,7 +181,7 @@ with st.sidebar:
     if st.button("🚪 Sair (Logout)", use_container_width=True):
         st.warning("Encerrando sessão...")
 
-# --- CABEÇALHO E ABAS PRINCIPAIS ---
+# --- 5. CABEÇALHO E ABAS PRINCIPAIS ---
 st.title("🍔 F&M AI FOOD — Painel de Gestão & PDV")
 st.markdown("---")
 
