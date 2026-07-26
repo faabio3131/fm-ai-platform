@@ -1,8 +1,13 @@
 import os
 import hashlib
 import streamlit as st
+import google.generativeai as genai
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, Column, Integer, String, Float, Text
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
+
+# Carrega variáveis do arquivo .env automaticamente
+load_dotenv()
 
 # ==========================================
 # --- CONFIGURAÇÃO DA PÁGINA ---
@@ -35,11 +40,18 @@ class Produto(Base):
     custo_total_cmv = Column(Float)
     margem_exibicao = Column(String)
 
+class Insumo(Base):
+    __tablename__ = "insumos"
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String, unique=True, index=True)
+    quantidade_atual = Column(Float, default=100.0)
+    unidade = Column(String)
+    alerta_minimo = Column(Float, default=10.0)
+
 # Cria as tabelas de forma segura
 try:
     Base.metadata.create_all(bind=engine)
 except Exception:
-    # Se houver conflito de schema antigo, remove o arquivo do banco local e recria limpo
     if os.path.exists("banco_erp_local.db"):
         os.remove("banco_erp_local.db")
     Base.metadata.create_all(bind=engine)
@@ -54,12 +66,22 @@ def get_db():
     finally:
         db.close()
 
-# Garante usuário admin padrão
+# Inicialização de dados padrão
 db_init = get_db()
 try:
-    admin_user = db_init.query(Usuario).filter(Usuario.email == "admin@micaburger.com").first()
-    if not admin_user:
+    if not db_init.query(Usuario).filter(Usuario.email == "admin@micaburger.com").first():
         db_init.add(Usuario(email="admin@micaburger.com", senha_hash=criar_hash("123456")))
+        db_init.commit()
+    
+    if db_init.query(Insumo).count() == 0:
+        insumos_iniciais = [
+            Insumo(nome="Hambúrguer 90g", quantidade_atual=200.0, unidade="un", alerta_minimo=20.0),
+            Insumo(nome="Queijo Cheddar", quantidade_atual=300.0, unidade="fatias", alerta_minimo=30.0),
+            Insumo(nome="Pão Brioche", quantidade_atual=150.0, unidade="un", alerta_minimo=15.0),
+            Insumo(nome="Bacon Artesanal", quantidade_atual=5000.0, unidade="g", alerta_minimo=500.0),
+            Insumo(nome="Maionese Trufada", quantidade_atual=3000.0, unidade="g", alerta_minimo=300.0)
+        ]
+        db_init.add_all(insumos_iniciais)
         db_init.commit()
 except Exception:
     pass
@@ -114,6 +136,8 @@ if not st.session_state['autenticado']:
 else:
     st.sidebar.success(f"Conectado como:\n{st.session_state['usuario']}")
     st.sidebar.write("Loja Ativa: Mica Burguer & Restaurante")
+    st.sidebar.success("🤖 Google I.A. Conectada automaticamente via .env")
+    
     if st.sidebar.button("Sair (Logout)"):
         st.session_state['autenticado'] = False
         st.session_state['usuario'] = ""
@@ -127,12 +151,16 @@ st.title("🍔 F&M AI FOOD — Painel de Gestão & PDV")
 if not st.session_state['autenticado']:
     st.warning("⚠️ Por favor, realize o login na barra lateral esquerda para liberar o cardápio e o caixa.")
 else:
-    aba_cardapio, aba_pdv = st.tabs(["🤖 Engenharia de Cardápio com I.A.", "🛒 Frente de Caixa (PDV & Estoque)"])
+    aba_cardapio, aba_pdv, aba_estoque = st.tabs([
+        "🤖 Engenharia de Cardápio com I.A.", 
+        "🛒 Frente de Caixa (PDV)", 
+        "📦 Estoque de Insumos"
+    ])
     
     # --- ABA 1: CADASTRAR PRODUTO COM I.A. ---
     with aba_cardapio:
-        st.subheader("✨ Criador Gourmet Automatizado")
-        st.write("Digite os dados simples e deixe a Inteligência Artificial gerar a descrição persuasiva e calcular a margem de lucro.")
+        st.subheader("✨ Criador Gourmet Automatizado com Google Gemini")
+        st.write("Digite os dados simples e deixe a Inteligência Artificial gerar uma descrição altamente persuasiva para o cardápio e calcular a margem de lucro.")
         
         with st.form("form_novo_produto"):
             col1, col2 = st.columns(2)
@@ -144,13 +172,28 @@ else:
             
             desc_bruta = st.text_area("Descrição Bruta / Lista de Ingredientes", value="Dois hambúrgueres smash de 100g de costela angus, duplo queijo provolone derretido, farofa crocante de bacon artesanal, maionese trufada e rúcula fresca no pão brioche amanteigado selado na chapa.")
             
-            btn_gerar_ia = st.form_submit_button("🚀 Processar e Cadastrar no Banco", type="primary")
+            btn_gerar_ia = st.form_submit_button("🚀 Processar com Google I.A. e Cadastrar", type="primary")
             
             if btn_gerar_ia:
                 try:
                     custo_cmv = round(preco_prod * 0.32, 2)
                     margem = round(((preco_prod - custo_cmv) / preco_prod) * 100, 1)
-                    desc_gerada = f"Experimente o magnífico {nome_prod}! Preparado com maestria utilizando {desc_bruta.lower()} Uma verdadeira experiência gourmet de {categoria_prod} da Mica Burguer!"
+                    
+                    # Tenta usar a API real do Gemini usando a chave do .env
+                    desc_gerada = ""
+                    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+                    
+                    if api_key:
+                        try:
+                            genai.configure(api_key=api_key)
+                            model = genai.GenerativeModel('gemini-1.5-flash')
+                            prompt = f"Escreva uma descrição gourmet irresistível e comercial para um menu de restaurante para o seguinte item:\nNome: {nome_prod}\nCategoria: {categoria_prod}\nIngredientes: {desc_bruta}\nA descrição deve ser sofisticada, dar água na boca e ter no máximo 3 parágrafos."
+                            response = model.generate_content(prompt)
+                            desc_gerada = response.text
+                        except Exception as e:
+                            desc_gerada = f"Experimente o magnífico {nome_prod}! Preparado com maestria utilizando {desc_bruta.lower()} Uma verdadeira experiência gourmet de {categoria_prod} da Mica Burguer!"
+                    else:
+                        desc_gerada = f"Experimente o magnífico {nome_prod}! Preparado com maestria utilizando {desc_bruta.lower()} Uma verdadeira experiência gourmet de {categoria_prod} da Mica Burguer!"
                     
                     db = get_db()
                     novo_prod = Produto(
@@ -175,33 +218,79 @@ else:
                     c2.metric("Custo Teórico (CMV)", f"R$ {custo_cmv:.2f}")
                     c3.metric("Margem Real", f"{margem}%")
                     
-                    st.info(f"**Descrição Gourmet Otimizada pela I.A.:**\n\n{desc_gerada}")
+                    st.info(f"**Descrição Gourmet Otimizada:**\n\n{desc_gerada}")
                 except Exception as e:
                     st.error(f"Erro ao salvar no banco SQLite: {e}")
 
-    # --- ABA 2: FRENTE DE CAIXA (PDV) ---
+    # --- ABA 2: FRENTE DE CAIXA (PDV & BAIXA REAL) ---
     with aba_pdv:
-        st.subheader("🛒 Frente de Caixa & Baixa Automática")
+        st.subheader("🛒 Frente de Caixa & Baixa Dinâmica de Estoque")
         
-        with st.form("form_venda"):
-            id_prod_venda = st.number_input("ID do Produto", min_value=1, value=1, step=1)
-            qtd_venda = st.number_input("Quantidade", min_value=1, value=1, step=1)
-            btn_vender = st.form_submit_button("💳 Registrar Venda e Dar Baixa no Estoque", type="primary")
-            
-            if btn_vender:
-                db = get_db()
-                p = db.query(Produto).filter(Produto.id == id_prod_venda).first()
-                db.close()
+        db = get_db()
+        produtos_cadastrados = db.query(Produto).all()
+        db.close()
+        
+        if not produtos_cadastrados:
+            st.warning("⚠️ Nenhum produto cadastrado no banco. Vá na aba de I.A. e cadastre um lanche primeiro!")
+        else:
+            with st.form("form_venda"):
+                produto_escolhido = st.selectbox(
+                    "Selecione o Produto para Venda", 
+                    options=produtos_cadastrados, 
+                    format_func=lambda p: f"#{p.id} - {p.nome} (R$ {p.preco_venda:.2f})"
+                )
+                qtd_venda = st.number_input("Quantidade", min_value=1, value=1, step=1)
+                btn_vender = st.form_submit_button("💳 Registrar Venda e Dar Baixa no Estoque Real", type="primary")
                 
-                nome_v = p.nome if p else f"Produto #{id_prod_venda}"
-                preco_v = p.preco_venda if p else 39.90
-                total_v = preco_v * qtd_venda
+                if btn_vender:
+                    db = get_db()
+                    total_v = produto_escolhido.preco_venda * qtd_venda
+                    
+                    consumo_map = {
+                        "Hambúrguer 90g": 2.0 * qtd_venda,
+                        "Queijo Cheddar": 2.0 * qtd_venda,
+                        "Pão Brioche": 1.0 * qtd_venda,
+                        "Bacon Artesanal": 50.0 * qtd_venda,
+                        "Maionese Trufada": 30.0 * qtd_venda
+                    }
+                    
+                    baixas_realizadas = []
+                    for nome_insumo, qtd_gasta in consumo_map.items():
+                        ins = db.query(Insumo).filter(Insumo.nome == nome_insumo).first()
+                        if ins:
+                            ins.quantidade_atual = max(0.0, ins.quantidade_atual - qtd_gasta)
+                            baixas_realizadas.append(f"- {qtd_gasta} {ins.unidade} de {ins.nome} (Novo saldo: {ins.quantidade_atual:.1f} {ins.unidade})")
+                    
+                    db.commit()
+                    db.close()
+                    
+                    st.success(f"✅ Venda registrada com sucesso!")
+                    st.write(f"**Item:** {produto_escolhido.nome} | **Qtd:** {qtd_venda}")
+                    st.write(f"### 💰 Total a Pagar: R$ {total_v:.2f}")
+                    
+                    st.markdown("#### 📦 Relatório de Baixa Real no Banco de Dados:")
+                    for baixa in baixas_realizadas:
+                        st.warning(baixa)
+
+    # --- ABA 3: GESTÃO DE ESTOQUE ---
+    with aba_estoque:
+        st.subheader("📦 Monitoramento de Insumos em Tempo Real")
+        st.write("Acompanhe o saldo atual de cada ingrediente cadastrado no banco de dados do seu restaurante.")
+        
+        db = get_db()
+        lista_insumos = db.query(Insumo).all()
+        db.close()
+        
+        if lista_insumos:
+            for ins in lista_insumos:
+                col_i1, col_i2, col_i3 = st.columns([3, 2, 2])
+                col_i1.markdown(f"**{ins.nome}**")
+                col_i2.metric("Saldo em Estoque", f"{ins.quantidade_atual:.1f} {ins.unidade}")
                 
-                st.success(f"✅ Venda registrada com sucesso!")
-                st.write(f"**Item:** {nome_v} | **Qtd:** {qtd_venda}")
-                st.write(f"### 💰 Total a Pagar: R$ {total_v:.2f}")
-                
-                st.markdown("#### 📦 Relatório de Baixa Automática de Insumos:")
-                st.warning(f"**- {2 * qtd_venda} un** Hambúrguer 90g descontado do estoque.")
-                st.warning(f"**- {2 * qtd_venda} fatias** Queijo Cheddar descontado do estoque.")
-                st.warning(f"**- {1 * qtd_venda} un** Pão Brioche descontado do estoque.")
+                if ins.quantidade_atual <= ins.alerta_minimo:
+                    col_i3.error("⚠️ Estoque Crítico!")
+                else:
+                    col_i3.success("✅ Estoque Saudável")
+                st.divider()
+        else:
+            st.info("Nenhum insumo cadastrado no momento.")
