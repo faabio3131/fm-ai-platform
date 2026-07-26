@@ -19,7 +19,39 @@ load_dotenv()
 # --- CONFIGURAÇÃO DA PÁGINA ---
 # ==========================================
 st.set_page_config(page_title="F&M AI FOOD - ERP", page_icon="🍔", layout="wide")
+# ==========================================
+# --- IDENTIDADE VISUAL CORPORATIVA (CSS) ---
+# ==========================================
+st.markdown("""
+    <style>
+    /* Ajuste de fundo global e tipografia limpa */
+    .main {
+        background-color: #F8FAFC;
+    }
 
+    /* Estilização elegante dos cartões de métricas */
+    div[data-testid="stMetric"] {
+        background-color: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        padding: 16px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        border-left: 4px solid #1E3A8A; /* Azul Corporativo */
+    }
+
+    /* Cores de títulos padronizadas */
+    h1, h2, h3 {
+        color: #0F172A;
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* Botões principais com destaque corporativo */
+    .stButton>button {
+        border-radius: 6px;
+        font-weight: 600;
+    }
+    </style>
+""", unsafe_allow_html=True)
 # ==========================================
 # --- BANCO DE DADOS LOCAL BLINDADO ---
 # ==========================================
