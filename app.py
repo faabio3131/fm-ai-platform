@@ -1,28 +1,109 @@
 from datetime import datetime
 import os
-from core.database import (
-    Base,
-    FichaTecnica,
-    Insumo,
-    Produto,
-    SessionLocal,
-    Venda,
-    engine,
-)
 from dotenv import load_dotenv
 import pandas as pd
+import sqlalchemy
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    create_engine,
+    inspect,
+)
+from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 import streamlit as st
 
-# --- 1. CONFIGURAÇÃO DA PÁGINA E AMBIENTE ---
+# --- 1. CONFIGURAÇÃO DO AMBIENTE E BANCO DE DADOS INTEGRADO ---
 load_dotenv()
 os.makedirs("imagens", exist_ok=True)
+
+DB_PATH = "banco_erp_local.db"
+engine = create_engine(
+    f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False}
+)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+
+# --- MODELOS DO BANCO DE DADOS (ORM) ---
+class Produto(Base):
+    __tablename__ = "produtos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String, unique=True, index=True, nullable=False)
+    categoria = Column(String, nullable=False)
+    preco_venda = Column(Float, nullable=False, default=0.0)
+    custo_unitario = Column(Float, default=0.0)
+    margem_lucro = Column(Float, default=0.0)
+    imagem_path = Column(String, nullable=True)
+
+    ingredientes = relationship(
+        "FichaTecnica", back_populates="produto", cascade="all, delete-orphan"
+    )
+    vendas = relationship("Venda", back_populates="produto")
+
+
+class Insumo(Base):
+    __tablename__ = "insumos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String, unique=True, index=True, nullable=False)
+    quantidade_atual = Column(Float, default=0.0)
+    unidade_medida = Column(String, default="un")
+    alerta_minimo = Column(Float, default=10.0)
+    custo_unitario = Column(Float, default=0.0)
+
+    receitas_vinculadas = relationship(
+        "FichaTecnica", back_populates="insumo", cascade="all, delete-orphan"
+    )
+
+
+class FichaTecnica(Base):
+    __tablename__ = "ficha_tecnica"
+
+    id = Column(Integer, primary_key=True, index=True)
+    produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=False)
+    insumo_id = Column(Integer, ForeignKey("insumos.id"), nullable=False)
+    quantidade_gasta = Column(Float, nullable=False)
+
+    produto = relationship("Produto", back_populates="ingredientes")
+    insumo = relationship("Insumo", back_populates="receitas_vinculadas")
+
+
+class Venda(Base):
+    __tablename__ = "vendas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=False)
+    quantidade = Column(Integer, nullable=False, default=1)
+    valor_total = Column(Float, nullable=False, default=0.0)
+    custo_total = Column(Float, default=0.0)
+    data_venda = Column(DateTime, default=datetime.now)
+
+    produto = relationship("Produto", back_populates="vendas")
+
+
+# Criação automática das tabelas
 Base.metadata.create_all(bind=engine)
 
+
+def get_db():
+    db = SessionLocal()
+    try:
+        return db
+    finally:
+        db.close()
+
+
+# --- CONFIGURAÇÃO DA INTERFACE STREAMLIT ---
 st.set_page_config(
     page_title="F&M AI FOOD — ERP Gastronômico", page_icon="🍔", layout="wide"
 )
 
-# Tenta carregar o SDK da Inteligência Artificial do Google
+# Carrega API do Google Gemini se disponível
 GENAI_DISPONIVEL = False
 try:
     import google.generativeai as genai
@@ -35,15 +116,7 @@ except ImportError:
     pass
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        return db
-    finally:
-        db.close()
-
-
-# --- 2. BARRA LATERAL (SIDEBAR) ---
+# --- BARRA LATERAL (SIDEBAR) ---
 with st.sidebar:
     st.image(
         "https://cdn-icons-png.flaticon.com/512/3075/3075977.png", width=70
@@ -66,11 +139,10 @@ with st.sidebar:
         st.warning("Encerrando sessão...")
 
 
-# --- 3. CABEÇALHO PRINCIPAL DO SISTEMA ---
+# --- CABEÇALHO E ABAS PRINCIPAIS ---
 st.title("🍔 F&M AI FOOD — Painel de Gestão & PDV")
 st.markdown("---")
 
-# Abas de Navegação Organizadas
 aba1, aba2, aba3, aba4, aba5 = st.tabs(
     [
         "🤖 Engenharia de Cardápio",
@@ -318,12 +390,12 @@ with aba2:
 
 
 # ==============================================================================
-# ABA 3: FRENTE DE CAIXA (PDV) COM SESSÃO BLINDADA
+# ABA 3: FRENTE DE CAIXA (PDV)
 # ==============================================================================
 with aba3:
     st.header("🛒 Frente de Caixa — PDV & Baixa em Tempo Real")
     st.write(
-        "Registre os pedidos do balcão e veja a baixa de estoque acontecer por gramagem via Ficha Técnica (Fase 2)."
+        "Registre os pedidos do balcão e veja a baixa de estoque acontecer por gramagem via Ficha Técnica."
     )
 
     db = get_db()
