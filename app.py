@@ -1,6 +1,14 @@
-import os
 from datetime import datetime
-from core.database import FichaTecnica, Insumo, Produto, SessionLocal, Venda
+import os
+from core.database import (
+    Base,
+    FichaTecnica,
+    Insumo,
+    Produto,
+    SessionLocal,
+    Venda,
+    engine,
+)
 from dotenv import load_dotenv
 import pandas as pd
 import streamlit as st
@@ -10,6 +18,9 @@ load_dotenv()
 os.makedirs(
     "imagens", exist_ok=True
 )  # Garante que a pasta de imagens exista no disco
+Base.metadata.create_all(
+    bind=engine
+)  # Assegura que o schema relacional esteja sincronizado
 
 # Configuração da página Streamlit
 st.set_page_config(
@@ -140,7 +151,7 @@ with aba1:
             )
         else:
             db = get_db()
-            descricao_gerada = f"Experimente o magnífico {nome_prato}! Preparado com maestria utilizando {ingredientes_base.lower()}. Uma verdadeira experiência gourmet de Burgers da Mica Burguer!"
+            descricao_gerada = f"Experimente o magnífico {nome_prato}! Preparado com maestria utilizando {ingredientes_base.lower()}. Uma verdadeira experiência gourmet da Mica Burguer!"
             caminho_imagem_salva = None
 
             # Tentativa de geração com Google I.A. (Gemini + Imagen 3)
@@ -150,9 +161,7 @@ with aba1:
                 ):
                     try:
                         # 1. Gerar Texto Gourmet com Gemini 1.5 Flash
-                        model_text = genai.GenerativeModel(
-                            "gemini-1.5-flash"
-                        )
+                        model_text = genai.GenerativeModel("gemini-1.5-flash")
                         prompt_texto = f"Escreva uma descrição publicitária curta, altamente persuasiva, gourmet e apetitosa para um cardápio de restaurante para o prato: '{nome_prato}'. Ingredientes: {ingredientes_base}. Use emojis e gatilhos mentais gastronômicos."
                         resp_texto = model_text.generate_content(prompt_texto)
                         if resp_texto and resp_texto.text:
@@ -363,7 +372,11 @@ with aba3:
             st.markdown(f"### 💰 Total do Pedido: R$ {valor_total:.2f}")
 
             # --- BOTÃO DE CONFIRMAÇÃO DO PEDIDO (FASE 2: BAIXA POR FICHA TÉCNICA) ---
-            if st.button("✅ Confirmar Pedido & Baixar Estoque", type="primary", use_container_width=True):
+            if st.button(
+                "✅ Confirmar Pedido & Baixar Estoque",
+                type="primary",
+                use_container_width=True,
+            ):
                 try:
                     # 1. Registrar a venda financeira na tabela Venda
                     nova_venda = Venda(
@@ -398,7 +411,6 @@ with aba3:
                                 f"• **{insumo.nome}**: -{consumo_real:.3f} {insumo.unidade_medida}"
                             )
                     else:
-                        # Trava de segurança: se o prato ainda não tiver receita cadastrada na Camada 2
                         st.warning(
                             "⚠️ Este produto ainda não possui uma Ficha Técnica vinculada. A venda foi registrada, mas o estoque não foi deduzido por gramagem."
                         )
@@ -431,8 +443,12 @@ with aba3:
                 for v in vendas_dia:
                     dados_vendas.append(
                         {
-                            "Horário": v.data_venda.strftime("%H:%M:%S") if v.data_venda else "--:--",
-                            "Prato / Lanche": v.produto.nome if v.produto else "Item Excluído",
+                            "Horário": v.data_venda.strftime("%H:%M:%S")
+                            if v.data_venda
+                            else "--:--",
+                            "Prato / Lanche": v.produto.nome
+                            if v.produto
+                            else "Item Excluído",
                             "Qtd": v.quantidade,
                             "Valor Total (R$)": f"R$ {v.valor_total:.2f}",
                             "Custo CMV (R$)": f"R$ {v.custo_total:.2f}",
@@ -484,33 +500,62 @@ with aba4:
         with st.form("form_novo_insumo"):
             col_ins1, col_ins2, col_ins3 = st.columns(3)
             with col_ins1:
-                nome_ins = st.text_input("Nome do Ingrediente", placeholder="Ex: Bacon Artesanal")
-                unidade = st.selectbox("Unidade de Medida", ["g", "kg", "un", "fatias", "ml", "L"])
+                nome_ins = st.text_input(
+                    "Nome do Ingrediente", placeholder="Ex: Bacon Artesanal"
+                )
+                unidade = st.selectbox(
+                    "Unidade de Medida",
+                    ["g", "kg", "un", "fatias", "ml", "L"],
+                )
             with col_ins2:
-                qtd_inicial = st.number_input("Quantidade Inicial / Saldo", min_value=0.0, value=500.0, step=10.0)
-                alerta_min = st.number_input("Alerta de Estoque Mínimo", min_value=0.0, value=50.0, step=5.0)
+                qtd_inicial = st.number_input(
+                    "Quantidade Inicial / Saldo",
+                    min_value=0.0,
+                    value=500.0,
+                    step=10.0,
+                )
+                alerta_min = st.number_input(
+                    "Alerta de Estoque Mínimo",
+                    min_value=0.0,
+                    value=50.0,
+                    step=5.0,
+                )
             with col_ins3:
-                custo_ins = st.number_input("Custo Unitário (R$)", min_value=0.0, value=0.05, step=0.01, format="%.4f")
-            
-            btn_add_insumo = st.form_submit_button("💾 Salvar Insumo no Banco", type="primary")
+                custo_ins = st.number_input(
+                    "Custo Unitário (R$)",
+                    min_value=0.0,
+                    value=0.05,
+                    step=0.01,
+                    format="%.4f",
+                )
+
+            btn_add_insumo = st.form_submit_button(
+                "💾 Salvar Insumo no Banco", type="primary"
+            )
             if btn_add_insumo and nome_ins:
                 db = get_db()
                 try:
-                    ins_existente = db.query(Insumo).filter_by(nome=nome_ins).first()
+                    ins_existente = (
+                        db.query(Insumo).filter_by(nome=nome_ins).first()
+                    )
                     if ins_existente:
                         ins_existente.quantidade_atual += qtd_inicial
                         ins_existente.custo_unitario = custo_ins
-                        st.success(f"📈 Saldo de **{nome_ins}** atualizado com sucesso!")
+                        st.success(
+                            f"📈 Saldo de **{nome_ins}** atualizado com sucesso!"
+                        )
                     else:
                         novo_ins = Insumo(
                             nome=nome_ins,
                             quantidade_atual=qtd_inicial,
                             unidade_medida=unidade,
                             alerta_minimo=alerta_min,
-                            custo_unitario=custo_ins
+                            custo_unitario=custo_ins,
                         )
                         db.add(novo_ins)
-                        st.success(f"🎉 Insumo **{nome_ins}** cadastrado com sucesso!")
+                        st.success(
+                            f"🎉 Insumo **{nome_ins}** cadastrado com sucesso!"
+                        )
                     db.commit()
                     st.rerun()
                 except Exception as e_ins:
@@ -523,18 +568,24 @@ with aba4:
 # ==============================================================================
 with aba5:
     st.header("📊 Dashboard Financeiro & BI Gastronômico")
-    st.write("Análise de desempenho, lucro bruto e margens operacionais da Mica Burguer em tempo real.")
+    st.write(
+        "Análise de desempenho, lucro bruto e margens operacionais da Mica Burguer em tempo real."
+    )
 
     db = get_db()
     todas_vendas = db.query(Venda).all()
 
     if not todas_vendas:
-        st.info("ℹ️ Realize vendas na Aba 3 (Frente de Caixa) para visualizar os gráficos e métricas de faturamento aqui.")
+        st.info(
+            "ℹ️ Realize vendas na Aba 3 (Frente de Caixa) para visualizar os gráficos e métricas de faturamento aqui."
+        )
     else:
         fat_total = sum(v.valor_total for v in todas_vendas)
         custo_tot = sum(v.custo_total for v in todas_vendas)
         lucro_bruto = fat_total - custo_tot
-        margem_geral = (lucro_bruto / fat_total * 100) if fat_total > 0 else 0.0
+        margem_geral = (
+            (lucro_bruto / fat_total * 100) if fat_total > 0 else 0.0
+        )
 
         # Cards de Indicadores Principais (KPIs)
         kpi1, kpi2, kpi3, kpi4 = st.columns(4)
@@ -544,26 +595,51 @@ with aba5:
         kpi4.metric("📊 Margem de Lucro Geral", f"{margem_geral:.1f}%")
 
         st.markdown("---")
-        
+
         # Gráficos de Faturamento
         col_graf1, col_graf2 = st.columns(2)
         with col_graf1:
             st.subheader("🍔 Desempenho de Vendas por Produto")
-            df_graf = pd.DataFrame([
-                {
-                    "Produto": v.produto.nome if v.produto else "Deletado",
-                    "Total Vendido (R$)": v.valor_total,
-                    "Quantidade": v.quantidade
-                }
-                for v in todas_vendas
-            ])
-            df_agrupado = df_graf.groupby("Produto")["Total Vendido (R$)"].sum().reset_index()
-            st.bar_chart(df_agrupado, x="Produto", y="Total Vendido (R$)", use_container_width=True)
+            df_graf = pd.DataFrame(
+                [
+                    {
+                        "Produto": v.produto.nome
+                        if v.produto
+                        else "Deletado",
+                        "Total Vendido (R$)": v.valor_total,
+                        "Quantidade": v.quantidade,
+                    }
+                    for v in todas_vendas
+                ]
+            )
+            df_agrupado = (
+                df_graf.groupby("Produto")["Total Vendido (R$)"]
+                .sum()
+                .reset_index()
+            )
+            st.bar_chart(
+                df_agrupado,
+                x="Produto",
+                y="Total Vendido (R$)",
+                use_container_width=True,
+            )
 
         with col_graf2:
             st.subheader("📈 Relação Faturamento vs. Custo (CMV)")
-            df_cmv = pd.DataFrame({
-                "Categoria": ["Faturamento Bruto", "Custo dos Insumos (CMV)", "Lucro Bruto"],
-                "Valor (R$)": [fat_total, custo_tot, lucro_bruto]
-            })
-            st.bar_chart(df_cmv, x="Categoria", y="Valor (R$)", color=["#1E3A8A"], use_container_width=True)
+            df_cmv = pd.DataFrame(
+                {
+                    "Categoria": [
+                        "Faturamento Bruto",
+                        "Custo dos Insumos (CMV)",
+                        "Lucro Bruto",
+                    ],
+                    "Valor (R$)": [fat_total, custo_tot, lucro_bruto],
+                }
+            )
+            st.bar_chart(
+                df_cmv,
+                x="Categoria",
+                y="Valor (R$)",
+                color=["#1E3A8A"],
+                use_container_width=True,
+            )
