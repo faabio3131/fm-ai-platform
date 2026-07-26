@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta
 from jose import jwt
 
-# BANCO LOCAL FORÇADO (Zera qualquer erro de nuvem externa)
+# BANCO LOCAL FORÇADO (Zera qualquer erro de nuvem externa ou tabela ausente)
 DATABASE_URL = "sqlite:///./banco_erp_local.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -15,7 +15,9 @@ Base = declarative_base()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 SECRET_KEY = "chave_super_secreta_mica"
 
-# TABELAS
+# ==========================================
+# --- TABELAS DO BANCO DE DADOS ---
+# ==========================================
 class Usuario(Base):
     __tablename__ = "usuarios"
     id = Column(Integer, primary_key=True, index=True)
@@ -33,9 +35,12 @@ class Produto(Base):
     custo_total_cmv = Column(Float)
     margem_exibicao = Column(String)
 
+# GARANTE A CRIAÇÃO AUTOMÁTICA DE TODAS AS TABELAS NO INÍCIO
 Base.metadata.create_all(bind=engine)
 
-# AUXILIARES
+# ==========================================
+# --- FUNÇÕES AUXILIARES ---
+# ==========================================
 def criar_hash(senha):
     return hashlib.sha256(senha.encode("utf-8")).hexdigest()
 
@@ -46,7 +51,7 @@ def get_db():
     finally:
         db.close()
 
-# GARANTE ADMIN PADRÃO
+# GARANTE ADMIN PADRÃO NA INICIALIZAÇÃO
 def criar_admin():
     db = SessionLocal()
     try:
@@ -64,7 +69,10 @@ def criar_admin():
 
 criar_admin()
 
-app = FastAPI(title="API F&M AI FOOD")
+# ==========================================
+# --- APLICAÇÃO FASTAPI E ROTAS ---
+# ==========================================
+app = FastAPI(title="API F&M AI FOOD - ERP")
 
 class CadastroSchema(BaseModel):
     email: str
@@ -129,7 +137,7 @@ def vender(id_produto: int, quantidade: int = 1, db: Session = Depends(get_db)):
     nome = prod.nome if prod else f"Item #{id_produto}"
     preco = prod.preco_venda if prod else 39.90
     return {
-        "mensagem": "Venda registrada!",
+        "mensagem": "Venda registrada com sucesso!",
         "produto_vendido": nome,
         "quantidade": quantidade,
         "valor_total": preco * quantidade,
