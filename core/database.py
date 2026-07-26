@@ -8,6 +8,7 @@ from sqlalchemy import (
     Integer,
     String,
     create_engine,
+    inspect,
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
@@ -86,5 +87,36 @@ class Venda(Base):
     produto = relationship("Produto", back_populates="vendas")
 
 
-# Cria automaticamente todas as tabelas no arquivo .db se elas não existirem
+# ==============================================================================
+# 🛠️ AUTO-CURA INTELIGENTE DE ESQUEMA DO BANCO DE DADOS
+# ==============================================================================
+precisa_recriar = False
+if os.path.exists(DB_PATH):
+    try:
+        inspector = inspect(engine)
+        tabelas = inspector.get_table_names()
+
+        # Verifica se todas as tabelas essenciais da Fase 2 existem
+        if not all(
+            t in tabelas for t in ["produtos", "insumos", "ficha_tecnica", "vendas"]
+        ):
+            precisa_recriar = True
+        else:
+            # Verifica se a tabela produtos possui a coluna imagem_path atualizada
+            colunas_produtos = [
+                c["name"] for c in inspector.get_columns("produtos")
+            ]
+            if "imagem_path" not in colunas_produtos:
+                precisa_recriar = True
+    except Exception:
+        precisa_recriar = True
+
+    if precisa_recriar:
+        engine.dispose()
+        try:
+            os.remove(DB_PATH)
+        except Exception:
+            pass
+
+# Cria ou recria automaticamente o banco com a estrutura perfeita da Fase 2
 Base.metadata.create_all(bind=engine)
