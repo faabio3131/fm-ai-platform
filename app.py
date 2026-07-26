@@ -1,6 +1,6 @@
+import os
 import hashlib
 import streamlit as st
-import requests
 from sqlalchemy import create_engine, Column, Integer, String, Float, Text
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 
@@ -13,6 +13,7 @@ st.set_page_config(page_title="F&M AI FOOD - ERP", page_icon="🍔", layout="wid
 # --- BANCO DE DADOS LOCAL BLINDADO ---
 # ==========================================
 DATABASE_URL = "sqlite:///./banco_erp_local.db"
+
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -34,7 +35,14 @@ class Produto(Base):
     custo_total_cmv = Column(Float)
     margem_exibicao = Column(String)
 
-Base.metadata.create_all(bind=engine)
+# Cria as tabelas de forma segura
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception:
+    # Se houver conflito de schema antigo, remove o arquivo do banco local e recria limpo
+    if os.path.exists("banco_erp_local.db"):
+        os.remove("banco_erp_local.db")
+    Base.metadata.create_all(bind=engine)
 
 def criar_hash(senha):
     return hashlib.sha256(senha.encode("utf-8")).hexdigest()
@@ -48,11 +56,15 @@ def get_db():
 
 # Garante usuário admin padrão
 db_init = get_db()
-admin_user = db_init.query(Usuario).filter(Usuario.email == "admin@micaburger.com").first()
-if not admin_user:
-    db_init.add(Usuario(email="admin@micaburger.com", senha_hash=criar_hash("123456")))
-    db_init.commit()
-db_init.close()
+try:
+    admin_user = db_init.query(Usuario).filter(Usuario.email == "admin@micaburger.com").first()
+    if not admin_user:
+        db_init.add(Usuario(email="admin@micaburger.com", senha_hash=criar_hash("123456")))
+        db_init.commit()
+except Exception:
+    pass
+finally:
+    db_init.close()
 
 # ==========================================
 # --- CONTROLE DE SESSÃO ---
