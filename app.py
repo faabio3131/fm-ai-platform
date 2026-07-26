@@ -269,7 +269,57 @@ else:
                             if response_img.generated_images:
                                 img_bytes = response_img.generated_images[0].image.image_bytes
                                 imagem_gerada_pil = Image.open(BytesIO(img_bytes))
-    except Exception as e:
+   # --- ABA 1: CADASTRAR PRODUTO COM I.A. & GERAÇÃO DE IMAGEM ---
+    with aba_cardapio:
+        st.subheader("✨ Criador Gourmet Automatizado com Google Gemini & Imagen")
+        st.write("Digite os dados simples e deixe a Inteligência Artificial gerar uma descrição irresistível e uma foto promocional exclusiva para o seu cardápio.")
+        
+        with st.form("form_novo_produto"):
+            col1, col2 = st.columns(2)
+            with col1:
+                nome_prod = st.text_input("Nome do Prato / Lanche", value="Mica Royal Truffle Bacon")
+                categoria_prod = st.selectbox("Categoria", ["Burgers", "Bebidas", "Acompanhamentos", "Sobremesas"])
+            with col2:
+                preco_prod = st.number_input("Preço de Venda (R$)", value=46.90, step=1.0)
+            
+            desc_bruta = st.text_area("Descrição Bruta / Lista de Ingredientes", value="Dois hambúrgueres smash de 100g de costela angus, duplo queijo provolone derretido, farofa crocante de bacon artesanal, maionese trufada e rúcula fresca no pão brioche amanteigado selado na chapa.")
+            
+            btn_gerar_ia = st.form_submit_button("🚀 Processar Texto & Imagem com Google I.A.", type="primary")
+            
+            if btn_gerar_ia:
+                try:
+                    custo_cmv = round(preco_prod * 0.32, 2)
+                    margem = round(((preco_prod - custo_cmv) / preco_prod) * 100, 1)
+                    
+                    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+                    desc_gerada = ""
+                    imagem_gerada_pil = None
+                    
+                    if api_key:
+                        try:
+                            client = genai.Client(api_key=api_key)
+                            
+                            prompt_texto = f"Escreva uma descrição gourmet irresistível e comercial para um menu de restaurante para o seguinte item:\nNome: {nome_prod}\nCategoria: {categoria_prod}\nIngredientes: {desc_bruta}\nA descrição deve ser sofisticada, dar água na boca e ter no máximo 3 parágrafos."
+                            response_txt = client.models.generate_content(
+                                model='gemini-2.5-flash',
+                                contents=prompt_texto
+                            )
+                            desc_gerada = response_txt.text
+                            
+                            prompt_img = f"Professional high-end restaurant food photography of {nome_prod}, featuring {desc_bruta}, magazine style, gourmet lighting, appetizing presentation"
+                            response_img = client.models.generate_images(
+                                model='imagen-3.0-generate-002',
+                                prompt=prompt_img,
+                                config=types.GenerateImagesConfig(
+                                    number_of_images=1,
+                                    output_mime_type="image/jpeg",
+                                ),
+                            )
+                            if response_img.generated_images:
+                                img_bytes = response_img.generated_images[0].image.image_bytes
+                                imagem_gerada_pil = Image.open(BytesIO(img_bytes))
+                                
+                        except Exception as e:
                             st.warning(f"⚠️ A IA do Google encontrou uma limitação no momento: {e}")
                             desc_gerada = f"Experimente o magnífico {nome_prod}! Preparado com maestria utilizando {desc_bruta.lower()} Uma verdadeira experiência gourmet de {categoria_prod} da Mica Burguer!"
                     else:
@@ -303,14 +353,14 @@ else:
                     
                     st.markdown("### ✍️ Descrição Gourmet Otimizada:")
                     st.info(desc_gerada)
-                    
-                    st.info(f"**Descrição Gourmet Otimizada:**\n\n{desc_gerada}")
-                except Exception as e:
-                    st.error(f"Erro ao processar na I.A. ou salvar no banco: {e}")
+                except Exception as e_geral:
+                    st.error(f"Erro ao processar o formulário: {e_geral}")
 
         st.divider()
         st.subheader("📥 Exportar Cardápio Completo")
         db = get_db()
+        todos_produtos = db.query(Produto).all()
+        db.close()
         todos_produtos = db.query(Produto).all()
         db.close()
         
