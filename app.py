@@ -540,6 +540,30 @@ with aba4:
                     finally:
                         db_g.close()
 
+        st.markdown("---")
+        st.subheader("📋 Equipe Gestora Cadastrada")
+        gestores_cadastrados = db_estoque.query(ContatoGerencial).all()
+        if gestores_cadastrados:
+            for g in gestores_cadastrados:
+                col_g1, col_g2, col_g3, col_g4 = st.columns([3, 2, 2, 1])
+                col_g1.write(f"**{g.nome}**")
+                col_g2.write(f"📱 {g.whatsapp}")
+                col_g3.write(f"💼 {g.cargo}")
+                if col_g4.button("🗑️ Excluir", key=f"del_gestor_{g.id}"):
+                    db_del = get_db()
+                    try:
+                        db_del.query(ContatoGerencial).filter(ContatoGerencial.id == g.id).delete()
+                        db_del.commit()
+                        st.success(f"Gestor {g.nome} removido com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        db_del.rollback()
+                        st.error(f"Erro ao excluir: {e}")
+                    finally:
+                        db_del.close()
+        else:
+            st.info("Nenhum gestor cadastrado no momento.")
+
     # --- SUB-ABA 2: CADASTRO EM MASSA VIA FOTO DE NF ---
     with sub_aba2:
         st.subheader("➕ Cadastro Automático de Insumos via Foto (I.A. Vision)")
