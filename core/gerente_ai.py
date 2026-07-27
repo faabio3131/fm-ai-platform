@@ -1,11 +1,23 @@
 import os
+import streamlit as st
 from dotenv import load_dotenv
 from google import genai
 
 print("🟢 [INICIANDO GERENTE AI: TESTE DE ESTRESSE DO CARDÁPIO...] 🟢\n")
 
 load_dotenv()
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+# Obtém a chave do ambiente ou do painel de segredos do Streamlit Cloud
+api_key = os.getenv("GEMINI_API_KEY")
+if not api_key:
+    try:
+        if hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
+            api_key = st.secrets["GEMINI_API_KEY"]
+            os.environ["GEMINI_API_KEY"] = api_key
+    except Exception:
+        pass
+
+client = genai.Client(api_key=api_key)
 
 def processar_teste_estresse(anotacao: str, numero_teste: int):
     print(f"==================================================")
@@ -32,7 +44,7 @@ def processar_teste_estresse(anotacao: str, numero_teste: int):
     DESCRICAO: [Descrição criada]
     """
     
-    # Usando direto o modelo que descobrimos ser o ouro da sua conta!
+    # Usando direto o modelo da sua conta
     response = client.models.generate_content(
         model="models/gemini-flash-latest",
         contents=prompt,
