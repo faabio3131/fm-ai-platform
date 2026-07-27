@@ -331,7 +331,7 @@ with aba1:
             if GENAI_DISPONIVEL:
                 with st.spinner("🤖 A Inteligência Artificial está escrevendo a legenda gourmet e renderizando a fotografia..."):
                     try:
-                        model_text = genai.GenerativeModel("gemini-1.5-flash")
+                        model_text = genai.GenerativeModel("models/gemini-flash-latest")
                         prompt_texto = f"Escreva uma descrição publicitária curta, altamente persuasiva, gourmet e apetitosa para um cardápio de restaurante para o prato: '{nome_prato}'. Ingredientes: {ingredientes_base}."
                         resp_texto = model_text.generate_content(prompt_texto)
                         if resp_texto and resp_texto.text:
@@ -521,7 +521,7 @@ with aba3:
                 sugestao_upsell = "Ao registrar esse burger, ofereça adicionar **Bacon Crocante** ou **Queijo Extra** por +R$ 5,00 para aumentar o ticket médio!"
                 if GENAI_DISPONIVEL and prod_pdv:
                     try:
-                        model_up = genai.GenerativeModel("gemini-1.5-flash")
+                        model_up = genai.GenerativeModel("models/gemini-flash-latest")
                         prompt_up = f"Atuo como caixa em uma hamburgueria. O cliente está comprando o prato '{prod_pdv.nome}'. Dê uma sugestão curta (1 frase) e persuasiva de acompanhamento ou adicional de alta margem (ex: bacon, queijo, bebida) para eu oferecer agora e aumentar a venda."
                         resp_up = model_up.generate_content(prompt_up)
                         if resp_up and resp_up.text:
@@ -728,7 +728,7 @@ with aba4:
                             try:
                                 import google.generativeai as genai
                                 genai.configure(api_key=api_key_ativa)
-                                model_vision = genai.GenerativeModel("gemini-1.5-flash")
+                                model_vision = genai.GenerativeModel("models/gemini-flash-latest")
                                 
                                 img_pil = Image.open(arquivo_nf)
                                 
