@@ -1,6 +1,8 @@
 streamlit
 google-genai
+google-generativeai
 python-dotenv
 sqlalchemy
 pandas
 requests
+pillow
