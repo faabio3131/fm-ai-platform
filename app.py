@@ -114,9 +114,17 @@ class ConfiguracaoMeta(Base):
     whatsapp_phone_id = Column(String, nullable=True)
 
 
+class ContatoGerencial(Base):
+    __tablename__ = "contatos_gerenciais"
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String)
+    whatsapp = Column(String, unique=True, index=True)
+    cargo = Column(String)  # "Administrador" ou "Gerente"
+    receber_alertas_estoque = Column(Integer, default=1)  # 1 = Sim, 0 = Não
+
+
 Base.metadata.create_all(bind=engine)
 
-# Correção automática de colunas antigas no SQLite
 with engine.connect() as conexao:
     try:
         res_vendas = conexao.execute(sqlalchemy.text("PRAGMA table_info(vendas);")).fetchall()
@@ -146,6 +154,72 @@ def recalcular_cmv_geral(db_session):
         db_session.commit()
     except Exception as e:
         db_session.rollback()
+
+
+def executar_forecasting_e_alertar(db_session):
+    insumos = db_session.query(Insumo).all()
+    vendas_recentes = db_session.query(Venda).filter(
+        Venda.data_venda >= datetime.now() - timedelta(days=3)
+    ).all()
+
+    destinatarios = db_session.query(ContatoGerencial).filter(
+        ContatoGerencial.receber_alertas_estoque == 1
+    ).all()
+
+    config_meta = db_session.query(ConfiguracaoMeta).first()
+    
+    if not destinatarios or not config_meta or not config_meta.whatsapp_token:
+        return "⚠️ Configure os contatos gerenciais e o token do WhatsApp para ativar os alertas preditivos."
+
+    resumo_estoque = "\n".join([f"- {i.nome}: Saldo Atual = {i.saldo_atual} {i.unidade_medida}, Mínimo = {i.estoque_minimo}" for i in insumos])
+    
+    prompt_forecast = f"""
+    Você é o assistente de inteligência preditiva de um ERP gastronômico.
+    Analise o estado atual do almoxarifado abaixo e determine se há algum ingrediente com risco iminente de esgotamento com base no ritmo operacional de hamburgueria:
+    {resumo_estoque}
+    
+    Retorne APENAS um array JSON puro (sem markdown) com os insumos em risco crítico:
+    [
+      {{"insumo": "Nome do Insumo", "previsao_esgotamento": "Sábado às 20h", "mensagem_alerta": "Estoque crítico de pão brioche!"}}
+    ]
+    Se nenhum item estiver em risco, retorne [].
+    """
+
+    try:
+        import google.generativeai as genai
+        model_forecast = genai.GenerativeModel("models/gemini-flash-latest")
+        resp = model_forecast.generate_content(prompt_forecast)
+        texto_limpo = resp.text.strip().replace("```json", "").replace("```", "").strip()
+        alertas_ia = json.loads(texto_limpo)
+
+        if not alertas_ia:
+            return "✅ Estoque seguro. Nenhum alerta preditivo gerado no momento."
+
+        url_wa = f"https://graph.facebook.com/v17.0/{config_meta.whatsapp_phone_id}/messages"
+        headers = {
+            "Authorization": f"Bearer {config_meta.whatsapp_token}",
+            "Content-Type": "application/json"
+        }
+
+        total_enviados = 0
+        for alerta in alertas_ia:
+            texto_msg = f"🚨 *ALERTA PREDITIVO DE ESTOQUE (I.A.)* 🚨\n\nItem: *{alerta['insumo']}*\nPrevisão de Ruptura: *{alerta['previsao_esgotamento']}*\nStatus: {alerta['mensagem_alerta']}\n\n*Acesse o painel F&M AI FOOD para realizar a reposição imediata.*"
+
+            for contato in destinatarios:
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "to": contato.whatsapp,
+                    "type": "text",
+                    "text": {"body": texto_msg}
+                }
+                response = requests.post(url_wa, headers=headers, json=payload)
+                if response.status_code == 200:
+                    total_enviados += 1
+
+        return f"🚀 Forecasting concluído! {len(alertas_ia)} alertas preditivos gerados e disparados para {total_enviados} gestores via WhatsApp."
+
+    except Exception as e:
+        return f"❌ Erro ao executar forecasting preditivo: {e}"
 
 
 def popular_dados_iniciais():
@@ -361,7 +435,6 @@ with aba3:
         qtd = st.number_input("Quantidade", min_value=1, value=1, step=1)
         total = prod_pdv.preco_venda * qtd
 
-        # Upsell I.A.
         with st.container(border=True):
             st.markdown("💡 **Dica de Upsell da I.A. para o Caixa:**")
             sugestao_upsell = "Ofereça adicionar **Bacon Crocante** ou **Queijo Extra** por +R$ 5,00!"
@@ -389,7 +462,6 @@ with aba3:
                 )
                 db_v.add(nova_venda)
 
-                # Baixa automática no estoque via ficha técnica
                 fichas = db_v.query(FichaTecnica).filter(FichaTecnica.produto_id == prod_pdv.id).all()
                 for ft in fichas:
                     insumo_db = db_v.query(Insumo).filter(Insumo.id == ft.insumo_id).first()
@@ -437,6 +509,36 @@ with aba4:
             st.dataframe(pd.DataFrame(dados_estoque), use_container_width=True, hide_index=True)
         else:
             st.info("Nenhum insumo cadastrado.")
+
+        st.markdown("---")
+        st.subheader("🤖 Forecasting & Alerta Preditivo (I.A.)")
+        st.write("O robô analisa o estoque e avisa os administradores via WhatsApp caso algum insumo corra risco de acabar.")
+
+        if st.button("🔮 Executar Análise Preditiva de Ruptura Agora", type="primary"):
+            db_fc = get_db()
+            resultado_ia = executar_forecasting_e_alertar(db_fc)
+            db_fc.close()
+            st.info(resultado_ia)
+
+        with st.expander("👥 Configurar Gestores para Alerta de WhatsApp"):
+            with st.form("form_contato_gerencial"):
+                c_nome = st.text_input("Nome do Gestor", placeholder="Ex: Carlos (Gerente Geral)")
+                c_whats = st.text_input("WhatsApp (com DDI e DDD)", placeholder="Ex: 5516999998888")
+                c_cargo = st.selectbox("Cargo", ["Administrador", "Gerente"])
+                
+                btn_salvar_contato = st.form_submit_button("💾 Salvar Contato Gerencial", type="primary")
+                if btn_salvar_contato:
+                    db_g = get_db()
+                    try:
+                        novo_cg = ContatoGerencial(nome=c_nome, whatsapp=c_whats, cargo=c_cargo)
+                        db_g.add(novo_cg)
+                        db_g.commit()
+                        st.success(f"✅ Gestor **{c_nome}** cadastrado com sucesso!")
+                    except Exception as e:
+                        db_g.rollback()
+                        st.error(f"❌ Erro ao salvar contato: {e}")
+                    finally:
+                        db_g.close()
 
     # --- SUB-ABA 2: CADASTRO EM MASSA VIA FOTO DE NF ---
     with sub_aba2:
