@@ -2,6 +2,11 @@ from datetime import datetime, timedelta
 import hashlib
 import json
 import os
+import streamlit as st
+
+# Puxa a chave do cofre do Streamlit para o ambiente do sistema
+if "GEMINI_API_KEY" in st.secrets:
+    os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]s
 from dotenv import load_dotenv
 import pandas as pd
 from PIL import Image
@@ -22,7 +27,7 @@ import streamlit as st
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
-    page_title="F&M AI FOOD — Mica Burguer & Restaurante ERP", page_icon="🍔", layout="wide"
+    page_title="F&M AI FOOD — ERP Gastronômico", page_icon="🍔", layout="wide"
 )
 
 # --- 2. CONFIGURAÇÃO DO AMBIENTE E BANCO DE DADOS LOCAL ---
@@ -113,7 +118,7 @@ class ConfiguracaoMeta(Base):
 
 Base.metadata.create_all(bind=engine)
 
-# --- AUTO-CORREÇÃO E ATUALIZAÇÃO DO SQLITE ---
+# --- AUTO-CORREÇÃO ROBUSTA DE COLUNAS NO SQLITE ---
 with engine.connect() as conexao:
     try:
         res_vendas = conexao.execute(
@@ -129,163 +134,43 @@ with engine.connect() as conexao:
         pass
 
 
+# --- MOTOR DE RECALCULO DE CMV DINÂMICO EM TODO O SISTEMA ---
 def recalcular_cmv_geral(db_session):
+    """
+    Varre todas as fichas técnicas e reajusta o custo de produção e margem
+    de todos os pratos com base nos novos preços dos insumos.
+    """
     try:
         produtos = db_session.query(Produto).all()
         for prod in produtos:
             fichas = db_session.query(FichaTecnica).filter(FichaTecnica.produto_id == prod.id).all()
-            if fichas:
-                novo_cmv = 0.0
-                for f in fichas:
-                    ins = db_session.query(Insumo).filter(Insumo.id == f.insumo_id).first()
-                    if ins:
-                        novo_cmv += f.quantidade_utilizada * ins.custo_unitario
-                prod.custo_total_cmv = round(novo_cmv, 2)
-                if prod.preco_venda and prod.preco_venda > 0:
-                    margem = ((prod.preco_venda - novo_cmv) / prod.preco_venda) * 100
-                    prod.margem_exibicao = f"{margem:.1f}%"
+            novo_cmv = 0.0
+            for f in fichas:
+                ins = db_session.query(Insumo).filter(Insumo.id == f.insumo_id).first()
+                if ins:
+                    novo_cmv += f.quantidade_utilizada * ins.custo_unitario
+            
+            prod.custo_total_cmv = round(novo_cmv, 2)
+            if prod.preco_venda and prod.preco_venda > 0:
+                margem = ((prod.preco_venda - novo_cmv) / prod.preco_venda) * 100
+                prod.margem_exibicao = f"{margem:.1f}%"
         db_session.commit()
-    except Exception:
+    except Exception as e:
         db_session.rollback()
 
 
-# --- MOTOR DE CARREGAMENTO REAL DA MICA BURGUER & MARMITAS ---
 def popular_dados_iniciais():
     db = SessionLocal()
     try:
-        # Verifica se o cardápio com Marmitas já foi carregado
-        mica_teste = db.query(Produto).filter(Produto.nome.like("%Feijoada Completa%")).first()
-        
-        if not mica_teste:
-            db.query(FichaTecnica).delete()
-            db.query(Venda).delete()
-            db.query(Produto).delete()
-            db.query(Insumo).delete()
-            db.commit()
-
-            # 1. ALMOXARIFADO INDUSTRIAL COMPLETO (Burgers + Cozinha Quente/Marmitas)
-            insumos_mica = [
-                # Insumos Hamburgueria
-                Insumo(nome="Carne Angus 150g (Artesanal)", unidade_medida="un", saldo_atual=300.0, estoque_minimo=40.0, custo_unitario=5.80),
-                Insumo(nome="Carne Angus 120g (Artesanal)", unidade_medida="un", saldo_atual=300.0, estoque_minimo=40.0, custo_unitario=4.60),
-                Insumo(nome="Carne Bovino 90g (Smash)", unidade_medida="un", saldo_atual=400.0, estoque_minimo=50.0, custo_unitario=3.50),
-                Insumo(nome="Hambúrguer Perdigão (Tradicional)", unidade_medida="un", saldo_atual=500.0, estoque_minimo=80.0, custo_unitario=1.80),
-                Insumo(nome="Frango Crocante 120g", unidade_medida="un", saldo_atual=150.0, estoque_minimo=30.0, custo_unitario=3.90),
-                Insumo(nome="Pão Brioche Artesanal", unidade_medida="un", saldo_atual=350.0, estoque_minimo=50.0, custo_unitario=1.80),
-                Insumo(nome="Pão Tradicional com Gergelim", unidade_medida="un", saldo_atual=400.0, estoque_minimo=60.0, custo_unitario=1.20),
-                Insumo(nome="Queijo Provolone / Cheddar Fatiado", unidade_medida="fatias", saldo_atual=800.0, estoque_minimo=100.0, custo_unitario=1.10),
-                Insumo(nome="Queijo Mussarela Fatiado", unidade_medida="fatias", saldo_atual=600.0, estoque_minimo=80.0, custo_unitario=0.90),
-                Insumo(nome="Catupiry Original", unidade_medida="kg", saldo_atual=15.0, estoque_minimo=3.0, custo_unitario=45.00),
-                Insumo(nome="Bacon Artesanal em Tiras", unidade_medida="kg", saldo_atual=25.0, estoque_minimo=5.0, custo_unitario=35.00),
-                Insumo(nome="Calabresa Fatiada / Grelhada", unidade_medida="kg", saldo_atual=30.0, estoque_minimo=4.0, custo_unitario=28.00),
-                Insumo(nome="Ovo Fresco (Egg / Omelete)", unidade_medida="un", saldo_atual=300.0, estoque_minimo=50.0, custo_unitario=0.70),
-                Insumo(nome="Batata Frita Congelada", unidade_medida="kg", saldo_atual=80.0, estoque_minimo=15.0, custo_unitario=14.00),
-                Insumo(nome="Anéis de Cebola (Orions)", unidade_medida="kg", saldo_atual=30.0, estoque_minimo=5.0, custo_unitario=22.00),
-                Insumo(nome="Alface Americana / Mix de Salada", unidade_medida="kg", saldo_atual=20.0, estoque_minimo=4.0, custo_unitario=8.00),
-                Insumo(nome="Tomate Carmem Fresco", unidade_medida="kg", saldo_atual=25.0, estoque_minimo=5.0, custo_unitario=7.00),
-                Insumo(nome="Maionese Caseira da Casa", unidade_medida="kg", saldo_atual=20.0, estoque_minimo=4.0, custo_unitario=15.00),
-                Insumo(nome="Coca-Cola Lata 350ml", unidade_medida="un", saldo_atual=240.0, estoque_minimo=48.0, custo_unitario=3.20),
-                
-                # Insumos Cozinha Quente / Marmitas Executivas
-                Insumo(nome="Arroz Branco Agulhinha", unidade_medida="kg", saldo_atual=120.0, estoque_minimo=25.0, custo_unitario=4.50),
-                Insumo(nome="Feijão Carioca / Feijão Preto", unidade_medida="kg", saldo_atual=80.0, estoque_minimo=15.0, custo_unitario=7.00),
-                Insumo(nome="Contra Filé / Bife Bovino Selecionado", unidade_medida="kg", saldo_atual=45.0, estoque_minimo=10.0, custo_unitario=36.00),
-                Insumo(nome="Peito de Frango / Filé Grelhado", unidade_medida="kg", saldo_atual=60.0, estoque_minimo=12.0, custo_unitario=18.00),
-                Insumo(nome="Copa Lombo Suíno / Bisteca", unidade_medida="kg", saldo_atual=35.0, estoque_minimo=8.0, custo_unitario=22.00),
-                Insumo(nome="Filé de Peixe (Merluza/Tilápia)", unidade_medida="kg", saldo_atual=25.0, estoque_minimo=5.0, custo_unitario=32.00),
-                Insumo(nome="Espaguete / Massa Penne", unidade_medida="kg", saldo_atual=40.0, estoque_minimo=8.0, custo_unitario=6.00),
-                Insumo(nome="Embalagem Marmitex Isopor/Alumínio nº 8", unidade_medida="un", saldo_atual=600.0, estoque_minimo=100.0, custo_unitario=1.20),
+        if db.query(Insumo).count() == 0:
+            insumos_padrao = [
+                Insumo(nome="Hambúrguer 180g", unidade_medida="un", saldo_atual=500.0, estoque_minimo=50.0, custo_unitario=6.50),
+                Insumo(nome="Queijo Provolone / Cheddar", unidade_medida="fatias", saldo_atual=400.0, estoque_minimo=60.0, custo_unitario=1.20),
+                Insumo(nome="Pão Brioche Artesanal", unidade_medida="un", saldo_atual=120.0, estoque_minimo=50.0, custo_unitario=2.00),
+                Insumo(nome="Bacon Artesanal", unidade_medida="kg", saldo_atual=5.0, estoque_minimo=1.0, custo_unitario=35.00),
             ]
-            db.add_all(insumos_mica)
+            db.add_all(insumos_padrao)
             db.commit()
-
-            # 2. CARDÁPIO COMPLETO (Burgers + Marmitas Executivas do PDF)
-            produtos_mica = [
-                # --- MARMITAS & PRATOS EXECUTIVOS (PDF MICA RESTAURANTE) ---
-                Produto(nome="[Segunda] Copa Lombo com Feijão Tropeiro", categoria="Marmitas & Executivos", preco_venda=26.90, custo_total_cmv=8.80, margem_exibicao="67.3%", descricao_bruta="Copa lombo suculenta acompanhada de feijão tropeiro com bacon, linguiça, farinha artesanal e ovos. Acompanha arroz e salada.", descricao_ai="O almoço perfeito de segunda-feira! Copa lombo suculenta com o verdadeiro feijão tropeiro da casa, arroz branco e salada fresca."),
-                Produto(nome="[Segunda] Filé de Frango Grelhado Executivo", categoria="Marmitas & Executivos", preco_venda=22.90, custo_total_cmv=7.10, margem_exibicao="69.0%", descricao_bruta="Filé de frango grelhado temperado com alho e limão. Acompanha arroz branco, feijão e salada fresca.", descricao_ai="Leve e saboroso para começar a semana: filé de frango grelhado ao toque de limão com arroz, feijão e salada."),
-                Produto(nome="[Terça] Frango ao Molho com Purê de Batata", categoria="Marmitas & Executivos", preco_venda=24.90, custo_total_cmv=7.60, margem_exibicao="69.5%", descricao_bruta="Pedacinhos de frango ao molho rústico de tomate acompanhados de purê de batata cremoso, arroz, feijão e salada.", descricao_ai="Sabor de comida caseira de verdade! Frango ao molho especial servido com nosso purê cremoso de batatas."),
-                Produto(nome="[Quarta] Contra Filé Acebolado com Vinagrete", categoria="Marmitas & Executivos", preco_venda=29.90, custo_total_cmv=10.50, margem_exibicao="64.9%", descricao_bruta="Bife de contra filé macio grelhado com cebolas, acompanhado de vinagrete fresco, arroz branco, feijão e salada.", descricao_ai="O queridinho da quarta-feira! Contra filé macio e acebolado com vinagrete fresco, arroz e feijão."),
-                Produto(nome="[Quarta] Bife a Cavalo Executivo", categoria="Marmitas & Executivos", preco_venda=28.90, custo_total_cmv=9.80, margem_exibicao="66.1%", descricao_bruta="Bife de contra filé grelhado coberto com ovo frito na hora. Acompanha arroz branco, feijão e salada.", descricao_ai="O clássico Bife a Cavalo: contra filé selecionado com ovo frito perfeito, arroz agulhinha e feijão."),
-                Produto(nome="[Quinta] Espaguete à Bolonhesa (Massa da Semana)", categoria="Marmitas & Executivos", preco_venda=25.90, custo_total_cmv=7.50, margem_exibicao="71.0%", descricao_bruta="Espaguete italiano ao molho bolonhesa com carne moída selecionada, tomate fresco, alho e queijo parmesão.", descricao_ai="Quinta é dia de massa na Mica! Espaguete al dente coberto com nosso generoso molho à bolonhesa caseiro."),
-                Produto(nome="[Quinta] Lasanha de Frango à Bolonhesa", categoria="Marmitas & Executivos", preco_venda=27.90, custo_total_cmv=8.40, margem_exibicao="69.9%", descricao_bruta="Lasanha artesanal em camadas com frango desfiado, molho branco cremoso, molho bolonhesa e muito queijo gratinado.", descricao_ai="Lasanha artesanal irresistível! Camadas cremosas de frango, molho especial e queijo gratinado no forno."),
-                Produto(nome="[Sexta] Filé de Peixe com Purê de Mandioquinha", categoria="Marmitas & Executivos", preco_venda=28.90, custo_total_cmv=9.50, margem_exibicao="67.1%", descricao_bruta="Filé de peixe branco grelhado na manteiga com limão, acompanhado de purê cremoso de mandioquinha, arroz e salada.", descricao_ai="O toque gourmet da sexta-feira: filé de peixe grelhado na manteiga servido com purê de mandioquinha exclusivo."),
-                Produto(nome="[Sexta] Strogonoff de Carne com Batata Palha", categoria="Marmitas & Executivos", preco_venda=26.90, custo_total_cmv=8.20, margem_exibicao="69.5%", descricao_bruta="Iscas macias de carne ao molho cremoso de strogonoff com champignon. Acompanha arroz branco e batata palha crocante.", descricao_ai="O estrogonofe que todo mundo ama! Iscas de carne macia em molho cremoso com muito arroz e batata palha."),
-                Produto(nome="[Sábado] Feijoada Completa da Casa", categoria="Marmitas & Executivos", preco_venda=38.90, custo_total_cmv=13.50, margem_exibicao="65.3%", descricao_bruta="Feijoada completa com feijão preto, carne seca, costelinha, linguiça paio e bacon. Acompanha arroz, couve e farofa.", descricao_ai="A tradição de sábado na Mica! Feijoada completa rica em carnes nobres, servida com arroz branco, couve e farofa."),
-                Produto(nome="[Sábado] Bife à Parmegiana Executivo", categoria="Marmitas & Executivos", preco_venda=34.90, custo_total_cmv=11.20, margem_exibicao="67.9%", descricao_bruta="Contra filé empanado e crocante coberto com molho de tomate caseiro e muito queijo derretido. Acompanha arroz e batatas.", descricao_ai="Parmegiana de respeito! Bife empanado super crocante gratinado com queijo e molho de tomates frescos."),
-
-                # --- COMBOS HAMBURGUERIA ---
-                Produto(nome="Combo 1 / Mica Cheddar Bacon", categoria="Combos", preco_venda=42.90, custo_total_cmv=13.50, margem_exibicao="68.5%", descricao_bruta="Hambúrguer suculento 150g acompanhado de fatias generosas de bacon crocante, queijo cheddar derretido, batata e bebida.", descricao_ai="Um clássico irresistível da Mica Burguer! Hambúrguer suculento 150g com fatias generosas de bacon e queijo cheddar."),
-                Produto(nome="Combo 2 / Mica - Salada", categoria="Combos", preco_venda=41.90, custo_total_cmv=12.80, margem_exibicao="69.4%", descricao_bruta="Hambúrguer artesanal 120g de carne selecionada, alface crocante, tomate fresco, maionese, batata e bebida.", descricao_ai="O equilíbrio perfeito! Burger artesanal 120g, alface crocante, tomate fresco e a nossa maionese especial."),
-                
-                # --- LANCHES GOURMET / ARTESANAIS ---
-                Produto(nome="Mica Três Ladeiras", categoria="Lanches Gourmet", preco_venda=39.90, custo_total_cmv=12.40, margem_exibicao="68.9%", descricao_bruta="Hambúrguer bovino suculento 150g com mussarela derretida, cheddar cremoso e o irresistível Catupiry Original no pão brioche.", descricao_ai="A obra-prima da casa! Burger suculento com trindade de queijos: mussarela, cheddar cremoso e Catupiry Original."),
-                Produto(nome="X - Salada Artesanal", categoria="Lanches Gourmet", preco_venda=24.90, custo_total_cmv=7.80, margem_exibicao="68.7%", descricao_bruta="Hambúrguer artesanal 120g de carne selecionada, queijo derretido, alface crocante, tomate fresco e maionese da casa.", descricao_ai="Um lanche feito com carinho e sabor de verdade! Burger artesanal 120g e vegetais selecionados."),
-                Produto(nome="X - Bacon Artesanal", categoria="Lanches Gourmet", preco_venda=24.90, custo_total_cmv=8.20, margem_exibicao="67.1%", descricao_bruta="Hambúrguer artesanal suculento 120g, queijo derretido, bacon crocante, alface crocante, tomate fresco e maionese.", descricao_ai="A combinação perfeita do burger artesanal 120g com tiras crocantes de bacon artesanal."),
-                
-                # --- LANCHES TRADICIONAIS (PERDIGÃO) ---
-                Produto(nome="X - Bacon Tradicional", categoria="Lanches Tradicionais", preco_venda=18.90, custo_total_cmv=5.80, margem_exibicao="69.3%", descricao_bruta="Hambúrguer Perdigão acompanhado de fatias de bacon crocante, queijo derretido, alface, tomate e maionese cremo.", descricao_ai="O queridinho tradicional! Hambúrguer Perdigão com bacon crocante e maionese especial."),
-                Produto(nome="X - Salada Tradicional", categoria="Lanches Tradicionais", preco_venda=17.90, custo_total_cmv=5.20, margem_exibicao="70.9%", descricao_bruta="Hambúrguer Perdigão saboroso com queijo derretido, alface, tomate fresco e maionese cremo.", descricao_ai="Clássico e rápido: Hambúrguer Perdigão, queijo derretido, alface, tomate e maionese cremo."),
-
-                # --- PORÇÕES & BEBIDAS ---
-                Produto(nome="Porção de Batata Cheddar Bacon", categoria="Porções & Entradas", preco_venda=24.90, custo_total_cmv=7.50, margem_exibicao="69.9%", descricao_bruta="Uma porção de batatas fritas 300g com cheddar cremoso e bacon crocante, perfeita para compartilhar.", descricao_ai="300g de batatas fritas crocantes cobertas com muito queijo cheddar e bacon em tiras."),
-                Produto(nome="Orions (Anéis de Cebola)", categoria="Porções & Entradas", preco_venda=24.90, custo_total_cmv=7.00, margem_exibicao="71.9%", descricao_bruta="Deliciosos anéis de cebola empanados e fritos até ficarem dourados e crocantes. Servidos com molho.", descricao_ai="Anéis de cebola Orions empanados e super crocantes. Acompanha molho da casa."),
-                Produto(nome="Coca-Cola Lata 350ml", categoria="Bebidas", preco_venda=7.00, custo_total_cmv=3.20, margem_exibicao="54.3%", descricao_bruta="Lata 350ml tradicional gelada.", descricao_ai="Coca-Cola Lata 350ml gelada."),
-                Produto(nome="Guaraná Antarctica Lata 350ml", categoria="Bebidas", preco_venda=7.00, custo_total_cmv=3.00, margem_exibicao="57.1%", descricao_bruta="Lata 350ml tradicional gelada.", descricao_ai="Guaraná Antarctica Lata 350ml gelada."),
-            ]
-            db.add_all(produtos_mica)
-            db.commit()
-
-            # 3. VINCULAÇÕES DE FICHA TÉCNICA (Marmitas + Burgers)
-            p_feijoada = db.query(Produto).filter(Produto.nome.like("%Feijoada Completa%")).first()
-            p_contra = db.query(Produto).filter(Produto.nome.like("%Contra Filé Acebolado%")).first()
-            p_tres_lad = db.query(Produto).filter(Produto.nome == "Mica Três Ladeiras").first()
-            p_coca = db.query(Produto).filter(Produto.nome == "Coca-Cola Lata 350ml").first()
-
-            i_arroz = db.query(Insumo).filter(Insumo.nome.like("%Arroz%")).first()
-            i_feijao = db.query(Insumo).filter(Insumo.nome.like("%Feijão%")).first()
-            i_bife = db.query(Insumo).filter(Insumo.nome.like("%Contra Filé%")).first()
-            i_bacon = db.query(Insumo).filter(Insumo.nome.like("%Bacon%")).first()
-            i_calab = db.query(Insumo).filter(Insumo.nome.like("%Calabresa%")).first()
-            i_marmitex = db.query(Insumo).filter(Insumo.nome.like("%Embalagem%")).first()
-            i_carne150 = db.query(Insumo).filter(Insumo.nome.like("%150g%")).first()
-            i_pao_brioche = db.query(Insumo).filter(Insumo.nome.like("%Brioche%")).first()
-            i_cheddar = db.query(Insumo).filter(Insumo.nome.like("%Provolone / Cheddar%")).first()
-            i_mussa = db.query(Insumo).filter(Insumo.nome.like("%Mussarela%")).first()
-            i_catupiry = db.query(Insumo).filter(Insumo.nome.like("%Catupiry%")).first()
-            i_coca_lata = db.query(Insumo).filter(Insumo.nome == "Coca-Cola Lata 350ml").first()
-
-            fichas_iniciais = []
-            if p_feijoada and i_feijao and i_bacon and i_calab and i_arroz and i_marmitex:
-                fichas_iniciais.extend([
-                    FichaTecnica(produto_id=p_feijoada.id, insumo_id=i_feijao.id, quantidade_utilizada=0.25), # 250g feijão/carnes
-                    FichaTecnica(produto_id=p_feijoada.id, insumo_id=i_bacon.id, quantidade_utilizada=0.05),
-                    FichaTecnica(produto_id=p_feijoada.id, insumo_id=i_calab.id, quantidade_utilizada=0.08),
-                    FichaTecnica(produto_id=p_feijoada.id, insumo_id=i_arroz.id, quantidade_utilizada=0.20), # 200g arroz
-                    FichaTecnica(produto_id=p_feijoada.id, insumo_id=i_marmitex.id, quantidade_utilizada=1.0),
-                ])
-            if p_contra and i_bife and i_arroz and i_feijao and i_marmitex:
-                fichas_iniciais.extend([
-                    FichaTecnica(produto_id=p_contra.id, insumo_id=i_bife.id, quantidade_utilizada=0.18), # 180g bife
-                    FichaTecnica(produto_id=p_contra.id, insumo_id=i_arroz.id, quantidade_utilizada=0.20),
-                    FichaTecnica(produto_id=p_contra.id, insumo_id=i_feijao.id, quantidade_utilizada=0.10),
-                    FichaTecnica(produto_id=p_contra.id, insumo_id=i_marmitex.id, quantidade_utilizada=1.0),
-                ])
-            if p_tres_lad and i_carne150 and i_pao_brioche and i_cheddar and i_mussa and i_catupiry:
-                fichas_iniciais.extend([
-                    FichaTecnica(produto_id=p_tres_lad.id, insumo_id=i_pao_brioche.id, quantidade_utilizada=1.0),
-                    FichaTecnica(produto_id=p_tres_lad.id, insumo_id=i_carne150.id, quantidade_utilizada=1.0),
-                    FichaTecnica(produto_id=p_tres_lad.id, insumo_id=i_cheddar.id, quantidade_utilizada=2.0),
-                    FichaTecnica(produto_id=p_tres_lad.id, insumo_id=i_mussa.id, quantidade_utilizada=2.0),
-                    FichaTecnica(produto_id=p_tres_lad.id, insumo_id=i_catupiry.id, quantidade_utilizada=0.04),
-                ])
-            if p_coca and i_coca_lata:
-                fichas_iniciais.append(FichaTecnica(produto_id=p_coca.id, insumo_id=i_coca_lata.id, quantidade_utilizada=1.0))
-            
-            if fichas_iniciais:
-                db.add_all(fichas_iniciais)
-                db.commit()
-                recalcular_cmv_geral(db)
 
         if db.query(Cliente).count() == 0:
             clientes_padrao = [
@@ -297,6 +182,34 @@ def popular_dados_iniciais():
             db.add_all(clientes_padrao)
             db.commit()
 
+        if db.query(Produto).count() == 0:
+            prato_padrao = Produto(
+                nome="Mica Royal Truffle Bacon",
+                categoria="Burgers Gourmet",
+                descricao_bruta="Hambúrguer 180g angus, queijo provolone derretido, bacon artesanal em tiras e maionese trufada no pão brioche.",
+                descricao_ai="Experimente o magnífico Mica Royal Truffle Bacon! Preparado com maestria utilizando costela angus, queijo provolone derretido e bacon artesanal. Uma verdadeira experiência gourmet da Mica Burguer!",
+                preco_venda=39.90,
+                custo_total_cmv=12.65,
+                margem_exibicao="68.3%",
+                imagem_path=None,
+            )
+            db.add(prato_padrao)
+            db.commit()
+
+            pao = db.query(Insumo).filter(Insumo.nome == "Pão Brioche Artesanal").first()
+            carne = db.query(Insumo).filter(Insumo.nome == "Hambúrguer 180g").first()
+            queijo = db.query(Insumo).filter(Insumo.nome == "Queijo Provolone / Cheddar").first()
+            bacon = db.query(Insumo).filter(Insumo.nome == "Bacon Artesanal").first()
+
+            if pao and carne and queijo and bacon:
+                fichas_automatizadas = [
+                    FichaTecnica(produto_id=prato_padrao.id, insumo_id=pao.id, quantidade_utilizada=1.0),
+                    FichaTecnica(produto_id=prato_padrao.id, insumo_id=carne.id, quantidade_utilizada=1.0),
+                    FichaTecnica(produto_id=prato_padrao.id, insumo_id=queijo.id, quantidade_utilizada=2.0),
+                    FichaTecnica(produto_id=prato_padrao.id, insumo_id=bacon.id, quantidade_utilizada=0.05),
+                ]
+                db.add_all(fichas_automatizadas)
+                db.commit()
     except Exception:
         pass
     finally:
@@ -362,7 +275,7 @@ with st.sidebar:
         st.image("https://cdn-icons-png.flaticon.com/512/3075/3075977.png", use_container_width=True)
 
     st.title("F&M AI FOOD")
-    st.caption("Mica Burguer & Restaurante ERP")
+    st.caption("Professional Gastronomy ERP & AI")
     st.markdown("---")
 
     st.subheader("🔐 Acesso Corporativo")
@@ -402,11 +315,11 @@ with aba1:
     with st.form("form_cardapio_ia"):
         col1, col2 = st.columns(2)
         with col1:
-            nome_prato = st.text_input("🍔 Nome do Prato / Lanche", placeholder="Ex: [Sexta] Strogonoff de Carne ou Mica Royal")
-            categoria = st.selectbox("📂 Categoria", ["Marmitas & Executivos", "Combos", "Lanches Gourmet", "Lanches Tradicionais", "Porções & Entradas", "Acompanhamentos", "Bebidas"])
-            ingredientes_base = st.text_area("📝 Ingredientes Principais", placeholder="Ex: Iscas de carne ao molho cremoso com arroz branco e batata palha.")
+            nome_prato = st.text_input("🍔 Nome do Prato / Lanche", placeholder="Ex: Mica Royal Truffle Bacon")
+            categoria = st.selectbox("📂 Categoria", ["Burgers Gourmet", "Combos", "Porções & Entradas", "Sobremesas", "Bebidas"])
+            ingredientes_base = st.text_area("📝 Ingredientes Principais", placeholder="Ex: Dois burgers smash 100g de costela angus, queijo provolone derretido, bacon artesanal em tiras, maionese trufada no pão brioche.")
         with col2:
-            preco_venda = st.number_input("💲 Preço de Venda (R$)", min_value=0.0, value=26.90, step=0.50, format="%.2f")
+            preco_venda = st.number_input("💲 Preço de Venda (R$)", min_value=0.0, value=39.90, step=0.50, format="%.2f")
             custo_cmv = round(preco_venda * 0.32, 2)
             margem_calc = round(((preco_venda - custo_cmv) / preco_venda) * 100, 1) if preco_venda > 0 else 0.0
             st.info(f"📉 CMV Teórico Estimado (32%): R$ {custo_cmv:.2f}\n📈 **Margem de Lucro Bruta:** {margem_calc}%")
@@ -418,7 +331,7 @@ with aba1:
             st.error("⚠️ Por favor, preencha o Nome do Prato e os Ingredientes Principais!")
         else:
             db = get_db()
-            desc_gerada = f"Experimente o magnífico {nome_prato}! Preparado com maestria utilizando {ingredientes_base.lower()}. Uma verdadeira experiência gastronômica da Mica!"
+            desc_gerada = f"Experimente o magnífico {nome_prato}! Preparado com maestria utilizando {ingredientes_base.lower()}. Uma verdadeira experiência gourmet da Mica Burguer!"
             caminho_imagem_salva = None
 
             if GENAI_DISPONIVEL:
@@ -433,7 +346,7 @@ with aba1:
                         try:
                             from google.generativeai import ImageGenerationModel
                             model_img = ImageGenerationModel("imagen-3.0-generate-002")
-                            prompt_img = f"Professional studio food photography of a dish named {nome_prato}, containing {ingredientes_base}. 4k resolution, cinematic lighting, appetizing presentation."
+                            prompt_img = f"Professional studio food photography of a gourmet burger named {nome_prato}, containing {ingredientes_base}. 4k resolution, cinematic lighting, appetizing presentation."
                             images = model_img.generate_images(prompt=prompt_img, number_of_images=1, aspect_ratio="1:1")
 
                             if images and len(images) > 0:
@@ -469,9 +382,9 @@ with aba1:
                 st.error(f"❌ Erro ao salvar no banco: {e}")
 
     st.markdown("---")
-    st.subheader("🖼️ Galeria de Pratos: Mica Burguer & Marmitas Executivas")
+    st.subheader("🖼️ Galeria de Fotos dos Produtos Cadastrados")
     db = get_db()
-    produtos_cadastrados = db.query(Produto).order_by(Produto.categoria, Produto.nome).all()
+    produtos_cadastrados = db.query(Produto).all()
 
     if produtos_cadastrados:
         cols = st.columns(4)
@@ -482,7 +395,7 @@ with aba1:
                 else:
                     st.image("https://cdn-icons-png.flaticon.com/512/3075/3075977.png", use_container_width=True)
                 st.markdown(f"**{prod.nome}**")
-                st.caption(f"📂 {prod.categoria} | R$ {prod.preco_venda:.2f}\n📉 CMV: R$ {prod.custo_total_cmv:.2f} | Margem: {prod.margem_exibicao}")
+                st.caption(f"R$ {prod.preco_venda:.2f} | Margem: {prod.margem_exibicao}")
     else:
         st.info("Nenhum produto cadastrado no banco de dados até o momento.")
 
@@ -536,7 +449,7 @@ with aba2:
                 btn_post = st.button("⚡ Publicar Automaticamente no Feed", type="primary")
             with col_c2:
                 if prato_sel:
-                    texto_mkt = f"🚨 ATENÇÃO GOURMET! 🚨\n\nVenha saborear o incrível **{prato_sel.nome}** na Mica por apenas R$ {prato_sel.preco_venda:.2f}!\n\n{prato_sel.descricao_ai}\n\n👇 Peça já pelo WhatsApp!"
+                    texto_mkt = f"🚨 ATENÇÃO GOURMET! 🚨\n\nVenha saborear o incrível **{prato_sel.nome}** na Mica Burguer por apenas R$ {prato_sel.preco_venda:.2f}!\n\n{prato_sel.descricao_ai}\n\n👇 Peça já!"
                     st.subheader("📱 Legenda Pronta:")
                     st.code(texto_mkt, language="markdown")
                 if btn_post:
@@ -562,7 +475,7 @@ with aba2:
         with col_acao:
             st.markdown(f"### 👥 Clientes Encontrados: **{len(inativos)}**")
             if inativos:
-                msg_resgate = f"Olá {{nome}}! 🍔 Estamos com saudades de você aqui na Mica Burguer & Restaurante! Notamos que faz um tempo desde seu último pedido. Para matar essa vontade, preparamos um cupom exclusivo de **{desconto_cupom}% DE DESCONTO** para você usar hoje no almoço ou no jantar! Use o código **MICA{desconto_cupom}** no nosso WhatsApp. Aproveite! 🔥"
+                msg_resgate = f"Olá {{nome}}! 🍔 Estamos com saudades de você aqui na Mica Burguer! Notamos que faz um tempo desde seu último pedido. Para matar essa vontade, preparamos um cupom exclusivo de **{desconto_cupom}% DE DESCONTO** para você usar hoje! Use o código **MICA{desconto_cupom}** no nosso WhatsApp. Aproveite! 🔥"
                 st.code(msg_resgate, language="text")
 
                 if st.button("🚀 Disparar Mensagem de Resgate via WhatsApp API Oficial", type="primary", use_container_width=True):
@@ -595,7 +508,7 @@ with aba2:
 with aba3:
     st.header("🛒 Frente de Caixa — PDV com Upsell Inteligente & Baixa Real")
     db = get_db()
-    lista_pratos = db.query(Produto).order_by(Produto.categoria, Produto.nome).all()
+    lista_pratos = db.query(Produto).all()
     lista_clientes = db.query(Cliente).all()
 
     if not lista_pratos:
@@ -603,7 +516,7 @@ with aba3:
     else:
         col_p1, col_p2 = st.columns([1, 2])
         with col_p1:
-            prod_pdv = st.selectbox("Prato / Marmita / Combo", lista_pratos, format_func=lambda x: f"[{x.categoria}] {x.nome} (R$ {x.preco_venda:.2f})")
+            prod_pdv = st.selectbox("Prato / Lanche", lista_pratos, format_func=lambda x: f"{x.nome} (R$ {x.preco_venda:.2f})")
             cliente_pdv = st.selectbox("Cliente (Opcional)", [None] + lista_clientes, format_func=lambda c: "👤 Consumidor Final (Sem Cadastro)" if c is None else f"⭐ {c.nome} ({c.whatsapp})")
             qtd = st.number_input("Quantidade", min_value=1, value=1, step=1)
             total = prod_pdv.preco_venda * qtd
@@ -611,11 +524,11 @@ with aba3:
             # --- MOTOR DE UPSELL INTELIGENTE (IA) ---
             with st.container(border=True):
                 st.markdown("💡 **Dica de Upsell da I.A. para o Caixa:**")
-                sugestao_upsell = "Ao registrar essa marmita ou lanche, ofereça adicionar uma **Coca-Cola Gelada** ou uma **Porção de Orions (Anéis de Cebola)** para aumentar o ticket médio!"
+                sugestao_upsell = "Ao registrar esse burger, ofereça adicionar **Bacon Crocante** ou **Queijo Extra** por +R$ 5,00 para aumentar o ticket médio!"
                 if GENAI_DISPONIVEL and prod_pdv:
                     try:
                         model_up = genai.GenerativeModel("gemini-1.5-flash")
-                        prompt_up = f"Atuo como caixa no restaurante Mica Burguer e Marmitas. O cliente está comprando '{prod_pdv.nome}'. Dê uma sugestão curta (1 frase) e persuasiva de acompanhamento ou bebida do nosso cardápio para eu oferecer agora e aumentar a venda."
+                        prompt_up = f"Atuo como caixa em uma hamburgueria. O cliente está comprando o prato '{prod_pdv.nome}'. Dê uma sugestão curta (1 frase) e persuasiva de acompanhamento ou adicional de alta margem (ex: bacon, queijo, bebida) para eu oferecer agora e aumentar a venda."
                         resp_up = model_up.generate_content(prompt_up)
                         if resp_up and resp_up.text:
                             sugestao_upsell = resp_up.text.strip()
@@ -693,8 +606,8 @@ with aba4:
     db_estoque = get_db()
 
     with sub_aba1:
-        st.subheader("📋 Almoxarifado em Tempo Real (Mica Burguer & Marmitas)")
-        insumos_cadastrados = db_estoque.query(Insumo).order_by(Insumo.nome).all()
+        st.subheader("📋 Almoxarifado em Tempo Real")
+        insumos_cadastrados = db_estoque.query(Insumo).all()
         if insumos_cadastrados:
             dados_estoque = []
             for i in insumos_cadastrados:
@@ -740,13 +653,13 @@ with aba4:
 
     with sub_aba3:
         st.subheader("🔗 Montagem de Receitas em Massa (Ficha Técnica)")
-        produtos_ft = db_estoque.query(Produto).order_by(Produto.categoria, Produto.nome).all()
-        insumos_ft = db_estoque.query(Insumo).order_by(Insumo.nome).all()
+        produtos_ft = db_estoque.query(Produto).all()
+        insumos_ft = db_estoque.query(Insumo).all()
 
         if not produtos_ft or not insumos_ft:
-            st.warning("⚠️ Você precisa ter pelo menos um Produto e um Insumo cadastrados.")
+            st.warning("⚠️ Você precisa ter pelo menos um Produto (Aba 1) e um Insumo cadastrados.")
         else:
-            prato_escolhido = st.selectbox("🎯 Selecione o Prato ou Marmita para Montar/Editar:", produtos_ft, format_func=lambda p: f"[{p.categoria}] {p.nome} — R$ {p.preco_venda:.2f}")
+            prato_escolhido = st.selectbox("🎯 Selecione o Prato do Cardápio para Montar/Editar:", produtos_ft, format_func=lambda p: f"{p.nome} (R$ {p.preco_venda:.2f})")
 
             if prato_escolhido:
                 st.markdown("---")
@@ -779,19 +692,19 @@ with aba4:
                             db_estoque.add_all(novas_fichas)
                         db_estoque.commit()
                         recalcular_cmv_geral(db_estoque)
-                        st.success(f"🎉 Receita do **{prato_escolhido.nome}** atualizada! O CMV foi reajustado em tempo real.")
+                        st.success(f"🎉 Receita de **{prato_escolhido.nome}** atualizada! CMV reajustado em tempo real.")
                         st.rerun()
                     except Exception as e:
                         db_estoque.rollback()
                         st.error(f"❌ Erro ao salvar receita em massa: {e}")
 
             st.markdown("---")
-            st.subheader("📖 Fichas Técnicas Cadastradas no Sistema")
             fichas_cadastradas = db_estoque.query(FichaTecnica).all()
             if fichas_cadastradas:
                 dados_ft_lista = [{"Prato": f.produto.nome if f.produto else "-", "Insumo": f.insumo.nome if f.insumo else "-", "Consumo": f"{f.quantidade_utilizada} {f.insumo.unidade_medida if f.insumo else ''}"} for f in fichas_cadastradas]
                 st.dataframe(pd.DataFrame(dados_ft_lista), use_container_width=True, hide_index=True)
 
+    # --- SUB-ABA 4: LEITOR DE NOTA FISCAL VIA I.A. E BLINDagem DE LUCRO ---
     with sub_aba4:
         st.subheader("🧾 Entrada Automática via Foto de Nota Fiscal (I.A. Vision)")
         st.write("Suba a foto da Nota Fiscal / Cupom do fornecedor. A inteligência artificial extrairá os itens, cruzará com o almoxarifado e recalculará o CMV de todos os pratos!")
@@ -829,6 +742,7 @@ with aba4:
                         resposta_ocr = model_vision.generate_content([prompt_ocr, img_pil])
                         
                         if resposta_ocr and resposta_ocr.text:
+                            # Limpeza de formatação markdown caso a IA retorne com ```json
                             texto_limpo = resposta_ocr.text.replace("```json", "").replace("```", "").strip()
                             itens_extraidos = json.loads(texto_limpo)
                             st.session_state["nf_itens_pendentes"] = itens_extraidos
@@ -836,6 +750,7 @@ with aba4:
                     except Exception as e:
                         st.error(f"❌ Erro ao processar imagem com a IA: {e}")
 
+        # Se houver itens lidos aguardando confirmação no cache da tela
         if "nf_itens_pendentes" in st.session_state and st.session_state["nf_itens_pendentes"]:
             st.markdown("---")
             st.subheader("🕵️ Conciliação e Cruzamento com o Banco de Dados")
@@ -850,6 +765,7 @@ with aba4:
                 for index, item_nf in enumerate(st.session_state["nf_itens_pendentes"]):
                     st.markdown(f"**Item lido pela IA:** `{item_nf.get('item')}` | Qtd: **{item_nf.get('qtd')} {item_nf.get('unidade')}** | Preço Unit.: **R$ {item_nf.get('preco_unitario', 0.0):.2f}**")
                     
+                    # Tentativa simples de match de nome
                     match_padrao = 0
                     for idx_op, nome_banco in enumerate(nomes_opcoes):
                         if any(palavra.lower() in nome_banco.lower() for palavra in str(item_nf.get('item')).split() if len(palavra) > 3):
@@ -886,7 +802,10 @@ with aba4:
                                 ins_atual.custo_unitario = integracao["novo_custo"]
                         
                         db_estoque.commit()
+                        
+                        # --- DISPARA O EFEITO DOMINÓ NO CMV DE TODOS OS PRATOS ---
                         recalcular_cmv_geral(db_estoque)
+                        
                         del st.session_state["nf_itens_pendentes"]
                         st.success("🎉 Estoque reabastecido e preços unitários atualizados! O CMV de todos os pratos foi reajustado automaticamente no cardápio.")
                         st.rerun()
