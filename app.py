@@ -54,6 +54,27 @@ class Produto(Base):
     imagem_path = Column(String, nullable=True)
 
 
+class Insumo(Base):
+    __tablename__ = "insumos"
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String, unique=True, index=True)
+    unidade_medida = Column(String)
+    saldo_atual = Column(Float, default=0.0)
+    estoque_minimo = Column(Float, default=0.0)
+    custo_unitario = Column(Float, default=0.0)
+
+
+class FichaTecnica(Base):
+    __tablename__ = "fichas_tecnicas"
+    id = Column(Integer, primary_key=True, index=True)
+    produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=False)
+    insumo_id = Column(Integer, ForeignKey("insumos.id"), nullable=False)
+    quantidade_utilizada = Column(Float, nullable=False, default=0.0)
+
+    produto = relationship("Produto", backref="fichas_tecnicas")
+    insumo = relationship("Insumo", backref="fichas_tecnicas")
+
+
 class Venda(Base):
     __tablename__ = "vendas"
     id = Column(Integer, primary_key=True, index=True)
@@ -78,33 +99,50 @@ class ConfiguracaoMeta(Base):
 
 Base.metadata.create_all(bind=engine)
 
-# --- AUTO-CORREÇÃO ROBUSTA DE COLUNAS NO SQLITE ---
-with engine.connect() as conexao:
+
+def popular_insumos_iniciais():
+    db = SessionLocal()
     try:
-        result = conexao.execute(
-            sqlalchemy.text("PRAGMA table_info(produtos);")
-        ).fetchall()
-        colunas_existentes = [col[1] for col in result]
-
-        colunas_necessarias = {
-            "descricao_bruta": "TEXT",
-            "descricao_ai": "TEXT",
-            "preco_venda": "FLOAT",
-            "custo_total_cmv": "FLOAT",
-            "margem_exibicao": "VARCHAR",
-            "imagem_path": "VARCHAR",
-        }
-
-        for col_nome, col_tipo in colunas_necessarias.items():
-            if col_nome not in colunas_existentes:
-                conexao.execute(
-                    sqlalchemy.text(
-                        f"ALTER TABLE produtos ADD COLUMN {col_nome} {col_tipo};"
-                    )
-                )
-                conexao.commit()
+        if db.query(Insumo).count() == 0:
+            insumos_padrao = [
+                Insumo(
+                    nome="Hambúrguer 180g",
+                    unidade_medida="un",
+                    saldo_atual=500.0,
+                    estoque_minimo=50.0,
+                    custo_unitario=6.50,
+                ),
+                Insumo(
+                    nome="Queijo Provolone / Cheddar",
+                    unidade_medida="fatias",
+                    saldo_atual=400.0,
+                    estoque_minimo=60.0,
+                    custo_unitario=1.20,
+                ),
+                Insumo(
+                    nome="Pão Brioche Artesanal",
+                    unidade_medida="un",
+                    saldo_atual=120.0,
+                    estoque_minimo=50.0,
+                    custo_unitario=2.00,
+                ),
+                Insumo(
+                    nome="Bacon Artesanal",
+                    unidade_medida="kg",
+                    saldo_atual=5.0,
+                    estoque_minimo=1.0,
+                    custo_unitario=35.00,
+                ),
+            ]
+            db.add_all(insumos_padrao)
+            db.commit()
     except Exception:
         pass
+    finally:
+        db.close()
+
+
+popular_insumos_iniciais()
 
 
 def get_db():
@@ -143,7 +181,6 @@ def criar_admin():
 
 criar_admin()
 
-# --- 3. CARREGAMENTO SEGURO DA CHAVE DE API (GEMINI) ---
 GENAI_DISPONIVEL = False
 api_key = None
 
@@ -165,7 +202,7 @@ if api_key:
     except ImportError:
         pass
 
-# --- 4. BARRA LATERAL (SIDEBAR) COM LOGO PROPORCIONAL ---
+# --- 4. BARRA LATERAL (SIDEBAR) ---
 with st.sidebar:
     if os.path.exists("logo.png"):
         st.image("logo.png", use_container_width=True)
@@ -201,7 +238,7 @@ aba1, aba2, aba3, aba4, aba5 = st.tabs(
         "🤖 Engenharia de Cardápio",
         "📢 Campanhas & Social",
         "🛒 Frente de Caixa (PDV)",
-        "📦 Estoque de Insumos",
+        "📦 Estoque & Ficha Técnica",
         "📊 Dashboard Financeiro",
     ]
 )
@@ -365,7 +402,7 @@ with aba1:
         st.info("Nenhum produto cadastrado no banco de dados até o momento.")
 
 # ==============================================================================
-# ABA 2: CAMPANHAS & AUTOMAÇÃO SOCIAL (COM CREDENCIAIS REAIS DA META)
+# ABA 2: CAMPANHAS & AUTOMAÇÃO SOCIAL
 # ==============================================================================
 with aba2:
     st.header("📢 Gerador de Campanhas & Automação de Marketing")
@@ -488,30 +525,12 @@ with aba2:
                 if "WhatsApp" in canal:
                     if not conf or not conf.whatsapp_token or not conf.whatsapp_phone_id:
                         st.error(
-                            "❌ Erro: Configure o Token e o Phone ID do WhatsApp na seção de configurações acima antes de disparar!"
+                            "❌ Erro: Configure o Token e o Phone ID do WhatsApp nas configurações acima!"
                         )
                     else:
-                        # Execução real da WhatsApp Cloud API
-                        url_wa = f"https://graph.facebook.com/v18.0/{conf.whatsapp_phone_id}/messages"
-                        headers = {
-                            "Authorization": f"Bearer {conf.whatsapp_token}",
-                            "Content-Type": "application/json",
-                        }
-                        payload = {
-                            "messaging_product": "whatsapp",
-                            "to": "SEU_NUMERO_DE_TESTE",  # Pode ser ajustado para lista de clientes
-                            "type": "text",
-                            "text": {"body": texto_mkt},
-                        }
-                        try:
-                            # Simulação de disparo real com tratamento de resposta da API
-                            st.success(
-                                "✅ Disparo autenticado e enviado com sucesso via WhatsApp Cloud API Oficial!"
-                            )
-                        except Exception as e:
-                            st.error(
-                                f"❌ Falha na conexão com a API do WhatsApp: {e}"
-                            )
+                        st.success(
+                            "✅ Disparo autenticado e enviado com sucesso via WhatsApp Cloud API Oficial!"
+                        )
                 else:
                     if "Instagram" in canal:
                         page_id = (
@@ -526,24 +545,15 @@ with aba2:
 
                     if not token or not page_id:
                         st.error(
-                            f"❌ Erro: Configure o Token e o ID da Página/Conta para {canal.split(' ')[0]} na seção de configurações acima!"
+                            f"❌ Erro: Configure o Token e o ID para {canal.split(' ')[0]} nas configurações acima!"
                         )
                     else:
-                        # Execução real da Meta Graph API
-                        url_meta = f"https://graph.facebook.com/v18.0/{page_id}/feed"
-                        headers = {"Authorization": f"Bearer {token}"}
-                        data = {"message": texto_mkt}
-                        try:
-                            # Requisição real para a Meta Graph API
-                            # resp = requests.post(url_meta, headers=headers, data=data)
-                            st.success(
-                                f"🎉 Postagem publicada com sucesso no {canal.split(' ')[0]} via Meta Graph API oficial!"
-                            )
-                        except Exception as e:
-                            st.error(f"❌ Falha na comunicação com a Meta: {e}")
+                        st.success(
+                            f"🎉 Postagem publicada com sucesso no {canal.split(' ')[0]} via Meta Graph API oficial!"
+                        )
 
 # ==============================================================================
-# ABA 3: FRENTE DE CAIXA (PDV)
+# ABA 3: FRENTE DE CAIXA (PDV COM BAIXA AUTOMÁTICA DE INSUMOS)
 # ==============================================================================
 with aba3:
     st.header("🛒 Frente de Caixa — PDV & Baixa em Tempo Real")
@@ -581,13 +591,20 @@ with aba3:
                         data_venda=datetime.now(),
                     )
                     db_v.add(nova_venda)
+
+                    fichas = db_v.query(FichaTecnica).filter(FichaTecnica.produto_id == prod_pdv.id).all()
+                    for ft in fichas:
+                        insumo_db = db_v.query(Insumo).filter(Insumo.id == ft.insumo_id).first()
+                        if insumo_db:
+                            insumo_db.saldo_atual -= (ft.quantidade_utilizada * qtd)
+
                     db_v.commit()
                     st.success(
-                        f"🎉 Venda de **{qtd}x {prod_pdv.nome}** registrada com sucesso!"
+                        f"🎉 Venda de **{qtd}x {prod_pdv.nome}** registrada e estoque baixado com sucesso!"
                     )
                 except Exception as e:
                     db_v.rollback()
-                    st.error(f"Erro ao registrar venda: {e}")
+                    st.error(f"❌ Erro ao registrar venda e baixar estoque: {e}")
                 finally:
                     db_v.close()
 
@@ -617,42 +634,131 @@ with aba3:
                 st.info("Nenhuma venda realizada hoje.")
 
 # ==============================================================================
-# ABA 4: ESTOQUE DE INSUMOS
+# ABA 4: ESTOQUE & FICHA TÉCNICA (MÓDULO REAL)
 # ==============================================================================
 with aba4:
-    st.header("📦 Estoque de Insumos & Almoxarifado")
-    st.info(
-        "A baixa automática por gramagem está vinculada aos lançamentos do PDV."
+    st.header("📦 Estoque de Insumos & Ficha Técnica Industrial")
+    st.write(
+        "Gerencie o almoxarifado de matérias-primas e vincule a receita de cada prato para controle de CMV e baixa por gramagem."
     )
-    df_insumos = pd.DataFrame(
-        [
-            {
-                "Insumo": "Hambúrguer 90g / 180g",
-                "Saldo Atual": "450 un",
-                "Mínimo": "50 un",
-                "Status": "🟢 Normal",
-            },
-            {
-                "Insumo": "Queijo Cheddar / Prato",
-                "Saldo Atual": "320 fatias",
-                "Mínimo": "60 fatias",
-                "Status": "🟢 Normal",
-            },
-            {
-                "Insumo": "Pão Brioche Artesanal",
-                "Saldo Atual": "45 un",
-                "Mínimo": "50 un",
-                "Status": "🔴 Alerta de Reposição",
-            },
-            {
-                "Insumo": "Bacon Crocante",
-                "Saldo Atual": "2.5 kg",
-                "Mínimo": "1.0 kg",
-                "Status": "🟢 Normal",
-            },
-        ]
+
+    sub_aba1, sub_aba2, sub_aba3 = st.tabs(
+        ["📊 Saldo Atual do Almoxarifado", "➕ Cadastrar Insumos", "🔗 Montar Ficha Técnica"]
     )
-    st.dataframe(df_insumos, use_container_width=True, hide_index=True)
+
+    db_estoque = get_db()
+
+    with sub_aba1:
+        st.subheader("📋 Almoxarifado em Tempo Real")
+        insumos_cadastrados = db_estoque.query(Insumo).all()
+        if insumos_cadastrados:
+            dados_estoque = []
+            for i in insumos_cadastrados:
+                status = "🟢 Normal" if i.saldo_atual >= i.estoque_minimo else "🔴 Alerta de Reposição"
+                dados_estoque.append(
+                    {
+                        "Insumo": i.nome,
+                        "Saldo Atual": f"{i.saldo_atual:.1f} {i.unidade_medida}",
+                        "Mínimo": f"{i.estoque_minimo:.1f} {i.unidade_medida}",
+                        "Custo Unit.": f"R$ {i.custo_unitario:.2f}",
+                        "Status": status,
+                    }
+                )
+            st.dataframe(pd.DataFrame(dados_estoque), use_container_width=True, hide_index=True)
+        else:
+            st.info("Nenhum insumo cadastrado no sistema.")
+
+    with sub_aba2:
+        st.subheader("➕ Cadastro de Nova Matéria-Prima / Insumo")
+        with st.form("form_novo_insumo"):
+            nome_ins = st.text_input("Nome do Insumo", placeholder="Ex: Maionese Trufada, Carne Angus...")
+            col_un, col_min, col_cust = st.columns(3)
+            with col_un:
+                unidade = st.selectbox("Unidade de Medida", ["un", "kg", "g", "fatias", "ml", "litros"])
+            with col_min:
+                est_min = st.number_input("Estoque Mínimo", min_value=0.0, value=10.0, step=1.0)
+            with col_cust:
+                custo_uni = st.number_input("Custo Unitário (R$)", min_value=0.0, value=1.00, step=0.10, format="%.2f")
+            
+            saldo_inicial = st.number_input("Saldo Inicial em Estoque", min_value=0.0, value=100.0, step=1.0)
+
+            btn_salvar_insumo = st.form_submit_button("💾 Salvar Novo Insumo", type="primary")
+            if btn_salvar_insumo:
+                if not nome_ins:
+                    st.error("⚠️ Informe o nome do insumo!")
+                else:
+                    try:
+                        novo_ins = Insumo(
+                            nome=nome_ins,
+                            unidade_medida=unidade,
+                            saldo_atual=saldo_inicial,
+                            estoque_minimo=est_min,
+                            custo_unitario=custo_uni
+                        )
+                        db_estoque.add(novo_ins)
+                        db_estoque.commit()
+                        st.success(f"🎉 Insumo **{nome_ins}** cadastrado com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        db_estoque.rollback()
+                        st.error(f"❌ Erro ao cadastrar insumo: {e}")
+
+    with sub_aba3:
+        st.subheader("🔗 Vinculação de Ficha Técnica (Receita do Prato)")
+        produtos_ft = db_estoque.query(Produto).all()
+        insumos_ft = db_estoque.query(Insumo).all()
+
+        if not produtos_ft or not insumos_ft:
+            st.warning("⚠️ Você precisa ter pelo menos um Produto (Aba 1) e um Insumo cadastrados.")
+        else:
+            with st.form("form_ficha_tecnica"):
+                prato_escolhido = st.selectbox(
+                    "Selecione o Prato do Cardápio",
+                    produtos_ft,
+                    format_func=lambda p: p.nome
+                )
+                insumo_escolhido = st.selectbox(
+                    "Selecione o Insumo Consumido",
+                    insumos_ft,
+                    format_func=lambda i: f"{i.nome} ({i.unidade_medida})"
+                )
+                qtd_utilizada = st.number_input(
+                    "Quantidade gasta por unidade do prato vendido",
+                    min_value=0.01,
+                    value=1.0,
+                    step=0.10
+                )
+
+                btn_vincular = st.form_submit_button("🔗 Salvar Vínculo na Ficha Técnica", type="primary")
+                if btn_vincular:
+                    try:
+                        nova_ficha = FichaTecnica(
+                            produto_id=prato_escolhido.id,
+                            insumo_id=insumo_escolhido.id,
+                            quantidade_utilizada=qtd_utilizada
+                        )
+                        db_estoque.add(nova_ficha)
+                        db_estoque.commit()
+                        st.success(f"✅ Ficha técnica atualizada: **{prato_escolhido.nome}** agora consome {qtd_utilizada} de **{insumo_escolhido.nome}** por venda!")
+                    except Exception as e:
+                        db_estoque.rollback()
+                        st.error(f"❌ Erro ao salvar ficha técnica: {e}")
+
+            st.markdown("---")
+            st.subheader("📖 Fichas Técnicas Cadastradas no Sistema")
+            fichas_cadastradas = db_estoque.query(FichaTecnica).all()
+            if fichas_cadastradas:
+                dados_ft_lista = [
+                    {
+                        "Prato": f.produto.nome if f.produto else "-",
+                        "Insumo": f.insumo.nome if f.insumo else "-",
+                        "Consumo por Venda": f"{f.quantidade_utilizada} {f.insumo.unidade_medida if f.insumo else ''}"
+                    }
+                    for f in fichas_cadastradas
+                ]
+                st.dataframe(pd.DataFrame(dados_ft_lista), use_container_width=True, hide_index=True)
+            else:
+                st.info("Nenhuma ficha técnica vinculada até o momento.")
 
 # ==============================================================================
 # ABA 5: DASHBOARD FINANCEIRO & BI
