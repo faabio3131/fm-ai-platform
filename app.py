@@ -617,8 +617,106 @@ with aba4:
         else:
             st.info("Nenhum insumo cadastrado no sistema.")
 
+    # --- SUB-ABA 2 COM LEITOR INTELIGENTE DE CADASTRO AUTOMÁTICO VIA IA ---
     with sub_aba2:
         st.subheader("➕ Cadastro de Nova Matéria-Prima / Insumo")
+        
+        with st.container(border=True):
+            st.markdown("### 🤖 Cadastro Automático em Massa via Foto (I.A. Vision)")
+            st.write("Suba a foto da Nota Fiscal ou Cupom. O Gemini cadastrará automaticamente os itens novos (adivinhando a unidade de medida) e reabastecerá os itens já existentes!")
+            
+            arquivo_nf_cad = st.file_uploader("📸 Envie a foto da Nota Fiscal para Cadastro Automático (JPG, PNG)", type=["jpg", "jpeg", "png"], key="uploader_nf_cadastro")
+            
+            if arquivo_nf_cad:
+                col_img_c, col_btn_c = st.columns([1, 2])
+                with col_img_c:
+                    st.image(arquivo_nf_cad, caption="Nota para Cadastro", use_container_width=True)
+                with col_btn_c:
+                    st.info("💡 **Super Automação:** A IA vai ler os nomes, inferir unidades (kg, un, l, g, pct), cadastrar o que for novo no banco e reabastecer o saldo do que já existir!")
+                    if st.button("🚀 Cadastrar e Atualizar Insumos com I.A.", type="primary", use_container_width=True):
+                        api_key_ativa = os.environ.get("GEMINI_API_KEY")
+                        if not api_key_ativa and hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
+                            api_key_ativa = st.secrets["GEMINI_API_KEY"]
+                            os.environ["GEMINI_API_KEY"] = api_key_ativa
+
+                        if not api_key_ativa:
+                            st.error("❌ A chave de API do Google Gemini não está ativa.")
+                        else:
+                            with st.spinner("🤖 O Gemini está analisando os itens e cadastrando as matérias-primas no banco..."):
+                                try:
+                                    import google.generativeai as genai
+                                    genai.configure(api_key=api_key_ativa)
+                                    model_vision = genai.GenerativeModel("models/gemini-flash-latest")
+                                    
+                                    img_pil = Image.open(arquivo_nf_cad)
+                                    
+                                    prompt_ocr_cad = """
+                                    Você é um auditor e almoxarife de gastronomia industrial.
+                                    Analise esta nota fiscal ou cupom e extraia os itens comprados.
+                                    Para cada item, infira a unidade de medida padrão gastronômica (ex: kg, un, l, ml, g, pct, fatias).
+                                    Retorne APENAS um array JSON válido no seguinte formato:
+                                    [
+                                      {"nome": "Nome do Insumo Limpo e Bonito", "unidade": "kg", "quantidade": 5.0, "valor_unitario": 12.50}
+                                    ]
+                                    Regras: Retorne EXCLUSIVAMENTE o JSON puro (sem ```json), sem textos extras. Quantidades e valores como números float.
+                                    """
+                                    
+                                    resp_cad = model_vision.generate_content([prompt_ocr_cad, img_pil])
+                                    texto_limpo_cad = resp_cad.text.strip().replace("```json", "").replace("```", "").strip()
+                                    itens_lidos = json.loads(texto_limpo_cad)
+                                    
+                                    db_cad = get_db()
+                                    novos_cadastrados = []
+                                    ja_existentes = []
+                                    
+                                    for item in itens_lidos:
+                                        nome_l = str(item.get("nome", "")).strip()
+                                        unidade_l = str(item.get("unidade", "un")).lower().strip()
+                                        qtd_l = float(item.get("quantidade", 0.0))
+                                        custo_l = float(item.get("valor_unitario", 0.0))
+                                        
+                                        if not nome_l or qtd_l <= 0:
+                                            continue
+                                            
+                                        ins_db = db_cad.query(Insumo).filter(Insumo.nome.ilike(f"%{nome_l}%")).first()
+                                        
+                                        if ins_db:
+                                            ins_db.saldo_atual += qtd_l
+                                            if custo_l > 0:
+                                                ins_db.custo_unitario = custo_l
+                                            ja_existentes.append({"Insumo": ins_db.nome, "Ação": f"Reabastecido (+{qtd_l} {ins_db.unidade_medida})", "Novo Custo": f"R$ {ins_db.custo_unitario:.2f}"})
+                                        else:
+                                            est_minimo_calc = max(1.0, round(qtd_l * 0.15, 1))
+                                            novo_i = Insumo(
+                                                nome=nome_l,
+                                                unidade_medida=unidade_l,
+                                                saldo_atual=qtd_l,
+                                                estoque_minimo=est_minimo_calc,
+                                                custo_unitario=custo_l
+                                            )
+                                            db_cad.add(novo_i)
+                                            novos_cadastrados.append({"Insumo Novo": nome_l, "Unidade": unidade_l, "Estoque Inicial": qtd_l, "Custo Unit.": f"R$ {custo_l:.2f}"})
+                                            
+                                    db_cad.commit()
+                                    recalcular_cmv_geral(db_cad)
+                                    db_cad.close()
+                                    
+                                    st.success("🎉 Processo finalizado! O estoque e o cardápio foram atualizados com sucesso!")
+                                    
+                                    if novos_cadastrados:
+                                        st.markdown("#### 🌟 Novos Insumos Cadastrados no Banco de Dados:")
+                                        st.dataframe(pd.DataFrame(novos_cadastrados), use_container_width=True, hide_index=True)
+                                        
+                                    if ja_existentes:
+                                        st.markdown("#### 🔄 Insumos que Já Existiam (Saldos e Custos Atualizados):")
+                                        st.dataframe(pd.DataFrame(ja_existentes), use_container_width=True, hide_index=True)
+                                        
+                                except Exception as e:
+                                    st.error(f"❌ Erro ao ler nota e cadastrar insumos: {e}")
+
+        st.markdown("---")
+        st.caption("E se precisar fazer algum ajuste pontual ou cadastrar algo sem nota fiscal, use o formulário manual abaixo:")
+        
         with st.form("form_novo_insumo"):
             nome_ins = st.text_input("Nome do Insumo", placeholder="Ex: Maionese Trufada, Carne Angus...")
             col_un, col_min, col_cust = st.columns(3)
@@ -630,7 +728,7 @@ with aba4:
                 custo_uni = st.number_input("Custo Unitário (R$)", min_value=0.0, value=1.00, step=0.10, format="%.2f")
             saldo_inicial = st.number_input("Saldo Inicial em Estoque", min_value=0.0, value=100.0, step=1.0)
 
-            btn_salvar_insumo = st.form_submit_button("💾 Salvar Novo Insumo", type="primary")
+            btn_salvar_insumo = st.form_submit_button("💾 Salvar Novo Insumo Manualmente", type="primary")
             if btn_salvar_insumo:
                 if not nome_ins:
                     st.error("⚠️ Informe o nome do insumo!")
