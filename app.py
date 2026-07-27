@@ -1,18 +1,13 @@
 import os
 import streamlit as st
 
-# Puxa a chave do cofre do Streamlit para o ambiente antes de tudo
+# Puxa a chave do cofre do Streamlit para o ambiente antes de qualquer importação
 if "GEMINI_API_KEY" in st.secrets:
     os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
-    from datetime import datetime, timedelta
+
+from datetime import datetime, timedelta
 import hashlib
 import json
-import os
-import streamlit as st
-
-# Puxa a chave do cofre do Streamlit para o ambiente do sistema
-if "GEMINI_API_KEY" in st.secrets:
-    os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
 from dotenv import load_dotenv
 import pandas as pd
 from PIL import Image
@@ -29,7 +24,6 @@ from sqlalchemy import (
     create_engine,
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
-import streamlit as st
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
@@ -254,16 +248,10 @@ criar_admin()
 
 # --- 3. CARREGAMENTO SEGURO DA CHAVE DE API (GEMINI) ---
 GENAI_DISPONIVEL = False
-api_key = None
-
-try:
-    if "GEMINI_API_KEY" in st.secrets:
-        api_key = st.secrets["GEMINI_API_KEY"]
-except Exception:
-    pass
-
-if not api_key:
-    api_key = os.getenv("GEMINI_API_KEY")
+api_key = os.getenv("GEMINI_API_KEY")
+if not api_key and hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
+    api_key = st.secrets["GEMINI_API_KEY"]
+    os.environ["GEMINI_API_KEY"] = api_key
 
 if api_key:
     try:
@@ -596,7 +584,7 @@ with aba3:
                 st.info("Nenhuma venda realizada hoje.")
 
 # ==============================================================================
-# ABA 4: ESTOQUE & FICHA TÉCNICA (COM LEITOR DE NOTA FISCAL POR I.A.)
+# ABA 4: ESTOQUE & FICHA TÉCNICA INDUSTRIAL
 # ==============================================================================
 with aba4:
     st.header("📦 Estoque de Insumos & Ficha Técnica Industrial")
@@ -710,137 +698,142 @@ with aba4:
                 dados_ft_lista = [{"Prato": f.produto.nome if f.produto else "-", "Insumo": f.insumo.nome if f.insumo else "-", "Consumo": f"{f.quantidade_utilizada} {f.insumo.unidade_medida if f.insumo else ''}"} for f in fichas_cadastradas]
                 st.dataframe(pd.DataFrame(dados_ft_lista), use_container_width=True, hide_index=True)
 
-    # --- SUB-ABA 4: LEITOR DE NOTA FISCAL VIA I.A. E BLINDagem DE LUCRO ---
+    # --- SUB-ABA 4: LEITOR DE NOTA FISCAL VIA I.A. E BLINDAGEM DE LUCRO ---
     with sub_aba4:
         st.subheader("🧾 Entrada Automática via Foto de Nota Fiscal (I.A. Vision)")
         st.write("Suba a foto da Nota Fiscal / Cupom do fornecedor. A inteligência artificial extrairá os itens, cruzará com o almoxarifado e recalculará o CMV de todos os pratos!")
 
-        col_up, col_vis = st.columns([1, 2])
-        with col_up:
-            arquivo_nf = st.file_uploader("📸 Tire uma foto ou suba o cupom fiscal (JPG/PNG)", type=["jpg", "jpeg", "png"])
-            btn_processar_nf = st.button("🚀 Ler Nota com Inteligência Artificial", type="primary", use_container_width=True)
+        arquivo_nf = st.file_uploader("📸 Envie a foto da Nota Fiscal ou Cupom (JPG, PNG)", type=["jpg", "jpeg", "png"], key="uploader_nf_almoxarifado")
 
         if arquivo_nf:
-            with col_vis:
-                st.image(arquivo_nf, caption="Nota Fiscal Carregada", width=300)
-
-        if btn_processar_nf:
-            if not arquivo_nf:
-                st.error("⚠️ Por favor, suba uma imagem da Nota Fiscal primeiro!")
-            elif not GENAI_DISPONIVEL:
-                st.error("❌ A chave de API do Google Gemini precisa estar ativa para usar a Visão Computacional!")
-            else:
-                with st.spinner("🤖 O Google Gemini está analisando os itens e preços na nota fiscal..."):
-                    try:
-                        img_pil = Image.open(arquivo_nf)
-                        model_vision = genai.GenerativeModel("gemini-1.5-flash")
-                        
-                        prompt_ocr = """
-                        Você é um auditor de estoque de restaurante. Analise a foto desta nota fiscal ou cupom.
-                        Extraia os itens de mercadoria/alimentos comprados e retorne APENAS um bloco JSON no seguinte formato:
-                        [
-                          {"item": "Nome do produto na nota", "qtd": 10.0, "unidade": "kg", "preco_unitario": 35.00}
-                        ]
-                        Ajuste as unidades para 'un', 'kg', 'g', 'fatias' ou 'litros' conforme o padrão gastronômico. 
-                        NÃO escreva nada antes ou depois do JSON. Retorne apenas o JSON puro.
-                        """
-                        
-                        resposta_ocr = model_vision.generate_content([prompt_ocr, img_pil])
-                        
-                        if resposta_ocr and resposta_ocr.text:
-                            # Limpeza de formatação markdown caso a IA retorne com ```json
-                            texto_limpo = resposta_ocr.text.replace("```json", "").replace("```", "").strip()
-                            itens_extraidos = json.loads(texto_limpo)
-                            st.session_state["nf_itens_pendentes"] = itens_extraidos
-                            st.success("✅ Nota Fiscal lida com sucesso! Confira os dados abaixo antes de integrar:")
-                    except Exception as e:
-                        st.error(f"❌ Erro ao processar imagem com a IA: {e}")
-
-        # Se houver itens lidos aguardando confirmação no cache da tela
-        if "nf_itens_pendentes" in st.session_state and st.session_state["nf_itens_pendentes"]:
-            st.markdown("---")
-            st.subheader("🕵️ Conciliação e Cruzamento com o Banco de Dados")
+            col_img, col_status = st.columns([1, 2])
             
-            insumos_banco = db_estoque.query(Insumo).all()
-            opcoes_insumos = {i.nome: i for i in insumos_banco}
-            nomes_opcoes = ["-- Ignorar / Novo Item --"] + list(opcoes_insumos.keys())
-
-            itens_para_integrar = []
+            with col_img:
+                st.image(arquivo_nf, caption="Nota Fiscal / Cupom Carregado", use_container_width=True)
             
-            with st.form("form_conciliacao_nf"):
-                for index, item_nf in enumerate(st.session_state["nf_itens_pendentes"]):
-                    st.markdown(f"**Item lido pela IA:** `{item_nf.get('item')}` | Qtd: **{item_nf.get('qtd')} {item_nf.get('unidade')}** | Preço Unit.: **R$ {item_nf.get('preco_unitario', 0.0):.2f}**")
-                    
-                    # Tentativa simples de match de nome
-                    match_padrao = 0
-                    for idx_op, nome_banco in enumerate(nomes_opcoes):
-                        if any(palavra.lower() in nome_banco.lower() for palavra in str(item_nf.get('item')).split() if len(palavra) > 3):
-                            match_padrao = idx_op
-                            break
-                    
-                    c1, c2, c3 = st.columns([2, 1, 1])
-                    with c1:
-                        vinc_ins = st.selectbox("Vincular ao Insumo do Estoque:", nomes_opcoes, index=match_padrao, key=f"sel_nf_{index}")
-                    with c2:
-                        qtd_final = st.number_input("Quantidade de Entrada", value=float(item_nf.get("qtd", 0.0)), step=1.0, key=f"qtd_nf_{index}")
-                    with c3:
-                        custo_final = st.number_input("Novo Custo Unitário (R$)", value=float(item_nf.get("preco_unitario", 0.0)), step=0.10, format="%.2f", key=f"custo_nf_{index}")
-                    
-                    if vinc_ins != "-- Ignorar / Novo Item --":
-                        itens_para_integrar.append({
-                            "insumo_id": opcoes_insumos[vinc_ins].id,
-                            "qtd": qtd_final,
-                            "novo_custo": custo_final
-                        })
-                    st.divider()
+            with col_status:
+                st.info("💡 **Automação Inteligente:** O Gemini analisará os itens comprados, atualizará os saldos e custos unitários, e chamará o `recalcular_cmv_geral` para blindar a margem dos seus pratos.")
+                btn_processar_nf = st.button("🚀 Ler Cupom e Atualizar Estoque em Tempo Real", type="primary", use_container_width=True)
 
-                btn_confirmar_nf = st.form_submit_button("📦 Confirmar Entrada & Recalcular CMV do Cardápio", type="primary", use_container_width=True)
+                if btn_processar_nf:
+                    api_key_ativa = os.environ.get("GEMINI_API_KEY")
+                    if not api_key_ativa and hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
+                        api_key_ativa = st.secrets["GEMINI_API_KEY"]
+                        os.environ["GEMINI_API_KEY"] = api_key_ativa
 
-            if btn_confirmar_nf:
-                if not itens_para_integrar:
-                    st.warning("Nenhum item foi vinculado ao almoxarifado para integração.")
-                else:
-                    try:
-                        for integracao in itens_para_integrar:
-                            ins_atual = db_estoque.query(Insumo).filter(Insumo.id == integracao["insumo_id"]).first()
-                            if ins_atual:
-                                ins_atual.saldo_atual += integracao["qtd"]
-                                ins_atual.custo_unitario = integracao["novo_custo"]
-                        
-                        db_estoque.commit()
-                        
-                        # --- DISPARA O EFEITO DOMINÓ NO CMV DE TODOS OS PRATOS ---
-                        recalcular_cmv_geral(db_estoque)
-                        
-                        del st.session_state["nf_itens_pendentes"]
-                        st.success("🎉 Estoque reabastecido e preços unitários atualizados! O CMV de todos os pratos foi reajustado automaticamente no cardápio.")
-                        st.rerun()
-                    except Exception as e:
-                        db_estoque.rollback()
-                        st.error(f"❌ Erro ao integrar nota ao banco de dados: {e}")
+                    if not api_key_ativa:
+                        st.error("❌ A chave de API do Google Gemini não está ativa ou não foi encontrada nas configurações do sistema.")
+                    else:
+                        with st.spinner("🤖 O Google Gemini está lendo itens, quantidades e novos preços da nota fiscal..."):
+                            try:
+                                import google.generativeai as genai
+                                genai.configure(api_key=api_key_ativa)
+                                model_vision = genai.GenerativeModel("gemini-1.5-flash")
+                                
+                                img_pil = Image.open(arquivo_nf)
+                                
+                                prompt_ocr = """
+                                Você é um auditor de estoque e custos para uma gastronomia industrial.
+                                Analise a imagem desta nota fiscal ou cupom fiscal de compra de insumos.
+                                Extraia os itens alimentícios ou de embalagem comprados e retorne APENAS um array JSON válido no seguinte formato:
+                                [
+                                  {"nome": "Nome do Insumo", "quantidade": 10.0, "valor_unitario": 5.50}
+                                ]
+                                Regras estritas:
+                                1. Retorne EXCLUSIVAMENTE o texto JSON, sem formatação markdown (sem ```json), sem explicações.
+                                2. O campo "quantidade" e "valor_unitario" devem ser números float (com ponto).
+                                """
+                                
+                                response_ocr = model_vision.generate_content([prompt_ocr, img_pil])
+                                
+                                texto_limpo = response_ocr.text.strip().replace("```json", "").replace("```", "").strip()
+                                itens_extraidos = json.loads(texto_limpo)
+                                
+                                db_in = get_db()
+                                itens_atualizados = []
+                                itens_nao_encontrados = []
+                                
+                                for item in itens_extraidos:
+                                    nome_lido = str(item.get("nome", "")).strip()
+                                    qtd_lida = float(item.get("quantidade", 0.0))
+                                    custo_lido = float(item.get("valor_unitario", 0.0))
+                                    
+                                    if not nome_lido or qtd_lida <= 0:
+                                        continue
+
+                                    insumo_db = db_in.query(Insumo).filter(Insumo.nome.ilike(f"%{nome_lido}%")).first()
+                                    
+                                    if insumo_db:
+                                        insumo_db.saldo_atual += qtd_lida
+                                        if custo_lido > 0:
+                                            insumo_db.custo_unitario = custo_lido
+                                        
+                                        itens_atualizados.append({
+                                            "Insumo no ERP": insumo_db.nome,
+                                            "Qtd Entrada": f"+{qtd_lida} {insumo_db.unidade_medida}",
+                                            "Novo Custo Unit.": f"R$ {insumo_db.custo_unitario:.2f}"
+                                        })
+                                    else:
+                                        itens_nao_encontrados.append({
+                                            "Item Lido na NF": nome_lido,
+                                            "Qtd": qtd_lida,
+                                            "Custo Lido": f"R$ {custo_lido:.2f}"
+                                        })
+                                
+                                db_in.commit()
+                                recalcular_cmv_geral(db_in)
+                                db_in.close()
+                                
+                                st.success("🎉 Entrada de estoque finalizada e CMV do cardápio atualizado com sucesso!")
+                                
+                                if itens_atualizados:
+                                    st.markdown("#### 🟢 Insumos Identificados e Estoque Atualizado:")
+                                    st.dataframe(pd.DataFrame(itens_atualizados), use_container_width=True, hide_index=True)
+                                
+                                if itens_nao_encontrados:
+                                    st.warning("⚠️ Os itens abaixo foram lidos na nota, mas não correspondem exatamente a nenhum insumo cadastrado na **Sub-aba 2**:")
+                                    st.dataframe(pd.DataFrame(itens_nao_encontrados), use_container_width=True, hide_index=True)
+                                    st.caption("Dica: Cadastre esses itens com nomes similares na Sub-aba 2 para que a I.A. faça o vínculo automático nas próximas compras.")
+                                    
+                            except json.JSONDecodeError:
+                                st.error("❌ Erro ao interpretar os dados da I.A. A imagem pode estar muito embaçada ou não é um cupom fiscal válido.")
+                            except Exception as e:
+                                st.error(f"❌ Erro ao processar a nota fiscal: {e}")
 
 # ==============================================================================
-# ABA 5: DASHBOARD FINANCEIRO & BI
+# ABA 5: DASHBOARD FINANCEIRO & MÉTRICAS
 # ==============================================================================
 with aba5:
-    st.header("📊 Dashboard Financeiro & BI Gastronômico")
-    db = get_db()
-    todas_vendas = db.query(Venda).all()
+    st.header("📊 Dashboard Financeiro & Indicadores de Desempenho")
+    st.write("Acompanhe o faturamento total, CMV real, lucro bruto e margem operacional do seu negócio.")
 
-    if not todas_vendas:
-        st.info("Realize vendas na Aba 3 para visualizar os indicadores.")
+    db_dash = get_db()
+    todas_vendas = db_dash.query(Venda).all()
+
+    faturamento_total = sum(v.valor_total for v in todas_vendas)
+    custo_total_vendas = sum(v.custo_total for v in todas_vendas)
+    lucro_bruto = faturamento_total - custo_total_vendas
+    margem_geral = (lucro_bruto / faturamento_total * 100) if faturamento_total > 0 else 0.0
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("💰 Faturamento Total", f"R$ {faturamento_total:.2f}")
+    m2.metric("📉 CMV Total Produtos", f"R$ {custo_total_vendas:.2f}")
+    m3.metric("💵 Lucro Bruto", f"R$ {lucro_bruto:.2f}")
+    m4.metric("📈 Margem de Lucro Média", f"{margem_geral:.1f}%")
+
+    st.markdown("---")
+    st.subheader("📈 Histórico Completo de Vendas")
+    if todas_vendas:
+        df_dash_vendas = pd.DataFrame([
+            {
+                "Data/Hora": v.data_venda.strftime("%d/%m/%Y %H:%M"),
+                "Cliente": v.cliente.nome if v.cliente else "Consumidor Final",
+                "Produto": v.produto.nome if v.produto else "Item",
+                "Qtd": v.quantidade,
+                "Valor Total (R$)": f"R$ {v.valor_total:.2f}",
+                "CMV (R$)": f"R$ {v.custo_total:.2f}"
+            } for v in todas_vendas
+        ])
+        st.dataframe(df_dash_vendas, use_container_width=True, hide_index=True)
     else:
-        fat = sum(v.valor_total for v in todas_vendas)
-        cmv = sum(v.custo_total for v in todas_vendas)
-        lucro = fat - cmv
-        margem = (lucro / fat * 100) if fat > 0 else 0.0
-
-        k1, k2, k3, k4 = st.columns(4)
-        k1.metric("💵 Faturamento", f"R$ {fat:,.2f}")
-        k2.metric("📉 CMV Total", f"R$ {cmv:,.2f}")
-        k3.metric("📈 Lucro Bruto", f"R$ {lucro:,.2f}")
-        k4.metric("📊 Margem Geral", f"{margem:.1f}%")
-
-        st.markdown("---")
-        df_g = pd.DataFrame([{"Produto": v.produto.nome if v.produto else "Item", "Total": v.valor_total} for v in todas_vendas])
-        st.bar_chart(df_g.groupby("Produto")["Total"].sum().reset_index(), x="Produto", y="Total", use_container_width=True)
+        st.info("Nenhuma venda registrada no sistema para gerar o relatório financeiro.")
