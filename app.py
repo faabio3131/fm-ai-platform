@@ -1121,7 +1121,22 @@ with aba6:
             height=130,
             key="msg_bot"
         )
-
+# Estilo para deixar o botão da Mica em destaque vermelho
+    st.markdown("""
+        <style>
+        div.stButton > button:first-child {
+            background-color: #ff4b4b;
+            color: white;
+            font-weight: bold;
+            border-radius: 8px;
+            border: none;
+        }
+        div.stButton > button:first-child:hover {
+            background-color: #ff2b2b;
+            color: white;
+        }
+        </style>
+    """, unsafe_allow_html=True)
     btn_acionar_mica = st.button("🚀 Processar Pedido & Atendimento com a Mica I.A.", use_container_width=True)
 
 if btn_acionar_mica:
