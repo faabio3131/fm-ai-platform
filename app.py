@@ -1141,7 +1141,7 @@ with aba6:
                     st.warning(f"⚠️ Aviso de Cota da I.A. ({e_ia}). Ativando modo de Atendimento Comercial Automático de Segurança.")
                     dados_pedido_mica = {
                         "cliente_nome": "Cliente WhatsApp",
-                        "itens": [{"nome_produto": "Mica Royal Truffle Bacon", "quantidade": 1}],
+                        "itens": [{"nome_produto": "Mica Smash Cheddar Duplo", "quantidade": 1}],
                         "resposta_whatsapp": "Olá! Aqui é a Mica da Mica Burguer! Seu pedido foi anotado com sucesso e já encaminhei para a nossa cozinha caprichar. Segue abaixo o Pix Copia e Cola para pagamento. Bom apetite! 🍔✨"
                     }
 
