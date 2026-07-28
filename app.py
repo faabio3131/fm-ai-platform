@@ -1137,12 +1137,28 @@ with aba6:
                     dados_pedido_mica = json.loads(texto_mica_limpo)
 
                 except Exception as e_ia:
-                    # FALLBACK INTELIGENTE SE A COTA ESTOURAR (Erro 429)
+                    # FALLBACK INTELIGENTE SE A COTA ESTOURAR (Erro 429) - Lê a mensagem do cliente!
                     st.warning(f"⚠️ Aviso de Cota da I.A. ({e_ia}). Ativando modo de Atendimento Comercial Automático de Segurança.")
+                    
+                    msg_lower = mensagem_cliente_bot.lower() if 'mensagem_cliente_bot' in locals() and mensagem_cliente_bot else ""
+                    
+                    if "credito" in msg_lower or "crédito" in msg_lower or "cartao" in msg_lower or "cartão" in msg_lower:
+                        forma_pag_texto = "Cartão de Crédito"
+                        texto_pagamento_msg = "💳 Pedido anotado! O entregador levará a maquininha de cartão até você."
+                        mostrar_pix_codigo = False
+                    elif "dinheiro" in msg_lower:
+                        forma_pag_texto = "Dinheiro"
+                        texto_pagamento_msg = "💵 Pedido anotado! Separaremos o troco necessário para a entrega."
+                        mostrar_pix_codigo = False
+                    else:
+                        forma_pag_texto = "Pix (Mica Bot WhatsApp)"
+                        texto_pagamento_msg = "Segue abaixo o Pix Copia e Cola para pagamento."
+                        mostrar_pix_codigo = True
+
                     dados_pedido_mica = {
                         "cliente_nome": "Cliente WhatsApp",
                         "itens": [{"nome_produto": "Mica Smash Cheddar Duplo", "quantidade": 1}],
-                        "resposta_whatsapp": "Olá! Aqui é a Mica da Mica Burguer! Seu pedido foi anotado com sucesso e já encaminhei para a nossa cozinha caprichar. Segue abaixo o Pix Copia e Cola para pagamento. Bom apetite! 🍔✨"
+                        "resposta_whatsapp": f"Olá! Aqui é a Mica da Mica Burguer! Seu pedido foi anotado com sucesso e já encaminhei para a nossa cozinha caprichar. {texto_pagamento_msg} Bom apetite! 🍔✨"
                     }
 
                 # Bloco de processamento e exibição do pedido e Pix
