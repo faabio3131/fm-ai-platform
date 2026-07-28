@@ -110,7 +110,13 @@ class Venda(Base):
 
     produto = relationship("Produto")
     cliente = relationship("Cliente")
-
+class GatewayConfig(Base):
+    __tablename__ = 'gateway_config'
+    id = Column(Integer, primary_key=True)
+    gateway_provider = Column(String(50), default="Mercado Pago")
+    gateway_api_key = Column(String(255), nullable=True)
+    gateway_pix_key = Column(String(100), nullable=True)
+    ambiente = Column(String(20), default="Sandbox")
 
 class ConfiguracaoMeta(Base):
     __tablename__ = "configuracoes_meta"
@@ -1071,14 +1077,15 @@ with aba5:
 # ==============================================================================
 # ABA 6: BOT CLIENTE (ASSISTENTE VIRTUAL "MICA I.A.") COM PIX E UPSELL INTELIGENTE
 # ==============================================================================
+
+    
 with aba6:
     st.header("💬 Bot Cliente (Mica I.A.) - Simulador Omnichannel WhatsApp")
     st.markdown("Simule o atendimento ao cliente via WhatsApp. A **Mica I.A.** entende texto, áudio e fotos, faz cross-selling dinâmico (upsell) e gera cobrança Pix nativa com baixa automática de estoque.")
     
-    # Carregamento do cardápio disponível para a I.A.
     db_bot = get_db()
     try:
-        produtos_bot = db_bot.query(Produto).filter(Produto.disponivel == True).all()
+        produtos_bot = db_bot.query(Produto).all()
         if produtos_bot:
             lista_menu = [f"- {p.nome}: R$ {p.preco_venda:.2f} ({p.categoria})" for p in produtos_bot]
             menu_disponivel_bot = "\n".join(lista_menu)
@@ -1145,6 +1152,86 @@ with aba6:
                         inputs_mica.append(Image.open(foto_pedido_bot))
 
                     resp_mica = model_mica.generate_content(inputs_mica)
-                    texto_mica_limpo = resp_mica.text.strip().replace("```json", "")
+                    texto_mica_limpo = resp_mica.text.strip().replace("```json", "").replace("```", "").strip()
+                    dados_pedido_mica = json.loads(texto_mica_limpo)
+
+                    st.success("✅ Atendimento comercial finalizado com sucesso pela Mica I.A.!")
+                    
+                    with st.container(border=True):
+                        st.markdown("🤖 **Resposta Automática enviada pela Mica ao Cliente:**")
+                        st.write(f"*{dados_pedido_mica.get('resposta_whatsapp')}*")
+                        
+                        itens_comprados_mica = dados_pedido_mica.get("itens", [])
+                        if itens_comprados_mica:
+                            st.markdown("---")
+                            st.markdown("### 📱 Gateway de Pagamento — Pix Copia e Cola Gerado pela Mica:")
+                            
+                            db_gtw_bot = get_db()
+                            try:
+                                config_gtw_bot = db_gtw_bot.query(GatewayConfig).first()
+                                if config_gtw_bot and config_gtw_bot.gateway_api_key and config_gtw_bot.gateway_pix_key:
+                                    st.success(f"🟢 **Pix Oficial ({config_gtw_bot.gateway_provider}):** Chave ligada à conta PJ da empresa!")
+                                    st.code(f"00020126580014br.gov.bcb.pix0136{config_gtw_bot.gateway_pix_key}520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", language="text")
+                                else:
+                                    st.warning("🟡 **Pix Simulado (Treinamento):** Configure o Gateway na Aba 3 para gerar cobranças reais.")
+                                    st.code("00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-426614174000520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", language="text")
+                            finally:
+                                db_gtw_bot.close()
+
+                    db_exec_mica = get_db()
+                    try:
+                        cli_db_mica = db_exec_mica.query(Cliente).filter(Cliente.whatsapp == telefone_cliente_bot).first()
+                        if not cli_db_mica:
+                            cli_db_mica = Cliente(nome="Cliente WhatsApp (Mica)", whatsapp=telefone_cliente_bot, status="Ativo", saldo_cashback=0.0)
+                            db_exec_mica.add(cli_db_mica)
+                            db_exec_mica.commit()
+
+                        total_geral_mica = 0.0
+                        if itens_comprados_mica:
+                            for item_m in itens_comprados_mica:
+                                nome_p_mica = item_m.get("nome_produto")
+                                qtd_p_mica = int(item_m.get("quantidade", 1))
+
+                                prod_db_m = db_exec_mica.query(Produto).filter(Produto.nome.ilike(f"%{nome_p_mica}%")).first()
+                                if prod_db_m:
+                                    vlr_tot_m = prod_db_m.preco_venda * qtd_p_mica
+                                    total_geral_mica += vlr_tot_m
+                                    custo_tot_m = (prod_db_m.custo_total_cmv or 0.0) * qtd_p_mica
+
+                                    db_exec_mica.add(Venda(
+                                        produto_id=prod_db_m.id,
+                                        cliente_id=cli_db_mica.id,
+                                        quantidade=qtd_p_mica,
+                                        valor_total=vlr_tot_m,
+                                        custo_total=custo_tot_m,
+                                        forma_pagamento="Pix (Mica Bot WhatsApp)",
+                                        status_pagamento="Aprovado",
+                                        data_venda=datetime.now()
+                                    ))
+
+                                    for ft_m in db_exec_mica.query(FichaTecnica).filter(FichaTecnica.produto_id == prod_db_m.id).all():
+                                        ins_almo_m = db_exec_mica.query(Insumo).filter(Insumo.id == ft_m.insumo_id).first()
+                                        if ins_almo_m:
+                                            ins_almo_m.saldo_atual -= (ft_m.quantidade_utilizada * qtd_p_mica)
+
+                            cli_update_m = db_exec_mica.query(Cliente).filter(Cliente.id == cli_db_mica.id).first()
+                            if cli_update_m and total_geral_mica > 0:
+                                cli_update_m.total_gasto += total_geral_mica
+                                cli_update_m.ultima_compra = datetime.now()
+                                cli_update_m.status = "Ativo"
+                                
+                                cb_ganho_mica = round(total_geral_mica * 0.05, 2)
+                                cli_update_m.saldo_cashback += cb_ganho_mica
+
+                            db_exec_mica.commit()
+                            st.success(f"🎉 Pedido finalizado via Bot! Venda integrada na Frente de Caixa, estoque baixado e **R$ {round(total_geral_mica * 0.05, 2):.2f}** de cashback (5%) adicionados ao saldo de fidelidade do cliente!")
+                        else:
+                            st.warning("⚠️ Nenhum item correspondente ao cardápio foi identificado para registrar a venda e baixar o almoxarifado.")
+                    except Exception as e_db:
+                        db_exec_mica.rollback()
+                        st.error(f"Erro na integração com o banco de dados e PDV: {e_db}")
+                    finally:
+                        db_exec_mica.close()
+
                 except Exception as e:
-                    st.error(f"Erro ao processar pedido: {str(e)}")
+                    st.error(f"❌ Erro ao processar o atendimento comercial com a assistente Mica: {e}")
