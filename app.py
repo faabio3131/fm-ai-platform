@@ -1107,29 +1107,23 @@ with aba6:
             menu_disponivel_bot = "Nenhum produto cadastrado ou disponível no momento."
     finally:
         db_bot.close()
+    col_bot_1, col_bot_2 = st.columns(2)
 
-    col_bot_1, col_bot_2 = st.columns([1, 2])
     with col_bot_1:
         st.subheader("📱 Dados do Cliente")
-        telefone_cliente_bot = st.text_input("📱 WhatsApp do Cliente", value="5511999991111", key="tel_bot")
-        foto_pedido_bot = st.file_uploader("📸 Foto de referência ou áudio (Opcional - Multimodal)", type=["jpg", "png", "jpeg"], key="foto_bot")
-    
+        telefone_cliente_bot = st.text_input("📱 WhatsApp do Cliente", value="5511999995432", key="tel_bot")
+        foto_pedido_bot = st.file_uploader("📸 Foto de referência ou áudio (Opcional - Multimodal)", type=["jpg", "png"])
+
     with col_bot_2:
         st.subheader("💬 Mensagem do Cliente")
-    mensagem_cliente_bot = st.text_area(
-        "Digite o que o cliente enviou no WhatsApp:",
-        height=130,
-        key="msg_bot"
-    )
+        mensagem_cliente_bot = st.text_area(
+            "Digite o que o cliente enviou no WhatsApp:",
+            height=130,
+            key="msg_bot"
+        )
 
-btn_acionar_mica = st.button("🚀 Processar Pedido & Atendimento com a Mica I.A.", use_container_width=True)
+    btn_acionar_mica = st.button("🚀 Processar Pedido & Atendimento com a Mica I.A.", use_container_width=True)
 
-if btn_acionar_mica:
-    if not telefone_cliente_bot or not mensagem_cliente_bot:
-        st.error("⚠️ Por favor, informe o WhatsApp do cliente e digite a mensagem do pedido!")
-    else:
-        mostrar_pix_codigo = True
-        forma_pag_texto = "Pix (Mica Bot WhatsApp)"
 if btn_acionar_mica:
     if not telefone_cliente_bot or not mensagem_cliente_bot:
         st.error("⚠️ Por favor, informe o WhatsApp do cliente e digite a mensagem do pedido!")
