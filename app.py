@@ -667,20 +667,33 @@ with aba3:
                 
                 forma_pag_pdv = st.selectbox("💳 Forma de Pagamento", ["Pix (Gerar QR Code Instantâneo)", "Cartão de Crédito", "Cartão de Débito", "Dinheiro Em Espécie"])
 
-        # --- CAIXA DE UPSELL DA I.A. ---
+        # --- CAIXA DE UPSELL E CROSS-SELL INTELIGENTE DA I.A. ---
         with st.container(border=True):
-            st.markdown("💡 **Sugestão de Upsell para o Operador do Caixa:**")
-            sugestao_upsell = "Ofereça adicionar **Bacon Crocante em Tiras** ou **Queijo Cheddar Extra** por apenas +R$ 6,00!"
+            st.markdown("💡 **Sugestão Inteligente de Upsell para o Operador falar no Balcão:**")
+            sugestao_upsell = f"Para acompanhar o **{prod_pdv.nome}**, ofereça adicionar **Batata Frita Crocante** e um **Refrigerante bem gelado**, ou turbine com **Bacon em Tiras** por +R$ 6,00!"
+            
             if GENAI_DISPONIVEL and prod_pdv:
                 try:
                     model_up = genai.GenerativeModel("models/gemini-flash-latest")
-                    prompt_up = f"Atuo como caixa em uma hamburgueria gourmet. O cliente está comprando o prato '{prod_pdv.nome}'. Dê uma sugestão comercial rápida de 1 frase para eu oferecer um adicional ou acompanhamento com alta margem de lucro."
+                    prompt_up = f"""
+                    Você é um treinador de vendas de elite para atendentes de caixa de uma hamburgueria gourmet.
+                    O operador de caixa acabou de selecionar o item: '{prod_pdv.nome}' (Categoria: {prod_pdv.categoria}) para o cliente no PDV.
+                    
+                    🎯 REGRA DE OURO DO UPSELL INTELIGENTE NO BALCÃO:
+                    Analise o item selecionado e gere UMA FRASE CURTA, carismática e irresistível para o operador falar EM VOZ ALTA para o cliente, oferecendo exatamente o que FALTA para completar a experiência:
+                    - Se for um Hambúrguer/Lanche: Sugira acompanhar com uma porção de Batata Frita crocante e uma Bebida gelada, ou turbinar o lanche com Bacon Crocante / Queijo Cheddar Extra por apenas +R$ 6,00.
+                    - Se for um Combo: Sugira uma de nossas Sobremesas artesanais para fechar com chave de ouro ou uma porção extra de maionese trufada.
+                    - Se for uma Porção / Entrada: Sugira uma Bebida bem gelada ou um de nossos Burgers Smash para a refeição principal.
+                    - Se for Bebida ou Sobremesa: Sugira um lanche rápido ou porção para acompanhar.
+                    
+                    Retorne APENAS a frase recomendada para o operador falar, entre aspas, pronta para ser lida no atendimento. Sem textos extras.
+                    """
                     resp_up = model_up.generate_content(prompt_up)
                     if resp_up and resp_up.text:
                         sugestao_upsell = resp_up.text.strip()
                 except Exception:
                     pass
-            st.info(f"🤖 *\"{sugestao_upsell}\"*")
+            st.info(f"🤖 *{sugestao_upsell}*")
 
         # --- SIMULADOR / RECEBEDOR DE GATEWAY PIX ---
         if forma_pag_pdv.startswith("Pix"):
@@ -1061,11 +1074,11 @@ with aba5:
 
 
 # ==============================================================================
-# ABA 6: BOT CLIENTE (ASSISTENTE VIRTUAL "MICA I.A.") COM PIX E CASHBACK
+# ABA 6: BOT CLIENTE (ASSISTENTE VIRTUAL "MICA I.A.") COM PIX E UPSELL INTELIGENTE
 # ==============================================================================
 with aba6:
     st.header("💬 Atendimento, Pedidos & Pix com Assistente Virtual (Mica I.A.)")
-    st.write("Simule o canal próprio de atendimento via WhatsApp da hamburgueria. A assistente **Mica** interpreta mensagens de texto, áudios transcritos ou fotos, valida o cardápio, gera Pix, acarreta 5% de cashback e integra direto na Frente de Caixa.")
+    st.write("Simule o canal próprio de atendimento via WhatsApp da hamburgueria. A assistente **Mica** interpreta mensagens de texto, áudios transcritos ou fotos, valida o cardápio, gera Pix, acarreta 5% de cashback e faz venda cruzada dinâmica!")
 
     db_bot = get_db()
     produtos_cardapio_bot = db_bot.query(Produto).all()
@@ -1082,7 +1095,7 @@ with aba6:
             telefone_cliente_bot = st.text_input("📱 WhatsApp do Cliente", placeholder="Ex: 5511988887777", value="5511999991111")
             mensagem_cliente_bot = st.text_area(
                 "💬 Mensagem do Cliente (ou pedido por áudio/texto)",
-                placeholder="Ex: Oi Mica! Queria pedir 2 Mica Royal Truffle Bacon com entrega rápida por favor e pagar no Pix!",
+                placeholder="Ex: Oi Mica! Quero pedir 1 Mica Smash Cheddar Duplo para entrega e pagar no Pix!",
                 height=130
             )
             foto_pedido_bot = st.file_uploader("📸 Foto de referência de lanche enviada pelo cliente (Opcional - Multimodal)", type=["jpg", "jpeg", "png"], key="uploader_cliente_bot_mica")
@@ -1108,13 +1121,23 @@ with aba6:
                         O cliente enviou a seguinte mensagem no WhatsApp: "{mensagem_cliente_bot}"
                         
                         Analise a mensagem e identifique qual(is) produto(s) do cardápio o cliente deseja pedir e a quantidade exata.
+                        
+                        🎯 REGRA DE OURO DO UPSELL INTELIGENTE (CROSS-SELL DINÂMICO):
+                        Análise estrategicamente os itens que o cliente escolheu e cruze com o cardápio para oferecer o complemento perfeito que FALTA no pedido dele:
+                        - Se ele pediu APENAS hambúrguer: Ofereça ativamente uma Bebida bem gelada, uma porção de Batata Frita ou um adicional gourmet (+R$ 6,00 por Bacon Crocante ou Queijo Cheddar Extra).
+                        - Se ele já pediu Hambúrguer + Batata: Ofereça ativamente uma Bebida gelada (Refrigerante, Suco ou Shake).
+                        - Se ele já pediu Hambúrguer + Bebida: Ofereça uma porção de Batata Frita ou um adicional no lanche (+R$ 6,00).
+                        - Se ele já pediu o combo completo: Ofereça uma Sobremesa ou mais um adicional para turbinar o lanche.
+                        
+                        A sua sugestão de upsell deve ser curta, extremamente apetitosa, natural e estar embutida de forma persuasiva no texto de 'resposta_whatsapp', antes de confirmar o total exato e informar sobre o Pix.
+                        
                         Retorne APENAS um objeto JSON válido (sem markdown, sem blocos de código e sem textos adicionais) estruturado exatamente assim:
                         {{
                           "cliente_nome": "Cliente WhatsApp",
                           "itens": [
                             {{"nome_produto": "Nome exato do prato no cardápio", "quantidade": 1}}
                           ],
-                          "resposta_whatsapp": "Mensagem simpática, carinhosa e profissional da Mica confirmando o pedido, informando o valor total exato e informando que a chave Pix foi gerada abaixo."
+                          "resposta_whatsapp": "Mensagem simpática, carinhosa e vendedora da Mica confirmando o pedido, fazendo a OFERTA INTELIGENTE DE UPSELL e informando que a chave Pix foi gerada abaixo."
                         }}
                         Se o cliente apenas tirou dúvidas ou não mencionou itens válidos, retorne o campo 'itens' como uma lista vazia [].
                         """
