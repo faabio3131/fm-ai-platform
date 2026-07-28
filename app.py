@@ -1115,7 +1115,7 @@ with aba6:
         else:
             with st.spinner("🤖 A assistente virtual Mica está interpretando a mensagem, calculando o pedido e gerando o Pix..."):
                 try:
-                    model_mica = genai.GenerativeModel("gemini-1.5-flash")
+                    model_mica = genai.GenerativeModel("gemini-1.5-pro")
                     
                     prompt_mica = f"""
                     Você é a 'Mica', assistente virtual e inteligência comercial via WhatsApp da hamburgueria gourmet Mica Burguer & Restaurante.
