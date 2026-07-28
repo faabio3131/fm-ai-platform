@@ -444,14 +444,13 @@ with aba1:
             if GENAI_DISPONIVEL:
                 with st.spinner("🤖 A Inteligência Artificial está escrevendo a legenda publicitária gourmet..."):
                     try:
-                        model_text = genai.GenerativeModel("models/gemini-flash-latest")
-                        prompt_texto = f"Escreva uma descrição publicitária curta, altamente persuasiva, gourmet e apetitosa para um cardápio de restaurante para o prato: '{nome_prato}'. Ingredientes informados pelo chef: {ingredientes_base}. Sem hashtags, tom elegante e vendedor."
+                        model_text = genai.GenerativeModel("models/gemini-1.5-flash")
+                        prompt_texto = f"Escreva uma descrição publicitária curta, altamente persuasiva, gourmet e apetitosa para o prato {nome_prato}, usando ingredientes como {ingredientes_base}."
                         resp_texto = model_text.generate_content(prompt_texto)
                         if resp_texto and resp_texto.text:
                             desc_gerada = resp_texto.text.strip()
                     except Exception as e:
                         st.warning(f"Aviso I.A.: Não foi possível gerar texto avançado ({e}). Usando descrição padrão.")
-
             try:
                 novo_produto = Produto(
                     nome=nome_prato,
