@@ -720,7 +720,6 @@ with aba3:
         if st.button("🚀 Confirmar Pagamento & Finalizar Venda", type="primary", use_container_width=True):
             db_exec_venda = get_db()
             try:
-                # 1. Registro do histórico da venda
                 nova_venda = Venda(
                     produto_id=prod_pdv.id,
                     cliente_id=cliente_pdv.id if cliente_pdv else None,
@@ -733,14 +732,12 @@ with aba3:
                 )
                 db_exec_venda.add(nova_venda)
 
-                # 2. Baixa de estoque baseada em Ficha Técnica
                 fichas_venda = db_exec_venda.query(FichaTecnica).filter(FichaTecnica.produto_id == prod_pdv.id).all()
                 for ft in fichas_venda:
                     insumo_almo = db_exec_venda.query(Insumo).filter(Insumo.id == ft.insumo_id).first()
                     if insumo_almo:
                         insumo_almo.saldo_atual -= (ft.quantidade_utilizada * qtd_pdv)
 
-                # 3. Atualização de saldo do cliente e novo cashback ganho (5% sobre o valor final pago)
                 if cliente_pdv:
                     cli_update = db_exec_venda.query(Cliente).filter(Cliente.id == cliente_pdv.id).first()
                     if cli_update:
@@ -750,7 +747,6 @@ with aba3:
                         if usa_cashback_pdv:
                             cli_update.saldo_cashback -= desconto_cb_pdv
                         
-                        # Credita 5% de cashback sobre a nova compra
                         cashback_ganho = round(total_final_pdv * 0.05, 2)
                         cli_update.saldo_cashback += cashback_ganho
 
@@ -956,7 +952,6 @@ with aba4:
                                 ingredientes_lidos = json.loads(texto_ocr_rec)
                                 
                                 db_rec = get_db()
-                                # Limpa a ficha anterior para recriar
                                 db_rec.query(FichaTecnica).filter(FichaTecnica.produto_id == prato_escolhido.id).delete()
                                 
                                 vinculados = 0
@@ -1120,10 +1115,10 @@ with aba6:
                         
                         O cliente enviou a seguinte mensagem no WhatsApp: "{mensagem_cliente_bot}"
                         
-                        Analise a mensagem e identifique qual(is) produto(s) do cardápio o cliente deseja pedir e a quantidade exata.
+                        Analise a mensagem do cliente e faça a correspondência inteligente (inclusive por aproximação ou sinônimos) com os produtos reais listados no cardápio acima para identificar o item desejado e a quantidade exata.
                         
                         🎯 REGRA DE OURO DO UPSELL INTELIGENTE (CROSS-SELL DINÂMICO):
-                        Análise estrategicamente os itens que o cliente escolheu e cruze com o cardápio para oferecer o complemento perfeito que FALTA no pedido dele:
+                        Analise estrategicamente os itens que o cliente escolheu e cruze com o cardápio para oferecer o complemento perfeito que FALTA no pedido dele:
                         - Se ele pediu APENAS hambúrguer: Ofereça ativamente uma Bebida bem gelada, uma porção de Batata Frita ou um adicional gourmet (+R$ 6,00 por Bacon Crocante ou Queijo Cheddar Extra).
                         - Se ele já pediu Hambúrguer + Batata: Ofereça ativamente uma Bebida gelada (Refrigerante, Suco ou Shake).
                         - Se ele já pediu Hambúrguer + Bebida: Ofereça uma porção de Batata Frita ou um adicional no lanche (+R$ 6,00).
@@ -1135,7 +1130,7 @@ with aba6:
                         {{
                           "cliente_nome": "Cliente WhatsApp",
                           "itens": [
-                            {{"nome_produto": "Nome exato do prato no cardápio", "quantidade": 1}}
+                            {{"nome_produto": "Nome exato do prato conforme listado no cardápio", "quantidade": 1}}
                           ],
                           "resposta_whatsapp": "Mensagem simpática, carinhosa e vendedora da Mica confirmando o pedido, fazendo a OFERTA INTELIGENTE DE UPSELL e informando que a chave Pix foi gerada abaixo."
                         }}
@@ -1147,86 +1142,4 @@ with aba6:
                             inputs_mica.append(Image.open(foto_pedido_bot))
 
                         resp_mica = model_mica.generate_content(inputs_mica)
-                        texto_mica_limpo = resp_mica.text.strip().replace("```json", "").replace("```", "").strip()
-                        dados_pedido_mica = json.loads(texto_mica_limpo)
-
-                        st.success("✅ Atendimento comercial finalizado com sucesso pela Mica I.A.!")
-                        
-                        # Exibição do retorno conversacional da Mica
-                        with st.container(border=True):
-                            st.markdown("🤖 **Resposta Automática enviada pela Mica ao Cliente:**")
-                            st.write(f"*{dados_pedido_mica.get('resposta_whatsapp')}*")
-                            
-                            itens_comprados_mica = dados_pedido_mica.get("itens", [])
-                            if itens_comprados_mica:
-                                st.markdown("---")
-                                st.markdown("### 📱 Gateway de Pagamento — Pix Copia e Cola Gerado pela Mica:")
-                                if config_gtw_bot and config_gtw_bot.gateway_api_key and config_gtw_bot.gateway_pix_key:
-                                    st.success(f"🟢 **Pix Oficial ({config_gtw_bot.gateway_provider}):** Chave ligada à conta PJ da empresa!")
-                                    st.code(f"00020126580014br.gov.bcb.pix0136{config_gtw_bot.gateway_pix_key}520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", language="text")
-                                else:
-                                    st.warning("🟡 **Pix Simulado (Treinamento):** Configure o Gateway na Aba 3 para gerar cobranças reais.")
-                                    st.code("00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-426614174000520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", language="text")
-
-                        # Execução no banco de dados e integração de estoque
-                        db_exec_mica = get_db()
-                        try:
-                            # Localiza ou cadastra cliente
-                            cli_db_mica = db_exec_mica.query(Cliente).filter(Cliente.whatsapp == telefone_cliente_bot).first()
-                            if not cli_db_mica:
-                                cli_db_mica = Cliente(nome="Cliente WhatsApp (Mica)", whatsapp=telefone_cliente_bot, status="Ativo", saldo_cashback=0.0)
-                                db_exec_mica.add(cli_db_mica)
-                                db_exec_mica.commit()
-
-                            total_geral_mica = 0.0
-                            if itens_comprados_mica:
-                                for item_m in itens_comprados_mica:
-                                    nome_p_mica = item_m.get("nome_produto")
-                                    qtd_p_mica = int(item_m.get("quantidade", 1))
-
-                                    prod_db_m = db_exec_mica.query(Produto).filter(Produto.nome.ilike(f"%{nome_p_mica}%")).first()
-                                    if prod_db_m:
-                                        vlr_tot_m = prod_db_m.preco_venda * qtd_p_mica
-                                        total_geral_mica += vlr_tot_m
-                                        custo_tot_m = (prod_db_m.custo_total_cmv or 0.0) * qtd_p_mica
-
-                                        # Grava Venda
-                                        db_exec_mica.add(Venda(
-                                            produto_id=prod_db_m.id,
-                                            cliente_id=cli_db_mica.id,
-                                            quantidade=qtd_p_mica,
-                                            valor_total=vlr_tot_m,
-                                            custo_total=custo_tot_m,
-                                            forma_pagamento="Pix (Mica Bot WhatsApp)",
-                                            status_pagamento="Aprovado",
-                                            data_venda=datetime.now()
-                                        ))
-
-                                        # Baixa de estoque dos insumos da Ficha Técnica
-                                        for ft_m in db_exec_mica.query(FichaTecnica).filter(FichaTecnica.produto_id == prod_db_m.id).all():
-                                            ins_almo_m = db_exec_mica.query(Insumo).filter(Insumo.id == ft_m.insumo_id).first()
-                                            if ins_almo_m:
-                                                ins_almo_m.saldo_atual -= (ft_m.quantidade_utilizada * qtd_p_mica)
-
-                                # Atualiza total gasto e credita 5% de cashback na conta do cliente
-                                cli_update_m = db_exec_mica.query(Cliente).filter(Cliente.id == cli_db_mica.id).first()
-                                if cli_update_m and total_geral_mica > 0:
-                                    cli_update_m.total_gasto += total_geral_mica
-                                    cli_update_m.ultima_compra = datetime.now()
-                                    cli_update_m.status = "Ativo"
-                                    
-                                    cb_ganho_mica = round(total_geral_mica * 0.05, 2)
-                                    cli_update_m.saldo_cashback += cb_ganho_mica
-
-                                db_exec_mica.commit()
-                                st.success(f"🎉 Pedido finalizado via Bot! Venda integrada na Frente de Caixa, estoque baixado e **R$ {round(total_geral_mica * 0.05, 2):.2f}** de cashback (5%) adicionados ao saldo de fidelidade do cliente!")
-                            else:
-                                st.warning("⚠️ Nenhum item correspondente ao cardápio foi identificado para registrar a venda e baixar o almoxarifado.")
-                        except Exception as e_db:
-                            db_exec_mica.rollback()
-                            st.error(f"Erro na integração com o banco de dados e PDV: {e_db}")
-                        finally:
-                            db_exec_mica.close()
-
-                    except Exception as e:
-                        st.error(f"❌ Erro ao processar o atendimento comercial com a assistente Mica: {e}")
+                        texto_mica_limpo = resp_mica.text.strip().replace("```json", "").replace("
