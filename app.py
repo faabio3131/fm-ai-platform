@@ -1108,98 +1108,116 @@ with aba6:
             key="msg_bot"
         )
         btn_acionar_mica = st.button("🚀 Processar Pedido & Atendimento com a Mica I.A.", use_container_width=True, type="primary")
+btn_acionar_mica = st.button("🚀 Processar Pedido & Atendimento com a Mica I.A.", use_container_width=True)
 
-    if btn_acionar_mica:
-        if not telefone_cliente_bot or not mensagem_cliente_bot:
-            st.error("⚠️ Por favor, informe o WhatsApp do cliente e digite a mensagem do pedido!")
-        else:
-            with st.spinner("🤖 A assistente virtual Mica está interpretando a mensagem, calculando o pedido e gerando o Pix..."):
-                try:
-                    model_mica = genai.GenerativeModel("gemini-2.0-flash")
-                    prompt_mica = f"""
-                    Você é a 'Mica', assistente virtual e inteligência comercial via WhatsApp da hamburgueria gourmet Mica Burguer & Restaurante.
-                    Cardápio de pratos disponível para venda hoje:
-                    {menu_disponivel_bot}
-                    O cliente enviou a seguinte mensagem no WhatsApp: "{mensagem_cliente_bot}"
-                    Retorne APENAS um objeto JSON válido (sem markdown) estruturado assim:
-                    {{
-                      "cliente_nome": "Cliente WhatsApp",
-                      "itens": [{{"nome_produto": "Royal Bacon", "quantidade": 1}}],
-                      "resposta_whatsapp": "Oi! Recebi seu pedido de 1 Royal Bacon. O total deu R$ 39,90. Segue a chave Pix para pagamento!"
-                    }}
-                    """
-                    inputs_mica = [prompt_mica]
-                    if foto_pedido_bot:
-                        inputs_mica.append(Image.open(foto_pedido_bot))
+if btn_acionar_mica:
+    if not telefone_cliente_bot or not mensagem_cliente_bot:
+        st.error("⚠️ Por favor, informe o WhatsApp do cliente e digite a mensagem do pedido!")
+    else:
+        mostrar_pix_codigo = True
+        forma_pag_texto = "Pix (Mica Bot WhatsApp)"
+        with st.spinner("🤖 A assistente virtual Mica está interpretando a mensagem, calculando o pedido e gerando o Pix..."):
+            try:
+                model_mica = genai.GenerativeModel("gemini-2.0-flash")
+                prompt_mica = f"""
+                Você é a 'Mica', assistente virtual e inteligência comercial via WhatsApp da hamburgueria F&M AI FOOD.
+                Cardápio de pratos disponível para venda hoje:
+                {menu_disponivel_bot}
+                O cliente enviou a seguinte mensagem no WhatsApp: "{mensagem_cliente_bot}"
+                Retorne APENAS um objeto JSON válido (sem markdown) estruturado assim:
+                {{
+                  "cliente_nome": "Nome extraído ou 'Cliente WhatsApp'",
+                  "itens": [
+                    {{"nome_produto": "Nome exato do cardápio", "quantidade": 1}}
+                  ],
+                  "resposta_whatsapp": "Texto da resposta comercial amigável da Mica com sugestão de Pix ou instrução de pagamento baseada no texto do cliente."
+                }}
+                """
+                inputs_mica = [prompt_mica]
+                if 'foto_pedido_bot' in locals() and foto_pedido_bot:
+                    inputs_mica.append(Image.open(foto_pedido_bot))
 
-                    resp_mica = model_mica.generate_content(inputs_mica)
-                    texto_mica_limpo = resp_mica.text.strip().replace("```json", "").replace("```", "").strip()
-                    dados_pedido_mica = json.loads(texto_mica_limpo)
+                resp_mica = model_mica.generate_content(inputs_mica)
+                texto_mica_limpo = resp_mica.text.strip().replace("```json", "").replace("```", "").strip()
+                dados_pedido_mica = json.loads(texto_mica_limpo)
 
-                except Exception as e_ia:
-                    # FALLBACK INTELIGENTE SE A COTA ESTOURAR (Erro 429) - Lê a mensagem do cliente!
-                    st.warning(f"⚠️ Aviso de Cota da I.A. ({e_ia}). Ativando modo de Atendimento Comercial Automático de Segurança.")
-                    
-                    msg_lower = mensagem_cliente_bot.lower() if 'mensagem_cliente_bot' in locals() and mensagem_cliente_bot else ""
-                    
-                    if "credito" in msg_lower or "crédito" in msg_lower or "cartao" in msg_lower or "cartão" in msg_lower:
-                        forma_pag_texto = "Cartão de Crédito"
-                        texto_pagamento_msg = "💳 Pedido anotado! O entregador levará a maquininha de cartão até você."
-                        mostrar_pix_codigo = False
-                    elif "dinheiro" in msg_lower:
-                        forma_pag_texto = "Dinheiro"
-                        texto_pagamento_msg = "💵 Pedido anotado! Separaremos o troco necessário para a entrega."
-                        mostrar_pix_codigo = False
-                    else:
-                        forma_pag_texto = "Pix (Mica Bot WhatsApp)"
-                        texto_pagamento_msg = "Segue abaixo o Pix Copia e Cola para pagamento."
-                        mostrar_pix_codigo = True
+                # Identifica se a resposta da IA indica pagamento por cartão ou dinheiro
+                resp_zap_lower = dados_pedido_mica.get("resposta_whatsapp", "").lower()
+                if "cartao" in resp_zap_lower or "cartão" in resp_zap_lower or "credito" in resp_zap_lower or "crédito" in resp_zap_lower:
+                    forma_pag_texto = "Cartão de Crédito"
+                    mostrar_pix_codigo = False
+                elif "dinheiro" in resp_zap_lower:
+                    forma_pag_texto = "Dinheiro"
+                    mostrar_pix_codigo = False
 
-                    dados_pedido_mica = {
-                        "cliente_nome": "Cliente WhatsApp",
-                        "itens": [{"nome_produto": "Mica Smash Cheddar Duplo", "quantidade": 1}],
-                        "resposta_whatsapp": f"Olá! Aqui é a Mica da Mica Burguer! Seu pedido foi anotado com sucesso e já encaminhei para a nossa cozinha caprichar. {texto_pagamento_msg} Bom apetite! 🍔✨"
-                    }
+            except Exception as e_ia:
+                # FALLBACK INTELIGENTE SE A COTA ESTOURAR (Erro 429) - Lê a mensagem do cliente!
+                st.warning(f"⚠️ Aviso de Cota da I.A. ({e_ia}). Ativando modo de Atendimento Comercial Automático de Segurança.")
+                
+                msg_lower = mensagem_cliente_bot.lower() if 'mensagem_cliente_bot' in locals() and mensagem_cliente_bot else ""
+                
+                if "credito" in msg_lower or "crédito" in msg_lower or "cartao" in msg_lower or "cartão" in msg_lower:
+                    forma_pag_texto = "Cartão de Crédito"
+                    texto_pagamento_msg = "💳 Pedido anotado! O entregador levará a maquininha de cartão até você."
+                    mostrar_pix_codigo = False
+                elif "dinheiro" in msg_lower:
+                    forma_pag_texto = "Dinheiro"
+                    texto_pagamento_msg = "💵 Pedido anotado! Separaremos o troco necessário para a entrega."
+                    mostrar_pix_codigo = False
+                else:
+                    forma_pag_texto = "Pix (Mica Bot WhatsApp)"
+                    texto_pagamento_msg = "Segue abaixo o Pix Copia e Cola para pagamento."
+                    mostrar_pix_codigo = True
 
-                # Bloco de processamento e exibição do pedido e Pix
-                st.success("✅ Atendimento comercial finalizado com sucesso!")
-                with st.container(border=True):
-                    st.markdown("🤖 **Resposta Automática enviada pela Mica ao Cliente:**")
-                    st.write(f"*{dados_pedido_mica.get('resposta_whatsapp')}*")
-                    
-                    itens_comprados_mica = dados_pedido_mica.get("itens", [])
-                    if itens_comprados_mica:
-                        st.markdown("---")
-                        st.markdown("### 📱 Gateway de Pagamento — Pix Copia e Cola Gerado:")
-                        st.code("00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-426614174000520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", language="text")
+                dados_pedido_mica = {
+                    "cliente_nome": "Cliente WhatsApp",
+                    "itens": [{"nome_produto": "Mica Smash Cheddar Duplo", "quantidade": 1}],
+                    "resposta_whatsapp": f"Olá! Aqui é a Mica da Mica Burguer! Seu pedido foi anotado com sucesso e já encaminhei para a nossa cozinha caprichar. {texto_pagamento_msg} Bom apetite! 🍔✨"
+                }
 
-                # Gravação no Banco de Dados e PDV
-                db_exec_mica = get_db()
-                try:
-                    cli_db_mica = db_exec_mica.query(Cliente).filter(Cliente.whatsapp == telefone_cliente_bot).first()
-                    if not cli_db_mica:
-                        cli_db_mica = Cliente(nome="Cliente WhatsApp (Mica)", whatsapp=telefone_cliente_bot, status="Ativo", saldo_cashback=0.0)
-                        db_exec_mica.add(cli_db_mica)
-                        db_exec_mica.commit()
+        # Bloco de processamento e exibição do pedido
+        st.success("✅ Atendimento comercial finalizado com sucesso!")
+        with st.container(border=True):
+            st.markdown("🤖 **Resposta Automática enviada pela Mica ao Cliente:**")
+            st.write(f"*{dados_pedido_mica.get('resposta_whatsapp')}*")
+            
+            itens_comprados_mica = dados_pedido_mica.get("itens", [])
+            if itens_comprados_mica and mostrar_pix_codigo:
+                st.markdown("---")
+                st.markdown("### 📱 Gateway de Pagamento — Pix Copia e Cola Gerado:")
+                st.code("00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-426614174000520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", language="text")
 
-                    total_geral_mica = 0.0
-                    for item_m in itens_comprados_mica:
-                        nome_p_mica = item_m.get("nome_produto")
-                        qtd_p_mica = int(item_m.get("quantidade", 1))
-                        prod_db_m = db_exec_mica.query(Produto).filter(Produto.nome.ilike(f"%{nome_p_mica}%")).first()
-                        if prod_db_m:
-                            vlr_tot_m = prod_db_m.preco_venda * qtd_p_mica
-                            total_geral_mica += vlr_tot_m
-                            custo_tot_m = (prod_db_m.custo_total_cmv or 0.0) * qtd_p_mica
-                            db_exec_mica.add(Venda(
-                                produto_id=prod_db_m.id, cliente_id=cli_db_mica.id,
-                                quantidade=qtd_p_mica, valor_total=vlr_tot_m, custo_total=custo_tot_m,
-                                forma_pagamento="Pix (Mica Bot WhatsApp)", status_pagamento="Aprovado", data_venda=datetime.now()
-                            ))
-                    db_exec_mica.commit()
-                    st.success(f"🎉 Venda integrada no PDV e estoque baixado com sucesso!")
-                except Exception as e_db:
-                    db_exec_mica.rollback()
-                    st.error(f"Erro no banco de dados: {e_db}")
-                finally:
-                    db_exec_mica.close()
+        # Gravação no Banco de Dados e PDV
+        db_exec_mica = get_db()
+        try:
+            cli_db_mica = db_exec_mica.query(Cliente).filter(Cliente.whatsapp == telefone_cliente_bot).first()
+            if not cli_db_mica:
+                cli_db_mica = Cliente(nome="Cliente WhatsApp (Mica)", whatsapp=telefone_cliente_bot, status="Ativo", saldo_cashback=0.0)
+                db_exec_mica.add(cli_db_mica)
+                db_exec_mica.commit()
+
+            total_geral_mica = 0.0
+            for item_m in itens_comprados_mica:
+                nome_p_mica = item_m.get("nome_produto")
+                qtd_p_mica = int(item_m.get("quantidade", 1))
+                
+                prod_db_m = db_exec_mica.query(Produto).filter(Produto.nome.ilike(f"%{nome_p_mica}%")).first()
+                if not prod_db_m:
+                    prod_db_m = db_exec_mica.query(Produto).first()
+
+                if prod_db_m:
+                    vlr_tot_m = prod_db_m.preco_venda * qtd_p_mica
+                    total_geral_mica += vlr_tot_m
+                    custo_tot_m = (prod_db_m.custo_total_cmv or 0.0) * qtd_p_mica
+                    db_exec_mica.add(Venda(
+                        produto_id=prod_db_m.id, cliente_id=cli_db_mica.id,
+                        quantidade=qtd_p_mica, valor_total=vlr_tot_m, custo_total=custo_tot_m,
+                        forma_pagamento=forma_pag_texto, status_pagamento="Aprovado", data_venda=datetime.now()
+                    ))
+            db_exec_mica.commit()
+            st.success(f"🎉 Venda integrada no PDV ({forma_pag_texto}) e estoque baixado com sucesso!")
+        except Exception as e_db:
+            db_exec_mica.rollback()
+            st.error(f"Erro no banco de dados: {e_db}")
+        finally:
+            db_exec_mica.close()
