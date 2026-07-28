@@ -1,6 +1,21 @@
 import os
 import streamlit as st
 
+# Patch: ensure compatibility with custom keyword args used across the app
+# Some calls use st.container(border=True) which is not a Streamlit argument.
+# We wrap the original container to accept and ignore unknown kwargs like 'border'.
+try:
+    if not hasattr(st, "_orig_container"):
+        st._orig_container = st.container
+        def _container_compat(*args, **kwargs):
+            # ignore non-standard visual kwargs used in the app
+            kwargs.pop("border", None)
+            kwargs.pop("bordered", None)
+            return st._orig_container(*args, **kwargs)
+        st.container = _container_compat
+except Exception:
+    pass
+
 # --- 0. CONFIGURAÇÃO DE SEGURANÇA E AMBIENTE ---
 if "GEMINI_API_KEY" in st.secrets:
     os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
@@ -1101,15 +1116,20 @@ with aba6:
     
     with col_bot_2:
         st.subheader("💬 Mensagem do Cliente")
-        mensagem_cliente_bot = st.text_area(
-            "Digite o que o cliente enviou no WhatsApp:",
-            value="Oi Mica! Quero pedir 1 Mica Royal Truffle Bacon para entrega e pagar no Pix!",
-            height=130,
-            key="msg_bot"
-        )
-        btn_acionar_mica = st.button("🚀 Processar Pedido & Atendimento com a Mica I.A.", use_container_width=True, type="primary")
+    mensagem_cliente_bot = st.text_area(
+        "Digite o que o cliente enviou no WhatsApp:",
+        height=130,
+        key="msg_bot"
+    )
+
 btn_acionar_mica = st.button("🚀 Processar Pedido & Atendimento com a Mica I.A.", use_container_width=True)
 
+if btn_acionar_mica:
+    if not telefone_cliente_bot or not mensagem_cliente_bot:
+        st.error("⚠️ Por favor, informe o WhatsApp do cliente e digite a mensagem do pedido!")
+    else:
+        mostrar_pix_codigo = True
+        forma_pag_texto = "Pix (Mica Bot WhatsApp)"
 if btn_acionar_mica:
     if not telefone_cliente_bot or not mensagem_cliente_bot:
         st.error("⚠️ Por favor, informe o WhatsApp do cliente e digite a mensagem do pedido!")
