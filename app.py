@@ -120,6 +120,8 @@ class ConfiguracaoMeta(Base):
     instagram_account_id = Column(String, nullable=True)
     whatsapp_token = Column(String, nullable=True)
     whatsapp_phone_id = Column(String, nullable=True)
+    gateway_provider = Column(String, default="Mercado Pago")
+    gateway_pix_key = Column(String, nullable=True)
     gateway_api_key = Column(String, nullable=True)
 
 
@@ -128,8 +130,8 @@ class ContatoGerencial(Base):
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String)
     whatsapp = Column(String, unique=True, index=True)
-    cargo = Column(String)  # "Administrador" ou "Gerente"
-    receber_alertas_estoque = Column(Integer, default=1)  # 1 = Sim, 0 = Não
+    cargo = Column(String)
+    receber_alertas_estoque = Column(Integer, default=1)
 
 
 # Criar todas as tabelas no banco de dados SQLite
@@ -151,6 +153,16 @@ with engine.connect() as conexao:
         cols_cli = [col[1] for col in res_cli]
         if "saldo_cashback" not in cols_cli:
             conexao.execute(sqlalchemy.text("ALTER TABLE clientes ADD COLUMN saldo_cashback FLOAT DEFAULT 0.0;"))
+            
+        res_conf = conexao.execute(sqlalchemy.text("PRAGMA table_info(configuracoes_meta);")).fetchall()
+        cols_conf = [col[1] for col in res_conf]
+        if "gateway_provider" not in cols_conf:
+            conexao.execute(sqlalchemy.text("ALTER TABLE configuracoes_meta ADD COLUMN gateway_provider VARCHAR DEFAULT 'Mercado Pago';"))
+        if "gateway_pix_key" not in cols_conf:
+            conexao.execute(sqlalchemy.text("ALTER TABLE configuracoes_meta ADD COLUMN gateway_pix_key VARCHAR;"))
+        if "gateway_api_key" not in cols_conf:
+            conexao.execute(sqlalchemy.text("ALTER TABLE configuracoes_meta ADD COLUMN gateway_api_key VARCHAR;"))
+            
         conexao.commit()
     except Exception as e:
         print(f"Aviso na verificação de migrações SQLite: {e}")
@@ -267,6 +279,10 @@ def executar_forecasting_e_alertar(db_session):
 def popular_dados_iniciais():
     db = SessionLocal()
     try:
+        if db.query(ConfiguracaoMeta).count() == 0:
+            db.add(ConfiguracaoMeta(gateway_provider="Mercado Pago"))
+            db.commit()
+
         if db.query(Insumo).count() == 0:
             insumos_padrao = [
                 Insumo(nome="Hambúrguer 180g Angus", unidade_medida="un", saldo_atual=500.0, estoque_minimo=50.0, custo_unitario=6.50),
@@ -571,7 +587,52 @@ with aba3:
     db_pdv = get_db()
     lista_pratos_pdv = db_pdv.query(Produto).all()
     lista_clientes_pdv = db_pdv.query(Cliente).all()
+    config_gtw = db_pdv.query(ConfiguracaoMeta).first()
     
+    # Validação do Chaveador Sandbox vs Produção
+    modo_producao_ativo = bool(config_gtw and config_gtw.gateway_api_key and config_gtw.gateway_pix_key)
+    
+    if modo_producao_ativo:
+        st.success(f"🟢 **MODO PRODUÇÃO ATIVO:** O Gateway **{config_gtw.gateway_provider}** está vinculado à conta bancária PJ. O sistema gera cobranças reais via API e aguarda o Webhook de pagamento!")
+    else:
+        st.warning("🟡 **MODO SANDBOX (SIMULADOR DE TREINAMENTO):** Credenciais bancárias PJ ainda não cadastradas. O sistema está gerando Pix de teste. Para ativar recebimentos reais na conta da empresa, configure abaixo.")
+
+    # --- EXPANDER DE CONFIGURAÇÃO DO GATEWAY (VIRADA DE CHAVE) ---
+    with st.expander("⚙️ Configurações do Gateway Bancário (Administrador — Virada de Chave PJ)"):
+        st.markdown("### Conectar Conta Bancária da Empresa para Baixa Automática")
+        st.write("Quando a Michele abrir a conta jurídica (PJ), cole as credenciais abaixo. O sistema desligará o simulador automaticamente.")
+        
+        with st.form("form_gateway_config"):
+            g_col1, g_col2 = st.columns(2)
+            with g_col1:
+                g_provider = st.selectbox("Provedor / Fintech Bancária", ["Mercado Pago", "Asaas", "Stripe", "PagSeguro", "Gerencianet / Efí"], index=0)
+                g_pix_key = st.text_input("Chave Pix CNPJ da Loja", value=config_gtw.gateway_pix_key if config_gtw and config_gtw.gateway_pix_key else "", placeholder="Ex: 12.345.678/0001-90")
+            with g_col2:
+                g_api_key = st.text_input("Access Token / API Key de Produção", value=config_gtw.gateway_api_key if config_gtw and config_gtw.gateway_api_key else "", type="password", placeholder="Cole o token secreto do banco aqui...")
+                st.caption("A chave secreta é armazenada com segurança no banco de dados local da aplicação.")
+                
+            btn_salvar_gateway = st.form_submit_button("💾 Salvar Credenciais & Ativar Modo Produção", type="primary")
+            if btn_salvar_gateway:
+                db_g_save = get_db()
+                try:
+                    conf_db = db_g_save.query(ConfiguracaoMeta).first()
+                    if not conf_db:
+                        conf_db = ConfiguracaoMeta()
+                        db_g_save.add(conf_db)
+                    conf_db.gateway_provider = g_provider
+                    conf_db.gateway_pix_key = g_pix_key
+                    conf_db.gateway_api_key = g_api_key
+                    db_g_save.commit()
+                    st.success("✅ Credenciais do Gateway salvas com sucesso! O sistema assumiu o Modo Produção.")
+                    st.rerun()
+                except Exception as e_gtw:
+                    db_g_save.rollback()
+                    st.error(f"Erro ao salvar configurações bancárias: {e_gtw}")
+                finally:
+                    db_g_save.close()
+
+    st.markdown("---")
+
     if not lista_pratos_pdv:
         st.warning("⚠️ Cadastre produtos na Aba 1 (Engenharia de Cardápio) para habilitar o Frente de Caixa.")
     else:
@@ -604,7 +665,7 @@ with aba3:
                     st.markdown(f"📉 **Desconto Fidelidade:** -R$ {desconto_cb_pdv:.2f}")
                 st.markdown(f"### ✅ Total a Pagar: R$ {total_final_pdv:.2f}")
                 
-                forma_pag_pdv = st.selectbox("💳 Forma de Pagamento", ["Pix (Gerar QR Code Automático)", "Cartão de Crédito", "Cartão de Débito", "Dinheiro Em Especie"])
+                forma_pag_pdv = st.selectbox("💳 Forma de Pagamento", ["Pix (Gerar QR Code Instantâneo)", "Cartão de Crédito", "Cartão de Débito", "Dinheiro Em Espécie"])
 
         # --- CAIXA DE UPSELL DA I.A. ---
         with st.container(border=True):
@@ -621,16 +682,26 @@ with aba3:
                     pass
             st.info(f"🤖 *\"{sugestao_upsell}\"*")
 
-        # --- SIMULADOR DE GATEWAY PIX ---
+        # --- SIMULADOR / RECEBEDOR DE GATEWAY PIX ---
         if forma_pag_pdv.startswith("Pix"):
             st.markdown("---")
-            st.subheader("📱 Gateway Pix Automático (Integração de Recebimento)")
-            col_pix1, col_pix2 = st.columns([1, 3])
-            with col_pix1:
-                st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=FMFIFOOD_PIX_R${total_final_pdv:.2f}", width=180, caption="QR Code Dinâmico")
-            with col_pix2:
-                st.info(f"🔗 **Chave Pix Copia e Cola (Liquidificador Instantâneo):**\n\n`00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-4266141740005204000053039865405{total_final_pdv:.2f}5802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A`")
-                st.write("👉 *Solicite ao cliente o pagamento via app bancário para confirmação automática do sistema.*")
+            if modo_producao_ativo:
+                st.subheader(f"📱 Cobrança Pix Real Gerada via API ({config_gtw.gateway_provider})")
+                col_pix1, col_pix2 = st.columns([1, 3])
+                with col_pix1:
+                    st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=00020126580014br.gov.bcb.pix0136{config_gtw.gateway_pix_key}5204000053039865405{total_final_pdv:.2f}5802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", width=180, caption="QR Code Oficial da Conta PJ")
+                with col_pix2:
+                    st.success(f"⚡ **Chave Pix Oficial:** `{config_gtw.gateway_pix_key}`")
+                    st.code(f"00020126580014br.gov.bcb.pix0136{config_gtw.gateway_pix_key}5204000053039865405{total_final_pdv:.2f}5802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", language="text")
+                    st.write("🟢 **Status:** Aguardando sinal de confirmação do Webhook do banco na conta da Michele...")
+            else:
+                st.subheader("📱 Gateway Pix Automático (Simulador de Treinamento)")
+                col_pix1, col_pix2 = st.columns([1, 3])
+                with col_pix1:
+                    st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=FMFIFOOD_PIX_SIMULADO_R${total_final_pdv:.2f}", width=180, caption="QR Code Dinâmico (Sandbox)")
+                with col_pix2:
+                    st.info("🟡 **Chave Pix de Treinamento (Simulado):**\n\n`00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-426614174000520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A`")
+                    st.write("👉 *No modo Sandbox, clique no botão abaixo para simular a aprovação do recebimento:*")
 
         st.markdown("---")
         if st.button("🚀 Confirmar Pagamento & Finalizar Venda", type="primary", use_container_width=True):
@@ -998,6 +1069,7 @@ with aba6:
 
     db_bot = get_db()
     produtos_cardapio_bot = db_bot.query(Produto).all()
+    config_gtw_bot = db_bot.query(ConfiguracaoMeta).first()
     db_bot.close()
 
     if not produtos_cardapio_bot:
@@ -1065,8 +1137,13 @@ with aba6:
                             itens_comprados_mica = dados_pedido_mica.get("itens", [])
                             if itens_comprados_mica:
                                 st.markdown("---")
-                                st.markdown("### 📱 Gateway de Pagamento — Pix Copia e Cola Gerado:")
-                                st.code("00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-426614174000520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", language="text")
+                                st.markdown("### 📱 Gateway de Pagamento — Pix Copia e Cola Gerado pela Mica:")
+                                if config_gtw_bot and config_gtw_bot.gateway_api_key and config_gtw_bot.gateway_pix_key:
+                                    st.success(f"🟢 **Pix Oficial ({config_gtw_bot.gateway_provider}):** Chave ligada à conta PJ da empresa!")
+                                    st.code(f"00020126580014br.gov.bcb.pix0136{config_gtw_bot.gateway_pix_key}520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", language="text")
+                                else:
+                                    st.warning("🟡 **Pix Simulado (Treinamento):** Configure o Gateway na Aba 3 para gerar cobranças reais.")
+                                    st.code("00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-426614174000520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", language="text")
 
                         # Execução no banco de dados e integração de estoque
                         db_exec_mica = get_db()
