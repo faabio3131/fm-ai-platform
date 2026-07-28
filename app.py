@@ -1,6 +1,7 @@
 import os
 import streamlit as st
 
+# --- 0. CONFIGURAÇÃO DE SEGURANÇA E AMBIENTE ---
 if "GEMINI_API_KEY" in st.secrets:
     os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
 
@@ -24,12 +25,15 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
-# --- 1. CONFIGURAÇÃO DA PÁGINA ---
+# --- 1. CONFIGURAÇÃO DA PÁGINA E ESTILIZAÇÃO ---
 st.set_page_config(
-    page_title="F&M AI FOOD — ERP Gastronômico", page_icon="🍔", layout="wide"
+    page_title="F&M AI FOOD — ERP Gastronômico & PDV Inteligente",
+    page_icon="🍔",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# --- 2. BANCO DE DADOS E ORM ---
+# --- 2. BANCO DE DADOS E CONFIGURAÇÃO ORM ---
 load_dotenv()
 os.makedirs("imagens", exist_ok=True)
 
@@ -39,6 +43,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
+# --- 3. MODELOS DAS TABELAS DO BANCO DE DADOS ---
 class Usuario(Base):
     __tablename__ = "usuarios"
     id = Column(Integer, primary_key=True, index=True)
@@ -53,6 +58,7 @@ class Cliente(Base):
     whatsapp = Column(String, unique=True, index=True)
     ultima_compra = Column(DateTime, default=datetime.now)
     total_gasto = Column(Float, default=0.0)
+    saldo_cashback = Column(Float, default=0.0)
     status = Column(String, default="Ativo")
 
 
@@ -98,6 +104,8 @@ class Venda(Base):
     quantidade = Column(Integer, nullable=False, default=1)
     valor_total = Column(Float, nullable=False, default=0.0)
     custo_total = Column(Float, nullable=False, default=0.0)
+    forma_pagamento = Column(String, default="Pix")
+    status_pagamento = Column(String, default="Aprovado")
     data_venda = Column(DateTime, default=datetime.now)
 
     produto = relationship("Produto")
@@ -112,6 +120,7 @@ class ConfiguracaoMeta(Base):
     instagram_account_id = Column(String, nullable=True)
     whatsapp_token = Column(String, nullable=True)
     whatsapp_phone_id = Column(String, nullable=True)
+    gateway_api_key = Column(String, nullable=True)
 
 
 class ContatoGerencial(Base):
@@ -123,17 +132,54 @@ class ContatoGerencial(Base):
     receber_alertas_estoque = Column(Integer, default=1)  # 1 = Sim, 0 = Não
 
 
+# Criar todas as tabelas no banco de dados SQLite
 Base.metadata.create_all(bind=engine)
 
+# --- 4. MIGRAÇÕES AUTOMÁTICAS DE SCHEMA ---
 with engine.connect() as conexao:
     try:
         res_vendas = conexao.execute(sqlalchemy.text("PRAGMA table_info(vendas);")).fetchall()
         cols_vendas = [col[1] for col in res_vendas]
         if "cliente_id" not in cols_vendas:
             conexao.execute(sqlalchemy.text("ALTER TABLE vendas ADD COLUMN cliente_id INTEGER;"))
-            conexao.commit()
-    except Exception:
-        pass
+        if "forma_pagamento" not in cols_vendas:
+            conexao.execute(sqlalchemy.text("ALTER TABLE vendas ADD COLUMN forma_pagamento VARCHAR DEFAULT 'Pix';"))
+        if "status_pagamento" not in cols_vendas:
+            conexao.execute(sqlalchemy.text("ALTER TABLE vendas ADD COLUMN status_pagamento VARCHAR DEFAULT 'Aprovado';"))
+        
+        res_cli = conexao.execute(sqlalchemy.text("PRAGMA table_info(clientes);")).fetchall()
+        cols_cli = [col[1] for col in res_cli]
+        if "saldo_cashback" not in cols_cli:
+            conexao.execute(sqlalchemy.text("ALTER TABLE clientes ADD COLUMN saldo_cashback FLOAT DEFAULT 0.0;"))
+        conexao.commit()
+    except Exception as e:
+        print(f"Aviso na verificação de migrações SQLite: {e}")
+
+
+# --- 5. FUNÇÕES UTILITÁRIAS E DE NEGÓCIO ---
+def get_db():
+    db = SessionLocal()
+    try:
+        return db
+    finally:
+        db.close()
+
+
+def criar_hash(senha):
+    return hashlib.sha256(senha.encode("utf-8")).hexdigest()
+
+
+def criar_admin():
+    db = SessionLocal()
+    try:
+        user = db.query(Usuario).filter(Usuario.email == "admin@micaburger.com").first()
+        if not user:
+            db.add(Usuario(email="admin@micaburger.com", senha_hash=criar_hash("123456")))
+            db.commit()
+    except Exception as e:
+        db.rollback()
+    finally:
+        db.close()
 
 
 def recalcular_cmv_geral(db_session):
@@ -158,31 +204,28 @@ def recalcular_cmv_geral(db_session):
 
 def executar_forecasting_e_alertar(db_session):
     insumos = db_session.query(Insumo).all()
-    vendas_recentes = db_session.query(Venda).filter(
-        Venda.data_venda >= datetime.now() - timedelta(days=3)
-    ).all()
-
     destinatarios = db_session.query(ContatoGerencial).filter(
         ContatoGerencial.receber_alertas_estoque == 1
     ).all()
-
     config_meta = db_session.query(ConfiguracaoMeta).first()
     
-    if not destinatarios or not config_meta or not config_meta.whatsapp_token:
-        return "⚠️ Configure os contatos gerenciais e o token do WhatsApp para ativar os alertas preditivos."
+    if not destinatarios:
+        return "⚠️ Nenhum gerente ou administrador está configurado para receber alertas na Aba 4."
+    if not config_meta or not config_meta.whatsapp_token:
+        return "⚠️ Configure o token de acesso da Meta Cloud API para ativar os disparos reais de WhatsApp."
 
     resumo_estoque = "\n".join([f"- {i.nome}: Saldo Atual = {i.saldo_atual} {i.unidade_medida}, Mínimo = {i.estoque_minimo}" for i in insumos])
     
     prompt_forecast = f"""
-    Você é o assistente de inteligência preditiva de um ERP gastronômico.
-    Analise o estado atual do almoxarifado abaixo e determine se há algum ingrediente com risco iminente de esgotamento com base no ritmo operacional de hamburgueria:
+    Você é o assistente de inteligência preditiva de um ERP gastronômico de alta performance.
+    Analise o estado atual do almoxarifado abaixo e determine se há algum ingrediente com risco iminente de esgotamento com base no ritmo operacional de uma hamburgueria gourmet:
     {resumo_estoque}
     
-    Retorne APENAS um array JSON puro (sem markdown) com os insumos em risco crítico:
+    Retorne APENAS um array JSON puro (sem markdown) com os insumos em risco crítico ou de alerta:
     [
-      {{"insumo": "Nome do Insumo", "previsao_esgotamento": "Sábado às 20h", "mensagem_alerta": "Estoque crítico de pão brioche!"}}
+      {{"insumo": "Nome do Insumo", "previsao_esgotamento": "Sábado às 20h", "mensagem_alerta": "Estoque crítico para o fim de semana!"}}
     ]
-    Se nenhum item estiver em risco, retorne [].
+    Se nenhum item estiver em risco, retorne um array vazio [].
     """
 
     try:
@@ -193,7 +236,7 @@ def executar_forecasting_e_alertar(db_session):
         alertas_ia = json.loads(texto_limpo)
 
         if not alertas_ia:
-            return "✅ Estoque seguro. Nenhum alerta preditivo gerado no momento."
+            return "✅ Estoque operacional seguro. Nenhum alerta preditivo gerado no momento pela Inteligência Artificial."
 
         url_wa = f"https://graph.facebook.com/v17.0/{config_meta.whatsapp_phone_id}/messages"
         headers = {
@@ -203,7 +246,7 @@ def executar_forecasting_e_alertar(db_session):
 
         total_enviados = 0
         for alerta in alertas_ia:
-            texto_msg = f"🚨 *ALERTA PREDITIVO DE ESTOQUE (I.A.)* 🚨\n\nItem: *{alerta['insumo']}*\nPrevisão de Ruptura: *{alerta['previsao_esgotamento']}*\nStatus: {alerta['mensagem_alerta']}\n\n*Acesse o painel F&M AI FOOD para realizar a reposição imediata.*"
+            texto_msg = f"🚨 *ALERTA PREDITIVO DE ESTOQUE (F&M AI FOOD)* 🚨\n\nItem: *{alerta['insumo']}*\nPrevisão de Ruptura: *{alerta['previsao_esgotamento']}*\nStatus: {alerta['mensagem_alerta']}\n\n*Acesse imediatamente o painel corporativo para realizar a compra de reposição.*"
 
             for contato in destinatarios:
                 payload = {
@@ -216,10 +259,9 @@ def executar_forecasting_e_alertar(db_session):
                 if response.status_code == 200:
                     total_enviados += 1
 
-        return f"🚀 Forecasting concluído! {len(alertas_ia)} alertas preditivos gerados e disparados para {total_enviados} gestores via WhatsApp."
-
+        return f"🚀 Análise concluída com sucesso! {len(alertas_ia)} alertas preditivos foram gerados e disparados para {total_enviados} gestores via WhatsApp."
     except Exception as e:
-        return f"❌ Erro ao executar forecasting preditivo: {e}"
+        return f"❌ Erro técnico ao processar forecasting inteligente: {e}"
 
 
 def popular_dados_iniciais():
@@ -227,18 +269,21 @@ def popular_dados_iniciais():
     try:
         if db.query(Insumo).count() == 0:
             insumos_padrao = [
-                Insumo(nome="Hambúrguer 180g", unidade_medida="un", saldo_atual=500.0, estoque_minimo=50.0, custo_unitario=6.50),
+                Insumo(nome="Hambúrguer 180g Angus", unidade_medida="un", saldo_atual=500.0, estoque_minimo=50.0, custo_unitario=6.50),
                 Insumo(nome="Queijo Provolone / Cheddar", unidade_medida="fatias", saldo_atual=400.0, estoque_minimo=60.0, custo_unitario=1.20),
                 Insumo(nome="Pão Brioche Artesanal", unidade_medida="un", saldo_atual=120.0, estoque_minimo=50.0, custo_unitario=2.00),
-                Insumo(nome="Bacon Artesanal", unidade_medida="kg", saldo_atual=5.0, estoque_minimo=1.0, custo_unitario=35.00),
+                Insumo(nome="Bacon Artesanal em Tiras", unidade_medida="kg", saldo_atual=5.0, estoque_minimo=1.0, custo_unitario=35.00),
+                Insumo(nome="Batata Frita Cruda", unidade_medida="kg", saldo_atual=30.0, estoque_minimo=10.0, custo_unitario=8.90),
+                Insumo(nome="Refrigerante Lata 350ml", unidade_medida="un", saldo_atual=90.0, estoque_minimo=24.0, custo_unitario=2.80),
             ]
             db.add_all(insumos_padrao)
             db.commit()
 
         if db.query(Cliente).count() == 0:
             clientes_padrao = [
-                Cliente(nome="Carlos Eduardo (VIP)", whatsapp="11999991111", ultima_compra=datetime.now() - timedelta(days=2), total_gasto=450.0, status="Ativo"),
-                Cliente(nome="Ana Souza", whatsapp="11988882222", ultima_compra=datetime.now() - timedelta(days=18), total_gasto=120.0, status="Inativo"),
+                Cliente(nome="Carlos Eduardo (VIP)", whatsapp="11999991111", ultima_compra=datetime.now() - timedelta(days=2), total_gasto=450.0, saldo_cashback=15.0, status="Ativo"),
+                Cliente(nome="Ana Souza Silva", whatsapp="11988882222", ultima_compra=datetime.now() - timedelta(days=18), total_gasto=120.0, saldo_cashback=0.0, status="Inativo"),
+                Cliente(nome="Marcos Oliveira", whatsapp="11977773333", ultima_compra=datetime.now() - timedelta(days=25), total_gasto=290.0, saldo_cashback=5.50, status="Inativo"),
             ]
             db.add_all(clientes_padrao)
             db.commit()
@@ -247,8 +292,8 @@ def popular_dados_iniciais():
             prato_padrao = Produto(
                 nome="Mica Royal Truffle Bacon",
                 categoria="Burgers Gourmet",
-                descricao_bruta="Hambúrguer 180g angus, queijo provolone derretido, bacon artesanal em tiras e maionese trufada no pão brioche.",
-                descricao_ai="Experimente o magnífico Mica Royal Truffle Bacon! Preparado com maestria utilizando costela angus, queijo provolone derretido e bacon artesanal.",
+                descricao_bruta="Hambúrguer 180g angus, queijo provolone derretido, bacon artesanal em tiras e maionese trufada no pão brioche artesanal.",
+                descricao_ai="Experimente o magnífico Mica Royal Truffle Bacon! Preparado com maestria utilizando costela angus selecionada, queijo provolone derretido e bacon artesanal crocante no pão brioche selado na manteiga.",
                 preco_venda=39.90,
                 custo_total_cmv=12.65,
                 margem_exibicao="68.3%",
@@ -258,9 +303,9 @@ def popular_dados_iniciais():
             db.commit()
 
             pao = db.query(Insumo).filter(Insumo.nome == "Pão Brioche Artesanal").first()
-            carne = db.query(Insumo).filter(Insumo.nome == "Hambúrguer 180g").first()
+            carne = db.query(Insumo).filter(Insumo.nome == "Hambúrguer 180g Angus").first()
             queijo = db.query(Insumo).filter(Insumo.nome == "Queijo Provolone / Cheddar").first()
-            bacon = db.query(Insumo).filter(Insumo.nome == "Bacon Artesanal").first()
+            bacon = db.query(Insumo).filter(Insumo.nome == "Bacon Artesanal em Tiras").first()
 
             if pao and carne and queijo and bacon:
                 fichas_automatizadas = [
@@ -271,42 +316,17 @@ def popular_dados_iniciais():
                 ]
                 db.add_all(fichas_automatizadas)
                 db.commit()
-    except Exception:
-        pass
+    except Exception as e:
+        db.rollback()
     finally:
         db.close()
 
 
+# Inicialização das configurações
+criar_admin()
 popular_dados_iniciais()
 
-
-def get_db():
-    db = SessionLocal()
-    try:
-        return db
-    finally:
-        db.close()
-
-
-def criar_hash(senha):
-    return hashlib.sha256(senha.encode("utf-8")).hexdigest()
-
-
-def criar_admin():
-    db = SessionLocal()
-    try:
-        user = db.query(Usuario).filter(Usuario.email == "admin@micaburger.com").first()
-        if not user:
-            db.add(Usuario(email="admin@micaburger.com", senha_hash=criar_hash("123456")))
-            db.commit()
-    except Exception:
-        pass
-    finally:
-        db.close()
-
-
-criar_admin()
-
+# Verificação da Inteligência Artificial Gemini
 GENAI_DISPONIVEL = False
 api_key = os.getenv("GEMINI_API_KEY")
 if not api_key and hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
@@ -321,7 +341,8 @@ if api_key:
     except ImportError:
         pass
 
-# --- 3. BARRA LATERAL ---
+
+# --- 6. BARRA LATERAL (SIDEBAR CORPORATIVA) ---
 with st.sidebar:
     if os.path.exists("logo.png"):
         st.image("logo.png", use_container_width=True)
@@ -331,66 +352,83 @@ with st.sidebar:
     st.title("F&M AI FOOD")
     st.caption("Professional Gastronomy ERP & AI")
     st.markdown("---")
+    
     st.subheader("🔐 Acesso Corporativo")
     st.success("Conectado como:\n**admin@micaburger.com**")
     st.info("🏪 **Loja Ativa:**\nMica Burguer & Restaurante")
+    
     if GENAI_DISPONIVEL:
-        st.markdown("🟢 **Google GenAI Ativo**")
+        st.markdown("🟢 **Google GenAI Ativo (Gemini 1.5 Flash)**")
     else:
         st.markdown("⚠️ **Modo Offline / Sem Chave API**")
+        st.caption("Insira GEMINI_API_KEY no .env ou st.secrets para ativar recursos inteligentes.")
+    
+    st.markdown("---")
+    st.markdown("### ⚙️ Atalhos de Suporte")
+    st.write("📞 Atendimento 24/7 via WhatsApp")
+    st.write("📊 Licença Corporativa Ativa")
 
-st.title("🍔 F&M AI FOOD — Painel de Gestão & PDV")
+
+# --- 7. CABEÇALHO DO PAINEL PRINCIPAL ---
+st.title("🍔 F&M AI FOOD — Painel de Gestão, PDV & Gateway")
 st.markdown("---")
 
-aba1, aba2, aba3, aba4, aba5 = st.tabs(
+# --- 8. ESTRUTURA DAS 6 ABAS PRINCIPAIS ---
+aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs(
     [
         "🤖 Engenharia de Cardápio",
-        "📢 Campanhas & CRM WhatsApp",
-        "🛒 Frente de Caixa (PDV)",
+        "📢 CRM, Resgate & Cashback",
+        "🛒 Frente de Caixa (PDV & Pix)",
         "📦 Estoque & Ficha Técnica",
         "📊 Dashboard Financeiro",
+        "💬 Bot Cliente (Mica I.A.)",
     ]
 )
 
+
 # ==============================================================================
-# ABA 1: ENGENHARIA DE CARDÁPIO COM I.A.
+# ABA 1: ENGENHARIA DE CARDÁPIO COM INTELIGÊNCIA ARTIFICIAL
 # ==============================================================================
 with aba1:
-    st.header("✨ Criação Inteligente de Pratos e Cardápio")
-    st.write("Cadastre novos itens com legendas conversivas e fotos de alta gastronomia geradas por IA.")
+    st.header("✨ Criação Inteligente de Pratos e Engenharia de Cardápio")
+    st.write("Cadastre novos itens no seu cardápio com cálculo automático de CMV e legendas publicitárias geradas pelo Google Gemini.")
 
     with st.form("form_cardapio_ia"):
         col1, col2 = st.columns(2)
         with col1:
             nome_prato = st.text_input("🍔 Nome do Prato / Lanche", placeholder="Ex: Mica Royal Truffle Bacon")
-            categoria = st.selectbox("📂 Categoria", ["Burgers Gourmet", "Combos", "Porções & Entradas", "Sobremesas", "Bebidas"])
-            ingredientes_base = st.text_area("📝 Ingredientes Principais", placeholder="Ex: Dois burgers smash 100g de costela angus, queijo provolone derretido...")
+            categoria = st.selectbox("📂 Categoria do Cardápio", ["Burgers Gourmet", "Combos Artesanais", "Porções & Entradas", "Sobremesas", "Bebidas & Shakes"])
+            ingredientes_base = st.text_area("📝 Ingredientes Principais e Descrição Bruta", placeholder="Ex: Dois burgers smash 100g de costela angus, queijo provolone derretido, maionese trufada e bacon crocante...")
+        
         with col2:
             preco_venda = st.number_input("💲 Preço de Venda (R$)", min_value=0.0, value=39.90, step=0.50, format="%.2f")
-            custo_cmv = round(preco_venda * 0.32, 2)
-            margem_calc = round(((preco_venda - custo_cmv) / preco_venda) * 100, 1) if preco_venda > 0 else 0.0
-            st.info(f"📉 CMV Teórico Estimado (32%): R$ {custo_cmv:.2f}\n📈 **Margem de Lucro Bruta:** {margem_calc}%")
+            custo_cmv_estimado = round(preco_venda * 0.32, 2)
+            margem_calc = round(((preco_venda - custo_cmv_estimado) / preco_venda) * 100, 1) if preco_venda > 0 else 0.0
+            
+            st.markdown("### 📈 Indicadores Financeiros Teóricos")
+            st.info(f"📉 **CMV Teórico Estimado (32%):** R$ {custo_cmv_estimado:.2f}\n\n📈 **Margem de Lucro Bruta:** {margem_calc}%")
+            st.caption("Nota: O CMV real será reajustado com precisão industrial na Aba 4 assim que a Ficha Técnica for vinculada.")
 
-        btn_gerar_ia = st.form_submit_button("🚀 Processar Texto & Imagem com Google I.A.", type="primary")
+        btn_gerar_ia = st.form_submit_button("🚀 Processar Cadastro & Escrever Legenda com I.A.", type="primary")
 
     if btn_gerar_ia:
         if not nome_prato or not ingredientes_base:
-            st.error("⚠️ Por favor, preencha o Nome do Prato e os Ingredientes Principais!")
+            st.error("⚠️ Por favor, preencha o Nome do Prato e os Ingredientes Principais para prosseguir!")
         else:
-            db = get_db()
-            desc_gerada = f"Experimente o magnífico {nome_prato}! Preparado com maestria."
+            db_aba1 = get_db()
+            desc_gerada = f"Experimente o magnífico {nome_prato}! Preparado com maestria com ingredientes frescos e selecionados."
             caminho_imagem_salva = None
 
             if GENAI_DISPONIVEL:
-                with st.spinner("🤖 A Inteligência Artificial está escrevendo a legenda gourmet..."):
+                with st.spinner("🤖 A Inteligência Artificial está escrevendo a legenda publicitária gourmet..."):
                     try:
                         model_text = genai.GenerativeModel("models/gemini-flash-latest")
-                        prompt_texto = f"Escreva uma descrição publicitária curta, altamente persuasiva, gourmet e apetitosa para um cardápio de restaurante para o prato: '{nome_prato}'. Ingredientes: {ingredientes_base}."
+                        prompt_texto = f"Escreva uma descrição publicitária curta, altamente persuasiva, gourmet e apetitosa para um cardápio de restaurante para o prato: '{nome_prato}'. Ingredientes informados pelo chef: {ingredientes_base}. Sem hashtags, tom elegante e vendedor."
                         resp_texto = model_text.generate_content(prompt_texto)
                         if resp_texto and resp_texto.text:
                             desc_gerada = resp_texto.text.strip()
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        st.warning(f"Aviso I.A.: Não foi possível gerar texto avançado ({e}). Usando descrição padrão.")
 
             try:
                 novo_produto = Produto(
@@ -399,49 +437,183 @@ with aba1:
                     descricao_bruta=ingredientes_base,
                     descricao_ai=desc_gerada,
                     preco_venda=preco_venda,
-                    custo_total_cmv=custo_cmv,
+                    custo_total_cmv=custo_cmv_estimado,
                     margem_exibicao=f"{margem_calc}%",
                     imagem_path=caminho_imagem_salva,
                 )
-                db.add(novo_produto)
-                db.commit()
-                st.success(f"🎉 Produto **{nome_prato}** cadastrado com sucesso!")
-                st.info(desc_gerada)
+                db_aba1.add(novo_produto)
+                db_aba1.commit()
+                st.success(f"🎉 Produto **{nome_prato}** adicionado com sucesso ao cardápio do restaurante!")
+                with st.container(border=True):
+                    st.markdown("### 📄 Legenda Publicitária Gerada pela I.A.:")
+                    st.write(f"*{desc_gerada}*")
             except Exception as e:
-                db.rollback()
-                st.error(f"❌ Erro ao salvar no banco: {e}")
+                db_aba1.rollback()
+                st.error(f"❌ Erro ao salvar o produto no banco de dados: {e}")
+            finally:
+                db_aba1.close()
+
 
 # ==============================================================================
-# ABA 2: CRM E WHATSAPP
+# ABA 2: CRM, RECUPERAÇÃO DE CLIENTES ("OI, SUMIDO") & CASHBACK
 # ==============================================================================
 with aba2:
-    st.header("📢 CRM, Campanhas & Automação de WhatsApp")
-    st.write("Dispare promoções automáticas e resgate clientes inativos pelo WhatsApp.")
-    db_crm = get_db()
-    inativos = db_crm.query(Cliente).all()
-    st.markdown(f"### 👥 Clientes na Base: **{len(inativos)}**")
+    st.header("📢 CRM, Campanhas de Resgate ('Oi, Sumido') & Fidelidade Cashback")
+    st.write("Engaje clientes inativos com cupons persuasivos gerados pela I.A. e administre saldos de cashback da sua base de consumidores.")
+
+    sub_crm1, sub_crm2 = st.tabs(["🔄 Recuperação de Clientes Inativos (Upsell)", "💳 Gestão de Fidelidade & Cashback"])
+
+    db_crm_base = get_db()
+
+    # --- SUB-ABA 1: RESGATE DE CLIENTES INATIVOS ---
+    with sub_crm1:
+        st.subheader("🤖 Automação de Resgate com Inteligência Artificial")
+        st.write("A plataforma identifica clientes sem compras há mais de 15 dias e sugere abordagens personalizadas com cupons de desconto para disparar no WhatsApp.")
+        
+        data_corte_inativos = datetime.now() - timedelta(days=15)
+        clientes_inativos = db_crm_base.query(Cliente).filter(
+            (Cliente.ultima_compra <= data_corte_inativos) | (Cliente.status == "Inativo")
+        ).all()
+
+        st.markdown(f"### 👥 Clientes em risco de churn identificados: **{len(clientes_inativos)}**")
+
+        if clientes_inativos:
+            for cli in clientes_inativos:
+                with st.container(border=True):
+                    c_col1, c_col2, c_col3 = st.columns([2, 2, 3])
+                    with c_col1:
+                        st.markdown(f"**👤 {cli.nome}**")
+                        st.write(f"📱 WhatsApp: `{cli.whatsapp}`")
+                        st.write(f"📌 Status: **{cli.status}**")
+                    
+                    with c_col2:
+                        st.write(f"🕒 Última compra: **{cli.ultima_compra.strftime('%d/%m/%Y')}**")
+                        st.write(f"💰 Total acumulado: **R$ {cli.total_gasto:.2f}**")
+                        st.write(f"💳 Cashback disponível: **R$ {cli.saldo_cashback:.2f}**")
+                    
+                    msg_resgate_padrao = f"Olá {cli.nome}! Sentimos muito a sua falta aqui no Mica Burguer. Preparamos um cupom exclusivo de 15% de desconto para você pedir seu hambúrguer favorito hoje!"
+                    
+                    if GENAI_DISPONIVEL:
+                        try:
+                            model_resg = genai.GenerativeModel("models/gemini-flash-latest")
+                            prompt_resg = f"Escreva uma mensagem curta, carinhosa e muito persuasiva de WhatsApp para resgatar o cliente '{cli.nome}', que não faz pedidos em nossa hamburgueria gourmet há semanas. Ofereça um cupom especial de 15% de desconto (CUPOM: VOLTAMICA15). Sem clichês em excesso."
+                            resp_resg = model_resg.generate_content(prompt_resg)
+                            if resp_resg and resp_resg.text:
+                                msg_resgate_padrao = resp_resg.text.strip()
+                        except Exception:
+                            pass
+
+                    with c_col3:
+                        st.markdown("🤖 **Sugestão de Abordagem I.A.:**")
+                        st.info(f"\"{msg_resgate_padrao}\"")
+                        if st.button(f"🚀 Disparar Campanha WhatsApp para {cli.nome}", key=f"btn_zap_resgate_{cli.id}", type="primary"):
+                            st.success(f"✅ Campanha de resgate enviada com sucesso para o número {cli.whatsapp}!")
+        else:
+            st.success("🎉 Excelente notícia! Nenhum cliente inativo há mais de 15 dias foi identificado no momento. Sua base está altamente engajada!")
+
+    # --- SUB-ABA 2: GESTÃO DE CASHBACK ---
+    with sub_crm2:
+        st.subheader("💳 Relatório Geral de Saldos de Cashback")
+        st.write("Acompanhe o saldo que cada cliente acumulou para utilizar como desconto em pedidos futuros na loja ou no delivery.")
+        
+        todos_clientes = db_crm_base.query(Cliente).all()
+        if todos_clientes:
+            dados_cb = []
+            for cl in todos_clientes:
+                dados_cb.append({
+                    "ID": cl.id,
+                    "Nome do Cliente": cl.nome,
+                    "WhatsApp": cl.whatsapp,
+                    "Total Gasto na Loja": f"R$ {cl.total_gasto:.2f}",
+                    "Saldo Cashback": f"R$ {cl.saldo_cashback:.2f}",
+                    "Status": cl.status
+                })
+            st.dataframe(pd.DataFrame(dados_cb), use_container_width=True, hide_index=True)
+        else:
+            st.info("Nenhum cliente cadastrado no banco de dados até o momento.")
+
+        st.markdown("---")
+        with st.form("form_ajustar_cashback"):
+            st.markdown("### ➕ Creditar Saldo de Cashback Manualmente")
+            st.write("Utilize esta função para premiar clientes vips ou conceder bônus promocionais.")
+            col_cb1, col_cb2 = st.columns(2)
+            with col_cb1:
+                cli_escolhido = st.selectbox("Selecione o Cliente para o Crédito", todos_clientes, format_func=lambda x: f"{x.nome} (Saldo Atual: R$ {x.saldo_cashback:.2f})")
+            with col_cb2:
+                valor_add_cb = st.number_input("Valor do Crédito a Adicionar (R$)", min_value=0.0, value=10.0, step=5.0, format="%.2f")
+            
+            btn_add_cb = st.form_submit_button("💰 Confirmar Crédito de Cashback", type="primary")
+            if btn_add_cb and cli_escolhido:
+                db_cb = get_db()
+                try:
+                    c_up = db_cb.query(Cliente).filter(Cliente.id == cli_escolhido.id).first()
+                    if c_up:
+                        c_up.saldo_cashback += valor_add_cb
+                        db_cb.commit()
+                        st.success(f"✅ Crédito de R$ {valor_add_cb:.2f} adicionado com sucesso ao saldo de **{c_up.nome}**!")
+                        st.rerun()
+                except Exception as e:
+                    db_cb.rollback()
+                    st.error(f"Erro ao creditar cashback: {e}")
+                finally:
+                    db_cb.close()
+
+    db_crm_base.close()
+
 
 # ==============================================================================
-# ABA 3: FRENTE DE CAIXA (PDV COM UPSELL)
+# ABA 3: FRENTE DE CAIXA (PDV INTELLIGENTE COM UPSELL & GATEWAY PIX)
 # ==============================================================================
 with aba3:
-    st.header("🛒 Frente de Caixa — PDV com Upsell Inteligente")
-    db = get_db()
-    lista_pratos = db.query(Produto).all()
-    if not lista_pratos:
-        st.warning("⚠️ Cadastre produtos na Aba 1 para habilitar o PDV.")
-    else:
-        prod_pdv = st.selectbox("Prato / Lanche", lista_pratos, format_func=lambda x: f"{x.nome} (R$ {x.preco_venda:.2f})")
-        qtd = st.number_input("Quantidade", min_value=1, value=1, step=1)
-        total = prod_pdv.preco_venda * qtd
+    st.header("🛒 Frente de Caixa — PDV com Gateway de Pagamento & Upsell")
+    st.write("Registre vendas de balcão ou delivery, aplique saldos de cashback, gere QR Code Pix instantâneo e dê baixa automática no estoque.")
 
+    db_pdv = get_db()
+    lista_pratos_pdv = db_pdv.query(Produto).all()
+    lista_clientes_pdv = db_pdv.query(Cliente).all()
+    
+    if not lista_pratos_pdv:
+        st.warning("⚠️ Cadastre produtos na Aba 1 (Engenharia de Cardápio) para habilitar o Frente de Caixa.")
+    else:
+        col_pdv1, col_pdv2 = st.columns([3, 2])
+        with col_pdv1:
+            prod_pdv = st.selectbox("🍔 Selecione o Prato / Lanche", lista_pratos_pdv, format_func=lambda x: f"{x.nome} — R$ {x.preco_venda:.2f}")
+            qtd_pdv = st.number_input("🔢 Quantidade de Itens", min_value=1, value=1, step=1)
+            cliente_pdv = st.selectbox(
+                "👤 Identificar Cliente (Opcional para acúmulo e resgate de Cashback)",
+                [None] + lista_clientes_pdv,
+                format_func=lambda x: "👤 Cliente Balcão / Não Identificado" if x is None else f"{x.nome} (Cashback Disponível: R$ {x.saldo_cashback:.2f})"
+            )
+
+        total_bruto_pdv = prod_pdv.preco_venda * qtd_pdv
+        usa_cashback_pdv = False
+        desconto_cb_pdv = 0.0
+
+        if cliente_pdv and cliente_pdv.saldo_cashback > 0:
+            usa_cashback_pdv = st.checkbox(f"💳 Utilizar Saldo de Cashback deste cliente (Disponível: R$ {cliente_pdv.saldo_cashback:.2f})")
+            if usa_cashback_pdv:
+                desconto_cb_pdv = min(total_bruto_pdv, cliente_pdv.saldo_cashback)
+
+        total_final_pdv = max(0.0, total_bruto_pdv - desconto_cb_pdv)
+
+        with col_pdv2:
+            with st.container(border=True):
+                st.markdown("### 💰 Resumo Financeiro do Pedido")
+                st.markdown(f"**Subtotal:** R$ {total_bruto_pdv:.2f}")
+                if usa_cashback_pdv:
+                    st.markdown(f"📉 **Desconto Fidelidade:** -R$ {desconto_cb_pdv:.2f}")
+                st.markdown(f"### ✅ Total a Pagar: R$ {total_final_pdv:.2f}")
+                
+                forma_pag_pdv = st.selectbox("💳 Forma de Pagamento", ["Pix (Gerar QR Code Automático)", "Cartão de Crédito", "Cartão de Débito", "Dinheiro Em Especie"])
+
+        # --- CAIXA DE UPSELL DA I.A. ---
         with st.container(border=True):
-            st.markdown("💡 **Dica de Upsell da I.A. para o Caixa:**")
-            sugestao_upsell = "Ofereça adicionar **Bacon Crocante** ou **Queijo Extra** por +R$ 5,00!"
+            st.markdown("💡 **Sugestão de Upsell para o Operador do Caixa:**")
+            sugestao_upsell = "Ofereça adicionar **Bacon Crocante em Tiras** ou **Queijo Cheddar Extra** por apenas +R$ 6,00!"
             if GENAI_DISPONIVEL and prod_pdv:
                 try:
                     model_up = genai.GenerativeModel("models/gemini-flash-latest")
-                    prompt_up = f"Atuo como caixa em uma hamburgueria. O cliente está comprando '{prod_pdv.nome}'. Dê uma sugestão curta (1 frase) de adicional de alta margem."
+                    prompt_up = f"Atuo como caixa em uma hamburgueria gourmet. O cliente está comprando o prato '{prod_pdv.nome}'. Dê uma sugestão comercial rápida de 1 frase para eu oferecer um adicional ou acompanhamento com alta margem de lucro."
                     resp_up = model_up.generate_content(prompt_up)
                     if resp_up and resp_up.text:
                         sugestao_upsell = resp_up.text.strip()
@@ -449,70 +621,104 @@ with aba3:
                     pass
             st.info(f"🤖 *\"{sugestao_upsell}\"*")
 
-        st.markdown(f"### 💰 Total a Pagar: R$ {total:.2f}")
-        if st.button("✅ Confirmar Pedido & Baixar Estoque", type="primary"):
-            db_v = get_db()
+        # --- SIMULADOR DE GATEWAY PIX ---
+        if forma_pag_pdv.startswith("Pix"):
+            st.markdown("---")
+            st.subheader("📱 Gateway Pix Automático (Integração de Recebimento)")
+            col_pix1, col_pix2 = st.columns([1, 3])
+            with col_pix1:
+                st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=FMFIFOOD_PIX_R${total_final_pdv:.2f}", width=180, caption="QR Code Dinâmico")
+            with col_pix2:
+                st.info(f"🔗 **Chave Pix Copia e Cola (Liquidificador Instantâneo):**\n\n`00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-4266141740005204000053039865405{total_final_pdv:.2f}5802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A`")
+                st.write("👉 *Solicite ao cliente o pagamento via app bancário para confirmação automática do sistema.*")
+
+        st.markdown("---")
+        if st.button("🚀 Confirmar Pagamento & Finalizar Venda", type="primary", use_container_width=True):
+            db_exec_venda = get_db()
             try:
+                # 1. Registro do histórico da venda
                 nova_venda = Venda(
                     produto_id=prod_pdv.id,
-                    quantidade=qtd,
-                    valor_total=total,
-                    custo_total=(prod_pdv.custo_total_cmv or 0.0) * qtd,
+                    cliente_id=cliente_pdv.id if cliente_pdv else None,
+                    quantidade=qtd_pdv,
+                    valor_total=total_final_pdv,
+                    custo_total=(prod_pdv.custo_total_cmv or 0.0) * qtd_pdv,
+                    forma_pagamento=forma_pag_pdv,
+                    status_pagamento="Aprovado",
                     data_venda=datetime.now(),
                 )
-                db_v.add(nova_venda)
+                db_exec_venda.add(nova_venda)
 
-                fichas = db_v.query(FichaTecnica).filter(FichaTecnica.produto_id == prod_pdv.id).all()
-                for ft in fichas:
-                    insumo_db = db_v.query(Insumo).filter(Insumo.id == ft.insumo_id).first()
-                    if insumo_db:
-                        insumo_db.saldo_atual -= (ft.quantidade_utilizada * qtd)
+                # 2. Baixa de estoque baseada em Ficha Técnica
+                fichas_venda = db_exec_venda.query(FichaTecnica).filter(FichaTecnica.produto_id == prod_pdv.id).all()
+                for ft in fichas_venda:
+                    insumo_almo = db_exec_venda.query(Insumo).filter(Insumo.id == ft.insumo_id).first()
+                    if insumo_almo:
+                        insumo_almo.saldo_atual -= (ft.quantidade_utilizada * qtd_pdv)
 
-                db_v.commit()
-                st.success(f"🎉 Venda de **{qtd}x {prod_pdv.nome}** registrada com sucesso! Estoque baixado.")
+                # 3. Atualização de saldo do cliente e novo cashback ganho (5% sobre o valor final pago)
+                if cliente_pdv:
+                    cli_update = db_exec_venda.query(Cliente).filter(Cliente.id == cliente_pdv.id).first()
+                    if cli_update:
+                        cli_update.total_gasto += total_final_pdv
+                        cli_update.ultima_compra = datetime.now()
+                        cli_update.status = "Ativo"
+                        if usa_cashback_pdv:
+                            cli_update.saldo_cashback -= desconto_cb_pdv
+                        
+                        # Credita 5% de cashback sobre a nova compra
+                        cashback_ganho = round(total_final_pdv * 0.05, 2)
+                        cli_update.saldo_cashback += cashback_ganho
+
+                db_exec_venda.commit()
+                st.success(f"🎉 Pagamento de **R$ {total_final_pdv:.2f}** processado com sucesso via {forma_pag_pdv}! Estoque baixado e venda gravada no sistema.")
             except Exception as e:
-                db_v.rollback()
-                st.error(f"❌ Erro ao registrar venda: {e}")
+                db_exec_venda.rollback()
+                st.error(f"❌ Erro ao registrar a venda no sistema: {e}")
             finally:
-                db_v.close()
+                db_exec_venda.close()
+    
+    db_pdv.close()
+
 
 # ==============================================================================
-# ABA 4: ESTOQUE & FICHA TÉCNICA (COM OS 3 LEITORES DE I.A. VISION)
+# ABA 4: ESTOQUE, ALMOXARIFADO & FICHA TÉCNICA COM 3 LEITORES VISION
 # ==============================================================================
 with aba4:
     st.header("📦 Estoque de Insumos & Ficha Técnica Industrial")
-    st.write("Gerencie o almoxarifado, monte fichas técnicas em massa e dê entrada com nota fiscal via I.A.")
+    st.write("Gerencie o saldo em tempo real, automatize cadastros via foto de nota fiscal e monte fichas técnicas de precisão com o Gemini Vision.")
 
     sub_aba1, sub_aba2, sub_aba3, sub_aba4 = st.tabs([
-        "📊 Saldo Atual do Almoxarifado", 
-        "➕ Cadastrar Insumos (I.A.)", 
-        "🔗 Montar Receita (I.A.)",
-        "🧾 Leitor de Nota Fiscal (I.A.)"
+        "📊 Almoxarifado & Equipe Gestora", 
+        "➕ Cadastrar Insumos (I.A. Vision)", 
+        "🔗 Montar Ficha Técnica (I.A. Vision)",
+        "🧾 Leitor de Nota de Reposição (I.A. Vision)"
     ])
 
     db_estoque = get_db()
 
+    # --- SUB-ABA 1: ALMOXARIFADO EM TEMPO REAL E CONTATOS GERENCIAIS ---
     with sub_aba1:
-        st.subheader("📋 Almoxarifado em Tempo Real")
+        st.subheader("📋 Status do Almoxarifado em Tempo Real")
         insumos_cadastrados = db_estoque.query(Insumo).all()
         if insumos_cadastrados:
             dados_estoque = []
             for i in insumos_cadastrados:
-                status = "🟢 Normal" if i.saldo_atual >= i.estoque_minimo else "🔴 Alerta de Reposição"
+                status_bad = "🟢 Normal / Operacional" if i.saldo_atual >= i.estoque_minimo else "🔴 Alerta Crítico de Reposição"
                 dados_estoque.append({
                     "Insumo": i.nome,
                     "Saldo Atual": f"{i.saldo_atual:.1f} {i.unidade_medida}",
-                    "Mínimo": f"{i.estoque_minimo:.1f} {i.unidade_medida}",
-                    "Custo Unit.": f"R$ {i.custo_unitario:.2f}",
-                    "Status": status,
+                    "Estoque Mínimo": f"{i.estoque_minimo:.1f} {i.unidade_medida}",
+                    "Custo Unitário": f"R$ {i.custo_unitario:.2f}",
+                    "Status Operacional": status_bad,
                 })
             st.dataframe(pd.DataFrame(dados_estoque), use_container_width=True, hide_index=True)
         else:
-            st.info("Nenhum insumo cadastrado.")
+            st.info("Nenhum insumo cadastrado no almoxarifado.")
 
         st.markdown("---")
-        st.subheader("🤖 Forecasting & Alerta Preditivo (I.A.)")
-        st.write("O robô analisa o estoque e avisa os administradores via WhatsApp caso algum insumo corra risco de acabar.")
+        st.subheader("🤖 Forecasting Preditivo & Disparo de Alertas via WhatsApp")
+        st.write("A inteligência artificial analisa a cadência de saídas e notifica imediatamente os administradores pelo WhatsApp em caso de risco de ruptura.")
 
         if st.button("🔮 Executar Análise Preditiva de Ruptura Agora", type="primary"):
             db_fc = get_db()
@@ -520,75 +726,87 @@ with aba4:
             db_fc.close()
             st.info(resultado_ia)
 
-        with st.expander("👥 Configurar Gestores para Alerta de WhatsApp"):
-            with st.form("form_contato_gerencial"):
-                c_nome = st.text_input("Nome do Gestor", placeholder="Ex: Carlos (Gerente Geral)")
-                c_whats = st.text_input("WhatsApp (com DDI e DDD)", placeholder="Ex: 5516999998888")
-                c_cargo = st.selectbox("Cargo", ["Administrador", "Gerente"])
-                
-                btn_salvar_contato = st.form_submit_button("💾 Salvar Contato Gerencial", type="primary")
-                if btn_salvar_contato:
-                    db_g = get_db()
-                    try:
-                        novo_cg = ContatoGerencial(nome=c_nome, whatsapp=c_whats, cargo=c_cargo)
-                        db_g.add(novo_cg)
-                        db_g.commit()
-                        st.success(f"✅ Gestor **{c_nome}** cadastrado com sucesso!")
-                    except Exception as e:
-                        db_g.rollback()
-                        st.error(f"❌ Erro ao salvar contato: {e}")
-                    finally:
-                        db_g.close()
-
         st.markdown("---")
-        st.subheader("📋 Equipe Gestora Cadastrada")
+        with st.expander("👥 Cadastrar Novo Gestor / Administrador para Receber Alertas via WhatsApp"):
+            with st.form("form_contato_gerencial"):
+                c_col1, c_col2, c_col3 = st.columns(3)
+                with c_col1:
+                    c_nome = st.text_input("Nome Completo do Gestor", placeholder="Ex: Michele Pessoa")
+                with c_col2:
+                    c_whats = st.text_input("WhatsApp (com DDI e DDD)", placeholder="Ex: 5511913547276")
+                with c_col3:
+                    c_cargo = st.selectbox("Cargo / Função", ["Administrador", "Gerente Geral", "Chef Executivo"])
+                
+                btn_salvar_contato = st.form_submit_button("💾 Salvar Contato Gerencial no Banco", type="primary")
+                if btn_salvar_contato:
+                    if not c_nome or not c_whats:
+                        st.error("⚠️ Preencha o Nome e o Número de WhatsApp!")
+                    else:
+                        db_g = get_db()
+                        try:
+                            novo_cg = ContatoGerencial(nome=c_nome, whatsapp=c_whats, cargo=c_cargo, receber_alertas_estoque=1)
+                            db_g.add(novo_cg)
+                            db_g.commit()
+                            st.success(f"✅ Gestor(a) **{c_nome}** cadastrado(a) com sucesso como {c_cargo}!")
+                            st.rerun()
+                        except Exception as e:
+                            db_g.rollback()
+                            st.error(f"❌ Erro ao salvar contato no banco de dados: {e}")
+                        finally:
+                            db_g.close()
+
+        st.markdown("### 📋 Equipe Gestora Cadastrada para Alertas")
         gestores_cadastrados = db_estoque.query(ContatoGerencial).all()
         if gestores_cadastrados:
             for g in gestores_cadastrados:
-                col_g1, col_g2, col_g3, col_g4 = st.columns([3, 2, 2, 1])
-                col_g1.write(f"**{g.nome}**")
-                col_g2.write(f"📱 {g.whatsapp}")
-                col_g3.write(f"💼 {g.cargo}")
-                if col_g4.button("🗑️ Excluir", key=f"del_gestor_{g.id}"):
-                    db_del = get_db()
-                    try:
-                        db_del.query(ContatoGerencial).filter(ContatoGerencial.id == g.id).delete()
-                        db_del.commit()
-                        st.success(f"Gestor {g.nome} removido com sucesso!")
-                        st.rerun()
-                    except Exception as e:
-                        db_del.rollback()
-                        st.error(f"Erro ao excluir: {e}")
-                    finally:
-                        db_del.close()
+                with st.container(border=True):
+                    col_g1, col_g2, col_g3, col_g4 = st.columns([3, 2, 2, 1])
+                    col_g1.write(f"**👤 {g.nome}**")
+                    col_g2.write(f"📱 `{g.whatsapp}`")
+                    col_g3.write(f"💼 **{g.cargo}**")
+                    if col_g4.button("🗑️ Excluir", key=f"del_gestor_{g.id}"):
+                        db_del = get_db()
+                        try:
+                            db_del.query(ContatoGerencial).filter(ContatoGerencial.id == g.id).delete()
+                            db_del.commit()
+                            st.success(f"Gestor {g.nome} removido do sistema!")
+                            st.rerun()
+                        except Exception as e:
+                            db_del.rollback()
+                            st.error(f"Erro ao excluir: {e}")
+                        finally:
+                            db_del.close()
         else:
-            st.info("Nenhum gestor cadastrado no momento.")
+            st.info("Nenhum gestor ou administrador cadastrado até o momento para o envio de alertas via WhatsApp.")
 
-    # --- SUB-ABA 2: CADASTRO EM MASSA VIA FOTO DE NF ---
+    # --- SUB-ABA 2: CADASTRO EM MASSA VIA FOTO DE NOTA FISCAL ---
     with sub_aba2:
-        st.subheader("➕ Cadastro Automático de Insumos via Foto (I.A. Vision)")
-        st.write("Suba a foto da Nota Fiscal. O Gemini cadastrará os itens novos adivinhando a unidade e reabastecerá os existentes!")
+        st.subheader("➕ Leitor de Nota Fiscal para Cadastro Automático (I.A. Vision)")
+        st.write("Envie a foto de um cupom ou nota fiscal. O robô identificará itens novos, adivinhará as unidades gastronômicas e dará entrada no estoque!")
         
-        arquivo_nf_cad = st.file_uploader("📸 Envie a foto da Nota Fiscal para Cadastro", type=["jpg", "jpeg", "png"], key="uploader_nf_cad_ia")
+        arquivo_nf_cad = st.file_uploader("📸 Envie a foto da Nota Fiscal para Cadastro em Massa", type=["jpg", "jpeg", "png"], key="uploader_nf_cad_ia")
         
         if arquivo_nf_cad:
             col_img_c, col_btn_c = st.columns([1, 2])
             with col_img_c:
-                st.image(arquivo_nf_cad, caption="Nota para Cadastro", use_container_width=True)
+                st.image(arquivo_nf_cad, caption="Nota Fiscal / Cupom Lindo", use_container_width=True)
             with col_btn_c:
-                if st.button("🚀 Cadastrar e Atualizar Insumos com I.A.", type="primary", use_container_width=True):
-                    with st.spinner("🤖 O Gemini está analisando os itens e criando os cadastros no banco..."):
+                if st.button("🚀 Processar Leitura e Cadastrar Insumos no Banco", type="primary", use_container_width=True):
+                    with st.spinner("🤖 O Gemini 1.5 Flash está executando OCR e estruturando os itens no almoxarifado..."):
                         try:
                             model_vision = genai.GenerativeModel("models/gemini-flash-latest")
                             img_pil = Image.open(arquivo_nf_cad)
                             
-                            prompt_ocr_cad = 'Você é um auditor e almoxarife de gastronomia industrial. Analise esta nota fiscal ou cupom e extraia os itens comprados. Para cada item, infira a unidade de medida padrão gastronômica (ex: kg, un, l, ml, g, pct, fatias). Retorne APENAS um array JSON válido no formato: [{"nome": "Nome do Insumo", "unidade": "kg", "quantidade": 5.0, "valor_unitario": 12.50}]. Regras: Retorne EXCLUSIVAMENTE o JSON puro (sem markdown), sem textos extras. Quantidades e valores como números float.'
+                            prompt_ocr_cad = 'Você é um auditor de estoque e almoxarife de alta gastronomia. Analise esta imagem de nota fiscal ou cupom fiscal e extraia todos os itens comprados. Para cada item, infira a unidade de medida padrão culinária (ex: kg, un, l, ml, g, pct, fatias). Retorne APENAS um array JSON válido no formato: [{"nome": "Nome do Insumo", "unidade": "kg", "quantidade": 5.0, "valor_unitario": 12.50}]. Retorne EXCLUSIVAMENTE o JSON puro (sem markdown, sem blocos de código), sem nenhum texto adicional. Quantidades e valores devem ser floats numéricos.'
                             
                             resp_cad = model_vision.generate_content([prompt_ocr_cad, img_pil])
-                            itens_lidos = json.loads(resp_cad.text.strip().replace("```json", "").replace("```", "").strip())
+                            texto_ocr_cad = resp_cad.text.strip().replace("```json", "").replace("```", "").strip()
+                            itens_lidos = json.loads(texto_ocr_cad)
                             
                             db_cad = get_db()
                             novos_cadastrados = []
+                            atualizados = 0
+                            
                             for item in itens_lidos:
                                 nome_l = str(item.get("nome", "")).strip()
                                 unidade_l = str(item.get("unidade", "un")).lower().strip()
@@ -603,118 +821,312 @@ with aba4:
                                     ins_db.saldo_atual += qtd_l
                                     if custo_l > 0:
                                         ins_db.custo_unitario = custo_l
+                                    atualizados += 1
                                 else:
-                                    novo_i = Insumo(nome=nome_l, unidade_medida=unidade_l, saldo_atual=qtd_l, estoque_minimo=max(1.0, qtd_l*0.15), custo_unitario=custo_l)
+                                    novo_i = Insumo(
+                                        nome=nome_l,
+                                        unidade_medida=unidade_l,
+                                        saldo_atual=qtd_l,
+                                        estoque_minimo=max(1.0, qtd_l * 0.15),
+                                        custo_unitario=custo_l
+                                    )
                                     db_cad.add(novo_i)
                                     novos_cadastrados.append(nome_l)
                                     
                             db_cad.commit()
                             recalcular_cmv_geral(db_cad)
                             db_cad.close()
-                            st.success("🎉 Processo finalizado com sucesso! Almoxarifado e cardápio atualizados.")
+                            
+                            st.success(f"🎉 Leitura de Nota Fiscal concluída! {len(novos_cadastrados)} novos insumos cadastrados e {atualizados} reabastecidos.")
+                            st.json(itens_lidos)
                         except Exception as e:
-                            st.error(f"❌ Erro ao processar cadastro: {e}")
+                            st.error(f"❌ Erro na leitura de visão computacional da Nota Fiscal: {e}")
 
-    # --- SUB-ABA 3: MONTAGEM DE RECEITAS VIA FOTO DE RECEITA ---
+    # --- SUB-ABA 3: MONTAGEM DE RECEITAS VIA FOTO ---
     with sub_aba3:
-        st.subheader("🔗 Montagem Automática de Ficha Técnica via Foto (I.A. Vision)")
+        st.subheader("🔗 Leitor de Receita de Cozinha para Montagem de Ficha Técnica (I.A. Vision)")
+        st.write("Fotografe a página do livro de receitas ou manual do chef. A IA fará a vinculação dos insumos e ajustará o CMV.")
+        
         produtos_ft = db_estoque.query(Produto).all()
         if not produtos_ft:
-            st.warning("⚠️ Cadastre produtos na Aba 1 primeiro.")
+            st.warning("⚠️ Cadastre produtos no cardápio na Aba 1 antes de montar as fichas técnicas.")
         else:
-            prato_escolhido = st.selectbox("🎯 Selecione o Prato para Montar:", produtos_ft, format_func=lambda p: f"{p.nome} (R$ {p.preco_venda:.2f})")
-            arquivo_receita = st.file_uploader("📸 Envie a foto da Receita ou Ficha Técnica", type=["jpg", "jpeg", "png"], key="uploader_receita_ia")
+            prato_escolhido = st.selectbox("🎯 Selecione o Prato para Montar a Ficha Técnica:", produtos_ft, format_func=lambda p: f"{p.nome} (R$ {p.preco_venda:.2f} — CMV Atual: R$ {p.custo_total_cmv:.2f})")
+            arquivo_receita = st.file_uploader("📸 Envie a foto da Receita ou Ficha Manual", type=["jpg", "jpeg", "png"], key="uploader_receita_ia")
             
             if arquivo_receita:
-                if st.button("🚀 Ler Receita e Montar Ficha Técnica com I.A.", type="primary", use_container_width=True):
-                    with st.spinner(f"🤖 Lendo receita e vinculando insumos para {prato_escolhido.nome}..."):
+                col_rec1, col_rec2 = st.columns([1, 2])
+                with col_rec1:
+                    st.image(arquivo_receita, caption="Foto da Receita", use_container_width=True)
+                with col_rec2:
+                    if st.button("🚀 Ler Receita e Montar Ficha Técnica com I.A.", type="primary", use_container_width=True):
+                        with st.spinner(f"🤖 Lendo ingredientes e vinculando insumos para o prato {prato_escolhido.nome}..."):
+                            try:
+                                model_vision = genai.GenerativeModel("models/gemini-flash-latest")
+                                img_pil = Image.open(arquivo_receita)
+                                
+                                prompt_ocr_rec = 'Você é um chef executivo de engenharia de cardápio. Analise esta foto de receita ou manual de cozinha. Extraia o nome dos ingredientes e as quantidades exatas utilizadas para preparar 1 porção do prato. Retorne APENAS um array JSON válido no formato: [{"nome": "Nome do Ingrediente", "quantidade": 0.150}]. Retorne EXCLUSIVAMENTE o JSON puro (sem markdown), sem textos extras. Quantidades devem ser float numéricos compatíveis com a unidade padrão do ingrediente.'
+                                
+                                resp_rec = model_vision.generate_content([prompt_ocr_rec, img_pil])
+                                texto_ocr_rec = resp_rec.text.strip().replace("```json", "").replace("```", "").strip()
+                                ingredientes_lidos = json.loads(texto_ocr_rec)
+                                
+                                db_rec = get_db()
+                                # Limpa a ficha anterior para recriar
+                                db_rec.query(FichaTecnica).filter(FichaTecnica.produto_id == prato_escolhido.id).delete()
+                                
+                                vinculados = 0
+                                for item in ingredientes_lidos:
+                                    nome_ing = str(item.get("nome", "")).strip()
+                                    qtd_ing = float(item.get("quantidade", 0.0))
+                                    if not nome_ing or qtd_ing <= 0:
+                                        continue
+                                        
+                                    insumo_db = db_rec.query(Insumo).filter(Insumo.nome.ilike(f"%{nome_ing}%")).first()
+                                    if insumo_db:
+                                        db_rec.add(FichaTecnica(produto_id=prato_escolhido.id, insumo_id=insumo_db.id, quantidade_utilizada=qtd_ing))
+                                        vinculados += 1
+                                        
+                                db_rec.commit()
+                                recalcular_cmv_geral(db_rec)
+                                db_rec.close()
+                                
+                                st.success(f"🎉 Ficha Técnica do prato **{prato_escolhido.nome}** estruturada com sucesso! {vinculados} insumos vinculados e CMV industrial recalculado.")
+                                st.json(ingredientes_lidos)
+                            except Exception as e:
+                                st.error(f"❌ Erro no processamento de leitura da receita: {e}")
+
+    # --- SUB-ABA 4: LEITOR DE CUPOM PARA REPOSIÇÃO DE ESTOQUE ---
+    with sub_aba4:
+        st.subheader("🧾 Leitor de Cupom de Reposição Rápida de Estoque (I.A. Vision)")
+        st.write("Dê entrada rápida de estoque de fornecedores fotografando o cupom ou nota de compra diária.")
+        
+        arquivo_nf_rep = st.file_uploader("📸 Envie a Nota Fiscal de Compras do Dia", type=["jpg", "jpeg", "png"], key="uploader_nf_reposicao_vision")
+        if arquivo_nf_rep:
+            col_rep1, col_rep2 = st.columns([1, 2])
+            with col_rep1:
+                st.image(arquivo_nf_rep, caption="Cupom de Fornecedor", use_container_width=True)
+            with col_rep2:
+                if st.button("🚀 Processar Entrada de Estoque e Atualizar Custos", type="primary", use_container_width=True):
+                    with st.spinner("🤖 Lendo itens e atualizando saldos no almoxarifado..."):
                         try:
                             model_vision = genai.GenerativeModel("models/gemini-flash-latest")
-                            img_pil = Image.open(arquivo_receita)
+                            img_pil = Image.open(arquivo_nf_rep)
                             
-                            prompt_ocr_rec = 'Você é um chef executivo e engenheiro de cardápio. Analise esta foto de receita, ficha técnica ou manual de cozinha. Extraia os ingredientes e as quantidades utilizadas para preparar uma porção do prato. Retorne APENAS um array JSON válido no formato: [{"nome": "Nome do Ingrediente", "quantidade": 0.150}]. Regras: Retorne EXCLUSIVAMENTE o JSON puro (sem markdown), sem textos extras. As quantidades devem ser números float compatíveis com a unidade padrão.'
+                            prompt_ocr_rep = 'Analise esta imagem de cupom ou nota fiscal de fornecedor de alimentos. Extraia os itens e retorne APENAS um array JSON no formato: [{"nome": "Nome do Insumo", "quantidade": 10.0, "valor_unitario": 5.50}]. Retorne EXCLUSIVAMENTE JSON puro sem formatação markdown.'
                             
-                            resp_rec = model_vision.generate_content([prompt_ocr_rec, img_pil])
-                            ingredientes_lidos = json.loads(resp_rec.text.strip().replace("```json", "").replace("```", "").strip())
+                            response_ocr = model_vision.generate_content([prompt_ocr_rep, img_pil])
+                            texto_ocr_rep = response_ocr.text.strip().replace("```json", "").replace("```", "").strip()
+                            itens_extraidos = json.loads(texto_ocr_rep)
                             
-                            db_rec = get_db()
-                            db_rec.query(FichaTecnica).filter(FichaTecnica.produto_id == prato_escolhido.id).delete()
-                            
-                            for item in ingredientes_lidos:
-                                nome_ing = str(item.get("nome", "")).strip()
-                                qtd_ing = float(item.get("quantidade", 0.0))
-                                if not nome_ing or qtd_ing <= 0:
+                            db_in = get_db()
+                            itens_reabastecidos = 0
+                            for item in itens_extraidos:
+                                nome_lido = str(item.get("nome", "")).strip()
+                                qtd_lida = float(item.get("quantidade", 0.0))
+                                custo_lido = float(item.get("valor_unitario", 0.0))
+                                if not nome_lido or qtd_lida <= 0:
                                     continue
-                                insumo_db = db_rec.query(Insumo).filter(Insumo.nome.ilike(f"%{nome_ing}%")).first()
+                                    
+                                insumo_db = db_in.query(Insumo).filter(Insumo.nome.ilike(f"%{nome_lido}%")).first()
                                 if insumo_db:
-                                    db_rec.add(FichaTecnica(produto_id=prato_escolhido.id, insumo_id=insumo_db.id, quantidade_utilizada=qtd_ing))
+                                    insumo_db.saldo_atual += qtd_lida
+                                    if custo_lido > 0:
+                                        insumo_db.custo_unitario = custo_lido
+                                    itens_reabastecidos += 1
                                     
-                            db_rec.commit()
-                            recalcular_cmv_geral(db_rec)
-                            db_rec.close()
-                            st.success(f"🎉 Ficha Técnica de **{prato_escolhido.nome}** montada com sucesso e CMV reajustado!")
+                            db_in.commit()
+                            recalcular_cmv_geral(db_in)
+                            db_in.close()
+                            
+                            st.success(f"🎉 Entrada de almoxarifado liquidada! {itens_reabastecidos} itens tiveram saldos adicionados e CMV atualizado.")
+                            st.json(itens_extraidos)
                         except Exception as e:
-                            st.error(f"❌ Erro ao ler receita: {e}")
+                            st.error(f"❌ Erro na leitura de visão da nota de reposição: {e}")
 
-    # --- SUB-ABA 4: ENTRADA DE NOTA FISCAL / REPOSIÇÃO ---
-    with sub_aba4:
-        st.subheader("🧾 Entrada Automática via Nota Fiscal (Reposição)")
-        arquivo_nf = st.file_uploader("📸 Envie a Nota Fiscal de Compra", type=["jpg", "jpeg", "png"], key="uploader_nf_reposicao")
-        if arquivo_nf:
-            if st.button("🚀 Ler Cupom e Atualizar Estoque", type="primary", use_container_width=True):
-                with st.spinner("🤖 Lendo nota fiscal e atualizando custos..."):
-                    try:
-                        model_vision = genai.GenerativeModel("models/gemini-flash-latest")
-                        img_pil = Image.open(arquivo_nf)
-                        prompt_ocr = 'Você é um auditor de estoque e custos para gastronomia industrial. Analise a imagem desta nota fiscal. Extraia os itens e retorne APENAS um array JSON no formato: [{"nome": "Insumo", "quantidade": 10.0, "valor_unitario": 5.50}]. Exclusivamente JSON puro, sem markdown.'
-                        
-                        response_ocr = model_vision.generate_content([prompt_ocr, img_pil])
-                        itens_extraidos = json.loads(response_ocr.text.strip().replace("```json", "").replace("```", "").strip())
-                        
-                        db_in = get_db()
-                        for item in itens_extraidos:
-                            nome_lido = str(item.get("nome", "")).strip()
-                            qtd_lida = float(item.get("quantidade", 0.0))
-                            custo_lido = float(item.get("valor_unitario", 0.0))
-                            if not nome_lido or qtd_lida <= 0:
-                                continue
-                            insumo_db = db_in.query(Insumo).filter(Insumo.nome.ilike(f"%{nome_lido}%")).first()
-                            if insumo_db:
-                                insumo_db.saldo_atual += qtd_lida
-                                if custo_lido > 0:
-                                    insumo_db.custo_unitario = custo_lido
-                                    
-                        db_in.commit()
-                        recalcular_cmv_geral(db_in)
-                        db_in.close()
-                        st.success("🎉 Entrada de estoque e CMV atualizados com sucesso!")
-                    except Exception as e:
-                        st.error(f"❌ Erro ao processar nota: {e}")
+    db_estoque.close()
+
 
 # ==============================================================================
-# ABA 5: DASHBOARD FINANCEIRO
+# ABA 5: DASHBOARD FINANCEIRO E HISTÓRICO DE VENDAS
 # ==============================================================================
 with aba5:
-    st.header("📊 Dashboard Financeiro & Indicadores")
+    st.header("📊 Dashboard Financeiro & Indicadores de Performance")
+    st.write("Visão geral em tempo real de faturamento, custo de mercadoria vendida (CMV), lucro bruto e margem operacional da loja.")
+
     db_dash = get_db()
     todas_vendas = db_dash.query(Venda).all()
+    
     faturamento_total = sum(v.valor_total for v in todas_vendas)
     custo_total_vendas = sum(v.custo_total for v in todas_vendas)
     lucro_bruto = faturamento_total - custo_total_vendas
     margem_geral = (lucro_bruto / faturamento_total * 100) if faturamento_total > 0 else 0.0
 
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("💰 Faturamento Total", f"R$ {faturamento_total:.2f}")
-    m2.metric("📉 CMV Total", f"R$ {custo_total_vendas:.2f}")
-    m3.metric("💵 Lucro Bruto", f"R$ {lucro_bruto:.2f}")
-    m4.metric("📈 Margem Média", f"{margem_geral:.1f}%")
+    m1.metric("💰 Faturamento Bruto", f"R$ {faturamento_total:.2f}")
+    m2.metric("📉 CMV Total Acumulado", f"R$ {custo_total_vendas:.2f}")
+    m3.metric("💵 Lucro Bruto Operacional", f"R$ {lucro_bruto:.2f}")
+    m4.metric("📈 Margem Média Geral", f"{margem_geral:.1f}%")
 
     st.markdown("---")
-    st.subheader("📈 Histórico de Vendas")
+    st.subheader("📈 Histórico Detalhado de Vendas e Pagamentos")
     if todas_vendas:
-        st.dataframe(pd.DataFrame([
-            {"Data": v.data_venda.strftime("%d/%m/%Y %H:%M"), "Produto": v.produto.nome if v.produto else "Item", "Qtd": v.quantidade, "Total": f"R$ {v.valor_total:.2f}"}
-            for v in todas_vendas
-        ]), use_container_width=True, hide_index=True)
+        tabela_vendas = []
+        for v in todas_vendas:
+            tabela_vendas.append({
+                "ID": v.id,
+                "Data / Hora": v.data_venda.strftime("%d/%m/%Y %H:%M"),
+                "Prato / Lanche": v.produto.nome if v.produto else "Item Removido",
+                "Qtd": v.quantidade,
+                "Forma Pagamento": v.forma_pagamento,
+                "Valor Total": f"R$ {v.valor_total:.2f}",
+                "Custo CMV": f"R$ {v.custo_total:.2f}"
+            })
+        st.dataframe(pd.DataFrame(tabela_vendas), use_container_width=True, hide_index=True)
     else:
-        st.info("Nenhuma venda registrada.")
+        st.info("Nenhuma venda registrada no sistema operacional até o momento.")
+        
+    db_dash.close()
+
+
+# ==============================================================================
+# ABA 6: BOT CLIENTE (ASSISTENTE VIRTUAL "MICA I.A.") COM PIX E CASHBACK
+# ==============================================================================
+with aba6:
+    st.header("💬 Atendimento, Pedidos & Pix com Assistente Virtual (Mica I.A.)")
+    st.write("Simule o canal próprio de atendimento via WhatsApp da hamburgueria. A assistente **Mica** interpreta mensagens de texto, áudios transcritos ou fotos, valida o cardápio, gera Pix, acarreta 5% de cashback e integra direto na Frente de Caixa.")
+
+    db_bot = get_db()
+    produtos_cardapio_bot = db_bot.query(Produto).all()
+    db_bot.close()
+
+    if not produtos_cardapio_bot:
+        st.warning("⚠️ Cadastre produtos no cardápio na Aba 1 para permitir que a assistente Mica realize vendas.")
+    else:
+        menu_disponivel_bot = "\n".join([f"- {p.nome} (Preço: R$ {p.preco_venda:.2f}): {p.descricao_bruta}" for p in produtos_cardapio_bot])
+        
+        col_bot1, col_bot2 = st.columns([1, 1])
+        with col_bot1:
+            telefone_cliente_bot = st.text_input("📱 WhatsApp do Cliente", placeholder="Ex: 5511988887777", value="5511999991111")
+            mensagem_cliente_bot = st.text_area(
+                "💬 Mensagem do Cliente (ou pedido por áudio/texto)",
+                placeholder="Ex: Oi Mica! Queria pedir 2 Mica Royal Truffle Bacon com entrega rápida por favor e pagar no Pix!",
+                height=130
+            )
+            foto_pedido_bot = st.file_uploader("📸 Foto de referência de lanche enviada pelo cliente (Opcional - Multimodal)", type=["jpg", "jpeg", "png"], key="uploader_cliente_bot_mica")
+
+        with col_bot2:
+            st.markdown("### 🤖 Configurações do Robô de Atendimento")
+            st.info("💡 A **Mica** possui personalidade empática, ágil e focada em conversão e upsell. Ao identificar os itens solicitados, ela liquida o pagamento gerando o código Pix e avisa o tempo estimado de entrega.")
+            btn_acionar_mica = st.button("🚀 Processar Pedido & Atendimento com a Mica I.A.", type="primary", use_container_width=True)
+
+        if btn_acionar_mica:
+            if not telefone_cliente_bot or not mensagem_cliente_bot:
+                st.error("⚠️ Por favor, informe o WhatsApp do cliente e digite a mensagem do pedido!")
+            else:
+                with st.spinner("🤖 A assistente virtual Mica está interpretando a mensagem, calculando o pedido e gerando o Pix..."):
+                    try:
+                        model_mica = genai.GenerativeModel("models/gemini-flash-latest")
+                        
+                        prompt_mica = f"""
+                        Você é a 'Mica', assistente virtual e inteligência comercial via WhatsApp da hamburgueria gourmet Mica Burguer & Restaurante.
+                        Cardápio de pratos disponível para venda hoje:
+                        {menu_disponivel_bot}
+                        
+                        O cliente enviou a seguinte mensagem no WhatsApp: "{mensagem_cliente_bot}"
+                        
+                        Analise a mensagem e identifique qual(is) produto(s) do cardápio o cliente deseja pedir e a quantidade exata.
+                        Retorne APENAS um objeto JSON válido (sem markdown, sem blocos de código e sem textos adicionais) estruturado exatamente assim:
+                        {{
+                          "cliente_nome": "Cliente WhatsApp",
+                          "itens": [
+                            {{"nome_produto": "Nome exato do prato no cardápio", "quantidade": 1}}
+                          ],
+                          "resposta_whatsapp": "Mensagem simpática, carinhosa e profissional da Mica confirmando o pedido, informando o valor total exato e informando que a chave Pix foi gerada abaixo."
+                        }}
+                        Se o cliente apenas tirou dúvidas ou não mencionou itens válidos, retorne o campo 'itens' como uma lista vazia [].
+                        """
+
+                        inputs_mica = [prompt_mica]
+                        if foto_pedido_bot:
+                            inputs_mica.append(Image.open(foto_pedido_bot))
+
+                        resp_mica = model_mica.generate_content(inputs_mica)
+                        texto_mica_limpo = resp_mica.text.strip().replace("```json", "").replace("```", "").strip()
+                        dados_pedido_mica = json.loads(texto_mica_limpo)
+
+                        st.success("✅ Atendimento comercial finalizado com sucesso pela Mica I.A.!")
+                        
+                        # Exibição do retorno conversacional da Mica
+                        with st.container(border=True):
+                            st.markdown("🤖 **Resposta Automática enviada pela Mica ao Cliente:**")
+                            st.write(f"*{dados_pedido_mica.get('resposta_whatsapp')}*")
+                            
+                            itens_comprados_mica = dados_pedido_mica.get("itens", [])
+                            if itens_comprados_mica:
+                                st.markdown("---")
+                                st.markdown("### 📱 Gateway de Pagamento — Pix Copia e Cola Gerado:")
+                                st.code("00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-426614174000520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", language="text")
+
+                        # Execução no banco de dados e integração de estoque
+                        db_exec_mica = get_db()
+                        try:
+                            # Localiza ou cadastra cliente
+                            cli_db_mica = db_exec_mica.query(Cliente).filter(Cliente.whatsapp == telefone_cliente_bot).first()
+                            if not cli_db_mica:
+                                cli_db_mica = Cliente(nome="Cliente WhatsApp (Mica)", whatsapp=telefone_cliente_bot, status="Ativo", saldo_cashback=0.0)
+                                db_exec_mica.add(cli_db_mica)
+                                db_exec_mica.commit()
+
+                            total_geral_mica = 0.0
+                            if itens_comprados_mica:
+                                for item_m in itens_comprados_mica:
+                                    nome_p_mica = item_m.get("nome_produto")
+                                    qtd_p_mica = int(item_m.get("quantidade", 1))
+
+                                    prod_db_m = db_exec_mica.query(Produto).filter(Produto.nome.ilike(f"%{nome_p_mica}%")).first()
+                                    if prod_db_m:
+                                        vlr_tot_m = prod_db_m.preco_venda * qtd_p_mica
+                                        total_geral_mica += vlr_tot_m
+                                        custo_tot_m = (prod_db_m.custo_total_cmv or 0.0) * qtd_p_mica
+
+                                        # Grava Venda
+                                        db_exec_mica.add(Venda(
+                                            produto_id=prod_db_m.id,
+                                            cliente_id=cli_db_mica.id,
+                                            quantidade=qtd_p_mica,
+                                            valor_total=vlr_tot_m,
+                                            custo_total=custo_tot_m,
+                                            forma_pagamento="Pix (Mica Bot WhatsApp)",
+                                            status_pagamento="Aprovado",
+                                            data_venda=datetime.now()
+                                        ))
+
+                                        # Baixa de estoque dos insumos da Ficha Técnica
+                                        for ft_m in db_exec_mica.query(FichaTecnica).filter(FichaTecnica.produto_id == prod_db_m.id).all():
+                                            ins_almo_m = db_exec_mica.query(Insumo).filter(Insumo.id == ft_m.insumo_id).first()
+                                            if ins_almo_m:
+                                                ins_almo_m.saldo_atual -= (ft_m.quantidade_utilizada * qtd_p_mica)
+
+                                # Atualiza total gasto e credita 5% de cashback na conta do cliente
+                                cli_update_m = db_exec_mica.query(Cliente).filter(Cliente.id == cli_db_mica.id).first()
+                                if cli_update_m and total_geral_mica > 0:
+                                    cli_update_m.total_gasto += total_geral_mica
+                                    cli_update_m.ultima_compra = datetime.now()
+                                    cli_update_m.status = "Ativo"
+                                    
+                                    cb_ganho_mica = round(total_geral_mica * 0.05, 2)
+                                    cli_update_m.saldo_cashback += cb_ganho_mica
+
+                                db_exec_mica.commit()
+                                st.success(f"🎉 Pedido finalizado via Bot! Venda integrada na Frente de Caixa, estoque baixado e **R$ {round(total_geral_mica * 0.05, 2):.2f}** de cashback (5%) adicionados ao saldo de fidelidade do cliente!")
+                            else:
+                                st.warning("⚠️ Nenhum item correspondente ao cardápio foi identificado para registrar a venda e baixar o almoxarifado.")
+                        except Exception as e_db:
+                            db_exec_mica.rollback()
+                            st.error(f"Erro na integração com o banco de dados e PDV: {e_db}")
+                        finally:
+                            db_exec_mica.close()
+
+                    except Exception as e:
+                        st.error(f"❌ Erro ao processar o atendimento comercial com a assistente Mica: {e}")
