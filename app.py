@@ -1072,157 +1072,79 @@ with aba5:
 # ABA 6: BOT CLIENTE (ASSISTENTE VIRTUAL "MICA I.A.") COM PIX E UPSELL INTELIGENTE
 # ==============================================================================
 with aba6:
-    st.header("💬 Atendimento, Pedidos & Pix com Assistente Virtual (Mica I.A.)")
-    st.write("Simule o canal próprio de atendimento via WhatsApp da hamburgueria. A assistente **Mica** interpreta mensagens de texto, áudios transcritos ou fotos, valida o cardápio, gera Pix, acarreta 5% de cashback e faz venda cruzada dinâmica!")
-
+    st.header("💬 Bot Cliente (Mica I.A.) - Simulador Omnichannel WhatsApp")
+    st.markdown("Simule o atendimento ao cliente via WhatsApp. A **Mica I.A.** entende texto, áudio e fotos, faz cross-selling dinâmico (upsell) e gera cobrança Pix nativa com baixa automática de estoque.")
+    
+    # Carregamento do cardápio disponível para a I.A.
     db_bot = get_db()
-    produtos_cardapio_bot = db_bot.query(Produto).all()
-    config_gtw_bot = db_bot.query(ConfiguracaoMeta).first()
-    db_bot.close()
+    try:
+        produtos_bot = db_bot.query(Produto).filter(Produto.disponivel == True).all()
+        if produtos_bot:
+            lista_menu = [f"- {p.nome}: R$ {p.preco_venda:.2f} ({p.categoria})" for p in produtos_bot]
+            menu_disponivel_bot = "\n".join(lista_menu)
+        else:
+            menu_disponivel_bot = "Nenhum produto cadastrado ou disponível no momento."
+    finally:
+        db_bot.close()
 
-    if not produtos_cardapio_bot:
-        st.warning("⚠️ Cadastre produtos no cardápio na Aba 1 para permitir que a assistente Mica realize vendas.")
-    else:
-        menu_disponivel_bot = "\n".join([f"- {p.nome} (Preço: R$ {p.preco_venda:.2f}): {p.descricao_bruta}" for p in produtos_cardapio_bot])
-        
-        col_bot1, col_bot2 = st.columns([1, 1])
-        with col_bot1:
-            telefone_cliente_bot = st.text_input("📱 WhatsApp do Cliente", placeholder="Ex: 5511988887777", value="5511999991111")
-            mensagem_cliente_bot = st.text_area(
-                "💬 Mensagem do Cliente (ou pedido por áudio/texto)",
-                placeholder="Ex: Oi Mica! Quero pedir 1 Mica Smash Cheddar Duplo para entrega e pagar no Pix!",
-                height=130
-            )
-            foto_pedido_bot = st.file_uploader("📸 Foto de referência de lanche enviada pelo cliente (Opcional - Multimodal)", type=["jpg", "jpeg", "png"], key="uploader_cliente_bot_mica")
+    col_bot_1, col_bot_2 = st.columns([1, 2])
+    with col_bot_1:
+        st.subheader("📱 Dados do Cliente")
+        telefone_cliente_bot = st.text_input("📱 WhatsApp do Cliente", value="5511999991111", key="tel_bot")
+        foto_pedido_bot = st.file_uploader("📸 Foto de referência ou áudio (Opcional - Multimodal)", type=["jpg", "png", "jpeg"], key="foto_bot")
+    
+    with col_bot_2:
+        st.subheader("💬 Mensagem do Cliente")
+        mensagem_cliente_bot = st.text_area(
+            "Digite o que o cliente enviou no WhatsApp:",
+            value="Oi Mica! Quero pedir 1 Mica Royal Truffle Bacon para entrega e pagar no Pix!",
+            height=130,
+            key="msg_bot"
+        )
+        btn_acionar_mica = st.button("🚀 Processar Pedido & Atendimento com a Mica I.A.", use_container_width=True, type="primary")
 
-        with col_bot2:
-            st.markdown("### 🤖 Configurações do Robô de Atendimento")
-            st.info("💡 A **Mica** possui personalidade empática, ágil e focada em conversão e upsell. Ao identificar os itens solicitados, ela liquida o pagamento gerando o código Pix e avisa o tempo estimado de entrega.")
-            btn_acionar_mica = st.button("🚀 Processar Pedido & Atendimento com a Mica I.A.", type="primary", use_container_width=True)
+    if btn_acionar_mica:
+        if not telefone_cliente_bot or not mensagem_cliente_bot:
+            st.error("⚠️ Por favor, informe o WhatsApp do cliente e digite a mensagem do pedido!")
+        else:
+            with st.spinner("🤖 A assistente virtual Mica está interpretando a mensagem, calculando o pedido e gerando o Pix..."):
+                try:
+                    model_mica = genai.GenerativeModel("models/gemini-flash-latest")
+                    
+                    prompt_mica = f"""
+                    Você é a 'Mica', assistente virtual e inteligência comercial via WhatsApp da hamburgueria gourmet Mica Burguer & Restaurante.
+                    Cardápio de pratos disponível para venda hoje:
+                    {menu_disponivel_bot}
+                    
+                    O cliente enviou a seguinte mensagem no WhatsApp: "{mensagem_cliente_bot}"
+                    
+                    Analise a mensagem do cliente e faça a correspondência inteligente (inclusive por aproximação ou sinônimos) com os produtos reais listados no cardápio acima para identificar o item desejado e a quantidade exata.
+                    
+                    🎯 REGRA DE OURO DO UPSELL INTELIGENTE (CROSS-SELL DINÂMICO):
+                    Analise estrategicamente os itens que o cliente escolheu e cruze com o cardápio para oferecer o complemento perfeito que FALTA no pedido dele:
+                    - Se ele pediu APENAS hambúrguer: Ofereça ativamente uma Bebida bem gelada, uma porção de Batata Frita ou um adicional gourmet (+R$ 6,00 por Bacon Crocante ou Queijo Cheddar Extra).
+                    - Se ele já pediu Hambúrguer + Batata: Ofereça ativamente uma Bebida gelada (Refrigerante, Suco ou Shake).
+                    - Se ele já pediu Hambúrguer + Bebida: Ofereça uma porção de Batata Frita ou um adicional no lanche (+R$ 6,00).
+                    - Se ele já pediu o combo completo: Ofereça uma Sobremesa ou mais um adicional para turbinar o lanche.
+                    
+                    A sua sugestão de upsell deve ser curta, extremamente apetitosa, natural e estar embutida de forma persuasiva no texto de 'resposta_whatsapp', antes de confirmar o total exato e informar sobre o Pix.
+                    
+                    Retorne APENAS um objeto JSON válido (sem markdown, sem blocos de código e sem textos adicionais) estruturado exatamente assim:
+                    {{
+                      "cliente_nome": "Cliente WhatsApp",
+                      "itens": [
+                        {{"nome_produto": "Nome exato do prato conforme listado no cardápio", "quantidade": 1}}
+                      ],
+                      "resposta_whatsapp": "Mensagem simpática, carinhosa e vendedora da Mica confirmando o pedido, fazendo a OFERTA INTELIGENTE DE UPSELL e informando que a chave Pix foi gerada abaixo."
+                    }}
+                    Se o cliente apenas tirou dúvidas ou não mencionou itens válidos, retorne o campo 'itens' como uma lista vazia [].
+                    """
 
-        if btn_acionar_mica:
-            if btn_acionar_mica:
-            if not telefone_cliente_bot or not mensagem_cliente_bot:
-                st.error("⚠️ Por favor, informe o WhatsApp do cliente e digite a mensagem do pedido!")
-            else:
-                with st.spinner("🤖 A assistente virtual Mica está interpretando a mensagem, calculando o pedido e gerando o Pix..."):
-                    try:
-                        model_mica = genai.GenerativeModel("models/gemini-flash-latest")
-                        
-                        prompt_mica = f"""
-                        Você é a 'Mica', assistente virtual e inteligência comercial via WhatsApp da hamburgueria gourmet Mica Burguer & Restaurante.
-                        Cardápio de pratos disponível para venda hoje:
-                        {menu_disponivel_bot}
-                        
-                        O cliente enviou a seguinte mensagem no WhatsApp: "{mensagem_cliente_bot}"
-                        
-                        Analise a mensagem do cliente e faça a correspondência inteligente (inclusive por aproximação ou sinônimos) com os produtos reais listados no cardápio acima para identificar o item desejado e a quantidade exata.
-                        
-                        🎯 REGRA DE OURO DO UPSELL INTELIGENTE (CROSS-SELL DINÂMICO):
-                        Analise estrategicamente os itens que o cliente escolheu e cruze com o cardápio para oferecer o complemento perfeito que FALTA no pedido dele:
-                        - Se ele pediu APENAS hambúrguer: Ofereça ativamente uma Bebida bem gelada, uma porção de Batata Frita ou um adicional gourmet (+R$ 6,00 por Bacon Crocante ou Queijo Cheddar Extra).
-                        - Se ele já pediu Hambúrguer + Batata: Ofereça ativamente uma Bebida gelada (Refrigerante, Suco ou Shake).
-                        - Se ele já pediu Hambúrguer + Bebida: Ofereça uma porção de Batata Frita ou um adicional no lanche (+R$ 6,00).
-                        - Se ele já pediu o combo completo: Ofereça uma Sobremesa ou mais um adicional para turbinar o lanche.
-                        
-                        A sua sugestão de upsell deve ser curta, extremamente apetitosa, natural e estar embutida de forma persuasiva no texto de 'resposta_whatsapp', antes de confirmar o total exato e informar sobre o Pix.
-                        
-                        Retorne APENAS um objeto JSON válido (sem markdown, sem blocos de código e sem textos adicionais) estruturado exatamente assim:
-                        {{
-                          "cliente_nome": "Cliente WhatsApp",
-                          "itens": [
-                            {{"nome_produto": "Nome exato do prato conforme listado no cardápio", "quantidade": 1}}
-                          ],
-                          "resposta_whatsapp": "Mensagem simpática, carinhosa e vendedora da Mica confirmando o pedido, fazendo a OFERTA INTELIGENTE DE UPSELL e informando que a chave Pix foi gerada abaixo."
-                        }}
-                        Se o cliente apenas tirou dúvidas ou não mencionou itens válidos, retorne o campo 'itens' como uma lista vazia [].
-                        """
+                    inputs_mica = [prompt_mica]
+                    if foto_pedido_bot:
+                        inputs_mica.append(Image.open(foto_pedido_bot))
 
-                        inputs_mica = [prompt_mica]
-                        if foto_pedido_bot:
-                            inputs_mica.append(Image.open(foto_pedido_bot))
-
-                        resp_mica = model_mica.generate_content(inputs_mica)
-                        texto_mica_limpo = resp_mica.text.strip().replace("```json", "").replace("```", "").strip()
-                        dados_pedido_mica = json.loads(texto_mica_limpo)
-
-                        st.success("✅ Atendimento comercial finalizado com sucesso pela Mica I.A.!")
-                        
-                        # Exibição do retorno conversacional da Mica
-                        with st.container(border=True):
-                            st.markdown("🤖 **Resposta Automática enviada pela Mica ao Cliente:**")
-                            st.write(f"*{dados_pedido_mica.get('resposta_whatsapp')}*")
-                            
-                            itens_comprados_mica = dados_pedido_mica.get("itens", [])
-                            if itens_comprados_mica:
-                                st.markdown("---")
-                                st.markdown("### 📱 Gateway de Pagamento — Pix Copia e Cola Gerado pela Mica:")
-                                if config_gtw_bot and config_gtw_bot.gateway_api_key and config_gtw_bot.gateway_pix_key:
-                                    st.success(f"🟢 **Pix Oficial ({config_gtw_bot.gateway_provider}):** Chave ligada à conta PJ da empresa!")
-                                    st.code(f"00020126580014br.gov.bcb.pix0136{config_gtw_bot.gateway_pix_key}520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", language="text")
-                                else:
-                                    st.warning("🟡 **Pix Simulado (Treinamento):** Configure o Gateway na Aba 3 para gerar cobranças reais.")
-                                    st.code("00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-426614174000520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", language="text")
-
-                        # Execução no banco de dados e integração de estoque
-                        db_exec_mica = get_db()
-                        try:
-                            # Localiza ou cadastra cliente
-                            cli_db_mica = db_exec_mica.query(Cliente).filter(Cliente.whatsapp == telefone_cliente_bot).first()
-                            if not cli_db_mica:
-                                cli_db_mica = Cliente(nome="Cliente WhatsApp (Mica)", whatsapp=telefone_cliente_bot, status="Ativo", saldo_cashback=0.0)
-                                db_exec_mica.add(cli_db_mica)
-                                db_exec_mica.commit()
-
-                            total_geral_mica = 0.0
-                            if itens_comprados_mica:
-                                for item_m in itens_comprados_mica:
-                                    nome_p_mica = item_m.get("nome_produto")
-                                    qtd_p_mica = int(item_m.get("quantidade", 1))
-
-                                    prod_db_m = db_exec_mica.query(Produto).filter(Produto.nome.ilike(f"%{nome_p_mica}%")).first()
-                                    if prod_db_m:
-                                        vlr_tot_m = prod_db_m.preco_venda * qtd_p_mica
-                                        total_geral_mica += vlr_tot_m
-                                        custo_tot_m = (prod_db_m.custo_total_cmv or 0.0) * qtd_p_mica
-
-                                        # Grava Venda
-                                        db_exec_mica.add(Venda(
-                                            produto_id=prod_db_m.id,
-                                            cliente_id=cli_db_mica.id,
-                                            quantidade=qtd_p_mica,
-                                            valor_total=vlr_tot_m,
-                                            custo_total=custo_tot_m,
-                                            forma_pagamento="Pix (Mica Bot WhatsApp)",
-                                            status_pagamento="Aprovado",
-                                            data_venda=datetime.now()
-                                        ))
-
-                                        # Baixa de estoque dos insumos da Ficha Técnica
-                                        for ft_m in db_exec_mica.query(FichaTecnica).filter(FichaTecnica.produto_id == prod_db_m.id).all():
-                                            ins_almo_m = db_exec_mica.query(Insumo).filter(Insumo.id == ft_m.insumo_id).first()
-                                            if ins_almo_m:
-                                                ins_almo_m.saldo_atual -= (ft_m.quantidade_utilizada * qtd_p_mica)
-
-                                # Atualiza total gasto e credita 5% de cashback na conta do cliente
-                                cli_update_m = db_exec_mica.query(Cliente).filter(Cliente.id == cli_db_mica.id).first()
-                                if cli_update_m and total_geral_mica > 0:
-                                    cli_update_m.total_gasto += total_geral_mica
-                                    cli_update_m.ultima_compra = datetime.now()
-                                    cli_update_m.status = "Ativo"
-                                    
-                                    cb_ganho_mica = round(total_geral_mica * 0.05, 2)
-                                    cli_update_m.saldo_cashback += cb_ganho_mica
-
-                                db_exec_mica.commit()
-                                st.success(f"🎉 Pedido finalizado via Bot! Venda integrada na Frente de Caixa, estoque baixado e **R$ {round(total_geral_mica * 0.05, 2):.2f}** de cashback (5%) adicionados ao saldo de fidelidade do cliente!")
-                            else:
-                                st.warning("⚠️ Nenhum item correspondente ao cardápio foi identificado para registrar a venda e baixar o almoxarifado.")
-                        except Exception as e_db:
-                            db_exec_mica.rollback()
-                            st.error(f"Erro na integração com o banco de dados e PDV: {e_db}")
-                        finally:
-                            db_exec_mica.close()
-
-                    except Exception as e:
-                        st.error(f"❌ Erro ao processar o atendimento comercial com a assistente Mica: {e}")
+                    resp_mica = model_mica.generate_content(inputs_mica)
+                    texto_mica_limpo = resp_mica.text.strip().replace("```json", "")
+                except Exception as e:
+                    st.error(f"Erro ao processar pedido: {str(e)}")
