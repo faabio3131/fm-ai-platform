@@ -1243,8 +1243,16 @@ if btn_acionar_mica:
                         quantidade=qtd_p_mica, valor_total=vlr_tot_m, custo_total=custo_tot_m,
                         forma_pagamento=forma_pag_texto, status_pagamento="Aprovado", data_venda=datetime.now()
                     ))
+            # === FASE 2: Baixa Granular de Insumos ===
+            itens_ficha = db_exec_mica.query(FichaTecnica).filter_by(produto_id=prod_db_m.id).all()
+            for ficha in itens_ficha:
+                insumo = db_exec_mica.query(Insumo).filter_by(id=ficha.insumo_id).first()
+                if insumo:
+                    consumo = ficha.quantidade_necessaria * qtd_p_mica
+                    insumo.quantidade_atual = max(0.0, insumo.quantidade_atual - consumo)
+                    
             db_exec_mica.commit()
-            st.success(f"🎉 Venda integrada no PDV ({forma_pag_texto}) e estoque baixado com sucesso!")
+            st.success(f"🚀 Venda integrada no PDV ({forma_pag_texto}) e estoque baixado com sucesso!")
         except Exception as e_db:
             db_exec_mica.rollback()
             st.error(f"Erro no banco de dados: {e_db}")
