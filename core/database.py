@@ -75,6 +75,12 @@ class FichaTecnica(Base):
 
   produto = relationship("Produto", back_populates="ingredientes")
   insumo = relationship("Insumo", back_populates="receitas_vinculadas")
+  @quantidade_necessaria.setter
+  def quantidade_necessaria(self, valor):
+    self.quantidade_gasta = valor
+
+  produto = relationship("Produto", back_populates="ingredientes")
+  insumo = relationship("Insumo", back_populates="receitas_vinculadas")
 # --- TABELA DE VENDAS ---
 class Venda(Base):
     __tablename__ = "vendas"
