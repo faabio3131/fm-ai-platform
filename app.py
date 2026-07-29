@@ -1248,7 +1248,7 @@ if btn_acionar_mica:
             for ficha in itens_ficha:
                 insumo = db_exec_mica.query(Insumo).filter_by(id=ficha.insumo_id).first()
                 if insumo:
-                    consumo = ficha.quantidade_necessaria * qtd_p_mica
+                    consumo = ficha.quantidade_gasta * qtd_p_mica
                     insumo.quantidade_atual = max(0.0, insumo.quantidade_atual - consumo)
                     
             db_exec_mica.commit()
