@@ -1247,18 +1247,28 @@ if btn_acionar_mica:
             itens_ficha = db_exec_mica.query(FichaTecnica).filter_by(produto_id=prod_db_m.id).all()
             for ficha in itens_ficha:
                 insumo = db_exec_mica.query(Insumo).filter_by(id=ficha.insumo_id).first()
-                if insumo:
-                    # --- BUSCA BLINDADA DE QUANTIDADE ---
-                    # Tenta pegar qualquer nome de coluna que o banco de dados antigo ou novo esteja usando
-                    qtd_item = getattr(ficha, 'quantidade_gasta', None)
-                    if qtd_item is None:
-                        qtd_item = getattr(ficha, 'quantidade_necessaria', None)
-                    if qtd_item is None:
-                        qtd_item = getattr(ficha, 'quantidade', 1)  # Fallback de segurança absoluto
+                if not insumo:
+                    continue
 
-                    consumo = qtd_item * qtd_p_mica
-                    # ------------------------------------
-                    insumo.quantidade_atual = max(0.0, insumo.quantidade_atual - consumo)
+                # --- BUSCA BLINDADA DE QUANTIDADE DA FICHA ---
+                qtd_item = getattr(ficha, 'quantidade_gasta', None)
+                if qtd_item is None:
+                    qtd_item = getattr(ficha, 'quantidade_necessaria', None)
+                if qtd_item is None:
+                    qtd_item = getattr(ficha, 'quantidade', 1)
+
+                consumo = float(qtd_item) * float(qtd_p_mica)
+
+                # --- ATUALIZAÇÃO BLINDADA DE ESTOQUE ---
+                estoque_antigo = getattr(insumo, 'quantidade_atual', None)
+                nome_coluna = 'quantidade_atual'
+
+                if estoque_antigo is None:
+                    estoque_antigo = getattr(insumo, 'quantidade', 0.0)
+                    nome_coluna = 'quantidade'
+
+                novo_estoque = max(0.0, float(estoque_antigo) - consumo)
+                setattr(insumo, nome_coluna, novo_estoque)
                     
             db_exec_mica.commit()
             st.success(f"🚀 Venda integrada no PDV ({forma_pag_texto}) e estoque baixado com sucesso!")
