@@ -1248,7 +1248,16 @@ if btn_acionar_mica:
             for ficha in itens_ficha:
                 insumo = db_exec_mica.query(Insumo).filter_by(id=ficha.insumo_id).first()
                 if insumo:
-                    consumo = ficha.quantidade_gasta * qtd_p_mica
+                    # --- BUSCA BLINDADA DE QUANTIDADE ---
+                    # Tenta pegar qualquer nome de coluna que o banco de dados antigo ou novo esteja usando
+                    qtd_item = getattr(ficha, 'quantidade_gasta', None)
+                    if qtd_item is None:
+                        qtd_item = getattr(ficha, 'quantidade_necessaria', None)
+                    if qtd_item is None:
+                        qtd_item = getattr(ficha, 'quantidade', 1)  # Fallback de segurança absoluto
+
+                    consumo = qtd_item * qtd_p_mica
+                    # ------------------------------------
                     insumo.quantidade_atual = max(0.0, insumo.quantidade_atual - consumo)
                     
             db_exec_mica.commit()
