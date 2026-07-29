@@ -57,17 +57,24 @@ class Insumo(Base):
 
 # --- TABELA FICHA TÉCNICA ---
 class FichaTecnica(Base):
-    __tablename__ = "ficha_tecnica"
+  __tablename__ = "ficha_tecnica"
 
-    id = Column(Integer, primary_key=True, index=True)
-    produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=False)
-    insumo_id = Column(Integer, ForeignKey("insumos.id"), nullable=False)
-    quantidade_gasta = Column(Float, nullable=False)
+  id = Column(Integer, primary_key=True, index=True)
+  produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=False)
+  insumo_id = Column(Integer, ForeignKey("insumos.id"), nullable=False)
+  quantidade_gasta = Column(Float, nullable=False)
 
-    produto = relationship("Produto", back_populates="ingredientes")
-    insumo = relationship("Insumo", back_populates="receitas_vinculadas")
+  # --- Propriedade de Compatibilidade ---
+  @property
+  def quantidade_necessaria(self):
+    return self.quantidade_gasta
 
+  @quantidade_necessaria.setter
+  def quantidade_necessaria(self, valor):
+    self.quantidade_gasta = valor
 
+  produto = relationship("Produto", back_populates="ingredientes")
+  insumo = relationship("Insumo", back_populates="receitas_vinculadas")
 # --- TABELA DE VENDAS ---
 class Venda(Base):
     __tablename__ = "vendas"
