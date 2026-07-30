@@ -158,8 +158,11 @@ class ContatoGerencial(Base):
     receber_alertas_estoque = Column(Integer, default=1)
 
 
-# Criar todas as tabelas no banco de dados SQLite
-Base.metadata.create_all(bind=engine)
+# Criar todas as tabelas no banco de dados com proteção contra tabelas existentes
+try:
+    Base.metadata.create_all(bind=engine, checkfirst=True)
+except Exception as e:
+    print(f"Aviso de schema/tabelas: {e}")
 
 # --- 4. MIGRAÇÕES AUTOMÁTICAS DE SCHEMA ---
 with engine.connect() as conexao:
