@@ -14,6 +14,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 import streamlit as st
+from google import genai
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+client = genai.Client(api_key=GEMINI_API_KEY)
 
 # --- 1. CONFIGURAÇÃO DO BANCO DE DADOS NUVEM ---
 DATABASE_URL = "postgresql://postgres.xiknjbqepitjsozrfrcg:Sucesso2026%40%23%24@aws-0-sa-east-1.pooler.supabase.com:5432/postgres"
@@ -105,7 +109,7 @@ st.set_page_config(
 # Tenta carregar o SDK da Inteligência Artificial do Google
 GENAI_DISPONIVEL = False
 try:
-    import google.generativeai as genai
+    from google import genai
 
     api_key = os.getenv("GEMINI_API_KEY")
     if api_key:
@@ -219,9 +223,8 @@ with aba1:
                     "🤖 A Inteligência Artificial está escrevendo a legenda gourmet e renderizando a fotografia..."
                 ):
                     try:
-                        model_text = genai.GenerativeModel("gemini-1.5-flash")
                         prompt_texto = f"Escreva uma descrição publicitária curta, altamente persuasiva, gourmet e apetitosa para um cardápio de restaurante para o prato: '{nome_prato}'. Ingredientes: {ingredientes_base}."
-                        resp_texto = model_text.generate_content(prompt_texto)
+                        resp_texto = client.models.generate_content(model="gemini-2.5-flash", contents=prompt_texto)
                         if resp_texto and resp_texto.text:
                             desc_gerada = resp_texto.text.strip()
 

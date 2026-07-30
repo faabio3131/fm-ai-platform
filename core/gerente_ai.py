@@ -45,8 +45,8 @@ def processar_teste_estresse(anotacao: str, numero_teste: int):
     """
     
     # Usando direto o modelo da sua conta
-    response = client.models.generate_content(
-        model="models/gemini-flash-latest",
+    response = client.client.models.generate_content(
+        model="gemini-2.5-flash",
         contents=prompt,
     )
     

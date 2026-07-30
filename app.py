@@ -268,9 +268,8 @@ def executar_forecasting_e_alertar(db_session):
     """
 
     try:
-        import google.generativeai as genai
-        model_forecast = genai.GenerativeModel("gemini-2.0-flash")
-        resp = model_forecast.generate_content(prompt_forecast)
+        from google import genai
+        resp = client.models.generate_content(model="gemini-2.5-flash", contents=prompt_forecast)
         texto_limpo = resp.text.strip().replace("```json", "").replace("```", "").strip()
         alertas_ia = json.loads(texto_limpo)
 
@@ -459,10 +458,8 @@ with aba1:
                 with st.spinner("🤖 A Inteligência Artificial está escrevendo a legenda publicitária gourmet..."):
                     try:
                         prompt_texto = f"Escreva uma descrição publicitária curta, altamente persuasiva, gourmet para: {nome_prato}"
-                        resp_texto = client.models.generate_content(
-                            model="gemini-2.5-flash",
-                            contents=prompt_texto
-                        )
+                        # Call generate_content with a single contents argument
+                        resp_texto = client.client.models.generate_content(model="gemini-2.5-flash", contents=prompt_texto)
                         if resp_texto and resp_texto.text:
                             desc_gerada = resp_texto.text.strip()
                     except Exception as e:
@@ -533,9 +530,8 @@ with aba2:
                     
                     if GENAI_DISPONIVEL:
                         try:
-                            model_resg = genai.GenerativeModel("gemini-2.0-flash")
                             prompt_resg = f"Escreva uma mensagem curta, carinhosa e muito persuasiva de WhatsApp para resgatar o cliente '{cli.nome}', que não faz pedidos em nossa hamburgueria gourmet há semanas. Ofereça um cupom especial de 15% de desconto (CUPOM: VOLTAMICA15). Sem clichês em excesso."
-                            resp_resg = model_resg.generate_content(prompt_resg)
+                            resp_resg = client.models.generate_content(model="gemini-2.5-flash", contents=prompt_resg)
                             if resp_resg and resp_resg.text:
                                 msg_resgate_padrao = resp_resg.text.strip()
                         except Exception:
@@ -693,7 +689,6 @@ with aba3:
             
             if GENAI_DISPONIVEL and prod_pdv:
                 try:
-                    model_up = genai.GenerativeModel("gemini-2.0-flash")
                     prompt_up = f"""
                     Você é um treinador de vendas de elite para atendentes de caixa de uma hamburgueria gourmet.
                     O operador de caixa acabou de selecionar o item: '{prod_pdv.nome}' (Categoria: {prod_pdv.categoria}) para o cliente no PDV.
@@ -707,7 +702,7 @@ with aba3:
                     
                     Retorne APENAS a frase recomendada para o operador falar, entre aspas, pronta para ser lida no atendimento. Sem textos extras.
                     """
-                    resp_up = model_up.generate_content(prompt_up)
+                    resp_up = client.models.generate_content(model="gemini-2.5-flash", contents=prompt_up)
                     if resp_up and resp_up.text:
                         sugestao_upsell = resp_up.text.strip()
                 except Exception:
@@ -928,12 +923,11 @@ with aba4:
                 if st.button("🚀 Processar Leitura e Cadastrar Insumos no Banco", type="primary", use_container_width=True):
                     with st.spinner("🤖 O Gemini 2.0 Flash está executando OCR e estruturando os itens no almoxarifado..."):
                         try:
-                            model_vision = genai.GenerativeModel("gemini-2.0-flash")
                             img_pil = Image.open(arquivo_nf_cad)
                             
                             prompt_ocr_cad = 'Você é um auditor de estoque e almoxarife de alta gastronomia. Analise esta imagem de nota fiscal ou cupom fiscal e extraia todos os itens comprados. Para cada item, infira a unidade de medida padrão culinária (ex: kg, un, l, ml, g, pct, fatias). Retorne APENAS um array JSON válido no formato: [{"nome": "Nome do Insumo", "unidade": "kg", "quantidade": 5.0, "valor_unitario": 12.50}]. Retorne EXCLUSIVAMENTE o JSON puro (sem markdown, sem blocos de código), sem nenhum texto adicional. Quantidades e valores devem ser floats numéricos.'
                             
-                            resp_cad = model_vision.generate_content([prompt_ocr_cad, img_pil])
+                            resp_cad = client.models.generate_content(model="gemini-2.5-flash", contents=[prompt_ocr_cad, img_pil])
                             texto_ocr_cad = resp_cad.text.strip().replace("```json", "").replace("```", "").strip()
                             itens_lidos = json.loads(texto_ocr_cad)
                             
@@ -995,12 +989,11 @@ with aba4:
                     if st.button("🚀 Ler Receita e Montar Ficha Técnica com I.A.", type="primary", use_container_width=True):
                         with st.spinner(f"🤖 Lendo ingredientes e vinculando insumos para o prato {prato_escolhido.nome}..."):
                             try:
-                                model_vision = genai.GenerativeModel("gemini-2.0-flash")
                                 img_pil = Image.open(arquivo_receita)
                                 
                                 prompt_ocr_rec = 'Você é um chef executivo de engenharia de cardápio. Analise esta foto de receita ou manual de cozinha. Extraia o nome dos ingredientes e as quantidades exatas utilizadas para preparar 1 porção do prato. Retorne APENAS um array JSON válido no formato: [{"nome": "Nome do Ingrediente", "quantidade": 0.150}]. Retorne EXCLUSIVAMENTE o JSON puro (sem markdown), sem textos extras. Quantidades devem ser float numéricos compatíveis com a unidade padrão do ingrediente.'
                                 
-                                resp_rec = model_vision.generate_content([prompt_ocr_rec, img_pil])
+                                resp_rec = client.models.generate_content(model="gemini-2.5-flash", contents=[prompt_ocr_rec, img_pil])
                                 texto_ocr_rec = resp_rec.text.strip().replace("```json", "").replace("```", "").strip()
                                 ingredientes_lidos = json.loads(texto_ocr_rec)
                                 
@@ -1041,12 +1034,11 @@ with aba4:
                 if st.button("🚀 Processar Entrada de Estoque e Atualizar Custos", type="primary", use_container_width=True):
                     with st.spinner("🤖 Lendo itens e atualizando saldos no almoxarifado..."):
                         try:
-                            model_vision = genai.GenerativeModel("gemini-2.0-flash")
                             img_pil = Image.open(arquivo_nf_rep)
                             
                             prompt_ocr_rep = 'Analise esta imagem de cupom ou nota fiscal de fornecedor de alimentos. Extraia os itens e retorne APENAS um array JSON no formato: [{"nome": "Nome do Insumo", "quantidade": 10.0, "valor_unitario": 5.50}]. Retorne EXCLUSIVAMENTE JSON puro sem formatação markdown.'
                             
-                            response_ocr = model_vision.generate_content([prompt_ocr_rep, img_pil])
+                            response_ocr = client.models.generate_content(model="gemini-2.5-flash", contents=[prompt_ocr_rep, img_pil])
                             texto_ocr_rep = response_ocr.text.strip().replace("```json", "").replace("```", "").strip()
                             itens_extraidos = json.loads(texto_ocr_rep)
                             
@@ -1182,7 +1174,6 @@ if btn_acionar_mica:
         
         with st.spinner("🤖 A assistente virtual Mica está interpretando a mensagem/áudio, calculando o pedido e gerando o Pix..."):
             try:
-                model_mica = genai.GenerativeModel("gemini-2.0-flash")
                 prompt_mica = f"""
                 Você é a 'Mica', assistente virtual e inteligência comercial via WhatsApp da hamburgueria F&M AI FOOD.
                 Cardápio de pratos disponível para venda hoje:
@@ -1208,7 +1199,7 @@ if btn_acionar_mica:
                         audio_ref = genai.upload_file(foto_pedido_bot.name)
                         inputs_mica.append(audio_ref)
 
-                resp_mica = model_mica.generate_content(inputs_mica)
+                resp_mica = client.models.generate_content(model="gemini-2.5-flash", contents=inputs_mica)
                 texto_mica_limpo = resp_mica.text.strip().replace("```json", "").replace("```", "").strip()
                 dados_pedido_mica = json.loads(texto_mica_limpo)
 

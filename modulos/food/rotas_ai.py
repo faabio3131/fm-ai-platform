@@ -83,7 +83,7 @@ def gerar_descricao_gourmet_ia(nome: str, descricao_bruta: str, categoria: str) 
                 f"Prato: {nome} | Categoria: {categoria} | Descrição básica: {descricao_bruta}. "
                 f"Retorne apenas a descrição final vendedora em até 2 frases marcantes."
             )
-            response = client.models.generate_content(
+            response = client.client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=prompt
             )
