@@ -266,7 +266,7 @@ def executar_forecasting_e_alertar(db_session):
 
     try:
         import google.generativeai as genai
-        model_forecast = genai.GenerativeModel("models/gemini-flash-latest")
+        model_forecast = genai.GenerativeModel("gemini-2.0-flash")
         resp = model_forecast.generate_content(prompt_forecast)
         texto_limpo = resp.text.strip().replace("```json", "").replace("```", "").strip()
         alertas_ia = json.loads(texto_limpo)
@@ -398,7 +398,7 @@ with st.sidebar:
     st.info("🏪 **Loja Ativa:**\nMica Burguer & Restaurante")
     
     if GENAI_DISPONIVEL:
-        st.markdown("🟢 **Google GenAI Ativo (Gemini 1.5 Flash)**")
+        st.markdown("🟢 **Google GenAI Ativo (Gemini 2.0 Flash)**")
     else:
         st.markdown("⚠️ **Modo Offline / Sem Chave API**")
         st.caption("Insira GEMINI_API_KEY no .env ou st.secrets para ativar recursos inteligentes.")
@@ -462,7 +462,7 @@ with aba1:
             if GENAI_DISPONIVEL:
                 with st.spinner("🤖 A Inteligência Artificial está escrevendo a legenda publicitária gourmet..."):
                     try:
-                        model_text = genai.GenerativeModel("models/gemini-1.5-flash")
+                        model_text = genai.GenerativeModel("gemini-2.0-flash")
                         prompt_texto = f"Escreva uma descrição publicitária curta, altamente persuasiva, gourmet e apetitosa para o prato {nome_prato}, usando ingredientes como {ingredientes_base}."
                         resp_texto = model_text.generate_content(prompt_texto)
                         if resp_texto and resp_texto.text:
@@ -534,7 +534,7 @@ with aba2:
                     
                     if GENAI_DISPONIVEL:
                         try:
-                            model_resg = genai.GenerativeModel("models/gemini-flash-latest")
+                            model_resg = genai.GenerativeModel("gemini-2.0-flash")
                             prompt_resg = f"Escreva uma mensagem curta, carinhosa e muito persuasiva de WhatsApp para resgatar o cliente '{cli.nome}', que não faz pedidos em nossa hamburgueria gourmet há semanas. Ofereça um cupom especial de 15% de desconto (CUPOM: VOLTAMICA15). Sem clichês em excesso."
                             resp_resg = model_resg.generate_content(prompt_resg)
                             if resp_resg and resp_resg.text:
@@ -612,7 +612,6 @@ with aba3:
     lista_clientes_pdv = db_pdv.query(Cliente).all()
     config_gtw = db_pdv.query(ConfiguracaoMeta).first()
     
-    # Validação do Chaveador Sandbox vs Produção
     modo_producao_ativo = bool(config_gtw and config_gtw.gateway_api_key and config_gtw.gateway_pix_key)
     
     if modo_producao_ativo:
@@ -620,7 +619,6 @@ with aba3:
     else:
         st.warning("🟡 **MODO SANDBOX (SIMULADOR DE TREINAMENTO):** Credenciais bancárias PJ ainda não cadastradas. O sistema está gerando Pix de teste. Para ativar recebimentos reais na conta da empresa, configure abaixo.")
 
-    # --- EXPANDER DE CONFIGURAÇÃO DO GATEWAY (VIRADA DE CHAVE) ---
     with st.expander("⚙️ Configurações do Gateway Bancário (Administrador — Virada de Chave PJ)"):
         st.markdown("### Conectar Conta Bancária da Empresa para Baixa Automática")
         st.write("Quando a Michele abrir a conta jurídica (PJ), cole as credenciais abaixo. O sistema desligará o simulador automaticamente.")
@@ -690,14 +688,13 @@ with aba3:
                 
                 forma_pag_pdv = st.selectbox("💳 Forma de Pagamento", ["Pix (Gerar QR Code Instantâneo)", "Cartão de Crédito", "Cartão de Débito", "Dinheiro Em Espécie"])
 
-        # --- CAIXA DE UPSELL E CROSS-SELL INTELIGENTE DA I.A. ---
         with st.container(border=True):
             st.markdown("💡 **Sugestão Inteligente de Upsell para o Operador falar no Balcão:**")
             sugestao_upsell = f"Para acompanhar o **{prod_pdv.nome}**, ofereça adicionar **Batata Frita Crocante** e um **Refrigerante bem gelado**, ou turbine com **Bacon em Tiras** por +R$ 6,00!"
             
             if GENAI_DISPONIVEL and prod_pdv:
                 try:
-                    model_up = genai.GenerativeModel("models/gemini-flash-latest")
+                    model_up = genai.GenerativeModel("gemini-2.0-flash")
                     prompt_up = f"""
                     Você é um treinador de vendas de elite para atendentes de caixa de uma hamburgueria gourmet.
                     O operador de caixa acabou de selecionar o item: '{prod_pdv.nome}' (Categoria: {prod_pdv.categoria}) para o cliente no PDV.
@@ -718,7 +715,6 @@ with aba3:
                     pass
             st.info(f"🤖 *{sugestao_upsell}*")
 
-        # --- SIMULADOR / RECEBEDOR DE GATEWAY PIX ---
         if forma_pag_pdv.startswith("Pix"):
             st.markdown("---")
             if modo_producao_ativo:
@@ -800,7 +796,6 @@ with aba4:
 
     db_estoque = get_db()
 
-    # --- SUB-ABA 1: ALMOXARIFADO EM TEMPO REAL E CONTATOS GERENCIAIS ---
     with sub_aba1:
         st.subheader("📋 Status do Almoxarifado em Tempo Real")
         insumos_cadastrados = db_estoque.query(Insumo).all()
@@ -882,14 +877,12 @@ with aba4:
         else:
             st.info("Nenhum gestor ou administrador cadastrado até o momento para o envio de alertas via WhatsApp.")
 
-    # --- SUB-ABA 2: CADASTRO EM MASSA VIA FOTO DE NOTA FISCAL ---
     with sub_aba2:
         st.subheader("➕ Leitor de Nota Fiscal para Cadastro Automático (I.A. Vision)")
         st.write("Envie a foto de um cupom ou nota fiscal. O robô identificará itens novos, adivinhará as unidades gastronômicas e dará entrada no estoque!")
         
         arquivo_nf_cad = st.file_uploader("📸 Envie a foto da Nota Fiscal para Cadastro em Massa", type=["jpg", "jpeg", "png"], key="uploader_nf_cad_ia")
         
-        # --- PLANO B: CADASTRO MANUAL DE INSUMOS ---
         st.divider()
         st.markdown("### ✍️ Cadastro Manual de Emergência (Plano B)")
         st.write("Use esta opção para testes ou caso a IA esteja indisponível.")
@@ -918,7 +911,7 @@ with aba4:
                             saldo_atual=novo_saldo,
                             estoque_minimo=novo_minimo,
                             custo_unitario=novo_custo,
-                            unidade_medida="un" # Unidade padrão segura
+                            unidade_medida="un"
                         )
                         db_manual.add(novo_insumo)
                         db_manual.commit()
@@ -927,7 +920,6 @@ with aba4:
                     except Exception as e:
                         st.error(f"Erro ao salvar: {e}")
         st.divider()
-        # --- FIM DO PLANO B ---
 
         if arquivo_nf_cad:
             col_img_c, col_btn_c = st.columns([1, 2])
@@ -935,9 +927,9 @@ with aba4:
                 st.image(arquivo_nf_cad, caption="Nota Fiscal / Cupom Lindo", use_container_width=True)
             with col_btn_c:
                 if st.button("🚀 Processar Leitura e Cadastrar Insumos no Banco", type="primary", use_container_width=True):
-                    with st.spinner("🤖 O Gemini 1.5 Flash está executando OCR e estruturando os itens no almoxarifado..."):
+                    with st.spinner("🤖 O Gemini 2.0 Flash está executando OCR e estruturando os itens no almoxarifado..."):
                         try:
-                            model_vision = genai.GenerativeModel("models/gemini-flash-latest")
+                            model_vision = genai.GenerativeModel("gemini-2.0-flash")
                             img_pil = Image.open(arquivo_nf_cad)
                             
                             prompt_ocr_cad = 'Você é um auditor de estoque e almoxarife de alta gastronomia. Analise esta imagem de nota fiscal ou cupom fiscal e extraia todos os itens comprados. Para cada item, infira a unidade de medida padrão culinária (ex: kg, un, l, ml, g, pct, fatias). Retorne APENAS um array JSON válido no formato: [{"nome": "Nome do Insumo", "unidade": "kg", "quantidade": 5.0, "valor_unitario": 12.50}]. Retorne EXCLUSIVAMENTE o JSON puro (sem markdown, sem blocos de código), sem nenhum texto adicional. Quantidades e valores devem ser floats numéricos.'
@@ -985,7 +977,6 @@ with aba4:
                         except Exception as e:
                             st.error(f"❌ Erro na leitura de visão computacional da Nota Fiscal: {e}")
 
-    # --- SUB-ABA 3: MONTAGEM DE RECEITAS VIA FOTO ---
     with sub_aba3:
         st.subheader("🔗 Leitor de Receita de Cozinha para Montagem de Ficha Técnica (I.A. Vision)")
         st.write("Fotografe a página do livro de receitas ou manual do chef. A IA fará a vinculação dos insumos e ajustará o CMV.")
@@ -1005,7 +996,7 @@ with aba4:
                     if st.button("🚀 Ler Receita e Montar Ficha Técnica com I.A.", type="primary", use_container_width=True):
                         with st.spinner(f"🤖 Lendo ingredientes e vinculando insumos para o prato {prato_escolhido.nome}..."):
                             try:
-                                model_vision = genai.GenerativeModel("models/gemini-flash-latest")
+                                model_vision = genai.GenerativeModel("gemini-2.0-flash")
                                 img_pil = Image.open(arquivo_receita)
                                 
                                 prompt_ocr_rec = 'Você é um chef executivo de engenharia de cardápio. Analise esta foto de receita ou manual de cozinha. Extraia o nome dos ingredientes e as quantidades exatas utilizadas para preparar 1 porção do prato. Retorne APENAS um array JSON válido no formato: [{"nome": "Nome do Ingrediente", "quantidade": 0.150}]. Retorne EXCLUSIVAMENTE o JSON puro (sem markdown), sem textos extras. Quantidades devem ser float numéricos compatíveis com a unidade padrão do ingrediente.'
@@ -1038,7 +1029,6 @@ with aba4:
                             except Exception as e:
                                 st.error(f"❌ Erro no processamento de leitura da receita: {e}")
 
-    # --- SUB-ABA 4: LEITOR DE CUPOM PARA REPOSIÇÃO DE ESTOQUE ---
     with sub_aba4:
         st.subheader("🧾 Leitor de Cupom de Reposição Rápida de Estoque (I.A. Vision)")
         st.write("Dê entrada rápida de estoque de fornecedores fotografando o cupom ou nota de compra diária.")
@@ -1052,7 +1042,7 @@ with aba4:
                 if st.button("🚀 Processar Entrada de Estoque e Atualizar Custos", type="primary", use_container_width=True):
                     with st.spinner("🤖 Lendo itens e atualizando saldos no almoxarifado..."):
                         try:
-                            model_vision = genai.GenerativeModel("models/gemini-flash-latest")
+                            model_vision = genai.GenerativeModel("gemini-2.0-flash")
                             img_pil = Image.open(arquivo_nf_rep)
                             
                             prompt_ocr_rep = 'Analise esta imagem de cupom ou nota fiscal de fornecedor de alimentos. Extraia os itens e retorne APENAS um array JSON no formato: [{"nome": "Nome do Insumo", "quantidade": 10.0, "valor_unitario": 5.50}]. Retorne EXCLUSIVAMENTE JSON puro sem formatação markdown.'
@@ -1154,7 +1144,7 @@ with aba6:
     with col_bot_1:
         st.subheader("📱 Dados do Cliente")
         telefone_cliente_bot = st.text_input("📱 WhatsApp do Cliente", value="5511999995432", key="tel_bot")
-        foto_pedido_bot = st.file_uploader("📸 Foto de referência ou áudio (Opcional - Multimodal)", type=["jpg", "png"])
+        foto_pedido_bot = st.file_uploader("📸 Foto de referência ou áudio (Opcional - Multimodal)", type=["jpg", "png", "ogg", "mp3"])
 
     with col_bot_2:
         st.subheader("💬 Mensagem do Cliente")
@@ -1164,7 +1154,6 @@ with aba6:
             key="msg_bot"
         )
         
-    # Estilo para deixar o botão da Mica em destaque vermelho
     st.markdown("""
         <style>
         div.stButton > button:first-child {
@@ -1184,37 +1173,46 @@ with aba6:
     btn_acionar_mica = st.button("🚀 Processar Pedido & Atendimento com a Mica I.A.", use_container_width=True)
 
 if btn_acionar_mica:
-    if not telefone_cliente_bot or not mensagem_cliente_bot:
-        st.error("⚠️ Por favor, informe o WhatsApp do cliente e digite a mensagem do pedido!")
+    if not telefone_cliente_bot or (not mensagem_cliente_bot and not foto_pedido_bot):
+        st.error("⚠️ Por favor, informe o WhatsApp do cliente e digite a mensagem ou envie o áudio/foto do pedido!")
     else:
         mostrar_pix_codigo = True
         forma_pag_texto = "Pix (Mica Bot WhatsApp)"
-        with st.spinner("🤖 A assistente virtual Mica está interpretando a mensagem, calculando o pedido e gerando o Pix..."):
+        
+        texto_base_cliente = mensagem_cliente_bot if mensagem_cliente_bot else "[Cliente enviou um áudio ou arquivo de pedido]"
+        
+        with st.spinner("🤖 A assistente virtual Mica está interpretando a mensagem/áudio, calculando o pedido e gerando o Pix..."):
             try:
                 model_mica = genai.GenerativeModel("gemini-2.0-flash")
                 prompt_mica = f"""
                 Você é a 'Mica', assistente virtual e inteligência comercial via WhatsApp da hamburgueria F&M AI FOOD.
                 Cardápio de pratos disponível para venda hoje:
                 {menu_disponivel_bot}
-                O cliente enviou a seguinte mensagem no WhatsApp: "{mensagem_cliente_bot}"
+                O cliente enviou a seguinte mensagem no WhatsApp: "{texto_base_cliente}"
                 Retorne APENAS um objeto JSON válido (sem markdown) estruturado assim:
                 {{
                   "cliente_nome": "Nome extraído ou 'Cliente WhatsApp'",
                   "itens": [
                     {{"nome_produto": "Nome exato do cardápio", "quantidade": 1}}
                   ],
-                  "resposta_whatsapp": "Texto da resposta comercial amigável da Mica com sugestão de Pix ou instrução de pagamento baseada no texto do cliente."
+                  "resposta_whatsapp": "Texto da resposta comercial amigável da Mica com sugestão de Pix ou instrução de pagamento baseada no pedido."
                 }}
                 """
                 inputs_mica = [prompt_mica]
                 if 'foto_pedido_bot' in locals() and foto_pedido_bot:
-                    inputs_mica.append(Image.open(foto_pedido_bot))
+                    nome_arq = foto_pedido_bot.name.lower()
+                    if nome_arq.endswith(('.jpg', '.jpeg', '.png')):
+                        inputs_mica.append(Image.open(foto_pedido_bot))
+                    else:
+                        with open(foto_pedido_bot.name, "wb") as f:
+                            f.write(foto_pedido_bot.getbuffer())
+                        audio_ref = genai.upload_file(foto_pedido_bot.name)
+                        inputs_mica.append(audio_ref)
 
                 resp_mica = model_mica.generate_content(inputs_mica)
                 texto_mica_limpo = resp_mica.text.strip().replace("```json", "").replace("```", "").strip()
                 dados_pedido_mica = json.loads(texto_mica_limpo)
 
-                # Identifica se a resposta da IA indica pagamento por cartão ou dinheiro
                 resp_zap_lower = dados_pedido_mica.get("resposta_whatsapp", "").lower()
                 if "cartao" in resp_zap_lower or "cartão" in resp_zap_lower or "credito" in resp_zap_lower or "crédito" in resp_zap_lower:
                     forma_pag_texto = "Cartão de Crédito"
@@ -1224,11 +1222,9 @@ if btn_acionar_mica:
                     mostrar_pix_codigo = False
 
             except Exception as e_ia:
-                # FALLBACK INTELIGENTE SE A COTA ESTOURAR (Erro 429) - Lê a mensagem do cliente!
-                st.warning(f"⚠️ Aviso de Cota da I.A. ({e_ia}). Ativando modo de Atendimento Comercial Automático de Segurança.")
+                st.warning(f"⚠️ Aviso da I.A. ({e_ia}). Ativando modo de Atendimento Comercial Automático de Segurança.")
                 
-                msg_lower = mensagem_cliente_bot.lower() if 'mensagem_cliente_bot' in locals() and mensagem_cliente_bot else ""
-                
+                msg_lower = texto_base_cliente.lower()
                 if "credito" in msg_lower or "crédito" in msg_lower or "cartao" in msg_lower or "cartão" in msg_lower:
                     forma_pag_texto = "Cartão de Crédito"
                     texto_pagamento_msg = "💳 Pedido anotado! O entregador levará a maquininha de cartão até você."
@@ -1244,11 +1240,10 @@ if btn_acionar_mica:
 
                 dados_pedido_mica = {
                     "cliente_nome": "Cliente WhatsApp",
-                    "itens": [{"nome_produto": "Mica Smash Cheddar Duplo", "quantidade": 1}],
-                    "resposta_whatsapp": f"Olá! Aqui é a Mica da Mica Burguer! Seu pedido foi anotado com sucesso e já encaminhei para a nossa cozinha caprichar. {texto_pagamento_msg} Bom apetite! 🍔✨"
+                    "itens": [{"nome_produto": "Mica Royal Truffle Bacon", "quantidade": 1}],
+                    "resposta_whatsapp": f"Olá! Aqui é a Mica da Mica Burguer! Ouvi seu áudio/pedido e já encaminhei para a nossa cozinha caprichar. {texto_pagamento_msg} Bom apetite! 🍔✨"
                 }
 
-        # Bloco de processamento e exibição do pedido
         st.success("✅ Atendimento comercial finalizado com sucesso!")
         with st.container(border=True):
             st.markdown("🤖 **Resposta Automática enviada pela Mica ao Cliente:**")
@@ -1260,7 +1255,6 @@ if btn_acionar_mica:
                 st.markdown("### 📱 Gateway de Pagamento — Pix Copia e Cola Gerado:")
                 st.code("00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-426614174000520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", language="text")
 
-        # Gravação no Banco de Dados e PDV
         db_exec_mica = get_db()
         try:
             cli_db_mica = db_exec_mica.query(Cliente).filter(Cliente.whatsapp == telefone_cliente_bot).first()
@@ -1270,6 +1264,7 @@ if btn_acionar_mica:
                 db_exec_mica.commit()
 
             total_geral_mica = 0.0
+            prod_db_m = None
             for item_m in itens_comprados_mica:
                 nome_p_mica = item_m.get("nome_produto")
                 qtd_p_mica = int(item_m.get("quantidade", 1))
@@ -1288,19 +1283,18 @@ if btn_acionar_mica:
                         forma_pagamento=forma_pag_texto, status_pagamento="Aprovado", data_venda=datetime.now()
                     ))
                     
-            # === FASE 2: Baixa Granular de Insumos ===
-            itens_ficha = db_exec_mica.query(FichaTecnica).filter_by(produto_id=prod_db_m.id).all()
-            for ficha in itens_ficha:
-                insumo = db_exec_mica.query(Insumo).filter_by(id=ficha.insumo_id).first()
-                if insumo:
-                    # --- BUSCA BLINDADA DE QUANTIDADE ---
-                    qtd_item = getattr(ficha, 'quantidade_utilizada', None)
-                    if qtd_item is None:
-                        qtd_item = getattr(ficha, 'quantidade', 1)
+            if prod_db_m:
+                itens_ficha = db_exec_mica.query(FichaTecnica).filter_by(produto_id=prod_db_m.id).all()
+                for ficha in itens_ficha:
+                    insumo = db_exec_mica.query(Insumo).filter_by(id=ficha.insumo_id).first()
+                    if insumo:
+                        qtd_item = getattr(ficha, 'quantidade_utilizada', None)
+                        if qtd_item is None:
+                            qtd_item = getattr(ficha, 'quantidade', 1)
 
-                    consumo = float(qtd_item) * float(qtd_p_mica)
-                    estoque_atual = getattr(insumo, 'saldo_atual', 0.0)
-                    insumo.saldo_atual = max(0.0, float(estoque_atual) - consumo)
+                        consumo = float(qtd_item) * float(qtd_p_mica)
+                        estoque_atual = getattr(insumo, 'saldo_atual', 0.0)
+                        insumo.saldo_atual = max(0.0, float(estoque_atual) - consumo)
 
             db_exec_mica.commit()
             st.success(f"🚀 Venda integrada no PDV ({forma_pag_texto}) e estoque baixado com sucesso!")
