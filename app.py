@@ -792,21 +792,47 @@ with aba4:
 
     with sub_aba1:
         st.subheader("📋 Status do Almoxarifado em Tempo Real")
-        insumos_cadastrados = db_estoque.query(Insumo).all()
-        if insumos_cadastrados:
-            dados_estoque = []
-            for i in insumos_cadastrados:
-                status_bad = "🟢 Normal / Operacional" if i.saldo_atual >= i.estoque_minimo else "🔴 Alerta Crítico de Reposição"
-                dados_estoque.append({
-                    "Insumo": i.nome,
-                    "Saldo Atual": f"{i.saldo_atual:.1f} {i.unidade_medida}",
-                    "Estoque Mínimo": f"{i.estoque_minimo:.1f} {i.unidade_medida}",
-                    "Custo Unitário": f"R$ {i.custo_unitario:.2f}",
-                    "Status Operacional": status_bad,
-                })
-            st.dataframe(pd.DataFrame(dados_estoque), use_container_width=True, hide_index=True)
-        else:
-            st.info("Nenhum insumo cadastrado no almoxarifado.")
+    insumos_cadastrados = db_estoque.query(Insumo).all()
+    if insumos_cadastrados:
+        dados_estoque = []
+        total_investido_geral = 0.0
+        itens_criticos = 0
+
+        for i in insumos_cadastrados:
+            valor_investido_item = i.saldo_atual * i.custo_unitario
+            total_investido_geral += valor_investido_item
+            
+            if i.saldo_atual < i.estoque_minimo:
+                itens_criticos += 1
+                status_bad = "🔴 Alerta / Reposição"
+            else:
+                status_bad = "🟢 Normal / Operacional"
+
+            dados_estoque.append({
+                "Insumo": i.nome,
+                "Saldo Atual": f"{i.saldo_atual:.1f} {i.unidade_medida}",
+                "Estoque Mínimo": f"{i.estoque_minimo:.1f} {i.unidade_medida}",
+                "Custo Unitário": f"R$ {i.custo_unitario:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+                "Valor Investido": f"R$ {valor_investido_item:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+                "Status Operacional": status_bad,
+            })
+
+        # Cards / KPIs no topo
+        col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
+        with col_kpi1:
+            st.metric(
+                label="💰 Valor Total do Estoque", 
+                value=f"R$ {total_investido_geral:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            )
+        with col_kpi2:
+            st.metric(label="📦 Tipos de Insumo", value=f"{len(insumos_cadastrados)} itens")
+        with col_kpi3:
+            st.metric(label="⚠️ Itens em Alerta Crítico", value=f"{itens_criticos} itens")
+
+        st.markdown("---")
+        st.dataframe(pd.DataFrame(dados_estoque), use_container_width=True, hide_index=True)
+    else:
+        st.info("Nenhum insumo cadastrado no almoxarifado.")
 
         st.markdown("---")
         st.subheader("🤖 Forecasting Preditivo & Disparo de Alertas via WhatsApp")
