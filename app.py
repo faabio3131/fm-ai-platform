@@ -370,11 +370,8 @@ criar_admin()
 popular_dados_iniciais()
 
 # Verificação da Inteligência Artificial Gemini
-GENAI_DISPONIVEL = False
-api_key = os.getenv("GEMINI_API_KEY")
-if not api_key and hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
-    api_key = st.secrets["GEMINI_API_KEY"]
-    os.environ["GEMINI_API_KEY"] = api_key
+GENAI_DISPONIVEL = True
+GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
 
 from google import genai
 
