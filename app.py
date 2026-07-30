@@ -376,8 +376,6 @@ GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
 from google import genai
 
 client = genai.Client(api_key=GEMINI_API_KEY)
-
-
 # --- 6. BARRA LATERAL (SIDEBAR CORPORATIVA) ---
 with st.sidebar:
     if os.path.exists("logo.png"):
