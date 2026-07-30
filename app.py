@@ -1196,7 +1196,7 @@ if btn_acionar_mica:
                     else:
                         with open(foto_pedido_bot.name, "wb") as f:
                             f.write(foto_pedido_bot.getbuffer())
-                        audio_ref = genai.upload_file(foto_pedido_bot.name)
+                        audio_ref = client.files.upload(file=foto_pedido_bot.name)
                         inputs_mica.append(audio_ref)
 
                 resp_mica = client.models.generate_content(model="gemini-2.5-flash", contents=inputs_mica)
