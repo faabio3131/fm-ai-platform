@@ -15,9 +15,9 @@ from sqlalchemy import (
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 import streamlit as st
 
-# --- 1. CONFIGURAÇÃO DO BANCO DE DADOS LOCAL ---
-DATABASE_URL = "sqlite:///./banco_erp_local.db"
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# --- 1. CONFIGURAÇÃO DO BANCO DE DADOS NUVEM ---
+DATABASE_URL = "postgresql://postgres.xiknjbqepitjsozrfrcg:Sucesso2026%40%23%24@aws-0-sa-east-1.pooler.supabase.com:5432/postgres"
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -133,7 +133,7 @@ with st.sidebar:
         st.markdown("⚠️ **Modo Offline / Sem Chave API**")
 
     st.markdown("---")
-    if st.button("🚪 Sair (Logout)", use_container_width=True):
+    if st.button("🚪 Sair (Logout)", width="stretch"):
         st.warning("Encerrando sessão...")
 
 # --- CABEÇALHO E ABAS PRINCIPAIS ---

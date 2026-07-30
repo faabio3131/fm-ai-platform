@@ -12,11 +12,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
-# Configuração do Banco de Dados SQLite Local
-DB_PATH = "banco_erp_local.db"
-engine = create_engine(
-    f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False}
-)
+# Configuração do Banco de Dados PostgreSQL (Supabase Nuvem)
+SQLALCHEMY_DATABASE_URL = "postgresql://postgres:Sucesso2026%40%23%24@db.xiknjbqepitjsozrfrcg.supabase.co:5432/postgres"
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -95,37 +93,7 @@ class Venda(Base):
     produto = relationship("Produto", back_populates="vendas")
 
 
-# --- AUTO-CURA DE ESQUEMA ---
-precisa_recriar = False
-if os.path.exists(DB_PATH):
-    try:
-        inspector = inspect(engine)
-        tabelas = inspector.get_table_names()
-        required_tables = ["produtos", "insumos", "ficha_tecnica", "vendas"]
-
-        if not all(t in tabelas for t in required_tables):
-            precisa_recriar = True
-        else:
-            colunas_produtos = [
-                c["name"] for c in inspector.get_columns("produtos")
-            ]
-            colunas_obrigatorias = [
-                "custo_unitario",
-                "margem_lucro",
-                "imagem_path",
-            ]
-            if not all(
-                col in colunas_produtos for col in colunas_obrigatorias
-            ):
-                precisa_recriar = True
-    except Exception:
-        precisa_recriar = True
-
-    if precisa_recriar:
-        engine.dispose()
-        try:
-            os.remove(DB_PATH)
-        except Exception:
-            pass
-
+# --- INICIALIZAÇÃO DO BANCO EM NUVEM ---
+# Cria todas as tabelas lá no Supabase (se elas já não existirem)
+Base.metadata.create_all(bind=engine)
 Base.metadata.create_all(bind=engine)
