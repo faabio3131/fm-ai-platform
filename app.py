@@ -125,6 +125,8 @@ class Venda(Base):
 
     produto = relationship("Produto")
     cliente = relationship("Cliente")
+
+
 class GatewayConfig(Base):
     __tablename__ = 'gateway_config'
     id = Column(Integer, primary_key=True)
@@ -132,6 +134,7 @@ class GatewayConfig(Base):
     gateway_api_key = Column(String(255), nullable=True)
     gateway_pix_key = Column(String(100), nullable=True)
     ambiente = Column(String(20), default="Sandbox")
+
 
 class ConfiguracaoMeta(Base):
     __tablename__ = "configuracoes_meta"
@@ -886,6 +889,46 @@ with aba4:
         
         arquivo_nf_cad = st.file_uploader("📸 Envie a foto da Nota Fiscal para Cadastro em Massa", type=["jpg", "jpeg", "png"], key="uploader_nf_cad_ia")
         
+        # --- PLANO B: CADASTRO MANUAL DE INSUMOS ---
+        st.divider()
+        st.markdown("### ✍️ Cadastro Manual de Emergência (Plano B)")
+        st.write("Use esta opção para testes ou caso a IA esteja indisponível.")
+
+        with st.form("form_cadastro_manual", clear_on_submit=True):
+            col_m1, col_m2 = st.columns(2)
+            
+            with col_m1:
+                novo_nome = st.text_input("Nome do Insumo (Ex: Hambúrguer Angus)")
+                novo_custo = st.number_input("Custo Unitário (R$)", min_value=0.0, format="%.2f")
+                
+            with col_m2:
+                novo_saldo = st.number_input("Quantidade / Saldo Atual", min_value=0.0, format="%.3f")
+                novo_minimo = st.number_input("Estoque Mínimo Alerta", min_value=0.0, format="%.3f")
+
+            btn_salvar_manual = st.form_submit_button("💾 Salvar Manualmente no Banco")
+
+            if btn_salvar_manual:
+                if novo_nome.strip() == "":
+                    st.warning("⚠️ O nome do insumo não pode ficar em branco!")
+                else:
+                    try:
+                        db_manual = SessionLocal() 
+                        novo_insumo = Insumo(
+                            nome=novo_nome,
+                            saldo_atual=novo_saldo,
+                            estoque_minimo=novo_minimo,
+                            custo_unitario=novo_custo,
+                            unidade_medida="un" # Unidade padrão segura
+                        )
+                        db_manual.add(novo_insumo)
+                        db_manual.commit()
+                        db_manual.close()
+                        st.success(f"✅ Insumo '{novo_nome}' salvo com sucesso direto no banco de dados!")
+                    except Exception as e:
+                        st.error(f"Erro ao salvar: {e}")
+        st.divider()
+        # --- FIM DO PLANO B ---
+
         if arquivo_nf_cad:
             col_img_c, col_btn_c = st.columns([1, 2])
             with col_img_c:
@@ -1091,8 +1134,6 @@ with aba5:
 # ==============================================================================
 # ABA 6: BOT CLIENTE (ASSISTENTE VIRTUAL "MICA I.A.") COM PIX E UPSELL INTELIGENTE
 # ==============================================================================
-
-    
 with aba6:
     st.header("💬 Bot Cliente (Mica I.A.) - Simulador Omnichannel WhatsApp")
     st.markdown("Simule o atendimento ao cliente via WhatsApp. A **Mica I.A.** entende texto, áudio e fotos, faz cross-selling dinâmico (upsell) e gera cobrança Pix nativa com baixa automática de estoque.")
@@ -1107,6 +1148,7 @@ with aba6:
             menu_disponivel_bot = "Nenhum produto cadastrado ou disponível no momento."
     finally:
         db_bot.close()
+    
     col_bot_1, col_bot_2 = st.columns(2)
 
     with col_bot_1:
@@ -1121,7 +1163,8 @@ with aba6:
             height=130,
             key="msg_bot"
         )
-# Estilo para deixar o botão da Mica em destaque vermelho
+        
+    # Estilo para deixar o botão da Mica em destaque vermelho
     st.markdown("""
         <style>
         div.stButton > button:first-child {
@@ -1137,6 +1180,7 @@ with aba6:
         }
         </style>
     """, unsafe_allow_html=True)
+    
     btn_acionar_mica = st.button("🚀 Processar Pedido & Atendimento com a Mica I.A.", use_container_width=True)
 
 if btn_acionar_mica:
@@ -1243,35 +1287,24 @@ if btn_acionar_mica:
                         quantidade=qtd_p_mica, valor_total=vlr_tot_m, custo_total=custo_tot_m,
                         forma_pagamento=forma_pag_texto, status_pagamento="Aprovado", data_venda=datetime.now()
                     ))
+                    
             # === FASE 2: Baixa Granular de Insumos ===
             itens_ficha = db_exec_mica.query(FichaTecnica).filter_by(produto_id=prod_db_m.id).all()
             for ficha in itens_ficha:
                 insumo = db_exec_mica.query(Insumo).filter_by(id=ficha.insumo_id).first()
-                if not insumo:
-                    continue
+                if insumo:
+                    # --- BUSCA BLINDADA DE QUANTIDADE ---
+                    qtd_item = getattr(ficha, 'quantidade_utilizada', None)
+                    if qtd_item is None:
+                        qtd_item = getattr(ficha, 'quantidade', 1)
 
-                # --- BUSCA BLINDADA DE QUANTIDADE DA FICHA ---
-                qtd_item = getattr(ficha, 'quantidade_gasta', None)
-                if qtd_item is None:
-                    qtd_item = getattr(ficha, 'quantidade_necessaria', None)
-                if qtd_item is None:
-                    qtd_item = getattr(ficha, 'quantidade', 1)
+                    consumo = float(qtd_item) * float(qtd_p_mica)
+                    estoque_atual = getattr(insumo, 'saldo_atual', 0.0)
+                    insumo.saldo_atual = max(0.0, float(estoque_atual) - consumo)
 
-                consumo = float(qtd_item) * float(qtd_p_mica)
-
-                # --- ATUALIZAÇÃO BLINDADA DE ESTOQUE ---
-                estoque_antigo = getattr(insumo, 'quantidade_atual', None)
-                nome_coluna = 'quantidade_atual'
-
-                if estoque_antigo is None:
-                    estoque_antigo = getattr(insumo, 'quantidade', 0.0)
-                    nome_coluna = 'quantidade'
-
-                novo_estoque = max(0.0, float(estoque_antigo) - consumo)
-                setattr(insumo, nome_coluna, novo_estoque)
-                    
             db_exec_mica.commit()
             st.success(f"🚀 Venda integrada no PDV ({forma_pag_texto}) e estoque baixado com sucesso!")
+
         except Exception as e_db:
             db_exec_mica.rollback()
             st.error(f"Erro no banco de dados: {e_db}")

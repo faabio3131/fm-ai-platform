@@ -123,25 +123,25 @@ with st.sidebar:
     st.caption("Professional Gastronomy ERP & AI")
     st.markdown("---")
 
-    st.subheader("🔐 Acesso Corporativo")
-    st.success("Conectado como:\n**admin@micaburger.com**")
-    st.info("🏪 **Loja Ativa:**\nMica Burguer & Restaurante")
+    st.subheader("🏢 Acesso Corporativo")
+st.success("Conectado como:\n**admin@micaburger.com**")
+st.info("🏪 **Loja Ativa:**\nMica Burguer & Restaurante")
 
-    if GENAI_DISPONIVEL:
-        st.markdown("🟢 **Google GenAI Ativo**")
-    else:
-        st.markdown("⚠️ **Modo Offline / Sem Chave API**")
+if GENAI_DISPONIVEL:
+    st.markdown("🟢 **Google GenAI Ativo**")
+else:
+    st.markdown("⚠️ **Modo Offline / Sem Chave API**")
 
-    st.markdown("---")
-    if st.button("🚪 Sair (Logout)", width="stretch"):
-        st.warning("Encerrando sessão...")
+st.markdown("---")
+if st.button("🚪 Sair (Logout)", width="stretch"):
+    st.warning("Encerrando sessão...")
 
 # --- CABEÇALHO E ABAS PRINCIPAIS ---
-st.title("🍔 F&M AI FOOD — Painel de Gestão & PDV")
+st.title("🍔 F&M AI FOOD - Painel de Gestão & PDV")
 st.markdown("---")
 
-aba1, aba2, aba3, aba4, aba5 = st.tabs(
-    [
+aba1, aba2, aba3, aba4, aba5 = st.tabs([
+    "🤖 Engenharia de Cardápio",
         "🤖 Engenharia de Cardápio",
         "📢 Campanhas & Social",
         "🛒 Frente de Caixa (PDV)",
