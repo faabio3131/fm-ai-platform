@@ -791,8 +791,15 @@ with aba4:
     db_estoque = get_db()
 
     with sub_aba1:
-        st.subheader("📋 Status do Almoxarifado em Tempo Real")
+       st.subheader("📋 Status do Almoxarifado em Tempo Real")
+    
+    # 1. Atualiza no banco de dados primeiro
+    db_estoque.query(Insumo).filter(Insumo.nome.ilike("%cheddar%")).update({"unidade_medida": "kg"})
+    db_estoque.commit()
+
+    # 2. Busca os dados atualizados para a tela
     insumos_cadastrados = db_estoque.query(Insumo).all()
+
     if insumos_cadastrados:
         dados_estoque = []
         total_investido_geral = 0.0
