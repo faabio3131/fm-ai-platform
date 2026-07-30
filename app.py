@@ -905,7 +905,7 @@ with aba4:
                 novo_saldo = st.number_input("Quantidade / Saldo Atual", min_value=0.0, format="%.3f")
                 novo_minimo = st.number_input("Estoque Mínimo Alerta", min_value=0.0, format="%.3f")
 
-            btn_salvar_manual = st.form_submit_button("💾 Salvar Manualmente no Banco")
+            btn_salvar_manual = st.form_submit_button("💾 Salvar Manualmente no Banco", type="primary")
 
             if btn_salvar_manual:
                 if novo_nome.strip() == "":
