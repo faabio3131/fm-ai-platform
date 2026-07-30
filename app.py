@@ -376,6 +376,8 @@ GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
 from google import genai
 
 client = genai.Client(api_key=GEMINI_API_KEY)
+
+
 # --- 6. BARRA LATERAL (SIDEBAR CORPORATIVA) ---
 with st.sidebar:
     if os.path.exists("logo.png"):
@@ -456,13 +458,16 @@ with aba1:
             if GENAI_DISPONIVEL:
                 with st.spinner("🤖 A Inteligência Artificial está escrevendo a legenda publicitária gourmet..."):
                     try:
-                        model_text = genai.GenerativeModel("gemini-2.0-flash")
-                        prompt_texto = f"Escreva uma descrição publicitária curta, altamente persuasiva, gourmet e apetitosa para o prato {nome_prato}, usando ingredientes como {ingredientes_base}."
-                        resp_texto = model_text.generate_content(prompt_texto)
+                        prompt_texto = f"Escreva uma descrição publicitária curta, altamente persuasiva, gourmet para: {nome_prato}"
+                        resp_texto = client.models.generate_content(
+                            model="gemini-2.5-flash",
+                            contents=prompt_texto
+                        )
                         if resp_texto and resp_texto.text:
                             desc_gerada = resp_texto.text.strip()
                     except Exception as e:
                         st.warning(f"Aviso I.A.: Não foi possível gerar texto avançado ({e}). Usando descrição padrão.")
+
             try:
                 novo_produto = Produto(
                     nome=nome_prato,
@@ -472,7 +477,7 @@ with aba1:
                     preco_venda=preco_venda,
                     custo_total_cmv=custo_cmv_estimado,
                     margem_exibicao=f"{margem_calc}%",
-                    imagem_path=caminho_imagem_salva,
+                    imagem_path=caminho_imagem_salva
                 )
                 db_aba1.add(novo_produto)
                 db_aba1.commit()
