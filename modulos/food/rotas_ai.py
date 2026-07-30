@@ -74,16 +74,19 @@ def gerar_descricao_gourmet_ia(nome: str, descricao_bruta: str, categoria: str) 
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if api_key:
         try:
-            import google.generativeai as genai
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            from google import genai
+
+            client = genai.Client(api_key=api_key)
             prompt = (
                 f"Transforme esta descrição de cardápio em um texto gourmet altamente persuasivo, "
                 f"apetitoso e elegante para um restaurante de alto padrão. "
                 f"Prato: {nome} | Categoria: {categoria} | Descrição básica: {descricao_bruta}. "
                 f"Retorne apenas a descrição final vendedora em até 2 frases marcantes."
             )
-            response = model.generate_content(prompt)
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt
+            )
             if response.text:
                 return response.text.strip()
         except Exception as e:
