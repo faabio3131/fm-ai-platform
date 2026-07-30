@@ -376,13 +376,9 @@ if not api_key and hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
     api_key = st.secrets["GEMINI_API_KEY"]
     os.environ["GEMINI_API_KEY"] = api_key
 
-if api_key:
-    try:
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
-        GENAI_DISPONIVEL = True
-    except ImportError:
-        pass
+from google import genai
+
+client = genai.Client(api_key=GEMINI_API_KEY)
 
 
 # --- 6. BARRA LATERAL (SIDEBAR CORPORATIVA) ---
