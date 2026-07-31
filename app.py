@@ -1,7 +1,8 @@
 import os
+import urllib.parse
 import streamlit as st
 
-# Patch: ensure compatibility with custom keyword args used across the app
+# Patch: garante compatibilidade com argumentos visuais do Streamlit
 try:
     if not hasattr(st, "_orig_container"):
         st._orig_container = st.container
@@ -144,6 +145,7 @@ class ConfiguracaoMeta(Base):
     gateway_provider = Column(String, default="Mercado Pago")
     gateway_pix_key = Column(String, nullable=True)
     gateway_api_key = Column(String, nullable=True)
+
 
 class ContatoGerencial(Base):
     __tablename__ = "contatos_gerenciais"
@@ -353,7 +355,6 @@ def render_cadastro_ficha_tecnica(
         )
 
       with col_margem:
-        # LACUNA DE MARGEM (Atualiza o preço sugerido automaticamente)
         margem_pretendida = st.number_input(
             "Margem Desejada (%)",
             min_value=5.0,
@@ -362,7 +363,6 @@ def render_cadastro_ficha_tecnica(
             step=5.0,
         )
 
-      # CÁLCULO DE PREÇO AUTOMÁTICO COM BASE NA MARGEM
       preco_sugerido = (
           (cmv_total_calculado / (1 - (margem_pretendida / 100.0)))
           if margem_pretendida < 100
@@ -370,7 +370,6 @@ def render_cadastro_ficha_tecnica(
       )
 
       with col_preco:
-        # AUTORIZAÇÃO: O preço vem preenchido com a sugestão, mas você pode mudar antes de salvar
         preco_venda_final = st.number_input(
             "Preço de Venda Final (R$)",
             min_value=0.0,
@@ -427,7 +426,6 @@ def render_cadastro_ficha_tecnica(
     if "produtos_em_revisao" not in st.session_state:
       st.session_state.produtos_em_revisao = []
 
-    # Se ainda não processou os produtos, mostra a tela de Upload
     if len(st.session_state.produtos_em_revisao) == 0:
         st.write("### 📄 Importação Automática de Cardápio (Foto, PDF ou Texto)")
         st.caption("A IA extrairá os produtos. Você poderá aplicar a margem e autorizar antes de salvar.")
@@ -485,7 +483,6 @@ def render_cadastro_ficha_tecnica(
 
                         for prod in produtos_extraidos:
                             preco_v = float(prod.get("preco", 0.0))
-                            # Calcula CMV reverso baseado na margem que o cliente informou
                             cmv_est = round(preco_v * (1 - (margem_padrao_importacao / 100.0)), 2)
                             produtos_temp.append({
                                 "Nome": prod.get("nome"),
@@ -544,7 +541,6 @@ def render_cadastro_ficha_tecnica(
                     else:
                         st.error("❌ O leitor nativo não identificou nomes + valores (ex: 'Hambúrguer R$ 30,00').")
 
-    # SE O PROCESSAMENTO DEU CERTO, MOSTRA A TELA DE AUTORIZAÇÃO (STAGING)
     else:
         st.write("### ⚠️ Autorização de Precificação e Margens")
         st.info("O sistema calculou os custos e preços da lista. Se desejar aplicar uma **Nova Margem**, digite abaixo e clique em recalcular, ou edite diretamente na tabela antes de salvar.")
@@ -565,7 +561,6 @@ def render_cadastro_ficha_tecnica(
                             p["Preço Final"] = round(p["Custo (CMV)"] * (1 + (nova_margem_massa / 100.0)), 2)
                     st.rerun()
 
-        # Tabela interativa para edição e aprovação final
         df_revisao = pd.DataFrame(st.session_state.produtos_em_revisao)
         df_editado = st.data_editor(
             df_revisao,
@@ -1040,16 +1035,20 @@ with aba3:
                 st.subheader(f"📱 Cobrança Pix Real Gerada via API ({config_gtw.gateway_provider})")
                 col_pix1, col_pix2 = st.columns([1, 3])
                 with col_pix1:
-                    st.image(f"[https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=00020126580014br.gov.bcb.pix0136](https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=00020126580014br.gov.bcb.pix0136){config_gtw.gateway_pix_key}5204000053039865405{total_final_pdv:.2f}5802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", width=180, caption="QR Code Oficial da Conta PJ")
+                    payload_prod = f"00020126580014br.gov.bcb.pix0136{config_gtw.gateway_pix_key}5204000053039865405{total_final_pdv:.2f}5802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A"
+                    url_prod = f"[https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=](https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=){urllib.parse.quote(payload_prod)}"
+                    st.image(url_prod, width=180, caption="QR Code Oficial da Conta PJ")
                 with col_pix2:
                     st.success(f"⚡ **Chave Pix Oficial:** `{config_gtw.gateway_pix_key}`")
-                    st.code(f"00020126580014br.gov.bcb.pix0136{config_gtw.gateway_pix_key}5204000053039865405{total_final_pdv:.2f}5802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", language="text")
+                    st.code(payload_prod, language="text")
                     st.write("🟢 **Status:** Aguardando sinal de confirmação do Webhook do banco na conta da Michele...")
             else:
                 st.subheader("📱 Gateway Pix Automático (Simulador de Treinamento)")
                 col_pix1, col_pix2 = st.columns([1, 3])
                 with col_pix1:
-                    st.image(f"[https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=FMFIFOOD_PIX_SIMULADO_R$](https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=FMFIFOOD_PIX_SIMULADO_R$){total_final_pdv:.2f}", width=180, caption="QR Code Dinâmico (Sandbox)")
+                    payload_sandbox = f"FMFIFOOD_PIX_SIMULADO_R${total_final_pdv:.2f}"
+                    url_sandbox = f"[https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=](https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=){urllib.parse.quote(payload_sandbox)}"
+                    st.image(url_sandbox, width=180, caption="QR Code Dinâmico (Sandbox)")
                 with col_pix2:
                     st.info("🟡 **Chave Pix de Treinamento (Simulado):**\n\n`00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-426614174000520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A`")
                     st.write("👉 *No modo Sandbox, clique no botão abaixo para simular a aprovação do recebimento:*")
