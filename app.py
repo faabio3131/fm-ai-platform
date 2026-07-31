@@ -240,7 +240,198 @@ def recalcular_cmv_geral(db_session):
     except Exception as e:
         db_session.rollback()
 
+import streamlit as st
 
+
+# ==============================================================================
+# SUB-ABA / MÓDULO: CADASTRO DE PRODUTO COM FICHA TÉCNICA E PRECIFICAÇÃO IA
+# ==============================================================================
+def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica):
+  st.subheader("👨‍🍳 Engenharia de Cardápio & Ficha Técnica Granular")
+  st.caption(
+      "Cadastre o produto, monte a receita com as gramagens/unidades e defina"
+      " a margem de lucro pretendida."
+  )
+
+  # 1. Informações Básicas do Prato / Lanche
+  col_nome, col_cat = st.columns([2, 1])
+  with col_nome:
+    nome_produto = st.text_input(
+        "Nome do Produto / Prato", placeholder="Ex: Mica Royal Truffle Bacon"
+    )
+  with col_cat:
+    categoria = st.selectbox(
+        "Categoria", ["Hambúrgueres", "Porções", "Bebidas", "Sobremesas"]
+    )
+
+  st.markdown("---")
+  st.write("### 🥗 Composição da Ficha Técnica (Insumos do Almoxarifado)")
+
+  # Buscar insumos cadastrados no banco
+  insumos_disponiveis = db_session.query(Insumo).all()
+
+  if not insumos_disponiveis:
+    st.warning(
+        "⚠️ Nenhum insumo encontrado no Almoxarifado. Cadastre os insumos"
+        " primeiro!"
+    )
+    return
+
+  # Estrutura na sessão para armazenar os itens da receita durante o cadastro
+  if "itens_ficha_tecnica" not in st.session_state:
+    st.session_state.itens_ficha_tecnica = []
+
+  # Formulário para adicionar item à receita
+  c1, c2, c3 = st.columns([3, 2, 1])
+  with c1:
+    insumo_selecionado = st.selectbox(
+        "Selecione o Insumo",
+        options=insumos_disponiveis,
+        format_func=lambda x: (
+            f"{x.nome} (R$ {x.custo_unitario:.2f} / {x.unidade_medida})"
+        ),
+        key="sel_insumo",
+    )
+  with c2:
+    label_qtd = (
+        "Quantidade em GRAMAS (g)"
+        if insumo_selecionado.unidade_medida == "kg"
+        else f"Quantidade ({insumo_selecionado.unidade_medida})"
+    )
+    qtd_usada = st.number_input(
+        label_qtd, min_value=0.1, value=100.0, step=10.0, key="num_qtd"
+    )
+
+  with c3:
+    st.write(" ")
+    st.write(" ")
+    if st.button("➕ Adicionar", use_container_width=True):
+      # Cálculo do custo fracionado deste ingrediente
+      if insumo_selecionado.unidade_medida == "kg":
+        # Converte gramas para kg para multiplicar pelo custo/kg
+        custo_item = (qtd_usada / 1000.0) * insumo_selecionado.custo_unitario
+      else:
+        custo_item = qtd_usada * insumo_selecionado.custo_unitario
+
+      st.session_state.itens_ficha_tecnica.append({
+          "insumo_id": insumo_selecionado.id,
+          "nome": insumo_selecionado.nome,
+          "quantidade": qtd_usada,
+          "unidade": (
+              "g"
+              if insumo_selecionado.unidade_medida == "kg"
+              else insumo_selecionado.unidade_medida
+          ),
+          "custo_calculado": custo_item,
+      })
+      st.rerun()
+
+  # Exibição dos itens já adicionados à receita
+  cmv_total_calculado = 0.0
+  if st.session_state.itens_ficha_tecnica:
+    st.write("#### 📜 Receita Montada:")
+    tabela_dados = []
+    for idx, item in enumerate(st.session_state.itens_ficha_tecnica):
+      cmv_total_calculado += item["custo_calculado"]
+      tabela_dados.append({
+          "Item": item["nome"],
+          "Qtd na Receita": f"{item['quantidade']} {item['unidade']}",
+          "Custo Residual (R$)": f"R$ {item['custo_calculado']:.2f}",
+      })
+
+    st.table(tabela_dados)
+
+    if st.button("🗑️ Limpar Receita"):
+      st.session_state.itens_ficha_tecnica = []
+      st.rerun()
+
+  st.markdown("---")
+  st.write("### 💰 Precificação Inteligente & Margem de Lucro Pretendida")
+
+  # 2. Input da Margem de Lucro Desejada
+  col_cmv, col_margem, col_preco, col_lucro = st.columns(4)
+
+  with col_cmv:
+    st.metric("Custo de Produção (CMV)", f"R$ {cmv_total_calculado:.2f}")
+
+  with col_margem:
+    margem_pretendida = st.number_input(
+        "Margem Desejada (%)",
+        min_value=5.0,
+        max_value=300.0,
+        value=60.0,
+        step=5.0,
+        help="Margem de Lucro Bruto sobre o preço de venda",
+    )
+
+  # Cálculo do preço de venda sugerido (Margem sobre Venda)
+  # Fórmula: Preço = Custo / (1 - (Margem / 100))
+  if margem_pretendida < 100:
+    preco_sugerido = cmv_total_calculado / (1 - (margem_pretendida / 100.0))
+  else:
+    # Caso selecione markup > 100%
+    preco_sugerido = cmv_total_calculado * (1 + (margem_pretendida / 100.0))
+
+  lucro_bruto_estimado = preco_sugerido - cmv_total_calculado
+
+  with col_preco:
+    preco_venda_final = st.number_input(
+        "Preço de Venda Final (R$)",
+        min_value=0.0,
+        value=float(round(preco_sugerido, 2)),
+        step=0.50,
+        help="Você pode ajustar ou arredondar o preço sugerido",
+    )
+
+  with col_lucro:
+    # Recalcula a margem real se o usuário alterar o preço final
+    margem_real = (
+        ((preco_venda_final - cmv_total_calculado) / preco_venda_final * 100)
+        if preco_venda_final > 0
+        else 0
+    )
+    st.metric(
+        "Lucro Bruto / Lanche",
+        f"R$ {(preco_venda_final - cmv_total_calculado):.2f}",
+        delta=f"{margem_real:.1f}% Margem Real",
+    )
+
+  # 3. Botão para Salvar Produto e Ficha Técnica no Banco de Dados
+  st.markdown("---")
+  if st.button("💾 Salvar Produto & Ficha Técnica", type="primary"):
+    if not nome_produto:
+      st.error("❌ Por favor, digite o nome do produto.")
+    elif not st.session_state.itens_ficha_tecnica:
+      st.error("❌ Adicione pelo menos 1 insumo à ficha técnica do produto.")
+    else:
+      # Criar produto no banco
+      novo_prod = Produto(
+          nome=nome_produto,
+          categoria=categoria,
+          preco=preco_venda_final,
+          custo_cmv=cmv_total_calculado,
+          margem_lucro=margem_real,
+      )
+      db_session.add(novo_prod)
+      db_session.commit()
+
+      # Criar relacionamentos da Ficha Técnica (N:M)
+      for item in st.session_state.itens_ficha_tecnica:
+        nova_ft = FichaTecnica(
+            produto_id=novo_prod.id,
+            insumo_id=item["insumo_id"],
+            quantidade_necessaria=item["quantidade"],
+        )
+        db_session.add(nova_ft)
+
+      db_session.commit()
+
+      st.success(
+          f"✅ Produto **{nome_produto}** e Ficha Técnica cadastrados com"
+          " sucesso!"
+      )
+      st.session_state.itens_ficha_tecnica = []
+      st.rerun()
 def executar_forecasting_e_alertar(db_session):
     insumos = db_session.query(Insumo).all()
     destinatarios = db_session.query(ContatoGerencial).filter(
@@ -425,68 +616,12 @@ aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs(
 # ABA 1: ENGENHARIA DE CARDÁPIO COM INTELIGÊNCIA ARTIFICIAL
 # ==============================================================================
 with aba1:
-    st.header("✨ Criação Inteligente de Pratos e Engenharia de Cardápio")
-    st.write("Cadastre novos itens no seu cardápio com cálculo automático de CMV e legendas publicitárias geradas pelo Google Gemini.")
-
-    with st.form("form_cardapio_ia"):
-        col1, col2 = st.columns(2)
-        with col1:
-            nome_prato = st.text_input("🍔 Nome do Prato / Lanche", placeholder="Ex: Mica Royal Truffle Bacon")
-            categoria = st.selectbox("📂 Categoria do Cardápio", ["Burgers Gourmet", "Combos Artesanais", "Porções & Entradas", "Sobremesas", "Bebidas & Shakes"])
-            ingredientes_base = st.text_area("📝 Ingredientes Principais e Descrição Bruta", placeholder="Ex: Dois burgers smash 100g de costela angus, queijo provolone derretido, maionese trufada e bacon crocante...")
-        
-        with col2:
-            preco_venda = st.number_input("💲 Preço de Venda (R$)", min_value=0.0, value=39.90, step=0.50, format="%.2f")
-            custo_cmv_estimado = round(preco_venda * 0.32, 2)
-            margem_calc = round(((preco_venda - custo_cmv_estimado) / preco_venda) * 100, 1) if preco_venda > 0 else 0.0
-            
-            st.markdown("### 📈 Indicadores Financeiros Teóricos")
-            st.info(f"📉 **CMV Teórico Estimado (32%):** R$ {custo_cmv_estimado:.2f}\n\n📈 **Margem de Lucro Bruta:** {margem_calc}%")
-            st.caption("Nota: O CMV real será reajustado com precisão industrial na Aba 4 assim que a Ficha Técnica for vinculada.")
-
-        btn_gerar_ia = st.form_submit_button("🚀 Processar Cadastro & Escrever Legenda com I.A.", type="primary")
-
-    if btn_gerar_ia:
-        if not nome_prato or not ingredientes_base:
-            st.error("⚠️ Por favor, preencha o Nome do Prato e os Ingredientes Principais para prosseguir!")
-        else:
-            db_aba1 = get_db()
-            desc_gerada = f"Experimente o magnífico {nome_prato}! Preparado com maestria com ingredientes frescos e selecionados."
-            caminho_imagem_salva = None
-
-            if GENAI_DISPONIVEL:
-                with st.spinner("🤖 A Inteligência Artificial está escrevendo a legenda publicitária gourmet..."):
-                    try:
-                        prompt_texto = f"Escreva uma descrição publicitária curta, altamente persuasiva, gourmet para: {nome_prato}"
-                        # Call generate_content with a single contents argument
-                        resp_texto = client.client.models.generate_content(model="gemini-2.5-flash", contents=prompt_texto)
-                        if resp_texto and resp_texto.text:
-                            desc_gerada = resp_texto.text.strip()
-                    except Exception as e:
-                        st.warning(f"Aviso I.A.: Não foi possível gerar texto avançado ({e}). Usando descrição padrão.")
-
-            try:
-                novo_produto = Produto(
-                    nome=nome_prato,
-                    categoria=categoria,
-                    descricao_bruta=ingredientes_base,
-                    descricao_ai=desc_gerada,
-                    preco_venda=preco_venda,
-                    custo_total_cmv=custo_cmv_estimado,
-                    margem_exibicao=f"{margem_calc}%",
-                    imagem_path=caminho_imagem_salva
-                )
-                db_aba1.add(novo_produto)
-                db_aba1.commit()
-                st.success(f"🎉 Produto **{nome_prato}** adicionado com sucesso ao cardápio do restaurante!")
-                with st.container(border=True):
-                    st.markdown("### 📄 Legenda Publicitária Gerada pela I.A.:")
-                    st.write(f"*{desc_gerada}*")
-            except Exception as e:
-                db_aba1.rollback()
-                st.error(f"❌ Erro ao salvar o produto no banco de dados: {e}")
-            finally:
-                db_aba1.close()
+    render_cadastro_ficha_tecnica(
+        db_session=get_db(),
+        Insumo=Insumo,
+        Produto=Produto,
+        FichaTecnica=FichaTecnica
+    )
 
 
 # ==============================================================================
