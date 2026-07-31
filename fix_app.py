@@ -1,9 +1,16 @@
 import re
 
 with open("app.py", "r", encoding="utf-8") as f:
-  conteudo = f.read()
+    conteudo = f.read()
 
-nova_funcao = """def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, client=None, GENAI_DISPONIVEL=False):
+nova_funcao = """import json
+import io
+try:
+    import pypdf
+except ImportError:
+    pass # O requirements.txt cuidará disso
+
+def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, client=None, GENAI_DISPONIVEL=False):
     st.subheader("👨‍🍳 Engenharia de Cardápio & Ficha Técnica Granular")
     
     modo = st.radio(
@@ -137,7 +144,10 @@ nova_funcao = """def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, 
             texto_cardapio = st.text_area("Cole aqui o texto do seu cardápio com nomes e preços:", height=150)
             
         if st.button("🚀 Processar Cardápio com IA", type="primary"):
-            if not GENAI_DISPONIVEL or not client:
+            client_ativo = client or globals().get('client')
+            genai_ativo = GENAI_DISPONIVEL or globals().get('GENAI_DISPONIVEL', False)
+            
+            if not genai_ativo or not client_ativo:
                 st.error("❌ Integração com Google GenAI/Gemini não configurada no servidor.")
                 return
                 
@@ -146,27 +156,48 @@ nova_funcao = """def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, 
                 return
                 
             with st.spinner("🤖 O Gemini está analisando o cardápio real..."):
+                prompt = '''
+                Você é um especialista em ERP gastronômico. Analise o cardápio fornecido e extraia todos os produtos/itens cadastráveis.
+                Retorne EXATAMENTE um JSON no seguinte formato (sem formatação markdown ```json, apenas a string json pura):
+                [
+                    {
+                        "nome": "Nome do Lanche",
+                        "categoria": "Hambúrgueres",
+                        "preco": 39.90,
+                        "ingredientes": "Descrição ou ingredientes brutos"
+                    }
+                ]
+                '''
+                
                 try:
-                    prompt = \"\"\"
-                    Você é um especialista em ERP gastronômico. Analise o cardápio fornecido e extraia todos os produtos/itens cadastráveis.
-                    Retorne EXATAMENTE um JSON no seguinte formato (sem formatação markdown ```json, apenas a string json pura):
-                    [
-                        {
-                            "nome": "Nome do Lanche",
-                            "categoria": "Hambúrgueres",
-                            "preco": 39.90,
-                            "ingredientes": "Descrição ou ingredientes brutos"
-                        }
-                    ]
-                    \"\"\"
-                    
                     if arquivo_upload:
                         bytes_data = arquivo_upload.getvalue()
                         mime = arquivo_upload.type
-                        contents = [{'mime_type': mime, 'data': bytes_data}, prompt]
-                        response = client.models.generate_content(model="gemini-2.5-flash", contents=contents)
+                        
+                        try:
+                            # TENTATIVA 1: Envio direto para o Gemini Vision
+                            contents = [{'mime_type': mime, 'data': bytes_data}, prompt]
+                            response = client_ativo.models.generate_content(model="gemini-2.5-flash", contents=contents)
+                        except Exception as api_err:
+                            # TENTATIVA 2 (FALLBACK): Lê o PDF localmente se a API rejeitar
+                            if mime == "application/pdf":
+                                st.warning("⚠️ API rejeitou o arquivo direto. Extraindo texto via PyPDF em contingência...")
+                                leitor_pdf = pypdf.PdfReader(io.BytesIO(bytes_data))
+                                texto_extraido = ""
+                                for pagina in leitor_pdf.pages:
+                                    texto_extraido += pagina.extract_text() + "\\n"
+                                
+                                response = client_ativo.models.generate_content(
+                                    model="gemini-2.5-flash", 
+                                    contents=f"{prompt}\\n\\nTexto extraído:\\n{texto_extraido}"
+                                )
+                            else:
+                                raise api_err # Se for imagem e der erro, repassa o erro
                     else:
-                        response = client.models.generate_content(model="gemini-2.5-flash", contents=f"{prompt}\\n\\n{texto_cardapio}")
+                        response = client_ativo.models.generate_content(
+                            model="gemini-2.5-flash", 
+                            contents=f"{prompt}\\n\\n{texto_cardapio}"
+                        )
                         
                     texto_limpo = response.text.strip().replace("```json", "").replace("```", "")
                     produtos_extraidos = json.loads(texto_limpo)
@@ -186,11 +217,11 @@ nova_funcao = """def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, 
                         qtd_cadastrados += 1
                         
                     db_session.commit()
-                    st.success(f"🎉 Sucesso! **{qtd_cadastrados} produtos** foram extraídos pelo Gemini e salvos diretamente no cardápio!")
-                    st.rerun()
+                    st.success(f"🎉 Sucesso! **{qtd_cadastrados} produtos** foram extraídos e salvos no cardápio!")
                     
                 except Exception as e:
-                    st.error(f"❌ Erro ao processar cardápio com IA: {e}")"""
+                    st.error(f"❌ Erro ao processar cardápio com IA: {e}")
+"""
 
 padrao = r"def render_cadastro_ficha_tecnica\(.*?\):(.*?)(?=def executar_forecasting_e_alertar)"
 conteudo_corrigido = re.sub(
@@ -198,6 +229,6 @@ conteudo_corrigido = re.sub(
 )
 
 with open("app.py", "w", encoding="utf-8") as f:
-  f.write(conteudo_corrigido)
+    f.write(conteudo_corrigido)
 
-print("✅ 'app.py' corrigido com sucesso!")
+print("✅ 'app.py' corrigido com a IA de Contingência PDF com sucesso!")
