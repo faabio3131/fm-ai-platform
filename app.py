@@ -1,3 +1,4 @@
+from google.genai import types
 import os
 import streamlit as st
 
@@ -414,7 +415,7 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
                     if arquivo_upload:
                         bytes_data = arquivo_upload.getvalue()
                         mime = arquivo_upload.type
-                        contents = [{'mime_type': mime, 'data': bytes_data}, prompt]
+                        contents = [types.Part.from_bytes(data=bytes_data, mime_type=mime), prompt]
                         response = client_ativo.models.generate_content(model="gemini-2.5-flash", contents=contents)
                     else:
                         response = client_ativo.models.generate_content(
