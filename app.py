@@ -452,23 +452,6 @@ def render_cadastro_ficha_tecnica(
                 " valores (ex: 'Hambúrguer R$ 30,00')."
             )
 
-st.title("F&M AI FOOD")
-st.caption("Professional Gastronomy ERP & AI")
-st.markdown("---")
-st.subheader("🔐 Acesso Corporativo")
-st.success("Conectado como:\n**admin@micaburger.com**")
-st.info("🏪 **Loja Ativa:**\nMica Burguer & Restaurante")
-
-if GENAI_DISPONIVEL:
-    st.markdown("🟢 **Google GenAI Ativo (Gemini 2.0 Flash)**")
-else:
-    st.markdown("⚠️ **Modo Offline / Sem Chave API**")
-    st.caption("Insira GEMINI_API_KEY no .env ou st.secrets para ativar recursos inteligentes.")
-
-st.markdown("---")
-st.markdown("### ⚙️ Atalhos de Suporte")
-st.write("📞 Atendimento 24/7 via WhatsApp")
-st.write("📊 Licença Corporativa Ativa")
 
 def executar_forecasting_e_alertar(db_session):
   """Executa a verificação de estoque e alertas no painel."""
