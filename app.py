@@ -2,13 +2,10 @@ import os
 import streamlit as st
 
 # Patch: ensure compatibility with custom keyword args used across the app
-# Some calls use st.container(border=True) which is not a Streamlit argument.
-# We wrap the original container to accept and ignore unknown kwargs like 'border'.
 try:
     if not hasattr(st, "_orig_container"):
         st._orig_container = st.container
         def _container_compat(*args, **kwargs):
-            # ignore non-standard visual kwargs used in the app
             kwargs.pop("border", None)
             kwargs.pop("bordered", None)
             return st._orig_container(*args, **kwargs)
@@ -148,7 +145,6 @@ class ConfiguracaoMeta(Base):
     gateway_pix_key = Column(String, nullable=True)
     gateway_api_key = Column(String, nullable=True)
 
-
 class ContatoGerencial(Base):
     __tablename__ = "contatos_gerenciais"
     id = Column(Integer, primary_key=True, index=True)
@@ -158,7 +154,7 @@ class ContatoGerencial(Base):
     receber_alertas_estoque = Column(Integer, default=1)
 
 
-# Criar todas as tabelas no banco de dados com proteção contra tabelas existentes
+# Criar todas as tabelas no banco de dados
 try:
     Base.metadata.create_all(bind=engine, checkfirst=True)
 except Exception as e:
@@ -203,10 +199,8 @@ def get_db():
     finally:
         db.close()
 
-
 def criar_hash(senha):
     return hashlib.sha256(senha.encode("utf-8")).hexdigest()
-
 
 def criar_admin():
     db = SessionLocal()
@@ -219,7 +213,6 @@ def criar_admin():
         db.rollback()
     finally:
         db.close()
-
 
 def recalcular_cmv_geral(db_session):
     try:
@@ -240,211 +233,399 @@ def recalcular_cmv_geral(db_session):
     except Exception as e:
         db_session.rollback()
 
-import streamlit as st
-
 
 # ==============================================================================
 # SUB-ABA / MÓDULO: CADASTRO DE PRODUTO COM FICHA TÉCNICA E PRECIFICAÇÃO IA
 # ==============================================================================
-import json
-import streamlit as st
+def render_cadastro_ficha_tecnica(
+    db_session,
+    Insumo,
+    Produto,
+    FichaTecnica,
+    client=None,
+    GENAI_DISPONIVEL=False,
+):
+  st.subheader("👨‍🍳 Engenharia de Cardápio & Ficha Técnica Granular")
 
+  modo = st.radio(
+      "Escolha como deseja cadastrar:",
+      [
+          "✍️ Cadastro Manual & Ficha Técnica",
+          "🤖 Importação Automática (Foto, PDF ou Colar Texto)",
+      ],
+      horizontal=True,
+  )
 
-def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, client=None, GENAI_DISPONIVEL=False):
-    st.subheader("👨‍🍳 Engenharia de Cardápio & Ficha Técnica Granular")
-    
-    modo = st.radio(
-        "Escolha como deseja cadastrar:",
-        ["✍️ Cadastro Manual", "🤖 Importação Automática via IA (Foto/PDF/Texto)"],
-        horizontal=True
-    )
-    
-    st.markdown("---")
-    
-    if modo == "✍️ Cadastro Manual":
-        col_nome, col_cat = st.columns([2, 1])
-        with col_nome:
-            nome_produto = st.text_input("Nome do Produto / Prato", placeholder="Ex: Mica Royal Truffle Bacon")
-        with col_cat:
-            categoria = st.selectbox("Categoria", ["Hambúrgueres", "Porções", "Bebidas", "Sobremesas"])
-            
-        st.write("### 🥗 Composição da Ficha Técnica (Insumos do Almoxarifado)")
-        insumos_disponiveis = db_session.query(Insumo).all()
-        
-        if not insumos_disponiveis:
-            st.warning("⚠️ Nenhum insumo encontrado no Almoxarifado. Cadastre os insumos primeiro!")
-            return
-            
-        if "itens_ficha_tecnica" not in st.session_state:
-            st.session_state.itens_ficha_tecnica = []
-            
-        c1, c2, c3 = st.columns([3, 2, 1])
-        with c1:
-            insumo_selecionado = st.selectbox(
-                "Selecione o Insumo",
-                options=insumos_disponiveis,
-                format_func=lambda x: f"{x.nome} (R$ {x.custo_unitario:.2f} / {x.unidade_medida})",
-                key="sel_insumo"
-            )
-        with c2:
-            label_qtd = "Quantidade em GRAMAS (g)" if insumo_selecionado.unidade_medida == "kg" else f"Quantidade ({insumo_selecionado.unidade_medida})"
-            qtd_usada = st.number_input(label_qtd, min_value=0.1, value=100.0, step=10.0, key="num_qtd")
-            
-        with c3:
-            st.write(" ")
-            st.write(" ")
-            if st.button("➕ Adicionar", use_container_width=True):
-                custo_item = (qtd_usada / 1000.0) * insumo_selecionado.custo_unitario if insumo_selecionado.unidade_medida == "kg" else qtd_usada * insumo_selecionado.custo_unitario
-                st.session_state.itens_ficha_tecnica.append({
-                    "insumo_id": insumo_selecionado.id,
-                    "nome": insumo_selecionado.nome,
-                    "quantidade": qtd_usada,
-                    "unidade": "g" if insumo_selecionado.unidade_medida == "kg" else insumo_selecionado.unidade_medida,
-                    "custo_calculado": custo_item
-                })
-                st.rerun()
-                
-        cmv_total_calculado = 0.0
-        if st.session_state.itens_ficha_tecnica:
-            st.write("#### 📜 Receita Montada:")
-            tabela_dados = []
-            for item in st.session_state.itens_ficha_tecnica:
-                cmv_total_calculado += item["custo_calculado"]
-                tabela_dados.append({
-                    "Item": item["nome"],
-                    "Qtd na Receita": f"{item['quantidade']} {item['unidade']}",
-                    "Custo Residual (R$)": f"R$ {item['custo_calculado']:.2f}"
-                })
-            st.table(tabela_dados)
-            
-            if st.button("🗑️ Limpar Receita"):
-                st.session_state.itens_ficha_tecnica = []
-                st.rerun()
-                
-        st.markdown("---")
-        st.write("### 💰 Precificação Inteligente & Margem de Lucro Pretendida")
-        col_cmv, col_margem, col_preco, col_lucro = st.columns(4)
-        
-        with col_cmv:
-            st.metric("Custo de Produção (CMV)", f"R$ {cmv_total_calculado:.2f}")
-            
-        with col_margem:
-            margem_pretendida = st.number_input("Margem Desejada (%)", min_value=5.0, max_value=300.0, value=60.0, step=5.0)
-            
-        preco_sugerido = (cmv_total_calculado / (1 - (margem_pretendida / 100.0))) if margem_pretendida < 100 else (cmv_total_calculado * (1 + (margem_pretendida / 100.0)))
-        
-        with col_preco:
-            preco_venda_final = st.number_input("Preço de Venda Final (R$)", min_value=0.0, value=float(round(preco_sugerido, 2)), step=0.50)
-            
-        with col_lucro:
-            margem_real = ((preco_venda_final - cmv_total_calculado) / preco_venda_final * 100) if preco_venda_final > 0 else 0
-            st.metric("Lucro Bruto / Lanche", f"R$ {(preco_venda_final - cmv_total_calculado):.2f}", delta=f"{margem_real:.1f}% Margem Real")
-            
-        if st.button("💾 Salvar Produto & Ficha Técnica", type="primary"):
-            if not nome_produto:
-                st.error("❌ Digite o nome do produto.")
-            elif not st.session_state.itens_ficha_tecnica:
-                st.error("❌ Adicione pelo menos 1 insumo à ficha técnica.")
-            else:
-                novo_prod = Produto(
-                    nome=nome_produto,
-                    categoria=categoria,
-                    preco=preco_venda_final,
-                    custo_cmv=cmv_total_calculado,
-                    margem_lucro=margem_real
-                )
-                db_session.add(novo_prod)
-                db_session.commit()
-                
-                for item in st.session_state.itens_ficha_tecnica:
-                    nova_ft = FichaTecnica(
-                        produto_id=novo_prod.id,
-                        insumo_id=item["insumo_id"],
-                        quantidade_necessaria=item["quantidade"]
-                    )
-                    db_session.add(nova_ft)
-                db_session.commit()
-                
-                st.success(f"✅ **{nome_produto}** cadastrado com sucesso!")
-                st.session_state.itens_ficha_tecnica = []
-                st.rerun()
+  st.markdown("---")
 
+  # --------------------------------------------------------------------------
+  # MÓDULO 1: CADASTRO MANUAL E MONTAGEM DE RECEITA
+  # --------------------------------------------------------------------------
+  if modo == "✍️ Cadastro Manual & Ficha Técnica":
+    col_nome, col_cat = st.columns([2, 1])
+    with col_nome:
+      nome_produto = st.text_input(
+          "Nome do Produto / Prato", placeholder="Ex: Mica Royal Truffle Bacon"
+      )
+    with col_cat:
+      categoria = st.selectbox(
+          "Categoria", ["Hambúrgueres", "Porções", "Bebidas", "Sobremesas"]
+      )
+
+    st.write("### 🥗 Composição da Ficha Técnica (Insumos do Almoxarifado)")
+    insumos_disponiveis = db_session.query(Insumo).all()
+
+    if not insumos_disponiveis:
+      st.warning(
+          "⚠️ Nenhum insumo encontrado no Almoxarifado. Cadastre os insumos"
+          " primeiro!"
+      )
     else:
-        st.write("### 📄 Upload de Cardápio Real (Foto, PDF ou Colar Texto) via Gemini")
-        st.caption("Carregue o arquivo com seu cardápio oficial que a IA extrairá todos os produtos e cadastrará no banco.")
-        
-        opcao_fonte = st.radio("Origem do arquivo:", ["📁 Upload de Arquivo (Imagem/PDF)", "📝 Colar Texto do Cardápio"], horizontal=True)
-        
-        texto_cardapio = ""
-        arquivo_upload = None
-        
-        if opcao_fonte == "📁 Upload de Arquivo (Imagem/PDF)":
-            arquivo_upload = st.file_uploader("Arraste a foto do cardápio ou PDF aqui", type=["png", "jpg", "jpeg", "pdf"])
+      if "itens_ficha_tecnica" not in st.session_state:
+        st.session_state.itens_ficha_tecnica = []
+
+      c1, c2, c3 = st.columns([3, 2, 1])
+      with c1:
+        insumo_selecionado = st.selectbox(
+            "Selecione o Insumo",
+            options=insumos_disponiveis,
+            format_func=lambda x: (
+                f"{x.nome} (R$ {x.custo_unitario:.2f} / {x.unidade_medida})"
+            ),
+            key="sel_insumo",
+        )
+      with c2:
+        label_qtd = (
+            "Quantidade em GRAMAS (g)"
+            if insumo_selecionado.unidade_medida == "kg"
+            else f"Quantidade ({insumo_selecionado.unidade_medida})"
+        )
+        qtd_usada = st.number_input(
+            label_qtd, min_value=0.1, value=100.0, step=10.0, key="num_qtd"
+        )
+
+      with c3:
+        st.write(" ")
+        st.write(" ")
+        if st.button("➕ Adicionar", use_container_width=True):
+          custo_item = (
+              (qtd_usada / 1000.0) * insumo_selecionado.custo_unitario
+              if insumo_selecionado.unidade_medida == "kg"
+              else qtd_usada * insumo_selecionado.custo_unitario
+          )
+          st.session_state.itens_ficha_tecnica.append({
+              "insumo_id": insumo_selecionado.id,
+              "nome": insumo_selecionado.nome,
+              "quantidade": qtd_usada,
+              "unidade": (
+                  "g"
+                  if insumo_selecionado.unidade_medida == "kg"
+                  else insumo_selecionado.unidade_medida
+              ),
+              "custo_calculado": custo_item,
+          })
+          st.rerun()
+
+      cmv_total_calculado = 0.0
+      if st.session_state.itens_ficha_tecnica:
+        st.write("#### 📜 Receita Montada:")
+        tabela_dados = []
+        for item in st.session_state.itens_ficha_tecnica:
+          cmv_total_calculado += item["custo_calculado"]
+          tabela_dados.append({
+              "Item": item["nome"],
+              "Qtd na Receita": f"{item['quantidade']} {item['unidade']}",
+              "Custo Residual (R$)": f"R$ {item['custo_calculado']:.2f}",
+          })
+        st.table(tabela_dados)
+
+        if st.button("🗑️ Limpar Receita"):
+          st.session_state.itens_ficha_tecnica = []
+          st.rerun()
+
+      st.markdown("---")
+      st.write("### 💰 Precificação Inteligente & Margem de Lucro Pretendida")
+      col_cmv, col_margem, col_preco, col_lucro = st.columns(4)
+
+      with col_cmv:
+        st.metric(
+            "Custo de Produção (CMV)", f"R$ {cmv_total_calculado:.2f}"
+        )
+
+      with col_margem:
+        # LACUNA DE MARGEM (Atualiza o preço sugerido automaticamente)
+        margem_pretendida = st.number_input(
+            "Margem Desejada (%)",
+            min_value=5.0,
+            max_value=300.0,
+            value=70.0,
+            step=5.0,
+        )
+
+      # CÁLCULO DE PREÇO AUTOMÁTICO COM BASE NA MARGEM
+      preco_sugerido = (
+          (cmv_total_calculado / (1 - (margem_pretendida / 100.0)))
+          if margem_pretendida < 100
+          else (cmv_total_calculado * (1 + (margem_pretendida / 100.0)))
+      )
+
+      with col_preco:
+        # AUTORIZAÇÃO: O preço vem preenchido com a sugestão, mas você pode mudar antes de salvar
+        preco_venda_final = st.number_input(
+            "Preço de Venda Final (R$)",
+            min_value=0.0,
+            value=float(round(preco_sugerido, 2)),
+            step=0.50,
+        )
+
+      with col_lucro:
+        margem_real = (
+            ((preco_venda_final - cmv_total_calculado) / preco_venda_final)
+            * 100
+            if preco_venda_final > 0
+            else 0
+        )
+        st.metric(
+            "Lucro Bruto / Item",
+            f"R$ {(preco_venda_final - cmv_total_calculado):.2f}",
+            delta=f"{margem_real:.1f}% Margem Real",
+        )
+
+      if st.button("💾 Autorizar e Salvar Produto", type="primary"):
+        if not nome_produto:
+          st.error("❌ Digite o nome do produto.")
+        elif not st.session_state.itens_ficha_tecnica:
+          st.error("❌ Adicione pelo menos 1 insumo à ficha técnica.")
         else:
-            texto_cardapio = st.text_area("Cole aqui o texto do seu cardápio com nomes e preços:", height=150)
-            
-        if st.button("🚀 Processar Cardápio com IA", type="primary"):
-            # Busca o cliente do Gemini do escopo global caso nao tenha sido passado
-            client_ativo = client or globals().get('client')
-            genai_ativo = GENAI_DISPONIVEL or globals().get('GENAI_DISPONIVEL', False)
-            
-            if not genai_ativo or not client_ativo:
-                st.error("❌ Integração com Google GenAI/Gemini não configurada no servidor.")
+          novo_prod = Produto(
+              nome=nome_produto,
+              categoria=categoria,
+              preco_venda=preco_venda_final,
+              custo_total_cmv=cmv_total_calculado,
+              margem_exibicao=f"{margem_real:.1f}%",
+          )
+          db_session.add(novo_prod)
+          db_session.commit()
+
+          for item in st.session_state.itens_ficha_tecnica:
+            nova_ft = FichaTecnica(
+                produto_id=novo_prod.id,
+                insumo_id=item["insumo_id"],
+                quantidade_utilizada=item["quantidade"],
+            )
+            db_session.add(nova_ft)
+          db_session.commit()
+
+          st.success(f"✅ **{nome_produto}** cadastrado com sucesso!")
+          st.session_state.itens_ficha_tecnica = []
+          st.rerun()
+
+  # --------------------------------------------------------------------------
+  # MÓDULO 2: IMPORTAÇÃO AUTOMÁTICA EM MASSA COM AUTORIZAÇÃO E RECÁLCULO
+  # --------------------------------------------------------------------------
+  else:
+    if "produtos_em_revisao" not in st.session_state:
+      st.session_state.produtos_em_revisao = []
+
+    # Se ainda não processou os produtos, mostra a tela de Upload
+    if len(st.session_state.produtos_em_revisao) == 0:
+        st.write("### 📄 Importação Automática de Cardápio (Foto, PDF ou Texto)")
+        st.caption("A IA extrairá os produtos. Você poderá aplicar a margem e autorizar antes de salvar.")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            arquivo_upload = st.file_uploader(
+                "Origem do arquivo (PDF ou Imagem):",
+                type=["png", "jpg", "jpeg", "pdf"],
+            )
+        with col2:
+            texto_cardapio = st.text_area(
+                "Ou cole o texto do cardápio aqui:",
+                height=130,
+                placeholder="Ex:\nX-Salada R$ 28,00\nBatata Frita R$ 18,00...",
+            )
+
+        st.markdown("---")
+        margem_padrao_importacao = st.number_input(
+            "🎯 Margem de Lucro Padrão Inicial (%)",
+            min_value=5.0, max_value=200.0, value=70.0, step=5.0,
+            help="Usaremos essa margem para descobrir o custo estimado (CMV) com base no preço do cardápio."
+        )
+
+        if st.button("🚀 Processar Cardápio e Preparar Preços", type="primary", use_container_width=True):
+            texto_cardapio_val = texto_cardapio or ""
+            if not arquivo_upload and not texto_cardapio_val.strip():
+                st.error("❌ Envie um arquivo ou cole o texto do cardápio na caixa ao lado.")
                 return
-                
-            if not arquivo_upload and not texto_cardapio.strip():
-                st.error("❌ Por favor, envie um arquivo ou cole o texto do cardápio.")
-                return
-                
-            with st.spinner("🤖 O Gemini está analisando o cardápio real..."):
-                try:
-                    prompt = """
-                    Você é um especialista em ERP gastronômico. Analise o cardápio fornecido e extraia todos os produtos/itens cadastráveis.
-                    Retorne EXATAMENTE um JSON no seguinte formato (sem formatação markdown ```json, apenas a string json pura):
-                    [
-                        {
-                            "nome": "Nome do Lanche",
-                            "categoria": "Hambúrgueres",
-                            "preco": 39.90,
-                            "ingredientes": "Descrição ou ingredientes brutos"
-                        }
-                    ]
-                    """
-                    
-                    if arquivo_upload:
-                        bytes_data = arquivo_upload.getvalue()
-                        mime = arquivo_upload.type
-                        contents = [{'mime_type': mime, 'data': bytes_data}, prompt]
-                        response = client_ativo.models.generate_content(model="gemini-2.5-flash", contents=contents)
-                    else:
-                        response = client_ativo.models.generate_content(
-                            model="gemini-2.5-flash",
-                            contents=f"{prompt}\n\n{texto_cardapio}"
-                        )
-                    
-                    texto_limpo = response.text.strip().replace("```json", "").replace("```", "")
-                    produtos_extraidos = json.loads(texto_limpo)
-                    
-                    qtd_cadastrados = 0
-                    for prod in produtos_extraidos:
-                        cmv_est = round(float(prod.get("preco", 0)) * 0.32, 2)
-                        novo_prod = Produto(
-                            nome=prod.get("nome"),
-                            categoria=prod.get("categoria", "Geral"),
-                            preco=float(prod.get("preco", 0)),
-                            custo_cmv=cmv_est,
-                            margem_lucro=68.0,
-                            descricao_bruta=prod.get("ingredientes", "")
-                        )
-                        db_session.add(novo_prod)
-                        qtd_cadastrados += 1
+
+            client_ativo = client or globals().get("client")
+            genai_ativo = GENAI_DISPONIVEL or globals().get("GENAI_DISPONIVEL", False)
+            sucesso_ia = False
+            produtos_temp = []
+
+            # 1. TENTA PROCESSAR VIA IA (GEMINI)
+            if genai_ativo and client_ativo:
+                with st.spinner("🤖 O Gemini está extraindo itens e calculando estimativas..."):
+                    try:
+                        prompt = """
+                        Você é um especialista em ERP gastronômico. Analise o cardápio fornecido e extraia os produtos.
+                        Retorne EXATAMENTE um JSON sem formatação markdown (```json), apenas a string json pura:
+                        [{"nome": "Nome do Lanche", "categoria": "Hambúrgueres", "preco": 39.90, "ingredientes": "Descrição"}]
+                        """
+                        if arquivo_upload:
+                            bytes_data = arquivo_upload.getvalue()
+                            mime = arquivo_upload.type
+                            contents = [{"mime_type": mime, "data": bytes_data}, prompt]
+                            response = client_ativo.models.generate_content(model="gemini-2.5-flash", contents=contents)
+                        else:
+                            response = client_ativo.models.generate_content(model="gemini-2.5-flash", contents=f"{prompt}\n\n{texto_cardapio_val}")
+
+                        texto_limpo = response.text.strip().replace("```json", "").replace("```", "")
+                        produtos_extraidos = json.loads(texto_limpo)
+
+                        for prod in produtos_extraidos:
+                            preco_v = float(prod.get("preco", 0.0))
+                            # Calcula CMV reverso baseado na margem que o cliente informou
+                            cmv_est = round(preco_v * (1 - (margem_padrao_importacao / 100.0)), 2)
+                            produtos_temp.append({
+                                "Nome": prod.get("nome"),
+                                "Categoria": prod.get("categoria", "Geral"),
+                                "Custo (CMV)": cmv_est,
+                                "Margem (%)": margem_padrao_importacao,
+                                "Preço Final": preco_v,
+                                "Descricao": prod.get("ingredientes", "")
+                            })
                         
-                    db_session.commit()
-                    st.success(f"🎉 Sucesso! **{qtd_cadastrados} produtos** foram extraídos pelo Gemini e salvos diretamente no cardápio!")
-                    st.rerun()
+                        sucesso_ia = True
+                        st.session_state.produtos_em_revisao = produtos_temp
+                        st.rerun()
+                    except Exception as e:
+                        st.warning(f"⚠️ IA oscilou, ativando Leitor Nativo: {e}")
+
+            # 2. LEITOR LOCAL DE CONTINGÊNCIA
+            if not sucesso_ia:
+                with st.spinner("⚙️ Processando via Leitor Interno do Sistema..."):
+                    texto_para_analise = texto_cardapio_val
+                    if arquivo_upload and arquivo_upload.name.lower().endswith(".pdf"):
+                        try:
+                            import pypdf
+                            reader = pypdf.PdfReader(arquivo_upload)
+                            texto_para_analise = "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
+                        except Exception:
+                            texto_para_analise = ""
+
+                    if not texto_para_analise or not texto_para_analise.strip():
+                        st.error("❌ Arquivo ilegível. Cole o texto do cardápio.")
+                        return
+
+                    import re
+                    padrao = re.compile(r"(.+?)\s*(?:R\$\s*)?(\d+[.,]\d{2})", re.IGNORECASE)
+                    linhas = texto_para_analise.split("\n")
                     
-                except Exception as e:
-                    st.error(f"❌ Erro ao processar cardápio com IA: {e}")
+                    for linha in linhas:
+                        match = padrao.search(linha.strip())
+                        if match:
+                            nome_item = match.group(1).strip(" .-:")
+                            preco_val = float(match.group(2).replace(",", "."))
+                            if len(nome_item) > 2 and preco_val > 0:
+                                cmv_est = round(preco_val * (1 - (margem_padrao_importacao / 100.0)), 2)
+                                produtos_temp.append({
+                                    "Nome": nome_item,
+                                    "Categoria": "Importado (Nativo)",
+                                    "Custo (CMV)": cmv_est,
+                                    "Margem (%)": margem_padrao_importacao,
+                                    "Preço Final": preco_val,
+                                    "Descricao": "Importado via Leitor Nativo"
+                                })
+
+                    if len(produtos_temp) > 0:
+                        st.session_state.produtos_em_revisao = produtos_temp
+                        st.rerun()
+                    else:
+                        st.error("❌ O leitor nativo não identificou nomes + valores (ex: 'Hambúrguer R$ 30,00').")
+
+    # SE O PROCESSAMENTO DEU CERTO, MOSTRA A TELA DE AUTORIZAÇÃO (STAGING)
+    else:
+        st.write("### ⚠️ Autorização de Precificação e Margens")
+        st.info("O sistema calculou os custos e preços da lista. Se desejar aplicar uma **Nova Margem**, digite abaixo e clique em recalcular, ou edite diretamente na tabela antes de salvar.")
+
+        with st.container(border=True):
+            c_margem, c_btn_recalc = st.columns([2, 1])
+            with c_margem:
+                nova_margem_massa = st.number_input("Alterar a Margem de Todos (%)", min_value=5.0, max_value=200.0, value=70.0, step=5.0)
+            with c_btn_recalc:
+                st.write("")
+                st.write("")
+                if st.button("🔄 Recalcular Todos os Preços Sugeridos", use_container_width=True):
+                    for p in st.session_state.produtos_em_revisao:
+                        p["Margem (%)"] = nova_margem_massa
+                        if nova_margem_massa < 100:
+                            p["Preço Final"] = round(p["Custo (CMV)"] / (1 - (nova_margem_massa / 100.0)), 2)
+                        else:
+                            p["Preço Final"] = round(p["Custo (CMV)"] * (1 + (nova_margem_massa / 100.0)), 2)
+                    st.rerun()
+
+        # Tabela interativa para edição e aprovação final
+        df_revisao = pd.DataFrame(st.session_state.produtos_em_revisao)
+        df_editado = st.data_editor(
+            df_revisao,
+            use_container_width=True,
+            num_rows="dynamic",
+            column_config={
+                "Custo (CMV)": st.column_config.NumberColumn(format="R$ %.2f", min_value=0.0),
+                "Preço Final": st.column_config.NumberColumn(format="R$ %.2f", min_value=0.0),
+                "Margem (%)": st.column_config.NumberColumn(format="%.1f %%", min_value=0.0),
+            }
+        )
+
+        st.markdown("---")
+        col_salvar, col_cancelar = st.columns(2)
+        
+        with col_salvar:
+            if st.button("💾 AUTORIZAR E SALVAR TODOS NO BANCO", type="primary", use_container_width=True):
+                cadastrados = 0
+                for index, row in df_editado.iterrows():
+                    novo_prod = Produto(
+                        nome=row["Nome"],
+                        categoria=row["Categoria"],
+                        preco_venda=float(row["Preço Final"]),
+                        custo_total_cmv=float(row["Custo (CMV)"]),
+                        margem_exibicao=f"{float(row['Margem (%)']):.1f}%",
+                        descricao_bruta=row.get("Descricao", "")
+                    )
+                    db_session.add(novo_prod)
+                    cadastrados += 1
+                db_session.commit()
+                st.session_state.produtos_em_revisao = []
+                st.success(f"✅ Sucesso! {cadastrados} produtos aprovados e salvos no banco de dados!")
+                st.rerun()
+
+        with col_cancelar:
+            if st.button("❌ Cancelar Importação e Voltar", use_container_width=True):
+                st.session_state.produtos_em_revisao = []
+                st.rerun()
+
+  # --------------------------------------------------------------------------
+  # MÓDULO 3: GALERIA E TABELA DOS PRODUTOS CADASTRADOS NO BANCO
+  # --------------------------------------------------------------------------
+  st.markdown("---")
+  st.subheader("📋 Cardápio Oficial Ativo no Banco de Dados")
+  produtos_cadastrados = db_session.query(Produto).all()
+
+  if produtos_cadastrados:
+    dados_tabela = []
+    for p in produtos_cadastrados:
+      dados_tabela.append({
+          "ID": p.id,
+          "Nome": p.nome,
+          "Categoria": p.categoria or "Geral",
+          "Preço de Venda": (f"R$ {p.preco_venda:.2f}" if p.preco_venda else "R$ 0,00"),
+          "Custo (CMV)": (f"R$ {p.custo_total_cmv:.2f}" if p.custo_total_cmv else "R$ 0,00"),
+          "Margem Atual": p.margem_exibicao or "-",
+      })
+    st.dataframe(dados_tabela, use_container_width=True, hide_index=True)
+  else:
+    st.info("Nenhum produto cadastrado no banco até o momento.")
 
 
 def executar_forecasting_e_alertar(db_session):
@@ -482,7 +663,7 @@ def executar_forecasting_e_alertar(db_session):
         if not alertas_ia:
             return "✅ Estoque operacional seguro. Nenhum alerta preditivo gerado no momento pela Inteligência Artificial."
 
-        url_wa = f"https://graph.facebook.com/v17.0/{config_meta.whatsapp_phone_id}/messages"
+        url_wa = f"[https://graph.facebook.com/v17.0/](https://graph.facebook.com/v17.0/){config_meta.whatsapp_phone_id}/messages"
         headers = {
             "Authorization": f"Bearer {config_meta.whatsapp_token}",
             "Content-Type": "application/json"
@@ -579,16 +760,14 @@ GENAI_DISPONIVEL = True
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
 
 from google import genai
-
 client = genai.Client(api_key=GEMINI_API_KEY)
-
 
 # --- 6. BARRA LATERAL (SIDEBAR CORPORATIVA) ---
 with st.sidebar:
     if os.path.exists("logo.png"):
         st.image("logo.png", use_container_width=True)
     else:
-        st.image("https://cdn-icons-png.flaticon.com/512/3075/3075977.png", use_container_width=True)
+        st.image("[https://cdn-icons-png.flaticon.com/512/3075/3075977.png](https://cdn-icons-png.flaticon.com/512/3075/3075977.png)", use_container_width=True)
 
     st.title("F&M AI FOOD")
     st.caption("Professional Gastronomy ERP & AI")
@@ -626,7 +805,6 @@ aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs(
     ]
 )
 
-
 # ==============================================================================
 # ABA 1: ENGENHARIA DE CARDÁPIO COM INTELIGÊNCIA ARTIFICIAL
 # ==============================================================================
@@ -635,9 +813,10 @@ with aba1:
         db_session=get_db(),
         Insumo=Insumo,
         Produto=Produto,
-        FichaTecnica=FichaTecnica
+        FichaTecnica=FichaTecnica,
+        client=client,
+        GENAI_DISPONIVEL=GENAI_DISPONIVEL
     )
-
 
 # ==============================================================================
 # ABA 2: CRM, RECUPERAÇÃO DE CLIENTES ("OI, SUMIDO") & CASHBACK
@@ -650,7 +829,6 @@ with aba2:
 
     db_crm_base = get_db()
 
-    # --- SUB-ABA 1: RESGATE DE CLIENTES INATIVOS ---
     with sub_crm1:
         st.subheader("🤖 Automação de Resgate com Inteligência Artificial")
         st.write("A plataforma identifica clientes sem compras há mais de 15 dias e sugere abordagens personalizadas com cupons de desconto para disparar no WhatsApp.")
@@ -695,7 +873,6 @@ with aba2:
         else:
             st.success("🎉 Excelente notícia! Nenhum cliente inativo há mais de 15 dias foi identificado no momento. Sua base está altamente engajada!")
 
-    # --- SUB-ABA 2: GESTÃO DE CASHBACK ---
     with sub_crm2:
         st.subheader("💳 Relatório Geral de Saldos de Cashback")
         st.write("Acompanhe o saldo que cada cliente acumulou para utilizar como desconto em pedidos futuros na loja ou no delivery.")
@@ -741,9 +918,7 @@ with aba2:
                     st.error(f"Erro ao creditar cashback: {e}")
                 finally:
                     db_cb.close()
-
     db_crm_base.close()
-
 
 # ==============================================================================
 # ABA 3: FRENTE DE CAIXA (PDV INTELLIGENTE COM UPSELL & GATEWAY PIX)
@@ -804,7 +979,7 @@ with aba3:
     else:
         col_pdv1, col_pdv2 = st.columns([3, 2])
         with col_pdv1:
-            prod_pdv = st.selectbox("🍔 Selecione o Prato / Lanche", lista_pratos_pdv, format_func=lambda x: f"{x.nome} — R$ {x.preco_venda:.2f}")
+            prod_pdv = st.selectbox("🍔 Selecione o Prato / Lanche", lista_pratos_pdv, format_func=lambda x: f"{x.nome} — R$ {(x.preco_venda or 0.0):.2f}")
             qtd_pdv = st.number_input("🔢 Quantidade de Itens", min_value=1, value=1, step=1)
             cliente_pdv = st.selectbox(
                 "👤 Identificar Cliente (Opcional para acúmulo e resgate de Cashback)",
@@ -812,7 +987,7 @@ with aba3:
                 format_func=lambda x: "👤 Cliente Balcão / Não Identificado" if x is None else f"{x.nome} (Cashback Disponível: R$ {x.saldo_cashback:.2f})"
             )
 
-        total_bruto_pdv = prod_pdv.preco_venda * qtd_pdv
+        total_bruto_pdv = (prod_pdv.preco_venda or 0.0) * qtd_pdv
         usa_cashback_pdv = False
         desconto_cb_pdv = 0.0
 
@@ -865,7 +1040,7 @@ with aba3:
                 st.subheader(f"📱 Cobrança Pix Real Gerada via API ({config_gtw.gateway_provider})")
                 col_pix1, col_pix2 = st.columns([1, 3])
                 with col_pix1:
-                    st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=00020126580014br.gov.bcb.pix0136{config_gtw.gateway_pix_key}5204000053039865405{total_final_pdv:.2f}5802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", width=180, caption="QR Code Oficial da Conta PJ")
+                    st.image(f"[https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=00020126580014br.gov.bcb.pix0136](https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=00020126580014br.gov.bcb.pix0136){config_gtw.gateway_pix_key}5204000053039865405{total_final_pdv:.2f}5802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", width=180, caption="QR Code Oficial da Conta PJ")
                 with col_pix2:
                     st.success(f"⚡ **Chave Pix Oficial:** `{config_gtw.gateway_pix_key}`")
                     st.code(f"00020126580014br.gov.bcb.pix0136{config_gtw.gateway_pix_key}5204000053039865405{total_final_pdv:.2f}5802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", language="text")
@@ -874,7 +1049,7 @@ with aba3:
                 st.subheader("📱 Gateway Pix Automático (Simulador de Treinamento)")
                 col_pix1, col_pix2 = st.columns([1, 3])
                 with col_pix1:
-                    st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=FMFIFOOD_PIX_SIMULADO_R${total_final_pdv:.2f}", width=180, caption="QR Code Dinâmico (Sandbox)")
+                    st.image(f"[https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=FMFIFOOD_PIX_SIMULADO_R$](https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=FMFIFOOD_PIX_SIMULADO_R$){total_final_pdv:.2f}", width=180, caption="QR Code Dinâmico (Sandbox)")
                 with col_pix2:
                     st.info("🟡 **Chave Pix de Treinamento (Simulado):**\n\n`00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-426614174000520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A`")
                     st.write("👉 *No modo Sandbox, clique no botão abaixo para simular a aprovação do recebimento:*")
@@ -920,9 +1095,7 @@ with aba3:
                 st.error(f"❌ Erro ao registrar a venda no sistema: {e}")
             finally:
                 db_exec_venda.close()
-    
     db_pdv.close()
-
 
 # ==============================================================================
 # ABA 4: ESTOQUE, ALMOXARIFADO & FICHA TÉCNICA COM 3 LEITORES VISION
@@ -943,11 +1116,9 @@ with aba4:
     with sub_aba1:
        st.subheader("📋 Status do Almoxarifado em Tempo Real")
     
-    # 1. Atualiza no banco de dados primeiro
     db_estoque.query(Insumo).filter(Insumo.nome.ilike("%cheddar%")).update({"unidade_medida": "kg"})
     db_estoque.commit()
 
-    # 2. Busca os dados atualizados para a tela
     insumos_cadastrados = db_estoque.query(Insumo).all()
 
     if insumos_cadastrados:
@@ -974,7 +1145,6 @@ with aba4:
                 "Status Operacional": status_bad,
             })
 
-        # Cards / KPIs no topo
         col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
         with col_kpi1:
             st.metric(
@@ -1161,7 +1331,7 @@ with aba4:
         if not produtos_ft:
             st.warning("⚠️ Cadastre produtos no cardápio na Aba 1 antes de montar as fichas técnicas.")
         else:
-            prato_escolhido = st.selectbox("🎯 Selecione o Prato para Montar a Ficha Técnica:", produtos_ft, format_func=lambda p: f"{p.nome} (R$ {p.preco_venda:.2f} — CMV Atual: R$ {p.custo_total_cmv:.2f})")
+            prato_escolhido = st.selectbox("🎯 Selecione o Prato para Montar a Ficha Técnica:", produtos_ft, format_func=lambda p: f"{p.nome} (R$ {(p.preco_venda or 0.0):.2f} — CMV Atual: R$ {(p.custo_total_cmv or 0.0):.2f})")
             arquivo_receita = st.file_uploader("📸 Envie a foto da Receita ou Ficha Manual", type=["jpg", "jpeg", "png"], key="uploader_receita_ia")
             
             if arquivo_receita:
@@ -1249,9 +1419,7 @@ with aba4:
                             st.json(itens_extraidos)
                         except Exception as e:
                             st.error(f"❌ Erro na leitura de visão da nota de reposição: {e}")
-
     db_estoque.close()
-
 
 # ==============================================================================
 # ABA 5: DASHBOARD FINANCEIRO E HISTÓRICO DE VENDAS
@@ -1294,7 +1462,6 @@ with aba5:
         
     db_dash.close()
 
-
 # ==============================================================================
 # ABA 6: BOT CLIENTE (ASSISTENTE VIRTUAL "MICA I.A.") COM PIX E UPSELL INTELIGENTE
 # ==============================================================================
@@ -1306,7 +1473,7 @@ with aba6:
     try:
         produtos_bot = db_bot.query(Produto).all()
         if produtos_bot:
-            lista_menu = [f"- {p.nome}: R$ {p.preco_venda:.2f} ({p.categoria})" for p in produtos_bot]
+            lista_menu = [f"- {p.nome}: R$ {(p.preco_venda or 0.0):.2f} ({p.categoria})" for p in produtos_bot]
             menu_disponivel_bot = "\n".join(lista_menu)
         else:
             menu_disponivel_bot = "Nenhum produto cadastrado ou disponível no momento."
@@ -1447,7 +1614,7 @@ if btn_acionar_mica:
                     prod_db_m = db_exec_mica.query(Produto).first()
 
                 if prod_db_m:
-                    vlr_tot_m = prod_db_m.preco_venda * qtd_p_mica
+                    vlr_tot_m = (prod_db_m.preco_venda or 0.0) * qtd_p_mica
                     total_geral_mica += vlr_tot_m
                     custo_tot_m = (prod_db_m.custo_total_cmv or 0.0) * qtd_p_mica
                     db_exec_mica.add(Venda(
