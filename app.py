@@ -313,13 +313,18 @@ def render_cadastro_ficha_tecnica(
             key="sel_insumo",
         )
       with c2:
-        label_qtd = (
-            "Quantidade em GRAMAS (g)"
-            if insumo_selecionado.unidade_medida == "kg"
-            else f"Quantidade ({insumo_selecionado.unidade_medida})"
-        )
+        # CORREÇÃO: Define valor inicial (1 para unidade, 100 para kg) para não explodir o preço
+        if insumo_selecionado.unidade_medida == "kg":
+            label_qtd = "Quantidade em GRAMAS (g)"
+            val_padrao = 100.0
+            passo = 10.0
+        else:
+            label_qtd = f"Quantidade ({insumo_selecionado.unidade_medida})"
+            val_padrao = 1.0
+            passo = 1.0
+
         qtd_usada = st.number_input(
-            label_qtd, min_value=0.1, value=100.0, step=10.0, key="num_qtd"
+            label_qtd, min_value=0.1, value=val_padrao, step=passo, key="num_qtd"
         )
 
       with c3:
@@ -406,7 +411,9 @@ def render_cadastro_ficha_tecnica(
             delta=f"{margem_real:.1f}% Margem Real",
         )
 
-      if st.button("💾 Autorizar e Salvar Produto", type="primary"):
+      st.markdown("<br>", unsafe_allow_html=True)
+      # CORREÇÃO: use_container_width=True para o botão não ficar encolhido no canto
+      if st.button("💾 Autorizar e Salvar Produto", type="primary", use_container_width=True):
         if not nome_produto:
           st.error("❌ Digite o nome do produto.")
         elif not st.session_state.itens_ficha_tecnica:
@@ -882,7 +889,7 @@ with aba2:
                         if st.button(f"🚀 Disparar Campanha WhatsApp para {cli.nome}", key=f"btn_zap_resgate_{cli.id}", type="primary"):
                             st.success(f"✅ Campanha de resgate enviada com sucesso para o número {cli.whatsapp}!")
         else:
-            st.success("🎉 Excelente notícia! Nenhum cliente inativo há mais de 15 dias foi identificado no momento. Sua base está highly engajada!")
+            st.success("🎉 Excelente notícia! Nenhum cliente inativo há mais de 15 dias foi identificado no momento. Sua base está altamente engajada!")
 
     with sub_crm2:
         st.subheader("💳 Relatório Geral de Saldos de Cashback")
@@ -1131,8 +1138,13 @@ with aba4:
     with sub_aba1:
        st.subheader("📋 Status do Almoxarifado em Tempo Real")
     
-    db_estoque.query(Insumo).filter(Insumo.nome.ilike("%cheddar%")).update({"unidade_medida": "kg"})
-    db_estoque.commit()
+    # Atualiza a unidade e um preço realista do Cheddar para evitar anomalias de R$ 1.20 o Kg
+    queijo = db_estoque.query(Insumo).filter(Insumo.nome.ilike("%cheddar%")).first()
+    if queijo and queijo.unidade_medida != "kg":
+        queijo.unidade_medida = "kg"
+        if queijo.custo_unitario < 5.0: # Se ainda for o preço de fatia, corrige
+            queijo.custo_unitario = 45.00
+        db_estoque.commit()
 
     insumos_cadastrados = db_estoque.query(Insumo).all()
 
