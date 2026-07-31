@@ -384,7 +384,11 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
             texto_cardapio = st.text_area("Cole aqui o texto do seu cardápio com nomes e preços:", height=150)
             
         if st.button("🚀 Processar Cardápio com IA", type="primary"):
-            if not GENAI_DISPONIVEL or not client:
+            # Busca o cliente do Gemini do escopo global caso nao tenha sido passado
+            client_ativo = client or globals().get('client')
+            genai_ativo = GENAI_DISPONIVEL or globals().get('GENAI_DISPONIVEL', False)
+            
+            if not genai_ativo or not client_ativo:
                 st.error("❌ Integração com Google GenAI/Gemini não configurada no servidor.")
                 return
                 
@@ -411,9 +415,9 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
                         bytes_data = arquivo_upload.getvalue()
                         mime = arquivo_upload.type
                         contents = [{'mime_type': mime, 'data': bytes_data}, prompt]
-                        response = client.models.generate_content(model="gemini-2.5-flash", contents=contents)
+                        response = client_ativo.models.generate_content(model="gemini-2.5-flash", contents=contents)
                     else:
-                        response = client.models.generate_content(
+                        response = client_ativo.models.generate_content(
                             model="gemini-2.5-flash",
                             contents=f"{prompt}\n\n{texto_cardapio}"
                         )
