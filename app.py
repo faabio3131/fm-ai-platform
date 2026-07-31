@@ -1202,6 +1202,34 @@ with aba4:
 
         st.markdown("---")
         st.dataframe(pd.DataFrame(dados_estoque), use_container_width=True, hide_index=True)
+
+        # === FERRAMENTA DE EXCLUSÃO DE INSUMOS NO ALMOXARIFADO ===
+        st.markdown("<br>", unsafe_allow_html=True)
+        with st.expander("⚙️ Gerenciar Almoxarifado (Excluir Insumos Cadastrados Errados)"):
+            st.write("Use esta ferramenta para apagar insumos incorretos ou duplicados do almoxarifado.")
+            col_ins_del1, col_ins_del2 = st.columns([3, 1])
+            with col_ins_del1:
+                insumo_para_excluir = st.selectbox(
+                    "Selecione o insumo para remover definitivamente:",
+                    insumos_cadastrados,
+                    format_func=lambda x: f"ID {x.id} - {x.nome} ({x.unidade_medida})"
+                )
+            with col_ins_del2:
+                st.write("")
+                st.write("")
+                if st.button("🗑️ Excluir Insumo", type="primary", use_container_width=True):
+                    if insumo_para_excluir:
+                        try:
+                            # Remove vínculos de ficha técnica antes para evitar erro de chave estrangeira
+                            db_estoque.query(FichaTecnica).filter(FichaTecnica.insumo_id == insumo_para_excluir.id).delete()
+                            db_estoque.query(Insumo).filter(Insumo.id == insumo_para_excluir.id).delete()
+                            db_estoque.commit()
+                            st.success(f"✅ Insumo '{insumo_para_excluir.nome}' excluído com sucesso do almoxarifado!")
+                            st.rerun()
+                        except Exception as e_del_ins:
+                            db_estoque.rollback()
+                            st.error(f"Erro ao excluir insumo: {e_del_ins}")
+
     else:
         st.info("Nenhum insumo cadastrado no almoxarifado.")
 
