@@ -308,12 +308,11 @@ def render_cadastro_ficha_tecnica(
             "Selecione o Insumo",
             options=insumos_disponiveis,
             format_func=lambda x: (
-                f"{x.nome} (R$ {x.custo_unitario:.2f} / {x.unidade_medida})"
+                f"{x.nome} (R$ {x.custo_unitario:,.2f} / {x.unidade_medida})".replace(",", "X").replace(".", ",").replace("X", ".")
             ),
             key="sel_insumo",
         )
       with c2:
-        # CORREÇÃO: Define valor inicial (1 para unidade, 100 para kg) para não explodir o preço
         if insumo_selecionado.unidade_medida == "kg":
             label_qtd = "Quantidade em GRAMAS (g)"
             val_padrao = 100.0
@@ -358,7 +357,7 @@ def render_cadastro_ficha_tecnica(
           tabela_dados.append({
               "Item": item["nome"],
               "Qtd na Receita": f"{item['quantidade']} {item['unidade']}",
-              "Custo Residual (R$)": f"R$ {item['custo_calculado']:.2f}",
+              "Custo Residual": f"R$ {item['custo_calculado']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
           })
         st.table(tabela_dados)
 
@@ -372,7 +371,7 @@ def render_cadastro_ficha_tecnica(
 
       with col_cmv:
         st.metric(
-            "Custo de Produção (CMV)", f"R$ {cmv_total_calculado:.2f}"
+            "Custo de Produção (CMV)", f"R$ {cmv_total_calculado:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         )
 
       with col_margem:
@@ -407,12 +406,11 @@ def render_cadastro_ficha_tecnica(
         )
         st.metric(
             "Lucro Bruto / Item",
-            f"R$ {(preco_venda_final - cmv_total_calculado):.2f}",
+            f"R$ {(preco_venda_final - cmv_total_calculado):,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
             delta=f"{margem_real:.1f}% Margem Real",
         )
 
       st.markdown("<br>", unsafe_allow_html=True)
-      # CORREÇÃO: use_container_width=True para o botão não ficar encolhido no canto
       if st.button("💾 Autorizar e Salvar Produto", type="primary", use_container_width=True):
         if not nome_produto:
           st.error("❌ Digite o nome do produto.")
@@ -637,11 +635,41 @@ def render_cadastro_ficha_tecnica(
           "ID": p.id,
           "Nome": p.nome,
           "Categoria": p.categoria or "Geral",
-          "Preço de Venda": (f"R$ {p.preco_venda:.2f}" if p.preco_venda else "R$ 0,00"),
-          "Custo (CMV)": (f"R$ {p.custo_total_cmv:.2f}" if p.custo_total_cmv else "R$ 0,00"),
+          "Preço de Venda": (f"R$ {p.preco_venda:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if p.preco_venda else "R$ 0,00"),
+          "Custo (CMV)": (f"R$ {p.custo_total_cmv:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if p.custo_total_cmv else "R$ 0,00"),
           "Margem Atual": p.margem_exibicao or "-",
       })
     st.dataframe(dados_tabela, use_container_width=True, hide_index=True)
+
+    # === FERRAMENTA DE EXCLUSÃO DE PRODUTOS ===
+    st.markdown("<br>", unsafe_allow_html=True)
+    with st.expander("⚙️ Gerenciar Cardápio (Editar ou Excluir Produtos)"):
+        st.write("Use esta ferramenta para limpar testes, erros de digitação ou produtos que saíram de linha.")
+        col_del1, col_del2 = st.columns([3, 1])
+        with col_del1:
+            produto_excluir = st.selectbox(
+                "Selecione o produto que deseja remover definitivamente:", 
+                produtos_cadastrados, 
+                format_func=lambda x: f"ID {x.id} - {x.nome} (R$ {x.preco_venda:.2f})"
+            )
+        with col_del2:
+            st.write("")
+            st.write("")
+            if st.button("🗑️ Excluir Produto", type="primary", use_container_width=True):
+                if produto_excluir:
+                    try:
+                        # Remove os vínculos de venda e receita primeiro (para não dar erro de chave)
+                        db_session.query(Venda).filter(Venda.produto_id == produto_excluir.id).delete()
+                        db_session.query(FichaTecnica).filter(FichaTecnica.produto_id == produto_excluir.id).delete()
+                        # Apaga o Produto Oficialmente
+                        db_session.query(Produto).filter(Produto.id == produto_excluir.id).delete()
+                        db_session.commit()
+                        st.success(f"✅ O produto '{produto_excluir.nome}' foi apagado para sempre!")
+                        st.rerun()
+                    except Exception as e:
+                        db_session.rollback()
+                        st.error(f"Erro ao excluir produto: {e}")
+
   else:
     st.info("Nenhum produto cadastrado no banco até o momento.")
 
