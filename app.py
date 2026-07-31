@@ -310,20 +310,17 @@ def render_cadastro_ficha_tecnica(
             format_func=lambda x: (
                 f"{x.nome} (R$ {x.custo_unitario:,.2f} / {x.unidade_medida})".replace(",", "X").replace(".", ",").replace("X", ".")
             ),
-            key="sel_insumo",
+            key="sel_insumo_ativo",
         )
       with c2:
-        if insumo_selecionado.unidade_medida == "kg":
-            label_qtd = "Quantidade em GRAMAS (g)"
-            val_padrao = 100.0
-            passo = 10.0
-        else:
-            label_qtd = f"Quantidade ({insumo_selecionado.unidade_medida})"
-            val_padrao = 1.0
-            passo = 1.0
+        # Define valor inicial dinâmico e seguro para evitar alteração fantasma
+        is_kg = (insumo_selecionado.unidade_medida == "kg")
+        label_qtd = "Quantidade em GRAMAS (g)" if is_kg else f"Quantidade ({insumo_selecionado.unidade_medida})"
+        val_padrao = 100.0 if is_kg else 1.0
+        passo_qtd = 10.0 if is_kg else 1.0
 
         qtd_usada = st.number_input(
-            label_qtd, min_value=0.1, value=val_padrao, step=passo, key="num_qtd"
+            label_qtd, min_value=0.1, value=val_padrao, step=passo_qtd, key="num_qtd_input_seguro"
         )
 
       with c3:
@@ -332,18 +329,14 @@ def render_cadastro_ficha_tecnica(
         if st.button("➕ Adicionar", use_container_width=True):
           custo_item = (
               (qtd_usada / 1000.0) * insumo_selecionado.custo_unitario
-              if insumo_selecionado.unidade_medida == "kg"
+              if is_kg
               else qtd_usada * insumo_selecionado.custo_unitario
           )
           st.session_state.itens_ficha_tecnica.append({
               "insumo_id": insumo_selecionado.id,
               "nome": insumo_selecionado.nome,
               "quantidade": qtd_usada,
-              "unidade": (
-                  "g"
-                  if insumo_selecionado.unidade_medida == "kg"
-                  else insumo_selecionado.unidade_medida
-              ),
+              "unidade": ("g" if is_kg else insumo_selecionado.unidade_medida),
               "custo_calculado": custo_item,
           })
           st.rerun()
@@ -658,10 +651,8 @@ def render_cadastro_ficha_tecnica(
             if st.button("🗑️ Excluir Produto", type="primary", use_container_width=True):
                 if produto_excluir:
                     try:
-                        # Remove os vínculos de venda e receita primeiro (para não dar erro de chave)
                         db_session.query(Venda).filter(Venda.produto_id == produto_excluir.id).delete()
                         db_session.query(FichaTecnica).filter(FichaTecnica.produto_id == produto_excluir.id).delete()
-                        # Apaga o Produto Oficialmente
                         db_session.query(Produto).filter(Produto.id == produto_excluir.id).delete()
                         db_session.commit()
                         st.success(f"✅ O produto '{produto_excluir.nome}' foi apagado para sempre!")
@@ -1166,11 +1157,10 @@ with aba4:
     with sub_aba1:
        st.subheader("📋 Status do Almoxarifado em Tempo Real")
     
-    # Atualiza a unidade e um preço realista do Cheddar para evitar anomalias de R$ 1.20 o Kg
     queijo = db_estoque.query(Insumo).filter(Insumo.nome.ilike("%cheddar%")).first()
     if queijo and queijo.unidade_medida != "kg":
         queijo.unidade_medida = "kg"
-        if queijo.custo_unitario < 5.0: # Se ainda for o preço de fatia, corrige
+        if queijo.custo_unitario < 5.0:
             queijo.custo_unitario = 45.00
         db_estoque.commit()
 
