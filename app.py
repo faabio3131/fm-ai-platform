@@ -1,5 +1,6 @@
 import os
 import urllib.parse
+import requests
 import streamlit as st
 
 # Patch: garante compatibilidade com argumentos visuais do Streamlit
@@ -24,7 +25,6 @@ import json
 from dotenv import load_dotenv
 import pandas as pd
 from PIL import Image
-import requests
 import sqlalchemy
 from sqlalchemy import (
     Column,
@@ -234,6 +234,22 @@ def recalcular_cmv_geral(db_session):
         db_session.commit()
     except Exception as e:
         db_session.rollback()
+
+def exibir_imagem_url(url, width=180, caption="", use_container_width=False):
+    """Carrega imagens de URLs externas de forma segura em bytes, evitando crash no Streamlit Cloud."""
+    try:
+        resp = requests.get(url, timeout=5)
+        if resp.status_code == 200:
+            if use_container_width:
+                st.image(resp.content, caption=caption, use_container_width=True)
+            else:
+                st.image(resp.content, width=width, caption=caption)
+        else:
+            if caption:
+                st.info(f"📱 {caption}")
+    except Exception:
+        if caption:
+            st.info(f"📱 {caption}")
 
 
 # ==============================================================================
@@ -762,7 +778,7 @@ with st.sidebar:
     if os.path.exists("logo.png"):
         st.image("logo.png", use_container_width=True)
     else:
-        st.image("[https://cdn-icons-png.flaticon.com/512/3075/3075977.png](https://cdn-icons-png.flaticon.com/512/3075/3075977.png)", use_container_width=True)
+        exibir_imagem_url("[https://cdn-icons-png.flaticon.com/512/3075/3075977.png](https://cdn-icons-png.flaticon.com/512/3075/3075977.png)", caption="F&M AI FOOD", use_container_width=True)
 
     st.title("F&M AI FOOD")
     st.caption("Professional Gastronomy ERP & AI")
@@ -866,7 +882,7 @@ with aba2:
                         if st.button(f"🚀 Disparar Campanha WhatsApp para {cli.nome}", key=f"btn_zap_resgate_{cli.id}", type="primary"):
                             st.success(f"✅ Campanha de resgate enviada com sucesso para o número {cli.whatsapp}!")
         else:
-            st.success("🎉 Excelente notícia! Nenhum cliente inativo há mais de 15 dias foi identificado no momento. Sua base está altamente engajada!")
+            st.success("🎉 Excelente notícia! Nenhum cliente inativo há mais de 15 dias foi identificado no momento. Sua base está highly engajada!")
 
     with sub_crm2:
         st.subheader("💳 Relatório Geral de Saldos de Cashback")
@@ -1037,7 +1053,7 @@ with aba3:
                 with col_pix1:
                     payload_prod = f"00020126580014br.gov.bcb.pix0136{config_gtw.gateway_pix_key}5204000053039865405{total_final_pdv:.2f}5802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A"
                     url_prod = f"[https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=](https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=){urllib.parse.quote(payload_prod)}"
-                    st.image(url_prod, width=180, caption="QR Code Oficial da Conta PJ")
+                    exibir_imagem_url(url_prod, width=180, caption="QR Code Oficial PJ")
                 with col_pix2:
                     st.success(f"⚡ **Chave Pix Oficial:** `{config_gtw.gateway_pix_key}`")
                     st.code(payload_prod, language="text")
@@ -1048,7 +1064,7 @@ with aba3:
                 with col_pix1:
                     payload_sandbox = f"FMFIFOOD_PIX_SIMULADO_R${total_final_pdv:.2f}"
                     url_sandbox = f"[https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=](https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=){urllib.parse.quote(payload_sandbox)}"
-                    st.image(url_sandbox, width=180, caption="QR Code Dinâmico (Sandbox)")
+                    exibir_imagem_url(url_sandbox, width=180, caption="QR Code Dinâmico (Sandbox)")
                 with col_pix2:
                     st.info("🟡 **Chave Pix de Treinamento (Simulado):**\n\n`00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-426614174000520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A`")
                     st.write("👉 *No modo Sandbox, clique no botão abaixo para simular a aprovação do recebimento:*")
