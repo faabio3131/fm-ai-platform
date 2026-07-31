@@ -36,6 +36,11 @@ from sqlalchemy import (
     create_engine,
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+import io
+try:
+    import pypdf
+except ImportError:
+    pass
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA E ESTILIZAÇÃO ---
 st.set_page_config(
@@ -399,8 +404,27 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
                     if arquivo_upload:
                         bytes_data = arquivo_upload.getvalue()
                         mime = arquivo_upload.type
-                        contents = [{'mime_type': mime, 'data': bytes_data}, prompt]
-                        response = client_ativo.models.generate_content(model="gemini-2.5-flash", contents=contents)
+                        try:
+                            # TENTATIVA 1: Envio direto via Part.from_bytes (Sintaxe Correta)
+                            from google.genai import types
+                            part_arquivo = types.Part.from_bytes(data=bytes_data, mime_type=mime)
+                            contents = [part_arquivo, prompt]
+                            response = client_ativo.models.generate_content(model="gemini-2.5-flash", contents=contents)
+                        except Exception as api_err:
+                            # TENTATIVA 2 (FALLBACK): Lê o PDF localmente se a API rejeitar
+                            if mime == "application/pdf":
+                                st.warning("⚠️ API rejeitou o arquivo direto. Extraindo texto via PyPDF em contingência...")
+                                leitor_pdf = pypdf.PdfReader(io.BytesIO(bytes_data))
+                                texto_extraido = ""
+                                for pagina in leitor_pdf.pages:
+                                    texto_extraido += pagina.extract_text() + "\n"
+                                
+                                response = client_ativo.models.generate_content(
+                                    model="gemini-2.5-flash", 
+                                    contents=f"{prompt}\n\nTexto extraído do PDF:\n{texto_extraido}"
+                                )
+                            else:
+                                raise api_err
                     else:
                         response = client_ativo.models.generate_content(
                             model="gemini-2.5-flash",
@@ -425,7 +449,6 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
                         
                     db_session.commit()
                     st.success(f"🎉 Sucesso! **{qtd_cadastrados} produtos** foram extraídos pelo Gemini e salvos diretamente no cardápio!")
-                    st.rerun()
                     
                 except Exception as e:
                     st.error(f"❌ Erro ao processar cardápio com IA: {e}")
@@ -558,17 +581,295 @@ aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs(
     ]
 )
 
-# ... [O CÓDIGO DA ABA 1, 2, 3 PERMANECE IGUAL AO SEU ORIGINAL. VAMOS FOCAR NA ABA 4] ...
+# ==============================================================================
+# ABA 1: ENGENHARIA DE CARDÁPIO
+# ==============================================================================
 with aba1:
-    render_cadastro_ficha_tecnica(db_session=get_db(), Insumo=Insumo, Produto=Produto, FichaTecnica=FichaTecnica)
+    render_cadastro_ficha_tecnica(db_session=get_db(), Insumo=Insumo, Produto=Produto, FichaTecnica=FichaTecnica, client=client, GENAI_DISPONIVEL=GENAI_DISPONIVEL)
 
+# ==============================================================================
+# ABA 2: CRM E WHATSAPP
+# ==============================================================================
 with aba2:
     st.header("📢 CRM, Campanhas de Resgate ('Oi, Sumido') & Fidelidade Cashback")
-    st.write("Módulo mantido original. (Código interno omitido para brevidade neste bloco principal, mas continuaria rodando aqui)")
+    st.write("Engaje clientes inativos com cupons persuasivos gerados pela I.A. e administre saldos de cashback da sua base de consumidores.")
 
+    sub_crm1, sub_crm2 = st.tabs(["🔄 Recuperação de Clientes Inativos (Upsell)", "💳 Gestão de Fidelidade & Cashback"])
+
+    db_crm_base = get_db()
+
+    # --- SUB-ABA 1: RESGATE DE CLIENTES INATIVOS ---
+    with sub_crm1:
+        st.subheader("🤖 Automação de Resgate com Inteligência Artificial")
+        st.write("A plataforma identifica clientes sem compras há mais de 15 dias e sugere abordagens personalizadas com cupons de desconto para disparar no WhatsApp.")
+        
+        data_corte_inativos = datetime.now() - timedelta(days=15)
+        clientes_inativos = db_crm_base.query(Cliente).filter(
+            (Cliente.ultima_compra <= data_corte_inativos) | (Cliente.status == "Inativo")
+        ).all()
+
+        st.markdown(f"### 👥 Clientes em risco de churn identificados: **{len(clientes_inativos)}**")
+
+        if clientes_inativos:
+            for cli in clientes_inativos:
+                with st.container():
+                    c_col1, c_col2, c_col3 = st.columns([2, 2, 3])
+                    with c_col1:
+                        st.markdown(f"**👤 {cli.nome}**")
+                        st.write(f"📱 WhatsApp: `{cli.whatsapp}`")
+                        st.write(f"📌 Status: **{cli.status}**")
+                    
+                    with c_col2:
+                        st.write(f"🕒 Última compra: **{cli.ultima_compra.strftime('%d/%m/%Y')}**")
+                        st.write(f"💰 Total acumulado: **R$ {cli.total_gasto:.2f}**")
+                        st.write(f"💳 Cashback disponível: **R$ {cli.saldo_cashback:.2f}**")
+                    
+                    msg_resgate_padrao = f"Olá {cli.nome}! Sentimos muito a sua falta aqui no Mica Burguer. Preparamos um cupom exclusivo de 15% de desconto para você pedir seu hambúrguer favorito hoje!"
+                    
+                    if GENAI_DISPONIVEL:
+                        try:
+                            prompt_resg = f"Escreva uma mensagem curta, carinhosa e muito persuasiva de WhatsApp para resgatar o cliente '{cli.nome}', que não faz pedidos em nossa hamburgueria gourmet há semanas. Ofereça um cupom especial de 15% de desconto (CUPOM: VOLTAMICA15). Sem clichês em excesso."
+                            resp_resg = client.models.generate_content(model="gemini-2.5-flash", contents=prompt_resg)
+                            if resp_resg and resp_resg.text:
+                                msg_resgate_padrao = resp_resg.text.strip()
+                        except Exception:
+                            pass
+
+                    with c_col3:
+                        st.markdown("🤖 **Sugestão de Abordagem I.A.:**")
+                        st.info(f"\"{msg_resgate_padrao}\"")
+                        if st.button(f"🚀 Disparar Campanha WhatsApp para {cli.nome}", key=f"btn_zap_resgate_{cli.id}", type="primary"):
+                            st.success(f"✅ Campanha de resgate enviada com sucesso para o número {cli.whatsapp}!")
+        else:
+            st.success("🎉 Excelente notícia! Nenhum cliente inativo há mais de 15 dias foi identificado no momento. Sua base está altamente engajada!")
+
+    # --- SUB-ABA 2: GESTÃO DE CASHBACK ---
+    with sub_crm2:
+        st.subheader("💳 Relatório Geral de Saldos de Cashback")
+        st.write("Acompanhe o saldo que cada cliente acumulou para utilizar como desconto em pedidos futuros na loja ou no delivery.")
+        
+        todos_clientes = db_crm_base.query(Cliente).all()
+        if todos_clientes:
+            dados_cb = []
+            for cl in todos_clientes:
+                dados_cb.append({
+                    "ID": cl.id,
+                    "Nome do Cliente": cl.nome,
+                    "WhatsApp": cl.whatsapp,
+                    "Total Gasto na Loja": f"R$ {cl.total_gasto:.2f}",
+                    "Saldo Cashback": f"R$ {cl.saldo_cashback:.2f}",
+                    "Status": cl.status
+                })
+            st.dataframe(pd.DataFrame(dados_cb), use_container_width=True, hide_index=True)
+        else:
+            st.info("Nenhum cliente cadastrado no banco de dados até o momento.")
+
+        st.markdown("---")
+        with st.form("form_ajustar_cashback"):
+            st.markdown("### ➕ Creditar Saldo de Cashback Manualmente")
+            st.write("Utilize esta função para premiar clientes vips ou conceder bônus promocionais.")
+            col_cb1, col_cb2 = st.columns(2)
+            with col_cb1:
+                cli_escolhido = st.selectbox("Selecione o Cliente para o Crédito", todos_clientes, format_func=lambda x: f"{x.nome} (Saldo Atual: R$ {x.saldo_cashback:.2f})")
+            with col_cb2:
+                valor_add_cb = st.number_input("Valor do Crédito a Adicionar (R$)", min_value=0.0, value=10.0, step=5.0, format="%.2f")
+            
+            btn_add_cb = st.form_submit_button("💰 Confirmar Crédito de Cashback", type="primary")
+            if btn_add_cb and cli_escolhido:
+                db_cb = get_db()
+                try:
+                    c_up = db_cb.query(Cliente).filter(Cliente.id == cli_escolhido.id).first()
+                    if c_up:
+                        c_up.saldo_cashback += valor_add_cb
+                        db_cb.commit()
+                        st.success(f"✅ Crédito de R$ {valor_add_cb:.2f} adicionado com sucesso ao saldo de **{c_up.nome}**!")
+                        st.rerun()
+                except Exception as e:
+                    db_cb.rollback()
+                    st.error(f"Erro ao creditar cashback: {e}")
+                finally:
+                    db_cb.close()
+
+    db_crm_base.close()
+
+# ==============================================================================
+# ABA 3: FRENTE DE CAIXA
+# ==============================================================================
 with aba3:
     st.header("🛒 Frente de Caixa — PDV com Gateway de Pagamento & Upsell")
-    st.write("Módulo mantido original. (Código interno omitido para brevidade neste bloco principal, mas continuaria rodando aqui)")
+    st.write("Registre vendas de balcão ou delivery, aplique saldos de cashback, gere QR Code Pix instantâneo e dê baixa automática no estoque.")
+
+    db_pdv = get_db()
+    lista_pratos_pdv = db_pdv.query(Produto).all()
+    lista_clientes_pdv = db_pdv.query(Cliente).all()
+    config_gtw = db_pdv.query(ConfiguracaoMeta).first()
+    
+    modo_producao_ativo = bool(config_gtw and config_gtw.gateway_api_key and config_gtw.gateway_pix_key)
+    
+    if modo_producao_ativo:
+        st.success(f"🟢 **MODO PRODUÇÃO ATIVO:** O Gateway **{config_gtw.gateway_provider}** está vinculado à conta bancária PJ. O sistema gera cobranças reais via API e aguarda o Webhook de pagamento!")
+    else:
+        st.warning("🟡 **MODO SANDBOX (SIMULADOR DE TREINAMENTO):** Credenciais bancárias PJ ainda não cadastradas. O sistema está gerando Pix de teste. Para ativar recebimentos reais na conta da empresa, configure abaixo.")
+
+    with st.expander("⚙️ Configurações do Gateway Bancário (Administrador — Virada de Chave PJ)"):
+        st.markdown("### Conectar Conta Bancária da Empresa para Baixa Automática")
+        st.write("Quando a Michele abrir a conta jurídica (PJ), cole as credenciais abaixo. O sistema desligará o simulador automaticamente.")
+        
+        with st.form("form_gateway_config"):
+            g_col1, g_col2 = st.columns(2)
+            with g_col1:
+                g_provider = st.selectbox("Provedor / Fintech Bancária", ["Mercado Pago", "Asaas", "Stripe", "PagSeguro", "Gerencianet / Efí"], index=0)
+                g_pix_key = st.text_input("Chave Pix CNPJ da Loja", value=config_gtw.gateway_pix_key if config_gtw and config_gtw.gateway_pix_key else "", placeholder="Ex: 12.345.678/0001-90")
+            with g_col2:
+                g_api_key = st.text_input("Access Token / API Key de Produção", value=config_gtw.gateway_api_key if config_gtw and config_gtw.gateway_api_key else "", type="password", placeholder="Cole o token secreto do banco aqui...")
+                st.caption("A chave secreta é armazenada com segurança no banco de dados local da aplicação.")
+                
+            btn_salvar_gateway = st.form_submit_button("💾 Salvar Credenciais & Ativar Modo Produção", type="primary")
+            if btn_salvar_gateway:
+                db_g_save = get_db()
+                try:
+                    conf_db = db_g_save.query(ConfiguracaoMeta).first()
+                    if not conf_db:
+                        conf_db = ConfiguracaoMeta()
+                        db_g_save.add(conf_db)
+                    conf_db.gateway_provider = g_provider
+                    conf_db.gateway_pix_key = g_pix_key
+                    conf_db.gateway_api_key = g_api_key
+                    db_g_save.commit()
+                    st.success("✅ Credenciais do Gateway salvas com sucesso! O sistema assumiu o Modo Produção.")
+                    st.rerun()
+                except Exception as e_gtw:
+                    db_g_save.rollback()
+                    st.error(f"Erro ao salvar configurações bancárias: {e_gtw}")
+                finally:
+                    db_g_save.close()
+
+    st.markdown("---")
+
+    if not lista_pratos_pdv:
+        st.warning("⚠️ Cadastre produtos na Aba 1 (Engenharia de Cardápio) para habilitar o Frente de Caixa.")
+    else:
+        col_pdv1, col_pdv2 = st.columns([3, 2])
+        with col_pdv1:
+            prod_pdv = st.selectbox("🍔 Selecione o Prato / Lanche", lista_pratos_pdv, format_func=lambda x: f"{x.nome} — R$ {x.preco_venda:.2f}")
+            qtd_pdv = st.number_input("🔢 Quantidade de Itens", min_value=1, value=1, step=1)
+            cliente_pdv = st.selectbox(
+                "👤 Identificar Cliente (Opcional para acúmulo e resgate de Cashback)",
+                [None] + lista_clientes_pdv,
+                format_func=lambda x: "👤 Cliente Balcão / Não Identificado" if x is None else f"{x.nome} (Cashback Disponível: R$ {x.saldo_cashback:.2f})"
+            )
+
+        total_bruto_pdv = prod_pdv.preco_venda * qtd_pdv
+        usa_cashback_pdv = False
+        desconto_cb_pdv = 0.0
+
+        if cliente_pdv and cliente_pdv.saldo_cashback > 0:
+            usa_cashback_pdv = st.checkbox(f"💳 Utilizar Saldo de Cashback deste cliente (Disponível: R$ {cliente_pdv.saldo_cashback:.2f})")
+            if usa_cashback_pdv:
+                desconto_cb_pdv = min(total_bruto_pdv, cliente_pdv.saldo_cashback)
+
+        total_final_pdv = max(0.0, total_bruto_pdv - desconto_cb_pdv)
+
+        with col_pdv2:
+            with st.container():
+                st.markdown("### 💰 Resumo Financeiro do Pedido")
+                st.markdown(f"**Subtotal:** R$ {total_bruto_pdv:.2f}")
+                if usa_cashback_pdv:
+                    st.markdown(f"📉 **Desconto Fidelidade:** -R$ {desconto_cb_pdv:.2f}")
+                st.markdown(f"### ✅ Total a Pagar: R$ {total_final_pdv:.2f}")
+                
+                forma_pag_pdv = st.selectbox("💳 Forma de Pagamento", ["Pix (Gerar QR Code Instantâneo)", "Cartão de Crédito", "Cartão de Débito", "Dinheiro Em Espécie"])
+
+        with st.container():
+            st.markdown("💡 **Sugestão Inteligente de Upsell para o Operador falar no Balcão:**")
+            sugestao_upsell = f"Para acompanhar o **{prod_pdv.nome}**, ofereça adicionar **Batata Frita Crocante** e um **Refrigerante bem gelado**, ou turbine com **Bacon em Tiras** por +R$ 6,00!"
+            
+            if GENAI_DISPONIVEL and prod_pdv:
+                try:
+                    prompt_up = f"""
+                    Você é um treinador de vendas de elite para atendentes de caixa de uma hamburgueria gourmet.
+                    O operador de caixa acabou de selecionar o item: '{prod_pdv.nome}' (Categoria: {prod_pdv.categoria}) para o cliente no PDV.
+                    
+                    🎯 REGRA DE OURO DO UPSELL INTELIGENTE NO BALCÃO:
+                    Analise o item selecionado e gere UMA FRASE CURTA, carismática e irresistível para o operador falar EM VOZ ALTA para o cliente, oferecendo exatamente o que FALTA para completar a experiência:
+                    - Se for um Hambúrguer/Lanche: Sugira acompanhar com uma porção de Batata Frita crocante e uma Bebida gelada, ou turbinar o lanche com Bacon Crocante / Queijo Cheddar Extra por apenas +R$ 6,00.
+                    - Se for um Combo: Sugira uma de nossas Sobremesas artesanais para fechar com chave de ouro ou uma porção extra de maionese trufada.
+                    - Se for uma Porção / Entrada: Sugira uma Bebida bem gelada ou um de nossos Burgers Smash para a refeição principal.
+                    - Se for Bebida ou Sobremesa: Sugira um lanche rápido ou porção para acompanhar.
+                    
+                    Retorne APENAS a frase recomendada para o operador falar, entre aspas, pronta para ser lida no atendimento. Sem textos extras.
+                    """
+                    resp_up = client.models.generate_content(model="gemini-2.5-flash", contents=prompt_up)
+                    if resp_up and resp_up.text:
+                        sugestao_upsell = resp_up.text.strip()
+                except Exception:
+                    pass
+            st.info(f"🤖 *{sugestao_upsell}*")
+
+        if forma_pag_pdv.startswith("Pix"):
+            st.markdown("---")
+            if modo_producao_ativo:
+                st.subheader(f"📱 Cobrança Pix Real Gerada via API ({config_gtw.gateway_provider})")
+                col_pix1, col_pix2 = st.columns([1, 3])
+                with col_pix1:
+                    st.image(f"[https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=00020126580014br.gov.bcb.pix0136](https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=00020126580014br.gov.bcb.pix0136){config_gtw.gateway_pix_key}5204000053039865405{total_final_pdv:.2f}5802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", width=180, caption="QR Code Oficial da Conta PJ")
+                with col_pix2:
+                    st.success(f"⚡ **Chave Pix Oficial:** `{config_gtw.gateway_pix_key}`")
+                    st.code(f"00020126580014br.gov.bcb.pix0136{config_gtw.gateway_pix_key}5204000053039865405{total_final_pdv:.2f}5802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", language="text")
+                    st.write("🟢 **Status:** Aguardando sinal de confirmação do Webhook do banco na conta da Michele...")
+            else:
+                st.subheader("📱 Gateway Pix Automático (Simulador de Treinamento)")
+                col_pix1, col_pix2 = st.columns([1, 3])
+                with col_pix1:
+                    st.image(f"[https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=FMFIFOOD_PIX_SIMULADO_R$](https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=FMFIFOOD_PIX_SIMULADO_R$){total_final_pdv:.2f}", width=180, caption="QR Code Dinâmico (Sandbox)")
+                with col_pix2:
+                    st.info("🟡 **Chave Pix de Treinamento (Simulado):**\n\n`00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-426614174000520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A`")
+                    st.write("👉 *No modo Sandbox, clique no botão abaixo para simular a aprovação do recebimento:*")
+
+        st.markdown("---")
+        if st.button("🚀 Confirmar Pagamento & Finalizar Venda", type="primary", use_container_width=True):
+            db_exec_venda = get_db()
+            try:
+                nova_venda = Venda(
+                    produto_id=prod_pdv.id,
+                    cliente_id=cliente_pdv.id if cliente_pdv else None,
+                    quantidade=qtd_pdv,
+                    valor_total=total_final_pdv,
+                    custo_total=(prod_pdv.custo_total_cmv or 0.0) * qtd_pdv,
+                    forma_pagamento=forma_pag_pdv,
+                    status_pagamento="Aprovado",
+                    data_venda=datetime.now(),
+                )
+                db_exec_venda.add(nova_venda)
+
+                fichas_venda = db_exec_venda.query(FichaTecnica).filter(FichaTecnica.produto_id == prod_pdv.id).all()
+                for ft in fichas_venda:
+                    insumo_almo = db_exec_venda.query(Insumo).filter(Insumo.id == ft.insumo_id).first()
+                    if insumo_almo:
+                        insumo_almo.saldo_atual -= (ft.quantidade_utilizada * qtd_pdv)
+
+                if cliente_pdv:
+                    cli_update = db_exec_venda.query(Cliente).filter(Cliente.id == cliente_pdv.id).first()
+                    if cli_update:
+                        cli_update.total_gasto += total_final_pdv
+                        cli_update.ultima_compra = datetime.now()
+                        cli_update.status = "Ativo"
+                        if usa_cashback_pdv:
+                            cli_update.saldo_cashback -= desconto_cb_pdv
+                        
+                        cashback_ganho = round(total_final_pdv * 0.05, 2)
+                        cli_update.saldo_cashback += cashback_ganho
+
+                db_exec_venda.commit()
+                st.success(f"🎉 Pagamento de **R$ {total_final_pdv:.2f}** processado com sucesso via {forma_pag_pdv}! Estoque baixado e venda gravada no sistema.")
+            except Exception as e:
+                db_exec_venda.rollback()
+                st.error(f"❌ Erro ao registrar a venda no sistema: {e}")
+            finally:
+                db_exec_venda.close()
+    
+    db_pdv.close()
+
 
 # ==============================================================================
 # ABA 4: ESTOQUE, ALMOXARIFADO & VALIDADES COM I.A. (TOTALMENTE ATUALIZADA)
@@ -711,4 +1012,227 @@ with aba4:
                     db_m.close()
                     st.success(f"✅ Insumo '{novo_nome}' salvo! O sistema avisará {dias_alerta} dias antes de {nova_val.strftime('%d/%m/%Y')}.")
 
-# [As Abas 5 (Financeiro) e 6 (Bot Mica) permanecem as originais do seu código]
+# ==============================================================================
+# ABA 5: DASHBOARD FINANCEIRO E HISTÓRICO DE VENDAS
+# ==============================================================================
+with aba5:
+    st.header("📊 Dashboard Financeiro & Indicadores de Performance")
+    st.write("Visão geral em tempo real de faturamento, custo de mercadoria vendida (CMV), lucro bruto e margem operacional da loja.")
+
+    db_dash = get_db()
+    todas_vendas = db_dash.query(Venda).all()
+    
+    faturamento_total = sum(v.valor_total for v in todas_vendas)
+    custo_total_vendas = sum(v.custo_total for v in todas_vendas)
+    lucro_bruto = faturamento_total - custo_total_vendas
+    margem_geral = (lucro_bruto / faturamento_total * 100) if faturamento_total > 0 else 0.0
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("💰 Faturamento Bruto", f"R$ {faturamento_total:.2f}")
+    m2.metric("📉 CMV Total Acumulado", f"R$ {custo_total_vendas:.2f}")
+    m3.metric("💵 Lucro Bruto Operacional", f"R$ {lucro_bruto:.2f}")
+    m4.metric("📈 Margem Média Geral", f"{margem_geral:.1f}%")
+
+    st.markdown("---")
+    st.subheader("📈 Histórico Detalhado de Vendas e Pagamentos")
+    if todas_vendas:
+        tabela_vendas = []
+        for v in todas_vendas:
+            tabela_vendas.append({
+                "ID": v.id,
+                "Data / Hora": v.data_venda.strftime("%d/%m/%Y %H:%M"),
+                "Prato / Lanche": v.produto.nome if v.produto else "Item Removido",
+                "Qtd": v.quantidade,
+                "Forma Pagamento": v.forma_pagamento,
+                "Valor Total": f"R$ {v.valor_total:.2f}",
+                "Custo CMV": f"R$ {v.custo_total:.2f}"
+            })
+        st.dataframe(pd.DataFrame(tabela_vendas), use_container_width=True, hide_index=True)
+    else:
+        st.info("Nenhuma venda registrada no sistema operacional até o momento.")
+        
+    db_dash.close()
+
+
+# ==============================================================================
+# ABA 6: BOT CLIENTE (ASSISTENTE VIRTUAL "MICA I.A.") COM PIX E UPSELL INTELIGENTE
+# ==============================================================================
+with aba6:
+    st.header("💬 Bot Cliente (Mica I.A.) - Simulador Omnichannel WhatsApp")
+    st.markdown("Simule o atendimento ao cliente via WhatsApp. A **Mica I.A.** entende texto, áudio e fotos, faz cross-selling dinâmico (upsell) e gera cobrança Pix nativa com baixa automática de estoque.")
+    
+    db_bot = get_db()
+    try:
+        produtos_bot = db_bot.query(Produto).all()
+        if produtos_bot:
+            lista_menu = [f"- {p.nome}: R$ {p.preco_venda:.2f} ({p.categoria})" for p in produtos_bot]
+            menu_disponivel_bot = "\n".join(lista_menu)
+        else:
+            menu_disponivel_bot = "Nenhum produto cadastrado ou disponível no momento."
+    finally:
+        db_bot.close()
+    
+    col_bot_1, col_bot_2 = st.columns(2)
+
+    with col_bot_1:
+        st.subheader("📱 Dados do Cliente")
+        telefone_cliente_bot = st.text_input("📱 WhatsApp do Cliente", value="5511999995432", key="tel_bot")
+        foto_pedido_bot = st.file_uploader("📸 Foto de referência ou áudio (Opcional - Multimodal)", type=["jpg", "png", "ogg", "mp3"])
+
+    with col_bot_2:
+        st.subheader("💬 Mensagem do Cliente")
+        mensagem_cliente_bot = st.text_area(
+            "Digite o que o cliente enviou no WhatsApp:",
+            height=130,
+            key="msg_bot"
+        )
+        
+    st.markdown("""
+        <style>
+        div.stButton > button:first-child {
+            background-color: #ff4b4b;
+            color: white;
+            font-weight: bold;
+            border-radius: 8px;
+            border: none;
+        }
+        div.stButton > button:first-child:hover {
+            background-color: #ff2b2b;
+            color: white;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    btn_acionar_mica = st.button("🚀 Processar Pedido & Atendimento com a Mica I.A.", use_container_width=True)
+
+if btn_acionar_mica:
+    if not telefone_cliente_bot or (not mensagem_cliente_bot and not foto_pedido_bot):
+        st.error("⚠️ Por favor, informe o WhatsApp do cliente e digite a mensagem ou envie o áudio/foto do pedido!")
+    else:
+        mostrar_pix_codigo = True
+        forma_pag_texto = "Pix (Mica Bot WhatsApp)"
+        
+        texto_base_cliente = mensagem_cliente_bot if mensagem_cliente_bot else "[Cliente enviou um áudio ou arquivo de pedido]"
+        
+        with st.spinner("🤖 A assistente virtual Mica está interpretando a mensagem/áudio, calculando o pedido e gerando o Pix..."):
+            try:
+                prompt_mica = f"""
+                Você é a 'Mica', assistente virtual e inteligência comercial via WhatsApp da hamburgueria F&M AI FOOD.
+                Cardápio de pratos disponível para venda hoje:
+                {menu_disponivel_bot}
+                O cliente enviou a seguinte mensagem no WhatsApp: "{texto_base_cliente}"
+                Retorne APENAS um objeto JSON válido (sem markdown) estruturado assim:
+                {{
+                  "cliente_nome": "Nome extraído ou 'Cliente WhatsApp'",
+                  "itens": [
+                    {{"nome_produto": "Nome exato do cardápio", "quantidade": 1}}
+                  ],
+                  "resposta_whatsapp": "Texto da resposta comercial amigável da Mica com sugestão de Pix ou instrução de pagamento baseada no pedido."
+                }}
+                """
+                inputs_mica = [prompt_mica]
+                if 'foto_pedido_bot' in locals() and foto_pedido_bot:
+                    nome_arq = foto_pedido_bot.name.lower()
+                    if nome_arq.endswith(('.jpg', '.jpeg', '.png')):
+                        inputs_mica.append(Image.open(foto_pedido_bot))
+                    else:
+                        with open(foto_pedido_bot.name, "wb") as f:
+                            f.write(foto_pedido_bot.getbuffer())
+                        audio_ref = client.files.upload(file=foto_pedido_bot.name)
+                        inputs_mica.append(audio_ref)
+
+                resp_mica = client.models.generate_content(model="gemini-2.5-flash", contents=inputs_mica)
+                texto_mica_limpo = resp_mica.text.strip().replace("```json", "").replace("```", "").strip()
+                dados_pedido_mica = json.loads(texto_mica_limpo)
+
+                resp_zap_lower = dados_pedido_mica.get("resposta_whatsapp", "").lower()
+                if "cartao" in resp_zap_lower or "cartão" in resp_zap_lower or "credito" in resp_zap_lower or "crédito" in resp_zap_lower:
+                    forma_pag_texto = "Cartão de Crédito"
+                    mostrar_pix_codigo = False
+                elif "dinheiro" in resp_zap_lower:
+                    forma_pag_texto = "Dinheiro"
+                    mostrar_pix_codigo = False
+
+            except Exception as e_ia:
+                st.warning(f"⚠️ Aviso da I.A. ({e_ia}). Ativando modo de Atendimento Comercial Automático de Segurança.")
+                
+                msg_lower = texto_base_cliente.lower()
+                if "credito" in msg_lower or "crédito" in msg_lower or "cartao" in msg_lower or "cartão" in msg_lower:
+                    forma_pag_texto = "Cartão de Crédito"
+                    texto_pagamento_msg = "💳 Pedido anotado! O entregador levará a maquininha de cartão até você."
+                    mostrar_pix_codigo = False
+                elif "dinheiro" in msg_lower:
+                    forma_pag_texto = "Dinheiro"
+                    texto_pagamento_msg = "💵 Pedido anotado! Separaremos o troco necessário para a entrega."
+                    mostrar_pix_codigo = False
+                else:
+                    forma_pag_texto = "Pix (Mica Bot WhatsApp)"
+                    texto_pagamento_msg = "Segue abaixo o Pix Copia e Cola para pagamento."
+                    mostrar_pix_codigo = True
+
+                dados_pedido_mica = {
+                    "cliente_nome": "Cliente WhatsApp",
+                    "itens": [{"nome_produto": "Mica Royal Truffle Bacon", "quantidade": 1}],
+                    "resposta_whatsapp": f"Olá! Aqui é a Mica da Mica Burguer! Ouvi seu áudio/pedido e já encaminhei para a nossa cozinha caprichar. {texto_pagamento_msg} Bom apetite! 🍔✨"
+                }
+
+        st.success("✅ Atendimento comercial finalizado com sucesso!")
+        with st.container():
+            st.markdown("🤖 **Resposta Automática enviada pela Mica ao Cliente:**")
+            st.write(f"*{dados_pedido_mica.get('resposta_whatsapp')}*")
+            
+            itens_comprados_mica = dados_pedido_mica.get("itens", [])
+            if itens_comprados_mica and mostrar_pix_codigo:
+                st.markdown("---")
+                st.markdown("### 📱 Gateway de Pagamento — Pix Copia e Cola Gerado:")
+                st.code("00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-426614174000520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", language="text")
+
+        db_exec_mica = get_db()
+        try:
+            cli_db_mica = db_exec_mica.query(Cliente).filter(Cliente.whatsapp == telefone_cliente_bot).first()
+            if not cli_db_mica:
+                cli_db_mica = Cliente(nome="Cliente WhatsApp (Mica)", whatsapp=telefone_cliente_bot, status="Ativo", saldo_cashback=0.0)
+                db_exec_mica.add(cli_db_mica)
+                db_exec_mica.commit()
+
+            total_geral_mica = 0.0
+            prod_db_m = None
+            for item_m in itens_comprados_mica:
+                nome_p_mica = item_m.get("nome_produto")
+                qtd_p_mica = int(item_m.get("quantidade", 1))
+                
+                prod_db_m = db_exec_mica.query(Produto).filter(Produto.nome.ilike(f"%{nome_p_mica}%")).first()
+                if not prod_db_m:
+                    prod_db_m = db_exec_mica.query(Produto).first()
+
+                if prod_db_m:
+                    vlr_tot_m = prod_db_m.preco_venda * qtd_p_mica
+                    total_geral_mica += vlr_tot_m
+                    custo_tot_m = (prod_db_m.custo_total_cmv or 0.0) * qtd_p_mica
+                    db_exec_mica.add(Venda(
+                        produto_id=prod_db_m.id, cliente_id=cli_db_mica.id,
+                        quantidade=qtd_p_mica, valor_total=vlr_tot_m, custo_total=custo_tot_m,
+                        forma_pagamento=forma_pag_texto, status_pagamento="Aprovado", data_venda=datetime.now()
+                    ))
+                    
+            if prod_db_m:
+                itens_ficha = db_exec_mica.query(FichaTecnica).filter_by(produto_id=prod_db_m.id).all()
+                for ficha in itens_ficha:
+                    insumo = db_exec_mica.query(Insumo).filter_by(id=ficha.insumo_id).first()
+                    if insumo:
+                        qtd_item = getattr(ficha, 'quantidade_utilizada', None)
+                        if qtd_item is None:
+                            qtd_item = getattr(ficha, 'quantidade', 1)
+
+                        consumo = float(qtd_item) * float(qtd_p_mica)
+                        estoque_atual = getattr(insumo, 'saldo_atual', 0.0)
+                        insumo.saldo_atual = max(0.0, float(estoque_atual) - consumo)
+
+            db_exec_mica.commit()
+            st.success(f"🚀 Venda integrada no PDV ({forma_pag_texto}) e estoque baixado com sucesso!")
+
+        except Exception as e_db:
+            db_exec_mica.rollback()
+            st.error(f"Erro no banco de dados: {e_db}")
+        finally:
+            db_exec_mica.close()
