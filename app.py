@@ -267,63 +267,58 @@ import re
 
 
 def render_cadastro_ficha_tecnica(
-    db_session,
-    Insumo=None,
-    Produto=None,
-    FichaTecnica=None,
-    *args,
-    **kwargs,
+    db_session, Insumo=None, Produto=None, FichaTecnica=None, *args, **kwargs
 ):
-    st.subheader("👨‍🍳 Engenharia de Cardápio & Ficha Técnica Granular")
+  st.subheader("👨‍🍳 Engenharia de Cardápio & Ficha Técnica Granular")
 
-    texto_cardapio = st.text_area(
-        "Cole aqui o texto do seu cardápio com nomes e preços:",
-        height=150,
+  opcao = st.radio(
+      "Escolha como deseja cadastrar:",
+      [
+          "📄 Upload de Cardápio Real (Foto, PDF ou Colar Texto) via IA",
+          "✍️ Cadastro Manual de Produto & Ficha Técnica",
+      ],
+      horizontal=True,
+  )
+
+  if "Upload de Cardápio" in opcao:
+    st.info(
+        "Carregue o arquivo com seu cardápio oficial ou cole o texto abaixo."
+        " O sistema tentará processar via IA e usará o Leitor Nativo se a cota"
+        " estourar."
     )
 
-    opcao = st.radio(
-        "Escolha como deseja cadastrar:",
-        [
-            "📄 Upload de Cardápio Real (Foto, PDF ou Colar Texto) via IA",
-            "✍️ Cadastro Manual de Produto & Ficha Técnica",
-        ],
-        horizontal=True,
-    )
+    col1, col2 = st.columns(2)
+    with col1:
+      arquivo_upload = st.file_uploader(
+          "Origem do arquivo (PDF ou Imagem):",
+          type=["png", "jpg", "jpeg", "pdf"],
+          help="Arraste a foto do cardápio ou PDF aqui",
+      )
+    with col2:
+      texto_cardapio = st.text_area(
+          "Ou cole o texto do cardápio diretamente aqui:",
+          height=130,
+          placeholder="Ex: X-Salada R$ 28,00\nBatata Frita R$ 18,00...",
+      )
 
-    if "Upload de Cardápio" in opcao:
-        st.info(
-            "Carregue o arquivo com seu cardápio oficial que a IA extrairá todos os"
-            " produtos e cadastrará no banco."
+    if st.button("🚀 Processar Cardápio", type="primary"):
+      texto_cardapio_val = texto_cardapio or ""
+      if not arquivo_upload and not texto_cardapio_val.strip():
+        st.warning(
+            "⚠️ Forneça um arquivo de imagem/PDF ou digite o texto do"
+            " cardápio."
         )
+        return
 
-        arquivo_upload = st.file_uploader(
-            "Origem do arquivo:",
-            type=["png", "jpg", "jpeg", "pdf"],
-            help="Arraste a foto do cardápio ou PDF aqui",
-        )
-        texto_cardapio = st.text_area(
-            "Ou cole o texto do cardápio diretamente aqui:",
-            height=150,
-            placeholder="Ex: X-Salada R$ 28,00\nBatata Frita R$ 18,00...",
-        )
+      client_ativo = globals().get("client")
+      genai_ativo = globals().get("GENAI_DISPONIVEL", False)
+      sucesso_ia = False
 
-        if st.button("🚀 Processar Cardápio", type="primary"):
-            if not arquivo_upload and not texto_cardapio.strip():
-                st.warning(
-                    "⚠️ Forneça um arquivo de imagem/PDF ou digite o texto do"
-                    " cardápio."
-                )
-                return
-
-            client_ativo = globals().get("client")
-            genai_ativo = globals().get("GENAI_DISPONIVEL", False)
-            sucesso_ia = False
-
-            # -------------------------------------------------------------
-            # 1. TENTA PROCESSAR VIA GEMINI (IA)
-            # -------------------------------------------------------------
-            if genai_ativo and client_ativo:
-                prompt = """
+      # -------------------------------------------------------------
+      # 1. TENTA PROCESSAR VIA GEMINI (IA)
+      # -------------------------------------------------------------
+      if genai_ativo and client_ativo:
+        prompt = """
                 Você é um especialista em ERP gastronômico. Analise o cardápio fornecido e extraia todos os produtos/itens cadastráveis.
                 Retorne EXATAMENTE um JSON no seguinte formato (sem formatação markdown ```json, apenas a string json pura):
                 [
@@ -335,141 +330,127 @@ def render_cadastro_ficha_tecnica(
                     }
                 ]
                 """
-                try:
-                    with st.spinner("🤖 Processando via Inteligência Artificial..."):
-                        if arquivo_upload:
-                            bytes_data = arquivo_upload.getvalue()
-                            mime = arquivo_upload.type
-                            contents = [
-                                types.Part.from_bytes(data=bytes_data, mime_type=mime),
-                                prompt,
-                            ]
-                            response = client_ativo.models.generate_content(
-                                model="gemini-2.5-flash", contents=contents
-                            )
-                        else:
-                            response = client_ativo.models.generate_content(
-                                model="gemini-2.5-flash",
-                                contents=f"{prompt}\n\n{texto_cardapio}",
-                            )
+        try:
+          with st.spinner("🤖 Processando via Inteligência Artificial..."):
+            if arquivo_upload:
+              bytes_data = arquivo_upload.getvalue()
+              mime = arquivo_upload.type
+              contents = [
+                  types.Part.from_bytes(data=bytes_data, mime_type=mime),
+                  prompt,
+              ]
+              response = client_ativo.models.generate_content(
+                  model="gemini-2.5-flash", contents=contents
+              )
+            else:
+              response = client_ativo.models.generate_content(
+                  model="gemini-2.5-flash",
+                  contents=f"{prompt}\n\n{texto_cardapio_val}",
+              )
 
-                        texto_limpo = (
-                            response.text.strip().replace("```json", "").replace("```", "")
-                        )
-                        produtos_extraidos = json.loads(texto_limpo)
+            texto_limpo = (
+                response.text.strip().replace("```json", "").replace("```", "")
+            )
+            produtos_extraidos = json.loads(texto_limpo)
 
-                        for prod in produtos_extraidos:
-                            cmv_est = round(float(prod.get("preco", 0)) * 0.32, 2)
-                            novo_prod = Produto(
-                                nome=prod.get("nome"),
-                                categoria=prod.get("categoria", "Geral"),
-                                descricao_bruta=prod.get("ingredientes", ""),
-                                descricao_ai="",
-                                preco_venda=float(prod.get("preco", 0)),
-                                custo_total_cmv=cmv_est,
-                                margem_exibicao=f"{68.0:.1f}%",
-                            )
-                            db_session.add(novo_prod)
+            for prod in produtos_extraidos:
+              cmv_est = round(float(prod.get("preco", 0)) * 0.32, 2)
+              novo_prod = Produto(
+                  nome=prod.get("nome"),
+                  categoria=prod.get("categoria", "Geral"),
+                  preco=float(prod.get("preco", 0)),
+                  custo_cmv=cmv_est,
+                  margem_lucro=68.0,
+                  descricao_bruta=prod.get("ingredientes", ""),
+              )
+              db_session.add(novo_prod)
 
-                        db_session.commit()
-                        st.success(
-                            f"🎉 Sucesso! **{len(produtos_extraidos)} produtos** importados"
-                            " via IA!"
-                        )
-                        sucesso_ia = True
-                        st.rerun()
+            db_session.commit()
+            st.success(
+                f"🎉 Sucesso! **{len(produtos_extraidos)} produtos** importados"
+                " via IA!"
+            )
+            sucesso_ia = True
+            st.rerun()
 
-                except Exception as e:
-                    st.warning(
-                        "⚠️ Cota ou limite do Gemini atingido. Alternando para o Leitor"
-                        " Nativo do Sistema..."
-                    )
+        except Exception as e:
+          st.warning(
+              "⚠️ Cota do Gemini atingida. Alternando para o Leitor Nativo do"
+              " Sistema..."
+          )
 
-            # -------------------------------------------------------------
-            # 2. LEITOR LOCAL DE CONTINGÊNCIA (SEM GASTAR COTA / SEM GEMINI)
-            # -------------------------------------------------------------
-            if not sucesso_ia:
-                with st.spinner("⚙️ Processando pelo Leitor Interno do Sistema..."):
-                    texto_para_analise = texto_cardapio
+      # -------------------------------------------------------------
+      # 2. LEITOR LOCAL DE CONTINGÊNCIA (SEM GASTAR COTA / SEM GEMINI)
+      # -------------------------------------------------------------
+      if not sucesso_ia:
+        with st.spinner("⚙️ Processando pelo Leitor Interno do Sistema..."):
+          texto_para_analise = texto_cardapio_val
 
-                    if arquivo_upload and arquivo_upload.name.endswith(".pdf"):
-                        try:
-                            import importlib
+          if arquivo_upload and arquivo_upload.name.endswith(".pdf"):
+            try:
+              import pypdf
 
-                            pypdf = importlib.import_module("pypdf")
-                        except Exception:
-                            pypdf = None
+              reader = pypdf.PdfReader(arquivo_upload)
+              texto_para_analise = "\n".join(
+                  [
+                      page.extract_text()
+                      for page in reader.pages
+                      if page.extract_text()
+                  ]
+              )
+            except Exception as err:
+              st.error(
+                  f"❌ Não foi possível ler o PDF localmente: {err}. Adicione"
+                  " 'pypdf' ao requirements.txt."
+              )
+              return
 
-                        if pypdf is None:
-                            st.error(
-                                "❌ Não foi possível ler o PDF localmente porque o pacote"
-                                " 'pypdf' não está disponível."
-                            )
-                            return
+          if not texto_para_analise or not texto_para_analise.strip():
+            st.error(
+                "❌ O leitor local exige um arquivo PDF com texto selecionável"
+                " ou o texto colado manualmente."
+            )
+            return
 
-                        try:
-                            reader = pypdf.PdfReader(arquivo_upload)
-                            texto_para_analise = "\n".join(
-                                [
-                                    page.extract_text()
-                                    for page in reader.pages
-                                    if page.extract_text()
-                                ]
-                            )
-                        except Exception as err:
-                            st.error(
-                                f"❌ Não foi possível ler o PDF localmente: {err}. Adicione"
-                                " 'pypdf' ao requirements.txt."
-                            )
-                            return
+          import re
 
-                    if not texto_para_analise or not texto_para_analise.strip():
-                        st.error(
-                            "❌ O leitor local exige um arquivo PDF com texto selecionável"
-                            " ou o texto colado manualmente."
-                        )
-                        return
+          padrao = re.compile(
+              r"(.+?)\s*(?:R\$\s*)?(\d+[.,]\d{2})", re.IGNORECASE
+          )
+          linhas = texto_para_analise.split("\n")
+          cadastrados_local = 0
 
-                    # Busca padrões como "X-Burguer R$ 32,90" ou "Batata Frita 15.00"
-                    padrao = re.compile(
-                        r"(.+?)\s*(?:R\$\s*)?(\d+[.,]\d{2})", re.IGNORECASE
-                    )
-                    linhas = texto_para_analise.split("\n")
-                    cadastrados_local = 0
+          for linha in linhas:
+            linha = linha.strip()
+            match = padrao.search(linha)
+            if match:
+              nome_item = match.group(1).strip(" .-:")
+              preco_val = float(match.group(2).replace(",", "."))
 
-                    for linha in linhas:
-                        linha = linha.strip()
-                        match = padrao.search(linha)
-                        if match:
-                            nome_item = match.group(1).strip(" .-:")
-                            preco_val = float(match.group(2).replace(",", "."))
+              if len(nome_item) > 2 and preco_val > 0:
+                novo_prod = Produto(
+                    nome=nome_item,
+                    categoria="Importado (Nativo)",
+                    preco=preco_val,
+                    custo_cmv=round(preco_val * 0.35, 2),
+                    margem_lucro=65.0,
+                    descricao_bruta="Importado via Leitor Nativo",
+                )
+                db_session.add(novo_prod)
+                cadastrados_local += 1
 
-                            if len(nome_item) > 2 and preco_val > 0:
-                                novo_prod = Produto(
-                                    nome=nome_item,
-                                    categoria="Importado (Nativo)",
-                                    descricao_bruta="Importado via Leitor Nativo",
-                                    descricao_ai="",
-                                    preco_venda=preco_val,
-                                    custo_total_cmv=round(preco_val * 0.35, 2),
-                                    margem_exibicao=f"{65.0:.1f}%",
-                                )
-                                db_session.add(novo_prod)
-                                cadastrados_local += 1
-
-                    if cadastrados_local > 0:
-                        db_session.commit()
-                        st.success(
-                            f"✅ **{cadastrados_local} produtos** extraídos e salvos"
-                            " diretamente pelo Leitor Interno (sem gastar cota Gemini)!"
-                        )
-                        st.rerun()
-                    else:
-                        st.error(
-                            "❌ O leitor nativo não identificou nomes acompanhados de"
-                            " valores (ex: 'Hambúrguer R$ 30,00')."
-                        )
-
+          if cadastrados_local > 0:
+            db_session.commit()
+            st.success(
+                f"✅ **{cadastrados_local} produtos** extraídos e salvos"
+                " diretamente pelo Leitor Interno!"
+            )
+            st.rerun()
+          else:
+            st.error(
+                "❌ O leitor nativo não identificou nomes acompanhados de"
+                " valores (ex: 'Hambúrguer R$ 30,00')."
+            )
 
 st.title("F&M AI FOOD")
 st.caption("Professional Gastronomy ERP & AI")
