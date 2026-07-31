@@ -313,7 +313,6 @@ def render_cadastro_ficha_tecnica(
             key="sel_insumo_ativo",
         )
       with c2:
-        # Define valor inicial dinâmico e seguro para evitar alteração fantasma
         is_kg = (insumo_selecionado.unidade_medida == "kg")
         label_qtd = "Quantidade em GRAMAS (g)" if is_kg else f"Quantidade ({insumo_selecionado.unidade_medida})"
         val_padrao = 100.0 if is_kg else 1.0
@@ -1283,11 +1282,12 @@ with aba4:
             col_m1, col_m2 = st.columns(2)
             
             with col_m1:
-                novo_nome = st.text_input("Nome do Insumo (Ex: Hambúrguer Angus)")
-                novo_custo = st.number_input("Custo Unitário (R$)", min_value=0.0, format="%.2f")
+                novo_nome = st.text_input("Nome do Insumo (Ex: Carne Moída Angus)")
+                novo_custo = st.number_input("Custo Unitário (R$)", min_value=0.0, format="%.2f", help="Se for por kg, informe o preço de 1 kg. Se for un, o preço da unidade.")
                 
             with col_m2:
                 novo_saldo = st.number_input("Quantidade / Saldo Atual", min_value=0.0, format="%.3f")
+                nova_unidade_medida = st.selectbox("Unidade de Medida", ["kg", "un", "l", "ml", "fatias", "pct"])
                 novo_minimo = st.number_input("Estoque Mínimo Alerta", min_value=0.0, format="%.3f")
 
             btn_salvar_manual = st.form_submit_button("💾 Salvar Manualmente no Banco", type="primary")
@@ -1303,12 +1303,13 @@ with aba4:
                             saldo_atual=novo_saldo,
                             estoque_minimo=novo_minimo,
                             custo_unitario=novo_custo,
-                            unidade_medida="un"
+                            unidade_medida=nova_unidade_medida
                         )
                         db_manual.add(novo_insumo)
                         db_manual.commit()
                         db_manual.close()
-                        st.success(f"✅ Insumo '{novo_nome}' salvo com sucesso direto no banco de dados!")
+                        st.success(f"✅ Insumo '{novo_nome}' salvo com sucesso no almoxarifado como '{nova_unidade_medida}'!")
+                        st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao salvar: {e}")
         st.divider()
