@@ -452,6 +452,49 @@ def render_cadastro_ficha_tecnica(
                 " valores (ex: 'Hambúrguer R$ 30,00')."
             )
 
+  else:
+    st.subheader("✍️ Cadastro Manual de Produto")
+    with st.form("form_prod_manual"):
+      nome_m = st.text_input("Nome do Produto")
+      cat_m = st.text_input("Categoria", value="Geral")
+      preco_m = st.number_input("Preço de Venda (R$)", min_value=0.0, step=1.0)
+      sub_m = st.form_submit_button("Salvar Produto")
+      if sub_m and nome_m:
+        p_novo = Produto(
+            nome=nome_m,
+            categoria=cat_m,
+            preco=preco_m,
+            custo_cmv=round(preco_m * 0.35, 2),
+            margem_lucro=65.0,
+        )
+        db_session.add(p_novo)
+        db_session.commit()
+        st.success(f"Produto '{nome_m}' cadastrado com sucesso!")
+        st.rerun()
+
+  # -------------------------------------------------------------
+  # 3. EXIBIÇÃO DOS PRODUTOS CADASTRADOS NO BANCO
+  # -------------------------------------------------------------
+  st.divider()
+  st.subheader("📋 Produtos Cadastrados no Banco de Dados")
+  if Produto:
+    produtos_cadastrados = db_session.query(Produto).all()
+    if produtos_cadastrados:
+      dados = [
+          {
+              "ID": p.id,
+              "Nome": p.nome,
+              "Categoria": p.categoria,
+              "Preço": f"R$ {p.preco:.2f}",
+              "CMV Est.": f"R$ {p.custo_cmv:.2f}",
+              "Descrição": p.descricao_bruta or "-",
+          }
+          for p in produtos_cadastrados
+      ]
+      st.dataframe(dados, use_container_width=True)
+    else:
+      st.info("Nenhum produto cadastrado no banco até o momento.")
+
 
 def executar_forecasting_e_alertar(db_session):
   """Executa a verificação de estoque e alertas no painel."""
