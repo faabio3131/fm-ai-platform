@@ -927,7 +927,20 @@ with aba4:
             resultado_ia = executar_forecasting_e_alertar(db_fc)
             db_fc.close()
             st.info(resultado_ia)
-
+st.markdown("---")
+    st.subheader("🗑️ Excluir Insumo do Estoque")
+    
+    if insumos_cadastrados:
+        nomes_insumos = [i.nome for i in insumos_cadastrados]
+        insumo_para_deletar = st.selectbox("Selecione o insumo para remover:", nomes_insumos, key="del_insumo")
+        
+        if st.button("Excluir Insumo Permanentemente", type="primary"):
+            item_obj = db_estoque.query(Insumo).filter_by(nome=insumo_para_deletar).first()
+            if item_obj:
+                db_estoque.delete(item_obj)
+                db_estoque.commit()
+                st.success(f"Insumo '{insumo_para_deletar}' excluído com sucesso!")
+                st.rerun()
 
     with sub_aba2:
         st.subheader("➕ Leitor de Nota Fiscal/Rótulo (I.A. Vision)")
