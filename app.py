@@ -93,7 +93,7 @@ class Insumo(Base):
     __tablename__ = "insumos"
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String, unique=True, index=True)
-    unidade_medida = Column(String)
+    unidade_medida = Column(String, default="un")
     saldo_atual = Column(Float, default=0.0)
     estoque_minimo = Column(Float, default=0.0)
     custo_unitario = Column(Float, default=0.0)
@@ -197,6 +197,10 @@ with engine.connect() as conexao:
             conexao.execute(sqlalchemy.text("ALTER TABLE insumos ADD COLUMN unidade_medida VARCHAR DEFAULT 'un';"))
         if "estoque_minimo" not in cols_ins:
             conexao.execute(sqlalchemy.text("ALTER TABLE insumos ADD COLUMN estoque_minimo FLOAT DEFAULT 0.0;"))
+        if "saldo_atual" not in cols_ins:
+            conexao.execute(sqlalchemy.text("ALTER TABLE insumos ADD COLUMN saldo_atual FLOAT DEFAULT 0.0;"))
+        if "custo_unitario" not in cols_ins:
+            conexao.execute(sqlalchemy.text("ALTER TABLE insumos ADD COLUMN custo_unitario FLOAT DEFAULT 0.0;"))
 
         res_prod = conexao.execute(sqlalchemy.text("PRAGMA table_info(produtos);")).fetchall()
         cols_prod = [col[1] for col in res_prod]
@@ -644,7 +648,7 @@ with aba2:
                         if st.button(f"🚀 Disparar Campanha WhatsApp para {cli.nome}", key=f"btn_zap_resgate_{cli.id}", type="primary"):
                             st.success(f"✅ Campanha de resgate enviada com sucesso para o número {cli.whatsapp}!")
         else:
-            st.success("🎉 Excelente notícia! Nenhum cliente inativo há mais de 15 dias foi identificado no momento. Sua base está altamente engajada!")
+            st.success("🎉 Excelente notícia! Nenhum cliente inativo há mais de 15 dias foi identificado no momento. Sua base está highly engajada!")
 
     with sub_crm2:
         st.subheader("💳 Relatório Geral de Saldos de Cashback")
