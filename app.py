@@ -886,6 +886,7 @@ with aba4:
 
     db_estoque = get_db()
 
+    # --- SUB-ABA 1: ALMOXARIFADO, STATUS E EXCLUSÃO ISOLADA ---
     with sub_aba1:
         st.subheader("📋 Status do Almoxarifado em Tempo Real")
     
@@ -894,8 +895,6 @@ with aba4:
         if insumos_cadastrados:
             dados_estoque = []
             for i in insumos_cadastrados:
-                valor_investido = i.saldo_atual * i.custo_unitario
-                
                 # LÓGICA DE VALIDADE NA TABELA
                 status_validade = "🟢 No Prazo"
                 if i.data_validade:
@@ -920,38 +919,13 @@ with aba4:
         else:
             st.info("Nenhum insumo cadastrado no almoxarifado.")
 
+        # Opção de Exclusão Corretamente Isolada na Sub-Aba 1
         st.markdown("---")
-        st.subheader("🤖 Forecasting Preditivo & Alertas de Vencimento (WhatsApp)")
-        if st.button("🔮 Executar Varredura de Estoque e Validades Agora", type="primary"):
-            db_fc = get_db()
-            resultado_ia = executar_forecasting_e_alertar(db_fc)
-            db_fc.close()
-            st.info(resultado_ia)
-st.markdown("---")
-    st.subheader("🗑️ Excluir Insumo do Estoque")
-    
-    if insumos_cadastrados:
-        nomes_insumos = [i.nome for i in insumos_cadastrados]
-        insumo_para_deletar = st.selectbox("Selecione o insumo para remover:", nomes_insumos, key="del_insumo")
-        
-        if st.button("Excluir Insumo Permanentemente", type="primary"):
-            item_obj = db_estoque.query(Insumo).filter_by(nome=insumo_para_deletar).first()
-            if item_obj:
-                db_estoque.delete(item_obj)
-                db_estoque.commit()
-                st.success(f"Insumo '{insumo_para_deletar}' excluído com sucesso!")
-                st.rerun()
-
-    with sub_aba2:
-        st.subheader("➕ Leitor de Nota Fiscal/Rótulo (I.A. Vision)")
-        st.write("Envie a foto de um cupom ou a caixa do produto. O robô lerá o nome, quantidade e as DATAS DE VALIDADE.")
-        st.markdown("---")
-
         st.subheader("🗑️ Excluir Insumo do Estoque")
         if insumos_cadastrados:
             nomes_insumos = [i.nome for i in insumos_cadastrados]
             insumo_para_deletar = st.selectbox("Selecione o insumo para remover:", nomes_insumos, key="del_insumo")
-
+            
             if st.button("Excluir Insumo Permanentemente", type="primary"):
                 item_obj = db_estoque.query(Insumo).filter_by(nome=insumo_para_deletar).first()
                 if item_obj:
@@ -962,93 +936,104 @@ st.markdown("---")
 
         st.markdown("---")
         st.subheader("🤖 Forecasting Preditivo & Alertas de Vencimento (WhatsApp)")
-        arquivo_nf_cad = st.file_uploader("📸 Foto da Nota Fiscal ou Rótulo", type=["jpg", "jpeg", "png"], key="uploader_nf_cad_ia")
+        if st.button("🔮 Executar Varredura de Estoque e Validades Agora", type="primary"):
+            db_fc = get_db()
+            resultado_ia = executar_forecasting_e_alertar(db_fc)
+            db_fc.close()
+            st.info(resultado_ia)
 
+    # --- SUB-ABA 2: CADASTRO COM UNIDADE, ESTOQUE MÍNIMO E LEITOR IA ---
+    with sub_aba2:
+        st.subheader("➕ Leitor de Nota Fiscal/Rótulo (I.A. Vision)")
+        st.write("Envie a foto de um cupom ou a caixa do produto. O robô lerá o nome, quantidade e as DATAS DE VALIDADE.")
+        
+        arquivo_nf_cad = st.file_uploader("📸 Foto da Nota Fiscal ou Rótulo", type=["jpg", "jpeg", "png"], key="uploader_nf_cad_ia")
+        
         if arquivo_nf_cad:
             if st.button("🚀 Processar Leitura com Inteligência Artificial", type="primary"):
                 with st.spinner("🤖 O Gemini está lendo os produtos e as datas de validade..."):
                     try:
                         img_pil = Image.open(arquivo_nf_cad)
-
-                        # PROMPT NOVO COM INSTRUÇÃO DE DATA DE VALIDADE
                         prompt_ocr = '''Você é um auditor de estoque. Analise esta imagem.
-                        Extraia os itens e retorne APENAS um array JSON válido no formato:
+                        Extraia os itens e retorne APENAS um array JSON válido no formato: 
                         [{"nome": "Produto", "unidade": "kg", "quantidade": 5.0, "valor_unitario": 12.50, "data_validade": "YYYY-MM-DD"}]
                         Se não encontrar a validade na imagem, preencha o campo data_validade com null.
                         Retorne EXCLUSIVAMENTE o JSON puro (sem markdown).'''
-
+                        
                         resp_cad = client.models.generate_content(model="gemini-2.5-flash", contents=[prompt_ocr, img_pil])
                         texto_ocr = resp_cad.text.strip().replace("```json", "").replace("```", "").strip()
                         itens_lidos = json.loads(texto_ocr)
-
+                        
                         db_cad = get_db()
                         for item in itens_lidos:
                             nome_l = str(item.get("nome", "")).strip()
                             qtd_l = float(item.get("quantidade", 0.0))
                             val_str = item.get("data_validade")
-
+                            
                             val_obj = None
                             if val_str:
-                                try:
-                                    val_obj = datetime.strptime(val_str, '%Y-%m-%d')
-                                except Exception:
-                                    pass
+                                try: val_obj = datetime.strptime(val_str, '%Y-%m-%d')
+                                except: pass
 
                             if nome_l and qtd_l > 0:
                                 ins_db = db_cad.query(Insumo).filter(Insumo.nome.ilike(f"%{nome_l}%")).first()
                                 if ins_db:
                                     ins_db.saldo_atual += qtd_l
-                                    if val_obj:
-                                        ins_db.data_validade = val_obj
+                                    if val_obj: ins_db.data_validade = val_obj
                                 else:
                                     novo_i = Insumo(
-                                        nome=nome_l,
-                                        unidade_medida=item.get("unidade", "un"),
-                                        saldo_atual=qtd_l,
-                                        estoque_minimo=qtd_l * 0.15,
-                                        data_validade=val_obj,
-                                        dias_alerta_vencimento=15,
+                                        nome=nome_l, unidade_medida=item.get("unidade", "un"),
+                                        saldo_atual=qtd_l, estoque_minimo=qtd_l * 0.15,
+                                        data_validade=val_obj, dias_alerta_vencimento=15
                                     )
                                     db_cad.add(novo_i)
-
+                                    
                         db_cad.commit()
-                        st.success("🎉 Leitura concluída! Validades salvas no banco de dados.")
+                        st.success(f"🎉 Leitura concluída! Validades salvas no banco de dados.")
                         st.json(itens_lidos)
                     except Exception as e:
                         st.error(f"❌ Erro na leitura: {e}")
 
         st.divider()
-        st.markdown("### ✍️ Cadastro Manual (Com Validades)")
+        st.markdown("### ✍️ Cadastro Manual (Com Validades, Unidade e Estoque Mínimo)")
+        
         with st.form("form_cadastro_manual", clear_on_submit=True):
             col_m1, col_m2, col_m3 = st.columns(3)
-
+            
             with col_m1:
                 novo_nome = st.text_input("Nome do Insumo (Ex: Pão Australiano)")
-                novo_saldo = st.number_input("Quantidade Inicial", min_value=0.0)
+                unidade_medida = st.selectbox("Unidade de Medida", ["kg", "g", "L", "ml", "un", "cx", "fatias"])
             with col_m2:
-                nova_fab = st.date_input("Data de Fabricação (Opcional)", value=None)
-                nova_val = st.date_input("Data de Validade", value=date.today() + timedelta(days=30))
+                novo_saldo = st.number_input("Quantidade Inicial", min_value=0.0, value=0.0)
+                estoque_minimo = st.number_input("Estoque Mínimo", min_value=0.0, value=10.0)
             with col_m3:
-                dias_alerta = st.number_input("🚨 Alerta Vencimento (Dias)", min_value=1, value=15, help="Dias antes de vencer para mandar WhatsApp")
-                novo_custo = st.number_input("Custo Unitário (R$)", min_value=0.0)
+                novo_custo = st.number_input("Custo Unitário (R$)", min_value=0.0, value=0.0)
+                dias_alerta = st.number_input("🚨 Alerta Vencimento (Dias)", min_value=1, value=15)
+
+            col_m4, col_m5 = st.columns(2)
+            with col_m4:
+                nova_fab = st.date_input("Data de Fabricação (Opcional)", value=None)
+            with col_m5:
+                nova_val = st.date_input("Data de Validade", value=date.today() + timedelta(days=30))
 
             if st.form_submit_button("💾 Salvar Manualmente", type="primary"):
                 if novo_nome.strip() != "":
                     db_m = get_db()
                     novo_insumo = Insumo(
-                        nome=novo_nome,
-                        saldo_atual=novo_saldo,
-                        custo_unitario=novo_custo,
-                        unidade_medida="un",
-                        data_fabricacao=nova_fab,
+                        nome=novo_nome, 
+                        unidade_medida=unidade_medida,
+                        saldo_atual=novo_saldo, 
+                        estoque_minimo=estoque_minimo,
+                        custo_unitario=novo_custo, 
+                        data_fabricacao=nova_fab, 
                         data_validade=nova_val,
-                        dias_alerta_vencimento=dias_alerta,
+                        dias_alerta_vencimento=dias_alerta
                     )
                     db_m.add(novo_insumo)
                     db_m.commit()
                     db_m.close()
-                    st.success(f"✅ Insumo '{novo_nome}' salvo! O sistema avisará {dias_alerta} dias antes de {nova_val.strftime('%d/%m/%Y')}.")
-
+                    st.success(f"✅ Insumo '{novo_nome}' salvo com sucesso!")
+                    st.rerurn()
 # ==============================================================================
 # ABA 5: DASHBOARD FINANCEIRO E HISTÓRICO DE VENDAS
 # ==============================================================================
