@@ -886,7 +886,7 @@ with aba4:
 
     db_estoque = get_db()
 
-    # --- SUB-ABA 1: ALMOXARIFADO, STATUS E EXCLUSÃO ISOLADA ---
+    # --- SUB-ABA 1: ALMOXARIFADO, STATUS, VALORES E EXCLUSÃO ---
     with sub_aba1:
         st.subheader("📋 Status do Almoxarifado em Tempo Real")
     
@@ -894,8 +894,12 @@ with aba4:
 
         if insumos_cadastrados:
             dados_estoque = []
+            valor_total_geral = 0.0
+
             for i in insumos_cadastrados:
-                # LÓGICA DE VALIDADE NA TABELA
+                valor_total_item = i.saldo_atual * i.custo_unitario
+                valor_total_geral += valor_total_item
+                
                 status_validade = "🟢 No Prazo"
                 if i.data_validade:
                     dias_restantes = (i.data_validade.date() - date.today()).days
@@ -909,6 +913,8 @@ with aba4:
                 dados_estoque.append({
                     "Insumo": i.nome,
                     "Saldo Atual": f"{i.saldo_atual:.1f} {i.unidade_medida}",
+                    "Custo Unit.": f"R$ {i.custo_unitario:.2f}",
+                    "Valor Total": f"R$ {valor_total_item:.2f}",
                     "Estoque Mínimo": f"{i.estoque_minimo:.1f} {i.unidade_medida}",
                     "Status Estoque": status_estoque,
                     "Data Validade": i.data_validade.strftime('%d/%m/%Y') if i.data_validade else "N/A",
@@ -916,10 +922,13 @@ with aba4:
                 })
 
             st.dataframe(pd.DataFrame(dados_estoque), use_container_width=True, hide_index=True)
+
+            # Exibe o Valor Total Geral do Estoque em destaque
+            st.metric(label="💰 Valor Total Geral do Estoque", value=f"R$ {valor_total_geral:.2f}")
         else:
             st.info("Nenhum insumo cadastrado no almoxarifado.")
 
-        # Opção de Exclusão Corretamente Isolada na Sub-Aba 1
+        # Opção de Exclusão Isolada
         st.markdown("---")
         st.subheader("🗑️ Excluir Insumo do Estoque")
         if insumos_cadastrados:
@@ -1019,21 +1028,33 @@ with aba4:
             if st.form_submit_button("💾 Salvar Manualmente", type="primary"):
                 if novo_nome.strip() != "":
                     db_m = get_db()
-                    novo_insumo = Insumo(
-                        nome=novo_nome, 
-                        unidade_medida=unidade_medida,
-                        saldo_atual=novo_saldo, 
-                        estoque_minimo=estoque_minimo,
-                        custo_unitario=novo_custo, 
-                        data_fabricacao=nova_fab, 
-                        data_validade=nova_val,
-                        dias_alerta_vencimento=dias_alerta
-                    )
-                    db_m.add(novo_insumo)
-                    db_m.commit()
-                    db_m.close()
-                    st.success(f"✅ Insumo '{novo_nome}' salvo com sucesso!")
-                    st.rerurn()
+                    try:
+                        novo_insumo = Insumo(
+                            nome=novo_nome.strip(), 
+                            unidade_medida=unidade_medida,
+                            saldo_atual=novo_saldo, 
+                            estoque_minimo=estoque_minimo,
+                            custo_unitario=novo_custo, 
+                            data_fabricacao=nova_fab, 
+                            data_validade=nova_val,
+                            dias_alerta_vencimento=dias_alerta
+                        )
+                        db_m.add(novo_insumo)
+                        db_m.commit()
+                        st.success(f"✅ Insumo '{novo_nome}' salvo com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        db_m.rollback()
+                        st.error(f"❌ Erro ao salvar: Já existe um insumo cadastrado com o nome '{novo_nome}' ou ocorreu um conflito.")
+                    finally:
+                        db_m.close()
+                else:
+                    st.warning("⚠️ O nome do insumo não pode estar vazio.")
+
+    # --- SUB-ABA 3: FICHAS TÉCNICAS & RECEITAS ---
+    with sub_aba3:
+        st.subheader("🔗 Fichas Técnicas & Receitas Vinculadas")
+        st.write("Gerencie os vínculos entre insumos e produtos do cardápio.")
 # ==============================================================================
 # ABA 5: DASHBOARD FINANCEIRO E HISTÓRICO DE VENDAS
 # ==============================================================================
