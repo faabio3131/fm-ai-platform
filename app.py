@@ -97,7 +97,6 @@ class Insumo(Base):
     saldo_atual = Column(Float, default=0.0)
     estoque_minimo = Column(Float, default=0.0)
     custo_unitario = Column(Float, default=0.0)
-    # NOVOS CAMPOS DE CONTROLE DE VALIDADE ADICIONADOS AQUI
     data_fabricacao = Column(DateTime, nullable=True)
     data_validade = Column(DateTime, nullable=True)
     dias_alerta_vencimento = Column(Integer, default=15)
@@ -188,13 +187,17 @@ with engine.connect() as conexao:
         if "gateway_api_key" not in cols_conf:
             conexao.execute(sqlalchemy.text("ALTER TABLE configuracoes_meta ADD COLUMN gateway_api_key VARCHAR;"))
             
-        # NOVA MIGRAÇÃO: ADICIONANDO DATAS NO INSUMO SE NÃO EXISTIREM
         res_ins = conexao.execute(sqlalchemy.text("PRAGMA table_info(insumos);")).fetchall()
         cols_ins = [col[1] for col in res_ins]
         if "data_validade" not in cols_ins:
             conexao.execute(sqlalchemy.text("ALTER TABLE insumos ADD COLUMN data_fabricacao DATETIME;"))
             conexao.execute(sqlalchemy.text("ALTER TABLE insumos ADD COLUMN data_validade DATETIME;"))
             conexao.execute(sqlalchemy.text("ALTER TABLE insumos ADD COLUMN dias_alerta_vencimento INTEGER DEFAULT 15;"))
+
+        res_prod = conexao.execute(sqlalchemy.text("PRAGMA table_info(produtos);")).fetchall()
+        cols_prod = [col[1] for col in res_prod]
+        if "imagem_path" not in cols_prod:
+            conexao.execute(sqlalchemy.text("ALTER TABLE produtos ADD COLUMN imagem_path VARCHAR;"))
             
         conexao.commit()
     except Exception as e:
@@ -405,13 +408,11 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
                         bytes_data = arquivo_upload.getvalue()
                         mime = arquivo_upload.type
                         try:
-                            # TENTATIVA 1: Envio direto via Part.from_bytes (Sintaxe Correta)
                             from google.genai import types
                             part_arquivo = types.Part.from_bytes(data=bytes_data, mime_type=mime)
                             contents = [part_arquivo, prompt]
-                            response = client_ativo.models.generate_content(model="gemini-2.5-flash", contents=contents)
+                            response = client_ativo.models.generate_content(model="gemini-1.5-flash", contents=contents)
                         except Exception as api_err:
-                            # TENTATIVA 2 (FALLBACK): Lê o PDF localmente se a API rejeitar
                             if mime == "application/pdf":
                                 st.warning("⚠️ API rejeitou o arquivo direto. Extraindo texto via PyPDF em contingência...")
                                 leitor_pdf = pypdf.PdfReader(io.BytesIO(bytes_data))
@@ -420,14 +421,14 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
                                     texto_extraido += pagina.extract_text() + "\n"
                                 
                                 response = client_ativo.models.generate_content(
-                                    model="gemini-2.5-flash", 
+                                    model="gemini-1.5-flash", 
                                     contents=f"{prompt}\n\nTexto extraído do PDF:\n{texto_extraido}"
                                 )
                             else:
                                 raise api_err
                     else:
                         response = client_ativo.models.generate_content(
-                            model="gemini-2.5-flash",
+                            model="gemini-1.5-flash",
                             contents=f"{prompt}\n\n{texto_cardapio}"
                         )
                     
@@ -465,7 +466,6 @@ def executar_forecasting_e_alertar(db_session):
 
     resumo_estoque = ""
     for i in insumos:
-        # Verifica também a validade agora!
         val_info = f", Validade: {i.data_validade.strftime('%d/%m/%Y')} (Aviso {i.dias_alerta_vencimento} dias antes)" if i.data_validade else ""
         resumo_estoque += f"- {i.nome}: Saldo Atual = {i.saldo_atual} {i.unidade_medida}, Mínimo = {i.estoque_minimo}{val_info}\n"
     
@@ -483,7 +483,7 @@ def executar_forecasting_e_alertar(db_session):
 
     try:
         from google import genai
-        resp = client.models.generate_content(model="gemini-2.5-flash", contents=prompt_forecast)
+        resp = client.models.generate_content(model="gemini-1.5-flash", contents=prompt_forecast)
         texto_limpo = resp.text.strip().replace("```json", "").replace("```", "").strip()
         alertas_ia = json.loads(texto_limpo)
 
@@ -561,7 +561,7 @@ with st.sidebar:
     st.info("🏪 **Loja Ativa:**\nMica Burguer & Restaurante")
     
     if GENAI_DISPONIVEL:
-        st.markdown("🟢 **Google GenAI Ativo (Gemini 2.0 Flash)**")
+        st.markdown("🟢 **Google GenAI Ativo (Gemini 1.5 Flash)**")
     else:
         st.markdown("⚠️ **Modo Offline / Sem Chave API**")
 
@@ -598,7 +598,6 @@ with aba2:
 
     db_crm_base = get_db()
 
-    # --- SUB-ABA 1: RESGATE DE CLIENTES INATIVOS ---
     with sub_crm1:
         st.subheader("🤖 Automação de Resgate com Inteligência Artificial")
         st.write("A plataforma identifica clientes sem compras há mais de 15 dias e sugere abordagens personalizadas com cupons de desconto para disparar no WhatsApp.")
@@ -629,7 +628,7 @@ with aba2:
                     if GENAI_DISPONIVEL:
                         try:
                             prompt_resg = f"Escreva uma mensagem curta, carinhosa e muito persuasiva de WhatsApp para resgatar o cliente '{cli.nome}', que não faz pedidos em nossa hamburgueria gourmet há semanas. Ofereça um cupom especial de 15% de desconto (CUPOM: VOLTAMICA15). Sem clichês em excesso."
-                            resp_resg = client.models.generate_content(model="gemini-2.5-flash", contents=prompt_resg)
+                            resp_resg = client.models.generate_content(model="gemini-1.5-flash", contents=prompt_resg)
                             if resp_resg and resp_resg.text:
                                 msg_resgate_padrao = resp_resg.text.strip()
                         except Exception:
@@ -643,7 +642,6 @@ with aba2:
         else:
             st.success("🎉 Excelente notícia! Nenhum cliente inativo há mais de 15 dias foi identificado no momento. Sua base está altamente engajada!")
 
-    # --- SUB-ABA 2: GESTÃO DE CASHBACK ---
     with sub_crm2:
         st.subheader("💳 Relatório Geral de Saldos de Cashback")
         st.write("Acompanhe o saldo que cada cliente acumulou para utilizar como desconto em pedidos futuros na loja ou no delivery.")
@@ -799,7 +797,7 @@ with aba3:
                     
                     Retorne APENAS a frase recomendada para o operador falar, entre aspas, pronta para ser lida no atendimento. Sem textos extras.
                     """
-                    resp_up = client.models.generate_content(model="gemini-2.5-flash", contents=prompt_up)
+                    resp_up = client.models.generate_content(model="gemini-1.5-flash", contents=prompt_up)
                     if resp_up and resp_up.text:
                         sugestao_upsell = resp_up.text.strip()
                 except Exception:
@@ -872,7 +870,7 @@ with aba3:
 
 
 # ==============================================================================
-# ABA 4: ESTOQUE, ALMOXARIFADO & VALIDADES COM I.A. (TOTALMENTE ATUALIZADA)
+# ABA 4: ESTOQUE, ALMOXARIFADO & VALIDADES COM I.A.
 # ==============================================================================
 with aba4:
     st.header("📦 Estoque de Insumos & Controle Inteligente de Validades")
@@ -886,7 +884,6 @@ with aba4:
 
     db_estoque = get_db()
 
-    # --- SUB-ABA 1: ALMOXARIFADO, STATUS, VALORES E EXCLUSÃO ---
     with sub_aba1:
         st.subheader("📋 Status do Almoxarifado em Tempo Real")
     
@@ -922,13 +919,10 @@ with aba4:
                 })
 
             st.dataframe(pd.DataFrame(dados_estoque), use_container_width=True, hide_index=True)
-
-            # Exibe o Valor Total Geral do Estoque em destaque
             st.metric(label="💰 Valor Total Geral do Estoque", value=f"R$ {valor_total_geral:.2f}")
         else:
             st.info("Nenhum insumo cadastrado no almoxarifado.")
 
-        # Opção de Exclusão Isolada
         st.markdown("---")
         st.subheader("🗑️ Excluir Insumo do Estoque")
         if insumos_cadastrados:
@@ -951,7 +945,6 @@ with aba4:
             db_fc.close()
             st.info(resultado_ia)
 
-    # --- SUB-ABA 2: CADASTRO COM UNIDADE, ESTOQUE MÍNIMO E LEITOR IA ---
     with sub_aba2:
         st.subheader("➕ Leitor de Nota Fiscal/Rótulo (I.A. Vision)")
         st.write("Envie a foto de um cupom ou a caixa do produto. O robô lerá o nome, quantidade e as DATAS DE VALIDADE.")
@@ -969,7 +962,7 @@ with aba4:
                         Se não encontrar a validade na imagem, preencha o campo data_validade com null.
                         Retorne EXCLUSIVAMENTE o JSON puro (sem markdown).'''
                         
-                        resp_cad = client.models.generate_content(model="gemini-2.5-flash", contents=[prompt_ocr, img_pil])
+                        resp_cad = client.models.generate_content(model="gemini-1.5-flash", contents=[prompt_ocr, img_pil])
                         texto_ocr = resp_cad.text.strip().replace("```json", "").replace("```", "").strip()
                         itens_lidos = json.loads(texto_ocr)
                         
@@ -1051,10 +1044,10 @@ with aba4:
                 else:
                     st.warning("⚠️ O nome do insumo não pode estar vazio.")
 
-    # --- SUB-ABA 3: FICHAS TÉCNICAS & RECEITAS ---
     with sub_aba3:
         st.subheader("🔗 Fichas Técnicas & Receitas Vinculadas")
         st.write("Gerencie os vínculos entre insumos e produtos do cardápio.")
+
 # ==============================================================================
 # ABA 5: DASHBOARD FINANCEIRO E HISTÓRICO DE VENDAS
 # ==============================================================================
@@ -1098,7 +1091,7 @@ with aba5:
 
 
 # ==============================================================================
-# ABA 6: BOT CLIENTE (ASSISTENTE VIRTUAL "MICA I.A.") COM PIX E UPSELL INTELIGENTE
+# ABA 6: BOT CLIENTE (ASSISTENTE VIRTUAL "MICA I.A.")
 # ==============================================================================
 with aba6:
     st.header("💬 Bot Cliente (Mica I.A.) - Simulador Omnichannel WhatsApp")
@@ -1184,7 +1177,7 @@ if btn_acionar_mica:
                         audio_ref = client.files.upload(file=foto_pedido_bot.name)
                         inputs_mica.append(audio_ref)
 
-                resp_mica = client.models.generate_content(model="gemini-2.5-flash", contents=inputs_mica)
+                resp_mica = client.models.generate_content(model="gemini-1.5-flash", contents=inputs_mica)
                 texto_mica_limpo = resp_mica.text.strip().replace("```json", "").replace("```", "").strip()
                 dados_pedido_mica = json.loads(texto_mica_limpo)
 
