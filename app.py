@@ -193,6 +193,10 @@ with engine.connect() as conexao:
             conexao.execute(sqlalchemy.text("ALTER TABLE insumos ADD COLUMN data_fabricacao DATETIME;"))
             conexao.execute(sqlalchemy.text("ALTER TABLE insumos ADD COLUMN data_validade DATETIME;"))
             conexao.execute(sqlalchemy.text("ALTER TABLE insumos ADD COLUMN dias_alerta_vencimento INTEGER DEFAULT 15;"))
+        if "unidade_medida" not in cols_ins:
+            conexao.execute(sqlalchemy.text("ALTER TABLE insumos ADD COLUMN unidade_medida VARCHAR DEFAULT 'un';"))
+        if "estoque_minimo" not in cols_ins:
+            conexao.execute(sqlalchemy.text("ALTER TABLE insumos ADD COLUMN estoque_minimo FLOAT DEFAULT 0.0;"))
 
         res_prod = conexao.execute(sqlalchemy.text("PRAGMA table_info(produtos);")).fetchall()
         cols_prod = [col[1] for col in res_prod]
