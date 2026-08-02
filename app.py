@@ -254,28 +254,29 @@ def recalcular_cmv_geral(db_session):
         db_session.rollback()
 
 def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, client=None, GENAI_DISPONIVEL=False):
-    st.subheader("👨‍🍳 Engenharia de Cardápio & Ficha Técnica Granular")
+    st.subheader("👨‍🍳 Engenharia de Cardápio & Ficha Técnica (Pratos do Menu)")
+    st.caption("Cadastre os pratos do cardápio utilizando exclusivamente os insumos já cadastrados e validados no Almoxarifado (Aba 4).")
     
     modo = st.radio(
-        "Escolha como deseja cadastrar:",
-        ["✍️ Cadastro Manual", "🤖 Importação Automática via IA (Foto/PDF/Texto)"],
+        "Escolha como deseja cadastrar o prato:",
+        ["✍️ Cadastro Manual de Prato", "🤖 Importação Automática de Cardápio via IA (Foto/PDF/Texto)"],
         horizontal=True
     )
     
     st.markdown("---")
     
-    if modo == "✍️ Cadastro Manual":
+    if modo == "✍️ Cadastro Manual de Prato":
         col_nome, col_cat = st.columns([2, 1])
         with col_nome:
-            nome_produto = st.text_input("Nome do Produto / Prato", placeholder="Ex: Mica Royal Truffle Bacon")
+            nome_produto = st.text_input("Nome do Prato / Lanche", placeholder="Ex: Mica Royal Truffle Bacon")
         with col_cat:
-            categoria = st.selectbox("Categoria", ["Hambúrgueres", "Porções", "Bebidas", "Sobremesas"])
+            categoria = st.selectbox("Categoria no Cardápio", ["Hambúrgueres", "Porções", "Bebidas", "Sobremesas"])
             
-        st.write("### 🥗 Composição da Ficha Técnica (Insumos do Almoxarifado)")
+        st.write("### 🥗 Composição da Ficha Técnica (Puxando do Almoxarifado)")
         insumos_disponiveis = db_session.query(Insumo).all()
         
         if not insumos_disponiveis:
-            st.warning("⚠️ Nenhum insumo encontrado no Almoxarifado. Cadastre os insumos primeiro!")
+            st.warning("⚠️ Nenhum insumo encontrado no Almoxarifado. Cadastre os insumos e validades na Aba 4 primeiro!")
             return
             
         if "itens_ficha_tecnica" not in st.session_state:
@@ -284,9 +285,9 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
         c1, c2, c3 = st.columns([3, 2, 1])
         with c1:
             insumo_selecionado = st.selectbox(
-                "Selecione o Insumo",
+                "Selecione o Insumo do Almoxarifado",
                 options=insumos_disponiveis,
-                format_func=lambda x: f"{x.nome} (R$ {x.custo_unitario:.2f} / {x.unidade_medida})",
+                format_func=lambda x: f"{x.nome} (Custo: R$ {x.custo_unitario:.2f} / {x.unidade_medida} | Validade: {x.data_validade.strftime('%d/%m/%Y') if x.data_validade else 'N/A'})",
                 key="sel_insumo"
             )
         with c2:
@@ -296,7 +297,7 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
         with c3:
             st.write(" ")
             st.write(" ")
-            if st.button("➕ Adicionar", use_container_width=True):
+            if st.button("➕ Adicionar à Receita", use_container_width=True):
                 custo_item = (qtd_usada / 1000.0) * insumo_selecionado.custo_unitario if insumo_selecionado.unidade_medida == "kg" else qtd_usada * insumo_selecionado.custo_unitario
                 st.session_state.itens_ficha_tecnica.append({
                     "insumo_id": insumo_selecionado.id,
@@ -309,12 +310,12 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
                 
         cmv_total_calculado = 0.0
         if st.session_state.itens_ficha_tecnica:
-            st.write("#### 📜 Receita Montada:")
+            st.write("#### 📜 Receita Montada para este Prato:")
             tabela_dados = []
             for item in st.session_state.itens_ficha_tecnica:
                 cmv_total_calculado += item["custo_calculado"]
                 tabela_dados.append({
-                    "Item": item["nome"],
+                    "Insumo": item["nome"],
                     "Qtd na Receita": f"{item['quantidade']} {item['unidade']}",
                     "Custo Residual (R$)": f"R$ {item['custo_calculado']:.2f}"
                 })
@@ -341,11 +342,11 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
             
         with col_lucro:
             margem_real = ((preco_venda_final - cmv_total_calculado) / preco_venda_final * 100) if preco_venda_final > 0 else 0
-            st.metric("Lucro Bruto / Lanche", f"R$ {(preco_venda_final - cmv_total_calculado):.2f}", delta=f"{margem_real:.1f}% Margem Real")
+            st.metric("Lucro Bruto / Prato", f"R$ {(preco_venda_final - cmv_total_calculado):.2f}", delta=f"{margem_real:.1f}% Margem Real")
             
-        if st.button("💾 Salvar Produto & Ficha Técnica", type="primary"):
+        if st.button("💾 Salvar Prato no Cardápio & Ficha Técnica", type="primary"):
             if not nome_produto:
-                st.error("❌ Digite o nome do produto.")
+                st.error("❌ Digite o nome do prato.")
             elif not st.session_state.itens_ficha_tecnica:
                 st.error("❌ Adicione pelo menos 1 insumo à ficha técnica.")
             else:
@@ -367,13 +368,13 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
                     db_session.add(nova_ft)
                 db_session.commit()
                 
-                st.success(f"✅ **{nome_produto}** cadastrado com sucesso!")
+                st.success(f"✅ Prato **{nome_produto}** cadastrado com sucesso no Cardápio!")
                 st.session_state.itens_ficha_tecnica = []
                 st.rerun()
 
     else:
-        st.write("### 📄 Upload de Cardápio Real (Foto, PDF ou Colar Texto) via Gemini")
-        st.caption("Carregue o arquivo com seu cardápio oficial que a IA extrairá todos os produtos e cadastrará no banco.")
+        st.write("### 📄 Importação Automática de Cardápio Real (Foto, PDF ou Colar Texto) via Gemini")
+        st.caption("Carregue o arquivo com seu cardápio oficial que a IA extrairá todos os pratos e cadastrará no menu.")
         
         opcao_fonte = st.radio("Origem do arquivo:", ["📁 Upload de Arquivo (Imagem/PDF)", "📝 Colar Texto do Cardápio"], horizontal=True)
         
@@ -400,14 +401,14 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
             with st.spinner("🤖 O Gemini está analisando o cardápio real..."):
                 try:
                     prompt = """
-                    Você é um especialista em ERP gastronômico. Analise o cardápio fornecido e extraia todos os produtos/itens cadastráveis.
+                    Você é um especialista em ERP gastronômico. Analise o cardápio fornecido e extraia todos os produtos/pratos cadastráveis.
                     Retorne EXATAMENTE um JSON no seguinte formato (sem formatação markdown ```json, apenas a string json pura):
                     [
                         {
-                            "nome": "Nome do Lanche",
+                            "nome": "Nome do Prato",
                             "categoria": "Hambúrgueres",
                             "preco": 39.90,
-                            "ingredientes": "Descrição ou ingredientes brutos"
+                            "ingredientes": "Descrição ou ingredientes"
                         }
                     ]
                     """
@@ -419,7 +420,7 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
                             from google.genai import types
                             part_arquivo = types.Part.from_bytes(data=bytes_data, mime_type=mime)
                             contents = [part_arquivo, prompt]
-                            response = client_ativo.models.generate_content(model="gemini-1.5-flash", contents=contents)
+                            response = client_ativo.models.generate_content(model="gemini-2.5-flash", contents=contents)
                         except Exception as api_err:
                             if mime == "application/pdf":
                                 st.warning("⚠️ API rejeitou o arquivo direto. Extraindo texto via PyPDF em contingência...")
@@ -429,14 +430,14 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
                                     texto_extraido += pagina.extract_text() + "\n"
                                 
                                 response = client_ativo.models.generate_content(
-                                    model="gemini-1.5-flash", 
+                                    model="gemini-2.5-flash", 
                                     contents=f"{prompt}\n\nTexto extraído do PDF:\n{texto_extraido}"
                                 )
                             else:
                                 raise api_err
                     else:
                         response = client_ativo.models.generate_content(
-                            model="gemini-1.5-flash",
+                            model="gemini-2.5-flash",
                             contents=f"{prompt}\n\n{texto_cardapio}"
                         )
                     
@@ -457,7 +458,7 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
                         qtd_cadastrados += 1
                         
                     db_session.commit()
-                    st.success(f"🎉 Sucesso! **{qtd_cadastrados} produtos** foram extraídos pelo Gemini e salvos diretamente no cardápio!")
+                    st.success(f"🎉 Sucesso! **{qtd_cadastrados} pratos** foram extraídos pelo Gemini e salvos diretamente no cardápio!")
                     
                 except Exception as e:
                     st.error(f"❌ Erro ao processar cardápio com IA: {e}")
@@ -491,7 +492,7 @@ def executar_forecasting_e_alertar(db_session):
 
     try:
         from google import genai
-        resp = client.models.generate_content(model="gemini-1.5-flash", contents=prompt_forecast)
+        resp = client.models.generate_content(model="gemini-2.5-flash", contents=prompt_forecast)
         texto_limpo = resp.text.strip().replace("```json", "").replace("```", "").strip()
         alertas_ia = json.loads(texto_limpo)
 
@@ -569,7 +570,7 @@ with st.sidebar:
     st.info("🏪 **Loja Ativa:**\nMica Burguer & Restaurante")
     
     if GENAI_DISPONIVEL:
-        st.markdown("🟢 **Google GenAI Ativo (Gemini 1.5 Flash)**")
+        st.markdown("🟢 **Google GenAI Ativo (Gemini 2.5 Flash)**")
     else:
         st.markdown("⚠️ **Modo Offline / Sem Chave API**")
 
@@ -636,7 +637,7 @@ with aba2:
                     if GENAI_DISPONIVEL:
                         try:
                             prompt_resg = f"Escreva uma mensagem curta, carinhosa e muito persuasiva de WhatsApp para resgatar o cliente '{cli.nome}', que não faz pedidos em nossa hamburgueria gourmet há semanas. Ofereça um cupom especial de 15% de desconto (CUPOM: VOLTAMICA15). Sem clichês em excesso."
-                            resp_resg = client.models.generate_content(model="gemini-1.5-flash", contents=prompt_resg)
+                            resp_resg = client.models.generate_content(model="gemini-2.5-flash", contents=prompt_resg)
                             if resp_resg and resp_resg.text:
                                 msg_resgate_padrao = resp_resg.text.strip()
                         except Exception:
@@ -648,7 +649,7 @@ with aba2:
                         if st.button(f"🚀 Disparar Campanha WhatsApp para {cli.nome}", key=f"btn_zap_resgate_{cli.id}", type="primary"):
                             st.success(f"✅ Campanha de resgate enviada com sucesso para o número {cli.whatsapp}!")
         else:
-            st.success("🎉 Excelente notícia! Nenhum cliente inativo há mais de 15 dias foi identificado no momento. Sua base está highly engajada!")
+            st.success("🎉 Excelente notícia! Nenhum cliente inativo há mais de 15 dias foi identificado no momento. Sua base está altamente engajada!")
 
     with sub_crm2:
         st.subheader("💳 Relatório Geral de Saldos de Cashback")
@@ -753,7 +754,7 @@ with aba3:
     st.markdown("---")
 
     if not lista_pratos_pdv:
-        st.warning("⚠️ Cadastre produtos na Aba 1 (Engenharia de Cardápio) para habilitar o Frente de Caixa.")
+        st.warning("⚠️ Cadastre pratos na Aba 1 (Engenharia de Cardápio) para habilitar o Frente de Caixa.")
     else:
         col_pdv1, col_pdv2 = st.columns([3, 2])
         with col_pdv1:
@@ -805,7 +806,7 @@ with aba3:
                     
                     Retorne APENAS a frase recomendada para o operador falar, entre aspas, pronta para ser lida no atendimento. Sem textos extras.
                     """
-                    resp_up = client.models.generate_content(model="gemini-1.5-flash", contents=prompt_up)
+                    resp_up = client.models.generate_content(model="gemini-2.5-flash", contents=prompt_up)
                     if resp_up and resp_up.text:
                         sugestao_upsell = resp_up.text.strip()
                 except Exception:
@@ -970,7 +971,7 @@ with aba4:
                         Se não encontrar a validade na imagem, preencha o campo data_validade com null.
                         Retorne EXCLUSIVAMENTE o JSON puro (sem markdown).'''
                         
-                        resp_cad = client.models.generate_content(model="gemini-1.5-flash", contents=[prompt_ocr, img_pil])
+                        resp_cad = client.models.generate_content(model="gemini-2.5-flash", contents=[prompt_ocr, img_pil])
                         texto_ocr = resp_cad.text.strip().replace("```json", "").replace("```", "").strip()
                         itens_lidos = json.loads(texto_ocr)
                         
@@ -1005,7 +1006,7 @@ with aba4:
                         st.error(f"❌ Erro na leitura: {e}")
 
         st.divider()
-        st.markdown("### ✍️ Cadastro Manual (Com Validades, Unidade e Estoque Mínimo)")
+        st.markdown("### ✍️ Cadastro Manual de Insumo (Com Validade e Lote)")
         
         with st.form("form_cadastro_manual", clear_on_submit=True):
             col_m1, col_m2, col_m3 = st.columns(3)
@@ -1024,9 +1025,9 @@ with aba4:
             with col_m4:
                 nova_fab = st.date_input("Data de Fabricação (Opcional)", value=None)
             with col_m5:
-                nova_val = st.date_input("Data de Validade", value=date.today() + timedelta(days=30))
+                nova_val = st.date_input("Data de Validade (Controle de Lote)", value=date.today() + timedelta(days=30))
 
-            if st.form_submit_button("💾 Salvar Manualmente", type="primary"):
+            if st.form_submit_button("💾 Salvar Insumo no Almoxarifado", type="primary"):
                 if novo_nome.strip() != "":
                     db_m = get_db()
                     try:
@@ -1042,7 +1043,7 @@ with aba4:
                         )
                         db_m.add(novo_insumo)
                         db_m.commit()
-                        st.success(f"✅ Insumo '{novo_nome}' salvo com sucesso!")
+                        st.success(f"✅ Insumo '{novo_nome}' salvo no Almoxarifado com controle de validade!")
                         st.rerun()
                     except Exception as e:
                         db_m.rollback()
@@ -1185,7 +1186,7 @@ if btn_acionar_mica:
                         audio_ref = client.files.upload(file=foto_pedido_bot.name)
                         inputs_mica.append(audio_ref)
 
-                resp_mica = client.models.generate_content(model="gemini-1.5-flash", contents=inputs_mica)
+                resp_mica = client.models.generate_content(model="gemini-2.5-flash", contents=inputs_mica)
                 texto_mica_limpo = resp_mica.text.strip().replace("```json", "").replace("```", "").strip()
                 dados_pedido_mica = json.loads(texto_mica_limpo)
 
@@ -1207,7 +1208,7 @@ if btn_acionar_mica:
                     mostrar_pix_codigo = False
                 elif "dinheiro" in msg_lower:
                     forma_pag_texto = "Dinheiro"
-                    texto_pagamento_msg = "💵 Pedido anotado! Separaremos o troco necessário para a entrega."
+                    texto_pagamento_msg = "💵 Pedidor anotado! Separaremos o troco necessário para a entrega."
                     mostrar_pix_codigo = False
                 else:
                     forma_pag_texto = "Pix (Mica Bot WhatsApp)"
