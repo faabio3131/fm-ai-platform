@@ -420,7 +420,7 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
                             from google.genai import types
                             part_arquivo = types.Part.from_bytes(data=bytes_data, mime_type=mime)
                             contents = [part_arquivo, prompt]
-                            response = client_ativo.models.generate_content(model="gemini-2.5-flash", contents=contents)
+                            response = client_ativo.models.generate_content(model="gemini-2.0-flash", contents=contents)
                         except Exception as api_err:
                             if mime == "application/pdf":
                                 st.warning("⚠️ API rejeitou o arquivo direto. Extraindo texto via PyPDF em contingência...")
@@ -430,14 +430,14 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
                                     texto_extraido += pagina.extract_text() + "\n"
                                 
                                 response = client_ativo.models.generate_content(
-                                    model="gemini-2.5-flash", 
+                                    model="gemini-2.0-flash", 
                                     contents=f"{prompt}\n\nTexto extraído do PDF:\n{texto_extraido}"
                                 )
                             else:
                                 raise api_err
                     else:
                         response = client_ativo.models.generate_content(
-                            model="gemini-2.5-flash",
+                            model="gemini-2.0-flash",
                             contents=f"{prompt}\n\n{texto_cardapio}"
                         )
                     
@@ -492,7 +492,7 @@ def executar_forecasting_e_alertar(db_session):
 
     try:
         from google import genai
-        resp = client.models.generate_content(model="gemini-2.5-flash", contents=prompt_forecast)
+        resp = client.models.generate_content(model="gemini-2.0-flash", contents=prompt_forecast)
         texto_limpo = resp.text.strip().replace("```json", "").replace("```", "").strip()
         alertas_ia = json.loads(texto_limpo)
 
@@ -637,7 +637,7 @@ with aba2:
                     if GENAI_DISPONIVEL:
                         try:
                             prompt_resg = f"Escreva uma mensagem curta, carinhosa e muito persuasiva de WhatsApp para resgatar o cliente '{cli.nome}', que não faz pedidos em nossa hamburgueria gourmet há semanas. Ofereça um cupom especial de 15% de desconto (CUPOM: VOLTAMICA15). Sem clichês em excesso."
-                            resp_resg = client.models.generate_content(model="gemini-2.5-flash", contents=prompt_resg)
+                            resp_resg = client.models.generate_content(model="gemini-2.0-flash", contents=prompt_resg)
                             if resp_resg and resp_resg.text:
                                 msg_resgate_padrao = resp_resg.text.strip()
                         except Exception:
@@ -806,7 +806,7 @@ with aba3:
                     
                     Retorne APENAS a frase recomendada para o operador falar, entre aspas, pronta para ser lida no atendimento. Sem textos extras.
                     """
-                    resp_up = client.models.generate_content(model="gemini-2.5-flash", contents=prompt_up)
+                    resp_up = client.models.generate_content(model="gemini-2.0-flash", contents=prompt_up)
                     if resp_up and resp_up.text:
                         sugestao_upsell = resp_up.text.strip()
                 except Exception:
@@ -971,7 +971,7 @@ with aba4:
                         Se não encontrar a validade na imagem, preencha o campo data_validade com null.
                         Retorne EXCLUSIVAMENTE o JSON puro (sem markdown).'''
                         
-                        resp_cad = client.models.generate_content(model="gemini-2.5-flash", contents=[prompt_ocr, img_pil])
+                        resp_cad = client.models.generate_content(model="gemini-2.0-flash", contents=[prompt_ocr, img_pil])
                         texto_ocr = resp_cad.text.strip().replace("```json", "").replace("```", "").strip()
                         itens_lidos = json.loads(texto_ocr)
                         
@@ -1186,7 +1186,7 @@ if btn_acionar_mica:
                         audio_ref = client.files.upload(file=foto_pedido_bot.name)
                         inputs_mica.append(audio_ref)
 
-                resp_mica = client.models.generate_content(model="gemini-2.5-flash", contents=inputs_mica)
+                resp_mica = client.models.generate_content(model="gemini-2.0-flash", contents=inputs_mica)
                 texto_mica_limpo = resp_mica.text.strip().replace("```json", "").replace("```", "").strip()
                 dados_pedido_mica = json.loads(texto_mica_limpo)
 
