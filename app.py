@@ -461,7 +461,58 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
                     st.success(f"🎉 Sucesso! **{qtd_cadastrados} pratos** foram extraídos pelo Gemini e salvos diretamente no cardápio!")
                     
                 except Exception as e:
-                    st.error(f"❌ Erro ao processar cardápio com IA: {e}")
+        # 🛡️ MODO DE SEGURANÇA LOCAL ATIVADO AUTOMATICAMENTE
+        st.warning(f"⚠️ IA indisponível ({e}). Ativando o Modo de Segurança Local...")
+        
+        # Tenta pegar o texto do cardápio inserido na interface (seja por st.text_area ou variável equivalente)
+        try:
+            texto_para_processar = locals().get('texto_cardapio', '')
+        except:
+            texto_para_processar = ""
+            
+        if texto_para_processar:
+            import re
+            linhas = texto_para_processar.strip().split('\n')
+            cadastrados_local = 0
+            
+            for linha in linhas:
+                if not linha.strip():
+                    continue
+                try:
+                    partes = linha.split(' - ')
+                    nome = partes[0].strip()
+                    preco = 0.0
+                    custo = 0.0
+                    descricao = "Cadastrado via Modo de Segurança Local."
+                    
+                    for p in partes[1:]:
+                        if 'R$' in p and 'custo' not in p.lower():
+                            nums = re.findall(r'\d+[,\.]\d+', p)
+                            if nums:
+                                preco = float(nums[0].replace('.', '').replace(',', '.'))
+                        elif 'custo' in p.lower():
+                            nums = re.findall(r'\d+[,\.]\d+', p)
+                            if nums:
+                                custo = float(nums[0].replace('.', '').replace(',', '.'))
+                        else:
+                            descricao = p.strip()
+                    
+                    novo_prod = Produto(
+                        nome=nome,
+                        categoria="Hambúrgueres",
+                        preco_venda=preco,
+                        custo_total_cmv=custo,
+                        descricao_bruta=descricao
+                    )
+                    db_session.add(novo_prod)
+                    cadastrados_local += 1
+                except Exception as err_l:
+                    print(f"Erro na linha local: {err_l}")
+            
+            db_session.commit()
+            st.success(f"✅ {cadastrados_local} itens cadastrados com sucesso pelo Modo de Segurança Local!")
+        else:
+            st.error(f"❌ Erro ao processar cardápio com IA: {e}")
 
 def executar_forecasting_e_alertar(db_session):
     insumos = db_session.query(Insumo).all()
