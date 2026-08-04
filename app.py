@@ -1,5 +1,6 @@
 import os
 import streamlit as st
+from streamlit.errors import StreamlitSecretNotFoundError
 
 # Patch: ensure compatibility with custom keyword args used across the app
 try:
@@ -14,8 +15,11 @@ except Exception:
     pass
 
 # --- 0. CONFIGURAÇÃO DE SEGURANÇA E AMBIENTE ---
-if "GEMINI_API_KEY" in st.secrets:
-    os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
+try:
+    if "GEMINI_API_KEY" in st.secrets:
+        os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
+except StreamlitSecretNotFoundError:
+    pass
 
 from datetime import datetime, timedelta, date
 import hashlib
@@ -158,8 +162,245 @@ class ContatoGerencial(Base):
 # Criar todas as tabelas no banco de dados com proteção contra tabelas existentes
 try:
     Base.metadata.create_all(bind=engine, checkfirst=True)
+except Exception as e:
+    st.error(f"❌ Erro ao inicializar o banco de dados: {e}")
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        return db
+    finally:
+        db.close()
+
+def recalcular_cmv_geral(db_session):
+    try:
+        produtos = db_session.query(Produto).all()
+        for prod in produtos:
+            fichas = db_session.query(FichaTecnica).filter(FichaTecnica.produto_id == prod.id).all()
+            novo_cmv = 0.0
+            for f in fichas:
+                ins = db_session.query(Insumo).filter(Insumo.id == f.insumo_id).first()
+                if ins:
+                    novo_cmv += f.quantidade_utilizada * ins.custo_unitario
+
+            prod.custo_total_cmv = round(novo_cmv, 2)
+            if prod.preco_venda and prod.preco_venda > 0:
+                margem = ((prod.preco_venda - novo_cmv) / prod.preco_venda) * 100
+                prod.margem_exibicao = f"{margem:.1f}%"
+        db_session.commit()
     except Exception as e:
-        st.error(f"❌ Erro ao processar cardápio com IA: {e}")
+        db_session.rollback()
+
+def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, client=None, GENAI_DISPONIVEL=False):
+    st.subheader("👨‍🍳 Engenharia de Cardápio & Ficha Técnica (Pratos do Menu)")
+    st.caption("Cadastre os pratos do cardápio utilizando exclusivamente os insumos já cadastrados e validados no Almoxarifado (Aba 4).")
+
+    modo = st.radio(
+        "Escolha como deseja cadastrar o prato:",
+        ["✍️ Cadastro Manual de Prato", "🤖 Importação Automática de Cardápio via IA (Foto/PDF/Texto)"],
+        horizontal=True
+    )
+
+    st.markdown("---")
+
+    if modo == "✍️ Cadastro Manual de Prato":
+        col_nome, col_cat = st.columns([2, 1])
+        with col_nome:
+            nome_produto = st.text_input("Nome do Prato / Lanche", placeholder="Ex: Mica Royal Truffle Bacon")
+        with col_cat:
+            categoria = st.selectbox("Categoria no Cardápio", ["Hambúrgueres", "Porções", "Bebidas", "Sobremesas"])
+
+        st.write("### 🥗 Composição da Ficha Técnica (Puxando do Almoxarifado)")
+        insumos_disponiveis = db_session.query(Insumo).all()
+
+        if not insumos_disponiveis:
+            st.warning("⚠️ Nenhum insumo encontrado no Almoxarifado. Cadastre os insumos e validades na Aba 4 primeiro!")
+            return
+
+        if "itens_ficha_tecnica" not in st.session_state:
+            st.session_state.itens_ficha_tecnica = []
+
+        c1, c2, c3 = st.columns([3, 2, 1])
+        with c1:
+            insumo_selecionado = st.selectbox(
+                "Selecione o Insumo do Almoxarifado",
+                options=insumos_disponiveis,
+                format_func=lambda x: f"{x.nome} (Custo: R$ {x.custo_unitario:.2f} / {x.unidade_medida} | Validade: {x.data_validade.strftime('%d/%m/%Y') if x.data_validade else 'N/A'})",
+                key="sel_insumo"
+            )
+        with c2:
+            label_qtd = "Quantidade em GRAMAS (g)" if insumo_selecionado.unidade_medida == "kg" else f"Quantidade ({insumo_selecionado.unidade_medida})"
+            qtd_usada = st.number_input(label_qtd, min_value=0.1, value=100.0, step=10.0, key="num_qtd")
+
+        with c3:
+            st.write(" ")
+            st.write(" ")
+            if st.button("➕ Adicionar à Receita", use_container_width=True):
+                custo_item = (qtd_usada / 1000.0) * insumo_selecionado.custo_unitario if insumo_selecionado.unidade_medida == "kg" else qtd_usada * insumo_selecionado.custo_unitario
+                st.session_state.itens_ficha_tecnica.append({
+                    "insumo_id": insumo_selecionado.id,
+                    "nome": insumo_selecionado.nome,
+                    "quantidade": qtd_usada,
+                    "unidade": "g" if insumo_selecionado.unidade_medida == "kg" else insumo_selecionado.unidade_medida,
+                    "custo_calculado": custo_item
+                })
+                st.rerun()
+
+        cmv_total_calculado = 0.0
+        if st.session_state.itens_ficha_tecnica:
+            st.write("#### 📜 Receita Montada para este Prato:")
+            tabela_dados = []
+            for item in st.session_state.itens_ficha_tecnica:
+                cmv_total_calculado += item["custo_calculado"]
+                tabela_dados.append({
+                    "Insumo": item["nome"],
+                    "Qtd na Receita": f"{item['quantidade']} {item['unidade']}",
+                    "Custo Residual (R$)": f"R$ {item['custo_calculado']:.2f}"
+                })
+            st.table(tabela_dados)
+
+            if st.button("🗑️ Limpar Receita"):
+                st.session_state.itens_ficha_tecnica = []
+                st.rerun()
+
+        st.markdown("---")
+        st.write("### 💰 Precificação Inteligente & Margem de Lucro Pretendida")
+        col_cmv, col_margem, col_preco, col_lucro = st.columns(4)
+
+        with col_cmv:
+            st.metric("Custo de Produção (CMV)", f"R$ {cmv_total_calculado:.2f}")
+
+        with col_margem:
+            margem_pretendida = st.number_input("Margem Desejada (%)", min_value=5.0, max_value=300.0, value=60.0, step=5.0)
+
+        preco_sugerido = (cmv_total_calculado / (1 - (margem_pretendida / 100.0))) if margem_pretendida < 100 else (cmv_total_calculado * (1 + (margem_pretendida / 100.0)))
+
+        with col_preco:
+            preco_venda_final = st.number_input("Preço de Venda Final (R$)", min_value=0.0, value=float(round(preco_sugerido, 2)), step=0.50)
+
+        with col_lucro:
+            margem_real = ((preco_venda_final - cmv_total_calculado) / preco_venda_final * 100) if preco_venda_final > 0 else 0
+            st.metric("Lucro Bruto / Prato", f"R$ {(preco_venda_final - cmv_total_calculado):.2f}", delta=f"{margem_real:.1f}% Margem Real")
+
+        if st.button("💾 Salvar Prato no Cardápio & Ficha Técnica", type="primary"):
+            if not nome_produto:
+                st.error("❌ Digite o nome do prato.")
+            elif not st.session_state.itens_ficha_tecnica:
+                st.error("❌ Adicione pelo menos 1 insumo à ficha técnica.")
+            else:
+                novo_prod = Produto(
+                    nome=nome_produto,
+                    categoria=categoria,
+                    preco_venda=preco_venda_final,
+                    custo_total_cmv=cmv_total_calculado,
+                )
+                db_session.add(novo_prod)
+                db_session.commit()
+
+                for item in st.session_state.itens_ficha_tecnica:
+                    nova_ft = FichaTecnica(
+                        produto_id=novo_prod.id,
+                        insumo_id=item["insumo_id"],
+                        quantidade_utilizada=item["quantidade"]
+                    )
+                    db_session.add(nova_ft)
+                db_session.commit()
+
+                st.success(f"✅ Prato **{nome_produto}** cadastrado com sucesso no Cardápio!")
+                st.session_state.itens_ficha_tecnica = []
+                st.rerun()
+
+    else:
+        st.write("### 📄 Importação Automática de Cardápio Real (Foto, PDF ou Colar Texto) via Gemini")
+        st.caption("Carregue o arquivo com seu cardápio oficial que a IA extrairá todos os pratos e cadastrará no menu.")
+
+        opcao_fonte = st.radio("Origem do arquivo:", ["📁 Upload de Arquivo (Imagem/PDF)", "📝 Colar Texto do Cardápio"], horizontal=True)
+
+        texto_cardapio = ""
+        arquivo_upload = None
+
+        if opcao_fonte == "📁 Upload de Arquivo (Imagem/PDF)":
+            arquivo_upload = st.file_uploader("Arraste a foto do cardápio ou PDF aqui", type=["png", "jpg", "jpeg", "pdf"])
+        else:
+            texto_cardapio = st.text_area("Cole aqui o texto do seu cardápio com nomes e preços:", height=150)
+
+        if st.button("🚀 Processar Cardápio com IA", type="primary"):
+            client_ativo = client or globals().get('client')
+            genai_ativo = GENAI_DISPONIVEL or globals().get('GENAI_DISPONIVEL', False)
+
+            if not genai_ativo or not client_ativo:
+                st.error("❌ Integração com Google GenAI/Gemini não configurada no servidor.")
+                return
+
+            if not arquivo_upload and not texto_cardapio.strip():
+                st.error("❌ Por favor, envie um arquivo ou cole o texto do cardápio.")
+                return
+
+            with st.spinner("🤖 O Gemini está analisando o cardápio real..."):
+                try:
+                    prompt = """
+                    Você é um especialista em ERP gastronômico. Analise o cardápio fornecido e extraia todos os produtos/pratos cadastráveis.
+                    Retorne EXATAMENTE um JSON no seguinte formato (sem formatação markdown ```json, apenas a string json pura):
+                    [
+                        {
+                            "nome": "Nome do Prato",
+                            "categoria": "Hambúrgueres",
+                            "preco": 39.90,
+                            "ingredientes": "Descrição ou ingredientes"
+                        }
+                    ]
+                    """
+
+                    if arquivo_upload:
+                        bytes_data = arquivo_upload.getvalue()
+                        mime = arquivo_upload.type
+                        try:
+                            from google.genai import types
+                            part_arquivo = types.Part.from_bytes(data=bytes_data, mime_type=mime)
+                            contents = [part_arquivo, prompt]
+                            response = client_ativo.models.generate_content(model="gemini-2.0-flash", contents=contents)
+                        except Exception as api_err:
+                            if mime == "application/pdf":
+                                st.warning("⚠️ API rejeitou o arquivo direto. Extraindo texto via PyPDF em contingência...")
+                                leitor_pdf = pypdf.PdfReader(io.BytesIO(bytes_data))
+                                texto_extraido = ""
+                                for pagina in leitor_pdf.pages:
+                                    texto_extraido += pagina.extract_text() + "\n"
+
+                                response = client_ativo.models.generate_content(
+                                    model="gemini-2.0-flash",
+                                    contents=f"{prompt}\n\nTexto extraído do PDF:\n{texto_extraido}"
+                                )
+                            else:
+                                raise api_err
+                    else:
+                        response = client_ativo.models.generate_content(
+                            model="gemini-2.0-flash",
+                            contents=f"{prompt}\n\n{texto_cardapio}"
+                        )
+
+                    texto_limpo = response.text.strip().replace("```json", "").replace("```", "")
+                    produtos_extraidos = json.loads(texto_limpo)
+
+                    qtd_cadastrados = 0
+                    for prod in produtos_extraidos:
+                        cmv_est = round(float(prod.get("preco", 0)) * 0.32, 2)
+                        novo_prod = Produto(
+                            nome=prod.get("nome"),
+                            categoria=prod.get("categoria", "Geral"),
+                            preco_venda=float(prod.get("preco", 0)),
+                            custo_total_cmv=cmv_est,
+                            descricao_bruta=prod.get("ingredientes", "")
+                        )
+                        db_session.add(novo_prod)
+                        qtd_cadastrados += 1
+
+                    db_session.commit()
+                    st.success(f"🎉 Sucesso! **{qtd_cadastrados} pratos** foram extraídos pelo Gemini e salvos diretamente no cardápio!")
+
+                except Exception as e:
+                    st.error(f"❌ Erro ao processar cardápio com IA: {e}")
 
 
 def executar_forecasting_e_alertar(db_session):
@@ -244,14 +485,13 @@ def popular_dados_iniciais():
         db.close()
 
 # Inicialização
-criar_admin()
 popular_dados_iniciais()
 
 # Verificação da Inteligência Artificial Gemini
-GENAI_DISPONIVEL = True
-GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 from google import genai
-client = genai.Client(api_key=GEMINI_API_KEY)
+GENAI_DISPONIVEL = bool(GEMINI_API_KEY)
+client = genai.Client(api_key=GEMINI_API_KEY) if GENAI_DISPONIVEL else None
 
 
 # --- 6. BARRA LATERAL (SIDEBAR CORPORATIVA) ---
