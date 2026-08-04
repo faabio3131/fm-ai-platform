@@ -21,14 +21,14 @@ try:
 except StreamlitSecretNotFoundError:
     pass
 
+from gemini_config import generate_content, upload_file
+
 from datetime import datetime, timedelta, date
-import hashlib
 import json
 from dotenv import load_dotenv
 import pandas as pd
 from PIL import Image
 import requests
-import sqlalchemy
 from sqlalchemy import (
     Column,
     DateTime,
@@ -189,7 +189,7 @@ def recalcular_cmv_geral(db_session):
                 margem = ((prod.preco_venda - novo_cmv) / prod.preco_venda) * 100
                 prod.margem_exibicao = f"{margem:.1f}%"
         db_session.commit()
-    except Exception as e:
+    except Exception:
         db_session.rollback()
 
 def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, client=None, GENAI_DISPONIVEL=False):
@@ -326,10 +326,9 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
             texto_cardapio = st.text_area("Cole aqui o texto do seu cardápio com nomes e preços:", height=150)
 
         if st.button("🚀 Processar Cardápio com IA", type="primary"):
-            client_ativo = client or globals().get('client')
             genai_ativo = GENAI_DISPONIVEL or globals().get('GENAI_DISPONIVEL', False)
 
-            if not genai_ativo or not client_ativo:
+            if not genai_ativo:
                 st.error("❌ Integração com Google GenAI/Gemini não configurada no servidor.")
                 return
 
@@ -359,7 +358,7 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
                             from google.genai import types
                             part_arquivo = types.Part.from_bytes(data=bytes_data, mime_type=mime)
                             contents = [part_arquivo, prompt]
-                            response = client_ativo.models.generate_content(model="gemini-2.5-flash", contents=contents)
+                            response = generate_content(contents=contents)
                         except Exception as api_err:
                             if mime == "application/pdf":
                                 st.warning("⚠️ API rejeitou o arquivo direto. Extraindo texto via PyPDF em contingência...")
@@ -368,15 +367,13 @@ def render_cadastro_ficha_tecnica(db_session, Insumo, Produto, FichaTecnica, cli
                                 for pagina in leitor_pdf.pages:
                                     texto_extraido += pagina.extract_text() + "\n"
 
-                                response = client_ativo.models.generate_content(
-                                    model="gemini-2.5-flash",
+                                response = generate_content(
                                     contents=f"{prompt}\n\nTexto extraído do PDF:\n{texto_extraido}"
                                 )
                             else:
                                 raise api_err
                     else:
-                        response = client_ativo.models.generate_content(
-                            model="gemini-2.5-flash",
+                        response = generate_content(
                             contents=f"{prompt}\n\n{texto_cardapio}"
                         )
 
@@ -431,8 +428,7 @@ def executar_forecasting_e_alertar(db_session):
     """
 
     try:
-        from google import genai
-        resp = client.models.generate_content(model="gemini-2.5-flash", contents=prompt_forecast)
+        resp = generate_content(contents=prompt_forecast)
         texto_limpo = resp.text.strip().replace("```json", "").replace("```", "").strip()
         alertas_ia = json.loads(texto_limpo)
 
@@ -479,7 +475,7 @@ def popular_dados_iniciais():
             ]
             db.add_all(insumos_padrao)
             db.commit()
-    except Exception as e:
+    except Exception:
         db.rollback()
     finally:
         db.close()
@@ -489,9 +485,7 @@ popular_dados_iniciais()
 
 # Verificação da Inteligência Artificial Gemini
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-from google import genai
 GENAI_DISPONIVEL = bool(GEMINI_API_KEY)
-client = genai.Client(api_key=GEMINI_API_KEY) if GENAI_DISPONIVEL else None
 
 
 # --- 6. BARRA LATERAL (SIDEBAR CORPORATIVA) ---
@@ -509,7 +503,7 @@ with st.sidebar:
     st.info("🏪 **Loja Ativa:**\nMica Burguer & Restaurante")
     
     if GENAI_DISPONIVEL:
-        st.markdown("🟢 **Google GenAI Ativo (Gemini 2.5 Flash)**")
+        st.markdown("🟢 **Google GenAI Ativo (modelo validado pelo gateway)**")
     else:
         st.markdown("⚠️ **Modo Offline / Sem Chave API**")
 
@@ -533,7 +527,7 @@ aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs(
 # ABA 1: ENGENHARIA DE CARDÁPIO
 # ==============================================================================
 with aba1:
-    render_cadastro_ficha_tecnica(db_session=get_db(), Insumo=Insumo, Produto=Produto, FichaTecnica=FichaTecnica, client=client, GENAI_DISPONIVEL=GENAI_DISPONIVEL)
+    render_cadastro_ficha_tecnica(db_session=get_db(), Insumo=Insumo, Produto=Produto, FichaTecnica=FichaTecnica, GENAI_DISPONIVEL=GENAI_DISPONIVEL)
 
 # ==============================================================================
 # ABA 2: CRM E WHATSAPP
@@ -576,7 +570,7 @@ with aba2:
                     if GENAI_DISPONIVEL:
                         try:
                             prompt_resg = f"Escreva uma mensagem curta, carinhosa e muito persuasiva de WhatsApp para resgatar o cliente '{cli.nome}', que não faz pedidos em nossa hamburgueria gourmet há semanas. Ofereça um cupom especial de 15% de desconto (CUPOM: VOLTAMICA15). Sem clichês em excesso."
-                            resp_resg = client.models.generate_content(model="gemini-2.5-flash", contents=prompt_resg)
+                            resp_resg = generate_content(contents=prompt_resg)
                             if resp_resg and resp_resg.text:
                                 msg_resgate_padrao = resp_resg.text.strip()
                         except Exception:
@@ -745,7 +739,7 @@ with aba3:
                     
                     Retorne APENAS a frase recomendada para o operador falar, entre aspas, pronta para ser lida no atendimento. Sem textos extras.
                     """
-                    resp_up = client.models.generate_content(model="gemini-2.5-flash", contents=prompt_up)
+                    resp_up = generate_content(contents=prompt_up)
                     if resp_up and resp_up.text:
                         sugestao_upsell = resp_up.text.strip()
                 except Exception:
@@ -910,7 +904,7 @@ with aba4:
                         Se não encontrar a validade na imagem, preencha o campo data_validade com null.
                         Retorne EXCLUSIVAMENTE o JSON puro (sem markdown).'''
                         
-                        resp_cad = client.models.generate_content(model="gemini-2.5-flash", contents=[prompt_ocr, img_pil])
+                        resp_cad = generate_content(contents=[prompt_ocr, img_pil])
                         texto_ocr = resp_cad.text.strip().replace("```json", "").replace("```", "").strip()
                         itens_lidos = json.loads(texto_ocr)
                         
@@ -922,14 +916,17 @@ with aba4:
                             
                             val_obj = None
                             if val_str:
-                                try: val_obj = datetime.strptime(val_str, '%Y-%m-%d')
-                                except: pass
+                                try:
+                                    val_obj = datetime.strptime(val_str, '%Y-%m-%d')
+                                except ValueError:
+                                    pass
 
                             if nome_l and qtd_l > 0:
                                 ins_db = db_cad.query(Insumo).filter(Insumo.nome.ilike(f"%{nome_l}%")).first()
                                 if ins_db:
                                     ins_db.saldo_atual += qtd_l
-                                    if val_obj: ins_db.data_validade = val_obj
+                                    if val_obj:
+                                        ins_db.data_validade = val_obj
                                 else:
                                     novo_i = Insumo(
                                         nome=nome_l, unidade_medida=item.get("unidade", "un"),
@@ -939,7 +936,7 @@ with aba4:
                                     db_cad.add(novo_i)
                                     
                         db_cad.commit()
-                        st.success(f"🎉 Leitura concluída! Validades salvas no banco de dados.")
+                        st.success("🎉 Leitura concluída! Validades salvas no banco de dados.")
                         st.json(itens_lidos)
                     except Exception as e:
                         st.error(f"❌ Erro na leitura: {e}")
@@ -984,7 +981,7 @@ with aba4:
                         db_m.commit()
                         st.success(f"✅ Insumo '{novo_nome}' salvo no Almoxarifado com controle de validade!")
                         st.rerun()
-                    except Exception as e:
+                    except Exception:
                         db_m.rollback()
                         st.error(f"❌ Erro ao salvar: Já existe um insumo cadastrado com o nome '{novo_nome}' ou ocorreu um conflito.")
                     finally:
@@ -1122,10 +1119,10 @@ if btn_acionar_mica:
                     else:
                         with open(foto_pedido_bot.name, "wb") as f:
                             f.write(foto_pedido_bot.getbuffer())
-                        audio_ref = client.files.upload(file=foto_pedido_bot.name)
+                        audio_ref = upload_file(file=foto_pedido_bot.name)
                         inputs_mica.append(audio_ref)
 
-                resp_mica = client.models.generate_content(model="gemini-2.5-flash", contents=inputs_mica)
+                resp_mica = generate_content(contents=inputs_mica)
                 texto_mica_limpo = resp_mica.text.strip().replace("```json", "").replace("```", "").strip()
                 dados_pedido_mica = json.loads(texto_mica_limpo)
 
