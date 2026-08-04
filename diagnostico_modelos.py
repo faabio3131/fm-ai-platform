@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 from typing import Any
 
@@ -14,6 +15,21 @@ def _supported_methods(model: Any) -> tuple[str, ...]:
     if methods is None:
         methods = getattr(model, "supported_generation_methods", ())
     return tuple(methods or ())
+
+
+def _sanitize_message(message: str, api_key: str) -> str:
+    message = message.replace(api_key, "[REDACTED]")
+    return re.sub(
+        r'(?i)(authorization|x-goog-api-key)(\s*[:=]\s*)[^,\r\n}]+',
+        "[REDACTED]",
+        message,
+    )[:2000]
+
+
+def _diagnostic_value(value: Any, api_key: str) -> str:
+    if not isinstance(value, (str, int, float, bool)):
+        return "indisponível"
+    return _sanitize_message(str(value), api_key)
 
 
 def main() -> int:
@@ -30,11 +46,22 @@ def main() -> int:
             for model in models
             if "generateContent" in _supported_methods(model)
         ]
-    except Exception:
-        print(
-            "ERRO: não foi possível consultar os modelos Gemini com a chave configurada.",
-            file=sys.stderr,
-        )
+    except Exception as exc:
+        response = getattr(exc, "response", None)
+        http_status = getattr(exc, "status_code", None)
+        if http_status is None and response is not None:
+            http_status = getattr(response, "status_code", None)
+        api_code = getattr(exc, "code", None)
+        if http_status is None and isinstance(api_code, int) and 100 <= api_code <= 599:
+            http_status = api_code
+        api_status = getattr(exc, "status", None) or getattr(exc, "reason", None)
+        message = str(getattr(exc, "message", None) or exc)
+        message = _sanitize_message(message, api_key)
+        print(f"TIPO_ERRO: {type(exc).__name__}", file=sys.stderr)
+        print(f"HTTP_STATUS: {_diagnostic_value(http_status, api_key)}", file=sys.stderr)
+        print(f"CODIGO_API: {_diagnostic_value(api_code, api_key)}", file=sys.stderr)
+        print(f"STATUS_API: {_diagnostic_value(api_status, api_key)}", file=sys.stderr)
+        print(f"MENSAGEM: {message}", file=sys.stderr)
         return 1
 
     print(f"Modelos compatíveis com generateContent: {len(compatible)}")
