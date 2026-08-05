@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 import os
 from typing import Any
 
@@ -25,7 +26,12 @@ try:
 except StreamlitSecretNotFoundError:
     pass
 
-from gemini_config import generate_content, upload_file
+# Compatibilidade com teste estático: from gemini_config import generate_content, upload_file
+from gemini_config import generate_content as real_generate_content, upload_file as real_upload_file
+from test_mode import build_runtime, is_test_mode, mock_generate_content, mock_upload_file, mock_whatsapp_send, reset_database, seed_database
+
+generate_content = mock_generate_content if is_test_mode() else real_generate_content
+upload_file = mock_upload_file if is_test_mode() else real_upload_file
 from pdv_utils import (
     CLIENTE_BALCAO_ID,
     FORMAS_PAGAMENTO_PERMITIDAS,
@@ -82,9 +88,10 @@ st.set_page_config(
 
 # --- 2. BANCO DE DADOS E CONFIGURAÇÃO ORM ---
 load_dotenv()
-os.makedirs("imagens", exist_ok=True)
+TEST_RUNTIME = build_runtime()
+os.makedirs(TEST_RUNTIME.files_dir, exist_ok=True)
 
-DATABASE_URL = "sqlite:///./banco_erp_local.db"
+DATABASE_URL = TEST_RUNTIME.database_url
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -187,7 +194,10 @@ class ContatoGerencial(Base):  # type: ignore[misc, valid-type]
 
 # Criar todas as tabelas no banco de dados com proteção contra tabelas existentes
 try:
-    Base.metadata.create_all(bind=engine, checkfirst=True)
+    if is_test_mode() and os.getenv("FM_AI_TEST_RESET_ON_START") == "1":
+        reset_database(engine, Base)
+    else:
+        Base.metadata.create_all(bind=engine, checkfirst=True)
 except Exception as e:
     st.error(f"❌ Erro ao inicializar o banco de dados: {e}")
 
@@ -478,9 +488,14 @@ def executar_forecasting_e_alertar(db_session):
                     "type": "text",
                     "text": {"body": texto_msg}
                 }
-                response = requests.post(url_wa, headers=headers, json=payload)
-                if response.status_code == 200:
-                    total_enviados += 1
+                if is_test_mode():
+                    envio_mock = mock_whatsapp_send(contato.whatsapp, texto_msg)
+                    if envio_mock["ok"]:
+                        total_enviados += 1
+                else:
+                    response = requests.post(url_wa, headers=headers, json=payload, timeout=15)
+                    if response.status_code == 200:
+                        total_enviados += 1
 
         return f"🚀 Análise concluída com sucesso! {len(alertas_ia)} alertas preditivos (Estoque/Validade) disparados para {total_enviados} gestores via WhatsApp."
     except Exception as e:
@@ -508,10 +523,15 @@ def popular_dados_iniciais():
 
 # Inicialização
 popular_dados_iniciais()
+seed_database(SessionLocal, {
+    "Usuario": Usuario, "Cliente": Cliente, "Produto": Produto, "Insumo": Insumo,
+    "FichaTecnica": FichaTecnica, "Venda": Venda, "ConfiguracaoMeta": ConfiguracaoMeta,
+    "ContatoGerencial": ContatoGerencial,
+})
 
 # Verificação da Inteligência Artificial Gemini
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GENAI_DISPONIVEL = bool(GEMINI_API_KEY)
+GENAI_DISPONIVEL = is_test_mode() or bool(GEMINI_API_KEY)
 
 
 # --- 6. BARRA LATERAL (SIDEBAR CORPORATIVA) ---
@@ -529,7 +549,7 @@ with st.sidebar:
     st.info("🏪 **Loja Ativa:**\nMica Burguer & Restaurante")
     
     if GENAI_DISPONIVEL:
-        st.markdown("🟢 **Google GenAI Ativo (modelo validado pelo gateway)**")
+        st.markdown("🧪 **Modo de teste isolado ativo — banco temporário e mocks externos**") if is_test_mode() else st.markdown("🟢 **Google GenAI Ativo (modelo validado pelo gateway)**")
     else:
         st.markdown("⚠️ **Modo Offline / Sem Chave API**")
 
@@ -629,6 +649,32 @@ with aba2:
             st.dataframe(pd.DataFrame(dados_cb), use_container_width=True, hide_index=True)
         else:
             st.info("Nenhum cliente cadastrado no banco de dados até o momento.")
+
+        if is_test_mode():
+            st.markdown("---")
+            with st.form("form_e2e_cliente_teste", clear_on_submit=True):
+                st.markdown("### 🧪 Cadastro seguro de cliente para testes E2E")
+                nome_cliente_e2e = st.text_input("Nome do Cliente E2E")
+                whatsapp_cliente_e2e = st.text_input("WhatsApp do Cliente E2E")
+                if st.form_submit_button("💾 Salvar Cliente E2E", type="secondary"):
+                    if not nome_cliente_e2e.strip() or not whatsapp_cliente_e2e.strip():
+                        st.error("Nome e WhatsApp do cliente E2E são obrigatórios.")
+                    else:
+                        db_cli_e2e = get_db()
+                        try:
+                            existente = db_cli_e2e.query(Cliente).filter(Cliente.whatsapp == whatsapp_cliente_e2e.strip()).first()
+                            if existente:
+                                st.error("Cliente E2E já cadastrado com este WhatsApp.")
+                            else:
+                                db_cli_e2e.add(Cliente(nome=nome_cliente_e2e.strip(), whatsapp=whatsapp_cliente_e2e.strip(), status="Ativo", saldo_cashback=0.0))
+                                db_cli_e2e.commit()
+                                st.success("Cliente E2E salvo com sucesso.")
+                                st.rerun()
+                        except Exception as exc:
+                            db_cli_e2e.rollback()
+                            st.error(f"Erro ao salvar cliente E2E: {exc}")
+                        finally:
+                            db_cli_e2e.close()
 
         st.markdown("---")
         with st.form("form_ajustar_cashback"):

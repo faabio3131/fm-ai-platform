@@ -1,0 +1,89 @@
+import { expect, test } from '@playwright/test';
+import { dbNumber, realDbSnapshot } from './fixtures/db';
+import { expectNoFatal, fillNumber, openTab } from './fixtures/ui';
+
+test('PIX sandbox e cartões finalizam sem campos de dinheiro/troco', async ({ page }) => {
+  await page.goto('/');
+  let before = dbNumber('select count(*) from vendas');
+  await openTab(page, 'Frente de Caixa');
+  await page.getByLabel(/Forma de Pagamento/).click();
+  await page.getByText('Pix (Gerar QR Code Instantâneo)').click();
+  await expect(page.getByText(/Gateway Pix Automático|QR Code/)).toBeVisible();
+  await page.getByRole('button', { name: /Finalizar Venda/ }).click();
+  expect(dbNumber('select count(*) from vendas')).toBe(before + 1);
+
+  for (const forma of ['Cartão de Crédito', 'Cartão de Débito']) {
+    before = dbNumber('select count(*) from vendas');
+    await openTab(page, 'Frente de Caixa');
+    await page.getByLabel(/Forma de Pagamento/).click();
+    await page.getByText(forma).click();
+    await expect(page.locator('body')).not.toContainText('Valor recebido do cliente');
+    await expect(page.locator('body')).not.toContainText('Troco:');
+    await page.getByRole('button', { name: /Finalizar Venda/ }).click();
+    expect(dbNumber('select count(*) from vendas')).toBe(before + 1);
+  }
+  await expectNoFatal(page);
+});
+
+test('Estoque cadastra insumo, bloqueia duplicidade e impede venda sem saldo', async ({ page }) => {
+  await page.goto('/');
+  await openTab(page, 'Estoque & Validades');
+  await page.getByRole('tab', { name: /Cadastrar Insumos/ }).click();
+  await page.getByRole('button', { name: /Salvar Insumo/ }).click();
+  await expect(page.getByText(/nome do insumo não pode estar vazio/i)).toBeVisible();
+  const name = `Insumo E2E ${Date.now()}`;
+  await page.getByLabel(/Nome do Insumo/).fill(name);
+  await fillNumber(page, /Quantidade Inicial/, '1');
+  await fillNumber(page, /Estoque Mínimo/, '1');
+  await fillNumber(page, /Custo Unitário/, '3');
+  await page.getByRole('button', { name: /Salvar Insumo/ }).click();
+  await expect(page.getByText(/salvo no Almoxarifado/)).toBeVisible();
+  expect(dbNumber(`select count(*) from insumos where nome='${name}'`)).toBe(1);
+
+  await page.getByLabel(/Nome do Insumo/).fill(name);
+  await page.getByRole('button', { name: /Salvar Insumo/ }).click();
+  await expect(page.getByText(/Já existe um insumo/)).toBeVisible();
+
+  await openTab(page, 'Frente de Caixa');
+  const stockBefore = dbNumber("select saldo_atual from insumos where nome='Carne Teste'");
+  const salesBefore = dbNumber('select count(*) from vendas');
+  await fillNumber(page, /Quantidade de Itens/, '9999');
+  await page.getByRole('button', { name: /Finalizar Venda/ }).click();
+  await expect(page.getByText(/Estoque insuficiente/)).toBeVisible();
+  expect(dbNumber('select count(*) from vendas')).toBe(salesBefore);
+  expect(dbNumber("select saldo_atual from insumos where nome='Carne Teste'")).toBe(stockBefore);
+});
+
+test('Dashboard usa total da venda e Bot usa resposta mockada/fallback sem segredo', async ({ page }) => {
+  await page.goto('/');
+  await openTab(page, 'Dashboard Financeiro');
+  await expect(page.getByText(/Faturamento Bruto/)).toBeVisible();
+  await expect(page.getByText(/R\$/)).toBeVisible();
+
+  const beforeRevenue = dbNumber('select sum(valor_total) from vendas');
+  await openTab(page, 'Frente de Caixa');
+  await page.getByLabel(/Forma de Pagamento/).click();
+  await page.getByText('Dinheiro Em Espécie').click();
+  await fillNumber(page, /Valor recebido do cliente/, '100');
+  await page.getByRole('button', { name: /Finalizar Venda/ }).click();
+  const afterRevenue = dbNumber('select sum(valor_total) from vendas');
+  expect(afterRevenue).toBeGreaterThan(beforeRevenue);
+  expect(afterRevenue - beforeRevenue).toBeLessThan(100);
+
+  await openTab(page, 'Bot Cliente');
+  await page.getByRole('button', { name: /Processar Pedido/ }).click();
+  await expect(page.getByText(/informe o WhatsApp/)).toBeVisible();
+  await page.getByLabel(/Digite o que o cliente enviou/).fill('quero um Burger Teste no pix');
+  await page.getByRole('button', { name: /Processar Pedido/ }).click();
+  await expect(page.getByText(/Atendimento comercial finalizado/)).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('GEMINI_API_KEY');
+  await expectNoFatal(page);
+});
+
+test('Modo E2E não cria nem modifica banco real', async ({ page }) => {
+  const before = realDbSnapshot();
+  await page.goto('/');
+  await openTab(page, 'Dashboard Financeiro');
+  await expect(page.getByText(/Dashboard Financeiro/)).toBeVisible();
+  expect(realDbSnapshot()).toEqual(before);
+});
