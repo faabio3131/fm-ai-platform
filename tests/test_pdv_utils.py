@@ -6,6 +6,8 @@ import pytest
 from types import SimpleNamespace
 
 from pdv_utils import (
+    CLIENTE_BALCAO_ID,
+    CLIENTE_BALCAO_LABEL,
     DINHEIRO_ESPECIE,
     calcular_troco,
     deve_exibir_troco,
@@ -15,6 +17,9 @@ from pdv_utils import (
     FORMAS_PAGAMENTO_PERMITIDAS,
     deve_exibir_valor_recebido,
     formatar_moeda_br,
+    formatar_opcao_cliente_pdv,
+    indice_cliente_pdv,
+    normalizar_cliente_id_pdv,
     validar_estoque_suficiente,
     validar_finalizacao_pdv,
 )
@@ -201,7 +206,7 @@ def test_reset_pendente_aplicado_antes_dos_widgets_e_preserva_flash():
         "pdv_reset_pendente": True,
         "pdv_flash_sucesso": "ok",
         "pdv_quantidade": 3,
-        "pdv_cliente": object(),
+        "pdv_cliente_id": 9,
         "pdv_valor_recebido_dinheiro": 100.0,
         "pdv_forma_pagamento": "Dinheiro Em Espécie",
         "pdv_usa_cashback": True,
@@ -212,7 +217,7 @@ def test_reset_pendente_aplicado_antes_dos_widgets_e_preserva_flash():
 
     assert aplicar_reset_pendente_pdv(estado) is True
     assert estado["pdv_quantidade"] == 1
-    assert estado["pdv_cliente"] is None
+    assert estado["pdv_cliente_id"] == CLIENTE_BALCAO_ID
     assert estado["pdv_valor_recebido_dinheiro"] == 0.0
     assert estado["pdv_forma_pagamento"] == FORMAS_PAGAMENTO_PERMITIDAS[0]
     assert estado["pdv_usa_cashback"] is False
@@ -275,7 +280,7 @@ def test_marcar_reset_nao_altera_chaves_de_widgets_ja_criados_e_evita_duplicidad
     estado = {
         "pdv_produto": "x-bacon",
         "pdv_quantidade": 3,
-        "pdv_cliente": "cliente",
+        "pdv_cliente_id": 7,
         "pdv_forma_pagamento": DINHEIRO_ESPECIE,
         "pdv_valor_recebido_dinheiro": 100.0,
         "pdv_usa_cashback": True,
@@ -284,7 +289,7 @@ def test_marcar_reset_nao_altera_chaves_de_widgets_ja_criados_e_evita_duplicidad
     widgets = {k: estado[k] for k in (
         "pdv_produto",
         "pdv_quantidade",
-        "pdv_cliente",
+        "pdv_cliente_id",
         "pdv_forma_pagamento",
         "pdv_valor_recebido_dinheiro",
         "pdv_usa_cashback",
@@ -315,3 +320,94 @@ def test_excecao_pos_commit_nao_exige_rollback_para_recuperar_interface():
     assert rollback_chamado is False
     assert estado["pdv_flash_sucesso"] == "recuperada"
     assert estado["pdv_reset_pendente"] is True
+
+
+def test_payload_pix_simulado_usa_moeda_brasileira_padronizada():
+    from pdv_utils import montar_payload_pix_simulado
+
+    payload = montar_payload_pix_simulado(1222.4)
+
+    assert payload == "FMFIFOOD_PIX_SIMULADO_R$ 1.222,40"
+    assert "1222.40" not in payload
+
+
+def test_linha_total_pdv_padroniza_rotulo_valor_e_desconto():
+    from pdv_utils import montar_linha_total_pdv
+
+    assert montar_linha_total_pdv("Subtotal", 79.8) == "Subtotal: R$ 79,80"
+    assert montar_linha_total_pdv("Desconto Fidelidade", 10, negativo=True) == "Desconto Fidelidade: -R$ 10,00"
+
+
+def test_estado_padrao_cliente_pdv_e_balcao_real():
+    estado = {}
+
+    from pdv_utils import preparar_estado_inicial_pdv
+
+    preparar_estado_inicial_pdv(estado)
+
+    assert estado["pdv_cliente_id"] == CLIENTE_BALCAO_ID
+    assert formatar_opcao_cliente_pdv(estado["pdv_cliente_id"], {}) == f"👤 {CLIENTE_BALCAO_LABEL}"
+
+
+def test_reset_apos_venda_volta_para_cliente_balcao_e_valor_zero():
+    estado = {"pdv_reset_pendente": True, "pdv_cliente_id": 22, "pdv_valor_recebido_dinheiro": 100.0}
+
+    from pdv_utils import aplicar_reset_pendente_pdv
+
+    assert aplicar_reset_pendente_pdv(estado) is True
+    assert estado["pdv_cliente_id"] == CLIENTE_BALCAO_ID
+    assert estado["pdv_valor_recebido_dinheiro"] == 0.0
+
+
+def test_selecao_cliente_pdv_usa_id_estavel_e_label_com_cashback():
+    cliente = SimpleNamespace(id=7, nome="Michele", saldo_cashback=12.5)
+    clientes_por_id = {7: cliente}
+
+    assert normalizar_cliente_id_pdv("7", clientes_por_id) == 7
+    assert indice_cliente_pdv(7, [CLIENTE_BALCAO_ID, 7]) == 1
+    assert formatar_opcao_cliente_pdv(7, clientes_por_id) == "Michele (Cashback Disponível: R$ 12,50)"
+
+
+def test_cliente_pdv_inexistente_volta_para_balcao_com_segurança():
+    assert normalizar_cliente_id_pdv(999, {}) == CLIENTE_BALCAO_ID
+    assert indice_cliente_pdv(999, [CLIENTE_BALCAO_ID, 7]) == 0
+    assert formatar_opcao_cliente_pdv(999, {}) == f"👤 {CLIENTE_BALCAO_LABEL}"
+
+
+def test_app_pdv_nao_contem_choose_an_option_e_usa_placeholder_pt_br():
+    source = Path("app.py").read_text(encoding="utf-8")
+    assert "Choose an option" not in source
+    assert "Cliente Balcão / Não Identificado" in source
+    assert 'key="pdv_cliente_id"' in source
+    assert 'key="pdv_cliente"' not in source
+
+
+def test_app_identifica_visualmente_real_no_campo_valor_recebido():
+    source = Path("app.py").read_text(encoding="utf-8")
+    assert 'st.markdown("Valor recebido do cliente")' in source
+    assert 'st.markdown("### R$")' in source
+    assert 'key="pdv_valor_recebido_dinheiro"' in source
+
+
+def test_dinheiro_continua_entrada_numerica_com_reset_e_preservacao():
+    source = Path("app.py").read_text(encoding="utf-8")
+    assert "valor_recebido_pdv = st.number_input(" in source
+    assert "min_value=0.0" in source
+    assert "step=0.50" in source
+    assert 'format="%.2f"' in source
+    assert 'value=float(st.session_state.get("pdv_valor_recebido_dinheiro", total_final_pdv))' in source
+
+
+def test_pagamento_insuficiente_preserva_valor_recebido_no_estado():
+    estado = {"pdv_valor_recebido_dinheiro": 50.0}
+    antes = estado.copy()
+
+    resultado = validar_finalizacao_pdv(
+        produto=produto(preco_venda=79.8),
+        quantidade=1,
+        forma_pagamento=DINHEIRO_ESPECIE,
+        valor_recebido=estado["pdv_valor_recebido_dinheiro"],
+    )
+
+    assert resultado.codigo == "dinheiro_insuficiente"
+    assert estado == antes

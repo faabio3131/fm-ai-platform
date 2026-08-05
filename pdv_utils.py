@@ -5,6 +5,8 @@ from urllib.parse import quote
 
 PIX_QR_BASE_URL = "https://api.qrserver.com/v1/create-qr-code/"
 DINHEIRO_ESPECIE = "Dinheiro Em Espécie"
+CLIENTE_BALCAO_ID = 0
+CLIENTE_BALCAO_LABEL = "Cliente Balcão / Não Identificado"
 FORMAS_PAGAMENTO_PERMITIDAS = (
     "Pix (Gerar QR Code Instantâneo)",
     "Cartão de Crédito",
@@ -41,6 +43,15 @@ def formatar_moeda_br(valor: float | int | str | Decimal) -> str:
     return f"{sinal}R$ {texto}"
 
 
+def montar_payload_pix_simulado(total_final: float | int | str | Decimal) -> str:
+    return f"FMFIFOOD_PIX_SIMULADO_{formatar_moeda_br(total_final)}"
+
+
+def montar_linha_total_pdv(rotulo: str, valor: float | int | str | Decimal, *, negativo: bool = False) -> str:
+    prefixo = "-" if negativo else ""
+    return f"{rotulo}: {prefixo}{formatar_moeda_br(valor)}"
+
+
 def calcular_troco(total: float | int | str | Decimal, valor_recebido: float | int | str | Decimal) -> Decimal:
     return (moeda_decimal(valor_recebido) - moeda_decimal(total)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
@@ -69,6 +80,36 @@ def montar_url_qrcode_pix(payload_pix: str, *, size: str = "180x180") -> str:
 
 def _invalido(codigo: str, mensagem: str, campo: str, **dados: Any) -> ValidacaoPDVResultado:
     return ValidacaoPDVResultado(False, codigo, mensagem, erros_campos={campo: mensagem}, **dados)
+
+
+def formatar_opcao_cliente_pdv(cliente_id: int | None, clientes_por_id: dict[int, Any]) -> str:
+    if cliente_id is None or cliente_id == CLIENTE_BALCAO_ID:
+        return f"👤 {CLIENTE_BALCAO_LABEL}"
+    cliente = clientes_por_id.get(cliente_id)
+    if cliente is None:
+        return f"👤 {CLIENTE_BALCAO_LABEL}"
+    return f"{cliente.nome} (Cashback Disponível: {formatar_moeda_br(cliente.saldo_cashback)})"
+
+
+def normalizar_cliente_id_pdv(cliente_id: Any, clientes_por_id: dict[int, Any]) -> int:
+    try:
+        cliente_id_normalizado = int(cliente_id)
+    except (TypeError, ValueError):
+        return CLIENTE_BALCAO_ID
+    if cliente_id_normalizado == CLIENTE_BALCAO_ID:
+        return CLIENTE_BALCAO_ID
+    return cliente_id_normalizado if cliente_id_normalizado in clientes_por_id else CLIENTE_BALCAO_ID
+
+
+def indice_cliente_pdv(cliente_id: Any, opcoes_cliente_ids: list[int]) -> int:
+    try:
+        cliente_id_normalizado = int(cliente_id)
+    except (TypeError, ValueError):
+        return 0
+    try:
+        return opcoes_cliente_ids.index(cliente_id_normalizado)
+    except ValueError:
+        return 0
 
 
 def validar_finalizacao_pdv(
@@ -152,7 +193,7 @@ def validar_estoque_suficiente(fichas_tecnicas: list[Any], insumos_por_id: dict[
 
 PDV_WIDGET_DEFAULTS = {
     "pdv_quantidade": 1,
-    "pdv_cliente": None,
+    "pdv_cliente_id": CLIENTE_BALCAO_ID,
     "pdv_valor_recebido_dinheiro": 0.0,
     "pdv_forma_pagamento": FORMAS_PAGAMENTO_PERMITIDAS[0],
     "pdv_usa_cashback": False,
