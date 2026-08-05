@@ -131,7 +131,78 @@ def test_invalid_key_is_reported_safely(monkeypatch):
     assert "secret" not in str(caught.value)
 
 
+def test_key_change_creates_new_client_and_model_cache(monkeypatch):
+    created = {}
+
+    def factory(**kwargs):
+        key = kwargs["api_key"]
+        client = FakeClient((f"models/gemini-{key}-flash",))
+        created[key] = client
+        return client
+
+    monkeypatch.setattr(gemini_config.genai, "Client", factory)
+    monkeypatch.setenv("GEMINI_API_KEY", "3.6")
+    assert gemini_config.get_model_name() == "gemini-3.6-flash"
+
+    monkeypatch.setenv("GEMINI_API_KEY", "4.0")
+    assert gemini_config.get_model_name() == "gemini-4.0-flash"
+    assert created["3.6"] is not created["4.0"]
+
+
+def test_same_key_reuses_client(monkeypatch):
+    calls = []
+
+    def factory(**kwargs):
+        calls.append(kwargs["api_key"])
+        return FakeClient()
+
+    monkeypatch.setattr(gemini_config.genai, "Client", factory)
+    assert gemini_config.get_client() is gemini_config.get_client()
+    assert calls == ["test-key"]
+
+
+def test_generate_content_uses_models_prefix_free_model(monkeypatch):
+    client = use_client(monkeypatch, ("models/gemini-3.6-flash",))
+    gemini_config.generate_content(contents="hello")
+    assert client.models.generated[-1]["model"] == "gemini-3.6-flash"
+
+
+def test_http_400_invalid_argument_is_not_reported_as_invalid_key(monkeypatch):
+    client = use_client(monkeypatch)
+    monkeypatch.setattr(
+        client.models,
+        "generate_content",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("400 INVALID_ARGUMENT bad contents")),
+    )
+    with pytest.raises(gemini_config.GeminiConfigurationError, match="Requisição Gemini inválida") as caught:
+        gemini_config.generate_content(contents={"bad": object()})
+    assert "GEMINI_API_KEY inválida" not in str(caught.value)
+
+
+@pytest.mark.parametrize(
+    ("error", "expected_text"),
+    [
+        (RuntimeError("403 PERMISSION_DENIED"), "GEMINI_API_KEY inválida ou sem permissão"),
+        (RuntimeError("404 NOT_FOUND"), "Modelo Gemini indisponível"),
+        (RuntimeError("429 RESOURCE_EXHAUSTED"), "Cota do Gemini atingida"),
+    ],
+)
+def test_specific_error_messages_are_safe(monkeypatch, error, expected_text):
+    client = use_client(monkeypatch)
+    monkeypatch.setattr(client.models, "generate_content", lambda **_kwargs: (_ for _ in ()).throw(error))
+    with pytest.raises(gemini_config.GeminiGatewayError, match=expected_text) as caught:
+        gemini_config.generate_content(contents="hello")
+    assert "test-key" not in str(caught.value)
+
+
 def test_app_has_no_direct_sdk_generation_calls():
     source = Path("app.py").read_text(encoding="utf-8")
     assert ".models.generate_content(" not in source
     assert ".files.upload(" not in source
+
+
+def test_app_loads_streamlit_secret_before_gateway_import():
+    source = Path("app.py").read_text(encoding="utf-8")
+    secret_pos = source.index('st.secrets')
+    import_pos = source.index('from gemini_config import generate_content, upload_file')
+    assert secret_pos < import_pos
