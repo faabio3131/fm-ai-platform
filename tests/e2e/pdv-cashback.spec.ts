@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { dbNumber } from './fixtures/db';
-import { expectNoFatal, fillNumber, openTab } from './fixtures/ui';
+import { dbNumber, resetTestDb, waitForTestDb } from './fixtures/db';
+import { expectNoFatal, fillNumber, openTab, waitForAppReady } from './fixtures/ui';
 
 async function sellCash(page, quantity: string, received: string, clientName?: RegExp) {
   await openTab(page, 'Frente de Caixa');
@@ -15,8 +15,13 @@ async function sellCash(page, quantity: string, received: string, clientName?: R
   await page.getByRole('button', { name: /Finalizar Venda/ }).click();
 }
 
+test.beforeEach(async () => {
+  resetTestDb();
+  await waitForTestDb();
+});
+
 test('CRM cadastra cliente E2E, evita duplicidade e integra cashback ao PDV', async ({ page }) => {
-  await page.goto('/');
+  await waitForAppReady(page);
   await openTab(page, 'CRM, Resgate & Cashback');
   await page.getByRole('tab', { name: /Cashback/ }).click();
   await page.getByRole('button', { name: /Salvar Cliente E2E/ }).click();
@@ -53,7 +58,7 @@ test('CRM cadastra cliente E2E, evita duplicidade e integra cashback ao PDV', as
 });
 
 test('PDV dinheiro bloqueia insuficiente, preserva dados, finaliza uma vez e reseta', async ({ page }) => {
-  await page.goto('/');
+  await waitForAppReady(page);
   const salesBefore = dbNumber('select count(*) from vendas');
   const stockBefore = dbNumber("select saldo_atual from insumos where nome='Carne Teste'");
   await openTab(page, 'Frente de Caixa');

@@ -1,10 +1,15 @@
 import { expect, test } from '@playwright/test';
-import { dbNumber, realDbSnapshot } from './fixtures/db';
-import { expectNoFatal, fillNumber, openTab } from './fixtures/ui';
+import { dbNumber, realDbSnapshot, resetTestDb, waitForTestDb } from './fixtures/db';
+import { expectNoFatal, fillNumber, openTab, waitForAppReady } from './fixtures/ui';
+
+test.beforeEach(async () => {
+  resetTestDb();
+  await waitForTestDb();
+});
 
 test('Engenharia cadastra prato com ficha técnica no banco temporário', async ({ page }) => {
   const before = realDbSnapshot();
-  await page.goto('/');
+  await waitForAppReady(page);
   await openTab(page, 'Engenharia de Cardápio');
   await page.getByRole('button', { name: /Salvar Prato/ }).click();
   await expect(page.getByText('Digite o nome do prato')).toBeVisible();
@@ -27,7 +32,7 @@ test('Engenharia cadastra prato com ficha técnica no banco temporário', async 
 });
 
 test('Importação IA usa mock, trata JSON inválido e erro 429 sem gravação parcial', async ({ page }) => {
-  await page.goto('/');
+  await waitForAppReady(page);
   await openTab(page, 'Engenharia de Cardápio');
   await page.getByLabel(/Importação Automática/).check();
   await page.getByLabel(/Colar Texto do Cardápio/).check();

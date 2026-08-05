@@ -1,9 +1,14 @@
 import { expect, test } from '@playwright/test';
-import { dbNumber, realDbSnapshot } from './fixtures/db';
-import { expectNoFatal, fillNumber, openTab } from './fixtures/ui';
+import { dbNumber, realDbSnapshot, resetTestDb, waitForTestDb } from './fixtures/db';
+import { expectNoFatal, fillNumber, openTab, waitForAppReady } from './fixtures/ui';
+
+test.beforeEach(async () => {
+  resetTestDb();
+  await waitForTestDb();
+});
 
 test('PIX sandbox e cartões finalizam sem campos de dinheiro/troco', async ({ page }) => {
-  await page.goto('/');
+  await waitForAppReady(page);
   let before = dbNumber('select count(*) from vendas');
   await openTab(page, 'Frente de Caixa');
   await page.getByLabel(/Forma de Pagamento/).click();
@@ -26,7 +31,7 @@ test('PIX sandbox e cartões finalizam sem campos de dinheiro/troco', async ({ p
 });
 
 test('Estoque cadastra insumo, bloqueia duplicidade e impede venda sem saldo', async ({ page }) => {
-  await page.goto('/');
+  await waitForAppReady(page);
   await openTab(page, 'Estoque & Validades');
   await page.getByRole('tab', { name: /Cadastrar Insumos/ }).click();
   await page.getByRole('button', { name: /Salvar Insumo/ }).click();
@@ -55,7 +60,7 @@ test('Estoque cadastra insumo, bloqueia duplicidade e impede venda sem saldo', a
 });
 
 test('Dashboard usa total da venda e Bot usa resposta mockada/fallback sem segredo', async ({ page }) => {
-  await page.goto('/');
+  await waitForAppReady(page);
   await openTab(page, 'Dashboard Financeiro');
   await expect(page.getByText(/Faturamento Bruto/)).toBeVisible();
   await expect(page.getByText(/R\$/)).toBeVisible();
@@ -82,7 +87,7 @@ test('Dashboard usa total da venda e Bot usa resposta mockada/fallback sem segre
 
 test('Modo E2E não cria nem modifica banco real', async ({ page }) => {
   const before = realDbSnapshot();
-  await page.goto('/');
+  await waitForAppReady(page);
   await openTab(page, 'Dashboard Financeiro');
   await expect(page.getByText(/Dashboard Financeiro/)).toBeVisible();
   expect(realDbSnapshot()).toEqual(before);
