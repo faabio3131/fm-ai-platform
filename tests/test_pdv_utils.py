@@ -192,3 +192,126 @@ def test_formata_moeda_brasileira():
 
 def test_pix_producao_exige_confirmacao_valida():
     assert validar_finalizacao_pdv(produto=produto(), quantidade=1, forma_pagamento="Pix (Gerar QR Code Instantâneo)", pix_producao=True, pix_confirmado=False).codigo == "pix_sem_confirmacao"
+
+
+def test_reset_pendente_aplicado_antes_dos_widgets_e_preserva_flash():
+    from pdv_utils import aplicar_reset_pendente_pdv
+
+    estado = {
+        "pdv_reset_pendente": True,
+        "pdv_flash_sucesso": "ok",
+        "pdv_quantidade": 3,
+        "pdv_cliente": object(),
+        "pdv_valor_recebido_dinheiro": 100.0,
+        "pdv_forma_pagamento": "Dinheiro Em Espécie",
+        "pdv_usa_cashback": True,
+        "pdv_pix_confirmado": True,
+        "pdv_troco": 4.30,
+        "pdv_processando": True,
+    }
+
+    assert aplicar_reset_pendente_pdv(estado) is True
+    assert estado["pdv_quantidade"] == 1
+    assert estado["pdv_cliente"] is None
+    assert estado["pdv_valor_recebido_dinheiro"] == 0.0
+    assert estado["pdv_forma_pagamento"] == FORMAS_PAGAMENTO_PERMITIDAS[0]
+    assert estado["pdv_usa_cashback"] is False
+    assert estado["pdv_pix_confirmado"] is False
+    assert estado["pdv_troco"] is None
+    assert estado["pdv_processando"] is False
+    assert "pdv_reset_pendente" not in estado
+    assert estado["pdv_flash_sucesso"] == "ok"
+
+
+def test_flash_sucesso_sobrevive_ao_reset_e_e_consumido_uma_vez():
+    from pdv_utils import aplicar_reset_pendente_pdv, consumir_flash_sucesso_pdv, marcar_reset_pdv_apos_sucesso
+
+    estado = {"pdv_quantidade": 2, "pdv_processando": True}
+    marcar_reset_pdv_apos_sucesso(estado, "mensagem")
+    assert estado["pdv_reset_pendente"] is True
+    assert estado["pdv_processando"] is False
+
+    aplicar_reset_pendente_pdv(estado)
+    assert consumir_flash_sucesso_pdv(estado) == "mensagem"
+    assert consumir_flash_sucesso_pdv(estado) is None
+
+
+def test_validacao_nao_limpa_pedido_em_erro_ou_pagamento_insuficiente():
+    pedido = {"pdv_quantidade": 3, "pdv_valor_recebido_dinheiro": 90.0, "pdv_forma_pagamento": DINHEIRO_ESPECIE}
+    antes = pedido.copy()
+
+    resultado = validar_finalizacao_pdv(
+        produto=produto(preco_venda=31.9),
+        quantidade=pedido["pdv_quantidade"],
+        forma_pagamento=pedido["pdv_forma_pagamento"],
+        valor_recebido=pedido["pdv_valor_recebido_dinheiro"],
+    )
+
+    assert resultado.codigo == "dinheiro_insuficiente"
+    assert pedido == antes
+
+
+def test_mensagem_sucesso_pdv_formata_moeda_sem_markdown_quebrado():
+    from pdv_utils import montar_mensagem_sucesso_pdv
+
+    mensagem = montar_mensagem_sucesso_pdv(
+        total_final=95.70,
+        forma_pagamento=DINHEIRO_ESPECIE,
+        valor_recebido=100,
+        troco=4.30,
+    )
+
+    assert "R$ 95,70" in mensagem
+    assert "R$ 100,00" in mensagem
+    assert "R$ 4,30" in mensagem
+    assert "**R" not in mensagem
+    assert "R 95,70" not in mensagem
+    assert "R$ 95.70" not in mensagem
+
+
+def test_marcar_reset_nao_altera_chaves_de_widgets_ja_criados_e_evita_duplicidade_no_rerun():
+    from pdv_utils import marcar_reset_pdv_apos_sucesso
+
+    estado = {
+        "pdv_produto": "x-bacon",
+        "pdv_quantidade": 3,
+        "pdv_cliente": "cliente",
+        "pdv_forma_pagamento": DINHEIRO_ESPECIE,
+        "pdv_valor_recebido_dinheiro": 100.0,
+        "pdv_usa_cashback": True,
+        "pdv_processando": True,
+    }
+    widgets = {k: estado[k] for k in (
+        "pdv_produto",
+        "pdv_quantidade",
+        "pdv_cliente",
+        "pdv_forma_pagamento",
+        "pdv_valor_recebido_dinheiro",
+        "pdv_usa_cashback",
+    )}
+
+    marcar_reset_pdv_apos_sucesso(estado, "ok")
+
+    assert {k: estado[k] for k in widgets} == widgets
+    assert estado["pdv_reset_pendente"] is True
+    assert estado["pdv_processando"] is False
+
+
+def test_excecao_pos_commit_nao_exige_rollback_para_recuperar_interface():
+    from pdv_utils import marcar_reset_pdv_apos_sucesso
+
+    estado = {"pdv_processando": True}
+    venda_commitada = True
+    rollback_chamado = False
+
+    try:
+        if venda_commitada:
+            marcar_reset_pdv_apos_sucesso(estado, "recuperada")
+        else:
+            rollback_chamado = True
+    except Exception:
+        rollback_chamado = True
+
+    assert rollback_chamado is False
+    assert estado["pdv_flash_sucesso"] == "recuperada"
+    assert estado["pdv_reset_pendente"] is True

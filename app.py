@@ -32,6 +32,10 @@ from pdv_utils import (
     deve_exibir_troco,
     deve_exibir_valor_recebido,
     formatar_moeda_br,
+    aplicar_reset_pendente_pdv,
+    consumir_flash_sucesso_pdv,
+    marcar_reset_pdv_apos_sucesso,
+    montar_mensagem_sucesso_pdv,
     montar_url_qrcode_pix,
     pagamento_dinheiro_suficiente,
     validar_estoque_suficiente,
@@ -655,12 +659,10 @@ with aba3:
     st.header("🛒 Frente de Caixa — PDV com Gateway de Pagamento & Upsell")
     st.write("Registre vendas de balcão ou delivery, aplique saldos de cashback, gere QR Code Pix instantâneo e dê baixa automática no estoque.")
 
-    if "pdv_quantidade" not in st.session_state:
-        st.session_state["pdv_quantidade"] = 1
-    if "pdv_forma_pagamento" not in st.session_state:
-        st.session_state["pdv_forma_pagamento"] = FORMAS_PAGAMENTO_PERMITIDAS[0]
-    if "pdv_valor_recebido_dinheiro" not in st.session_state:
-        st.session_state["pdv_valor_recebido_dinheiro"] = 0.0
+    aplicar_reset_pendente_pdv(st.session_state)
+    flash_sucesso_pdv = consumir_flash_sucesso_pdv(st.session_state)
+    if flash_sucesso_pdv:
+        st.success(flash_sucesso_pdv)
 
     db_pdv = get_db()
     lista_pratos_pdv = db_pdv.query(Produto).all()
@@ -819,7 +821,17 @@ with aba3:
                     st.write("👉 *No modo Sandbox, clique no botão abaixo para simular a aprovação do recebimento:*")
 
         st.markdown("---")
-        if st.button("🚀 Confirmar Pagamento & Finalizar Venda", type="primary", use_container_width=True):
+        botao_finalizar_pdv = st.button(
+            "🚀 Confirmar Pagamento & Finalizar Venda",
+            type="primary",
+            use_container_width=True,
+            disabled=bool(st.session_state.get("pdv_processando", False)),
+        )
+        if botao_finalizar_pdv:
+            if st.session_state.get("pdv_processando", False):
+                st.warning("Venda já está em processamento. Aguarde a atualização da tela.")
+                st.stop()
+            st.session_state["pdv_processando"] = True
             cliente_id_selecionado = getattr(cliente_pdv, "id", None) if cliente_pdv else None
             cliente_existe_pdv = True
             if cliente_id_selecionado is not None:
@@ -838,10 +850,12 @@ with aba3:
                 pix_producao=modo_producao_ativo,
             )
             if not validacao_pdv.valido:
+                st.session_state["pdv_processando"] = False
                 st.error(validacao_pdv.mensagem or "Corrija os campos obrigatórios antes de finalizar.")
                 st.stop()
 
             db_exec_venda = get_db()
+            venda_commitada_pdv = False
             try:
                 produto_db = db_exec_venda.query(Produto).filter(Produto.id == prod_pdv.id).first()
                 cliente_db = db_exec_venda.query(Cliente).filter(Cliente.id == cliente_id_selecionado).first() if cliente_id_selecionado else None
@@ -858,6 +872,7 @@ with aba3:
                     pix_producao=modo_producao_ativo,
                 )
                 if not validacao_banco.valido:
+                    st.session_state["pdv_processando"] = False
                     st.error(validacao_banco.mensagem or "Corrija os campos obrigatórios antes de finalizar.")
                     st.stop()
 
@@ -868,9 +883,11 @@ with aba3:
                 }
                 validacao_estoque = validar_estoque_suficiente(fichas_venda, insumos_por_id, qtd_pdv)
                 if not validacao_estoque.valido:
+                    st.session_state["pdv_processando"] = False
                     st.error(validacao_estoque.mensagem or "Estoque insuficiente para finalizar a venda.")
                     st.stop()
                 if cliente_db and usa_cashback_pdv and float(validacao_banco.desconto_cashback) > float(cliente_db.saldo_cashback or 0.0):
+                    st.session_state["pdv_processando"] = False
                     st.error("Cashback não pode ser maior que o saldo disponível do cliente.")
                     st.stop()
 
@@ -901,22 +918,26 @@ with aba3:
                     cliente_db.saldo_cashback += cashback_ganho
 
                 db_exec_venda.commit()
-                if deve_exibir_troco(forma_pag_pdv):
-                    st.success(
-                        f"🎉 Pagamento de **{formatar_moeda_br(validacao_banco.total_final)}** processado com sucesso via {forma_pag_pdv}. "
-                        f"Valor recebido: {formatar_moeda_br(validacao_banco.valor_recebido or 0)}. "
-                        f"Troco: {formatar_moeda_br(validacao_banco.troco or 0)}. "
-                        "Estoque baixado e venda gravada no sistema."
-                    )
-                else:
-                    st.success(f"🎉 Pagamento de **{formatar_moeda_br(validacao_banco.total_final)}** processado com sucesso via {forma_pag_pdv}! Estoque baixado e venda gravada no sistema.")
-                st.session_state["pdv_quantidade"] = 1
-                st.session_state["pdv_cliente"] = None
-                st.session_state["pdv_valor_recebido_dinheiro"] = 0.0
-                st.session_state["pdv_forma_pagamento"] = FORMAS_PAGAMENTO_PERMITIDAS[0]
+                venda_commitada_pdv = True
+                mensagem_sucesso_pdv = montar_mensagem_sucesso_pdv(
+                    total_final=validacao_banco.total_final,
+                    forma_pagamento=forma_pag_pdv,
+                    valor_recebido=validacao_banco.valor_recebido if deve_exibir_troco(forma_pag_pdv) else None,
+                    troco=validacao_banco.troco if deve_exibir_troco(forma_pag_pdv) else None,
+                )
+                marcar_reset_pdv_apos_sucesso(st.session_state, mensagem_sucesso_pdv)
+                st.rerun()
             except Exception as e:
-                db_exec_venda.rollback()
-                st.error(f"❌ Erro ao registrar a venda no sistema: {e}")
+                st.session_state["pdv_processando"] = False
+                if venda_commitada_pdv:
+                    marcar_reset_pdv_apos_sucesso(
+                        st.session_state,
+                        "✅ Venda concluída e gravada no sistema. A tela foi recuperada para um novo atendimento.",
+                    )
+                    st.rerun()
+                else:
+                    db_exec_venda.rollback()
+                    st.error(f"❌ Erro ao registrar a venda no sistema: {e}")
             finally:
                 db_exec_venda.close()
     

@@ -148,3 +148,58 @@ def validar_estoque_suficiente(fichas_tecnicas: list[Any], insumos_por_id: dict[
             nome = getattr(insumo, "nome", "não identificado") if insumo else "não encontrado"
             return _invalido("estoque_insuficiente", f"Estoque insuficiente para o insumo {nome}. Disponível: {disponivel:g}, necessário: {necessario:g}.", "estoque")
     return ValidacaoPDVResultado(True)
+
+
+PDV_WIDGET_DEFAULTS = {
+    "pdv_quantidade": 1,
+    "pdv_cliente": None,
+    "pdv_valor_recebido_dinheiro": 0.0,
+    "pdv_forma_pagamento": FORMAS_PAGAMENTO_PERMITIDAS[0],
+    "pdv_usa_cashback": False,
+    "pdv_pix_confirmado": False,
+    "pdv_troco": None,
+}
+
+PDV_RESET_FLAG = "pdv_reset_pendente"
+PDV_FLASH_SUCESSO = "pdv_flash_sucesso"
+PDV_PROCESSANDO = "pdv_processando"
+
+
+def preparar_estado_inicial_pdv(session_state: Any) -> None:
+    """Inicializa chaves do PDV antes da criação de widgets."""
+    for chave, valor in PDV_WIDGET_DEFAULTS.items():
+        session_state.setdefault(chave, valor)
+    session_state.setdefault(PDV_PROCESSANDO, False)
+
+
+def aplicar_reset_pendente_pdv(session_state: Any) -> bool:
+    """Consome reset pendente e restaura defaults antes dos widgets."""
+    if not session_state.pop(PDV_RESET_FLAG, False):
+        preparar_estado_inicial_pdv(session_state)
+        return False
+    for chave, valor in PDV_WIDGET_DEFAULTS.items():
+        session_state[chave] = valor
+    session_state[PDV_PROCESSANDO] = False
+    return True
+
+
+def marcar_reset_pdv_apos_sucesso(session_state: Any, mensagem_sucesso: str) -> None:
+    """Agenda reset para o próximo ciclo sem alterar chaves de widgets já instanciados."""
+    session_state[PDV_FLASH_SUCESSO] = mensagem_sucesso
+    session_state[PDV_RESET_FLAG] = True
+    session_state[PDV_PROCESSANDO] = False
+
+
+def consumir_flash_sucesso_pdv(session_state: Any) -> str | None:
+    """Retorna a mensagem flash uma única vez."""
+    return session_state.pop(PDV_FLASH_SUCESSO, None)
+
+
+def montar_mensagem_sucesso_pdv(*, total_final: Any, forma_pagamento: str, valor_recebido: Any = None, troco: Any = None) -> str:
+    partes = [f"🎉 Pagamento de {formatar_moeda_br(total_final)} processado com sucesso via {forma_pagamento}."]
+    if valor_recebido is not None:
+        partes.append(f"Valor recebido: {formatar_moeda_br(valor_recebido)}.")
+    if troco is not None:
+        partes.append(f"Troco: {formatar_moeda_br(troco)}.")
+    partes.append("Estoque baixado e venda gravada no sistema.")
+    return " ".join(partes)
