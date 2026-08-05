@@ -1,15 +1,19 @@
 import os
+from typing import Any
+
 import streamlit as st
 from streamlit.errors import StreamlitSecretNotFoundError
 
 # Patch: ensure compatibility with custom keyword args used across the app
 try:
     if not hasattr(st, "_orig_container"):
-        st._orig_container = st.container
-        def _container_compat(*args, **kwargs):
+        setattr(st, "_orig_container", st.container)
+
+        def _container_compat(*args: Any, **kwargs: Any) -> Any:
             kwargs.pop("border", None)
             kwargs.pop("bordered", None)
-            return st._orig_container(*args, **kwargs)
+            return getattr(st, "_orig_container")(*args, **kwargs)
+
         st.container = _container_compat
 except Exception:
     pass
@@ -26,7 +30,7 @@ from gemini_config import generate_content, upload_file
 from datetime import datetime, timedelta, date
 import json
 from dotenv import load_dotenv
-import pandas as pd
+import pandas as pd  # type: ignore[import-untyped]
 from PIL import Image
 import requests
 from sqlalchemy import (
@@ -65,13 +69,13 @@ Base = declarative_base()
 
 
 # --- 3. MODELOS DAS TABELAS DO BANCO DE DADOS ---
-class Usuario(Base):
+class Usuario(Base):  # type: ignore[misc, valid-type]
     __tablename__ = "usuarios"
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True)
     senha_hash = Column(String)
 
-class Cliente(Base):
+class Cliente(Base):  # type: ignore[misc, valid-type]
     __tablename__ = "clientes"
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String, index=True)
@@ -81,7 +85,7 @@ class Cliente(Base):
     saldo_cashback = Column(Float, default=0.0)
     status = Column(String, default="Ativo")
 
-class Produto(Base):
+class Produto(Base):  # type: ignore[misc, valid-type]
     __tablename__ = "produtos"
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String, index=True)
@@ -93,7 +97,7 @@ class Produto(Base):
     margem_exibicao = Column(String)
     imagem_path = Column(String, nullable=True)
 
-class Insumo(Base):
+class Insumo(Base):  # type: ignore[misc, valid-type]
     __tablename__ = "insumos"
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String, unique=True, index=True)
@@ -105,7 +109,7 @@ class Insumo(Base):
     data_validade = Column(DateTime, nullable=True)
     dias_alerta_vencimento = Column(Integer, default=15)
 
-class FichaTecnica(Base):
+class FichaTecnica(Base):  # type: ignore[misc, valid-type]
     __tablename__ = "fichas_tecnicas"
     id = Column(Integer, primary_key=True, index=True)
     produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=False)
@@ -115,7 +119,7 @@ class FichaTecnica(Base):
     produto = relationship("Produto", backref="fichas_tecnicas")
     insumo = relationship("Insumo", backref="fichas_tecnicas")
 
-class Venda(Base):
+class Venda(Base):  # type: ignore[misc, valid-type]
     __tablename__ = "vendas"
     id = Column(Integer, primary_key=True, index=True)
     produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=False)
@@ -130,7 +134,7 @@ class Venda(Base):
     produto = relationship("Produto")
     cliente = relationship("Cliente")
 
-class GatewayConfig(Base):
+class GatewayConfig(Base):  # type: ignore[misc, valid-type]
     __tablename__ = 'gateway_config'
     id = Column(Integer, primary_key=True)
     gateway_provider = Column(String(50), default="Mercado Pago")
@@ -138,7 +142,7 @@ class GatewayConfig(Base):
     gateway_pix_key = Column(String(100), nullable=True)
     ambiente = Column(String(20), default="Sandbox")
 
-class ConfiguracaoMeta(Base):
+class ConfiguracaoMeta(Base):  # type: ignore[misc, valid-type]
     __tablename__ = "configuracoes_meta"
     id = Column(Integer, primary_key=True, index=True)
     meta_access_token = Column(String, nullable=True)
@@ -150,7 +154,7 @@ class ConfiguracaoMeta(Base):
     gateway_pix_key = Column(String, nullable=True)
     gateway_api_key = Column(String, nullable=True)
 
-class ContatoGerencial(Base):
+class ContatoGerencial(Base):  # type: ignore[misc, valid-type]
     __tablename__ = "contatos_gerenciais"
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String)
@@ -1111,7 +1115,7 @@ if btn_acionar_mica:
                   "resposta_whatsapp": "Texto da resposta comercial amigável da Mica com sugestão de Pix ou instrução de pagamento baseada no pedido."
                 }}
                 """
-                inputs_mica = [prompt_mica]
+                inputs_mica: list[Any] = [prompt_mica]
                 if 'foto_pedido_bot' in locals() and foto_pedido_bot:
                     nome_arq = foto_pedido_bot.name.lower()
                     if nome_arq.endswith(('.jpg', '.jpeg', '.png')):
@@ -1204,6 +1208,8 @@ if btn_acionar_mica:
                         qtd_item = getattr(ficha, 'quantidade_utilizada', None)
                         if qtd_item is None:
                             qtd_item = getattr(ficha, 'quantidade', 1)
+                        if qtd_item is None:
+                            qtd_item = 1
 
                         consumo = float(qtd_item) * float(qtd_p_mica)
                         estoque_atual = getattr(insumo, 'saldo_atual', 0.0)
