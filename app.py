@@ -27,15 +27,21 @@ except StreamlitSecretNotFoundError:
 
 from gemini_config import generate_content, upload_file
 from pdv_utils import (
+    CLIENTE_BALCAO_ID,
     FORMAS_PAGAMENTO_PERMITIDAS,
     calcular_troco,
     deve_exibir_troco,
     deve_exibir_valor_recebido,
     formatar_moeda_br,
+    formatar_opcao_cliente_pdv,
+    indice_cliente_pdv,
     aplicar_reset_pendente_pdv,
     consumir_flash_sucesso_pdv,
     marcar_reset_pdv_apos_sucesso,
+    montar_linha_total_pdv,
     montar_mensagem_sucesso_pdv,
+    montar_payload_pix_simulado,
+    normalizar_cliente_id_pdv,
     montar_url_qrcode_pix,
     pagamento_dinheiro_suficiente,
     validar_estoque_suficiente,
@@ -630,7 +636,7 @@ with aba2:
             st.write("Utilize esta função para premiar clientes vips ou conceder bônus promocionais.")
             col_cb1, col_cb2 = st.columns(2)
             with col_cb1:
-                cli_escolhido = st.selectbox("Selecione o Cliente para o Crédito", todos_clientes, format_func=lambda x: f"{x.nome} (Saldo Atual: R$ {x.saldo_cashback:.2f})")
+                cli_escolhido = st.selectbox("Selecione o Cliente para o Crédito", todos_clientes, format_func=lambda x: f"{x.nome} (Saldo Atual: {formatar_moeda_br(x.saldo_cashback)})")
             with col_cb2:
                 valor_add_cb = st.number_input("Valor do Crédito a Adicionar (R$)", min_value=0.0, value=10.0, step=5.0, format="%.2f")
             
@@ -642,7 +648,7 @@ with aba2:
                     if c_up:
                         c_up.saldo_cashback += valor_add_cb
                         db_cb.commit()
-                        st.success(f"✅ Crédito de R$ {valor_add_cb:.2f} adicionado com sucesso ao saldo de **{c_up.nome}**!")
+                        st.success(f"✅ Crédito de {formatar_moeda_br(valor_add_cb)} adicionado com sucesso ao saldo de **{c_up.nome}**!")
                         st.rerun()
                 except Exception as e:
                     db_cb.rollback()
@@ -718,12 +724,20 @@ with aba3:
         with col_pdv1:
             prod_pdv = st.selectbox("🍔 Selecione o Prato / Lanche", lista_pratos_pdv, format_func=lambda x: f"{x.nome} — {formatar_moeda_br(x.preco_venda)}", key="pdv_produto")
             qtd_pdv = st.number_input("🔢 Quantidade de Itens", min_value=1, step=1, key="pdv_quantidade")
-            cliente_pdv = st.selectbox(
+            clientes_por_id_pdv = {int(cliente.id): cliente for cliente in lista_clientes_pdv if getattr(cliente, "id", None) is not None}
+            opcoes_cliente_ids_pdv = [CLIENTE_BALCAO_ID, *clientes_por_id_pdv.keys()]
+            cliente_id_estado_pdv = normalizar_cliente_id_pdv(st.session_state.get("pdv_cliente_id"), clientes_por_id_pdv)
+            st.session_state["pdv_cliente_id"] = cliente_id_estado_pdv
+            cliente_id_pdv = st.selectbox(
                 "👤 Identificar Cliente (Opcional para acúmulo e resgate de Cashback)",
-                [None] + lista_clientes_pdv,
-                format_func=lambda x: "👤 Cliente Balcão / Não Identificado" if x is None else f"{x.nome} (Cashback Disponível: {formatar_moeda_br(x.saldo_cashback)})",
-                key="pdv_cliente"
+                opcoes_cliente_ids_pdv,
+                index=indice_cliente_pdv(cliente_id_estado_pdv, opcoes_cliente_ids_pdv),
+                format_func=lambda cliente_id: formatar_opcao_cliente_pdv(cliente_id, clientes_por_id_pdv),
+                key="pdv_cliente_id",
+                placeholder="Cliente Balcão / Não Identificado",
             )
+            cliente_id_pdv = normalizar_cliente_id_pdv(cliente_id_pdv, clientes_por_id_pdv)
+            cliente_pdv = clientes_por_id_pdv.get(cliente_id_pdv) if cliente_id_pdv != CLIENTE_BALCAO_ID else None
 
         total_bruto_pdv = prod_pdv.preco_venda * qtd_pdv
         usa_cashback_pdv = False
@@ -739,24 +753,31 @@ with aba3:
         with col_pdv2:
             with st.container():
                 st.markdown("### 💰 Resumo Financeiro do Pedido")
-                st.markdown(f"**Subtotal:** {formatar_moeda_br(total_bruto_pdv)}")
+                st.markdown(f"**{montar_linha_total_pdv('Subtotal', total_bruto_pdv)}**")
                 if usa_cashback_pdv:
-                    st.markdown(f"📉 **Desconto Fidelidade:** -{formatar_moeda_br(desconto_cb_pdv)}")
-                st.markdown(f"### ✅ Total a Pagar: {formatar_moeda_br(total_final_pdv)}")
+                    st.markdown(f"📉 **{montar_linha_total_pdv('Desconto Fidelidade', desconto_cb_pdv, negativo=True)}**")
+                st.markdown(f"### ✅ {montar_linha_total_pdv('Total a Pagar', total_final_pdv)}")
                 
                 forma_pag_pdv = st.selectbox("💳 Forma de Pagamento", list(FORMAS_PAGAMENTO_PERMITIDAS), key="pdv_forma_pagamento")
                 valor_recebido_pdv = total_final_pdv
                 troco_pdv = calcular_troco(total_final_pdv, valor_recebido_pdv)
                 pagamento_dinheiro_valido = True
                 if deve_exibir_valor_recebido(forma_pag_pdv):
-                    valor_recebido_pdv = st.number_input(
-                        "Valor recebido do cliente (R$)",
-                        min_value=0.0,
-                        value=float(st.session_state.get("pdv_valor_recebido_dinheiro", total_final_pdv)),
-                        step=0.50,
-                        format="%.2f",
-                        key="pdv_valor_recebido_dinheiro",
-                    )
+                    st.markdown("Valor recebido do cliente")
+                    col_moeda_pdv, col_valor_recebido_pdv = st.columns([1, 8])
+                    with col_moeda_pdv:
+                        st.markdown("### R$")
+                    with col_valor_recebido_pdv:
+                        valor_recebido_pdv = st.number_input(
+                            "Valor recebido do cliente",
+                            min_value=0.0,
+                            value=float(st.session_state.get("pdv_valor_recebido_dinheiro", total_final_pdv)),
+                            step=0.50,
+                            format="%.2f",
+                            key="pdv_valor_recebido_dinheiro",
+                            help="Informe o valor recebido em reais; o campo permanece numérico para cálculo automático do troco.",
+                            label_visibility="collapsed",
+                        )
                     troco_pdv = calcular_troco(total_final_pdv, valor_recebido_pdv)
                     pagamento_dinheiro_valido = pagamento_dinheiro_suficiente(total_final_pdv, valor_recebido_pdv)
                     if pagamento_dinheiro_valido:
@@ -808,7 +829,7 @@ with aba3:
                     st.write("🟢 **Status:** Aguardando sinal de confirmação do Webhook do banco na conta da Michele...")
             else:
                 st.subheader("📱 Gateway Pix Automático (Simulador de Treinamento)")
-                payload_pix = f"FMFIFOOD_PIX_SIMULADO_R$ {float(total_final_pdv):.2f}"
+                payload_pix = montar_payload_pix_simulado(total_final_pdv)
                 col_pix1, col_pix2 = st.columns([1, 3])
                 with col_pix1:
                     try:
