@@ -26,6 +26,14 @@ except StreamlitSecretNotFoundError:
     pass
 
 from gemini_config import generate_content, upload_file
+from pdv_utils import (
+    DINHEIRO_ESPECIE,
+    calcular_troco,
+    deve_exibir_troco,
+    montar_url_qrcode_pix,
+    pagamento_dinheiro_suficiente,
+    valor_faltante_pagamento,
+)
 
 from datetime import datetime, timedelta, date
 import json
@@ -722,7 +730,26 @@ with aba3:
                     st.markdown(f"📉 **Desconto Fidelidade:** -R$ {desconto_cb_pdv:.2f}")
                 st.markdown(f"### ✅ Total a Pagar: R$ {total_final_pdv:.2f}")
                 
-                forma_pag_pdv = st.selectbox("💳 Forma de Pagamento", ["Pix (Gerar QR Code Instantâneo)", "Cartão de Crédito", "Cartão de Débito", "Dinheiro Em Espécie"])
+                forma_pag_pdv = st.selectbox("💳 Forma de Pagamento", ["Pix (Gerar QR Code Instantâneo)", "Cartão de Crédito", "Cartão de Débito", DINHEIRO_ESPECIE])
+                valor_recebido_pdv = total_final_pdv
+                troco_pdv = calcular_troco(total_final_pdv, valor_recebido_pdv)
+                pagamento_dinheiro_valido = True
+                if deve_exibir_troco(forma_pag_pdv):
+                    valor_recebido_pdv = st.number_input(
+                        "Valor recebido do cliente (R$)",
+                        min_value=0.0,
+                        value=float(total_final_pdv),
+                        step=0.50,
+                        format="%.2f",
+                        key="pdv_valor_recebido_dinheiro",
+                    )
+                    troco_pdv = calcular_troco(total_final_pdv, valor_recebido_pdv)
+                    pagamento_dinheiro_valido = pagamento_dinheiro_suficiente(total_final_pdv, valor_recebido_pdv)
+                    if pagamento_dinheiro_valido:
+                        st.success(f"💵 Troco: R$ {float(troco_pdv):.2f}")
+                    else:
+                        falta_pdv = valor_faltante_pagamento(total_final_pdv, valor_recebido_pdv)
+                        st.error(f"Pagamento insuficiente. Ainda faltam R$ {float(falta_pdv):.2f} para finalizar a venda.")
 
         with st.container():
             st.markdown("💡 **Sugestão Inteligente de Upsell para o Operador falar no Balcão:**")
@@ -754,24 +781,37 @@ with aba3:
             st.markdown("---")
             if modo_producao_ativo:
                 st.subheader(f"📱 Cobrança Pix Real Gerada via API ({config_gtw.gateway_provider})")
+                payload_pix = f"00020126580014br.gov.bcb.pix0136{config_gtw.gateway_pix_key}5204000053039865405{total_final_pdv:.2f}5802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A"
                 col_pix1, col_pix2 = st.columns([1, 3])
                 with col_pix1:
-                    st.image(f"[https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=00020126580014br.gov.bcb.pix0136](https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=00020126580014br.gov.bcb.pix0136){config_gtw.gateway_pix_key}5204000053039865405{total_final_pdv:.2f}5802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", width=180, caption="QR Code Oficial da Conta PJ")
+                    try:
+                        st.image(montar_url_qrcode_pix(payload_pix), width=180, caption="QR Code Oficial da Conta PJ")
+                    except Exception:
+                        st.warning("Não foi possível exibir o QR Code Pix agora. Use a chave/código Pix abaixo para concluir o pagamento.")
                 with col_pix2:
                     st.success(f"⚡ **Chave Pix Oficial:** `{config_gtw.gateway_pix_key}`")
-                    st.code(f"00020126580014br.gov.bcb.pix0136{config_gtw.gateway_pix_key}5204000053039865405{total_final_pdv:.2f}5802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A", language="text")
+                    st.code(payload_pix, language="text")
                     st.write("🟢 **Status:** Aguardando sinal de confirmação do Webhook do banco na conta da Michele...")
             else:
                 st.subheader("📱 Gateway Pix Automático (Simulador de Treinamento)")
+                payload_pix = f"FMFIFOOD_PIX_SIMULADO_R$ {total_final_pdv:.2f}"
                 col_pix1, col_pix2 = st.columns([1, 3])
                 with col_pix1:
-                    st.image(f"[https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=FMFIFOOD_PIX_SIMULADO_R$](https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=FMFIFOOD_PIX_SIMULADO_R$){total_final_pdv:.2f}", width=180, caption="QR Code Dinâmico (Sandbox)")
+                    try:
+                        st.image(montar_url_qrcode_pix(payload_pix), width=180, caption="QR Code Dinâmico (Sandbox)")
+                    except Exception:
+                        st.warning("Não foi possível exibir o QR Code Pix agora. Use a chave/código Pix abaixo para concluir o pagamento.")
                 with col_pix2:
                     st.info("🟡 **Chave Pix de Treinamento (Simulado):**\n\n`00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-426614174000520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A`")
+                    st.code(payload_pix, language="text")
                     st.write("👉 *No modo Sandbox, clique no botão abaixo para simular a aprovação do recebimento:*")
 
         st.markdown("---")
         if st.button("🚀 Confirmar Pagamento & Finalizar Venda", type="primary", use_container_width=True):
+            if deve_exibir_troco(forma_pag_pdv) and not pagamento_dinheiro_valido:
+                falta_pdv = valor_faltante_pagamento(total_final_pdv, valor_recebido_pdv)
+                st.error(f"Venda bloqueada: valor recebido insuficiente. Ainda faltam R$ {float(falta_pdv):.2f}.")
+                st.stop()
             db_exec_venda = get_db()
             try:
                 nova_venda = Venda(
@@ -805,7 +845,15 @@ with aba3:
                         cli_update.saldo_cashback += cashback_ganho
 
                 db_exec_venda.commit()
-                st.success(f"🎉 Pagamento de **R$ {total_final_pdv:.2f}** processado com sucesso via {forma_pag_pdv}! Estoque baixado e venda gravada no sistema.")
+                if deve_exibir_troco(forma_pag_pdv):
+                    st.success(
+                        f"🎉 Pagamento de **R$ {total_final_pdv:.2f}** processado com sucesso via {forma_pag_pdv}. "
+                        f"Valor recebido: R$ {float(valor_recebido_pdv):.2f}. "
+                        f"Troco: R$ {float(troco_pdv):.2f}. "
+                        "Estoque baixado e venda gravada no sistema."
+                    )
+                else:
+                    st.success(f"🎉 Pagamento de **R$ {total_final_pdv:.2f}** processado com sucesso via {forma_pag_pdv}! Estoque baixado e venda gravada no sistema.")
             except Exception as e:
                 db_exec_venda.rollback()
                 st.error(f"❌ Erro ao registrar a venda no sistema: {e}")
