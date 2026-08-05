@@ -27,11 +27,15 @@ except StreamlitSecretNotFoundError:
 
 from gemini_config import generate_content, upload_file
 from pdv_utils import (
-    DINHEIRO_ESPECIE,
+    FORMAS_PAGAMENTO_PERMITIDAS,
     calcular_troco,
     deve_exibir_troco,
+    deve_exibir_valor_recebido,
+    formatar_moeda_br,
     montar_url_qrcode_pix,
     pagamento_dinheiro_suficiente,
+    validar_estoque_suficiente,
+    validar_finalizacao_pdv,
     valor_faltante_pagamento,
 )
 
@@ -651,6 +655,13 @@ with aba3:
     st.header("🛒 Frente de Caixa — PDV com Gateway de Pagamento & Upsell")
     st.write("Registre vendas de balcão ou delivery, aplique saldos de cashback, gere QR Code Pix instantâneo e dê baixa automática no estoque.")
 
+    if "pdv_quantidade" not in st.session_state:
+        st.session_state["pdv_quantidade"] = 1
+    if "pdv_forma_pagamento" not in st.session_state:
+        st.session_state["pdv_forma_pagamento"] = FORMAS_PAGAMENTO_PERMITIDAS[0]
+    if "pdv_valor_recebido_dinheiro" not in st.session_state:
+        st.session_state["pdv_valor_recebido_dinheiro"] = 0.0
+
     db_pdv = get_db()
     lista_pratos_pdv = db_pdv.query(Produto).all()
     lista_clientes_pdv = db_pdv.query(Cliente).all()
@@ -703,12 +714,13 @@ with aba3:
     else:
         col_pdv1, col_pdv2 = st.columns([3, 2])
         with col_pdv1:
-            prod_pdv = st.selectbox("🍔 Selecione o Prato / Lanche", lista_pratos_pdv, format_func=lambda x: f"{x.nome} — R$ {x.preco_venda:.2f}")
-            qtd_pdv = st.number_input("🔢 Quantidade de Itens", min_value=1, value=1, step=1)
+            prod_pdv = st.selectbox("🍔 Selecione o Prato / Lanche", lista_pratos_pdv, format_func=lambda x: f"{x.nome} — {formatar_moeda_br(x.preco_venda)}", key="pdv_produto")
+            qtd_pdv = st.number_input("🔢 Quantidade de Itens", min_value=1, step=1, key="pdv_quantidade")
             cliente_pdv = st.selectbox(
                 "👤 Identificar Cliente (Opcional para acúmulo e resgate de Cashback)",
                 [None] + lista_clientes_pdv,
-                format_func=lambda x: "👤 Cliente Balcão / Não Identificado" if x is None else f"{x.nome} (Cashback Disponível: R$ {x.saldo_cashback:.2f})"
+                format_func=lambda x: "👤 Cliente Balcão / Não Identificado" if x is None else f"{x.nome} (Cashback Disponível: {formatar_moeda_br(x.saldo_cashback)})",
+                key="pdv_cliente"
             )
 
         total_bruto_pdv = prod_pdv.preco_venda * qtd_pdv
@@ -716,7 +728,7 @@ with aba3:
         desconto_cb_pdv = 0.0
 
         if cliente_pdv and cliente_pdv.saldo_cashback > 0:
-            usa_cashback_pdv = st.checkbox(f"💳 Utilizar Saldo de Cashback deste cliente (Disponível: R$ {cliente_pdv.saldo_cashback:.2f})")
+            usa_cashback_pdv = st.checkbox(f"💳 Utilizar Saldo de Cashback deste cliente (Disponível: {formatar_moeda_br(cliente_pdv.saldo_cashback)})", key="pdv_usa_cashback")
             if usa_cashback_pdv:
                 desconto_cb_pdv = min(total_bruto_pdv, cliente_pdv.saldo_cashback)
 
@@ -725,20 +737,20 @@ with aba3:
         with col_pdv2:
             with st.container():
                 st.markdown("### 💰 Resumo Financeiro do Pedido")
-                st.markdown(f"**Subtotal:** R$ {total_bruto_pdv:.2f}")
+                st.markdown(f"**Subtotal:** {formatar_moeda_br(total_bruto_pdv)}")
                 if usa_cashback_pdv:
-                    st.markdown(f"📉 **Desconto Fidelidade:** -R$ {desconto_cb_pdv:.2f}")
-                st.markdown(f"### ✅ Total a Pagar: R$ {total_final_pdv:.2f}")
+                    st.markdown(f"📉 **Desconto Fidelidade:** -{formatar_moeda_br(desconto_cb_pdv)}")
+                st.markdown(f"### ✅ Total a Pagar: {formatar_moeda_br(total_final_pdv)}")
                 
-                forma_pag_pdv = st.selectbox("💳 Forma de Pagamento", ["Pix (Gerar QR Code Instantâneo)", "Cartão de Crédito", "Cartão de Débito", DINHEIRO_ESPECIE])
+                forma_pag_pdv = st.selectbox("💳 Forma de Pagamento", list(FORMAS_PAGAMENTO_PERMITIDAS), key="pdv_forma_pagamento")
                 valor_recebido_pdv = total_final_pdv
                 troco_pdv = calcular_troco(total_final_pdv, valor_recebido_pdv)
                 pagamento_dinheiro_valido = True
-                if deve_exibir_troco(forma_pag_pdv):
+                if deve_exibir_valor_recebido(forma_pag_pdv):
                     valor_recebido_pdv = st.number_input(
                         "Valor recebido do cliente (R$)",
                         min_value=0.0,
-                        value=float(total_final_pdv),
+                        value=float(st.session_state.get("pdv_valor_recebido_dinheiro", total_final_pdv)),
                         step=0.50,
                         format="%.2f",
                         key="pdv_valor_recebido_dinheiro",
@@ -746,10 +758,10 @@ with aba3:
                     troco_pdv = calcular_troco(total_final_pdv, valor_recebido_pdv)
                     pagamento_dinheiro_valido = pagamento_dinheiro_suficiente(total_final_pdv, valor_recebido_pdv)
                     if pagamento_dinheiro_valido:
-                        st.success(f"💵 Troco: R$ {float(troco_pdv):.2f}")
+                        st.success(f"💵 Troco: {formatar_moeda_br(troco_pdv)}")
                     else:
                         falta_pdv = valor_faltante_pagamento(total_final_pdv, valor_recebido_pdv)
-                        st.error(f"Pagamento insuficiente. Ainda faltam R$ {float(falta_pdv):.2f} para finalizar a venda.")
+                        st.error(f"Pagamento insuficiente. Ainda faltam {formatar_moeda_br(falta_pdv)} para finalizar a venda.")
 
         with st.container():
             st.markdown("💡 **Sugestão Inteligente de Upsell para o Operador falar no Balcão:**")
@@ -781,7 +793,7 @@ with aba3:
             st.markdown("---")
             if modo_producao_ativo:
                 st.subheader(f"📱 Cobrança Pix Real Gerada via API ({config_gtw.gateway_provider})")
-                payload_pix = f"00020126580014br.gov.bcb.pix0136{config_gtw.gateway_pix_key}5204000053039865405{total_final_pdv:.2f}5802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A"
+                payload_pix = f"00020126580014br.gov.bcb.pix0136{config_gtw.gateway_pix_key}5204000053039865405{float(total_final_pdv):.2f}5802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A"
                 col_pix1, col_pix2 = st.columns([1, 3])
                 with col_pix1:
                     try:
@@ -794,7 +806,7 @@ with aba3:
                     st.write("🟢 **Status:** Aguardando sinal de confirmação do Webhook do banco na conta da Michele...")
             else:
                 st.subheader("📱 Gateway Pix Automático (Simulador de Treinamento)")
-                payload_pix = f"FMFIFOOD_PIX_SIMULADO_R$ {total_final_pdv:.2f}"
+                payload_pix = f"FMFIFOOD_PIX_SIMULADO_R$ {float(total_final_pdv):.2f}"
                 col_pix1, col_pix2 = st.columns([1, 3])
                 with col_pix1:
                     try:
@@ -808,52 +820,100 @@ with aba3:
 
         st.markdown("---")
         if st.button("🚀 Confirmar Pagamento & Finalizar Venda", type="primary", use_container_width=True):
-            if deve_exibir_troco(forma_pag_pdv) and not pagamento_dinheiro_valido:
-                falta_pdv = valor_faltante_pagamento(total_final_pdv, valor_recebido_pdv)
-                st.error(f"Venda bloqueada: valor recebido insuficiente. Ainda faltam R$ {float(falta_pdv):.2f}.")
+            cliente_id_selecionado = getattr(cliente_pdv, "id", None) if cliente_pdv else None
+            cliente_existe_pdv = True
+            if cliente_id_selecionado is not None:
+                cliente_existe_pdv = any(c.id == cliente_id_selecionado for c in lista_clientes_pdv)
+
+            validacao_pdv = validar_finalizacao_pdv(
+                produto=prod_pdv,
+                quantidade=qtd_pdv,
+                forma_pagamento=forma_pag_pdv,
+                valor_recebido=valor_recebido_pdv if deve_exibir_valor_recebido(forma_pag_pdv) else None,
+                cliente_selecionado=cliente_pdv,
+                cliente_existe=cliente_existe_pdv,
+                usar_cashback=usa_cashback_pdv,
+                desconto_cashback=desconto_cb_pdv,
+                pix_confirmado=not modo_producao_ativo,
+                pix_producao=modo_producao_ativo,
+            )
+            if not validacao_pdv.valido:
+                st.error(validacao_pdv.mensagem or "Corrija os campos obrigatórios antes de finalizar.")
                 st.stop()
+
             db_exec_venda = get_db()
             try:
-                nova_venda = Venda(
-                    produto_id=prod_pdv.id,
-                    cliente_id=cliente_pdv.id if cliente_pdv else None,
+                produto_db = db_exec_venda.query(Produto).filter(Produto.id == prod_pdv.id).first()
+                cliente_db = db_exec_venda.query(Cliente).filter(Cliente.id == cliente_id_selecionado).first() if cliente_id_selecionado else None
+                validacao_banco = validar_finalizacao_pdv(
+                    produto=produto_db,
                     quantidade=qtd_pdv,
-                    valor_total=total_final_pdv,
-                    custo_total=(prod_pdv.custo_total_cmv or 0.0) * qtd_pdv,
                     forma_pagamento=forma_pag_pdv,
-                    status_pagamento="Aprovado",
+                    valor_recebido=valor_recebido_pdv if deve_exibir_valor_recebido(forma_pag_pdv) else None,
+                    cliente_selecionado=cliente_pdv,
+                    cliente_existe=cliente_id_selecionado is None or cliente_db is not None,
+                    usar_cashback=usa_cashback_pdv,
+                    desconto_cashback=desconto_cb_pdv,
+                    pix_confirmado=not modo_producao_ativo,
+                    pix_producao=modo_producao_ativo,
+                )
+                if not validacao_banco.valido:
+                    st.error(validacao_banco.mensagem or "Corrija os campos obrigatórios antes de finalizar.")
+                    st.stop()
+
+                fichas_venda = db_exec_venda.query(FichaTecnica).filter(FichaTecnica.produto_id == produto_db.id).all()
+                insumos_por_id = {
+                    ft.insumo_id: db_exec_venda.query(Insumo).filter(Insumo.id == ft.insumo_id).first()
+                    for ft in fichas_venda
+                }
+                validacao_estoque = validar_estoque_suficiente(fichas_venda, insumos_por_id, qtd_pdv)
+                if not validacao_estoque.valido:
+                    st.error(validacao_estoque.mensagem or "Estoque insuficiente para finalizar a venda.")
+                    st.stop()
+                if cliente_db and usa_cashback_pdv and float(validacao_banco.desconto_cashback) > float(cliente_db.saldo_cashback or 0.0):
+                    st.error("Cashback não pode ser maior que o saldo disponível do cliente.")
+                    st.stop()
+
+                nova_venda = Venda(
+                    produto_id=produto_db.id,
+                    cliente_id=cliente_db.id if cliente_db else None,
+                    quantidade=qtd_pdv,
+                    valor_total=float(validacao_banco.total_final),
+                    custo_total=(produto_db.custo_total_cmv or 0.0) * qtd_pdv,
+                    forma_pagamento=forma_pag_pdv,
+                    status_pagamento="Aprovado" if not modo_producao_ativo else "Aguardando confirmação Pix",
                     data_venda=datetime.now(),
                 )
                 db_exec_venda.add(nova_venda)
 
-                fichas_venda = db_exec_venda.query(FichaTecnica).filter(FichaTecnica.produto_id == prod_pdv.id).all()
                 for ft in fichas_venda:
-                    insumo_almo = db_exec_venda.query(Insumo).filter(Insumo.id == ft.insumo_id).first()
+                    insumo_almo = insumos_por_id.get(ft.insumo_id)
                     if insumo_almo:
                         insumo_almo.saldo_atual -= (ft.quantidade_utilizada * qtd_pdv)
 
-                if cliente_pdv:
-                    cli_update = db_exec_venda.query(Cliente).filter(Cliente.id == cliente_pdv.id).first()
-                    if cli_update:
-                        cli_update.total_gasto += total_final_pdv
-                        cli_update.ultima_compra = datetime.now()
-                        cli_update.status = "Ativo"
-                        if usa_cashback_pdv:
-                            cli_update.saldo_cashback -= desconto_cb_pdv
-                        
-                        cashback_ganho = round(total_final_pdv * 0.05, 2)
-                        cli_update.saldo_cashback += cashback_ganho
+                if cliente_db:
+                    cliente_db.total_gasto += float(validacao_banco.total_final)
+                    cliente_db.ultima_compra = datetime.now()
+                    cliente_db.status = "Ativo"
+                    if usa_cashback_pdv:
+                        cliente_db.saldo_cashback -= float(validacao_banco.desconto_cashback)
+                    cashback_ganho = round(float(validacao_banco.total_final) * 0.05, 2)
+                    cliente_db.saldo_cashback += cashback_ganho
 
                 db_exec_venda.commit()
                 if deve_exibir_troco(forma_pag_pdv):
                     st.success(
-                        f"🎉 Pagamento de **R$ {total_final_pdv:.2f}** processado com sucesso via {forma_pag_pdv}. "
-                        f"Valor recebido: R$ {float(valor_recebido_pdv):.2f}. "
-                        f"Troco: R$ {float(troco_pdv):.2f}. "
+                        f"🎉 Pagamento de **{formatar_moeda_br(validacao_banco.total_final)}** processado com sucesso via {forma_pag_pdv}. "
+                        f"Valor recebido: {formatar_moeda_br(validacao_banco.valor_recebido or 0)}. "
+                        f"Troco: {formatar_moeda_br(validacao_banco.troco or 0)}. "
                         "Estoque baixado e venda gravada no sistema."
                     )
                 else:
-                    st.success(f"🎉 Pagamento de **R$ {total_final_pdv:.2f}** processado com sucesso via {forma_pag_pdv}! Estoque baixado e venda gravada no sistema.")
+                    st.success(f"🎉 Pagamento de **{formatar_moeda_br(validacao_banco.total_final)}** processado com sucesso via {forma_pag_pdv}! Estoque baixado e venda gravada no sistema.")
+                st.session_state["pdv_quantidade"] = 1
+                st.session_state["pdv_cliente"] = None
+                st.session_state["pdv_valor_recebido_dinheiro"] = 0.0
+                st.session_state["pdv_forma_pagamento"] = FORMAS_PAGAMENTO_PERMITIDAS[0]
             except Exception as e:
                 db_exec_venda.rollback()
                 st.error(f"❌ Erro ao registrar a venda no sistema: {e}")
