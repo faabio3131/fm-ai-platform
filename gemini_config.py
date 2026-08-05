@@ -56,10 +56,15 @@ def _api_key() -> str:
     return key
 
 
-@lru_cache(maxsize=1)
+@lru_cache(maxsize=4)
+def _get_client_for_key(api_key: str) -> Any:
+    """Cria e reutiliza clientes por chave, sem registrar a credencial."""
+    return genai.Client(api_key=api_key)
+
+
 def get_client() -> Any:
-    """Cria e reutiliza o único cliente Gemini, sem registrar a credencial."""
-    return genai.Client(api_key=_api_key())
+    """Retorna o cliente Gemini da chave atualmente configurada."""
+    return _get_client_for_key(_api_key())
 
 
 def _supports_generate_content(model: Any) -> bool:
@@ -69,11 +74,11 @@ def _supports_generate_content(model: Any) -> bool:
     return "generateContent" in (actions or ())
 
 
-@lru_cache(maxsize=1)
-def list_generate_content_models() -> tuple[str, ...]:
-    """Lista uma vez os modelos compatíveis com geração para a chave atual."""
+@lru_cache(maxsize=4)
+def _list_generate_content_models_for_key(api_key: str) -> tuple[str, ...]:
+    """Lista modelos compatíveis com geração para uma chave específica."""
     try:
-        models = get_client().models.list(config={"page_size": 1000})
+        models = _get_client_for_key(api_key).models.list(config={"page_size": 1000})
         names = {
             normalize_model_name(model.name)
             for model in models
@@ -86,16 +91,20 @@ def list_generate_content_models() -> tuple[str, ...]:
         raise _translate_error(exc) from exc
 
 
+def list_generate_content_models() -> tuple[str, ...]:
+    """Lista os modelos compatíveis com geração para a chave atual."""
+    return _list_generate_content_models_for_key(_api_key())
+
+
 def _is_stable(name: str) -> bool:
     lowered = name.lower()
     return not any(marker in lowered for marker in _UNSTABLE_MARKERS)
 
 
-@lru_cache(maxsize=1)
-def get_model_name() -> str:
-    """Valida GEMINI_MODEL ou escolhe um modelo estável realmente disponível."""
-    available = list_generate_content_models()
-    configured = os.getenv("GEMINI_MODEL")
+@lru_cache(maxsize=16)
+def _get_model_name_for_config(api_key: str, configured: str | None) -> str:
+    """Valida a configuração para uma chave/modelo específicos."""
+    available = _list_generate_content_models_for_key(api_key)
     if configured is not None:
         selected = normalize_model_name(configured)
         if selected in DECOMMISSIONED_MODELS:
@@ -125,6 +134,11 @@ def get_model_name() -> str:
     )
 
 
+def get_model_name() -> str:
+    """Valida GEMINI_MODEL ou escolhe um modelo estável realmente disponível."""
+    return _get_model_name_for_config(_api_key(), os.getenv("GEMINI_MODEL"))
+
+
 def _status_code(exc: Exception) -> int | None:
     for value in (getattr(exc, "code", None), getattr(exc, "status_code", None)):
         if value is None:
@@ -134,7 +148,7 @@ def _status_code(exc: Exception) -> int | None:
         except (TypeError, ValueError):
             continue
     text = str(exc).lower()
-    for code in (401, 403, 404, 429, 500, 502, 503, 504):
+    for code in (400, 401, 403, 404, 429, 500, 502, 503, 504):
         if str(code) in text:
             return code
     return None
@@ -143,6 +157,10 @@ def _status_code(exc: Exception) -> int | None:
 def _translate_error(exc: Exception) -> GeminiGatewayError:
     code = _status_code(exc)
     text = str(exc).lower()
+    if code == 400:
+        return GeminiConfigurationError(
+            "Requisição Gemini inválida; revise GEMINI_MODEL, contents e config enviados."
+        )
     if code == 404:
         return GeminiConfigurationError(
             "Modelo Gemini indisponível para esta conta; revise GEMINI_MODEL."
@@ -184,6 +202,6 @@ def upload_file(*, file: str) -> Any:
 
 def reset_caches() -> None:
     """Limpa estado lazy; destinado a testes e mudanças controladas de ambiente."""
-    get_client.cache_clear()
-    list_generate_content_models.cache_clear()
-    get_model_name.cache_clear()
+    _get_client_for_key.cache_clear()
+    _list_generate_content_models_for_key.cache_clear()
+    _get_model_name_for_config.cache_clear()
