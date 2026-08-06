@@ -1,12 +1,36 @@
 import { expect, type Page } from '@playwright/test';
 
 export async function waitForAppReady(page: Page) {
-  await page.goto('/', { waitUntil: 'networkidle' });
-  // stTabs is the first application-owned, permanent container rendered after
-  // Streamlit has connected and started applying the app's delta messages.
-  // Shell elements such as stApp/stMain exist before the Python app is ready.
-  await expect(page.locator('[data-testid="stTabs"]').first()).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator('[data-testid="stSkeleton"]')).toHaveCount(0, { timeout: 30_000 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+  try {
+    await expect(page.locator('[data-testid="stApp"]')).toHaveCount(1, { timeout: 30_000 });
+    await expect(page.locator('[data-testid="stMain"]')).toHaveCount(1, { timeout: 30_000 });
+    await expect(page.locator('[data-fm-ai-e2e-ready="true"]')).toHaveCount(1, {
+      timeout: 45_000,
+    });
+    await expect(page.locator('[data-testid="stSkeleton"]')).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.locator('[data-testid="stException"]')).toHaveCount(0);
+    await expect(page.locator('body')).not.toContainText('Traceback');
+  } catch (error) {
+    const diagnostics = await page.evaluate(() => ({
+      title: document.title,
+      href: location.href,
+      body: document.body.innerText.slice(0, 2_000),
+      testIds: Array.from(document.querySelectorAll('[data-testid]'))
+        .slice(0, 50)
+        .map(element => element.getAttribute('data-testid')),
+      counts: Object.fromEntries(
+        ['stApp', 'stMain', 'stMainBlockContainer', 'stTabs', 'stSkeleton', 'stException'].map(
+          testId => [testId, document.querySelectorAll(`[data-testid="${testId}"]`).length],
+        ),
+      ),
+      readyMarker: document.querySelectorAll('[data-fm-ai-e2e-ready="true"]').length,
+    }));
+    throw new Error(`Aplicação Streamlit não ficou pronta: ${JSON.stringify(diagnostics)}`, {
+      cause: error,
+    });
+  }
 }
 
 export async function openTab(page: Page, name: string | RegExp) {
@@ -36,7 +60,7 @@ export async function expectNoFatal(page: Page) {
 export async function fillNumber(page: Page, label: string | RegExp, value: string) {
   const input = page.getByRole('spinbutton', { name: label }).first();
   await input.fill(value);
-  await input.press('Tab');
+  await page.keyboard.press('Tab');
 }
 
 export async function selectComboboxOption(
@@ -53,12 +77,11 @@ export async function selectComboboxOption(
     return;
   }
 
-  await combobox.focus();
-  await combobox.press('ArrowDown');
-  await expect(combobox).toHaveAttribute('aria-expanded', 'true');
-
   const listbox = page.getByRole('listbox');
-  await expect(listbox).toBeVisible();
+  await expect(async () => {
+    await combobox.click();
+    await expect(listbox).toBeVisible({ timeout: 5_000 });
+  }).toPass({ timeout: 15_000 });
   const selectedOption = listbox.getByRole('option', {
     name: option,
     exact: typeof option === 'string',

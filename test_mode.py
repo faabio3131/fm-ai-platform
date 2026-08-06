@@ -31,11 +31,15 @@ class RuntimeConfig:
     files_dir: Path
 
 
-def build_runtime(default_database_url: str = "sqlite:///./banco_erp_local.db") -> RuntimeConfig:
+def build_runtime(
+    default_database_url: str = "sqlite:///./banco_erp_local.db",
+) -> RuntimeConfig:
     if not is_test_mode():
         return RuntimeConfig(False, None, default_database_url, Path("imagens"))
 
-    root = Path(os.getenv("FM_AI_TEST_TMPDIR") or tempfile.mkdtemp(prefix="fm_ai_test_"))
+    root = Path(
+        os.getenv("FM_AI_TEST_TMPDIR") or tempfile.mkdtemp(prefix="fm_ai_test_")
+    )
     root.mkdir(parents=True, exist_ok=True)
     files_dir = root / "files"
     files_dir.mkdir(exist_ok=True)
@@ -67,15 +71,33 @@ def mock_generate_content(*, contents: Any, **_: Any) -> Any:
     if "fm_ai_mock_invalid" in text:
         return SimpleNamespace(text="{resposta inválida")
     if "mica" in text or "assistente virtual" in text:
-        return SimpleNamespace(text=json.dumps({
-            "cliente_nome": "Cliente Playwright",
-            "itens": [{"nome_produto": "Burger Teste", "quantidade": 1}],
-            "resposta_whatsapp": "Pedido confirmado em sandbox. Pix de teste gerado.",
-        }))
-    return SimpleNamespace(text=json.dumps([
-        {"nome": "Burger IA Teste", "categoria": "Hambúrgueres", "preco": 31.90, "ingredientes": "pão, carne e queijo"},
-        {"nome": "Batata IA Teste", "categoria": "Porções", "preco": 18.50, "ingredientes": "batata e sal"},
-    ]))
+        return SimpleNamespace(
+            text=json.dumps(
+                {
+                    "cliente_nome": "Cliente Playwright",
+                    "itens": [{"nome_produto": "Burger Teste", "quantidade": 1}],
+                    "resposta_whatsapp": "Pedido confirmado em sandbox. Pix de teste gerado.",
+                }
+            )
+        )
+    return SimpleNamespace(
+        text=json.dumps(
+            [
+                {
+                    "nome": "Burger IA Teste",
+                    "categoria": "Hambúrgueres",
+                    "preco": 31.90,
+                    "ingredientes": "pão, carne e queijo",
+                },
+                {
+                    "nome": "Batata IA Teste",
+                    "categoria": "Porções",
+                    "preco": 18.50,
+                    "ingredientes": "batata e sal",
+                },
+            ]
+        )
+    )
 
 
 def mock_upload_file(*_: Any, **__: Any) -> str:
@@ -87,7 +109,11 @@ def mock_whatsapp_send(phone: str, message: str) -> dict[str, Any]:
     if len(digits) < 10:
         return {"ok": False, "status_code": 400, "message": "Número inválido (mock)"}
     if "FM_AI_MOCK_WHATSAPP_FAIL" in message:
-        return {"ok": False, "status_code": 503, "message": "Falha simulada de WhatsApp"}
+        return {
+            "ok": False,
+            "status_code": 503,
+            "message": "Falha simulada de WhatsApp",
+        }
     return {"ok": True, "status_code": 200, "message": "Envio WhatsApp simulado"}
 
 
@@ -107,13 +133,73 @@ def seed_database(session_factory: Any, models: dict[str, Any]) -> None:
         ConfiguracaoMeta = models["ConfiguracaoMeta"]
         ContatoGerencial = models["ContatoGerencial"]
         db.add(Usuario(email="admin.test@fm.ai", senha_hash="test-only"))
-        carne = Insumo(nome="Carne Teste", unidade_medida="un", saldo_atual=50, estoque_minimo=5, custo_unitario=7, data_validade=datetime.now()+timedelta(days=20))
-        pao = Insumo(nome="Pão Teste", unidade_medida="un", saldo_atual=50, estoque_minimo=5, custo_unitario=2, data_validade=datetime.now()+timedelta(days=5), dias_alerta_vencimento=7)
-        cliente = Cliente(nome="Cliente Teste", whatsapp="5511999990001", ultima_compra=datetime.now()-timedelta(days=30), total_gasto=100, saldo_cashback=10, status="Inativo")
-        produto = Produto(nome="Burger Teste", categoria="Hambúrgueres", preco_venda=29.90, custo_total_cmv=9.0, margem_exibicao="69.9%")
-        db.add_all([carne, pao, cliente, produto, ConfiguracaoMeta(gateway_provider="Mercado Pago", gateway_pix_key="sandbox-pix", gateway_api_key=None), ContatoGerencial(nome="Gerente Teste", whatsapp="5511999990002", cargo="Gerente")])
+        carne = Insumo(
+            nome="Carne Teste",
+            unidade_medida="un",
+            saldo_atual=50,
+            estoque_minimo=5,
+            custo_unitario=7,
+            data_validade=datetime.now() + timedelta(days=20),
+        )
+        pao = Insumo(
+            nome="Pão Teste",
+            unidade_medida="un",
+            saldo_atual=50,
+            estoque_minimo=5,
+            custo_unitario=2,
+            data_validade=datetime.now() + timedelta(days=5),
+            dias_alerta_vencimento=7,
+        )
+        cliente = Cliente(
+            nome="Cliente Teste",
+            whatsapp="5511999990001",
+            ultima_compra=datetime.now() - timedelta(days=30),
+            total_gasto=100,
+            saldo_cashback=10,
+            status="Inativo",
+        )
+        produto = Produto(
+            nome="Burger Teste",
+            categoria="Hambúrgueres",
+            preco_venda=29.90,
+            custo_total_cmv=9.0,
+            margem_exibicao="69.9%",
+        )
+        db.add_all(
+            [
+                carne,
+                pao,
+                cliente,
+                produto,
+                ConfiguracaoMeta(
+                    gateway_provider="Mercado Pago",
+                    gateway_pix_key="sandbox-pix",
+                    gateway_api_key=None,
+                ),
+                ContatoGerencial(
+                    nome="Gerente Teste", whatsapp="5511999990002", cargo="Gerente"
+                ),
+            ]
+        )
         db.commit()
-        db.add_all([FichaTecnica(produto_id=produto.id, insumo_id=carne.id, quantidade_utilizada=1), FichaTecnica(produto_id=produto.id, insumo_id=pao.id, quantidade_utilizada=1), Venda(produto_id=produto.id, cliente_id=cliente.id, quantidade=1, valor_total=29.90, custo_total=9.0, forma_pagamento="Dinheiro Em Espécie")])
+        db.add_all(
+            [
+                FichaTecnica(
+                    produto_id=produto.id, insumo_id=carne.id, quantidade_utilizada=1
+                ),
+                FichaTecnica(
+                    produto_id=produto.id, insumo_id=pao.id, quantidade_utilizada=1
+                ),
+                Venda(
+                    produto_id=produto.id,
+                    cliente_id=cliente.id,
+                    quantidade=1,
+                    valor_total=29.90,
+                    custo_total=9.0,
+                    forma_pagamento="Dinheiro Em Espécie",
+                ),
+            ]
+        )
         db.commit()
     finally:
         db.close()

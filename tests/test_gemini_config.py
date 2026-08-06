@@ -73,7 +73,9 @@ def test_safe_failure_when_no_compatible_stable_flash_is_available(monkeypatch):
         monkeypatch,
         ("models/gemini-4.0-pro", "models/gemini-4.0-flash-latest"),
     )
-    with pytest.raises(gemini_config.GeminiConfigurationError, match="Nenhum modelo Flash estável"):
+    with pytest.raises(
+        gemini_config.GeminiConfigurationError, match="Nenhum modelo Flash estável"
+    ):
         gemini_config.get_model_name()
 
 
@@ -94,7 +96,9 @@ def test_normalize_model_name(raw, expected):
 def test_invalid_configured_model_is_rejected(monkeypatch):
     monkeypatch.setenv("GEMINI_MODEL", "gemini-does-not-exist")
     use_client(monkeypatch)
-    with pytest.raises(gemini_config.GeminiConfigurationError, match="não está disponível"):
+    with pytest.raises(
+        gemini_config.GeminiConfigurationError, match="não está disponível"
+    ):
         gemini_config.get_model_name()
 
 
@@ -108,7 +112,11 @@ def test_invalid_configured_model_is_rejected(monkeypatch):
 )
 def test_generate_content_translates_api_failures(monkeypatch, error, expected):
     client = use_client(monkeypatch)
-    monkeypatch.setattr(client.models, "generate_content", lambda **_kwargs: (_ for _ in ()).throw(error))
+    monkeypatch.setattr(
+        client.models,
+        "generate_content",
+        lambda **_kwargs: (_ for _ in ()).throw(error),
+    )
     with pytest.raises(expected):
         gemini_config.generate_content(contents="hello")
 
@@ -124,9 +132,13 @@ def test_invalid_key_is_reported_safely(monkeypatch):
     monkeypatch.setattr(
         gemini_config.genai,
         "Client",
-        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("401 API key not valid: secret")),
+        lambda **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("401 API key not valid: secret")
+        ),
     )
-    with pytest.raises(gemini_config.GeminiConfigurationError, match="inválida") as caught:
+    with pytest.raises(
+        gemini_config.GeminiConfigurationError, match="inválida"
+    ) as caught:
         gemini_config.generate_content(contents="hello")
     assert "secret" not in str(caught.value)
 
@@ -172,9 +184,13 @@ def test_http_400_invalid_argument_is_not_reported_as_invalid_key(monkeypatch):
     monkeypatch.setattr(
         client.models,
         "generate_content",
-        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("400 INVALID_ARGUMENT bad contents")),
+        lambda **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("400 INVALID_ARGUMENT bad contents")
+        ),
     )
-    with pytest.raises(gemini_config.GeminiConfigurationError, match="Requisição Gemini inválida") as caught:
+    with pytest.raises(
+        gemini_config.GeminiConfigurationError, match="Requisição Gemini inválida"
+    ) as caught:
         gemini_config.generate_content(contents={"bad": object()})
     assert "GEMINI_API_KEY inválida" not in str(caught.value)
 
@@ -182,14 +198,21 @@ def test_http_400_invalid_argument_is_not_reported_as_invalid_key(monkeypatch):
 @pytest.mark.parametrize(
     ("error", "expected_text"),
     [
-        (RuntimeError("403 PERMISSION_DENIED"), "GEMINI_API_KEY inválida ou sem permissão"),
+        (
+            RuntimeError("403 PERMISSION_DENIED"),
+            "GEMINI_API_KEY inválida ou sem permissão",
+        ),
         (RuntimeError("404 NOT_FOUND"), "Modelo Gemini indisponível"),
         (RuntimeError("429 RESOURCE_EXHAUSTED"), "Cota do Gemini atingida"),
     ],
 )
 def test_specific_error_messages_are_safe(monkeypatch, error, expected_text):
     client = use_client(monkeypatch)
-    monkeypatch.setattr(client.models, "generate_content", lambda **_kwargs: (_ for _ in ()).throw(error))
+    monkeypatch.setattr(
+        client.models,
+        "generate_content",
+        lambda **_kwargs: (_ for _ in ()).throw(error),
+    )
     with pytest.raises(gemini_config.GeminiGatewayError, match=expected_text) as caught:
         gemini_config.generate_content(contents="hello")
     assert "test-key" not in str(caught.value)
@@ -203,6 +226,6 @@ def test_app_has_no_direct_sdk_generation_calls():
 
 def test_app_loads_streamlit_secret_before_gateway_import():
     source = Path("app.py").read_text(encoding="utf-8")
-    secret_pos = source.index('st.secrets')
-    import_pos = source.index('from gemini_config import generate_content, upload_file')
+    secret_pos = source.index("st.secrets")
+    import_pos = source.index("from gemini_config import generate_content, upload_file")
     assert secret_pos < import_pos
