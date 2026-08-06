@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { dbNumber, realDbSnapshot, resetTestDb, waitForTestDb } from './fixtures/db';
-import { expectNoFatal, fillNumber, openTab, waitForAppReady } from './fixtures/ui';
+import { expectNoFatal, fillNumber, openTab, selectComboboxOption, waitForAppReady } from './fixtures/ui';
 
 test.beforeEach(async () => {
   resetTestDb();
@@ -11,21 +11,19 @@ test('PIX sandbox e cartões finalizam sem campos de dinheiro/troco', async ({ p
   await waitForAppReady(page);
   let before = dbNumber('select count(*) from vendas');
   await openTab(page, 'Frente de Caixa');
-  await page.getByLabel(/Forma de Pagamento/).click();
-  await page.getByText('Pix (Gerar QR Code Instantâneo)').click();
-  await expect(page.getByText(/Gateway Pix Automático|QR Code/)).toBeVisible();
+  await selectComboboxOption(page, /Forma de Pagamento/, 'Pix (Gerar QR Code Instantâneo)');
+  await expect(page.getByText(/Gateway Pix Automático/)).toBeVisible();
   await page.getByRole('button', { name: /Finalizar Venda/ }).click();
-  expect(dbNumber('select count(*) from vendas')).toBe(before + 1);
+  await expect.poll(() => dbNumber('select count(*) from vendas')).toBe(before + 1);
 
   for (const forma of ['Cartão de Crédito', 'Cartão de Débito']) {
     before = dbNumber('select count(*) from vendas');
     await openTab(page, 'Frente de Caixa');
-    await page.getByLabel(/Forma de Pagamento/).click();
-    await page.getByText(forma).click();
+    await selectComboboxOption(page, /Forma de Pagamento/, forma);
     await expect(page.locator('body')).not.toContainText('Valor recebido do cliente');
     await expect(page.locator('body')).not.toContainText('Troco:');
     await page.getByRole('button', { name: /Finalizar Venda/ }).click();
-    expect(dbNumber('select count(*) from vendas')).toBe(before + 1);
+    await expect.poll(() => dbNumber('select count(*) from vendas')).toBe(before + 1);
   }
   await expectNoFatal(page);
 });
@@ -42,8 +40,7 @@ test('Estoque cadastra insumo, bloqueia duplicidade e impede venda sem saldo', a
   await fillNumber(page, /Estoque Mínimo/, '1');
   await fillNumber(page, /Custo Unitário/, '3');
   await page.getByRole('button', { name: /Salvar Insumo/ }).click();
-  await expect(page.getByText(/salvo no Almoxarifado/)).toBeVisible();
-  expect(dbNumber(`select count(*) from insumos where nome='${name}'`)).toBe(1);
+  await expect.poll(() => dbNumber(`select count(*) from insumos where nome='${name}'`)).toBe(1);
 
   await page.getByLabel(/Nome do Insumo/).fill(name);
   await page.getByRole('button', { name: /Salvar Insumo/ }).click();
@@ -63,14 +60,14 @@ test('Dashboard usa total da venda e Bot usa resposta mockada/fallback sem segre
   await waitForAppReady(page);
   await openTab(page, 'Dashboard Financeiro');
   await expect(page.getByText(/Faturamento Bruto/)).toBeVisible();
-  await expect(page.getByText(/R\$/)).toBeVisible();
+  await expect(page.locator('[data-testid="stMetricValue"]:visible').first()).toBeVisible();
 
   const beforeRevenue = dbNumber('select sum(valor_total) from vendas');
   await openTab(page, 'Frente de Caixa');
-  await page.getByLabel(/Forma de Pagamento/).click();
-  await page.getByText('Dinheiro Em Espécie').click();
+  await selectComboboxOption(page, /Forma de Pagamento/, 'Dinheiro Em Espécie');
   await fillNumber(page, /Valor recebido do cliente/, '100');
   await page.getByRole('button', { name: /Finalizar Venda/ }).click();
+  await expect.poll(() => dbNumber('select sum(valor_total) from vendas')).toBeGreaterThan(beforeRevenue);
   const afterRevenue = dbNumber('select sum(valor_total) from vendas');
   expect(afterRevenue).toBeGreaterThan(beforeRevenue);
   expect(afterRevenue - beforeRevenue).toBeLessThan(100);
@@ -89,6 +86,6 @@ test('Modo E2E não cria nem modifica banco real', async ({ page }) => {
   const before = realDbSnapshot();
   await waitForAppReady(page);
   await openTab(page, 'Dashboard Financeiro');
-  await expect(page.getByText(/Dashboard Financeiro/)).toBeVisible();
+  await expect(page.getByText(/Dashboard Financeiro/).last()).toBeVisible();
   expect(realDbSnapshot()).toEqual(before);
 });

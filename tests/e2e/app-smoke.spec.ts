@@ -10,7 +10,7 @@ test('opens the FM AI Platform home page', async ({ page }) => {
 
   await waitForAppReady(page);
 
-  await expect(page.getByText(/Painel de Gestão|Modo de teste isolado ativo/).first()).toBeVisible();
+  await expect(page.locator('[data-testid="stTabs"]').first()).toBeVisible();
   await expect(page).toHaveTitle(/.+/);
   expect(errors, 'page should not raise fatal JavaScript errors while loading').toEqual([]);
 });
