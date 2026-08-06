@@ -62,7 +62,11 @@ def test_qrcode_render_failure_can_be_handled_without_external_request(monkeypat
 
 @pytest.mark.parametrize(
     ("total", "recebido", "troco"),
-    [(79.80, 100.00, Decimal("20.20")), (79.80, 79.80, Decimal("0.00")), (0.1 + 0.2, 0.5, Decimal("0.20"))],
+    [
+        (79.80, 100.00, Decimal("20.20")),
+        (79.80, 79.80, Decimal("0.00")),
+        (0.1 + 0.2, 0.5, Decimal("0.20")),
+    ],
 )
 def test_calcular_troco_com_duas_casas_sem_erro_visivel(total, recebido, troco):
     assert calcular_troco(total, recebido) == troco
@@ -102,7 +106,7 @@ def test_valor_total_da_venda_continua_total_liquido_nao_recebido():
 
 def test_app_nao_usa_markdown_em_st_image_do_qrcode_pix():
     source = Path("app.py").read_text(encoding="utf-8")
-    assert "st.image(f\"[https://api.qrserver.com" not in source
+    assert 'st.image(f"[https://api.qrserver.com' not in source
     assert "montar_url_qrcode_pix(payload_pix)" in source
 
 
@@ -113,63 +117,152 @@ def produto(**kwargs):
 
 
 def test_validacao_produto_ausente_sem_gravacao():
-    assert validar_finalizacao_pdv(produto=None, quantidade=1, forma_pagamento=DINHEIRO_ESPECIE, valor_recebido=10).codigo == "produto_ausente"
+    assert (
+        validar_finalizacao_pdv(
+            produto=None,
+            quantidade=1,
+            forma_pagamento=DINHEIRO_ESPECIE,
+            valor_recebido=10,
+        ).codigo
+        == "produto_ausente"
+    )
 
 
 def test_validacao_produto_sem_id():
-    assert validar_finalizacao_pdv(produto=produto(id=None), quantidade=1, forma_pagamento=DINHEIRO_ESPECIE, valor_recebido=10).codigo == "produto_sem_id"
+    assert (
+        validar_finalizacao_pdv(
+            produto=produto(id=None),
+            quantidade=1,
+            forma_pagamento=DINHEIRO_ESPECIE,
+            valor_recebido=10,
+        ).codigo
+        == "produto_sem_id"
+    )
 
 
 @pytest.mark.parametrize("preco", ["abc", float("nan"), -1])
 def test_validacao_preco_invalido(preco):
-    assert not validar_finalizacao_pdv(produto=produto(preco_venda=preco), quantidade=1, forma_pagamento=DINHEIRO_ESPECIE, valor_recebido=10).valido
+    assert not validar_finalizacao_pdv(
+        produto=produto(preco_venda=preco),
+        quantidade=1,
+        forma_pagamento=DINHEIRO_ESPECIE,
+        valor_recebido=10,
+    ).valido
 
 
 @pytest.mark.parametrize("quantidade", [0, -1])
 def test_validacao_quantidade_zero_ou_negativa(quantidade):
-    assert validar_finalizacao_pdv(produto=produto(), quantidade=quantidade, forma_pagamento=DINHEIRO_ESPECIE, valor_recebido=10).codigo == "quantidade_invalida"
+    assert (
+        validar_finalizacao_pdv(
+            produto=produto(),
+            quantidade=quantidade,
+            forma_pagamento=DINHEIRO_ESPECIE,
+            valor_recebido=10,
+        ).codigo
+        == "quantidade_invalida"
+    )
 
 
 @pytest.mark.parametrize("quantidade", [1.5, "2", float("nan")])
 def test_validacao_quantidade_nao_inteira(quantidade):
-    assert validar_finalizacao_pdv(produto=produto(), quantidade=quantidade, forma_pagamento=DINHEIRO_ESPECIE, valor_recebido=10).codigo == "quantidade_nao_inteira"
+    assert (
+        validar_finalizacao_pdv(
+            produto=produto(),
+            quantidade=quantidade,
+            forma_pagamento=DINHEIRO_ESPECIE,
+            valor_recebido=10,
+        ).codigo
+        == "quantidade_nao_inteira"
+    )
 
 
 def test_validacao_forma_pagamento_invalida():
-    assert validar_finalizacao_pdv(produto=produto(), quantidade=1, forma_pagamento="Cheque", valor_recebido=10).codigo == "forma_pagamento_invalida"
+    assert (
+        validar_finalizacao_pdv(
+            produto=produto(), quantidade=1, forma_pagamento="Cheque", valor_recebido=10
+        ).codigo
+        == "forma_pagamento_invalida"
+    )
 
 
 def test_dinheiro_sem_valor_recebido():
-    assert validar_finalizacao_pdv(produto=produto(), quantidade=1, forma_pagamento=DINHEIRO_ESPECIE, valor_recebido=None).codigo == "dinheiro_sem_valor"
+    assert (
+        validar_finalizacao_pdv(
+            produto=produto(),
+            quantidade=1,
+            forma_pagamento=DINHEIRO_ESPECIE,
+            valor_recebido=None,
+        ).codigo
+        == "dinheiro_sem_valor"
+    )
 
 
 def test_dinheiro_negativo():
-    assert validar_finalizacao_pdv(produto=produto(), quantidade=1, forma_pagamento=DINHEIRO_ESPECIE, valor_recebido=-1).codigo == "dinheiro_negativo"
+    assert (
+        validar_finalizacao_pdv(
+            produto=produto(),
+            quantidade=1,
+            forma_pagamento=DINHEIRO_ESPECIE,
+            valor_recebido=-1,
+        ).codigo
+        == "dinheiro_negativo"
+    )
 
 
 def test_dinheiro_insuficiente_preserva_pedido():
-    resultado = validar_finalizacao_pdv(produto=produto(), quantidade=3, forma_pagamento=DINHEIRO_ESPECIE, valor_recebido=20)
+    resultado = validar_finalizacao_pdv(
+        produto=produto(),
+        quantidade=3,
+        forma_pagamento=DINHEIRO_ESPECIE,
+        valor_recebido=20,
+    )
     assert resultado.codigo == "dinheiro_insuficiente"
     assert "R$ 10,00" in resultado.mensagem
 
 
 def test_dinheiro_exato_e_com_troco():
-    assert validar_finalizacao_pdv(produto=produto(), quantidade=1, forma_pagamento=DINHEIRO_ESPECIE, valor_recebido=10).troco == Decimal("0.00")
-    assert validar_finalizacao_pdv(produto=produto(), quantidade=1, forma_pagamento=DINHEIRO_ESPECIE, valor_recebido=20).troco == Decimal("10.00")
+    assert validar_finalizacao_pdv(
+        produto=produto(),
+        quantidade=1,
+        forma_pagamento=DINHEIRO_ESPECIE,
+        valor_recebido=10,
+    ).troco == Decimal("0.00")
+    assert validar_finalizacao_pdv(
+        produto=produto(),
+        quantidade=1,
+        forma_pagamento=DINHEIRO_ESPECIE,
+        valor_recebido=20,
+    ).troco == Decimal("10.00")
 
 
 def test_pix_e_cartao_sem_valor_recebido_ou_troco():
     for forma in FORMAS_PAGAMENTO_PERMITIDAS:
         if forma != DINHEIRO_ESPECIE:
-            resultado = validar_finalizacao_pdv(produto=produto(), quantidade=1, forma_pagamento=forma)
+            resultado = validar_finalizacao_pdv(
+                produto=produto(), quantidade=1, forma_pagamento=forma
+            )
             assert resultado.valido
             assert not deve_exibir_valor_recebido(forma)
             assert not deve_exibir_troco(forma)
 
 
 def test_cliente_ausente_permitido_e_cliente_invalido_bloqueado():
-    assert validar_finalizacao_pdv(produto=produto(), quantidade=1, forma_pagamento="Cartão de Débito", cliente_selecionado=None).valido
-    assert validar_finalizacao_pdv(produto=produto(), quantidade=1, forma_pagamento="Cartão de Débito", cliente_selecionado=SimpleNamespace(id=7), cliente_existe=False).codigo == "cliente_invalido"
+    assert validar_finalizacao_pdv(
+        produto=produto(),
+        quantidade=1,
+        forma_pagamento="Cartão de Débito",
+        cliente_selecionado=None,
+    ).valido
+    assert (
+        validar_finalizacao_pdv(
+            produto=produto(),
+            quantidade=1,
+            forma_pagamento="Cartão de Débito",
+            cliente_selecionado=SimpleNamespace(id=7),
+            cliente_existe=False,
+        ).codigo
+        == "cliente_invalido"
+    )
 
 
 def test_estoque_suficiente_e_insuficiente_sem_baixa_parcial():
@@ -183,10 +276,22 @@ def test_estoque_suficiente_e_insuficiente_sem_baixa_parcial():
 
 def test_cashback_nao_alterado_em_falha_e_total_zero_permitido():
     saldo = Decimal("10.00")
-    falha = validar_finalizacao_pdv(produto=produto(), quantidade=1, forma_pagamento="Cartão de Débito", usar_cashback=True, desconto_cashback=11)
+    falha = validar_finalizacao_pdv(
+        produto=produto(),
+        quantidade=1,
+        forma_pagamento="Cartão de Débito",
+        usar_cashback=True,
+        desconto_cashback=11,
+    )
     assert falha.codigo == "cashback_maior_que_total"
     assert saldo == Decimal("10.00")
-    assert validar_finalizacao_pdv(produto=produto(), quantidade=1, forma_pagamento="Cartão de Débito", usar_cashback=True, desconto_cashback=10).total_final == Decimal("0.00")
+    assert validar_finalizacao_pdv(
+        produto=produto(),
+        quantidade=1,
+        forma_pagamento="Cartão de Débito",
+        usar_cashback=True,
+        desconto_cashback=10,
+    ).total_final == Decimal("0.00")
 
 
 def test_formata_moeda_brasileira():
@@ -196,7 +301,16 @@ def test_formata_moeda_brasileira():
 
 
 def test_pix_producao_exige_confirmacao_valida():
-    assert validar_finalizacao_pdv(produto=produto(), quantidade=1, forma_pagamento="Pix (Gerar QR Code Instantâneo)", pix_producao=True, pix_confirmado=False).codigo == "pix_sem_confirmacao"
+    assert (
+        validar_finalizacao_pdv(
+            produto=produto(),
+            quantidade=1,
+            forma_pagamento="Pix (Gerar QR Code Instantâneo)",
+            pix_producao=True,
+            pix_confirmado=False,
+        ).codigo
+        == "pix_sem_confirmacao"
+    )
 
 
 def test_reset_pendente_aplicado_antes_dos_widgets_e_preserva_flash():
@@ -229,7 +343,11 @@ def test_reset_pendente_aplicado_antes_dos_widgets_e_preserva_flash():
 
 
 def test_flash_sucesso_sobrevive_ao_reset_e_e_consumido_uma_vez():
-    from pdv_utils import aplicar_reset_pendente_pdv, consumir_flash_sucesso_pdv, marcar_reset_pdv_apos_sucesso
+    from pdv_utils import (
+        aplicar_reset_pendente_pdv,
+        consumir_flash_sucesso_pdv,
+        marcar_reset_pdv_apos_sucesso,
+    )
 
     estado = {"pdv_quantidade": 2, "pdv_processando": True}
     marcar_reset_pdv_apos_sucesso(estado, "mensagem")
@@ -242,7 +360,11 @@ def test_flash_sucesso_sobrevive_ao_reset_e_e_consumido_uma_vez():
 
 
 def test_validacao_nao_limpa_pedido_em_erro_ou_pagamento_insuficiente():
-    pedido = {"pdv_quantidade": 3, "pdv_valor_recebido_dinheiro": 90.0, "pdv_forma_pagamento": DINHEIRO_ESPECIE}
+    pedido = {
+        "pdv_quantidade": 3,
+        "pdv_valor_recebido_dinheiro": 90.0,
+        "pdv_forma_pagamento": DINHEIRO_ESPECIE,
+    }
     antes = pedido.copy()
 
     resultado = validar_finalizacao_pdv(
@@ -286,14 +408,17 @@ def test_marcar_reset_nao_altera_chaves_de_widgets_ja_criados_e_evita_duplicidad
         "pdv_usa_cashback": True,
         "pdv_processando": True,
     }
-    widgets = {k: estado[k] for k in (
-        "pdv_produto",
-        "pdv_quantidade",
-        "pdv_cliente_id",
-        "pdv_forma_pagamento",
-        "pdv_valor_recebido_dinheiro",
-        "pdv_usa_cashback",
-    )}
+    widgets = {
+        k: estado[k]
+        for k in (
+            "pdv_produto",
+            "pdv_quantidade",
+            "pdv_cliente_id",
+            "pdv_forma_pagamento",
+            "pdv_valor_recebido_dinheiro",
+            "pdv_usa_cashback",
+        )
+    }
 
     marcar_reset_pdv_apos_sucesso(estado, "ok")
 
@@ -335,7 +460,10 @@ def test_linha_total_pdv_padroniza_rotulo_valor_e_desconto():
     from pdv_utils import montar_linha_total_pdv
 
     assert montar_linha_total_pdv("Subtotal", 79.8) == "Subtotal: R$ 79,80"
-    assert montar_linha_total_pdv("Desconto Fidelidade", 10, negativo=True) == "Desconto Fidelidade: -R$ 10,00"
+    assert (
+        montar_linha_total_pdv("Desconto Fidelidade", 10, negativo=True)
+        == "Desconto Fidelidade: -R$ 10,00"
+    )
 
 
 def test_estado_padrao_cliente_pdv_e_balcao_real():
@@ -346,11 +474,18 @@ def test_estado_padrao_cliente_pdv_e_balcao_real():
     preparar_estado_inicial_pdv(estado)
 
     assert estado["pdv_cliente_id"] == CLIENTE_BALCAO_ID
-    assert formatar_opcao_cliente_pdv(estado["pdv_cliente_id"], {}) == f"👤 {CLIENTE_BALCAO_LABEL}"
+    assert (
+        formatar_opcao_cliente_pdv(estado["pdv_cliente_id"], {})
+        == f"👤 {CLIENTE_BALCAO_LABEL}"
+    )
 
 
 def test_reset_apos_venda_volta_para_cliente_balcao_e_valor_zero():
-    estado = {"pdv_reset_pendente": True, "pdv_cliente_id": 22, "pdv_valor_recebido_dinheiro": 100.0}
+    estado = {
+        "pdv_reset_pendente": True,
+        "pdv_cliente_id": 22,
+        "pdv_valor_recebido_dinheiro": 100.0,
+    }
 
     from pdv_utils import aplicar_reset_pendente_pdv
 
@@ -365,7 +500,10 @@ def test_selecao_cliente_pdv_usa_id_estavel_e_label_com_cashback():
 
     assert normalizar_cliente_id_pdv("7", clientes_por_id) == 7
     assert indice_cliente_pdv(7, [CLIENTE_BALCAO_ID, 7]) == 1
-    assert formatar_opcao_cliente_pdv(7, clientes_por_id) == "Michele (Cashback Disponível: R$ 12,50)"
+    assert (
+        formatar_opcao_cliente_pdv(7, clientes_por_id)
+        == "Michele (Cashback Disponível: R$ 12,50)"
+    )
 
 
 def test_cliente_pdv_inexistente_volta_para_balcao_com_segurança():
@@ -391,11 +529,15 @@ def test_app_identifica_visualmente_real_no_campo_valor_recebido():
 
 def test_dinheiro_continua_entrada_numerica_com_reset_e_preservacao():
     source = Path("app.py").read_text(encoding="utf-8")
+    compact_source = "".join(source.split())
     assert "valor_recebido_pdv = st.number_input(" in source
     assert "min_value=0.0" in source
     assert "step=0.50" in source
     assert 'format="%.2f"' in source
-    assert 'value=float(st.session_state.get("pdv_valor_recebido_dinheiro", total_final_pdv))' in source
+    assert (
+        'value=float(st.session_state.get("pdv_valor_recebido_dinheiro",total_final_pdv))'
+        in compact_source
+    )
 
 
 def test_pagamento_insuficiente_preserva_valor_recebido_no_estado():

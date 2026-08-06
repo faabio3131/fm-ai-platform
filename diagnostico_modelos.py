@@ -20,7 +20,7 @@ def _supported_methods(model: Any) -> tuple[str, ...]:
 def _sanitize_message(message: str, api_key: str) -> str:
     message = message.replace(api_key, "[REDACTED]")
     return re.sub(
-        r'(?i)(authorization|x-goog-api-key)(\s*[:=]\s*)[^,\r\n}]+',
+        r"(?i)(authorization|x-goog-api-key)(\s*[:=]\s*)[^,\r\n}]+",
         "[REDACTED]",
         message,
     )[:2000]
@@ -58,7 +58,9 @@ def main() -> int:
         message = str(getattr(exc, "message", None) or exc)
         message = _sanitize_message(message, api_key)
         print(f"TIPO_ERRO: {type(exc).__name__}", file=sys.stderr)
-        print(f"HTTP_STATUS: {_diagnostic_value(http_status, api_key)}", file=sys.stderr)
+        print(
+            f"HTTP_STATUS: {_diagnostic_value(http_status, api_key)}", file=sys.stderr
+        )
         print(f"CODIGO_API: {_diagnostic_value(api_code, api_key)}", file=sys.stderr)
         print(f"STATUS_API: {_diagnostic_value(api_status, api_key)}", file=sys.stderr)
         print(f"MENSAGEM: {message}", file=sys.stderr)

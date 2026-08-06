@@ -15,9 +15,7 @@ from google import genai
 
 # O padrão só é escolhido depois de confirmar que foi retornado pela chave atual.
 DEFAULT_MODEL = "gemini-3.6-flash"
-DECOMMISSIONED_MODELS = frozenset(
-    {"gemini-2.0-flash", "gemini-2.0-flash-001"}
-)
+DECOMMISSIONED_MODELS = frozenset({"gemini-2.0-flash", "gemini-2.0-flash-001"})
 _UNSTABLE_MARKERS = ("preview", "experimental", "-exp", "latest")
 
 

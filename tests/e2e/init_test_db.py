@@ -36,21 +36,76 @@ def initialize_database() -> None:
             """
         )
         now = datetime.now()
-        cur.execute("insert into usuarios (email, senha_hash) values (?, ?)", ("admin.test@fm.ai", "test-only"))
-        cur.execute("insert into clientes (nome, whatsapp, ultima_compra, total_gasto, saldo_cashback, status) values (?, ?, ?, ?, ?, ?)", ("Cliente Teste", "5511999990001", (now - timedelta(days=30)).isoformat(), 100, 10, "Inativo"))
-        cur.execute("insert into produtos (nome, categoria, preco_venda, custo_total_cmv, margem_exibicao) values (?, ?, ?, ?, ?)", ("Burger Teste", "Hambúrgueres", 29.90, 9.0, "69.9%"))
+        cur.execute(
+            "insert into usuarios (email, senha_hash) values (?, ?)",
+            ("admin.test@fm.ai", "test-only"),
+        )
+        cur.execute(
+            "insert into clientes (nome, whatsapp, ultima_compra, total_gasto, saldo_cashback, status) values (?, ?, ?, ?, ?, ?)",
+            (
+                "Cliente Teste",
+                "5511999990001",
+                (now - timedelta(days=30)).isoformat(),
+                100,
+                10,
+                "Inativo",
+            ),
+        )
+        cur.execute(
+            "insert into produtos (nome, categoria, preco_venda, custo_total_cmv, margem_exibicao) values (?, ?, ?, ?, ?)",
+            ("Burger Teste", "Hambúrgueres", 29.90, 9.0, "69.9%"),
+        )
         produto_id = cur.lastrowid
         insumos = [
-            ("Carne Teste", "un", 50, 5, 7, None, (now + timedelta(days=20)).isoformat(), 15),
-            ("Pão Teste", "un", 50, 5, 2, None, (now + timedelta(days=5)).isoformat(), 7),
+            (
+                "Carne Teste",
+                "un",
+                50,
+                5,
+                7,
+                None,
+                (now + timedelta(days=20)).isoformat(),
+                15,
+            ),
+            (
+                "Pão Teste",
+                "un",
+                50,
+                5,
+                2,
+                None,
+                (now + timedelta(days=5)).isoformat(),
+                7,
+            ),
         ]
-        cur.executemany("insert into insumos (nome, unidade_medida, saldo_atual, estoque_minimo, custo_unitario, data_fabricacao, data_validade, dias_alerta_vencimento) values (?, ?, ?, ?, ?, ?, ?, ?)", insumos)
-        cur.execute("insert into fichas_tecnicas (produto_id, insumo_id, quantidade_utilizada) values (?, 1, 1)", (produto_id,))
-        cur.execute("insert into fichas_tecnicas (produto_id, insumo_id, quantidade_utilizada) values (?, 2, 1)", (produto_id,))
-        cur.execute("insert into vendas (produto_id, cliente_id, quantidade, valor_total, custo_total, forma_pagamento, status_pagamento, data_venda) values (?, 1, 1, 29.90, 9.0, ?, ?, ?)", (produto_id, "Dinheiro Em Espécie", "Aprovado", now.isoformat()))
-        cur.execute("insert into configuracoes_meta (gateway_provider, gateway_pix_key, gateway_api_key) values (?, ?, ?)", ("Mercado Pago", "sandbox-pix", None))
-        cur.execute("insert into gateway_config (gateway_provider, gateway_pix_key, gateway_api_key, ambiente) values (?, ?, ?, ?)", ("Mercado Pago", "sandbox-pix", None, "Sandbox"))
-        cur.execute("insert into contatos_gerenciais (nome, whatsapp, cargo, receber_alertas_estoque) values (?, ?, ?, ?)", ("Gerente Teste", "5511999990002", "Gerente", 1))
+        cur.executemany(
+            "insert into insumos (nome, unidade_medida, saldo_atual, estoque_minimo, custo_unitario, data_fabricacao, data_validade, dias_alerta_vencimento) values (?, ?, ?, ?, ?, ?, ?, ?)",
+            insumos,
+        )
+        cur.execute(
+            "insert into fichas_tecnicas (produto_id, insumo_id, quantidade_utilizada) values (?, 1, 1)",
+            (produto_id,),
+        )
+        cur.execute(
+            "insert into fichas_tecnicas (produto_id, insumo_id, quantidade_utilizada) values (?, 2, 1)",
+            (produto_id,),
+        )
+        cur.execute(
+            "insert into vendas (produto_id, cliente_id, quantidade, valor_total, custo_total, forma_pagamento, status_pagamento, data_venda) values (?, 1, 1, 29.90, 9.0, ?, ?, ?)",
+            (produto_id, "Dinheiro Em Espécie", "Aprovado", now.isoformat()),
+        )
+        cur.execute(
+            "insert into configuracoes_meta (gateway_provider, gateway_pix_key, gateway_api_key) values (?, ?, ?)",
+            ("Mercado Pago", "sandbox-pix", None),
+        )
+        cur.execute(
+            "insert into gateway_config (gateway_provider, gateway_pix_key, gateway_api_key, ambiente) values (?, ?, ?, ?)",
+            ("Mercado Pago", "sandbox-pix", None, "Sandbox"),
+        )
+        cur.execute(
+            "insert into contatos_gerenciais (nome, whatsapp, cargo, receber_alertas_estoque) values (?, ?, ?, ?)",
+            ("Gerente Teste", "5511999990002", "Gerente", 1),
+        )
         conn.commit()
     finally:
         conn.close()
@@ -58,10 +113,21 @@ def initialize_database() -> None:
 
 initialize_database()
 
-required = {"usuarios", "clientes", "produtos", "insumos", "fichas_tecnicas", "vendas", "configuracoes_meta"}
+required = {
+    "usuarios",
+    "clientes",
+    "produtos",
+    "insumos",
+    "fichas_tecnicas",
+    "vendas",
+    "configuracoes_meta",
+}
 conn = sqlite3.connect(DB_PATH)
 try:
-    existing = {row[0] for row in conn.execute("select name from sqlite_master where type='table'")}
+    existing = {
+        row[0]
+        for row in conn.execute("select name from sqlite_master where type='table'")
+    }
     missing = sorted(required - existing)
     if missing:
         raise RuntimeError(f"Schema de teste incompleto; tabelas ausentes: {missing}")
