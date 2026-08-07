@@ -1,7 +1,8 @@
-import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { expect } from '@playwright/test';
+
+const { executePython, logPythonRuntime } = require('../python-runtime.cjs');
 
 export const testTmpDir = resolve(process.env.FM_AI_TEST_TMPDIR ?? join(process.cwd(), '.tmp', 'fm-ai-playwright'));
 export const testDbPath = join(testTmpDir, 'fm_ai_test.sqlite3');
@@ -22,7 +23,11 @@ export async function waitForTestDb() {
 
 export function dbValue(sql: string): string {
   const script = `import sqlite3\nconn=sqlite3.connect(${JSON.stringify(testDbPath)})\ncur=conn.cursor()\ncur.execute(${JSON.stringify(sql)})\nrow=cur.fetchone()\nprint('' if row is None or row[0] is None else row[0])\nconn.close()`;
-  return execFileSync('python', ['-c', script], { encoding: 'utf-8' }).trim();
+  return executePython(['-c', script], {
+    cwd: process.cwd(),
+    env: process.env,
+    label: 'Consulta ao banco E2E',
+  }).stdout.trim();
 }
 
 export function dbNumber(sql: string): number {
@@ -32,11 +37,21 @@ export function dbNumber(sql: string): number {
 
 export function resetTestDb() {
   mkdirSync(testTmpDir, { recursive: true });
-  execFileSync('python', ['tests/e2e/reset_test_db.py'], {
-    cwd: process.cwd(),
-    env: { ...process.env, FM_AI_TEST_MODE: '1', FM_AI_TEST_RESET_ON_START: '1', FM_AI_TEST_TMPDIR: testTmpDir },
-    stdio: 'ignore',
+  const cwd = process.cwd();
+  const env = {
+    ...process.env,
+    FM_AI_TEST_MODE: '1',
+    FM_AI_TEST_RESET_ON_START: '1',
+    FM_AI_TEST_TMPDIR: testTmpDir,
+  };
+  logPythonRuntime({ cwd, dbPath: testDbPath, env });
+  const result = executePython(['tests/e2e/reset_test_db.py'], {
+    cwd,
+    env,
+    label: 'Reset do banco E2E',
   });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
 }
 
 export function realDbSnapshot() {

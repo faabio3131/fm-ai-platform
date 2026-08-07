@@ -1,6 +1,7 @@
 const { spawn } = require('node:child_process');
 const { mkdirSync } = require('node:fs');
 const { resolve } = require('node:path');
+const { resolvePython } = require('./python-runtime.cjs');
 
 const root = resolve(__dirname, '..', '..');
 const tmpDir = resolve(root, '.tmp', 'fm-ai-playwright');
@@ -16,7 +17,7 @@ const env = {
   FM_AI_TEST_KEEP_TMP: '1',
 };
 
-const python = process.env.FM_AI_PYTHON || process.env.PYTHON || 'python';
+const python = resolvePython(env);
 const child = spawn(python, ['-m', 'streamlit', 'run', resolve(root, 'app.py'), '--server.address', '127.0.0.1', '--server.port', port, '--server.headless', 'true'], {
   cwd: root,
   env,
