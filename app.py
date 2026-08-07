@@ -59,6 +59,7 @@ from pdv_utils import (
     montar_mensagem_sucesso_pdv,
     montar_payload_pix_simulado,
     normalizar_cliente_id_pdv,
+    preparar_cliente_id_pdv,
     montar_url_qrcode_pix,
     pagamento_dinheiro_suficiente,
     validar_estoque_suficiente,
@@ -97,6 +98,11 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+if is_test_mode():
+    st.session_state["_fm_ai_e2e_run"] = (
+        int(st.session_state.get("_fm_ai_e2e_run", 0)) + 1
+    )
 
 # --- 2. BANCO DE DADOS E CONFIGURAÇÃO ORM ---
 load_dotenv()
@@ -1060,10 +1066,9 @@ with aba3:
                 if getattr(cliente, "id", None) is not None
             }
             opcoes_cliente_ids_pdv = [CLIENTE_BALCAO_ID, *clientes_por_id_pdv.keys()]
-            cliente_id_estado_pdv = normalizar_cliente_id_pdv(
-                st.session_state.get("pdv_cliente_id"), clientes_por_id_pdv
+            cliente_id_estado_pdv = preparar_cliente_id_pdv(
+                st.session_state, clientes_por_id_pdv
             )
-            st.session_state["pdv_cliente_id"] = cliente_id_estado_pdv
             cliente_id_pdv = st.selectbox(
                 "👤 Identificar Cliente (Opcional para acúmulo e resgate de Cashback)",
                 opcoes_cliente_ids_pdv,
@@ -1967,6 +1972,6 @@ if btn_acionar_mica:
 # depois que o script inteiro construiu a interface e nunca aparece em produção.
 if is_test_mode():
     st.markdown(
-        '<span data-fm-ai-e2e-ready="true" style="display:none" aria-hidden="true"></span>',
+        f'<span data-fm-ai-e2e-ready="true" data-fm-ai-e2e-run="{st.session_state["_fm_ai_e2e_run"]}" style="display:none" aria-hidden="true"></span>',
         unsafe_allow_html=True,
     )

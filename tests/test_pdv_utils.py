@@ -331,7 +331,7 @@ def test_reset_pendente_aplicado_antes_dos_widgets_e_preserva_flash():
 
     assert aplicar_reset_pendente_pdv(estado) is True
     assert estado["pdv_quantidade"] == 1
-    assert estado["pdv_cliente_id"] == CLIENTE_BALCAO_ID
+    assert "pdv_cliente_id" not in estado
     assert estado["pdv_valor_recebido_dinheiro"] == 0.0
     assert estado["pdv_forma_pagamento"] == FORMAS_PAGAMENTO_PERMITIDAS[0]
     assert estado["pdv_usa_cashback"] is False
@@ -466,17 +466,16 @@ def test_linha_total_pdv_padroniza_rotulo_valor_e_desconto():
     )
 
 
-def test_estado_padrao_cliente_pdv_e_balcao_real():
+def test_estado_inicial_deixa_selectbox_definir_cliente_balcao():
     estado = {}
 
     from pdv_utils import preparar_estado_inicial_pdv
 
     preparar_estado_inicial_pdv(estado)
 
-    assert estado["pdv_cliente_id"] == CLIENTE_BALCAO_ID
-    assert (
-        formatar_opcao_cliente_pdv(estado["pdv_cliente_id"], {})
-        == f"👤 {CLIENTE_BALCAO_LABEL}"
+    assert "pdv_cliente_id" not in estado
+    assert formatar_opcao_cliente_pdv(CLIENTE_BALCAO_ID, {}) == (
+        f"👤 {CLIENTE_BALCAO_LABEL}"
     )
 
 
@@ -490,7 +489,7 @@ def test_reset_apos_venda_volta_para_cliente_balcao_e_valor_zero():
     from pdv_utils import aplicar_reset_pendente_pdv
 
     assert aplicar_reset_pendente_pdv(estado) is True
-    assert estado["pdv_cliente_id"] == CLIENTE_BALCAO_ID
+    assert "pdv_cliente_id" not in estado
     assert estado["pdv_valor_recebido_dinheiro"] == 0.0
 
 
@@ -506,6 +505,27 @@ def test_selecao_cliente_pdv_usa_id_estavel_e_label_com_cashback():
     )
 
 
+def test_preparacao_cliente_preserva_id_valido_escolhido_pelo_widget():
+    from pdv_utils import preparar_cliente_id_pdv
+
+    cliente = SimpleNamespace(id=7, nome="Michele", saldo_cashback=12.5)
+    estado = {"pdv_cliente_id": 7}
+
+    assert preparar_cliente_id_pdv(estado, {7: cliente}) == 7
+    assert estado["pdv_cliente_id"] == 7
+    assert isinstance(estado["pdv_cliente_id"], int)
+
+
+def test_preparacao_cliente_remove_tipo_incorreto_para_widget_recriar_com_id():
+    from pdv_utils import preparar_cliente_id_pdv
+
+    cliente = SimpleNamespace(id=7, nome="Michele", saldo_cashback=12.5)
+    estado = {"pdv_cliente_id": "7"}
+
+    assert preparar_cliente_id_pdv(estado, {7: cliente}) == 7
+    assert "pdv_cliente_id" not in estado
+
+
 def test_cliente_pdv_inexistente_volta_para_balcao_com_segurança():
     assert normalizar_cliente_id_pdv(999, {}) == CLIENTE_BALCAO_ID
     assert indice_cliente_pdv(999, [CLIENTE_BALCAO_ID, 7]) == 0
@@ -518,6 +538,14 @@ def test_app_pdv_nao_contem_choose_an_option_e_usa_placeholder_pt_br():
     assert "Cliente Balcão / Não Identificado" in source
     assert 'key="pdv_cliente_id"' in source
     assert 'key="pdv_cliente"' not in source
+    assert "index=indice_cliente_pdv" in "".join(source.split())
+
+
+def test_app_marca_cada_rerun_concluido_no_modo_e2e():
+    source = Path("app.py").read_text(encoding="utf-8")
+
+    assert 'st.session_state["_fm_ai_e2e_run"]' in source
+    assert 'data-fm-ai-e2e-run="{st.session_state[' in source
 
 
 def test_app_identifica_visualmente_real_no_campo_valor_recebido():
