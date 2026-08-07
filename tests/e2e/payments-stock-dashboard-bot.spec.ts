@@ -1,6 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { dbNumber, realDbSnapshot, resetTestDb, waitForTestDb } from './fixtures/db';
-import { expectNoFatal, fillNumber, openTab, selectComboboxOption, waitForAppReady } from './fixtures/ui';
+import {
+  clickAndWaitForStreamlitRerun,
+  expectNoFatal,
+  fillNumber,
+  openTab,
+  selectComboboxOption,
+  waitForAppReady,
+} from './fixtures/ui';
 
 test.beforeEach(async () => {
   resetTestDb();
@@ -13,7 +20,7 @@ test('PIX sandbox e cartões finalizam sem campos de dinheiro/troco', async ({ p
   await openTab(page, 'Frente de Caixa');
   await selectComboboxOption(page, /Forma de Pagamento/, 'Pix (Gerar QR Code Instantâneo)');
   await expect(page.getByText(/Gateway Pix Automático/)).toBeVisible();
-  await page.getByRole('button', { name: /Finalizar Venda/ }).click();
+  await clickAndWaitForStreamlitRerun(page, /Finalizar Venda/);
   await expect.poll(() => dbNumber('select count(*) from vendas')).toBe(before + 1);
 
   for (const forma of ['Cartão de Crédito', 'Cartão de Débito']) {
@@ -22,7 +29,7 @@ test('PIX sandbox e cartões finalizam sem campos de dinheiro/troco', async ({ p
     await selectComboboxOption(page, /Forma de Pagamento/, forma);
     await expect(page.locator('body')).not.toContainText('Valor recebido do cliente');
     await expect(page.locator('body')).not.toContainText('Troco:');
-    await page.getByRole('button', { name: /Finalizar Venda/ }).click();
+    await clickAndWaitForStreamlitRerun(page, /Finalizar Venda/);
     await expect.poll(() => dbNumber('select count(*) from vendas')).toBe(before + 1);
   }
   await expectNoFatal(page);

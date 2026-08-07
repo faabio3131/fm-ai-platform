@@ -57,6 +57,24 @@ export async function expectNoFatal(page: Page) {
   await expect(page.locator('body')).not.toContainText('GEMINI_API_KEY');
 }
 
+export async function clickAndWaitForStreamlitRerun(page: Page, buttonName: string | RegExp) {
+  const readyMarker = page.locator('[data-fm-ai-e2e-ready="true"]');
+  const runBeforeClick = await readyMarker.getAttribute('data-fm-ai-e2e-run');
+  await page.getByRole('button', { name: buttonName }).click();
+  await expect
+    .poll(
+      async () => {
+        const runAfterClick = await readyMarker.getAttribute('data-fm-ai-e2e-run');
+        return runAfterClick !== null && runAfterClick !== runBeforeClick;
+      },
+      {
+        message: `Streamlit deve concluir o rerun após clicar em ${buttonName}`,
+        timeout: 30_000,
+      },
+    )
+    .toBe(true);
+}
+
 export async function fillNumber(page: Page, label: string | RegExp, value: string) {
   const input = page.getByRole('spinbutton', { name: label }).first();
   try {
