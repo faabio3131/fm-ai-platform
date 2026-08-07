@@ -64,7 +64,23 @@ export async function fillNumber(page: Page, label: string | RegExp, value: stri
     await expect(input).toBeEnabled();
     await input.fill(value);
     await input.press('Tab');
-    await expect(input).toHaveValue(value);
+    const expectedValue = Number(value);
+    if (value.trim() === '' || !Number.isFinite(expectedValue)) {
+      throw new Error(`Valor numérico esperado inválido: ${JSON.stringify(value)}`);
+    }
+    await expect
+      .poll(
+        async () => {
+          const receivedText = await input.inputValue();
+          const receivedValue = Number(receivedText);
+          if (receivedText.trim() === '' || !Number.isFinite(receivedValue)) {
+            throw new Error(`Valor numérico recebido inválido: ${JSON.stringify(receivedText)}`);
+          }
+          return receivedValue;
+        },
+        { message: `Campo numérico deve ter o valor ${value}` },
+      )
+      .toBeCloseTo(expectedValue, 2);
   } catch (error) {
     const diagnostics = await page.evaluate(() => {
       const accessibleName = (element: Element) =>
