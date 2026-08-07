@@ -10,13 +10,11 @@ async function sellCash(page, quantity: string, received: string, clientName?: R
   }
   const payment = page.getByRole('combobox', { name: /Forma de Pagamento/ }).first();
   const receivedInput = page.getByRole('spinbutton', { name: /Valor recebido do cliente/ }).first();
-  await expect(async () => {
-    await selectComboboxOption(page, /Forma de Pagamento/, 'Dinheiro Em Espécie');
-    await expect(payment).toHaveValue('Dinheiro Em Espécie');
-    await expect(page.locator('[data-testid="stSkeleton"]')).toHaveCount(0);
-    await expect(receivedInput).toBeVisible();
-    await expect(receivedInput).toBeEnabled();
-  }).toPass({ timeout: 30_000 });
+  await selectComboboxOption(page, /Forma de Pagamento/, 'Dinheiro Em Espécie');
+  await expect(payment).toHaveValue('Dinheiro Em Espécie');
+  await expect(page.locator('[data-testid="stSkeleton"]')).toHaveCount(0, { timeout: 30_000 });
+  await expect(receivedInput).toBeVisible();
+  await expect(receivedInput).toBeEnabled();
   await fillNumber(page, /Valor recebido do cliente/, received);
   await page.getByRole('button', { name: /Finalizar Venda/ }).click();
 }

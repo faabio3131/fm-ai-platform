@@ -63,7 +63,7 @@ export async function fillNumber(page: Page, label: string | RegExp, value: stri
     await expect(input).toBeVisible();
     await expect(input).toBeEnabled();
     await input.fill(value);
-    await input.press('Tab');
+    await page.keyboard.press('Tab');
     const expectedValue = Number(value);
     if (value.trim() === '' || !Number.isFinite(expectedValue)) {
       throw new Error(`Valor numérico esperado inválido: ${JSON.stringify(value)}`);
@@ -82,28 +82,36 @@ export async function fillNumber(page: Page, label: string | RegExp, value: stri
       )
       .toBeCloseTo(expectedValue, 2);
   } catch (error) {
-    const diagnostics = await page.evaluate(() => {
-      const accessibleName = (element: Element) =>
-        element.getAttribute('aria-label') ??
-        element.getAttribute('placeholder') ??
-        document.querySelector(`label[for="${element.id}"]`)?.textContent?.trim() ??
-        '';
-      return {
-        spinbuttons: Array.from(document.querySelectorAll('[role="spinbutton"], input[type="number"]'))
-          .filter(element => (element as HTMLElement).offsetParent !== null)
-          .map(element => ({ name: accessibleName(element), value: (element as HTMLInputElement).value })),
-        comboboxes: Array.from(document.querySelectorAll('[role="combobox"]'))
-          .filter(element => (element as HTMLElement).offsetParent !== null)
-          .map(element => ({
-            name: accessibleName(element),
-            value: (element as HTMLInputElement).value,
-            expanded: element.getAttribute('aria-expanded'),
-          })),
-        body: document.body.innerText.slice(0, 2_000),
-        skeletons: document.querySelectorAll('[data-testid="stSkeleton"]').length,
-        exceptions: document.querySelectorAll('[data-testid="stException"]').length,
-      };
-    });
+    if (page.isClosed()) {
+      throw error;
+    }
+    let diagnostics;
+    try {
+      diagnostics = await page.evaluate(() => {
+        const accessibleName = (element: Element) =>
+          element.getAttribute('aria-label') ??
+          element.getAttribute('placeholder') ??
+          document.querySelector(`label[for="${element.id}"]`)?.textContent?.trim() ??
+          '';
+        return {
+          spinbuttons: Array.from(document.querySelectorAll('[role="spinbutton"], input[type="number"]'))
+            .filter(element => (element as HTMLElement).offsetParent !== null)
+            .map(element => ({ name: accessibleName(element), value: (element as HTMLInputElement).value })),
+          comboboxes: Array.from(document.querySelectorAll('[role="combobox"]'))
+            .filter(element => (element as HTMLElement).offsetParent !== null)
+            .map(element => ({
+              name: accessibleName(element),
+              value: (element as HTMLInputElement).value,
+              expanded: element.getAttribute('aria-expanded'),
+            })),
+          body: document.body.innerText.slice(0, 2_000),
+          skeletons: document.querySelectorAll('[data-testid="stSkeleton"]').length,
+          exceptions: document.querySelectorAll('[data-testid="stException"]').length,
+        };
+      });
+    } catch {
+      throw error;
+    }
     throw new Error(`Campo numérico não ficou pronto: ${JSON.stringify(diagnostics)}`, {
       cause: error,
     });
