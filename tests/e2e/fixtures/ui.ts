@@ -59,8 +59,39 @@ export async function expectNoFatal(page: Page) {
 
 export async function fillNumber(page: Page, label: string | RegExp, value: string) {
   const input = page.getByRole('spinbutton', { name: label }).first();
-  await input.fill(value);
-  await page.keyboard.press('Tab');
+  try {
+    await expect(input).toBeVisible();
+    await expect(input).toBeEnabled();
+    await input.fill(value);
+    await input.press('Tab');
+    await expect(input).toHaveValue(value);
+  } catch (error) {
+    const diagnostics = await page.evaluate(() => {
+      const accessibleName = (element: Element) =>
+        element.getAttribute('aria-label') ??
+        element.getAttribute('placeholder') ??
+        document.querySelector(`label[for="${element.id}"]`)?.textContent?.trim() ??
+        '';
+      return {
+        spinbuttons: Array.from(document.querySelectorAll('[role="spinbutton"], input[type="number"]'))
+          .filter(element => (element as HTMLElement).offsetParent !== null)
+          .map(element => ({ name: accessibleName(element), value: (element as HTMLInputElement).value })),
+        comboboxes: Array.from(document.querySelectorAll('[role="combobox"]'))
+          .filter(element => (element as HTMLElement).offsetParent !== null)
+          .map(element => ({
+            name: accessibleName(element),
+            value: (element as HTMLInputElement).value,
+            expanded: element.getAttribute('aria-expanded'),
+          })),
+        body: document.body.innerText.slice(0, 2_000),
+        skeletons: document.querySelectorAll('[data-testid="stSkeleton"]').length,
+        exceptions: document.querySelectorAll('[data-testid="stException"]').length,
+      };
+    });
+    throw new Error(`Campo numérico não ficou pronto: ${JSON.stringify(diagnostics)}`, {
+      cause: error,
+    });
+  }
 }
 
 export async function selectComboboxOption(
@@ -77,9 +108,11 @@ export async function selectComboboxOption(
     return;
   }
 
-  const listbox = page.getByRole('listbox');
+  const listbox = page.getByRole('listbox').filter({ visible: true }).last();
   await expect(async () => {
-    await combobox.click();
+    await combobox.focus();
+    await combobox.press('ArrowDown');
+    await expect(combobox).toHaveAttribute('aria-expanded', 'true', { timeout: 5_000 });
     await expect(listbox).toBeVisible({ timeout: 5_000 });
   }).toPass({ timeout: 15_000 });
   const selectedOption = listbox.getByRole('option', {
@@ -92,4 +125,5 @@ export async function selectComboboxOption(
   await expect(combobox).toHaveValue(option);
   await expect(combobox).toHaveAttribute('aria-expanded', 'false');
   await expect(page.locator('[data-testid="stSkeleton"]')).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.locator('[data-testid="stException"]')).toHaveCount(0);
 }
