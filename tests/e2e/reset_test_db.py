@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import os
-import runpy
 from pathlib import Path
+
+from test_database import reset_database_in_place
 
 ROOT = Path(__file__).resolve().parents[2]
 os.environ["FM_AI_TEST_MODE"] = "1"
@@ -12,4 +13,10 @@ os.environ["FM_AI_TEST_TMPDIR"] = os.environ.get(
     "FM_AI_TEST_TMPDIR", str(ROOT / ".tmp" / "fm-ai-playwright")
 )
 
-runpy.run_path(str(Path(__file__).with_name("init_test_db.py")), run_name="__main__")
+db_path = Path(os.environ["FM_AI_TEST_TMPDIR"]).resolve() / "fm_ai_test.sqlite3"
+real_db = ROOT / "banco_erp_local.db"
+if db_path.resolve() == real_db.resolve():
+    raise RuntimeError(f"Banco de teste resolveu para o banco real: {db_path}")
+
+reset_database_in_place(db_path)
+print(db_path)
