@@ -518,6 +518,15 @@ def test_app_pdv_nao_contem_choose_an_option_e_usa_placeholder_pt_br():
     assert "Cliente Balcão / Não Identificado" in source
     assert 'key="pdv_cliente_id"' in source
     assert 'key="pdv_cliente"' not in source
+    assert "index=indice_cliente_pdv" not in "".join(source.split())
+    assert "index=None" in source
+
+
+def test_app_marca_cada_rerun_concluido_no_modo_e2e():
+    source = Path("app.py").read_text(encoding="utf-8")
+
+    assert 'st.session_state["_fm_ai_e2e_run"]' in source
+    assert 'data-fm-ai-e2e-run="{st.session_state[' in source
 
 
 def test_app_identifica_visualmente_real_no_campo_valor_recebido():

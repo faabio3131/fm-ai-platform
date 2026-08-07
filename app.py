@@ -51,7 +51,6 @@ from pdv_utils import (
     deve_exibir_valor_recebido,
     formatar_moeda_br,
     formatar_opcao_cliente_pdv,
-    indice_cliente_pdv,
     aplicar_reset_pendente_pdv,
     consumir_flash_sucesso_pdv,
     marcar_reset_pdv_apos_sucesso,
@@ -97,6 +96,11 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+if is_test_mode():
+    st.session_state["_fm_ai_e2e_run"] = (
+        int(st.session_state.get("_fm_ai_e2e_run", 0)) + 1
+    )
 
 # --- 2. BANCO DE DADOS E CONFIGURAÇÃO ORM ---
 load_dotenv()
@@ -1063,11 +1067,12 @@ with aba3:
             cliente_id_estado_pdv = normalizar_cliente_id_pdv(
                 st.session_state.get("pdv_cliente_id"), clientes_por_id_pdv
             )
-            st.session_state["pdv_cliente_id"] = cliente_id_estado_pdv
+            if st.session_state.get("pdv_cliente_id") != cliente_id_estado_pdv:
+                st.session_state["pdv_cliente_id"] = cliente_id_estado_pdv
             cliente_id_pdv = st.selectbox(
                 "👤 Identificar Cliente (Opcional para acúmulo e resgate de Cashback)",
                 opcoes_cliente_ids_pdv,
-                index=indice_cliente_pdv(cliente_id_estado_pdv, opcoes_cliente_ids_pdv),
+                index=None,
                 format_func=lambda cliente_id: formatar_opcao_cliente_pdv(
                     cliente_id, clientes_por_id_pdv
                 ),
@@ -1967,6 +1972,6 @@ if btn_acionar_mica:
 # depois que o script inteiro construiu a interface e nunca aparece em produção.
 if is_test_mode():
     st.markdown(
-        '<span data-fm-ai-e2e-ready="true" style="display:none" aria-hidden="true"></span>',
+        f'<span data-fm-ai-e2e-ready="true" data-fm-ai-e2e-run="{st.session_state["_fm_ai_e2e_run"]}" style="display:none" aria-hidden="true"></span>',
         unsafe_allow_html=True,
     )

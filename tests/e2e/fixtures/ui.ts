@@ -124,6 +124,7 @@ export async function selectComboboxOption(
   option: string | RegExp,
 ) {
   const combobox = page.getByRole('combobox', { name: label }).first();
+  const readyMarker = page.locator('[data-fm-ai-e2e-ready="true"]');
   await expect(combobox).toBeVisible();
   await expect(combobox).toBeEnabled();
   if (typeof option === 'string' && (await combobox.inputValue()) === option) {
@@ -144,8 +145,21 @@ export async function selectComboboxOption(
     exact: typeof option === 'string',
   });
   await expect(selectedOption).toBeVisible();
+  const runBeforeSelection = await readyMarker.getAttribute('data-fm-ai-e2e-run');
   await selectedOption.click();
 
+  await expect
+    .poll(
+      async () => {
+        const runAfterSelection = await readyMarker.getAttribute('data-fm-ai-e2e-run');
+        return runAfterSelection !== null && runAfterSelection !== runBeforeSelection;
+      },
+      {
+        message: `Streamlit deve concluir o rerun após selecionar ${option}`,
+        timeout: 30_000,
+      },
+    )
+    .toBe(true);
   await expect(combobox).toHaveValue(option);
   await expect(combobox).toHaveAttribute('aria-expanded', 'false');
   await expect(page.locator('[data-testid="stSkeleton"]')).toHaveCount(0, { timeout: 30_000 });
