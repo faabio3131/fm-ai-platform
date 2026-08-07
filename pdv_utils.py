@@ -134,6 +134,17 @@ def indice_cliente_pdv(cliente_id: Any, opcoes_cliente_ids: list[int]) -> int:
         return 0
 
 
+def preparar_cliente_id_pdv(session_state: Any, clientes_por_id: dict[int, Any]) -> int:
+    """Preserva seleção válida e remove somente estado órfão antes do widget."""
+    cliente_id_atual = session_state.get("pdv_cliente_id")
+    cliente_id_normalizado = normalizar_cliente_id_pdv(
+        cliente_id_atual, clientes_por_id
+    )
+    if "pdv_cliente_id" in session_state and cliente_id_atual != cliente_id_normalizado:
+        del session_state["pdv_cliente_id"]
+    return cliente_id_normalizado
+
+
 def validar_finalizacao_pdv(
     *,
     produto: Any,
@@ -322,7 +333,6 @@ def validar_estoque_suficiente(
 
 PDV_WIDGET_DEFAULTS = {
     "pdv_quantidade": 1,
-    "pdv_cliente_id": CLIENTE_BALCAO_ID,
     "pdv_valor_recebido_dinheiro": 0.0,
     "pdv_forma_pagamento": FORMAS_PAGAMENTO_PERMITIDAS[0],
     "pdv_usa_cashback": False,
@@ -349,6 +359,7 @@ def aplicar_reset_pendente_pdv(session_state: Any) -> bool:
         return False
     for chave, valor in PDV_WIDGET_DEFAULTS.items():
         session_state[chave] = valor
+    session_state.pop("pdv_cliente_id", None)
     session_state[PDV_PROCESSANDO] = False
     return True
 

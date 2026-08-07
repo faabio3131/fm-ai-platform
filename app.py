@@ -51,6 +51,7 @@ from pdv_utils import (
     deve_exibir_valor_recebido,
     formatar_moeda_br,
     formatar_opcao_cliente_pdv,
+    indice_cliente_pdv,
     aplicar_reset_pendente_pdv,
     consumir_flash_sucesso_pdv,
     marcar_reset_pdv_apos_sucesso,
@@ -58,6 +59,7 @@ from pdv_utils import (
     montar_mensagem_sucesso_pdv,
     montar_payload_pix_simulado,
     normalizar_cliente_id_pdv,
+    preparar_cliente_id_pdv,
     montar_url_qrcode_pix,
     pagamento_dinheiro_suficiente,
     validar_estoque_suficiente,
@@ -1064,15 +1066,13 @@ with aba3:
                 if getattr(cliente, "id", None) is not None
             }
             opcoes_cliente_ids_pdv = [CLIENTE_BALCAO_ID, *clientes_por_id_pdv.keys()]
-            cliente_id_estado_pdv = normalizar_cliente_id_pdv(
-                st.session_state.get("pdv_cliente_id"), clientes_por_id_pdv
+            cliente_id_estado_pdv = preparar_cliente_id_pdv(
+                st.session_state, clientes_por_id_pdv
             )
-            if st.session_state.get("pdv_cliente_id") != cliente_id_estado_pdv:
-                st.session_state["pdv_cliente_id"] = cliente_id_estado_pdv
             cliente_id_pdv = st.selectbox(
                 "👤 Identificar Cliente (Opcional para acúmulo e resgate de Cashback)",
                 opcoes_cliente_ids_pdv,
-                index=None,
+                index=indice_cliente_pdv(cliente_id_estado_pdv, opcoes_cliente_ids_pdv),
                 format_func=lambda cliente_id: formatar_opcao_cliente_pdv(
                     cliente_id, clientes_por_id_pdv
                 ),
