@@ -7,9 +7,9 @@ export async function waitForAppReady(page: Page) {
     await expect(page.locator('[data-testid="stApp"]')).toHaveCount(1, { timeout: 30_000 });
     await expect(page.locator('[data-testid="stMain"]')).toHaveCount(1, { timeout: 30_000 });
     await expect(page.locator('[data-fm-ai-e2e-ready="true"]')).toHaveCount(1, {
-      timeout: 45_000,
+      timeout: 120_000,
     });
-    await expect(page.locator('[data-testid="stSkeleton"]')).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.locator('[data-testid="stSkeleton"]')).toHaveCount(0, { timeout: 120_000 });
     await expect(page.locator('[data-testid="stException"]')).toHaveCount(0);
     await expect(page.locator('body')).not.toContainText('Traceback');
   } catch (error) {

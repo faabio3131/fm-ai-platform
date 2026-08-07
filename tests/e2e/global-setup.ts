@@ -1,6 +1,7 @@
-import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, statSync, unlinkSync } from 'node:fs';
 import { resolve, join } from 'node:path';
+
+const { executePython, logPythonRuntime } = require('./python-runtime.cjs');
 
 async function globalSetup() {
   const root = resolve(__dirname, '..', '..');
@@ -20,11 +21,14 @@ async function globalSetup() {
   process.env.FM_AI_TEST_TMPDIR = tmpDir;
   process.env.FM_AI_TEST_KEEP_TMP = '1';
 
-  execFileSync('python', ['tests/e2e/init_test_db.py'], {
+  logPythonRuntime({ cwd: root, dbPath, env: process.env });
+  const result = executePython(['tests/e2e/init_test_db.py'], {
     cwd: root,
     env: process.env,
-    stdio: 'inherit',
+    label: 'Inicialização do banco E2E',
   });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
 
   const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
