@@ -2,15 +2,17 @@ import { expect, test } from '@playwright/test';
 
 async function abrirCentral(page) {
   await page.goto('/');
+  await expect(page.getByText(/Modo de teste isolado ativo/)).toBeVisible({
+    timeout: 30_000,
+  });
 
   const tablist = page.getByRole('tablist');
+  await expect(tablist).toBeVisible();
   const central = tablist.getByRole('tab', { name: /Central de Pedidos/ });
   const scrollRight = page.getByRole('button', {
     name: 'Scroll tabs right',
     exact: true,
   });
-
-  await expect(tablist).toBeVisible();
   if (await scrollRight.isVisible()) {
     await scrollRight.click();
   }
