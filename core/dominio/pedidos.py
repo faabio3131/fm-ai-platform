@@ -101,8 +101,6 @@ class Pedido(Serializavel):
         object.__setattr__(self, "atualizado_em", em_utc(self.atualizado_em))
         if self.versao < 1:
             raise PedidoInvalido("Versao deve ser positiva")
-        if self.status is not PedidoStatus.RASCUNHO:
-            raise PedidoInvalido("Persistencia V1 aceita criacao em rascunho")
         filhos_fora_escopo = any(
             x.tenant_id != self.tenant_id or x.unidade_id != self.unidade_id
             for x in self.itens
@@ -117,3 +115,11 @@ class Pedido(Serializavel):
             != self.total.valor
         ):
             raise PedidoInvalido("Total do pedido inconsistente")
+
+    @classmethod
+    def novo(cls, **dados: object) -> "Pedido":
+        """Cria um agregado novo; hidratacao continua aceitando estados normativos."""
+        status = dados.get("status", PedidoStatus.RASCUNHO)
+        if status is not PedidoStatus.RASCUNHO:
+            raise PedidoInvalido("Pedido novo deve comecar em rascunho")
+        return cls(**dados)  # type: ignore[arg-type]
