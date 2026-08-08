@@ -13,7 +13,7 @@ test('shadow persiste Pedido sem duplicar efeitos legados', async ({ page }) => 
   await page.getByRole('button', { name: /Finalizar Venda/ }).click();
   await expect.poll(() => dbNumber('select count(*) from vendas')).toBe(vendas + 1);
   expect(dbNumber('select count(*) from pedidos_v1')).toBe(1);
-  expect(dbNumber('select count(*) from vendas_financeiras_v1')).toBe(0);
+  expect(dbNumber("select count(*) from sqlite_master where type='table' and name='vendas_financeiras_v1'")).toBe(0);
   expect(dbNumber("select saldo_atual from insumos where nome='Carne Teste'")).toBe(estoque - 1);
   expect(dbNumber("select count(*) from pdv_reconciliacoes_v1 where modo='shadow' and status='conciliado'")).toBe(1);
 });
