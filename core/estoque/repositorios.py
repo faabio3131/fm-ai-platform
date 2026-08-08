@@ -89,18 +89,14 @@ class RepositorioEstoqueEmMemoria:
     def listar_movimentos(
         self, tenant_id: str, unidade_id: str, insumo_id: str | None = None
     ) -> tuple[MovimentoEstoque, ...]:
-        return tuple(
-            sorted(
-                (
-                    m
-                    for m in self._movimentos
-                    if m.tenant_id == tenant_id
-                    and m.unidade_id == unidade_id
-                    and (insumo_id is None or m.insumo_id == insumo_id)
-                ),
-                key=lambda m: (m.occurred_at, m.movimento_id),
+        with self._lock:
+            return tuple(
+                m
+                for m in self._movimentos
+                if m.tenant_id == tenant_id
+                and m.unidade_id == unidade_id
+                and (insumo_id is None or m.insumo_id == insumo_id)
             )
-        )
 
     def consultar_saldo(
         self, tenant_id: str, unidade_id: str, insumo_id: str
