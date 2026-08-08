@@ -16,6 +16,7 @@ CAMPOS_PROIBIDOS = frozenset(
         "token",
         "api_key",
         "apikey",
+        "authorization",
         "cartao",
         "card_payload",
         "pix",
