@@ -12,8 +12,9 @@ início/aceite de produção consome no máximo uma vez.
 
 O ledger é append-only: não há API de update ou delete. Correções são novos
 movimentos `compensacao`, com `movimento_original_id` em metadata sanitizada.
-Consultas sempre exigem tenant e unidade e têm ordem `(occurred_at,
-movimento_id)`. O saldo é derivável do histórico:
+Consultas sempre exigem tenant e unidade. No repositório em memória, a ordem do
+histórico é a própria ordem causal de append sob lock; `movimento_id` nunca é
+usado como desempate causal. O saldo é derivável do histórico:
 
 * `saldo_fisico`: entradas, consumos, perdas, devoluções, ajustes e compensações;
 * `saldo_reservado`: reservas ainda não consumidas ou liberadas;
@@ -47,7 +48,8 @@ preparar uma solicitação, mas não confirma mutação crítica sem humano.
 Além da chave explícita, a unicidade lógica cobre tenant, unidade, origem tipo e
 ID, tipo do movimento, insumo e versão da origem. Reuso com conteúdo divergente
 é conflito. O repositório em memória usa lock reentrante ao redor da decisão
-inteira. O SQL usa saldo materializado com versão e compare-and-swap; conflito
+inteira e preserva a sequência efetiva de append para replay e recomposição do
+saldo. O SQL usa saldo materializado com versão e compare-and-swap; conflito
 recebe erro de concorrência, sem retry cego. Assim, duas reservas de 7 sobre 10
 não podem reservar 14. Não há `sleep` em testes.
 
@@ -83,6 +85,13 @@ testado no SGBD escolhido e transações multi-insumo devem receber implementaç
 SQL completa (a V1 SQL expõe o ledger/saldo, enquanto a orquestração pura usa a
 porta atômica). Override negativo existe só como parâmetro interno e deve ganhar
 workflow de aprovação persistido antes de qualquer integração.
+
+O adapter SQL ainda ordena replay por `(occurred_at, movimento_id)` e o schema
+atual não possui uma sequência causal monotônica persistida. Dois movimentos do
+mesmo escopo podem compartilhar o mesmo timestamp, portanto esse critério não é
+suficiente para reconstrução causal determinística. Antes de usar replay SQL como
+fonte de recomposição de saldo em produção, deve existir uma sequência aditiva e
+monotônica por escopo, com migration autorizada e testes no SGBD escolhido.
 
 Não fazem parte desta entrega: UI, ativação de flags, integração com Venda/PDV,
 KDS, Mica, cashback, migração de saldo histórico, publicação externa, deploy ou
