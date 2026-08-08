@@ -71,6 +71,9 @@ MATRIZ_PADRAO: dict[Papel, frozenset[Permissao]] = {
     ),
     Papel.CAIXA: frozenset(
         {
+            Permissao.PEDIDO_CRIAR,
+            Permissao.PEDIDO_VISUALIZAR,
+            Permissao.PEDIDO_ALTERAR,
             Permissao.PDV_OPERAR,
             Permissao.PAGAMENTO_REGISTRAR,
             Permissao.PAGAMENTO_CONFIRMAR,

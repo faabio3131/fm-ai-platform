@@ -173,6 +173,8 @@ class RepositorioPedidosSQLAlchemy:
     def salvar(self, pedido: Pedido, *, versao_esperada: int | None = None) -> Pedido:
         atual = self.buscar(pedido.tenant_id, pedido.unidade_id, pedido.id)
         if atual is None:
+            if pedido.status is not PedidoStatus.RASCUNHO:
+                raise EscopoPedidoInvalido("Pedido novo deve comecar em rascunho")
             existente_chave = self._session.scalar(
                 self._stmt(pedido.tenant_id, pedido.unidade_id).where(
                     PedidoORM.idempotency_key == str(pedido.idempotency_key)

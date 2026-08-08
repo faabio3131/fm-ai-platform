@@ -1,6 +1,7 @@
 # ruff: noqa: E402
 import os
 from typing import Any
+from uuid import uuid4
 
 import streamlit as st
 from streamlit.errors import StreamlitSecretNotFoundError
@@ -62,7 +63,6 @@ from pdv_utils import (
     preparar_cliente_id_pdv,
     montar_url_qrcode_pix,
     pagamento_dinheiro_suficiente,
-    validar_estoque_suficiente,
     validar_finalizacao_pdv,
     valor_faltante_pagamento,
 )
@@ -85,6 +85,23 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 import io
+
+from core.pdv.adaptadores_sqlalchemy import (
+    LegacyPDVSQLAlchemyAdapter,
+    RegistroFalhaShadowSQLAlchemy,
+    RepositorioPDVSQLAlchemy,
+    SQLAlchemyPDVUnitOfWork,
+)
+from core.pdv.configuracao import carregar_rollout_ambiente
+from core.pdv.contexto import contexto_caixa_pdv
+from core.pdv.executores import (
+    ExecutorAutoritativoSQLAlchemy,
+    EscritorShadowSQLAlchemy,
+    id_deterministico,
+)
+from core.pdv.modelos import EntradaPDV, dinheiro_legado
+from core.pdv.roteamento import ModoPDV, decidir_modo
+from core.pdv.servicos import finalizar_venda_pdv
 
 try:
     import pypdf
@@ -226,6 +243,19 @@ try:
         Base.metadata.create_all(bind=engine, checkfirst=True)
 except Exception as e:
     st.error(f"❌ Erro ao inicializar o banco de dados: {e}")
+
+# Schemas V1 nunca sao criados automaticamente fora do banco temporario E2E.
+_pdv_rollout = carregar_rollout_ambiente()
+if is_test_mode() and _pdv_rollout.modo is not ModoPDV.LEGACY:
+    from migrations.orders_v1 import upgrade as upgrade_orders_v1
+    from migrations.pdv_v1 import upgrade as upgrade_pdv_v1
+
+    upgrade_orders_v1(engine)
+    if _pdv_rollout.modo is ModoPDV.AUTHORITATIVE_CANARY:
+        from migrations.payments_v1 import upgrade as upgrade_payments_v1
+
+        upgrade_payments_v1(engine)
+    upgrade_pdv_v1(engine)
 
 
 def get_db():
@@ -1238,6 +1268,10 @@ with aba3:
                     )
 
         st.markdown("---")
+        if "pdv_checkout_id" not in st.session_state:
+            st.session_state["pdv_checkout_id"] = str(uuid4())
+        _terminal_pdv = os.getenv("FM_AI_TEST_TERMINAL", "pdv-default")
+        _canary_pdv = _pdv_rollout.modo is ModoPDV.AUTHORITATIVE_CANARY
         botao_finalizar_pdv = st.button(
             "🚀 Confirmar Pagamento & Finalizar Venda",
             type="primary",
@@ -1271,7 +1305,7 @@ with aba3:
                 cliente_existe=cliente_existe_pdv,
                 usar_cashback=usa_cashback_pdv,
                 desconto_cashback=desconto_cb_pdv,
-                pix_confirmado=not modo_producao_ativo,
+                pix_confirmado=not modo_producao_ativo or _canary_pdv,
                 pix_producao=modo_producao_ativo,
             )
             if not validacao_pdv.valido:
@@ -1282,8 +1316,10 @@ with aba3:
                 )
                 st.stop()
 
-            db_exec_venda = get_db()
-            venda_commitada_pdv = False
+            db_exec_venda = SessionLocal()
+            db_shadow_pdv = (
+                SessionLocal() if _pdv_rollout.modo is ModoPDV.SHADOW else None
+            )
             try:
                 produto_db = (
                     db_exec_venda.query(Produto)
@@ -1309,7 +1345,7 @@ with aba3:
                     or cliente_db is not None,
                     usar_cashback=usa_cashback_pdv,
                     desconto_cashback=desconto_cb_pdv,
-                    pix_confirmado=not modo_producao_ativo,
+                    pix_confirmado=not modo_producao_ativo or _canary_pdv,
                     pix_producao=modo_producao_ativo,
                 )
                 if not validacao_banco.valido:
@@ -1320,27 +1356,6 @@ with aba3:
                     )
                     st.stop()
 
-                fichas_venda = (
-                    db_exec_venda.query(FichaTecnica)
-                    .filter(FichaTecnica.produto_id == produto_db.id)
-                    .all()
-                )
-                insumos_por_id = {
-                    ft.insumo_id: db_exec_venda.query(Insumo)
-                    .filter(Insumo.id == ft.insumo_id)
-                    .first()
-                    for ft in fichas_venda
-                }
-                validacao_estoque = validar_estoque_suficiente(
-                    fichas_venda, insumos_por_id, qtd_pdv
-                )
-                if not validacao_estoque.valido:
-                    st.session_state["pdv_processando"] = False
-                    st.error(
-                        validacao_estoque.mensagem
-                        or "Estoque insuficiente para finalizar a venda."
-                    )
-                    st.stop()
                 if (
                     cliente_db
                     and usa_cashback_pdv
@@ -1353,38 +1368,109 @@ with aba3:
                     )
                     st.stop()
 
-                nova_venda = Venda(
-                    produto_id=produto_db.id,
-                    cliente_id=cliente_db.id if cliente_db else None,
-                    quantidade=qtd_pdv,
-                    valor_total=float(validacao_banco.total_final),
-                    custo_total=(produto_db.custo_total_cmv or 0.0) * qtd_pdv,
-                    forma_pagamento=forma_pag_pdv,
-                    status_pagamento="Aprovado"
-                    if not modo_producao_ativo
-                    else "Aguardando confirmação Pix",
-                    data_venda=datetime.now(),
+                contexto_pdv = contexto_caixa_pdv(
+                    tenant_id=_pdv_rollout.tenant_id,
+                    unidade_id=_pdv_rollout.unidade_id,
+                    usuario_id="caixa-e2e" if is_test_mode() else "caixa-local",
+                    correlation_id=str(uuid4()),
+                    instante=datetime.now().astimezone(),
+                    origem="test" if is_test_mode() else "streamlit-local",
                 )
-                db_exec_venda.add(nova_venda)
-
-                for ft in fichas_venda:
-                    insumo_almo = insumos_por_id.get(ft.insumo_id)
-                    if insumo_almo:
-                        insumo_almo.saldo_atual -= ft.quantidade_utilizada * qtd_pdv
-
-                if cliente_db:
-                    cliente_db.total_gasto += float(validacao_banco.total_final)
-                    cliente_db.ultima_compra = datetime.now()
-                    cliente_db.status = "Ativo"
-                    if usa_cashback_pdv:
-                        cliente_db.saldo_cashback -= float(
-                            validacao_banco.desconto_cashback
-                        )
-                    cashback_ganho = round(float(validacao_banco.total_final) * 0.05, 2)
-                    cliente_db.saldo_cashback += cashback_ganho
-
-                db_exec_venda.commit()
-                venda_commitada_pdv = True
+                entrada_pdv = EntradaPDV(
+                    produto_id=int(produto_db.id),
+                    produto_nome=str(produto_db.nome),
+                    quantidade=int(qtd_pdv),
+                    preco_unitario=dinheiro_legado(produto_db.preco_venda),
+                    custo_total=dinheiro_legado(
+                        (produto_db.custo_total_cmv or 0) * qtd_pdv
+                    ),
+                    forma_pagamento=forma_pag_pdv,
+                    terminal_id=_terminal_pdv,
+                    checkout_id=str(st.session_state["pdv_checkout_id"]),
+                    cliente_id=int(cliente_db.id) if cliente_db else None,
+                    valor_recebido=dinheiro_legado(valor_recebido_pdv)
+                    if deve_exibir_valor_recebido(forma_pag_pdv)
+                    else None,
+                    usar_cashback=usa_cashback_pdv,
+                    desconto_cashback=dinheiro_legado(
+                        validacao_banco.desconto_cashback
+                    ),
+                    pix_sandbox=forma_pag_pdv.startswith("Pix")
+                    and not modo_producao_ativo
+                    and is_test_mode(),
+                    confirmacao_presencial=forma_pag_pdv.startswith("Cartão"),
+                )
+                modo_resolvido = decidir_modo(
+                    contexto=contexto_pdv,
+                    terminal_id=_terminal_pdv,
+                    config=_pdv_rollout,
+                )
+                pedido_id_pdv = id_deterministico(
+                    f"{contexto_pdv.tenant_id}:{contexto_pdv.unidade_id}:"
+                    f"{entrada_pdv.idempotency_key}:pedido"
+                )
+                rastrear = modo_resolvido is not ModoPDV.LEGACY
+                repo_pdv = RepositorioPDVSQLAlchemy(db_exec_venda) if rastrear else None
+                legado_pdv = LegacyPDVSQLAlchemyAdapter(
+                    session=db_exec_venda,
+                    venda_cls=Venda,
+                    cliente_cls=Cliente,
+                    insumo_cls=Insumo,
+                    ficha_tecnica_cls=FichaTecnica,
+                    tenant_id=contexto_pdv.tenant_id,
+                    unidade_id=contexto_pdv.unidade_id,
+                    pedido_id=pedido_id_pdv,
+                    rastrear_efeitos=rastrear,
+                    repositorio_pdv=repo_pdv,
+                )
+                uow_legado = SQLAlchemyPDVUnitOfWork(
+                    SessionLocal, fechar=False, session=db_exec_venda
+                )
+                shadow_writer = None
+                shadow_uow = None
+                falha_shadow = None
+                if db_shadow_pdv is not None:
+                    shadow_writer = EscritorShadowSQLAlchemy(
+                        db_shadow_pdv, contexto_pdv
+                    )
+                    shadow_uow = SQLAlchemyPDVUnitOfWork(
+                        SessionLocal, fechar=False, session=db_shadow_pdv
+                    )
+                    falha_shadow = RegistroFalhaShadowSQLAlchemy(
+                        SessionLocal,
+                        contexto_pdv.tenant_id,
+                        contexto_pdv.unidade_id,
+                        contexto_pdv.correlation_id,
+                    )
+                autoritativo_pdv = (
+                    ExecutorAutoritativoSQLAlchemy(
+                        session=db_exec_venda,
+                        contexto=contexto_pdv,
+                        legado=legado_pdv,
+                    )
+                    if modo_resolvido is ModoPDV.AUTHORITATIVE_CANARY
+                    else None
+                )
+                resultado_pdv = finalizar_venda_pdv(
+                    entrada=entrada_pdv,
+                    contexto=contexto_pdv,
+                    config=_pdv_rollout,
+                    legado=legado_pdv,
+                    uow_legado=uow_legado,
+                    shadow=shadow_writer,
+                    uow_shadow=shadow_uow,
+                    reconciliacao=falha_shadow,
+                    autoritativo=autoritativo_pdv,
+                    uow_autoritativo=uow_legado
+                    if autoritativo_pdv is not None
+                    else None,
+                )
+                if not resultado_pdv.sucesso:
+                    st.session_state["pdv_processando"] = False
+                    st.info(
+                        "Pagamento registrado. Aguardando confirmação financeira válida."
+                    )
+                    st.stop()
                 mensagem_sucesso_pdv = montar_mensagem_sucesso_pdv(
                     total_final=validacao_banco.total_final,
                     forma_pagamento=forma_pag_pdv,
@@ -1395,21 +1481,17 @@ with aba3:
                     if deve_exibir_troco(forma_pag_pdv)
                     else None,
                 )
+                st.session_state["pdv_checkout_id"] = str(uuid4())
                 marcar_reset_pdv_apos_sucesso(st.session_state, mensagem_sucesso_pdv)
                 st.rerun()
             except Exception as e:
                 st.session_state["pdv_processando"] = False
-                if venda_commitada_pdv:
-                    marcar_reset_pdv_apos_sucesso(
-                        st.session_state,
-                        "✅ Venda concluída e gravada no sistema. A tela foi recuperada para um novo atendimento.",
-                    )
-                    st.rerun()
-                else:
-                    db_exec_venda.rollback()
-                    st.error(f"❌ Erro ao registrar a venda no sistema: {e}")
+                db_exec_venda.rollback()
+                st.error(f"❌ Erro ao registrar a venda no sistema: {e}")
             finally:
                 db_exec_venda.close()
+                if db_shadow_pdv is not None:
+                    db_shadow_pdv.close()
 
     db_pdv.close()
 
