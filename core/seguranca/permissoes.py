@@ -23,6 +23,9 @@ class Permissao(StrEnum):
     ESTOQUE_AJUSTAR = "estoque.ajustar"
     ESTOQUE_BAIXAR = "estoque.baixar"
     ESTOQUE_LIBERAR = "estoque.liberar"
+    ESTOQUE_RESERVAR = "estoque.reservar"
+    ESTOQUE_PERDA_REGISTRAR = "estoque.perda_registrar"
+    ESTOQUE_DEVOLVER = "estoque.devolver"
     COMPRA_APROVAR = "compra.aprovar"
     PRODUCAO_VISUALIZAR = "producao.visualizar"
     PRODUCAO_ACEITAR = "producao.aceitar"
@@ -91,6 +94,8 @@ MATRIZ_PADRAO: dict[Papel, frozenset[Permissao]] = {
             Permissao.PRODUCAO_VISUALIZAR,
             Permissao.PRODUCAO_ACEITAR,
             Permissao.PRODUCAO_ATUALIZAR,
+            Permissao.ESTOQUE_BAIXAR,
+            Permissao.ESTOQUE_PERDA_REGISTRAR,
         }
     ),
     Papel.EXPEDICAO: frozenset(
