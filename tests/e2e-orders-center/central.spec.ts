@@ -8,14 +8,17 @@ async function abrirCentral(page) {
 
 test('AUTHORITATIVE_CANARY PR8 mostra pedido e cadeia financeira unica', async ({ page }) => {
   await abrirCentral(page);
-  await page.getByLabel('Status').fill('rascunho');
-  await page.getByLabel('Canal').fill('presencial');
-  await page.getByLabel('Buscar pedido ou cliente').fill('pedido-canary-pr8');
-  await expect(page.getByText('pedido-canary-pr8', { exact: true }).first()).toBeVisible();
-  await page.getByLabel('Abrir detalhe').selectOption('pedido-canary-pr8');
+  await page.getByRole('textbox', { name: 'Status', exact: true }).fill('rascunho');
+  await page.getByRole('textbox', { name: 'Canal', exact: true }).fill('presencial');
+  await page
+    .getByRole('textbox', { name: 'Buscar pedido ou cliente', exact: true })
+    .fill('pedido-canary-pr8');
+  await expect(
+    page.getByRole('heading', { name: 'Pedido pedido-canary-pr8', exact: true }),
+  ).toBeVisible();
   await expect(page.getByText('Burger Canary PR8')).toBeVisible();
   await expect(page.getByText(/Queijo extra/)).toBeVisible();
-  await expect(page.getByText(/Total:\*\* R\$ 24.00/)).toBeVisible();
+  await expect(page.getByText(/Total:\s*R\$ 24\.00/)).toBeVisible();
   await expect(page.getByText(/pedido.criado/)).toBeVisible();
   await expect(page.getByText('confirmado', { exact: true })).toBeVisible();
   await expect(page.getByText(/Pagamento: pagamento-canary/)).toBeVisible();
@@ -33,15 +36,18 @@ test('AUTHORITATIVE_CANARY PR8 mostra pedido e cadeia financeira unica', async (
 
 test('SHADOW nao inventa financeiro e Venda LEGACY pura nao cria Pedido', async ({ page }) => {
   await abrirCentral(page);
-  await page.getByLabel('Buscar pedido ou cliente').fill('pedido-shadow-pr8');
-  await expect(page.getByText('pedido-shadow-pr8', { exact: true }).first()).toBeVisible();
-  await page.getByLabel('Abrir detalhe').selectOption('pedido-shadow-pr8');
-  await expect(page.getByText('ausente', { exact: true }).first()).toBeVisible();
+  const busca = page.getByRole('textbox', {
+    name: 'Buscar pedido ou cliente',
+    exact: true,
+  });
+  await busca.fill('pedido-shadow-pr8');
+  await expect(
+    page.getByRole('heading', { name: 'Pedido pedido-shadow-pr8', exact: true }),
+  ).toBeVisible();
   await expect(page.getByText('Pagamento: ausente')).toBeVisible();
   await expect(page.getByText('VendaFinanceira: ausente')).toBeVisible();
   await expect(page.getByText('Venda legada vinculada: ausente')).toBeVisible();
 
-  await page.getByLabel('Buscar pedido ou cliente').fill('legacy-puro-sem-pedido');
+  await busca.fill('legacy-puro-sem-pedido');
   await expect(page.getByText('Nenhum pedido encontrado.')).toBeVisible();
 });
-
