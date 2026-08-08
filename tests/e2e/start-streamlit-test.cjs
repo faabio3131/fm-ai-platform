@@ -4,7 +4,9 @@ const { resolve } = require('node:path');
 const { resolvePython } = require('./python-runtime.cjs');
 
 const root = resolve(__dirname, '..', '..');
-const tmpDir = resolve(root, '.tmp', 'fm-ai-playwright');
+const tmpDir = process.env.FM_AI_TEST_TMPDIR
+  ? resolve(process.env.FM_AI_TEST_TMPDIR)
+  : resolve(root, '.tmp', 'fm-ai-playwright');
 const port = process.env.FM_AI_E2E_PORT || '8517';
 mkdirSync(tmpDir, { recursive: true });
 

@@ -102,6 +102,7 @@ from core.pdv.executores import (
 from core.pdv.modelos import EntradaPDV, dinheiro_legado
 from core.pdv.roteamento import ModoPDV, decidir_modo
 from core.pdv.servicos import finalizar_venda_pdv
+from core.central_pedidos.flags import order_center_v1_enabled
 
 try:
     import pypdf
@@ -753,16 +754,194 @@ st.title("🍔 F&M AI FOOD — Painel de Gestão, PDV & Gateway")
 st.markdown("---")
 
 # --- 8. ESTRUTURA DAS 6 ABAS PRINCIPAIS ---
-aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs(
-    [
-        "🤖 Engenharia de Cardápio",
-        "📢 CRM, Resgate & Cashback",
-        "🛒 Frente de Caixa (PDV & Pix)",
-        "📦 Estoque & Validades (Novo!)",
-        "📊 Dashboard Financeiro",
-        "💬 Bot Cliente (Mica I.A.)",
-    ]
-)
+_nomes_abas = [
+    "🤖 Engenharia de Cardápio",
+    "📢 CRM, Resgate & Cashback",
+    "🛒 Frente de Caixa (PDV & Pix)",
+    "📦 Estoque & Validades (Novo!)",
+    "📊 Dashboard Financeiro",
+    "💬 Bot Cliente (Mica I.A.)",
+]
+if order_center_v1_enabled():
+    _nomes_abas.append("📋 Central de Pedidos")
+_abas = st.tabs(_nomes_abas)
+aba1, aba2, aba3, aba4, aba5, aba6 = _abas[:6]
+aba_central = _abas[6] if len(_abas) == 7 else None
+
+if aba_central is not None:
+    with aba_central:
+        from datetime import timezone
+
+        from core.central_pedidos import (
+            CentralPedidosSQLAlchemy,
+            FiltroCentralPedidos,
+            RepositorioAuditoriaEmMemoria,
+            contexto_central_teste,
+            preparar_schema_teste,
+        )
+        from core.central_pedidos.servicos import ServicoComandosCentral
+        from core.estados.maquinas import ErroTransicao
+
+        # A criacao de schema e estritamente isolada pelo modo de teste da flag.
+        preparar_schema_teste(engine)
+        st.header("📋 Central de Pedidos")
+        st.caption(
+            "Projeção operacional de Pedidos V1 — atualização automática desativada."
+        )
+        col_busca, col_status, col_canal = st.columns(3)
+        busca_central = col_busca.text_input(
+            "Buscar pedido ou cliente", key="central_busca"
+        )
+        status_central = col_status.text_input("Status", key="central_status")
+        canal_central = col_canal.text_input("Canal", key="central_canal")
+        contexto_central = contexto_central_teste(
+            correlation_id=str(uuid4()), solicitado_em=datetime.now(timezone.utc)
+        )
+        try:
+            sessao_central = SessionLocal()
+            central = CentralPedidosSQLAlchemy(sessao_central)
+            pagina_central = central.listar(
+                contexto_central,
+                FiltroCentralPedidos(
+                    busca=busca_central or None,
+                    status=(status_central,) if status_central else (),
+                    canal=(canal_central,) if canal_central else (),
+                ),
+            )
+            if not pagina_central.itens:
+                st.info("Nenhum pedido encontrado.")
+            else:
+                st.dataframe(
+                    [
+                        {
+                            "Pedido": item.pedido_id,
+                            "Status": item.status,
+                            "Canal": item.canal,
+                            "Horário (UTC)": item.criado_em.isoformat(),
+                            "Total": f"R$ {item.total:.2f}",
+                            "Financeiro": item.financeiro.situacao,
+                            "Alerta": "Sim" if item.possui_alerta else "Não",
+                        }
+                        for item in pagina_central.itens
+                    ],
+                    use_container_width=True,
+                    hide_index=True,
+                )
+                selecionado = st.selectbox(
+                    "Abrir detalhe", [x.pedido_id for x in pagina_central.itens]
+                )
+                detalhe = central.detalhar(contexto_central, selecionado)
+                if detalhe:
+                    st.subheader(f"Pedido {selecionado}")
+                    st.write(
+                        f"**Status:** {detalhe.resumo.status} · **Total:** R$ {detalhe.resumo.total:.2f} · **Versão:** {detalhe.resumo.versao}"
+                    )
+                    st.markdown("#### Itens")
+                    for item in detalhe.itens:
+                        st.write(
+                            f"{item.quantidade}× {item.nome} — R$ {item.subtotal:.2f}"
+                        )
+                        for adicional in item.adicionais:
+                            st.caption(
+                                f"+ {adicional[1]}× {adicional[0]} — R$ {adicional[3]:.2f}"
+                            )
+                    st.markdown("#### Situação financeira")
+                    st.write(detalhe.financeiro.situacao)
+                    st.caption(
+                        "Pagamento: "
+                        + (", ".join(detalhe.financeiro.pagamento_ids) or "ausente")
+                    )
+                    st.caption(
+                        f"VendaFinanceira: {detalhe.financeiro.venda_financeira_id or 'ausente'}"
+                    )
+                    st.caption(
+                        f"Venda legada vinculada: {detalhe.financeiro.venda_legada_id or 'ausente'}"
+                    )
+                    st.caption(
+                        f"Reconciliação: {detalhe.financeiro.reconciliacao_id or 'ausente'}"
+                    )
+                    st.markdown("#### Alertas")
+                    if detalhe.alertas:
+                        for alerta in detalhe.alertas:
+                            st.warning(f"{alerta.tipo}: {alerta.mensagem}")
+                    else:
+                        st.caption("Sem alertas operacionais.")
+                    st.markdown("#### Timeline")
+                    for evento in detalhe.timeline:
+                        st.write(f"{evento.ocorrido_em.isoformat()} — {evento.tipo}")
+                    st.markdown("#### Ações de teste RBAC")
+                    st.caption(
+                        "Disponíveis somente no modo E2E isolado; produção exige identidade humana confiável."
+                    )
+                    if detalhe.resumo.status == "rascunho" and st.button(
+                        "Enviar para confirmação", key=f"central-acao-{selecionado}"
+                    ):
+                        auditoria = RepositorioAuditoriaEmMemoria()
+                        ServicoComandosCentral(sessao_central, auditoria).transicionar(
+                            contexto=contexto_central,
+                            pedido_id=selecionado,
+                            destino="aguardando_confirmacao",
+                            versao_esperada=detalhe.resumo.versao,
+                            idempotency_key=f"ui:{selecionado}:aguardando",
+                            precondicoes={
+                                "itens_validos": True,
+                                "precos_calculados": True,
+                            },
+                        )
+                        sessao_central.commit()
+                        st.success(
+                            f"Comando permitido; evento e auditoria registrados ({len(auditoria.eventos)})."
+                        )
+                    if st.button(
+                        "Demonstrar ação negada", key=f"central-negada-{selecionado}"
+                    ):
+                        auditoria = RepositorioAuditoriaEmMemoria()
+                        contexto_negado = contexto_central_teste(
+                            correlation_id=str(uuid4()),
+                            solicitado_em=datetime.now(timezone.utc),
+                            papel="atendimento",
+                        )
+                        try:
+                            ServicoComandosCentral(
+                                sessao_central, auditoria
+                            ).transicionar(
+                                contexto=contexto_negado,
+                                pedido_id=selecionado,
+                                destino="aguardando_confirmacao",
+                                versao_esperada=detalhe.resumo.versao,
+                                idempotency_key=f"ui:{selecionado}:negado",
+                                precondicoes={
+                                    "itens_validos": True,
+                                    "precos_calculados": True,
+                                },
+                            )
+                        except ErroTransicao as erro:
+                            st.warning(
+                                f"Comando negado por RBAC: {erro.codigo}; auditoria={len(auditoria.eventos)}."
+                            )
+                    if st.button(
+                        "Demonstrar versão desatualizada",
+                        key=f"central-concorrente-{selecionado}",
+                    ):
+                        auditoria = RepositorioAuditoriaEmMemoria()
+                        try:
+                            ServicoComandosCentral(
+                                sessao_central, auditoria
+                            ).transicionar(
+                                contexto=contexto_central,
+                                pedido_id=selecionado,
+                                destino="aguardando_confirmacao",
+                                versao_esperada=0,
+                                idempotency_key=f"ui:{selecionado}:concorrente",
+                                precondicoes={
+                                    "itens_validos": True,
+                                    "precos_calculados": True,
+                                },
+                            )
+                        except ErroTransicao as erro:
+                            st.warning(f"Optimistic locking: {erro.codigo}.")
+        except Exception as exc:
+            st.error(f"Não foi possível carregar a Central: {type(exc).__name__}")
 
 # ==============================================================================
 # ABA 1: ENGENHARIA DE CARDÁPIO
