@@ -23,8 +23,24 @@ class TipoEfeitoCompat(StrEnum):
     CASHBACK_GANHO = "CASHBACK_GANHO"
 
 
+_MENSAGENS_ERRO_PDV: dict[str, str] = {
+    "estoque_insuficiente": "Estoque insuficiente para finalizar a venda.",
+    "saldo_cashback_concorrente": "Saldo de cashback insuficiente ou alterado. Atualize os dados e tente novamente.",
+    "cliente_indisponivel": "Cliente indisponível para concluir a operação.",
+}
+
+
+def mensagem_publica_erro_pdv(codigo: str) -> str:
+    """Traduz código operacional estável em mensagem segura para o operador."""
+    return _MENSAGENS_ERRO_PDV.get(
+        codigo, "Não foi possível concluir a operação do PDV."
+    )
+
+
 class ErroOperacaoLegada(RuntimeError):
-    pass
+    def __init__(self, codigo: str) -> None:
+        self.codigo = codigo
+        super().__init__(mensagem_publica_erro_pdv(codigo))
 
 
 class SQLAlchemyPDVUnitOfWork(AbstractContextManager["SQLAlchemyPDVUnitOfWork"]):
