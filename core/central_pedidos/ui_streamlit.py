@@ -4,8 +4,9 @@ A composição recebe engine e fábrica de sessão por injeção. Regras de dom�
 RBAC e transições continuam nos serviços existentes da Central.
 """
 
+from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Any
 from uuid import uuid4
 
 import streamlit as st
@@ -30,7 +31,9 @@ def render_central_pedidos(
     """Renderiza a Central usando somente o backend V1 e contexto E2E protegido."""
     preparar_schema_teste(engine)
     st.header("📋 Central de Pedidos")
-    st.caption("Projeção operacional de Pedidos V1 — atualização automática desativada.")
+    st.caption(
+        "Projeção operacional de Pedidos V1 — atualização automática desativada."
+    )
 
     col_busca, col_status, col_canal = st.columns(3)
     busca_central = col_busca.text_input(
@@ -95,15 +98,12 @@ def render_central_pedidos(
         for item in detalhe.itens:
             st.write(f"{item.quantidade}× {item.nome} — R$ {item.subtotal:.2f}")
             for adicional in item.adicionais:
-                st.caption(
-                    f"+ {adicional[1]}× {adicional[0]} — R$ {adicional[3]:.2f}"
-                )
+                st.caption(f"+ {adicional[1]}× {adicional[0]} — R$ {adicional[3]:.2f}")
 
         st.markdown("#### Situação financeira")
         st.write(detalhe.financeiro.situacao)
         st.caption(
-            "Pagamento: "
-            + (", ".join(detalhe.financeiro.pagamento_ids) or "ausente")
+            "Pagamento: " + (", ".join(detalhe.financeiro.pagamento_ids) or "ausente")
         )
         st.caption(
             f"VendaFinanceira: {detalhe.financeiro.venda_financeira_id or 'ausente'}"
@@ -111,9 +111,7 @@ def render_central_pedidos(
         st.caption(
             f"Venda legada vinculada: {detalhe.financeiro.venda_legada_id or 'ausente'}"
         )
-        st.caption(
-            f"Reconciliação: {detalhe.financeiro.reconciliacao_id or 'ausente'}"
-        )
+        st.caption(f"Reconciliação: {detalhe.financeiro.reconciliacao_id or 'ausente'}")
 
         st.markdown("#### Alertas")
         if detalhe.alertas:
@@ -195,7 +193,8 @@ def render_central_pedidos(
                 )
             except ErroTransicao as erro:
                 st.warning(f"Optimistic locking: {erro.codigo}.")
-    except Exception as exc:
+    # Fronteira da UI: converte falhas inesperadas em mensagem segura sem expor detalhes.
+    except Exception as exc:  # noqa: BLE001
         st.error(f"Não foi possível carregar a Central: {type(exc).__name__}")
     finally:
         if sessao_central is not None:
