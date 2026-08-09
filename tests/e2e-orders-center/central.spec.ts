@@ -40,7 +40,9 @@ test('AUTHORITATIVE_CANARY PR8 mostra pedido e cadeia financeira unica', async (
   await expect(page.getByText(/Queijo extra/)).toBeVisible();
   await expect(page.getByText(/Total:\s*R\$ 24\.00/)).toBeVisible();
   await expect(page.getByText(/pedido.criado/)).toBeVisible();
-  await expect(page.getByText('confirmado', { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('paragraph').filter({ hasText: /^confirmado$/ }),
+  ).toBeVisible();
   await expect(page.getByText(/Pagamento: pagamento-canary/)).toBeVisible();
   await expect(page.getByText(/VendaFinanceira: venda-financeira-canary/)).toBeVisible();
   await expect(page.getByText(/Venda legada vinculada: 1/)).toHaveCount(1);
