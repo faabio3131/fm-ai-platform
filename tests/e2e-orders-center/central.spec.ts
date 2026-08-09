@@ -2,21 +2,7 @@ import { expect, test } from '@playwright/test';
 
 async function abrirCentral(page) {
   await page.goto('/');
-  await expect(page.getByText(/Modo de teste isolado ativo/)).toBeVisible();
-
-  const tablist = page.getByRole('tablist');
-  await expect(tablist).toBeVisible();
-  const central = tablist.getByRole('tab', { name: /Central de Pedidos/ });
-  const scrollRight = page.getByRole('button', {
-    name: 'Scroll tabs right',
-    exact: true,
-  });
-  if (await scrollRight.isVisible()) {
-    await scrollRight.click();
-  }
-  await central.scrollIntoViewIfNeeded();
-  await expect(central).toBeVisible();
-  await central.click();
+  await expect(page.getByText('Central E2E pronta', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: /Central de Pedidos/ })).toBeVisible();
 }
 
