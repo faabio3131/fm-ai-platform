@@ -14,17 +14,28 @@ async function preencherEAplicar(page, nome, valor) {
   const campo = page.getByRole('textbox', { name: nome, exact: true });
   await campo.fill(valor);
   await campo.press('Enter');
-  await expect(campo).toHaveValue(valor);
+}
+
+async function aguardarPedido(page, pedidoId) {
+  await expect(
+    page.getByRole('heading', { name: `Pedido ${pedidoId}`, exact: true }),
+  ).toBeVisible({ timeout: 15_000 });
 }
 
 test('AUTHORITATIVE_CANARY PR8 mostra pedido e cadeia financeira unica', async ({ page }) => {
   await abrirCentral(page);
-  await preencherEAplicar(page, 'Status', 'rascunho');
-  await preencherEAplicar(page, 'Canal', 'presencial');
+
+  // Cada Enter provoca um rerun do Streamlit. Espere uma pós-condição observável
+  // antes de aplicar o próximo filtro para não disputar com a sessão anterior.
   await preencherEAplicar(page, 'Buscar pedido ou cliente', 'pedido-canary-pr8');
-  await expect(
-    page.getByRole('heading', { name: 'Pedido pedido-canary-pr8', exact: true }),
-  ).toBeVisible({ timeout: 15_000 });
+  await aguardarPedido(page, 'pedido-canary-pr8');
+
+  await preencherEAplicar(page, 'Status', 'rascunho');
+  await aguardarPedido(page, 'pedido-canary-pr8');
+
+  await preencherEAplicar(page, 'Canal', 'presencial');
+  await aguardarPedido(page, 'pedido-canary-pr8');
+
   await expect(page.getByText('Burger Canary PR8')).toBeVisible();
   await expect(page.getByText(/Queijo extra/)).toBeVisible();
   await expect(page.getByText(/Total:\s*R\$ 24\.00/)).toBeVisible();
@@ -52,9 +63,7 @@ test('AUTHORITATIVE_CANARY PR8 mostra pedido e cadeia financeira unica', async (
 test('SHADOW nao inventa financeiro e Venda LEGACY pura nao cria Pedido', async ({ page }) => {
   await abrirCentral(page);
   await preencherEAplicar(page, 'Buscar pedido ou cliente', 'pedido-shadow-pr8');
-  await expect(
-    page.getByRole('heading', { name: 'Pedido pedido-shadow-pr8', exact: true }),
-  ).toBeVisible({ timeout: 15_000 });
+  await aguardarPedido(page, 'pedido-shadow-pr8');
   await expect(page.getByText('Pagamento: ausente')).toBeVisible();
   await expect(page.getByText('VendaFinanceira: ausente')).toBeVisible();
   await expect(page.getByText('Venda legada vinculada: ausente')).toBeVisible();
