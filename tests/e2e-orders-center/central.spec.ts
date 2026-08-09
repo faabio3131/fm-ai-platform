@@ -2,9 +2,7 @@ import { expect, test } from '@playwright/test';
 
 async function abrirCentral(page) {
   await page.goto('/');
-  await expect(page.getByText(/Modo de teste isolado ativo/)).toBeVisible({
-    timeout: 30_000,
-  });
+  await expect(page.getByText(/Modo de teste isolado ativo/)).toBeVisible();
 
   const tablist = page.getByRole('tablist');
   await expect(tablist).toBeVisible();
