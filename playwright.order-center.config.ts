@@ -10,7 +10,7 @@ export default defineConfig({
   timeout: 45_000,
   use: { baseURL: 'http://127.0.0.1:8521', trace: 'retain-on-failure' },
   webServer: {
-    command: 'node tests/e2e/start-streamlit-test.cjs',
+    command: 'node tests/e2e-orders-center/start-order-center-streamlit.cjs',
     url: 'http://127.0.0.1:8521',
     timeout: 120_000,
     reuseExistingServer: false,
@@ -24,13 +24,8 @@ export default defineConfig({
   },
   projects: [
     {
-      name: 'warmup',
-      testMatch: /warmup\.setup\.ts/,
-    },
-    {
       name: 'central',
       testMatch: /central\.spec\.ts/,
-      dependencies: ['warmup'],
     },
   ],
 });
