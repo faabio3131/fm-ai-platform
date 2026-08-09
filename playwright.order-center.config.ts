@@ -22,4 +22,15 @@ export default defineConfig({
       FM_AI_TEST_TMPDIR: tmpDir,
     },
   },
+  projects: [
+    {
+      name: 'warmup',
+      testMatch: /warmup\.setup\.ts/,
+    },
+    {
+      name: 'central',
+      testMatch: /central\.spec\.ts/,
+      dependencies: ['warmup'],
+    },
+  ],
 });
