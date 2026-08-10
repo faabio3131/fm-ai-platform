@@ -103,36 +103,45 @@ def salvar(
     return RepositorioPedidosSQLAlchemy(session).salvar(novo)
 
 
-def pagamento(session, pedido_id, *, status="pendente", pago=Decimal("0.00")):
+def pagamento(
+    session,
+    pedido_id,
+    *,
+    status="pendente",
+    pago=Decimal("0.00"),
+    previsto=Decimal("24.00"),
+    pagamento_id=None,
+):
+    identificador = pagamento_id or f"pay-{pedido_id}"
     session.add(
         ObrigacaoPagamentoORM(
-            id=f"pay-{pedido_id}",
+            id=identificador,
             tenant_id="tenant-a",
             unidade_id="unidade-a",
             pedido_id=pedido_id,
             comanda_id=None,
-            valor_previsto=Decimal("24.00"),
+            valor_previsto=previsto,
             moeda="BRL",
             criado_em=AGORA,
             versao=1,
             correlation_id=f"corr-{pedido_id}",
-            idempotency_key=f"ob-{pedido_id}",
+            idempotency_key=f"ob-{identificador}",
             request_hash="hash",
         )
     )
     session.add(
         PagamentoORM(
-            id=f"pay-{pedido_id}",
+            id=identificador,
             tenant_id="tenant-a",
             unidade_id="unidade-a",
             pedido_id=pedido_id,
             comanda_id=None,
             status=status,
             metodo="dinheiro",
-            valor_previsto=Decimal("24.00"),
+            valor_previsto=previsto,
             valor_pago=pago,
             valor_estornado=Decimal("0.00"),
-            saldo=Decimal("24.00") - pago,
+            saldo=previsto - pago,
             moeda="BRL",
             recebimento_posterior=False,
             provedor=None,
@@ -140,7 +149,7 @@ def pagamento(session, pedido_id, *, status="pendente", pago=Decimal("0.00")):
             atualizado_em=AGORA,
             versao=1,
             correlation_id=f"corr-{pedido_id}",
-            idempotency_key=f"pg-{pedido_id}",
+            idempotency_key=f"pg-{identificador}",
             request_hash="hash",
         )
     )
@@ -199,6 +208,66 @@ def test_filtros_derivados_antecedem_paginacao_sem_perda_ou_duplicacao(session):
     assert len(ids) == len(set(ids)) == 4
 
 
+def test_multiplos_pagamentos_somam_obrigacoes_e_exigem_todos_pagos(session):
+    salvar(session, "misto-parcial")
+    pagamento(
+        session,
+        "misto-parcial",
+        status="pago",
+        pago=Decimal("14.00"),
+        previsto=Decimal("14.00"),
+        pagamento_id="pay-misto-parcial-a",
+    )
+    pagamento(
+        session,
+        "misto-parcial",
+        previsto=Decimal("10.00"),
+        pagamento_id="pay-misto-parcial-b",
+    )
+
+    salvar(session, "misto-confirmado", minutos=1)
+    pagamento(
+        session,
+        "misto-confirmado",
+        status="pago",
+        pago=Decimal("14.00"),
+        previsto=Decimal("14.00"),
+        pagamento_id="pay-misto-confirmado-a",
+    )
+    pagamento(
+        session,
+        "misto-confirmado",
+        status="pago",
+        pago=Decimal("10.00"),
+        previsto=Decimal("10.00"),
+        pagamento_id="pay-misto-confirmado-b",
+    )
+
+    central = CentralPedidosSQLAlchemy(session, agora=lambda: AGORA)
+    parcial = central.detalhar(contexto(), "misto-parcial")
+    assert parcial is not None
+    assert parcial.financeiro.valor_previsto == Decimal("24.00")
+    assert parcial.financeiro.valor_pago == Decimal("14.00")
+    assert parcial.financeiro.situacao == "parcial"
+
+    confirmado = central.detalhar(contexto(), "misto-confirmado")
+    assert confirmado is not None
+    assert confirmado.financeiro.valor_previsto == Decimal("24.00")
+    assert confirmado.financeiro.valor_pago == Decimal("24.00")
+    assert confirmado.financeiro.situacao == "confirmado"
+
+    pagina_confirmados = central.listar(
+        contexto(), FiltroCentralPedidos(situacao_financeira="confirmado")
+    )
+    assert [item.pedido_id for item in pagina_confirmados.itens] == [
+        "misto-confirmado"
+    ]
+    pagina_parciais = central.listar(
+        contexto(), FiltroCentralPedidos(situacao_financeira="parcial")
+    )
+    assert [item.pedido_id for item in pagina_parciais.itens] == ["misto-parcial"]
+
+
 def test_somente_alertas_pagina_o_conjunto_derivado_e_total_correto(session):
     for indice in range(7):
         pedido_id = f"alerta-{indice}"
@@ -225,6 +294,7 @@ def test_comando_usa_maquina_versao_evento_auditoria_e_idempotencia(session):
     salvar(session, "comando")
     auditoria = RepositorioAuditoriaEmMemoria()
     servico = ServicoComandosCentral(session, auditoria)
+    precondicoes = {"itens_validos": True, "precos_calculados": True}
     atualizado = servico.transicionar(
         contexto=contexto(),
         pedido_id="comando",
@@ -232,7 +302,7 @@ def test_comando_usa_maquina_versao_evento_auditoria_e_idempotencia(session):
         versao_esperada=1,
         idempotency_key="central-comando",
         timestamp=AGORA,
-        precondicoes={"itens_validos": True, "precos_calculados": True},
+        precondicoes=precondicoes,
     )
     assert atualizado.status is PedidoStatus.AGUARDANDO_CONFIRMACAO
     assert atualizado.versao == 2 and len(auditoria.eventos) == 1
@@ -244,6 +314,7 @@ def test_comando_usa_maquina_versao_evento_auditoria_e_idempotencia(session):
             versao_esperada=1,
             idempotency_key="central-comando",
             timestamp=AGORA,
+            precondicoes=precondicoes,
         ).versao
         == 2
     )
@@ -258,6 +329,54 @@ def test_comando_usa_maquina_versao_evento_auditoria_e_idempotencia(session):
         )
     assert erro.value.codigo == "pedido_concorrente"
     assert auditoria.eventos[-1].resultado == "negado"
+
+
+def test_comando_idempotencia_rejeita_reuso_em_outro_pedido_e_payload_divergente(
+    session,
+):
+    salvar(session, "idem-a")
+    salvar(session, "idem-b")
+    auditoria = RepositorioAuditoriaEmMemoria()
+    servico = ServicoComandosCentral(session, auditoria)
+    precondicoes = {"itens_validos": True, "precos_calculados": True}
+
+    servico.transicionar(
+        contexto=contexto(),
+        pedido_id="idem-a",
+        destino="aguardando_confirmacao",
+        versao_esperada=1,
+        idempotency_key="central-compartilhada",
+        timestamp=AGORA,
+        precondicoes=precondicoes,
+    )
+
+    with pytest.raises(ValueError, match="conflito_idempotencia"):
+        servico.transicionar(
+            contexto=contexto(),
+            pedido_id="idem-b",
+            destino="aguardando_confirmacao",
+            versao_esperada=1,
+            idempotency_key="central-compartilhada",
+            timestamp=AGORA,
+            precondicoes=precondicoes,
+        )
+    with pytest.raises(ValueError, match="conflito_idempotencia"):
+        servico.transicionar(
+            contexto=contexto(),
+            pedido_id="idem-a",
+            destino="aguardando_confirmacao",
+            versao_esperada=1,
+            idempotency_key="central-compartilhada",
+            timestamp=AGORA,
+            precondicoes={"itens_validos": True, "precos_calculados": False},
+        )
+
+    pedido_b = RepositorioPedidosSQLAlchemy(session).buscar(
+        TenantId("tenant-a"), UnidadeId("unidade-a"), PedidoId("idem-b")
+    )
+    assert pedido_b is not None
+    assert pedido_b.status is PedidoStatus.RASCUNHO
+    assert pedido_b.versao == 1
 
 
 def test_comando_negado_por_rbac_tambem_e_auditado(session):
