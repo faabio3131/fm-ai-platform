@@ -12,8 +12,17 @@ async function abrirCentral(page) {
 
 async function preencherEAplicar(page, nome, valor) {
   const campo = page.getByRole('textbox', { name: nome, exact: true });
+  const pendente = page.getByText('Press Enter to apply', { exact: true });
+
   await campo.fill(valor);
-  await campo.press('Enter');
+  await expect(pendente).toBeVisible();
+
+  // fill() mantem o textbox focado. Usar o teclado da pagina evita prender
+  // a acao ao elemento que o Streamlit substitui durante o rerun.
+  await page.keyboard.press('Enter');
+
+  // Pos-condicao real: o Streamlit aceitou o valor e encerrou o estado pendente.
+  await expect(pendente).toHaveCount(0, { timeout: 15_000 });
 }
 
 async function aguardarPedido(page, pedidoId) {
