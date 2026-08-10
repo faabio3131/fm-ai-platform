@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from hashlib import sha256
 from json import dumps
-from typing import Mapping
+from typing import Any, Mapping, cast
 from uuid import uuid4
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -15,6 +15,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from core.estados import ComandoTransicao, ErroTransicao, SnapshotEstado, transicionar
 from core.seguranca import AutorizarAcao, ContextoExecucao, Permissao
 from core.seguranca.auditoria import RepositorioAuditoria
+from core.seguranca.autorizacao import DecisaoAutorizacao
 
 from .adaptador_sqlalchemy import RepositorioKDSSQLAlchemy
 from .erros import ErroKDS
@@ -52,7 +53,9 @@ class CacheFilaKDS:
         self._filas: dict[tuple[str, str, str], FilaKDS] = {}
 
     @staticmethod
-    def _chave(tenant_id: str, unidade_id: str, setor_id: str | None) -> tuple[str, str, str]:
+    def _chave(
+        tenant_id: str, unidade_id: str, setor_id: str | None
+    ) -> tuple[str, str, str]:
         return tenant_id, unidade_id, setor_id or "*"
 
     def guardar(
@@ -66,6 +69,16 @@ class CacheFilaKDS:
         return self._filas.get(self._chave(tenant_id, unidade_id, setor_id))
 
 
+class _AutorizadorPrevalidado:
+    """Entrega ao motor de estados uma decisao ja validada pelo servico KDS."""
+
+    def __init__(self, decisao: DecisaoAutorizacao) -> None:
+        self.decisao = decisao
+
+    def executar(self, **_: Any) -> DecisaoAutorizacao:
+        return self.decisao
+
+
 def _agora_utc() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -74,18 +87,25 @@ def _autorizar(
     contexto: ContextoExecucao,
     permissao: Permissao,
     recurso: str,
-    recurso_id: str | None = None,
-) -> None:
+) -> DecisaoAutorizacao:
     decisao = AutorizarAcao().executar(
         contexto=contexto,
         permissao=permissao,
         recurso=recurso,
-        recurso_id=recurso_id,
         tenant_recurso=contexto.tenant_id,
         unidade_recurso=contexto.unidade_id,
     )
     if not decisao.autorizado:
         raise ErroKDS(decisao.codigo)
+    return decisao
+
+
+def _permissao_transicao(destino: str) -> Permissao:
+    if destino == "aceita":
+        return Permissao.PRODUCAO_ACEITAR
+    if destino == "retirada":
+        return Permissao.EXPEDICAO_OPERAR
+    return Permissao.PRODUCAO_ATUALIZAR
 
 
 def calcular_sla(
@@ -303,15 +323,21 @@ class ServicoKDS:
     ) -> ResultadoComandoKDS:
         if not idempotency_key.strip():
             raise ErroKDS("idempotency_key_obrigatoria")
-        atual = self.repositorio.obter_producao(
-            contexto.tenant_id, contexto.unidade_id, producao_id
-        )
+        try:
+            atual = self.repositorio.obter_producao(
+                contexto.tenant_id, contexto.unidade_id, producao_id
+            )
+        except SQLAlchemyError as exc:
+            self.metricas.incrementar("kds_escrita_indisponivel")
+            raise ErroKDS("kds_offline_somente_leitura") from exc
         if atual is None:
             raise ErroKDS("producao_indisponivel")
-        precondicoes_efetivas = dict(precondicoes or {})
-        self._validar_precondicoes(
-            atual, destino, precondicoes_efetivas, motivo
+
+        decisao = _autorizar(
+            contexto, _permissao_transicao(destino), "producao"
         )
+        precondicoes_efetivas = dict(precondicoes or {})
+        self._validar_precondicoes(atual, destino, precondicoes_efetivas, motivo)
         fingerprint = sha256(
             dumps(
                 {
@@ -326,9 +352,13 @@ class ServicoKDS:
                 separators=(",", ":"),
             ).encode("utf-8")
         ).hexdigest()
-        repetido = self.repositorio.evento_por_chave(
-            contexto.tenant_id, contexto.unidade_id, idempotency_key
-        )
+        try:
+            repetido = self.repositorio.evento_por_chave(
+                contexto.tenant_id, contexto.unidade_id, idempotency_key
+            )
+        except SQLAlchemyError as exc:
+            self.metricas.incrementar("kds_escrita_indisponivel")
+            raise ErroKDS("kds_offline_somente_leitura") from exc
         if repetido is not None:
             if (
                 repetido.producao_item_id != producao_id
@@ -363,6 +393,7 @@ class ServicoKDS:
                     motivo=motivo,
                     metadata={"setor_id": atual.setor_id},
                 ),
+                autorizador=cast(Any, _AutorizadorPrevalidado(decisao)),
             )
         except ErroTransicao as exc:
             raise ErroKDS(exc.codigo) from exc
