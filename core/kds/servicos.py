@@ -120,7 +120,12 @@ def calcular_sla(
     if setor.sla_segundos is None:
         return IndicadorSLA(EstadoSLA.SEM_SLA, 0, None, None)
 
-    decorrido = max(0, int((agora - item.criado_em).total_seconds()))
+    fim_sla = (
+        item.retirada_em
+        if item.status == "retirada" and item.retirada_em is not None
+        else agora
+    )
+    decorrido = max(0, int((fim_sla - item.criado_em).total_seconds()))
     pausa = item.pausa_acumulada_segundos
     if (
         configuracao.pausa_suspende_sla
@@ -333,11 +338,8 @@ class ServicoKDS:
         if atual is None:
             raise ErroKDS("producao_indisponivel")
 
-        decisao = _autorizar(
-            contexto, _permissao_transicao(destino), "producao"
-        )
+        decisao = _autorizar(contexto, _permissao_transicao(destino), "producao")
         precondicoes_efetivas = dict(precondicoes or {})
-        self._validar_precondicoes(atual, destino, precondicoes_efetivas, motivo)
         fingerprint = sha256(
             dumps(
                 {
@@ -372,6 +374,7 @@ class ServicoKDS:
                 raise ErroKDS("producao_indisponivel")
             return ResultadoComandoKDS(atual_repetido, True)
 
+        self._validar_precondicoes(atual, destino, precondicoes_efetivas, motivo)
         instante = self.agora().astimezone(timezone.utc)
         try:
             resultado = transicionar(
