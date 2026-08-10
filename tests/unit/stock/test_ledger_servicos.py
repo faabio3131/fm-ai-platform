@@ -12,6 +12,7 @@ from core.estoque.erros import (
 )
 from core.estoque.modelos import (
     ItemSnapshotFicha,
+    MovimentoEstoque,
     SnapshotFichaEstoque,
     TipoMovimento,
 )
@@ -163,6 +164,80 @@ def test_cancelamento_antes_producao_libera_sem_apagar_historico() -> None:
         resultado.saldos[0].saldo_fisico == 10
         and resultado.saldos[0].saldo_reservado == 0
     )
+
+
+def test_mesmo_timestamp_preserva_ordem_causal_de_append() -> None:
+    repo = RepositorioEstoqueEmMemoria()
+    movimentos = (
+        MovimentoEstoque(
+            "b-entrada",
+            "t",
+            "u",
+            "farinha",
+            TipoMovimento.ENTRADA,
+            Decimal("10"),
+            "kg",
+            "inventario",
+            "inicial",
+            1,
+            "entrada-mesmo-instante",
+            AGORA,
+            "corr",
+            None,
+            "teste",
+            "carga",
+        ),
+        MovimentoEstoque(
+            "z-reserva",
+            "t",
+            "u",
+            "farinha",
+            TipoMovimento.RESERVA,
+            Decimal("2"),
+            "kg",
+            "pedido",
+            "p1",
+            1,
+            "reserva-mesmo-instante",
+            AGORA,
+            "corr",
+            None,
+            "teste",
+            "reservar",
+        ),
+        MovimentoEstoque(
+            "a-liberacao",
+            "t",
+            "u",
+            "farinha",
+            TipoMovimento.LIBERACAO_RESERVA,
+            Decimal("2"),
+            "kg",
+            "pedido",
+            "p1",
+            2,
+            "liberar-mesmo-instante",
+            AGORA,
+            "corr",
+            None,
+            "teste",
+            "cancelamento",
+        ),
+    )
+    for movimento in movimentos:
+        repo.append(movimento)
+
+    assert [
+        movimento.tipo_movimento
+        for movimento in repo.listar_movimentos("t", "u", "farinha")
+    ] == [
+        TipoMovimento.ENTRADA,
+        TipoMovimento.RESERVA,
+        TipoMovimento.LIBERACAO_RESERVA,
+    ]
+    saldo = repo.consultar_saldo("t", "u", "farinha")
+    assert saldo.saldo_fisico == 10
+    assert saldo.saldo_reservado == 0
 
 
 def test_snapshot_v1_permanece_apos_ficha_atual_mudar() -> None:

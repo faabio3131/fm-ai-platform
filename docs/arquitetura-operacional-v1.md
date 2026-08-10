@@ -316,6 +316,7 @@ def pode_enviar_para_cozinha(
 ) -> DecisaoCozinha:
     """Função pura; não grava, não chama gateway e não consulta contexto global."""
 
+
 class DecisaoCozinha:
     permitido: bool
     codigo_decisao: str

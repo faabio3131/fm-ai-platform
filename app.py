@@ -102,6 +102,8 @@ from core.pdv.executores import (
 from core.pdv.modelos import EntradaPDV, dinheiro_legado
 from core.pdv.roteamento import ModoPDV, decidir_modo
 from core.pdv.servicos import finalizar_venda_pdv
+from core.central_pedidos.flags import order_center_v1_enabled
+from core.central_pedidos.ui_streamlit import render_central_pedidos
 
 try:
     import pypdf
@@ -753,19 +755,29 @@ st.title("🍔 F&M AI FOOD — Painel de Gestão, PDV & Gateway")
 st.markdown("---")
 
 # --- 8. ESTRUTURA DAS 6 ABAS PRINCIPAIS ---
-aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs(
-    [
-        "🤖 Engenharia de Cardápio",
-        "📢 CRM, Resgate & Cashback",
-        "🛒 Frente de Caixa (PDV & Pix)",
-        "📦 Estoque & Validades (Novo!)",
-        "📊 Dashboard Financeiro",
-        "💬 Bot Cliente (Mica I.A.)",
-    ]
-)
+_nomes_abas = [
+    "🤖 Engenharia de Cardápio",
+    "📢 CRM, Resgate & Cashback",
+    "🛒 Frente de Caixa (PDV & Pix)",
+    "📦 Estoque & Validades (Novo!)",
+    "📊 Dashboard Financeiro",
+    "💬 Bot Cliente (Mica I.A.)",
+]
+if order_center_v1_enabled():
+    _nomes_abas.append("📋 Central de Pedidos")
+_abas = st.tabs(_nomes_abas)
+aba1, aba2, aba3, aba4, aba5, aba6 = _abas[:6]
+aba_central = _abas[6] if len(_abas) == 7 else None
+
+if aba_central is not None:
+    with aba_central:
+        render_central_pedidos(
+            engine=engine,
+            session_factory=SessionLocal,
+        )
 
 # ==============================================================================
-# ABA 1: ENGENHARIA DE CARDÁPIO
+# ABA 1: ENGENHARIA DE CARD?PIO
 # ==============================================================================
 with aba1:
     render_cadastro_ficha_tecnica(
