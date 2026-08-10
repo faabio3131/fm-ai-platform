@@ -70,25 +70,33 @@ class CentralPedidosSQLAlchemy:
         escopo = (contexto.tenant_id, contexto.unidade_id)
         pagamentos = (
             self._session.execute(
-                select(PagamentoORM).where(
+                select(PagamentoORM)
+                .where(
                     PagamentoORM.tenant_id == escopo[0],
                     PagamentoORM.unidade_id == escopo[1],
                     PagamentoORM.pedido_id.in_(ids),
                 )
+                .order_by(PagamentoORM.criado_em, PagamentoORM.id)
             )
             .scalars()
             .all()
         )
-        vendas = {
-            v.pedido_id: v
-            for v in self._session.execute(
-                select(VendaFinanceiraORM).where(
-                    VendaFinanceiraORM.tenant_id == escopo[0],
-                    VendaFinanceiraORM.unidade_id == escopo[1],
-                    VendaFinanceiraORM.pedido_id.in_(ids),
-                )
-            ).scalars()
-        }
+        vendas: dict[str, VendaFinanceiraORM] = {}
+        for venda in self._session.scalars(
+            select(VendaFinanceiraORM)
+            .where(
+                VendaFinanceiraORM.tenant_id == escopo[0],
+                VendaFinanceiraORM.unidade_id == escopo[1],
+                VendaFinanceiraORM.pedido_id.in_(ids),
+            )
+            .order_by(
+                VendaFinanceiraORM.reconhecida_em.desc(),
+                VendaFinanceiraORM.criterio_versao.desc(),
+                VendaFinanceiraORM.id.desc(),
+            )
+        ):
+            if venda.pedido_id not in vendas:
+                vendas[venda.pedido_id] = venda
         links = {
             v.pedido_id: v
             for v in self._session.execute(
@@ -107,7 +115,10 @@ class CentralPedidosSQLAlchemy:
                 ReconciliacaoPDVORM.unidade_id == escopo[1],
                 ReconciliacaoPDVORM.pedido_id.in_(ids),
             )
-            .order_by(ReconciliacaoPDVORM.criado_em.desc())
+            .order_by(
+                ReconciliacaoPDVORM.criado_em.desc(),
+                ReconciliacaoPDVORM.id.desc(),
+            )
         ).scalars():
             if v.pedido_id and v.pedido_id not in recs:
                 recs[v.pedido_id] = v
@@ -121,16 +132,17 @@ class CentralPedidosSQLAlchemy:
                 (_decimal(p.valor_pago) - _decimal(p.valor_estornado) for p in ps),
                 Decimal(),
             )
-            previsto = max(
-                (_decimal(p.valor_previsto) for p in ps), default=Decimal("0.00")
+            previsto = sum(
+                (_decimal(p.valor_previsto) for p in ps),
+                Decimal(),
             )
-            confirmados = [p for p in ps if p.status == "pago"]
+            todos_confirmados = bool(ps) and all(p.status == "pago" for p in ps)
             situacao = (
                 "ausente"
                 if not ps
                 else (
                     "confirmado"
-                    if confirmados and pago >= previsto
+                    if todos_confirmados and pago >= previsto
                     else "parcial"
                     if pago > 0
                     else "pendente"
@@ -251,17 +263,21 @@ class CentralPedidosSQLAlchemy:
             .scalar_subquery()
         )
         valor_previsto = (
-            select(func.coalesce(func.max(PagamentoORM.valor_previsto), 0))
+            select(func.coalesce(func.sum(PagamentoORM.valor_previsto), 0))
             .where(pagamento_escopo)
             .correlate(PedidoORM)
             .scalar_subquery()
         )
-        tem_pago = exists(
+        tem_nao_pago = exists(
             select(PagamentoORM.id).where(
-                pagamento_escopo, PagamentoORM.status == "pago"
+                pagamento_escopo, PagamentoORM.status != "pago"
             )
         )
-        confirmado = and_(tem_pago, valor_pago >= valor_previsto)
+        confirmado = and_(
+            tem_pagamento,
+            not_(tem_nao_pago),
+            valor_pago >= valor_previsto,
+        )
         parcial = and_(tem_pagamento, valor_pago > 0, not_(confirmado))
         pendente = and_(tem_pagamento, valor_pago <= 0)
         situacoes = {
