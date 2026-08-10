@@ -10,6 +10,12 @@ async function abrirKDS(page: Page) {
   await expect(page.getByRole('heading', { name: /KDS por Setor/ })).toBeVisible({
     timeout: 15_000,
   });
+  await expect(page.locator('[data-fm-ai-e2e-ready="true"]')).toHaveCount(1, {
+    timeout: 30_000,
+  });
+  await expect(page.locator('[data-testid="stSkeleton"]')).toHaveCount(0, {
+    timeout: 30_000,
+  });
 }
 
 async function aguardarProducao(page: Page, producaoId: string) {
