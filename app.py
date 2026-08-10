@@ -104,6 +104,8 @@ from core.pdv.roteamento import ModoPDV, decidir_modo
 from core.pdv.servicos import finalizar_venda_pdv
 from core.central_pedidos.flags import order_center_v1_enabled
 from core.central_pedidos.ui_streamlit import render_central_pedidos
+from core.kds.flags import kds_v1_enabled
+from core.kds.ui_streamlit import render_kds
 
 try:
     import pypdf
@@ -764,14 +766,34 @@ _nomes_abas = [
     "💬 Bot Cliente (Mica I.A.)",
 ]
 if order_center_v1_enabled():
-    _nomes_abas.append("📋 Central de Pedidos")
+    _nomes_abas.append("\U0001F4CB Central de Pedidos")
+if kds_v1_enabled():
+    _nomes_abas.append("\U0001F373 KDS por Setor")
+
 _abas = st.tabs(_nomes_abas)
 aba1, aba2, aba3, aba4, aba5, aba6 = _abas[:6]
-aba_central = _abas[6] if len(_abas) == 7 else None
+
+_indice_extra = 6
+
+aba_central = None
+if order_center_v1_enabled():
+    aba_central = _abas[_indice_extra]
+    _indice_extra += 1
+
+aba_kds = None
+if kds_v1_enabled():
+    aba_kds = _abas[_indice_extra]
 
 if aba_central is not None:
     with aba_central:
         render_central_pedidos(
+            engine=engine,
+            session_factory=SessionLocal,
+        )
+
+if aba_kds is not None:
+    with aba_kds:
+        render_kds(
             engine=engine,
             session_factory=SessionLocal,
         )

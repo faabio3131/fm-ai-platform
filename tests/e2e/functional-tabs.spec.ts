@@ -10,6 +10,11 @@ const tabTexts = [
   'Bot Cliente',
 ];
 
+if (process.env.FM_AI_KDS_V1 === '1') {
+  tabTexts.push('KDS por Setor');
+}
+
+
 test('carrega e navega por todas as abas reais em modo de teste', async ({ page }) => {
   const jsErrors: string[] = [];
   page.on('pageerror', error => jsErrors.push(error.message));
