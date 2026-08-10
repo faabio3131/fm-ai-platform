@@ -2,6 +2,8 @@
 
 from dataclasses import replace
 from datetime import datetime, timezone
+from hashlib import sha256
+from json import dumps
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -19,6 +21,33 @@ from core.pedidos.adaptador_sqlalchemy import RepositorioPedidosSQLAlchemy
 from core.pedidos.modelos_orm import EventoPedidoPersistidoORM
 from core.seguranca.auditoria import EventoAuditoria, RepositorioAuditoria
 from core.seguranca.contexto import ContextoExecucao
+
+_IDEMPOTENCY_FINGERPRINT_KEY = "_central_idempotency_fingerprint"
+
+
+def _fingerprint_transicao(
+    *,
+    pedido_id: str,
+    destino: str,
+    versao_esperada: int,
+    motivo: str | None,
+    precondicoes: dict[str, bool],
+) -> str:
+    payload = {
+        "pedido_id": pedido_id,
+        "destino": destino,
+        "versao_esperada": versao_esperada,
+        "motivo": motivo,
+        "precondicoes": sorted(precondicoes.items()),
+    }
+    return sha256(
+        dumps(
+            payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
 
 
 class ServicoComandosCentral:
@@ -46,18 +75,28 @@ class ServicoComandosCentral:
         )
         if pedido is None:
             raise LookupError("pedido_nao_encontrado")
+        precondicoes_efetivas = precondicoes or {}
+        fingerprint = _fingerprint_transicao(
+            pedido_id=pedido_id,
+            destino=destino,
+            versao_esperada=versao_esperada,
+            motivo=motivo,
+            precondicoes=precondicoes_efetivas,
+        )
         repetido = self._session.scalar(
             select(EventoPedidoPersistidoORM).where(
                 EventoPedidoPersistidoORM.tenant_id == contexto.tenant_id,
                 EventoPedidoPersistidoORM.unidade_id == contexto.unidade_id,
-                EventoPedidoPersistidoORM.pedido_id == pedido_id,
                 EventoPedidoPersistidoORM.idempotency_key == idempotency_key,
             )
         )
         if repetido:
+            fingerprint_persistido = dict(repetido.payload or {}).get(
+                _IDEMPOTENCY_FINGERPRINT_KEY
+            )
             if (
-                repetido.version == versao_esperada + 1
-                and repetido.event_type == f"pedido.{destino}"
+                repetido.pedido_id == pedido_id
+                and fingerprint_persistido == fingerprint
             ):
                 return pedido
             raise ValueError("conflito_idempotencia")
@@ -75,7 +114,7 @@ class ServicoComandosCentral:
             idempotency_key,
             timestamp or datetime.now(timezone.utc),
             contexto,
-            precondicoes or {},
+            precondicoes_efetivas,
             motivo,
         )
         try:
@@ -109,6 +148,8 @@ class ServicoComandosCentral:
             versao=resultado.snapshot.version,
             atualizado_em=resultado.evento.timestamp,
         )
+        payload_evento = dict(resultado.evento.payload)
+        payload_evento[_IDEMPOTENCY_FINGERPRINT_KEY] = fingerprint
         try:
             repo.salvar(atualizado, versao_esperada=versao_esperada)
             self._session.add(
@@ -122,7 +163,7 @@ class ServicoComandosCentral:
                     causation_id=contexto.causation_id,
                     idempotency_key=idempotency_key,
                     occurred_at=resultado.evento.timestamp,
-                    payload=dict(resultado.evento.payload),
+                    payload=payload_evento,
                     version=resultado.snapshot.version,
                 )
             )
