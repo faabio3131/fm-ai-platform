@@ -45,9 +45,22 @@ st.set_page_config(
     layout="wide",
 )
 
+st.session_state["_fm_ai_e2e_run"] = int(
+    st.session_state.get("_fm_ai_e2e_run", 0)
+) + 1
+
 st.caption("KDS E2E pronto")
 render_kds(
     engine=engine,
     session_factory=SessionLocal,
     permitir_simulacao_offline=True,
+)
+
+# Contrato de prontidao browser-driven: so aparece depois que o render do KDS
+# terminou e muda a cada rerun, permitindo ao Playwright sincronizar a UI real.
+st.markdown(
+    f'<span data-fm-ai-e2e-ready="true" '
+    f'data-fm-ai-e2e-run="{st.session_state["_fm_ai_e2e_run"]}" '
+    'style="display:none" aria-hidden="true"></span>',
+    unsafe_allow_html=True,
 )
