@@ -35,6 +35,39 @@ async function clicarEAguardarStatus(page: Page, botao: string, status: string) 
   await aguardarStatus(page, status);
 }
 
+async function ativarOffline(page: Page) {
+  const readyMarker = page.locator('[data-fm-ai-e2e-ready="true"]');
+  const runBefore = await readyMarker.getAttribute('data-fm-ai-e2e-run');
+  const checkbox = page.getByRole('checkbox', {
+    name: 'Simular KDS offline',
+    exact: true,
+  });
+
+  await expect(checkbox).toBeVisible();
+  await expect(checkbox).toBeEnabled();
+
+  // O Streamlit envolve o input em um label React e, durante rerenders,
+  // overlays transitórios podem interceptar o ponteiro. `force` mantém a
+  // interação no controle real; a pós-condição abaixo prova que o rerun ocorreu.
+  await checkbox.check({ force: true });
+
+  await expect
+    .poll(
+      async () => {
+        const runAfter = await readyMarker.getAttribute('data-fm-ai-e2e-run');
+        return runAfter !== null && runAfter !== runBefore;
+      },
+      {
+        message: 'Streamlit deve concluir o rerun após ativar o modo offline',
+        timeout: 30_000,
+      },
+    )
+    .toBe(true);
+  await expect(page.locator('[data-testid="stSkeleton"]')).toHaveCount(0, {
+    timeout: 30_000,
+  });
+}
+
 test('KDS multi-setor executa aceite inicio pausa retomada pronto e retirada', async ({ page }) => {
   await abrirKDS(page);
   await selectComboboxOption(page, 'Setor', 'Cozinha quente');
@@ -75,7 +108,7 @@ test('KDS offline preserva ultimo snapshot e bloqueia comandos', async ({ page }
   await aguardarProducao(page, 'prod-kds-bebida');
   await aguardarStatus(page, 'aguardando');
 
-  await page.getByRole('checkbox', { name: 'Simular KDS offline', exact: true }).check();
+  await ativarOffline(page);
   await expect(
     page.getByText('KDS em modo degradado — somente leitura', { exact: true }),
   ).toBeVisible({ timeout: 15_000 });
