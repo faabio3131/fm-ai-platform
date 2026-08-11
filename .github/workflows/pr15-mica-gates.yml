@@ -1,0 +1,55 @@
+name: PR15 Mica Gates
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  python:
+    name: Python, Ruff, mypy e contratos Mica
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Ruff PR15
+        run: >-
+          ruff check core/mica tests/unit/mica tests/integration/mica
+      - name: mypy PR15
+        run: mypy core/mica
+      - name: Testes focados PR15
+        run: pytest -q tests/unit/mica tests/integration/mica
+      - name: Suite Python completa
+        run: pytest -q
+
+  e2e-mica:
+    name: E2E conversa, confirmação e handoff
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Instalar dependencias Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Instalar dependencias Node
+        run: npm ci
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Rodar E2E Mica
+        run: npx playwright test -c playwright.mica.config.ts --reporter=list
