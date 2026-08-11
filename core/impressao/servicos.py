@@ -14,7 +14,7 @@ from core.seguranca.autorizacao import AutorizarAcao
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import Permissao
 
-from .adapters import PortaImpressora
+from .adapters import ErroAdaptadorImpressao, PortaImpressora
 from .erros import ErroImpressao
 from .modelos import (
     DestinoImpressao,
@@ -133,17 +133,11 @@ class ServicoSpoolImpressao:
             observacao=observacao,
         )
         documento_hash = _hash(conteudo)
-        dedup_key = _hash(
-            "|".join(
-                (
-                    contexto.tenant_id,
-                    contexto.unidade_id,
-                    setor.setor_id,
-                    idempotency_key,
-                    TEMPLATE_VERSAO,
-                )
-            )
+        dedup_material = (
+            f"{contexto.tenant_id}|{contexto.unidade_id}|{setor.setor_id}|"
+            f"{idempotency_key}|{TEMPLATE_VERSAO}"
         )
+        dedup_key = _hash(dedup_material)
         existente = self.repositorio.buscar_por_dedup(
             contexto.tenant_id, contexto.unidade_id, dedup_key
         )
@@ -201,7 +195,7 @@ class ServicoSpoolImpressao:
                 job_id=job.job_id,
                 conteudo=job.conteudo,
             )
-        except Exception:
+        except ErroAdaptadorImpressao:
             contingencia = tentativa >= job.max_tentativas
             novo = replace(
                 job,
@@ -264,18 +258,11 @@ class ServicoSpoolImpressao:
         if not decisao.autorizado:
             raise ErroImpressao(decisao.codigo)
 
-        dedup_key = _hash(
-            "|".join(
-                (
-                    "reprint",
-                    original.job_id,
-                    contexto.tenant_id,
-                    contexto.unidade_id,
-                    idempotency_key,
-                    TEMPLATE_VERSAO,
-                )
-            )
+        dedup_material = (
+            f"reprint|{original.job_id}|{contexto.tenant_id}|"
+            f"{contexto.unidade_id}|{idempotency_key}|{TEMPLATE_VERSAO}"
         )
+        dedup_key = _hash(dedup_material)
         existente = self.repositorio.buscar_por_dedup(
             contexto.tenant_id, contexto.unidade_id, dedup_key
         )
