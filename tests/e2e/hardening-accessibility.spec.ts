@@ -24,10 +24,14 @@ test('controles visíveis da área da aplicação possuem nome acessível', asyn
             element instanceof HTMLTextAreaElement ||
             element instanceof HTMLSelectElement
           ) {
+            const labels = Array.from(element.labels ?? []).some(label => Boolean(label.textContent?.trim()));
+            const enclosingLabel = element.closest('label')?.textContent?.trim();
             const id = element.id;
-            const label = id ? document.querySelector(`label[for="${CSS.escape(id)}"]`) : null;
+            const explicitLabel = id
+              ? document.querySelector(`label[for="${CSS.escape(id)}"]`)?.textContent?.trim()
+              : undefined;
             const placeholder = element.getAttribute('placeholder')?.trim();
-            return !label?.textContent?.trim() && !placeholder;
+            return !labels && !enclosingLabel && !explicitLabel && !placeholder;
           }
           return false;
         })
