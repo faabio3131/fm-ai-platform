@@ -1,0 +1,33 @@
+name: PR19 CRM Gates
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  crm:
+    name: CRM consentimento e conversão
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Ruff PR19
+        run: ruff check core/crm tests/unit/crm tests/integration/crm
+      - name: mypy PR19
+        run: mypy core/crm
+      - name: Testes focados PR19
+        run: pytest -q tests/unit/crm tests/integration/crm
+      - name: Suite Python completa
+        run: pytest -q
