@@ -1,8 +1,14 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
+
+async function selecionarFormaPagamento(page: Page, opcao: string) {
+  const combo = page.getByRole('combobox', { name: /Forma de pagamento/ });
+  await combo.click();
+  await page.getByRole('option', { name: opcao, exact: true }).click();
+}
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByText('Delivery Próprio', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Delivery Próprio/ })).toBeVisible();
 });
 
 test('jornada própria calcula entrega, aplica benefícios e mantém Pix pendente', async ({ page }) => {
@@ -17,7 +23,7 @@ test('jornada própria calcula entrega, aplica benefícios e mantém Pix pendent
   await expect(page.getByText(/Cashback: R\$ 5\.00/)).toBeVisible();
   await expect(page.getByText(/R\$ 30\.80/).last()).toBeVisible();
 
-  await page.getByLabel('Forma de pagamento').selectOption({ label: 'Pix' });
+  await selecionarFormaPagamento(page, 'Pix');
   await page.getByRole('button', { name: /Confirmar pedido/ }).click();
 
   await expect(page.getByText('Pedido confirmado', { exact: true })).toBeVisible();
@@ -37,7 +43,7 @@ test('CEP fora da área é bloqueado sem criar pedido', async ({ page }) => {
 test('pagamento na entrega não vira pago e cancelamento reconcilia a jornada', async ({ page }) => {
   await page.getByRole('button', { name: /Adicionar Burger Delivery/ }).click();
   await page.getByRole('button', { name: /Calcular entrega/ }).click();
-  await page.getByLabel('Forma de pagamento').selectOption({ label: 'Pagamento na entrega' });
+  await selecionarFormaPagamento(page, 'Pagamento na entrega');
   await page.getByRole('button', { name: /Confirmar pedido/ }).click();
 
   await expect(page.getByText(/Pagamento: aguardando_entrega/)).toBeVisible();
