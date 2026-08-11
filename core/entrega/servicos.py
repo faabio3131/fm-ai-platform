@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -30,7 +30,7 @@ def _agora_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _hash_comando(nome: str, ator_id: str, dados: dict[str, object]) -> str:
+def _hash_comando(nome: str, ator_id: str, dados: Mapping[str, object]) -> str:
     bruto = json.dumps(
         {"comando": nome, "ator_id": ator_id, "dados": dados},
         sort_keys=True,
