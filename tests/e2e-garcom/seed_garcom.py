@@ -1,4 +1,3 @@
-# ruff: noqa: E402
 """Seed isolado da interface do garçom V1 com duas alçadas e avisos prontos."""
 
 import os
