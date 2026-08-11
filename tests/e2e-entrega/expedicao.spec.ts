@@ -1,4 +1,19 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+async function marcarCheckbox(page: Page, nome: string) {
+  const pronto = page.locator('[data-fm-ai-e2e-ready="true"]');
+  const execucaoAnterior = Number(await pronto.getAttribute('data-fm-ai-e2e-run'));
+  const checkbox = page.getByRole('checkbox', { name: nome });
+
+  await checkbox.evaluate((elemento: HTMLInputElement) => {
+    if (!elemento.checked) elemento.click();
+  });
+
+  await expect.poll(async () => Number(await pronto.getAttribute('data-fm-ai-e2e-run'))).toBeGreaterThan(
+    execucaoAnterior,
+  );
+  await expect(page.getByRole('checkbox', { name: nome })).toBeChecked();
+}
 
 test('expedicao conclui checklist e atribui entregador sem acessar financeiro', async ({ page }) => {
   await page.goto('/?papel=expedicao');
@@ -9,9 +24,9 @@ test('expedicao conclui checklist e atribui entregador sem acessar financeiro', 
   await expect(page.getByRole('heading', { name: 'Expedição e Entrega' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Pedido pedido-exp' })).toBeVisible();
 
-  await page.getByRole('checkbox', { name: 'Itens conferidos · pedido-exp' }).check();
-  await page.getByRole('checkbox', { name: 'Embalagem conferida · pedido-exp' }).check();
-  await page.getByRole('checkbox', { name: 'Identificação conferida · pedido-exp' }).check();
+  await marcarCheckbox(page, 'Itens conferidos · pedido-exp');
+  await marcarCheckbox(page, 'Embalagem conferida · pedido-exp');
+  await marcarCheckbox(page, 'Identificação conferida · pedido-exp');
   await page.getByRole('button', { name: 'Concluir checklist · pedido-exp' }).click();
 
   await expect(page.getByRole('button', { name: 'Concluir checklist · pedido-exp' })).toHaveCount(0);
