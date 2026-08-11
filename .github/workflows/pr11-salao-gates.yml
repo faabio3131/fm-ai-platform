@@ -10,37 +10,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: pr11-salao-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  autofix-ruff:
-    name: Auto-fix Ruff
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Aplicar correcoes seguras de lint
-        run: |
-          pip install ruff==0.16.1
-          ruff check core/salao migrations/salao_v1.py tests/unit/salao tests/integration/salao --fix --unsafe-fixes
-      - name: Persistir correcoes quando necessario
-        run: |
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add core/salao migrations/salao_v1.py tests/unit/salao tests/integration/salao
-            git commit -m "chore(salao): aplicar correcoes Ruff"
-            git push origin HEAD:codex/implementar-mesas-comandas-v1
-          fi
-
   python-gates:
     name: Python, Ruff e mypy
     runs-on: ubuntu-latest
