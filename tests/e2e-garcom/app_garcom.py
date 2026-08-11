@@ -1,4 +1,3 @@
-# ruff: noqa: E402
 """Entrypoint Streamlit mínimo e exclusivo do E2E da interface do garçom."""
 
 import os
