@@ -37,6 +37,7 @@ from .modelos import (
     RegistroGerencial,
     ResultadoAcao,
     ResultadoTool,
+    StatusPreview,
     ToolGerenteIA,
     fingerprint_preview,
 )
@@ -243,6 +244,8 @@ class ServicoGerenteIA:
             if existente.preview_id != preview_id:
                 raise ErroGerenteIA("conflito_idempotencia")
             return replace(existente, idempotente=True)
+        if preview.status is not StatusPreview.PENDENTE:
+            raise ErroGerenteIA("preview_ja_consumido")
 
         self._exigir(
             contexto=contexto_humano,
