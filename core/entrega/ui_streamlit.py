@@ -102,19 +102,19 @@ def _acoes_expedicao(
 ) -> None:
     if entrega.status is StatusEntrega.AGUARDANDO_EXPEDICAO:
         itens = st.checkbox(
-            "Itens conferidos",
+            f"Itens conferidos · {entrega.pedido_id}",
             key=f"entrega-itens-{entrega.entrega_id}",
         )
         embalagem = st.checkbox(
-            "Embalagem conferida",
+            f"Embalagem conferida · {entrega.pedido_id}",
             key=f"entrega-embalagem-{entrega.entrega_id}",
         )
         identificacao = st.checkbox(
-            "Identificação conferida",
+            f"Identificação conferida · {entrega.pedido_id}",
             key=f"entrega-identificacao-{entrega.entrega_id}",
         )
         if st.button(
-            "Concluir checklist",
+            f"Concluir checklist · {entrega.pedido_id}",
             key=f"entrega-checklist-{entrega.entrega_id}",
         ):
             _executar(
@@ -135,11 +135,14 @@ def _acoes_expedicao(
         StatusEntrega.TENTATIVA_FALHOU,
     }:
         entregador_id = st.text_input(
-            "ID do entregador",
+            f"ID do entregador · {entrega.pedido_id}",
             value="driver-1",
             key=f"entrega-driver-{entrega.entrega_id}",
         )
-        if st.button("Atribuir entregador", key=f"entrega-atribuir-{entrega.entrega_id}"):
+        if st.button(
+            f"Atribuir entregador · {entrega.pedido_id}",
+            key=f"entrega-atribuir-{entrega.entrega_id}",
+        ):
             _executar(
                 session,
                 lambda: servico.atribuir(
@@ -159,7 +162,10 @@ def _acoes_entregador(
     entrega: Any,
 ) -> None:
     if entrega.status is StatusEntrega.ATRIBUIDA:
-        if st.button("Confirmar coleta", key=f"entrega-coletar-{entrega.entrega_id}"):
+        if st.button(
+            f"Confirmar coleta · {entrega.pedido_id}",
+            key=f"entrega-coletar-{entrega.entrega_id}",
+        ):
             _executar(
                 session,
                 lambda: servico.coletar(
@@ -171,7 +177,10 @@ def _acoes_entregador(
             )
 
     if entrega.status is StatusEntrega.COLETADA:
-        if st.button("Sair em rota", key=f"entrega-rota-{entrega.entrega_id}"):
+        if st.button(
+            f"Sair em rota · {entrega.pedido_id}",
+            key=f"entrega-rota-{entrega.entrega_id}",
+        ):
             _executar(
                 session,
                 lambda: servico.sair_em_rota(
@@ -184,11 +193,14 @@ def _acoes_entregador(
 
     if entrega.status is StatusEntrega.EM_ROTA:
         prova_ref = st.text_input(
-            "Referência da prova",
+            f"Referência da prova · {entrega.pedido_id}",
             value=f"proof://{entrega.pedido_id}",
             key=f"entrega-prova-{entrega.entrega_id}",
         )
-        if st.button("Confirmar entrega", key=f"entrega-confirmar-{entrega.entrega_id}"):
+        if st.button(
+            f"Confirmar entrega · {entrega.pedido_id}",
+            key=f"entrega-confirmar-{entrega.entrega_id}",
+        ):
             prova = ProvaEntrega(prova_ref, "confirmacao", _agora())
             _executar(
                 session,
@@ -202,12 +214,12 @@ def _acoes_entregador(
             )
 
         motivo = st.text_input(
-            "Motivo da tentativa",
+            f"Motivo da tentativa · {entrega.pedido_id}",
             value="cliente ausente",
             key=f"entrega-motivo-{entrega.entrega_id}",
         )
         if st.button(
-            "Registrar tentativa sem sucesso",
+            f"Registrar tentativa sem sucesso · {entrega.pedido_id}",
             key=f"entrega-falha-{entrega.entrega_id}",
         ):
             _executar(
