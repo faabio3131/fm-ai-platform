@@ -31,6 +31,7 @@ class Permissao(StrEnum):
     PRODUCAO_ACEITAR = "producao.aceitar"
     PRODUCAO_ATUALIZAR = "producao.atualizar"
     EXPEDICAO_OPERAR = "expedicao.operar"
+    IMPRESSAO_REIMPRIMIR = "impressao.reimprimir"
     MESA_ABRIR = "mesa.abrir"
     MESA_TRANSFERIR = "mesa.transferir"
     COMANDA_ALTERAR = "comanda.alterar"
@@ -99,6 +100,7 @@ MATRIZ_PADRAO: dict[Papel, frozenset[Permissao]] = {
             Permissao.PRODUCAO_ATUALIZAR,
             Permissao.ESTOQUE_BAIXAR,
             Permissao.ESTOQUE_PERDA_REGISTRAR,
+            Permissao.IMPRESSAO_REIMPRIMIR,
         }
     ),
     Papel.EXPEDICAO: frozenset(
