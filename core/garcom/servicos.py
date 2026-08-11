@@ -46,7 +46,7 @@ def _papel_exibicao(contexto: ContextoExecucao) -> str:
         return Papel.GERENTE.value
     if Papel.GARCOM in contexto.papeis:
         return Papel.GARCOM.value
-    return sorted(p.value for p in contexto.papeis)[0] if contexto.papeis else "sem_papel"
+    return min((p.value for p in contexto.papeis), default="sem_papel")
 
 
 def _autorizar(
@@ -98,10 +98,13 @@ class ServicoGarcom:
         )
         if comanda is None:
             raise ErroGarcom("comanda_indisponivel")
-        if not _elevado(contexto) and Papel.GARCOM in contexto.papeis:
-            if comanda.responsavel_id != contexto.usuario_id:
-                self.metricas.incrementar("garcom_alcada_negada")
-                raise ErroGarcom("comanda_fora_alcada")
+        if (
+            not _elevado(contexto)
+            and Papel.GARCOM in contexto.papeis
+            and comanda.responsavel_id != contexto.usuario_id
+        ):
+            self.metricas.incrementar("garcom_alcada_negada")
+            raise ErroGarcom("comanda_fora_alcada")
         return comanda
 
     def listar_painel(self, contexto: ContextoExecucao) -> PainelGarcom:
