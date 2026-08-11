@@ -404,11 +404,11 @@ class ServicoDelivery:
             self._revalidar_fechamento(
                 carrinho=carrinho, catalogo=catalogo, areas=areas
             )
-            pedido_id = _id("ped", f"{tenant_id}:{unidade_id}:{idempotency_key}")
+            novo_pedido_id = _id("ped", f"{tenant_id}:{unidade_id}:{idempotency_key}")
             reivindicado = replace(
                 carrinho,
                 status=StatusCarrinhoDelivery.CONFIRMACAO_EM_ANDAMENTO,
-                pedido_id=pedido_id,
+                pedido_id=novo_pedido_id,
                 idempotency_confirmacao=idempotency_key,
                 versao=carrinho.versao + 1,
             )
