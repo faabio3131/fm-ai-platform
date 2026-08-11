@@ -75,7 +75,7 @@ class ChamadaTool:
         argumentos: dict[str, ValorPrimitivo] | None = None,
         *,
         request_id: str | None = None,
-    ) -> "ChamadaTool":
+    ) -> ChamadaTool:
         try:
             tool_enum = tool if isinstance(tool, ToolGerenteIA) else ToolGerenteIA(tool)
         except ValueError as exc:
@@ -213,7 +213,7 @@ def fingerprint_preview(
         "unidade_id": unidade_id,
         "tool": tool.value,
         "recurso_id": recurso_id,
-        "argumentos": list(sorted(argumentos)),
+        "argumentos": sorted(argumentos),
         "impacto": {"tipo": impacto.tipo, "campos": list(impacto.campos)},
         "motivo": motivo,
         "criado_por": criado_por,
