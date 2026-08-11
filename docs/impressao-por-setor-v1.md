@@ -11,7 +11,7 @@ A PR14 adiciona uma camada **opcional** de impressão operacional por setor sobr
 3. O ticket é renderizado com dados mínimos de produção e gravado no spool.
 4. O worker/adaptador tenta imprimir fora da transação do KDS.
 5. Falhas ficam no domínio de impressão, com retry limitado e estado `contingencia` ao esgotar as tentativas.
-6. Reimpressão cria um novo job explícito, exige motivo, permissão e auditoria.
+6. Reimpressão cria um novo job explícito, exige motivo, permissão e auditoria persistida pelo `RepositorioAuditoria`.
 
 ## Invariantes
 
@@ -51,9 +51,10 @@ A reimpressão exige:
 - job original no mesmo tenant/unidade;
 - motivo operacional não vazio;
 - chave de idempotência;
-- autorização RBAC `impressao.reimprimir`.
+- autorização RBAC `impressao.reimprimir`;
+- repositório de auditoria explícito no serviço.
 
-A primeira solicitação emite `EventoAuditoria` com referência ao job original, setor e motivo sanitizado. Retry idempotente não cria novo job nem novo efeito físico.
+A primeira solicitação cria e persiste um `EventoAuditoria` com referência ao job original, setor e motivo sanitizado. Retry idempotente não cria novo job, nova auditoria nem novo efeito físico.
 
 ## Contingência
 
@@ -81,7 +82,7 @@ A PR14 define a porta `PortaImpressora` e usa `ImpressoraFake` nos testes. Não 
 - roteamento por setor;
 - deduplicação persistente;
 - retry limitado e contingência;
-- reimpressão autorizada, idempotente e auditada;
+- reimpressão autorizada, idempotente e auditada de forma persistida;
 - isolamento multiempresa/unidade;
 - falha da impressão não bloqueia nem modifica KDS;
 - testes unitários, integração, suíte Python e regressões anteriores verdes.
