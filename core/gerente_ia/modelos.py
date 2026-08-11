@@ -142,6 +142,7 @@ class PreviewAcao:
     tool: ToolGerenteIA
     recurso_id: str
     argumentos: tuple[tuple[str, ValorPrimitivo], ...]
+    impacto: RegistroGerencial
     motivo: str
     criado_por: str
     criado_em: datetime
@@ -172,6 +173,7 @@ class PreviewAcao:
             tool=self.tool,
             recurso_id=self.recurso_id,
             argumentos=self.argumentos,
+            impacto=self.impacto,
             motivo=self.motivo,
             criado_por=self.criado_por,
         ):
@@ -202,6 +204,7 @@ def fingerprint_preview(
     tool: ToolGerenteIA,
     recurso_id: str,
     argumentos: tuple[tuple[str, ValorPrimitivo], ...],
+    impacto: RegistroGerencial,
     motivo: str,
     criado_por: str,
 ) -> str:
@@ -211,6 +214,7 @@ def fingerprint_preview(
         "tool": tool.value,
         "recurso_id": recurso_id,
         "argumentos": list(sorted(argumentos)),
+        "impacto": {"tipo": impacto.tipo, "campos": list(impacto.campos)},
         "motivo": motivo,
         "criado_por": criado_por,
     }
