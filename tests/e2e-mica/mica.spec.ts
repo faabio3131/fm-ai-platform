@@ -22,7 +22,14 @@ test('Mica valida carrinho e mantém Pix pendente até fonte financeira', async 
   const confirmacao = page.getByRole('checkbox', {
     name: /Confirmo que o cliente revisou e aprovou exatamente este carrinho/,
   });
-  await confirmacao.click();
+  const readyMarker = page.locator('[data-fm-ai-e2e-ready="true"]');
+  const runAntes = await readyMarker.getAttribute('data-fm-ai-e2e-run');
+  await confirmacao.evaluate((element: HTMLInputElement) => element.click());
+  await expect
+    .poll(async () => (await readyMarker.getAttribute('data-fm-ai-e2e-run')) !== runAntes, {
+      timeout: 30_000,
+    })
+    .toBe(true);
   await expect(confirmacao).toBeChecked();
   await clickAndWaitForStreamlitRerun(page, 'Confirmar pedido');
 
