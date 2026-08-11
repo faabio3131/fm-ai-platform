@@ -30,7 +30,7 @@ def test_mesa_e_comanda_normalizam_valores() -> None:
         status=StatusComanda.ABERTA,
         responsavel_id="garcom-1",
         aberta_em=AGORA,
-        total=Decimal("10"),
+        total=Decimal(10),
         saldo=Decimal("10.0"),
         versao=1,
         mesa_id=mesa.mesa_id,

@@ -83,7 +83,7 @@ def test_fluxo_completo_pagamento_misto_e_fechamento() -> None:
     ctx = contexto()
     with session.begin():
         mesa1 = criar_mesa(servico, ctx, "mesa-1", "01")
-        mesa2 = criar_mesa(servico, ctx, "mesa-2", "02")
+        criar_mesa(servico, ctx, "mesa-2", "02")
         pedido(session, "pedido-1", "40.00")
         pedido(session, "pedido-2", "30.00")
         comanda = servico.abrir_comanda(

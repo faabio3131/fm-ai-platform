@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime
 from decimal import Decimal
-from typing import Callable
 from uuid import uuid4
 
 from sqlalchemy import func, select, update
@@ -29,7 +29,6 @@ from .modelos import (
     StatusMesa,
 )
 from .modelos_orm import ComandaORM, EventoSalaoORM, ParticipanteComandaORM
-
 
 _ATIVOS = {
     StatusComanda.ABERTA,

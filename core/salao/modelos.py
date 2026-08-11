@@ -95,7 +95,7 @@ class Comanda:
             raise ErroSalao("comanda_invalida")
         total = _dinheiro(self.total)
         saldo = _dinheiro(self.saldo)
-        if total < Decimal("0") or saldo < Decimal("0") or saldo > total:
+        if total < Decimal(0) or saldo < Decimal(0) or saldo > total:
             raise ErroSalao("saldo_comanda_invalido")
         object.__setattr__(self, "total", total)
         object.__setattr__(self, "saldo", saldo)
@@ -120,7 +120,7 @@ class ParticipanteComanda:
             raise ErroSalao("participante_invalido")
         if self.quota is not None:
             quota = _dinheiro(self.quota)
-            if quota < Decimal("0"):
+            if quota < Decimal(0):
                 raise ErroSalao("quota_invalida")
             object.__setattr__(self, "quota", quota)
 
@@ -138,7 +138,7 @@ class PedidoNaComanda:
 
     def __post_init__(self) -> None:
         valor = _dinheiro(self.valor)
-        if valor < Decimal("0"):
+        if valor < Decimal(0):
             raise ErroSalao("valor_pedido_invalido")
         object.__setattr__(self, "valor", valor)
         object.__setattr__(self, "criado_em", _utc(self.criado_em))
@@ -155,7 +155,7 @@ class ParcelaFechamento:
 
     def __post_init__(self) -> None:
         valor = _dinheiro(self.valor)
-        if valor <= Decimal("0") or self.ordem < 1:
+        if valor <= Decimal(0) or self.ordem < 1:
             raise ErroSalao("parcela_fechamento_invalida")
         object.__setattr__(self, "valor", valor)
 
@@ -174,7 +174,7 @@ class PagamentoConfirmadoComanda:
 
     def __post_init__(self) -> None:
         valor = _dinheiro(self.valor)
-        if valor <= Decimal("0") or not self.idempotency_key.strip():
+        if valor <= Decimal(0) or not self.idempotency_key.strip():
             raise ErroSalao("pagamento_confirmado_invalido")
         object.__setattr__(self, "valor", valor)
         object.__setattr__(self, "confirmado_em", _utc(self.confirmado_em))
