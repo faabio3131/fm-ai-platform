@@ -1,7 +1,7 @@
 """API pública da Impressão por Setor V1."""
 
 from .adaptador_sqlalchemy import RepositorioSpoolSQLAlchemy
-from .adapters import ImpressoraFake, PortaImpressora
+from .adapters import ErroAdaptadorImpressao, ImpressoraFake, PortaImpressora
 from .erros import ErroImpressao
 from .flags import impressao_v1_enabled
 from .modelos import (
@@ -17,6 +17,7 @@ from .servicos import ServicoSpoolImpressao, renderizar_ticket_setor
 
 __all__ = [
     "DestinoImpressao",
+    "ErroAdaptadorImpressao",
     "ErroImpressao",
     "ImpressaoBase",
     "ImpressoraFake",
