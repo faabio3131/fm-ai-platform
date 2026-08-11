@@ -1,0 +1,92 @@
+name: PR10 KDS Gates
+
+on:
+  push:
+    branches:
+      - codex/implementar-kds-por-setor-v1
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr10-kds-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-gates:
+    name: Python, Ruff e mypy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Ruff PR10
+        run: ruff check core/kds migrations/kds_v1.py tests/unit/kds tests/integration/kds
+      - name: mypy PR10
+        run: mypy core/kds migrations/kds_v1.py tests/unit/kds tests/integration/kds
+      - name: Testes Python completos
+        run: pytest -q
+
+  e2e-standard:
+    name: E2E aplicacao principal
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FM_AI_KDS_V1: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Instalar dependencias Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Instalar dependencias Node
+        run: npm ci
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Rodar E2E padrao com KDS habilitado
+        run: npx playwright test --reporter=list
+
+  e2e-kds:
+    name: E2E KDS multi-setor e offline
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Instalar dependencias Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Instalar dependencias Node
+        run: npm ci
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Rodar E2E KDS
+        run: npx playwright test --config=playwright.kds.config.ts --reporter=list
