@@ -1,0 +1,82 @@
+name: PR12 Garcom Gates
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  python:
+    name: Python, Ruff e mypy
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff mypy
+      - name: Ruff PR12
+        run: >-
+          ruff check core/garcom tests/unit/garcom tests/integration/garcom
+          tests/e2e-garcom/app_garcom.py tests/e2e-garcom/seed_garcom.py
+      - name: mypy PR12
+        run: mypy core/garcom tests/unit/garcom tests/integration/garcom
+      - name: Testes focados PR12
+        run: pytest -q tests/unit/garcom tests/integration/garcom
+      - name: Suite Python completa
+        run: pytest -q
+
+  e2e-garcom:
+    name: E2E garcom celular e tablet
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Instalar dependencias Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Instalar dependencias Node
+        run: npm ci
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Rodar E2E Garcom
+        run: npx playwright test -c playwright.garcom.config.ts --reporter=list
+
+  regressao-salao-kds:
+    name: Regressao Salao e KDS
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Instalar dependencias Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Instalar dependencias Node
+        run: npm ci
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Regressao KDS
+        run: npx playwright test -c playwright.kds.config.ts --reporter=list
+      - name: Regressao Salao
+        run: npx playwright test -c playwright.salao.config.ts --reporter=list
