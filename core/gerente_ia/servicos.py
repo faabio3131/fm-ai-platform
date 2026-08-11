@@ -341,7 +341,7 @@ class ServicoGerenteIA:
                 tenant_id=contexto.tenant_id,
                 unidade_id=contexto.unidade_id,
                 pedido_id=recurso_id,
-                prioridade=int(argumentos["prioridade"]),
+                prioridade=_inteiro_tool(argumentos["prioridade"], "prioridade_invalida"),
             )
         elif tool is ToolGerenteIA.PAUSAR_PRODUTO:
             recurso_id = str(argumentos["produto_id"])
@@ -350,7 +350,7 @@ class ServicoGerenteIA:
                 tenant_id=contexto.tenant_id,
                 unidade_id=contexto.unidade_id,
                 produto_id=recurso_id,
-                duracao_minutos=int(duracao) if duracao is not None else None,
+                duracao_minutos=_inteiro_tool(duracao, "duracao_minutos_invalido") if duracao is not None else None,
             )
         else:
             raise ErroGerenteIA("preview_tool_invalida")
@@ -428,7 +428,7 @@ class ServicoGerenteIA:
                 tenant_id=preview.tenant_id,
                 unidade_id=preview.unidade_id,
                 pedido_id=preview.recurso_id,
-                prioridade=int(args["prioridade"]),
+                prioridade=_inteiro_tool(args["prioridade"], "prioridade_invalida"),
             )
         if preview.tool is ToolGerenteIA.PAUSAR_PRODUTO:
             duracao = args.get("duracao_minutos")
@@ -436,7 +436,7 @@ class ServicoGerenteIA:
                 tenant_id=preview.tenant_id,
                 unidade_id=preview.unidade_id,
                 produto_id=preview.recurso_id,
-                duracao_minutos=int(duracao) if duracao is not None else None,
+                duracao_minutos=_inteiro_tool(duracao, "duracao_minutos_invalido") if duracao is not None else None,
             )
         raise ErroGerenteIA("tool_execucao_nao_permitida")
 
@@ -453,7 +453,7 @@ class ServicoGerenteIA:
                 tenant_id=contexto.tenant_id,
                 unidade_id=contexto.unidade_id,
                 pedido_id=preview.recurso_id,
-                prioridade=int(args["prioridade"]),
+                prioridade=_inteiro_tool(args["prioridade"], "prioridade_invalida"),
                 motivo=preview.motivo,
                 idempotency_key=idempotency_key,
                 usuario_id=contexto.usuario_id,
@@ -466,7 +466,7 @@ class ServicoGerenteIA:
                 unidade_id=contexto.unidade_id,
                 produto_id=preview.recurso_id,
                 motivo=preview.motivo,
-                duracao_minutos=int(duracao) if duracao is not None else None,
+                duracao_minutos=_inteiro_tool(duracao, "duracao_minutos_invalido") if duracao is not None else None,
                 idempotency_key=idempotency_key,
                 usuario_id=contexto.usuario_id,
                 correlation_id=contexto.correlation_id,
@@ -563,6 +563,18 @@ def _agora(valor: datetime | None) -> datetime:
     if instante.tzinfo is None or instante.utcoffset() is None:
         raise ErroGerenteIA("timestamp_sem_timezone")
     return instante.astimezone(timezone.utc)
+
+
+def _inteiro_tool(valor: object, codigo: str) -> int:
+    if isinstance(valor, bool) or not isinstance(valor, (str, int, float)):
+        raise ErroGerenteIA(codigo)
+    try:
+        inteiro = int(valor)
+    except (TypeError, ValueError) as exc:
+        raise ErroGerenteIA(codigo) from exc
+    if isinstance(valor, float) and not valor.is_integer():
+        raise ErroGerenteIA(codigo)
+    return inteiro
 
 
 def _recurso_tipo(tool: ToolGerenteIA) -> str:

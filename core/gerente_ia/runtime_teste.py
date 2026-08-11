@@ -153,9 +153,9 @@ class AcoesGerenciaisFake:
                 "preview_priorizacao",
                 (
                     ("pedido_id", pedido_id),
-                    ("prioridade_atual", int(dado["prioridade"])),
+                    ("prioridade_atual", int(str(dado["prioridade"]))),
                     ("prioridade_nova", prioridade),
-                    ("versao", int(dado["versao"])),
+                    ("versao", int(str(dado["versao"]))),
                 ),
             )
 
@@ -181,7 +181,7 @@ class AcoesGerenciaisFake:
             if dado is None:
                 raise ErroGerenteIA("recurso_indisponivel")
             dado["prioridade"] = prioridade
-            dado["versao"] = int(dado["versao"]) + 1
+            dado["versao"] = int(str(dado["versao"])) + 1
             resultado = f"pedido_priorizado:{pedido_id}:{prioridade}"
             self._idempotencia[idempotency_key] = resultado
             self.execucoes.append(("priorizar_pedido", pedido_id))
@@ -205,7 +205,7 @@ class AcoesGerenciaisFake:
                     ("produto_id", produto_id),
                     ("ativo", bool(dado["ativo"])),
                     ("duracao_minutos", duracao_minutos),
-                    ("versao", int(dado["versao"])),
+                    ("versao", int(str(dado["versao"]))),
                 ),
             )
 
@@ -232,7 +232,7 @@ class AcoesGerenciaisFake:
                 raise ErroGerenteIA("recurso_indisponivel")
             dado["ativo"] = False
             dado["pausado_ate_minutos"] = duracao_minutos
-            dado["versao"] = int(dado["versao"]) + 1
+            dado["versao"] = int(str(dado["versao"])) + 1
             resultado = f"produto_pausado:{produto_id}"
             self._idempotencia[idempotency_key] = resultado
             self.execucoes.append(("pausar_produto", produto_id))
