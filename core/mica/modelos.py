@@ -74,7 +74,7 @@ class CarrinhoMica:
 
     @property
     def total(self) -> Decimal:
-        return sum((item.subtotal for item in self.itens), start=Decimal("0"))
+        return sum((item.subtotal for item in self.itens), start=Decimal(0))
 
 
 @dataclass(frozen=True)
