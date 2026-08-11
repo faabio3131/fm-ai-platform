@@ -168,18 +168,20 @@ def render_salao(*, engine: Any, session_factory: Callable[[], Session]) -> None
                     concluir()
 
                 vinculados = {item.pedido_id for item in pedidos}
-                pedidos_disponiveis = tuple(
-                    sessao.scalars(
-                        select(PedidoORM)
-                        .where(
-                            PedidoORM.tenant_id == contexto.tenant_id,
-                            PedidoORM.unidade_id == contexto.unidade_id,
-                            PedidoORM.status != "cancelado",
-                            PedidoORM.id.notin_(vinculados) if vinculados else True,
-                        )
-                        .order_by(PedidoORM.criado_em, PedidoORM.id)
+                consulta_pedidos = (
+                    select(PedidoORM)
+                    .where(
+                        PedidoORM.tenant_id == contexto.tenant_id,
+                        PedidoORM.unidade_id == contexto.unidade_id,
+                        PedidoORM.status != "cancelado",
                     )
+                    .order_by(PedidoORM.criado_em, PedidoORM.id)
                 )
+                if vinculados:
+                    consulta_pedidos = consulta_pedidos.where(
+                        PedidoORM.id.notin_(vinculados)
+                    )
+                pedidos_disponiveis = tuple(sessao.scalars(consulta_pedidos))
                 if pedidos_disponiveis:
                     opcoes_pedido = {
                         f"{item.id} · R$ {Decimal(str(item.total)):.2f}": item
@@ -229,14 +231,14 @@ def render_salao(*, engine: Any, session_factory: Callable[[], Session]) -> None
                     key=f"transferir-destino-{comanda.comanda_id}",
                 )
                 if st.button("Transferir comanda", key=f"transferir-{comanda.comanda_id}"):
-                    destino = opcoes_destino[destino_nome]
+                    mesa_destino = opcoes_destino[destino_nome]
                     servico.transferir_comanda(
                         contexto,
                         comanda_id=comanda.comanda_id,
-                        mesa_destino_id=destino.mesa_id,
+                        mesa_destino_id=mesa_destino.mesa_id,
                         expected_comanda_version=comanda.versao,
                         expected_origem_version=mesa.versao,
-                        expected_destino_version=destino.versao,
+                        expected_destino_version=mesa_destino.versao,
                         idempotency_key=(
                             f"ui:transferir:{comanda.comanda_id}:{comanda.versao}"
                         ),
@@ -272,15 +274,15 @@ def render_salao(*, engine: Any, session_factory: Callable[[], Session]) -> None
                     key=f"juntar-destino-{comanda.comanda_id}",
                 )
                 if st.button("Juntar comandas", key=f"juntar-{comanda.comanda_id}"):
-                    destino = opcoes_juntar[juntar_nome]
+                    comanda_destino = opcoes_juntar[juntar_nome]
                     servico.juntar_comandas(
                         contexto,
                         origem_id=comanda.comanda_id,
-                        destino_id=destino.comanda_id,
+                        destino_id=comanda_destino.comanda_id,
                         expected_origem_version=comanda.versao,
-                        expected_destino_version=destino.versao,
+                        expected_destino_version=comanda_destino.versao,
                         idempotency_key=(
-                            f"ui:juntar:{comanda.comanda_id}:{destino.comanda_id}"
+                            f"ui:juntar:{comanda.comanda_id}:{comanda_destino.comanda_id}"
                         ),
                     )
                     concluir()

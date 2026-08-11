@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import {
   clickAndWaitForStreamlitRerun,
@@ -6,7 +6,7 @@ import {
   selectComboboxOption,
 } from '../e2e/fixtures/ui';
 
-async function abrirSalao(page) {
+async function abrirSalao(page: Page) {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect(page.getByText('Salao E2E pronto', { exact: true })).toBeVisible({
     timeout: 20_000,
@@ -30,11 +30,9 @@ test('salao abre mesa agrega pedidos transfere divide pagamento e fecha', async 
   await clickAndWaitForStreamlitRerun(page, 'Abrir comanda');
   await expect(page.getByText('Status: aberta', { exact: false })).toBeVisible();
 
-  await selectComboboxOption(page, 'Pedido disponível', /pedido-salao-1/);
   await clickAndWaitForStreamlitRerun(page, 'Adicionar pedido');
   await expect(page.getByText('R$ 40.00', { exact: false }).first()).toBeVisible();
 
-  await selectComboboxOption(page, 'Pedido disponível', /pedido-salao-2/);
   await clickAndWaitForStreamlitRerun(page, 'Adicionar pedido');
   await expect(page.getByText('R$ 70.00', { exact: false }).first()).toBeVisible();
 
