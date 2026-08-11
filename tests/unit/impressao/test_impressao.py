@@ -8,6 +8,7 @@ from core.impressao import (
     ErroImpressao,
     ImpressoraFake,
     RepositorioSpoolEmMemoria,
+    ResultadoEnfileiramento,
     ServicoSpoolImpressao,
     StatusImpressao,
     impressao_v1_enabled,
@@ -61,7 +62,7 @@ def _producao() -> ProducaoItem:
         setor_id="setor-chapa",
         status="aguardando",
         prioridade=0,
-        quantidade=Decimal("2"),
+        quantidade=Decimal(2),
         tentativa=1,
         versao=1,
         criado_em=AGORA,
@@ -69,7 +70,9 @@ def _producao() -> ProducaoItem:
     )
 
 
-def _servico(*, falhar: bool = False, max_tentativas: int = 3):
+def _servico(
+    *, falhar: bool = False, max_tentativas: int = 3
+) -> tuple[ServicoSpoolImpressao, RepositorioSpoolEmMemoria, ImpressoraFake]:
     repositorio = RepositorioSpoolEmMemoria()
     impressora = ImpressoraFake(falhar=falhar)
     destino = DestinoImpressao(
@@ -87,7 +90,9 @@ def _servico(*, falhar: bool = False, max_tentativas: int = 3):
     return servico, repositorio, impressora
 
 
-def _enfileirar(servico: ServicoSpoolImpressao, chave: str = "evt-1"):
+def _enfileirar(
+    servico: ServicoSpoolImpressao, chave: str = "evt-1"
+) -> ResultadoEnfileiramento:
     return servico.enfileirar_item_kds(
         contexto=_contexto(),
         producao=_producao(),
