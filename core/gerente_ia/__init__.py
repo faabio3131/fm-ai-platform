@@ -1,28 +1,31 @@
-"""Compatibilidade para o antigo placeholder `core.gerente_ai`.
+"""Gerente IA Operacional V1."""
 
-A implementação V1 vive em `core.gerente_ia` e permanece desacoplada de ORM/UI.
-"""
-
-from core.gerente_ia import (
+from .erros import ErroGerenteIA
+from .flags import gerente_ia_v1_enabled
+from .modelos import (
     ChamadaTool,
-    ErroGerenteIA,
+    NaturezaTool,
     PreviewAcao,
     RascunhoCampanha,
+    RegistroGerencial,
     ResultadoAcao,
     ResultadoTool,
-    ServicoGerenteIA,
+    StatusPreview,
     ToolGerenteIA,
-    gerente_ia_v1_enabled,
 )
+from .servicos import ServicoGerenteIA
 
 __all__ = [
     "ChamadaTool",
     "ErroGerenteIA",
+    "NaturezaTool",
     "PreviewAcao",
     "RascunhoCampanha",
+    "RegistroGerencial",
     "ResultadoAcao",
     "ResultadoTool",
     "ServicoGerenteIA",
+    "StatusPreview",
     "ToolGerenteIA",
     "gerente_ia_v1_enabled",
 ]
