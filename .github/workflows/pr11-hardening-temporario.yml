@@ -1,0 +1,172 @@
+name: PR11 Hardening Temporario
+
+on:
+  push:
+    branches:
+      - codex/implementar-mesas-comandas-v1
+
+permissions:
+  contents: write
+
+jobs:
+  hardening:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Aplicar hardening da PR11
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          # ------------------------------------------------------------------
+          # Serviço: valida Pagamento autoritativo + estados normativos faltantes.
+          # ------------------------------------------------------------------
+          p = Path('core/salao/servicos.py')
+          s = p.read_text(encoding='utf-8')
+
+          s = s.replace(
+              'from core.pedidos.modelos_orm import PedidoORM\n',
+              'from core.dominio.enums import PagamentoStatus\n'
+              'from core.pagamentos.modelos_orm import PagamentoORM\n'
+              'from core.pedidos.modelos_orm import PedidoORM\n',
+              1,
+          )
+          s = s.replace(
+              'from .modelos_orm import ComandaORM, EventoSalaoORM, ParticipanteComandaORM\n',
+              'from .modelos_orm import (\n'
+              '    ComandaORM,\n'
+              '    EventoSalaoORM,\n'
+              '    PagamentoConfirmadoComandaORM,\n'
+              '    ParticipanteComandaORM,\n'
+              ')\n',
+              1,
+          )
+
+          marcador_classe = '\n\nclass ServicoSalao:\n'
+          helper = '''\n\ndef _validar_pagamento_autoritativo(\n    repositorio: RepositorioSalaoSQLAlchemy,\n    contexto: ContextoExecucao,\n    *,\n    comanda_id: str,\n    pagamento_id: str,\n    metodo: MetodoFechamento,\n    valor: Decimal,\n) -> None:\n    pagamento = repositorio.session.get(\n        PagamentoORM, (pagamento_id, contexto.tenant_id, contexto.unidade_id)\n    )\n    if pagamento is None:\n        raise ErroSalao("pagamento_nao_confirmado")\n    if pagamento.comanda_id != comanda_id:\n        raise ErroSalao("pagamento_nao_pertence_comanda")\n    if pagamento.status != PagamentoStatus.PAGO.value:\n        raise ErroSalao("pagamento_nao_confirmado")\n    if pagamento.metodo != metodo.value:\n        raise ErroSalao("pagamento_metodo_divergente")\n    valor_liquido = _centavos(\n        Decimal(str(pagamento.valor_pago)) - Decimal(str(pagamento.valor_estornado))\n    )\n    saldo_financeiro = _centavos(Decimal(str(pagamento.saldo)))\n    if valor_liquido != valor or saldo_financeiro != Decimal("0.00"):\n        raise ErroSalao("pagamento_valor_divergente")\n    ja_projetado = repositorio.session.scalar(\n        select(PagamentoConfirmadoComandaORM).where(\n            PagamentoConfirmadoComandaORM.tenant_id == contexto.tenant_id,\n            PagamentoConfirmadoComandaORM.unidade_id == contexto.unidade_id,\n            PagamentoConfirmadoComandaORM.pagamento_id == pagamento_id,\n        )\n    )\n    if ja_projetado is not None:\n        raise ErroSalao("pagamento_ja_projetado")\n'''
+          if '_validar_pagamento_autoritativo' not in s:
+              assert marcador_classe in s
+              s = s.replace(marcador_classe, helper + marcador_classe, 1)
+
+          marcador_divisao = '    def definir_divisao_pagamento(\n'
+          novos_estados = '''    def retomar_consumo(\n        self,\n        contexto: ContextoExecucao,\n        *,\n        comanda_id: str,\n        expected_version: int,\n        idempotency_key: str,\n    ) -> Comanda:\n        comanda = _obter_comanda_ativa(self.repositorio, contexto, comanda_id)\n        _autorizar(\n            contexto,\n            Permissao.COMANDA_ALTERAR,\n            "comanda",\n            comanda.tenant_id,\n            comanda.unidade_id,\n        )\n        if _evento_existente(\n            self.repositorio,\n            contexto,\n            chave=idempotency_key,\n            tipo="comanda.consumo_retomado",\n            agregado_id=comanda_id,\n        ):\n            atual = self.repositorio.obter_comanda(\n                contexto.tenant_id, contexto.unidade_id, comanda_id\n            )\n            if atual is None:\n                raise ErroSalao("recurso_indisponivel")\n            return atual\n        if comanda.status != StatusComanda.CONTA_SOLICITADA:\n            raise ErroSalao("transicao_comanda_invalida")\n        if comanda.versao != expected_version:\n            raise ErroSalao("comanda_concorrente")\n        atualizado = replace(\n            comanda, status=StatusComanda.EM_CONSUMO, versao=comanda.versao + 1\n        )\n        self.repositorio.salvar_comanda(atualizado, expected_version)\n        _registrar_evento(\n            self.repositorio,\n            contexto,\n            agregado_tipo="comanda",\n            agregado_id=comanda_id,\n            tipo="comanda.consumo_retomado",\n            versao=atualizado.versao,\n            chave=idempotency_key,\n            ocorrido_em=self.agora(),\n        )\n        return atualizado\n\n    def cancelar_comanda(\n        self,\n        contexto: ContextoExecucao,\n        *,\n        comanda_id: str,\n        expected_version: int,\n        idempotency_key: str,\n        pedidos_resolvidos: bool,\n    ) -> Comanda:\n        comanda = self.repositorio.obter_comanda(\n            contexto.tenant_id, contexto.unidade_id, comanda_id\n        )\n        if comanda is None:\n            raise ErroSalao("comanda_indisponivel")\n        _autorizar(\n            contexto,\n            Permissao.COMANDA_FECHAR,\n            "comanda",\n            comanda.tenant_id,\n            comanda.unidade_id,\n        )\n        if not ({Papel.ADMINISTRADOR, Papel.GERENTE} & contexto.papeis):\n            raise ErroSalao("alçada_insuficiente")\n        if _evento_existente(\n            self.repositorio,\n            contexto,\n            chave=idempotency_key,\n            tipo="comanda.cancelada",\n            agregado_id=comanda_id,\n        ):\n            return comanda\n        if comanda.status not in {\n            StatusComanda.ABERTA,\n            StatusComanda.EM_CONSUMO,\n            StatusComanda.CONTA_SOLICITADA,\n        }:\n            raise ErroSalao("transicao_comanda_invalida")\n        if comanda.versao != expected_version:\n            raise ErroSalao("comanda_concorrente")\n        if not pedidos_resolvidos:\n            raise ErroSalao("pedidos_nao_resolvidos")\n        if self.repositorio.total_pago_confirmado(\n            contexto.tenant_id, contexto.unidade_id, comanda_id\n        ) > 0:\n            raise ErroSalao("comanda_com_pagamento_nao_pode_cancelar")\n        instante = self.agora()\n        cancelada = replace(\n            comanda,\n            status=StatusComanda.CANCELADA,\n            saldo=Decimal("0.00"),\n            mesa_id=None,\n            versao=comanda.versao + 1,\n        )\n        self.repositorio.salvar_comanda(cancelada, expected_version)\n        if comanda.mesa_id and _outras_comandas_na_mesa(\n            self.repositorio, contexto, comanda.mesa_id, exceto=comanda_id\n        ) == 0:\n            mesa = self.repositorio.obter_mesa(\n                contexto.tenant_id, contexto.unidade_id, comanda.mesa_id\n            )\n            if mesa is not None:\n                self.repositorio.salvar_mesa(\n                    replace(\n                        mesa,\n                        status=StatusMesa.LIVRE,\n                        versao=mesa.versao + 1,\n                        atualizado_em=instante,\n                    ),\n                    mesa.versao,\n                )\n        _registrar_evento(\n            self.repositorio,\n            contexto,\n            agregado_tipo="comanda",\n            agregado_id=comanda_id,\n            tipo="comanda.cancelada",\n            versao=cancelada.versao,\n            chave=idempotency_key,\n            ocorrido_em=instante,\n        )\n        return cancelada\n\n'''
+          if '    def retomar_consumo(' not in s:
+              assert marcador_divisao in s
+              s = s.replace(marcador_divisao, novos_estados + marcador_divisao, 1)
+
+          pagamento_antigo = '''        valor = _centavos(valor)\n        if valor <= 0 or valor > comanda.saldo:\n            raise ErroSalao("valor_pagamento_invalido")\n        instante = self.agora()\n'''
+          pagamento_novo = '''        valor = _centavos(valor)\n        if valor <= 0 or valor > comanda.saldo:\n            raise ErroSalao("valor_pagamento_invalido")\n        _validar_pagamento_autoritativo(\n            self.repositorio,\n            contexto,\n            comanda_id=comanda_id,\n            pagamento_id=pagamento_id,\n            metodo=metodo,\n            valor=valor,\n        )\n        instante = self.agora()\n'''
+          assert pagamento_antigo in s
+          s = s.replace(pagamento_antigo, pagamento_novo, 1)
+
+          fechar_antigo = '''    ) -> Comanda:\n        comanda = _obter_comanda_ativa(self.repositorio, contexto, comanda_id)\n        _autorizar(\n            contexto,\n            Permissao.COMANDA_FECHAR,\n            "comanda",\n            comanda.tenant_id,\n            comanda.unidade_id,\n        )\n        if _evento_existente(\n            self.repositorio,\n            contexto,\n            chave=idempotency_key,\n            tipo="comanda.fechada",\n            agregado_id=comanda_id,\n        ):\n            atual = self.repositorio.obter_comanda(\n                contexto.tenant_id, contexto.unidade_id, comanda_id\n            )\n            if atual is None:\n                raise ErroSalao("recurso_indisponivel")\n            return atual\n'''
+          fechar_novo = '''    ) -> Comanda:\n        comanda = self.repositorio.obter_comanda(\n            contexto.tenant_id, contexto.unidade_id, comanda_id\n        )\n        if comanda is None:\n            raise ErroSalao("comanda_indisponivel")\n        _autorizar(\n            contexto,\n            Permissao.COMANDA_FECHAR,\n            "comanda",\n            comanda.tenant_id,\n            comanda.unidade_id,\n        )\n        if _evento_existente(\n            self.repositorio,\n            contexto,\n            chave=idempotency_key,\n            tipo="comanda.fechada",\n            agregado_id=comanda_id,\n        ):\n            return comanda\n'''
+          # Substitui apenas no método fechar, usando o trecho após sua assinatura.
+          pos = s.index('    def fechar_comanda(')
+          prefixo, cauda = s[:pos], s[pos:]
+          assert fechar_antigo in cauda
+          cauda = cauda.replace(fechar_antigo, fechar_novo, 1)
+          s = prefixo + cauda
+          p.write_text(s, encoding='utf-8')
+
+          # ------------------------------------------------------------------
+          # Runtime E2E: schema financeiro + simulador protegido de confirmação.
+          # ------------------------------------------------------------------
+          p = Path('core/salao/runtime_teste.py')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('from datetime import datetime\n', 'from datetime import datetime\nfrom decimal import Decimal\n', 1)
+          s = s.replace('from typing import Any\n', 'from typing import Any\nfrom uuid import uuid4\n\nfrom sqlalchemy.orm import Session\n', 1)
+          s = s.replace(
+              'from core.pedidos.modelos_orm import OrdersBase\n',
+              'from core.dominio.enums import PagamentoStatus\n'
+              'from core.pagamentos.modelos_orm import (\n'
+              '    ObrigacaoPagamentoORM,\n'
+              '    PagamentoORM,\n'
+              '    PaymentsBase,\n'
+              ')\n'
+              'from core.pedidos.modelos_orm import OrdersBase\n',
+              1,
+          )
+          s = s.replace(
+              '    OrdersBase.metadata.create_all(engine, checkfirst=True)\n    SalaoBase.metadata.create_all(engine, checkfirst=True)\n',
+              '    OrdersBase.metadata.create_all(engine, checkfirst=True)\n'
+              '    PaymentsBase.metadata.create_all(engine, checkfirst=True)\n'
+              '    SalaoBase.metadata.create_all(engine, checkfirst=True)\n',
+              1,
+          )
+          helper_runtime = '''\n\ndef registrar_pagamento_confirmado_teste(\n    session: Session,\n    *,\n    pagamento_id: str,\n    pedido_id: str,\n    comanda_id: str,\n    metodo: str,\n    valor: Decimal,\n    agora: datetime,\n) -> None:\n    if not salao_v1_enabled():\n        raise RuntimeError("Simulacao financeira Salao indisponivel fora de teste")\n    if session.get(PagamentoORM, (pagamento_id, "tenant-e2e", "unidade-e2e")):\n        return\n    chave = f"salao-e2e:{pagamento_id}"\n    session.add(\n        ObrigacaoPagamentoORM(\n            id=pagamento_id,\n            tenant_id="tenant-e2e",\n            unidade_id="unidade-e2e",\n            pedido_id=pedido_id,\n            comanda_id=comanda_id,\n            valor_previsto=valor,\n            moeda="BRL",\n            criado_em=agora,\n            versao=1,\n            correlation_id=str(uuid4()),\n            idempotency_key=f"obrigacao:{chave}",\n            request_hash=f"hash-obrigacao-{pagamento_id}",\n        )\n    )\n    session.flush()\n    session.add(\n        PagamentoORM(\n            id=pagamento_id,\n            tenant_id="tenant-e2e",\n            unidade_id="unidade-e2e",\n            pedido_id=pedido_id,\n            comanda_id=comanda_id,\n            status=PagamentoStatus.PAGO.value,\n            metodo=metodo,\n            valor_previsto=valor,\n            valor_pago=valor,\n            valor_estornado=Decimal("0.00"),\n            saldo=Decimal("0.00"),\n            moeda="BRL",\n            recebimento_posterior=False,\n            provedor="salao-e2e",\n            criado_em=agora,\n            atualizado_em=agora,\n            versao=1,\n            correlation_id=str(uuid4()),\n            idempotency_key=f"pagamento:{chave}",\n            request_hash=f"hash-pagamento-{pagamento_id}",\n        )\n    )\n    session.flush()\n'''
+          if 'def registrar_pagamento_confirmado_teste(' not in s:
+              s = s.rstrip() + helper_runtime + '\n'
+          p.write_text(s, encoding='utf-8')
+
+          # ------------------------------------------------------------------
+          # UI E2E: nunca fabrica confirmação dentro do Salao; cria uma linha
+          # financeira autoritativa apenas via helper test-only antes de projetar.
+          # ------------------------------------------------------------------
+          p = Path('core/salao/ui_streamlit.py')
+          s = p.read_text(encoding='utf-8')
+          import_marker = 'from core.salao import (\n'
+          if 'from .runtime_teste import registrar_pagamento_confirmado_teste' not in s:
+              idx = s.index(import_marker)
+              # adiciona depois do bloco import core.salao, localizando o fechamento seguinte
+              end = s.index('\n)\n', idx) + 3
+              s = s[:end] + 'from .runtime_teste import registrar_pagamento_confirmado_teste\n' + s[end:]
+          antigo = '''                if st.button(\n                    "Confirmar próxima parcela",\n                    key=f"confirmar-parcela-{comanda.comanda_id}-{proxima.ordem}",\n                ):\n                    servico.registrar_pagamento_confirmado(\n                        contexto,\n                        comanda_id=comanda.comanda_id,\n                        pagamento_id=f"ui-pay-{uuid4().hex}",\n                        metodo=proxima.metodo,\n                        valor=proxima.valor,\n                        expected_version=comanda.versao,\n                        idempotency_key=(\n                            f"ui:pay:{comanda.comanda_id}:{proxima.ordem}"\n                        ),\n                    )\n                    concluir()\n'''
+          novo = '''                if st.button(\n                    "Confirmar próxima parcela",\n                    key=f"confirmar-parcela-{comanda.comanda_id}-{proxima.ordem}",\n                ):\n                    if not pedidos:\n                        raise ErroSalao("pedido_indisponivel")\n                    pagamento_id = f"ui-pay-{uuid4().hex}"\n                    registrar_pagamento_confirmado_teste(\n                        sessao,\n                        pagamento_id=pagamento_id,\n                        pedido_id=pedidos[0].pedido_id,\n                        comanda_id=comanda.comanda_id,\n                        metodo=proxima.metodo.value,\n                        valor=proxima.valor,\n                        agora=datetime.now(timezone.utc),\n                    )\n                    servico.registrar_pagamento_confirmado(\n                        contexto,\n                        comanda_id=comanda.comanda_id,\n                        pagamento_id=pagamento_id,\n                        metodo=proxima.metodo,\n                        valor=proxima.valor,\n                        expected_version=comanda.versao,\n                        idempotency_key=(\n                            f"ui:pay:{comanda.comanda_id}:{proxima.ordem}"\n                        ),\n                    )\n                    concluir()\n'''
+          assert antigo in s
+          s = s.replace(antigo, novo, 1)
+          p.write_text(s, encoding='utf-8')
+
+          # ------------------------------------------------------------------
+          # Integração existente: cria registros financeiros reais no fixture.
+          # ------------------------------------------------------------------
+          p = Path('tests/integration/salao/test_servicos.py')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace(
+              'from core.pedidos.modelos_orm import OrdersBase, PedidoORM\n',
+              'from core.dominio.enums import PagamentoStatus\n'
+              'from core.pagamentos.modelos_orm import (\n'
+              '    ObrigacaoPagamentoORM,\n'
+              '    PagamentoORM,\n'
+              '    PaymentsBase,\n'
+              ')\n'
+              'from core.pedidos.modelos_orm import OrdersBase, PedidoORM\n',
+              1,
+          )
+          s = s.replace(
+              '    OrdersBase.metadata.create_all(engine)\n    SalaoBase.metadata.create_all(engine)\n',
+              '    OrdersBase.metadata.create_all(engine)\n'
+              '    PaymentsBase.metadata.create_all(engine)\n'
+              '    SalaoBase.metadata.create_all(engine)\n',
+              1,
+          )
+          marcador_helper = '\n\ndef criar_mesa('
+          helper_teste = '''\n\ndef pagamento_confirmado(\n    session: Session,\n    *,\n    pagamento_id: str,\n    pedido_id: str,\n    comanda_id: str,\n    metodo: MetodoFechamento,\n    valor: Decimal,\n    status: str = PagamentoStatus.PAGO.value,\n) -> None:\n    session.add(\n        ObrigacaoPagamentoORM(\n            id=pagamento_id,\n            tenant_id="tenant-1",\n            unidade_id="unidade-1",\n            pedido_id=pedido_id,\n            comanda_id=comanda_id,\n            valor_previsto=valor,\n            moeda="BRL",\n            criado_em=AGORA,\n            versao=1,\n            correlation_id=f"corr-{pagamento_id}",\n            idempotency_key=f"obrigacao-{pagamento_id}",\n            request_hash=f"hash-obrigacao-{pagamento_id}",\n        )\n    )\n    session.flush()\n    session.add(\n        PagamentoORM(\n            id=pagamento_id,\n            tenant_id="tenant-1",\n            unidade_id="unidade-1",\n            pedido_id=pedido_id,\n            comanda_id=comanda_id,\n            status=status,\n            metodo=metodo.value,\n            valor_previsto=valor,\n            valor_pago=valor if status == PagamentoStatus.PAGO.value else Decimal("0.00"),\n            valor_estornado=Decimal("0.00"),\n            saldo=Decimal("0.00") if status == PagamentoStatus.PAGO.value else valor,\n            moeda="BRL",\n            recebimento_posterior=False,\n            provedor="pytest",\n            criado_em=AGORA,\n            atualizado_em=AGORA,\n            versao=1,\n            correlation_id=f"corr-{pagamento_id}",\n            idempotency_key=f"pagamento-{pagamento_id}",\n            request_hash=f"hash-pagamento-{pagamento_id}",\n        )\n    )\n    session.flush()\n'''
+          if 'def pagamento_confirmado(' not in s:
+              assert marcador_helper in s
+              s = s.replace(marcador_helper, helper_teste + marcador_helper, 1)
+
+          trecho1 = '''        comanda = servico.registrar_pagamento_confirmado(\n            ctx,\n            comanda_id="cmd-1",\n            pagamento_id="pay-1",\n'''
+          novo1 = '''        pagamento_confirmado(\n            session,\n            pagamento_id="pay-1",\n            pedido_id="pedido-1",\n            comanda_id="cmd-1",\n            metodo=MetodoFechamento.PIX,\n            valor=Decimal("40.00"),\n        )\n        comanda = servico.registrar_pagamento_confirmado(\n            ctx,\n            comanda_id="cmd-1",\n            pagamento_id="pay-1",\n'''
+          assert trecho1 in s
+          s = s.replace(trecho1, novo1, 1)
+          trecho2 = '''        comanda = servico.registrar_pagamento_confirmado(\n            ctx,\n            comanda_id="cmd-1",\n            pagamento_id="pay-2",\n'''
+          novo2 = '''        pagamento_confirmado(\n            session,\n            pagamento_id="pay-2",\n            pedido_id="pedido-2",\n            comanda_id="cmd-1",\n            metodo=MetodoFechamento.DINHEIRO,\n            valor=Decimal("30.00"),\n        )\n        comanda = servico.registrar_pagamento_confirmado(\n            ctx,\n            comanda_id="cmd-1",\n            pagamento_id="pay-2",\n'''
+          assert trecho2 in s
+          s = s.replace(trecho2, novo2, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Formatar e persistir hardening
+        run: |
+          python -m pip install ruff==0.16.1
+          ruff check core/salao tests/integration/salao/test_servicos.py --fix
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add core/salao tests/integration/salao/test_servicos.py
+          git commit -m "fix(salao): validar pagamentos e completar estados normativos"
+          git push origin HEAD:codex/implementar-mesas-comandas-v1
