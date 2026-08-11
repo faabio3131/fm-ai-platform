@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import Protocol
 
 
+class ErroAdaptadorImpressao(Exception):
+    """Falha normalizada por qualquer adapter físico de impressão."""
+
+
 class PortaImpressora(Protocol):
     def imprimir(self, *, impressora_id: str, job_id: str, conteudo: str) -> None: ...
 
@@ -18,5 +22,5 @@ class ImpressoraFake:
 
     def imprimir(self, *, impressora_id: str, job_id: str, conteudo: str) -> None:
         if self.falhar:
-            raise RuntimeError("impressora_indisponivel")
+            raise ErroAdaptadorImpressao("impressora_indisponivel")
         self.impressoes.append((impressora_id, job_id, conteudo))
