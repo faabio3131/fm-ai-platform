@@ -147,6 +147,20 @@ def render_salao(*, engine: Any, session_factory: Callable[[], Session]) -> None
             )
 
         if comanda.status in {StatusComanda.ABERTA, StatusComanda.EM_CONSUMO}:
+            if not pedidos and st.button(
+                "Cancelar comanda", key=f"cancelar-{comanda.comanda_id}"
+            ):
+                servico.cancelar_comanda(
+                    contexto,
+                    comanda_id=comanda.comanda_id,
+                    expected_version=comanda.versao,
+                    idempotency_key=(
+                        f"ui:cancelar:{comanda.comanda_id}:{comanda.versao}"
+                    ),
+                    pedidos_resolvidos=True,
+                )
+                concluir()
+
             with st.expander("Participantes e consumo", expanded=True):
                 apelido = st.text_input(
                     "Novo participante",
@@ -299,6 +313,17 @@ def render_salao(*, engine: Any, session_factory: Callable[[], Session]) -> None
                 concluir()
 
         elif comanda.status == StatusComanda.CONTA_SOLICITADA:
+            if st.button("Retomar consumo", key=f"retomar-{comanda.comanda_id}"):
+                servico.retomar_consumo(
+                    contexto,
+                    comanda_id=comanda.comanda_id,
+                    expected_version=comanda.versao,
+                    idempotency_key=(
+                        f"ui:retomar:{comanda.comanda_id}:{comanda.versao}"
+                    ),
+                )
+                concluir()
+
             st.markdown("#### Divisão da conta")
             metade = (comanda.saldo / Decimal(2)).quantize(Decimal("0.01"))
             pix = st.number_input(

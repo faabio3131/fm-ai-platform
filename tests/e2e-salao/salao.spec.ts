@@ -44,6 +44,11 @@ test('salao abre mesa agrega pedidos transfere divide pagamento e fecha', async 
   await clickAndWaitForStreamlitRerun(page, 'Solicitar conta');
   await expect(page.getByText('Status: conta_solicitada', { exact: false })).toBeVisible();
 
+  await clickAndWaitForStreamlitRerun(page, 'Retomar consumo');
+  await expect(page.getByText('Status: em_consumo', { exact: false })).toBeVisible();
+  await clickAndWaitForStreamlitRerun(page, 'Solicitar conta');
+  await expect(page.getByText('Status: conta_solicitada', { exact: false })).toBeVisible();
+
   await fillNumber(page, 'Valor PIX', '40.00');
   await clickAndWaitForStreamlitRerun(page, 'Definir pagamento misto');
   await expect(
@@ -58,6 +63,17 @@ test('salao abre mesa agrega pedidos transfere divide pagamento e fecha', async 
   await expect(page.getByText('Saldo integralmente confirmado.', { exact: true })).toBeVisible();
 
   await clickAndWaitForStreamlitRerun(page, 'Fechar comanda');
+  await expect(page.getByText('Status: livre', { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Abrir comanda', exact: true })).toBeVisible();
+});
+
+
+test('salao cancela comanda vazia e libera a mesa', async ({ page }) => {
+  await abrirSalao(page);
+  await selectComboboxOption(page, 'Mesa', 'Mesa 03');
+  await clickAndWaitForStreamlitRerun(page, 'Abrir comanda');
+  await expect(page.getByText('Status: aberta', { exact: false })).toBeVisible();
+  await clickAndWaitForStreamlitRerun(page, 'Cancelar comanda');
   await expect(page.getByText('Status: livre', { exact: false })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Abrir comanda', exact: true })).toBeVisible();
 });

@@ -57,7 +57,7 @@ Também são preservados `conta_solicitada -> em_consumo` e cancelamento permiti
 6. Operações mutáveis usam `versao` e CAS; versão divergente falha fechada.
 7. A soma dos pedidos vinculados determina o total operacional da comanda.
 8. A soma das parcelas planejadas para fechamento deve ser exatamente o saldo da comanda.
-9. Pagamento misto é uma composição de parcelas; cada confirmação financeira continua pertencendo ao domínio de Pagamento da PR7.
+9. Pagamento misto é uma composição de parcelas; cada confirmação financeira continua pertencendo ao domínio de Pagamento da PR7. O Salão valida a linha autoritativa em `pagamentos_v1` e rejeita pagamento ausente, não pago, de outra comanda, com método/valor divergente ou já projetado.
 10. A projeção de pagamento da comanda só aceita um pagamento confirmado por referência/idempotency key e não captura dinheiro por conta própria.
 11. `Comanda.fechada` exige saldo zero ou recebimento posterior explicitamente autorizado, além de pedidos resolvidos.
 12. Fechar a comanda libera a mesa somente quando não houver outra comanda ativa ocupando o mesmo recurso.
@@ -72,6 +72,11 @@ Também são preservados `conta_solicitada -> em_consumo` e cancelamento permiti
 - fechamento: `COMANDA_FECHAR`;
 - confirmação financeira não é fabricada pelo salão: recebe referência de pagamento já confirmado;
 - `Gerente IA` não ganha permissão operacional adicional nesta PR.
+- cancelamento de comanda é restrito a gerente/administrador, exige pedidos resolvidos e ausência de pagamento confirmado.
+
+## Runtime de teste e autoridade financeira
+
+O E2E isolado pode materializar uma confirmação financeira simulada apenas por helper protegido por `FM_AI_TEST_MODE=1` + `FM_AI_SALAO_V1=1`. O serviço de Salão nunca transforma um identificador arbitrário em pagamento confirmado: ele consulta a persistência financeira autoritativa da PR7 antes de projetar a confirmação na comanda.
 
 ## Persistência aditiva
 
