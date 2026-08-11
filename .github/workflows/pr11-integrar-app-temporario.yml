@@ -1,0 +1,134 @@
+name: PR11 Integrar App Temporario
+
+on:
+  push:
+    branches:
+      - codex/implementar-mesas-comandas-v1
+
+permissions:
+  contents: write
+
+jobs:
+  integrar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Integrar Salao na aplicacao principal
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          app = Path("app.py")
+          s = app.read_text(encoding="utf-8")
+
+          imports_antigos = """from core.kds.flags import kds_v1_enabled
+          from core.kds.ui_streamlit import render_kds
+          """
+          imports_novos = """from core.kds.flags import kds_v1_enabled
+          from core.kds.ui_streamlit import render_kds
+          from core.salao.flags import salao_v1_enabled
+          from core.salao.ui_streamlit import render_salao
+          """
+          if "from core.salao.flags import salao_v1_enabled" not in s:
+              assert imports_antigos in s, "bloco de imports KDS nao encontrado"
+              s = s.replace(imports_antigos, imports_novos, 1)
+
+          abas_antigas = """if kds_v1_enabled():
+              _nomes_abas.append("\\U0001F373 KDS por Setor")
+
+          _abas = st.tabs(_nomes_abas)
+          """
+          abas_novas = """if kds_v1_enabled():
+              _nomes_abas.append("\\U0001F373 KDS por Setor")
+          if salao_v1_enabled():
+              _nomes_abas.append("🪑 Mesas e Comandas")
+
+          _abas = st.tabs(_nomes_abas)
+          """
+          if '🪑 Mesas e Comandas' not in s:
+              assert abas_antigas in s, "bloco de nomes de abas nao encontrado"
+              s = s.replace(abas_antigas, abas_novas, 1)
+
+          indice_antigo = """aba_kds = None
+          if kds_v1_enabled():
+              aba_kds = _abas[_indice_extra]
+
+          if aba_central is not None:
+          """
+          indice_novo = """aba_kds = None
+          if kds_v1_enabled():
+              aba_kds = _abas[_indice_extra]
+              _indice_extra += 1
+
+          aba_salao = None
+          if salao_v1_enabled():
+              aba_salao = _abas[_indice_extra]
+
+          if aba_central is not None:
+          """
+          if "aba_salao = None" not in s:
+              assert indice_antigo in s, "bloco de indices extras nao encontrado"
+              s = s.replace(indice_antigo, indice_novo, 1)
+
+          render_antigo = """if aba_kds is not None:
+              with aba_kds:
+                  render_kds(
+                      engine=engine,
+                      session_factory=SessionLocal,
+                  )
+
+          # ==============================================================================
+          """
+          render_novo = """if aba_kds is not None:
+              with aba_kds:
+                  render_kds(
+                      engine=engine,
+                      session_factory=SessionLocal,
+                  )
+
+          if aba_salao is not None:
+              with aba_salao:
+                  render_salao(
+                      engine=engine,
+                      session_factory=SessionLocal,
+                  )
+
+          # ==============================================================================
+          """
+          if "with aba_salao:" not in s:
+              assert render_antigo in s, "bloco de render KDS nao encontrado"
+              s = s.replace(render_antigo, render_novo, 1)
+
+          app.write_text(s, encoding="utf-8")
+
+          tabs = Path("tests/e2e/functional-tabs.spec.ts")
+          t = tabs.read_text(encoding="utf-8")
+          marcador = """if (process.env.FM_AI_KDS_V1 === '1') {
+            tabTexts.push('KDS por Setor');
+          }
+          """
+          com_salao = """if (process.env.FM_AI_KDS_V1 === '1') {
+            tabTexts.push('KDS por Setor');
+          }
+          if (process.env.FM_AI_SALAO_V1 === '1') {
+            tabTexts.push('Mesas e Comandas');
+          }
+          """
+          if "FM_AI_SALAO_V1" not in t:
+              assert marcador in t, "bloco funcional de tabs nao encontrado"
+              t = t.replace(marcador, com_salao, 1)
+          tabs.write_text(t, encoding="utf-8")
+          PY
+      - name: Persistir integracao
+        run: |
+          if ! git diff --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add app.py tests/e2e/functional-tabs.spec.ts
+            git commit -m "feat(salao): integrar aba Mesas e Comandas"
+            git push origin HEAD:codex/implementar-mesas-comandas-v1
+          fi
