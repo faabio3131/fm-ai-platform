@@ -6,11 +6,11 @@ consulta do pedido e comandos de ciclo de vida. Nenhuma chamada HTTP real ocorre
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import replace
 from datetime import datetime, timezone
-from decimal import Decimal
 from threading import RLock
-from typing import Any, Mapping
+from typing import Any
 from uuid import uuid4
 
 from .erros import ErroMarketplace, ErroMarketplaceTransitorio

@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime
-from typing import Callable
 
 from core.dominio.ids import (
     CausationId,

@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
-from typing import Any, Mapping
+from typing import Any
 
 from .erros import ErroMarketplace
 

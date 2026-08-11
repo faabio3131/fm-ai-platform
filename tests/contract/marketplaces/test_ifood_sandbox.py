@@ -39,14 +39,14 @@ def _snapshot(status: StatusPedidoExterno = StatusPedidoExterno.RECEBIDO):
         id_externo="order-1",
         merchant_id="merchant",
         status=status,
-        total=Decimal("25"),
+        total=Decimal(25),
         itens=(
             ItemMarketplace(
                 item_id_externo="i1",
                 sku="SKU",
                 nome="Item",
-                quantidade=Decimal("1"),
-                preco_unitario=Decimal("25"),
+                quantidade=Decimal(1),
+                preco_unitario=Decimal(25),
             ),
         ),
         atualizado_em=datetime.now(timezone.utc),

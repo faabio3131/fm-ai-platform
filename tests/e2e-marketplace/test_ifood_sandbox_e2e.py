@@ -22,7 +22,7 @@ def test_fluxo_ifood_sandbox_entrada_saida_reconciliacao() -> None:
                 item_id_externo="e2e-item",
                 sku="BURGER",
                 nome="Combo",
-                quantidade=Decimal("1"),
+                quantidade=Decimal(1),
                 preco_unitario=Decimal("59.90"),
             ),
         ),

@@ -51,7 +51,7 @@ def test_snapshot_valida_valores_e_timezone() -> None:
         item_id_externo="item-1",
         sku="SKU1",
         nome="Burger",
-        quantidade=Decimal("1"),
+        quantidade=Decimal(1),
         preco_unitario=Decimal("32.005"),
     )
     snapshot = PedidoMarketplaceSnapshot(
@@ -71,15 +71,15 @@ def test_snapshot_rejeita_timestamp_naive() -> None:
         item_id_externo="item-1",
         sku=None,
         nome="Burger",
-        quantidade=Decimal("1"),
-        preco_unitario=Decimal("20"),
+        quantidade=Decimal(1),
+        preco_unitario=Decimal(20),
     )
     with pytest.raises(ErroMarketplace, match="timestamp_sem_timezone"):
         PedidoMarketplaceSnapshot(
             id_externo="order-1",
             merchant_id="merchant",
             status=StatusPedidoExterno.RECEBIDO,
-            total=Decimal("20"),
+            total=Decimal(20),
             itens=(item,),
-            atualizado_em=datetime.now(),
+            atualizado_em=datetime.now(timezone.utc).replace(tzinfo=None),
         )

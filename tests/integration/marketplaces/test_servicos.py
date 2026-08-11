@@ -12,7 +12,6 @@ from core.marketplaces.modelos import (
 )
 from core.marketplaces.runtime_teste import RuntimeMarketplaceTeste
 
-
 TENANT = "tenant-demo"
 UNIDADE = "unidade-demo"
 INTEGRACAO = "integracao-ifood-demo"
@@ -30,14 +29,14 @@ def _snapshot(
         id_externo=order_id,
         merchant_id=MERCHANT,
         status=status,
-        total=Decimal("40"),
+        total=Decimal(40),
         itens=(
             ItemMarketplace(
                 item_id_externo="item-1",
                 sku="SKU1",
                 nome="Burger",
-                quantidade=Decimal("1"),
-                preco_unitario=Decimal("40"),
+                quantidade=Decimal(1),
+                preco_unitario=Decimal(40),
             ),
         ),
         atualizado_em=atualizado_em or datetime.now(timezone.utc),
