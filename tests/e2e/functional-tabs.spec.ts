@@ -13,6 +13,9 @@ const tabTexts = [
 if (process.env.FM_AI_KDS_V1 === '1') {
   tabTexts.push('KDS por Setor');
 }
+if (process.env.FM_AI_SALAO_V1 === '1') {
+  tabTexts.push('Mesas e Comandas');
+}
 
 
 test('carrega e navega por todas as abas reais em modo de teste', async ({ page }) => {

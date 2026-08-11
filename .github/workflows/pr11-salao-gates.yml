@@ -1,0 +1,94 @@
+name: PR11 Salao Gates
+
+on:
+  push:
+    branches:
+      - codex/implementar-mesas-comandas-v1
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr11-salao-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-gates:
+    name: Python, Ruff e mypy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Ruff PR11
+        run: ruff check core/salao migrations/salao_v1.py tests/unit/salao tests/integration/salao
+      - name: mypy PR11
+        run: mypy core/salao migrations/salao_v1.py tests/unit/salao tests/integration/salao
+      - name: Testes focados PR11
+        run: pytest -q tests/unit/salao tests/integration/salao
+      - name: Suite Python completa
+        run: pytest -q
+
+  e2e-salao:
+    name: E2E mesas e comandas
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Instalar dependencias Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Instalar dependencias Node
+        run: npm ci
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Rodar E2E Salao
+        run: npx playwright test --config=playwright.salao.config.ts --reporter=list
+
+  e2e-standard:
+    name: E2E aplicacao principal com Salao
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FM_AI_SALAO_V1: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Instalar dependencias Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Instalar dependencias Node
+        run: npm ci
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Rodar E2E padrao com Salao habilitado
+        run: npx playwright test --reporter=list
