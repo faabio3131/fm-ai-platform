@@ -211,16 +211,16 @@ def test_repeticao_de_confirmacao_e_idempotente() -> None:
         catalogo=_catalogo(),
     )
     assert analisado.carrinho is not None
-    kwargs = dict(
-        resultado=analisado,
-        tenant_id="tenant-1",
-        unidade_id="unidade-1",
-        cliente_ref="cliente-hash",
-        confirmacao_cliente=True,
-        fingerprint_confirmado=analisado.carrinho.fingerprint,
-        metodo=MetodoPagamento.PIX,
-        idempotency_key="confirm-1",
-    )
+    kwargs = {
+        "resultado": analisado,
+        "tenant_id": "tenant-1",
+        "unidade_id": "unidade-1",
+        "cliente_ref": "cliente-hash",
+        "confirmacao_cliente": True,
+        "fingerprint_confirmado": analisado.carrinho.fingerprint,
+        "metodo": MetodoPagamento.PIX,
+        "idempotency_key": "confirm-1",
+    }
     primeiro = servico.confirmar(**kwargs)
     repetido = servico.confirmar(**kwargs)
     assert primeiro.pedido is not None and repetido.pedido is not None
