@@ -1,75 +1,13 @@
-name: PR11 UI Estados Temporario
+name: PR11 UI Estados Temporario Desativado
 
 on:
-  push:
-    branches:
-      - codex/implementar-mesas-comandas-v1
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  aplicar:
-    if: github.actor != 'github-actions[bot]'
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Expor estados normativos e ampliar E2E
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          ui = Path('core/salao/ui_streamlit.py')
-          s = ui.read_text(encoding='utf-8')
-          marcador_consumo = '''        if comanda.status in {StatusComanda.ABERTA, StatusComanda.EM_CONSUMO}:\n            with st.expander("Participantes e consumo", expanded=True):\n'''
-          novo_consumo = '''        if comanda.status in {StatusComanda.ABERTA, StatusComanda.EM_CONSUMO}:\n            if not pedidos and st.button(\n                "Cancelar comanda", key=f"cancelar-{comanda.comanda_id}"\n            ):\n                servico.cancelar_comanda(\n                    contexto,\n                    comanda_id=comanda.comanda_id,\n                    expected_version=comanda.versao,\n                    idempotency_key=(\n                        f"ui:cancelar:{comanda.comanda_id}:{comanda.versao}"\n                    ),\n                    pedidos_resolvidos=True,\n                )\n                concluir()\n\n            with st.expander("Participantes e consumo", expanded=True):\n'''
-          assert marcador_consumo in s
-          s = s.replace(marcador_consumo, novo_consumo, 1)
-
-          marcador_conta = '''        elif comanda.status == StatusComanda.CONTA_SOLICITADA:\n            st.markdown("#### Divisão da conta")\n'''
-          novo_conta = '''        elif comanda.status == StatusComanda.CONTA_SOLICITADA:\n            if st.button("Retomar consumo", key=f"retomar-{comanda.comanda_id}"):\n                servico.retomar_consumo(\n                    contexto,\n                    comanda_id=comanda.comanda_id,\n                    expected_version=comanda.versao,\n                    idempotency_key=(\n                        f"ui:retomar:{comanda.comanda_id}:{comanda.versao}"\n                    ),\n                )\n                concluir()\n\n            st.markdown("#### Divisão da conta")\n'''
-          assert marcador_conta in s
-          s = s.replace(marcador_conta, novo_conta, 1)
-          ui.write_text(s, encoding='utf-8')
-
-          spec = Path('tests/e2e-salao/salao.spec.ts')
-          t = spec.read_text(encoding='utf-8')
-          trecho = '''  await clickAndWaitForStreamlitRerun(page, 'Solicitar conta');\n  await expect(page.getByText('Status: conta_solicitada', { exact: false })).toBeVisible();\n\n  await fillNumber(page, 'Valor PIX', '40.00');\n'''
-          novo = '''  await clickAndWaitForStreamlitRerun(page, 'Solicitar conta');\n  await expect(page.getByText('Status: conta_solicitada', { exact: false })).toBeVisible();\n\n  await clickAndWaitForStreamlitRerun(page, 'Retomar consumo');\n  await expect(page.getByText('Status: em_consumo', { exact: false })).toBeVisible();\n  await clickAndWaitForStreamlitRerun(page, 'Solicitar conta');\n  await expect(page.getByText('Status: conta_solicitada', { exact: false })).toBeVisible();\n\n  await fillNumber(page, 'Valor PIX', '40.00');\n'''
-          assert trecho in t
-          t = t.replace(trecho, novo, 1)
-          t += '''\n\ntest('salao cancela comanda vazia e libera a mesa', async ({ page }) => {\n  await abrirSalao(page);\n  await selectComboboxOption(page, 'Mesa', 'Mesa 03');\n  await clickAndWaitForStreamlitRerun(page, 'Abrir comanda');\n  await expect(page.getByText('Status: aberta', { exact: false })).toBeVisible();\n  await clickAndWaitForStreamlitRerun(page, 'Cancelar comanda');\n  await expect(page.getByText('Status: livre', { exact: false })).toBeVisible();\n  await expect(page.getByRole('button', { name: 'Abrir comanda', exact: true })).toBeVisible();\n});\n'''
-          spec.write_text(t, encoding='utf-8')
-
-          doc = Path('docs/mesas-comandas-v1.md')
-          d = doc.read_text(encoding='utf-8')
-          d = d.replace(
-              '9. Pagamento misto é uma composição de parcelas; cada confirmação financeira continua pertencendo ao domínio de Pagamento da PR7.\n',
-              '9. Pagamento misto é uma composição de parcelas; cada confirmação financeira continua pertencendo ao domínio de Pagamento da PR7. O Salão valida a linha autoritativa em `pagamentos_v1` e rejeita pagamento ausente, não pago, de outra comanda, com método/valor divergente ou já projetado.\n',
-              1,
-          )
-          d = d.replace(
-              '- `Gerente IA` não ganha permissão operacional adicional nesta PR.\n',
-              '- `Gerente IA` não ganha permissão operacional adicional nesta PR.\n- cancelamento de comanda é restrito a gerente/administrador, exige pedidos resolvidos e ausência de pagamento confirmado.\n',
-              1,
-          )
-          d = d.replace(
-              '## Persistência aditiva\n',
-              '## Runtime de teste e autoridade financeira\n\nO E2E isolado pode materializar uma confirmação financeira simulada apenas por helper protegido por `FM_AI_TEST_MODE=1` + `FM_AI_SALAO_V1=1`. O serviço de Salão nunca transforma um identificador arbitrário em pagamento confirmado: ele consulta a persistência financeira autoritativa da PR7 antes de projetar a confirmação na comanda.\n\n## Persistência aditiva\n',
-              1,
-          )
-          doc.write_text(d, encoding='utf-8')
-          PY
-      - name: Formatar e persistir
-        run: |
-          python -m pip install ruff==0.16.1
-          ruff check core/salao/ui_streamlit.py --fix
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add core/salao/ui_streamlit.py tests/e2e-salao/salao.spec.ts docs/mesas-comandas-v1.md
-          git commit -m "feat(salao): expor retomada e cancelamento no fluxo E2E"
-          git push origin HEAD:codex/implementar-mesas-comandas-v1
+      - run: echo "Workflow temporario desativado; remover antes do merge."
