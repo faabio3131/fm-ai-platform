@@ -21,10 +21,36 @@ jobs:
           pip install -r requirements.txt
           pip install pytest ruff==0.16.1 mypy==1.20.2
       - name: Ruff PR13
-        run: ruff check core/entrega tests/unit/entrega
+        run: >-
+          ruff check core/entrega tests/unit/entrega tests/integration/entrega
+          tests/e2e-entrega/app_entrega.py tests/e2e-entrega/seed_entrega.py
       - name: mypy PR13
-        run: mypy core/entrega tests/unit/entrega
+        run: mypy core/entrega tests/unit/entrega tests/integration/entrega
       - name: Testes focados PR13
-        run: pytest -q tests/unit/entrega
+        run: pytest -q tests/unit/entrega tests/integration/entrega
       - name: Suite Python completa
         run: pytest -q
+
+  e2e-entrega:
+    name: E2E expedicao e entregador
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Instalar dependencias Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Instalar dependencias Node
+        run: npm ci
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Rodar E2E Entrega
+        run: npx playwright test -c playwright.entrega.config.ts --reporter=list
