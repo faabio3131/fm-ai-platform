@@ -1,9 +1,21 @@
 import { expect, type Page, test } from '@playwright/test';
 
 async function selecionarFormaPagamento(page: Page, opcao: string) {
-  const combo = page.getByRole('combobox', { name: /Forma de pagamento/ });
-  await combo.click();
-  await page.getByRole('option', { name: opcao, exact: true }).click();
+  const combo = page.getByRole('combobox', { name: /Forma de pagamento/ }).first();
+  await expect(combo).toBeVisible();
+  await expect(combo).toBeEnabled();
+  if ((await combo.inputValue()) === opcao) {
+    return;
+  }
+  const listbox = page.getByRole('listbox').filter({ visible: true }).last();
+  await expect(async () => {
+    await combo.focus();
+    await combo.press('ArrowDown');
+    await expect(combo).toHaveAttribute('aria-expanded', 'true', { timeout: 5_000 });
+    await expect(listbox).toBeVisible({ timeout: 5_000 });
+  }).toPass({ timeout: 15_000 });
+  await listbox.getByRole('option', { name: opcao, exact: true }).click();
+  await expect(combo).toHaveValue(opcao, { timeout: 15_000 });
 }
 
 test.beforeEach(async ({ page }) => {
