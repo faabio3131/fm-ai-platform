@@ -56,7 +56,7 @@ def renderizar_ticket_setor(
     descricao_item: str,
     observacao: str | None = None,
 ) -> str:
-    """Renderiza somente dados operacionais; não inclui contato/endereço/pagamento."""
+    """Renderiza só dados operacionais; nunca contato, endereço ou pagamento."""
     descricao = _texto_operacional(descricao_item) or producao.pedido_item_id
     nota = _texto_operacional(observacao)
     linhas = [
@@ -74,7 +74,7 @@ def renderizar_ticket_setor(
 
 
 class ServicoSpoolImpressao:
-    """Spool opcional: qualquer falha termina no domínio de impressão, nunca no KDS."""
+    """Spool opcional: falha de impressão jamais altera ou bloqueia o KDS."""
 
     def __init__(
         self,
@@ -105,15 +105,26 @@ class ServicoSpoolImpressao:
         agora = _utc(timestamp)
         if not idempotency_key.strip():
             raise ErroImpressao("idempotency_key_obrigatoria")
-        if producao.tenant_id != contexto.tenant_id or producao.unidade_id != contexto.unidade_id:
+        if (
+            producao.tenant_id != contexto.tenant_id
+            or producao.unidade_id != contexto.unidade_id
+        ):
             raise ErroImpressao("recurso_indisponivel")
-        if setor.tenant_id != contexto.tenant_id or setor.unidade_id != contexto.unidade_id:
+        if (
+            setor.tenant_id != contexto.tenant_id
+            or setor.unidade_id != contexto.unidade_id
+        ):
             raise ErroImpressao("recurso_indisponivel")
         if producao.setor_id != setor.setor_id:
             raise ErroImpressao("setor_producao_divergente")
-        destino = self._destinos.get((contexto.tenant_id, contexto.unidade_id, setor.setor_id))
+
+        destino = self._destinos.get(
+            (contexto.tenant_id, contexto.unidade_id, setor.setor_id)
+        )
         if not destino:
-            return ResultadoEnfileiramento(None, False, False, "sem_destino_ativo")
+            return ResultadoEnfileiramento(
+                None, False, False, "sem_destino_ativo"
+            )
 
         conteudo = renderizar_ticket_setor(
             producao=producao,
@@ -137,7 +148,11 @@ class ServicoSpoolImpressao:
             contexto.tenant_id, contexto.unidade_id, dedup_key
         )
         if existente:
-            return ResultadoEnfileiramento(existente, False, True, "deduplicado")
+            if existente.documento_hash != documento_hash:
+                raise ErroImpressao("conflito_idempotencia_impressao")
+            return ResultadoEnfileiramento(
+                existente, False, True, "deduplicado"
+            )
 
         job = JobImpressao(
             job_id=str(uuid4()),
@@ -161,9 +176,17 @@ class ServicoSpoolImpressao:
         salvo = self.repositorio.adicionar(job)
         return ResultadoEnfileiramento(salvo, True, False, "enfileirado")
 
-    def processar(self, *, contexto: ContextoExecucao, job_id: str, timestamp: datetime) -> ResultadoProcessamento:
+    def processar(
+        self,
+        *,
+        contexto: ContextoExecucao,
+        job_id: str,
+        timestamp: datetime,
+    ) -> ResultadoProcessamento:
         agora = _utc(timestamp)
-        job = self.repositorio.buscar(contexto.tenant_id, contexto.unidade_id, job_id)
+        job = self.repositorio.buscar(
+            contexto.tenant_id, contexto.unidade_id, job_id
+        )
         if not job:
             raise ErroImpressao("job_impressao_indisponivel")
         if job.status is StatusImpressao.IMPRESSO:
@@ -182,13 +205,19 @@ class ServicoSpoolImpressao:
             contingencia = tentativa >= job.max_tentativas
             novo = replace(
                 job,
-                status=(StatusImpressao.CONTINGENCIA if contingencia else StatusImpressao.FALHOU),
+                status=(
+                    StatusImpressao.CONTINGENCIA
+                    if contingencia
+                    else StatusImpressao.FALHOU
+                ),
                 tentativa=tentativa,
                 versao=job.versao + 1,
                 atualizado_em=agora,
                 ultimo_erro="impressora_indisponivel",
             )
-            salvo = self.repositorio.atualizar(novo, versao_esperada=job.versao)
+            salvo = self.repositorio.atualizar(
+                novo, versao_esperada=job.versao
+            )
             return ResultadoProcessamento(salvo, False, contingencia)
 
         novo = replace(
@@ -199,7 +228,9 @@ class ServicoSpoolImpressao:
             atualizado_em=agora,
             ultimo_erro=None,
         )
-        salvo = self.repositorio.atualizar(novo, versao_esperada=job.versao)
+        salvo = self.repositorio.atualizar(
+            novo, versao_esperada=job.versao
+        )
         return ResultadoProcessamento(salvo, True, False)
 
     def reimprimir(
@@ -208,13 +239,19 @@ class ServicoSpoolImpressao:
         contexto: ContextoExecucao,
         job_id: str,
         motivo: str,
+        idempotency_key: str,
         timestamp: datetime,
-    ) -> tuple[JobImpressao, EventoAuditoria]:
+    ) -> tuple[JobImpressao, EventoAuditoria | None]:
         agora = _utc(timestamp)
         motivo_seguro = _texto_operacional(motivo, 120)
         if len(motivo_seguro) < 5:
             raise ErroImpressao("motivo_reimpressao_obrigatorio")
-        original = self.repositorio.buscar(contexto.tenant_id, contexto.unidade_id, job_id)
+        if not idempotency_key.strip():
+            raise ErroImpressao("idempotency_key_obrigatoria")
+
+        original = self.repositorio.buscar(
+            contexto.tenant_id, contexto.unidade_id, job_id
+        )
         if not original:
             raise ErroImpressao("job_impressao_indisponivel")
         decisao = AutorizarAcao().executar(
@@ -227,6 +264,29 @@ class ServicoSpoolImpressao:
         if not decisao.autorizado:
             raise ErroImpressao(decisao.codigo)
 
+        dedup_key = _hash(
+            "|".join(
+                (
+                    "reprint",
+                    original.job_id,
+                    contexto.tenant_id,
+                    contexto.unidade_id,
+                    idempotency_key,
+                    TEMPLATE_VERSAO,
+                )
+            )
+        )
+        existente = self.repositorio.buscar_por_dedup(
+            contexto.tenant_id, contexto.unidade_id, dedup_key
+        )
+        if existente:
+            if (
+                existente.reimpressao_de != original.job_id
+                or existente.motivo_reimpressao != motivo_seguro
+            ):
+                raise ErroImpressao("conflito_idempotencia_impressao")
+            return existente, None
+
         novo = JobImpressao(
             job_id=str(uuid4()),
             tenant_id=original.tenant_id,
@@ -236,7 +296,7 @@ class ServicoSpoolImpressao:
             pedido_id=original.pedido_id,
             pedido_item_id=original.pedido_item_id,
             impressora_id=original.impressora_id,
-            dedup_key=_hash(f"reprint|{original.job_id}|{uuid4()}"),
+            dedup_key=dedup_key,
             documento_hash=original.documento_hash,
             conteudo=original.conteudo,
             status=StatusImpressao.PENDENTE,
