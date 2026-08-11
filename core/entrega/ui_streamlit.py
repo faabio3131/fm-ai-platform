@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Any
 
 import streamlit as st
 from sqlalchemy.orm import Session
@@ -161,35 +162,33 @@ def _acoes_entregador(
     contexto: Any,
     entrega: Any,
 ) -> None:
-    if entrega.status is StatusEntrega.ATRIBUIDA:
-        if st.button(
-            f"Confirmar coleta · {entrega.pedido_id}",
-            key=f"entrega-coletar-{entrega.entrega_id}",
-        ):
-            _executar(
-                session,
-                lambda: servico.coletar(
-                    entrega.entrega_id,
-                    versao_esperada=entrega.versao,
-                    contexto=contexto,
-                    idempotency_key=f"ui:coletar:{entrega.entrega_id}:v{entrega.versao}",
-                ),
-            )
+    if entrega.status is StatusEntrega.ATRIBUIDA and st.button(
+        f"Confirmar coleta · {entrega.pedido_id}",
+        key=f"entrega-coletar-{entrega.entrega_id}",
+    ):
+        _executar(
+            session,
+            lambda: servico.coletar(
+                entrega.entrega_id,
+                versao_esperada=entrega.versao,
+                contexto=contexto,
+                idempotency_key=f"ui:coletar:{entrega.entrega_id}:v{entrega.versao}",
+            ),
+        )
 
-    if entrega.status is StatusEntrega.COLETADA:
-        if st.button(
-            f"Sair em rota · {entrega.pedido_id}",
-            key=f"entrega-rota-{entrega.entrega_id}",
-        ):
-            _executar(
-                session,
-                lambda: servico.sair_em_rota(
-                    entrega.entrega_id,
-                    versao_esperada=entrega.versao,
-                    contexto=contexto,
-                    idempotency_key=f"ui:rota:{entrega.entrega_id}:v{entrega.versao}",
-                ),
-            )
+    if entrega.status is StatusEntrega.COLETADA and st.button(
+        f"Sair em rota · {entrega.pedido_id}",
+        key=f"entrega-rota-{entrega.entrega_id}",
+    ):
+        _executar(
+            session,
+            lambda: servico.sair_em_rota(
+                entrega.entrega_id,
+                versao_esperada=entrega.versao,
+                contexto=contexto,
+                idempotency_key=f"ui:rota:{entrega.entrega_id}:v{entrega.versao}",
+            ),
+        )
 
     if entrega.status is StatusEntrega.EM_ROTA:
         prova_ref = st.text_input(
