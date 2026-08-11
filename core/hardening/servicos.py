@@ -141,17 +141,17 @@ class ServicoHardeningGateE:
         avisos: list[str] = []
         validas: list[TipoEvidenciaGateE] = []
         for tipo in TIPOS_OBRIGATORIOS_GATE_E:
-            evidencia = por_tipo.get(tipo)
-            if evidencia is None:
+            evidencia_tipo = por_tipo.get(tipo)
+            if evidencia_tipo is None:
                 bloqueios.append(f"evidencia_ausente:{tipo.value}")
                 continue
-            if not evidencia.aprovado:
+            if not evidencia_tipo.aprovado:
                 bloqueios.append(f"evidencia_reprovada:{tipo.value}")
                 continue
-            if evidencia.expirada(instante):
+            if evidencia_tipo.expirada(instante):
                 bloqueios.append(f"evidencia_expirada:{tipo.value}")
                 continue
-            if ordem_nivel[evidencia.nivel] < ordem_nivel[nivel_minimo]:
+            if ordem_nivel[evidencia_tipo.nivel] < ordem_nivel[nivel_minimo]:
                 bloqueios.append(f"evidencia_nivel_insuficiente:{tipo.value}")
                 continue
             validas.append(tipo)
