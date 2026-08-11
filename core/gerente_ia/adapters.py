@@ -57,6 +57,10 @@ class PortaConsultasGerenciais(Protocol):
 
 
 class PortaAcoesGerenciais(Protocol):
+    def previsualizar_priorizacao(
+        self, *, tenant_id: str, unidade_id: str, pedido_id: str, prioridade: int
+    ) -> RegistroGerencial: ...
+
     def priorizar_pedido(
         self,
         *,
@@ -69,6 +73,15 @@ class PortaAcoesGerenciais(Protocol):
         usuario_id: str,
         correlation_id: str,
     ) -> str: ...
+
+    def previsualizar_pausa_produto(
+        self,
+        *,
+        tenant_id: str,
+        unidade_id: str,
+        produto_id: str,
+        duracao_minutos: int | None,
+    ) -> RegistroGerencial: ...
 
     def pausar_produto(
         self,
