@@ -1,0 +1,38 @@
+name: PR18 Adapters Marketplace Gates
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  adapters:
+    name: Adapters iFood 99Food e Keeta
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Ruff PR18
+        run: >-
+          ruff check core/marketplaces tests/contract/marketplaces/test_adapters_pr18.py
+      - name: mypy PR18
+        run: mypy core/marketplaces
+      - name: Contratos PR18
+        run: pytest -q tests/contract/marketplaces/test_adapters_pr18.py
+      - name: Regressao marketplace PR17
+        run: >-
+          pytest -q tests/unit/marketplaces tests/integration/marketplaces
+          tests/contract/marketplaces tests/e2e-marketplace
+      - name: Suite Python completa
+        run: pytest -q
