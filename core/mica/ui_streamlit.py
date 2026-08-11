@@ -118,7 +118,7 @@ def render_mica_v1(
                 raw = str(resposta.text)
             except Exception:  # noqa: BLE001 - fronteira de provedor externo
                 raw = "{resposta-invalida"
-            resultado = _servico().interpretar(
+            resultado_analisado = _servico().interpretar(
                 tenant_id=tenant_id,
                 unidade_id=unidade_id,
                 conversa_id=conversa_id,
@@ -126,7 +126,7 @@ def render_mica_v1(
                 raw_ia=raw,
                 catalogo=catalogo,
             )
-            st.session_state["_mica_v1_resultado"] = resultado
+            st.session_state["_mica_v1_resultado"] = resultado_analisado
             st.session_state["_mica_v1_idempotencia"] = str(uuid4())
 
     resultado = st.session_state.get("_mica_v1_resultado")
