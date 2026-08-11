@@ -55,4 +55,7 @@ jobs:
       - name: Instalar Chromium
         run: npx playwright install --with-deps chromium
       - name: Rodar E2E Delivery
+        env:
+          FM_AI_TEST_MODE: '1'
+          FM_AI_DELIVERY_V1: '1'
         run: npx playwright test -c playwright.delivery.config.ts --reporter=list
