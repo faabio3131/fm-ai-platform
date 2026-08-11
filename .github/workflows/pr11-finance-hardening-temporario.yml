@@ -1,0 +1,59 @@
+name: PR11 Finance Hardening Temporario
+
+on:
+  push:
+    branches:
+      - codex/implementar-mesas-comandas-v1
+
+permissions:
+  contents: write
+
+jobs:
+  aplicar:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validar parcela planejada e venda reconhecida
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('core/salao/servicos.py')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace(
+              'from core.pagamentos.modelos_orm import PagamentoORM\n',
+              'from core.pagamentos.modelos_orm import PagamentoORM, VendaFinanceiraORM\n',
+              1,
+          )
+
+          marcador = 'def _validar_pagamento_autoritativo(\n'
+          helper = '''def _validar_parcela_planejada(\n    repositorio: RepositorioSalaoSQLAlchemy,\n    contexto: ContextoExecucao,\n    *,\n    comanda_id: str,\n    metodo: MetodoFechamento,\n    valor: Decimal,\n) -> None:\n    parcelas = repositorio.listar_parcelas(\n        contexto.tenant_id, contexto.unidade_id, comanda_id\n    )\n    compativeis = tuple(\n        parcela\n        for parcela in parcelas\n        if parcela.metodo == metodo and parcela.valor == valor\n    )\n    if not compativeis:\n        raise ErroSalao("pagamento_fora_plano")\n    confirmadas = int(\n        repositorio.session.scalar(\n            select(func.count())\n            .select_from(PagamentoConfirmadoComandaORM)\n            .where(\n                PagamentoConfirmadoComandaORM.tenant_id == contexto.tenant_id,\n                PagamentoConfirmadoComandaORM.unidade_id == contexto.unidade_id,\n                PagamentoConfirmadoComandaORM.comanda_id == comanda_id,\n                PagamentoConfirmadoComandaORM.metodo == metodo.value,\n                PagamentoConfirmadoComandaORM.valor == valor,\n            )\n        )\n        or 0\n    )\n    if confirmadas >= len(compativeis):\n        raise ErroSalao("pagamento_fora_plano")\n\n\n'''
+          if 'def _validar_parcela_planejada(' not in s:
+              assert marcador in s
+              s = s.replace(marcador, helper + marcador, 1)
+
+          valor_marker = '''        valor = _centavos(valor)\n        if valor <= 0 or valor > comanda.saldo:\n            raise ErroSalao("valor_pagamento_invalido")\n        _validar_pagamento_autoritativo(\n'''
+          valor_novo = '''        valor = _centavos(valor)\n        if valor <= 0 or valor > comanda.saldo:\n            raise ErroSalao("valor_pagamento_invalido")\n        _validar_parcela_planejada(\n            self.repositorio,\n            contexto,\n            comanda_id=comanda_id,\n            metodo=metodo,\n            valor=valor,\n        )\n        _validar_pagamento_autoritativo(\n'''
+          assert valor_marker in s
+          s = s.replace(valor_marker, valor_novo, 1)
+
+          cancel_marker = '''        if self.repositorio.total_pago_confirmado(\n            contexto.tenant_id, contexto.unidade_id, comanda_id\n        ) > 0:\n            raise ErroSalao("comanda_com_pagamento_nao_pode_cancelar")\n        instante = self.agora()\n'''
+          cancel_novo = '''        if self.repositorio.total_pago_confirmado(\n            contexto.tenant_id, contexto.unidade_id, comanda_id\n        ) > 0:\n            raise ErroSalao("comanda_com_pagamento_nao_pode_cancelar")\n        venda_reconhecida = int(\n            self.repositorio.session.scalar(\n                select(func.count())\n                .select_from(VendaFinanceiraORM)\n                .where(\n                    VendaFinanceiraORM.tenant_id == contexto.tenant_id,\n                    VendaFinanceiraORM.unidade_id == contexto.unidade_id,\n                    VendaFinanceiraORM.comanda_id == comanda_id,\n                )\n            )\n            or 0\n        )\n        if venda_reconhecida:\n            raise ErroSalao("comanda_com_venda_reconhecida_nao_pode_cancelar")\n        instante = self.agora()\n'''
+          assert cancel_marker in s
+          s = s.replace(cancel_marker, cancel_novo, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Formatar e persistir
+        run: |
+          python -m pip install ruff==0.16.1
+          ruff check core/salao/servicos.py --fix
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add core/salao/servicos.py
+          git commit -m "fix(salao): validar plano financeiro e venda reconhecida"
+          git push origin HEAD:codex/implementar-mesas-comandas-v1
