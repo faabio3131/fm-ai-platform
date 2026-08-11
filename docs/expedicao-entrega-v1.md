@@ -90,19 +90,17 @@ Desabilitar `FM_AI_ENTREGA_V1`. Nenhuma migration real ou deploy de produção f
 
 ## Evidência de validação
 
-No código funcional validado antes desta atualização documental:
+No head final `2e2be723d0e5af8a655b3c36822109486a4b6c19`:
 
 - Ruff PR13: `All checks passed!`;
 - mypy PR13: `Success: no issues found in 13 source files`;
 - testes focados de entrega: `10 passed`;
 - suíte Python completa: `348 passed`;
 - E2E PR13: `3 passed`, cobrindo checklist/atribuição, custódia com financeiro resolvido e bloqueio de conclusão com pagamento `aguardando_entrega`;
-- regressão PR10/KDS: verde;
-- regressão PR11/Salão: verde;
-- regressão PR12/Garçom: verde;
+- workflow PR10/KDS: verde;
+- workflow PR11/Salão: verde;
+- workflow PR12/Garçom: verde;
 - branch: 0 commits atrás da `main`.
-
-A atualização deste documento também passa pelos mesmos workflows antes da aprovação final de merge.
 
 ## Aprovação
 
