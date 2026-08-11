@@ -106,6 +106,8 @@ class Entrega:
     versao: int
     tentativa: int = 1
     entregador_id: str | None = None
+    producao_pronta_em: datetime | None = None
+    checklist_concluido_em: datetime | None = None
     atribuida_em: datetime | None = None
     coletada_em: datetime | None = None
     saiu_em: datetime | None = None
@@ -129,5 +131,19 @@ class Entrega:
             if not prova or len(prova) > 255:
                 raise ErroEntrega("prova_referencia_invalida")
             object.__setattr__(self, "prova_entrega_ref", prova)
-        for campo in ("atribuida_em", "coletada_em", "saiu_em", "entregue_em"):
+        for campo in (
+            "producao_pronta_em",
+            "checklist_concluido_em",
+            "atribuida_em",
+            "coletada_em",
+            "saiu_em",
+            "entregue_em",
+        ):
             object.__setattr__(self, campo, _utc(getattr(self, campo)))
+
+        if self.status in {StatusEntrega.COLETADA, StatusEntrega.EM_ROTA, StatusEntrega.ENTREGUE}:
+            if self.producao_pronta_em is None or self.checklist_concluido_em is None:
+                raise ErroEntrega("custodia_sem_conferencia")
+        if self.status is StatusEntrega.ENTREGUE:
+            if self.entregue_em is None or not self.prova_entrega_ref:
+                raise ErroEntrega("entrega_sem_prova")
