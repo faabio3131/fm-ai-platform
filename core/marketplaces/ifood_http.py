@@ -6,14 +6,17 @@ fakes; nenhuma credencial ou chamada externa é executada pela PR18.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Any, Mapping, Protocol
+from typing import Any, Protocol
 
 from .erros import ErroMarketplace, ErroMarketplaceTransitorio
 from .ifood_sandbox import IFOOD_CAPACIDADES
 from .modelos import (
+    CapacidadeMarketplace,
+    CapacidadesMarketplace,
     EventoMarketplaceExterno,
     IntegracaoMarketplace,
     ItemMarketplace,
@@ -95,7 +98,7 @@ class IfoodHttpAdapter:
         return PlataformaMarketplace.IFOOD
 
     @property
-    def capacidades(self):
+    def capacidades(self) -> CapacidadesMarketplace:
         return IFOOD_CAPACIDADES
 
     @staticmethod

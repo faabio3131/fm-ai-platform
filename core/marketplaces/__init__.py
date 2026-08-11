@@ -38,6 +38,8 @@ from .partner_transport import TransporteParceiroNormalizado
 from .servicos import ServicoMarketplaces
 
 __all__ = [
+    "FOOD99_CAPACIDADES_PUBLICAS",
+    "KEETA_CAPACIDADES_PUBLICAS",
     "CapacidadeMarketplace",
     "CapacidadesMarketplace",
     "CredencialIfood",
@@ -45,13 +47,11 @@ __all__ = [
     "ErroMarketplacePermanente",
     "ErroMarketplaceTransitorio",
     "EventoMarketplaceExterno",
-    "FOOD99_CAPACIDADES_PUBLICAS",
     "Food99PartnerAdapter",
     "IfoodHttpAdapter",
     "IfoodSandboxAdapter",
     "IfoodSandboxTransport",
     "IntegracaoMarketplace",
-    "KEETA_CAPACIDADES_PUBLICAS",
     "KeetaPartnerAdapter",
     "MarketplaceAdapter",
     "PedidoExterno",

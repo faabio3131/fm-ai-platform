@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Mapping
+from typing import Any
 
 import pytest
 
@@ -12,14 +13,17 @@ from core.marketplaces.food99_partner import (
     Food99PartnerAdapter,
 )
 from core.marketplaces.ifood_http import (
-    CredencialIfood,
     IFOOD_AUTH_URL,
     IFOOD_ORDER_BASE_URL,
+    CredencialIfood,
     IfoodHttpAdapter,
     RespostaHttpMarketplace,
 )
 from core.marketplaces.ifood_sandbox import IFOOD_CAPACIDADES
-from core.marketplaces.keeta_partner import KEETA_CAPACIDADES_PUBLICAS, KeetaPartnerAdapter
+from core.marketplaces.keeta_partner import (
+    KEETA_CAPACIDADES_PUBLICAS,
+    KeetaPartnerAdapter,
+)
 from core.marketplaces.modelos import (
     EventoMarketplaceExterno,
     IntegracaoMarketplace,
@@ -152,14 +156,14 @@ class TransporteParceiroFake:
             id_externo=pedido_id_externo,
             merchant_id=integracao.conta_externa,
             status=StatusPedidoExterno.RECEBIDO,
-            total=Decimal("30"),
+            total=Decimal(30),
             itens=(
                 ItemMarketplace(
                     item_id_externo="i1",
                     sku="sku-1",
                     nome="Item",
-                    quantidade=Decimal("1"),
-                    preco_unitario=Decimal("30"),
+                    quantidade=Decimal(1),
+                    preco_unitario=Decimal(30),
                 ),
             ),
             atualizado_em=datetime.now(timezone.utc),
@@ -227,7 +231,7 @@ def test_ifood_http_mapeia_snapshot_sem_persistir_pii() -> None:
     assert snapshot.status is StatusPedidoExterno.CONFIRMADO
     assert snapshot.total == Decimal("40.00")
     assert snapshot.itens[0].sku == "SKU-1"
-    assert snapshot.itens[0].quantidade == Decimal("2")
+    assert snapshot.itens[0].quantidade == Decimal(2)
 
 
 def test_ifood_http_publica_comandos_oficiais() -> None:
