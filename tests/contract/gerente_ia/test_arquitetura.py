@@ -2,7 +2,6 @@ from pathlib import Path
 
 from core.gerente_ia.modelos import ToolGerenteIA
 
-
 FORBIDDEN = (
     "sqlalchemy",
     "from core.models",

@@ -6,7 +6,13 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from core.gerente_ia.erros import ErroGerenteIA
-from core.gerente_ia.modelos import ChamadaTool, PreviewAcao, RascunhoCampanha, ResultadoTool, ToolGerenteIA
+from core.gerente_ia.modelos import (
+    ChamadaTool,
+    PreviewAcao,
+    RascunhoCampanha,
+    ResultadoTool,
+    ToolGerenteIA,
+)
 from core.gerente_ia.runtime_teste import RuntimeGerenteIATeste
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import MATRIZ_PADRAO, Papel, Permissao

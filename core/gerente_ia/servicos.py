@@ -8,9 +8,9 @@ a fingerprint, RBAC, tenant/unidade e idempotência.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
-from typing import Callable
 from uuid import uuid4
 
 from core.seguranca.auditoria import (
