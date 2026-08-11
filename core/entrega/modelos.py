@@ -141,9 +141,13 @@ class Entrega:
         ):
             object.__setattr__(self, campo, _utc(getattr(self, campo)))
 
-        if self.status in {StatusEntrega.COLETADA, StatusEntrega.EM_ROTA, StatusEntrega.ENTREGUE}:
-            if self.producao_pronta_em is None or self.checklist_concluido_em is None:
-                raise ErroEntrega("custodia_sem_conferencia")
-        if self.status is StatusEntrega.ENTREGUE:
-            if self.entregue_em is None or not self.prova_entrega_ref:
-                raise ErroEntrega("entrega_sem_prova")
+        if (
+            self.status
+            in {StatusEntrega.COLETADA, StatusEntrega.EM_ROTA, StatusEntrega.ENTREGUE}
+            and (self.producao_pronta_em is None or self.checklist_concluido_em is None)
+        ):
+            raise ErroEntrega("custodia_sem_conferencia")
+        if self.status is StatusEntrega.ENTREGUE and (
+            self.entregue_em is None or not self.prova_entrega_ref
+        ):
+            raise ErroEntrega("entrega_sem_prova")
