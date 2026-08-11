@@ -1,0 +1,222 @@
+"""Interface operacional mínima da Expedição e Entrega V1."""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Any, Callable
+
+import streamlit as st
+from sqlalchemy.orm import Session
+
+from core.seguranca import Papel
+
+from .adaptador_sqlalchemy import RepositorioEntregaSQLAlchemy
+from .erros import ErroEntrega
+from .integracoes_sqlalchemy import (
+    financeiro_resolvido_sqlalchemy,
+    pedido_cancelado_sqlalchemy,
+)
+from .modelos import ChecklistExpedicao, ProvaEntrega, StatusEntrega
+from .runtime_teste import contexto_entrega_teste
+from .servicos import ServicoEntrega
+
+SessionFactory = Callable[[], Session]
+
+
+def _agora() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _contexto(papel: str, usuario_id: str):
+    return contexto_entrega_teste(
+        correlation_id=f"entrega-ui-{papel}-{usuario_id}",
+        solicitado_em=_agora(),
+        papel=papel,
+        usuario_id=usuario_id,
+    )
+
+
+def _servico(session: Session) -> ServicoEntrega:
+    return ServicoEntrega(
+        RepositorioEntregaSQLAlchemy(session),
+        financeiro_resolvido=lambda tenant, unidade, pedido: financeiro_resolvido_sqlalchemy(
+            session, tenant, unidade, pedido
+        ),
+        pedido_cancelado=lambda tenant, unidade, pedido: pedido_cancelado_sqlalchemy(
+            session, tenant, unidade, pedido
+        ),
+    )
+
+
+def _executar(session: Session, acao: Callable[[], Any]) -> None:
+    try:
+        acao()
+        session.commit()
+    except ErroEntrega as exc:
+        session.rollback()
+        st.error(f"Operação recusada: {exc.codigo}")
+        return
+    st.rerun()
+
+
+def render_entrega(*, session_factory: SessionFactory, papel: str, usuario_id: str) -> None:
+    """Renderiza somente o escopo autorizado para expedição/entregador."""
+    if papel not in {Papel.EXPEDICAO.value, Papel.ENTREGADOR.value, Papel.GERENTE.value}:
+        st.error("Papel sem acesso à Expedição e Entrega")
+        return
+
+    contexto = _contexto(papel, usuario_id)
+    st.title("Expedição e Entrega")
+    st.caption(f"Papel: {papel} · usuário: {usuario_id}")
+
+    with session_factory() as session:
+        servico = _servico(session)
+        try:
+            entregas = servico.listar(contexto)
+        except ErroEntrega as exc:
+            st.error(f"Operação recusada: {exc.codigo}")
+            return
+
+        if not entregas:
+            st.info("Nenhuma entrega na sua alçada.")
+            return
+
+        for entrega in entregas:
+            with st.container(border=True):
+                st.subheader(f"Pedido {entrega.pedido_id}")
+                st.write(f"Status: **{entrega.status.value}**")
+                st.write(f"Tentativa: {entrega.tentativa}")
+                st.write(f"Entregador: {entrega.entregador_id or 'não atribuído'}")
+
+                if papel in {Papel.EXPEDICAO.value, Papel.GERENTE.value}:
+                    _acoes_expedicao(session, servico, contexto, entrega)
+                if papel == Papel.ENTREGADOR.value:
+                    _acoes_entregador(session, servico, contexto, entrega)
+
+
+def _acoes_expedicao(
+    session: Session,
+    servico: ServicoEntrega,
+    contexto: Any,
+    entrega: Any,
+) -> None:
+    if entrega.status is StatusEntrega.AGUARDANDO_EXPEDICAO:
+        itens = st.checkbox(
+            "Itens conferidos",
+            key=f"entrega-itens-{entrega.entrega_id}",
+        )
+        embalagem = st.checkbox(
+            "Embalagem conferida",
+            key=f"entrega-embalagem-{entrega.entrega_id}",
+        )
+        identificacao = st.checkbox(
+            "Identificação conferida",
+            key=f"entrega-identificacao-{entrega.entrega_id}",
+        )
+        if st.button(
+            "Concluir checklist",
+            key=f"entrega-checklist-{entrega.entrega_id}",
+        ):
+            _executar(
+                session,
+                lambda: servico.concluir_checklist(
+                    entrega.entrega_id,
+                    ChecklistExpedicao(itens, embalagem, identificacao),
+                    versao_esperada=entrega.versao,
+                    contexto=contexto,
+                    idempotency_key=f"ui:checklist:{entrega.entrega_id}:v{entrega.versao}",
+                ),
+            )
+
+    if entrega.status in {
+        StatusEntrega.AGUARDANDO_PRODUCAO,
+        StatusEntrega.AGUARDANDO_EXPEDICAO,
+        StatusEntrega.AGUARDANDO_ENTREGADOR,
+        StatusEntrega.TENTATIVA_FALHOU,
+    }:
+        entregador_id = st.text_input(
+            "ID do entregador",
+            value="driver-1",
+            key=f"entrega-driver-{entrega.entrega_id}",
+        )
+        if st.button("Atribuir entregador", key=f"entrega-atribuir-{entrega.entrega_id}"):
+            _executar(
+                session,
+                lambda: servico.atribuir(
+                    entrega.entrega_id,
+                    entregador_id,
+                    versao_esperada=entrega.versao,
+                    contexto=contexto,
+                    idempotency_key=f"ui:atribuir:{entrega.entrega_id}:v{entrega.versao}",
+                ),
+            )
+
+
+def _acoes_entregador(
+    session: Session,
+    servico: ServicoEntrega,
+    contexto: Any,
+    entrega: Any,
+) -> None:
+    if entrega.status is StatusEntrega.ATRIBUIDA:
+        if st.button("Confirmar coleta", key=f"entrega-coletar-{entrega.entrega_id}"):
+            _executar(
+                session,
+                lambda: servico.coletar(
+                    entrega.entrega_id,
+                    versao_esperada=entrega.versao,
+                    contexto=contexto,
+                    idempotency_key=f"ui:coletar:{entrega.entrega_id}:v{entrega.versao}",
+                ),
+            )
+
+    if entrega.status is StatusEntrega.COLETADA:
+        if st.button("Sair em rota", key=f"entrega-rota-{entrega.entrega_id}"):
+            _executar(
+                session,
+                lambda: servico.sair_em_rota(
+                    entrega.entrega_id,
+                    versao_esperada=entrega.versao,
+                    contexto=contexto,
+                    idempotency_key=f"ui:rota:{entrega.entrega_id}:v{entrega.versao}",
+                ),
+            )
+
+    if entrega.status is StatusEntrega.EM_ROTA:
+        prova_ref = st.text_input(
+            "Referência da prova",
+            value=f"proof://{entrega.pedido_id}",
+            key=f"entrega-prova-{entrega.entrega_id}",
+        )
+        if st.button("Confirmar entrega", key=f"entrega-confirmar-{entrega.entrega_id}"):
+            prova = ProvaEntrega(prova_ref, "confirmacao", _agora())
+            _executar(
+                session,
+                lambda: servico.confirmar_entrega(
+                    entrega.entrega_id,
+                    prova,
+                    versao_esperada=entrega.versao,
+                    contexto=contexto,
+                    idempotency_key=f"ui:entregar:{entrega.entrega_id}:v{entrega.versao}",
+                ),
+            )
+
+        motivo = st.text_input(
+            "Motivo da tentativa",
+            value="cliente ausente",
+            key=f"entrega-motivo-{entrega.entrega_id}",
+        )
+        if st.button(
+            "Registrar tentativa sem sucesso",
+            key=f"entrega-falha-{entrega.entrega_id}",
+        ):
+            _executar(
+                session,
+                lambda: servico.registrar_tentativa_falha(
+                    entrega.entrega_id,
+                    motivo,
+                    versao_esperada=entrega.versao,
+                    contexto=contexto,
+                    idempotency_key=f"ui:falha:{entrega.entrega_id}:v{entrega.versao}",
+                ),
+            )
