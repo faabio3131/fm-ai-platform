@@ -90,7 +90,7 @@ Desabilitar `FM_AI_ENTREGA_V1`. Nenhuma migration real ou deploy de produção f
 
 ## Evidência de validação
 
-No head final `2e2be723d0e5af8a655b3c36822109486a4b6c19`:
+A implementação e as atualizações documentais passam pelos mesmos gates remotos. A evidência consolidada é:
 
 - Ruff PR13: `All checks passed!`;
 - mypy PR13: `Success: no issues found in 13 source files`;
