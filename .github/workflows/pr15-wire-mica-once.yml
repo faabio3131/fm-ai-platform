@@ -1,0 +1,36 @@
+name: PR15 Wire Mica Once
+
+on:
+  push:
+    branches:
+      - codex/refatorar-mica-v1
+    paths:
+      - scripts/pr15_patch_app.py
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/refatorar-mica-v1
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Patch app.py
+        run: python scripts/pr15_patch_app.py
+      - name: Commit wiring
+        run: |
+          if git diff --quiet -- app.py; then
+            echo "app.py already wired"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.py
+          git commit -m "feat(mica): substituir fluxo legado pela Mica V1 segura"
+          git push origin HEAD:codex/refatorar-mica-v1
