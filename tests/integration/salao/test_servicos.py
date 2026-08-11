@@ -102,8 +102,11 @@ def test_fluxo_completo_pagamento_misto_e_fechamento() -> None:
             expected_version=comanda.versao,
             idempotency_key="participante:p-1",
         )
-        comanda = servico.repositorio.obter_comanda("tenant-1", "unidade-1", "cmd-1")
-        assert comanda is not None
+        comanda_recarregada = servico.repositorio.obter_comanda(
+            "tenant-1", "unidade-1", "cmd-1"
+        )
+        assert comanda_recarregada is not None
+        comanda = comanda_recarregada
         comanda = servico.vincular_pedido(
             ctx,
             comanda_id="cmd-1",
