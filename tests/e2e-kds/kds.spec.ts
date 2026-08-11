@@ -46,10 +46,11 @@ async function ativarOffline(page: Page) {
   await expect(checkbox).toBeVisible();
   await expect(checkbox).toBeEnabled();
 
-  // O Streamlit envolve o input em um label React e, durante rerenders,
-  // overlays transitórios podem interceptar o ponteiro. `force` mantém a
-  // interação no controle real; a pós-condição abaixo prova que o rerun ocorreu.
-  await checkbox.check({ force: true });
+  // Em CI o Streamlit pode substituir o input controlado durante o mesmo
+  // rerender. locator.check() valida o estado do nó antigo e pode falhar mesmo
+  // após o evento ter sido entregue. O clique DOM dispara o evento nativo e a
+  // pós-condição abaixo valida o rerun real, que é o contrato relevante do E2E.
+  await checkbox.evaluate((element: HTMLInputElement) => element.click());
 
   await expect
     .poll(
