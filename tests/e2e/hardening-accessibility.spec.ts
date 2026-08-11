@@ -1,12 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { waitForAppReady } from './fixtures/ui';
 
-test('controles visíveis da área principal possuem nome acessível', async ({ page }) => {
+test('controles visíveis da área da aplicação possuem nome acessível', async ({ page }) => {
   await waitForAppReady(page);
-  const main = page.locator('main').first();
-  await expect(main).toBeVisible();
+  const app = page.locator('[data-testid="stAppViewContainer"]').first();
+  await expect(app).toBeVisible();
 
-  const semNome = await main
+  const semNome = await app
     .locator('button:visible, input:visible, textarea:visible, select:visible')
     .evaluateAll(elements =>
       elements
