@@ -177,19 +177,23 @@ class ServicoGarcom:
                 statuses=("pronta",),
             )
             for producao, setor in itens_prontos:
-                comanda = pedido_para_comanda.get(producao.pedido_id)
-                if comanda is None:
+                comanda_alerta = pedido_para_comanda.get(producao.pedido_id)
+                if comanda_alerta is None:
                     continue
-                mesa = mesas_por_id.get(comanda.mesa_id) if comanda.mesa_id else None
+                mesa = (
+                    mesas_por_id.get(comanda_alerta.mesa_id)
+                    if comanda_alerta.mesa_id
+                    else None
+                )
                 alertas.append(
                     AlertaProntoGarcom(
                         producao_id=producao.producao_id,
                         pedido_id=producao.pedido_id,
                         setor_id=setor.setor_id,
                         setor_nome=setor.nome,
-                        comanda_id=comanda.comanda_id,
-                        comanda_numero=comanda.numero,
-                        mesa_id=comanda.mesa_id,
+                        comanda_id=comanda_alerta.comanda_id,
+                        comanda_numero=comanda_alerta.numero,
+                        mesa_id=comanda_alerta.mesa_id,
                         mesa_codigo=mesa.codigo if mesa else None,
                         pronta_em=producao.pronta_em or producao.atualizado_em,
                         versao=producao.versao,
