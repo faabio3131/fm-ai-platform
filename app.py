@@ -106,6 +106,8 @@ from core.central_pedidos.flags import order_center_v1_enabled
 from core.central_pedidos.ui_streamlit import render_central_pedidos
 from core.kds.flags import kds_v1_enabled
 from core.kds.ui_streamlit import render_kds
+from core.salao.flags import salao_v1_enabled
+from core.salao.ui_streamlit import render_salao
 
 try:
     import pypdf
@@ -769,6 +771,8 @@ if order_center_v1_enabled():
     _nomes_abas.append("\U0001F4CB Central de Pedidos")
 if kds_v1_enabled():
     _nomes_abas.append("\U0001F373 KDS por Setor")
+if salao_v1_enabled():
+    _nomes_abas.append("🪑 Mesas e Comandas")
 
 _abas = st.tabs(_nomes_abas)
 aba1, aba2, aba3, aba4, aba5, aba6 = _abas[:6]
@@ -783,6 +787,11 @@ if order_center_v1_enabled():
 aba_kds = None
 if kds_v1_enabled():
     aba_kds = _abas[_indice_extra]
+    _indice_extra += 1
+
+aba_salao = None
+if salao_v1_enabled():
+    aba_salao = _abas[_indice_extra]
 
 if aba_central is not None:
     with aba_central:
@@ -794,6 +803,13 @@ if aba_central is not None:
 if aba_kds is not None:
     with aba_kds:
         render_kds(
+            engine=engine,
+            session_factory=SessionLocal,
+        )
+
+if aba_salao is not None:
+    with aba_salao:
+        render_salao(
             engine=engine,
             session_factory=SessionLocal,
         )
