@@ -1,6 +1,11 @@
 """API pública da Mica V1."""
 
-from .adapters import OperacaoMicaFake, PortaHandoffMica, PortaPagamentosMica, PortaPedidosMica
+from .adapters import (
+    OperacaoMicaFake,
+    PortaHandoffMica,
+    PortaPagamentosMica,
+    PortaPedidosMica,
+)
 from .erros import ErroMica
 from .flags import mica_v1_enabled
 from .modelos import (
