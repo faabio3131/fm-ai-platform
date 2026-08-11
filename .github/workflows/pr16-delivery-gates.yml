@@ -1,0 +1,61 @@
+name: PR16 Delivery Gates
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python, Ruff, mypy e contratos Delivery
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Ruff PR16
+        run: >-
+          ruff check core/delivery tests/unit/delivery tests/integration/delivery
+      - name: mypy PR16
+        run: mypy core/delivery
+      - name: Testes focados PR16
+        run: pytest -q tests/unit/delivery tests/integration/delivery
+      - name: Suite Python completa
+        run: pytest -q
+
+  e2e-delivery:
+    name: E2E jornada Delivery Próprio
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Instalar dependencias Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Instalar dependencias Node
+        run: npm ci
+      - name: Instalar Chromium
+        run: npx playwright install chromium
+      - name: Rodar E2E Delivery
+        env:
+          FM_AI_TEST_MODE: '1'
+          FM_AI_DELIVERY_V1: '1'
+        run: npx playwright test -c playwright.delivery.config.ts --reporter=list
