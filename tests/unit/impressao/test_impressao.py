@@ -14,6 +14,7 @@ from core.impressao import (
     impressao_v1_enabled,
 )
 from core.kds.modelos import ProducaoItem, SetorProducao
+from core.seguranca.auditoria import RepositorioAuditoriaEmMemoria
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import Papel, Permissao
 
@@ -72,9 +73,15 @@ def _producao() -> ProducaoItem:
 
 def _servico(
     *, falhar: bool = False, max_tentativas: int = 3
-) -> tuple[ServicoSpoolImpressao, RepositorioSpoolEmMemoria, ImpressoraFake]:
+) -> tuple[
+    ServicoSpoolImpressao,
+    RepositorioSpoolEmMemoria,
+    ImpressoraFake,
+    RepositorioAuditoriaEmMemoria,
+]:
     repositorio = RepositorioSpoolEmMemoria()
     impressora = ImpressoraFake(falhar=falhar)
+    auditoria = RepositorioAuditoriaEmMemoria()
     destino = DestinoImpressao(
         tenant_id="tenant-1",
         unidade_id="unidade-1",
@@ -85,9 +92,10 @@ def _servico(
     servico = ServicoSpoolImpressao(
         repositorio=repositorio,
         impressora=impressora,
+        auditoria=auditoria,
         destinos=(destino,),
     )
-    return servico, repositorio, impressora
+    return servico, repositorio, impressora, auditoria
 
 
 def _enfileirar(
@@ -117,7 +125,7 @@ def test_flag_fail_closed(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_enfileira_por_setor_e_deduplica() -> None:
-    servico, repositorio, _ = _servico()
+    servico, repositorio, _, _ = _servico()
 
     primeiro = _enfileirar(servico)
     repetido = _enfileirar(servico)
@@ -133,7 +141,7 @@ def test_enfileira_por_setor_e_deduplica() -> None:
 
 
 def test_mesma_idempotencia_com_documento_diferente_e_conflito() -> None:
-    servico, _, _ = _servico()
+    servico, _, _, _ = _servico()
     _enfileirar(servico)
 
     with pytest.raises(ErroImpressao) as exc:
@@ -150,7 +158,7 @@ def test_mesma_idempotencia_com_documento_diferente_e_conflito() -> None:
 
 
 def test_processamento_com_sucesso_e_idempotente() -> None:
-    servico, _, impressora = _servico()
+    servico, _, impressora, _ = _servico()
     enfileirado = _enfileirar(servico)
     assert enfileirado.job is not None
 
@@ -168,7 +176,7 @@ def test_processamento_com_sucesso_e_idempotente() -> None:
 
 
 def test_falha_vira_contingencia_sem_alterar_kds() -> None:
-    servico, _, _ = _servico(falhar=True, max_tentativas=2)
+    servico, _, _, _ = _servico(falhar=True, max_tentativas=2)
     producao = _producao()
     resultado = servico.enfileirar_item_kds(
         contexto=_contexto(),
@@ -197,7 +205,7 @@ def test_falha_vira_contingencia_sem_alterar_kds() -> None:
 
 
 def test_reimpressao_e_idempotente_e_auditada() -> None:
-    servico, repositorio, _ = _servico()
+    servico, repositorio, _, repositorio_auditoria = _servico()
     original = _enfileirar(servico)
     assert original.job is not None
 
@@ -222,11 +230,12 @@ def test_reimpressao_e_idempotente_e_auditada() -> None:
     assert auditoria is not None
     assert auditoria.acao == "impressao.reimprimir"
     assert auditoria_repetida is None
+    assert repositorio_auditoria.eventos == [auditoria]
     assert len(repositorio.listar("tenant-1", "unidade-1")) == 2
 
 
 def test_reimpressao_sem_permissao_e_negada() -> None:
-    servico, _, _ = _servico()
+    servico, _, _, repositorio_auditoria = _servico()
     original = _enfileirar(servico)
     assert original.job is not None
 
@@ -240,10 +249,11 @@ def test_reimpressao_sem_permissao_e_negada() -> None:
         )
 
     assert exc.value.codigo == "permissao_insuficiente"
+    assert repositorio_auditoria.eventos == []
 
 
 def test_escopo_multiempresa_e_setor_sao_validados() -> None:
-    servico, _, _ = _servico()
+    servico, _, _, _ = _servico()
     producao = _producao()
     setor = _setor()
 
