@@ -20,7 +20,6 @@ from .modelos import (
     ClienteCRM,
     ClienteMarketplaceRestrito,
     ConsentimentoMarketing,
-    EtapaFunilCRM,
     EventoFunilCRM,
     FinalidadeMarketing,
     StatusConsentimento,

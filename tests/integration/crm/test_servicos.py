@@ -416,7 +416,7 @@ def test_beneficio_de_conversao_exige_consentimento_e_e_idempotente() -> None:
         canal=CanalMarketing.WHATSAPP,
         finalidade=FinalidadeMarketing.PROMOCOES,
         tipo=TipoBeneficioCRM.CUPOM,
-        valor=Decimal("10"),
+        valor=Decimal(10),
         idempotency_key="benefit-1",
         correlation_id="corr-benefit-1",
     )
@@ -427,7 +427,7 @@ def test_beneficio_de_conversao_exige_consentimento_e_e_idempotente() -> None:
         canal=CanalMarketing.WHATSAPP,
         finalidade=FinalidadeMarketing.PROMOCOES,
         tipo=TipoBeneficioCRM.CUPOM,
-        valor=Decimal("10"),
+        valor=Decimal(10),
         idempotency_key="benefit-1",
         correlation_id="corr-benefit-1-retry",
     )
@@ -451,7 +451,7 @@ def test_beneficio_de_conversao_exige_consentimento_e_e_idempotente() -> None:
             canal=CanalMarketing.WHATSAPP,
             finalidade=FinalidadeMarketing.PROMOCOES,
             tipo=TipoBeneficioCRM.CASHBACK,
-            valor=Decimal("5"),
+            valor=Decimal(5),
             idempotency_key="benefit-after-revoke",
             correlation_id="corr-benefit-after-revoke",
         )
@@ -550,7 +550,7 @@ def test_resumo_funil_e_minimizado_e_idempotente() -> None:
         canal=CanalMarketing.WHATSAPP,
         finalidade=FinalidadeMarketing.PROMOCOES,
         tipo=TipoBeneficioCRM.CASHBACK,
-        valor=Decimal("3"),
+        valor=Decimal(3),
         idempotency_key="funnel-benefit",
         correlation_id="corr-funnel-benefit",
     )
