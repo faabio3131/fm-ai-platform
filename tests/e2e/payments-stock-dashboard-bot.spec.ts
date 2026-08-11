@@ -63,7 +63,7 @@ test('Estoque cadastra insumo, bloqueia duplicidade e impede venda sem saldo', a
   expect(dbNumber("select saldo_atual from insumos where nome='Carne Teste'")).toBe(stockBefore);
 });
 
-test('Dashboard usa total da venda e Bot usa resposta mockada/fallback sem segredo', async ({ page }) => {
+test('Dashboard usa total da venda e Mica permanece fail-closed sem fallback legado', async ({ page }) => {
   await waitForAppReady(page);
   await openTab(page, 'Dashboard Financeiro');
   await expect(page.getByText(/Faturamento Bruto/)).toBeVisible();
@@ -80,11 +80,12 @@ test('Dashboard usa total da venda e Bot usa resposta mockada/fallback sem segre
   expect(afterRevenue - beforeRevenue).toBeLessThan(100);
 
   await openTab(page, 'Bot Cliente');
-  await page.getByRole('button', { name: /Processar Pedido/ }).click();
-  await expect(page.getByText(/informe o WhatsApp/)).toBeVisible();
-  await page.getByLabel(/Digite o que o cliente enviou/).fill('quero um Burger Teste no pix');
-  await page.getByRole('button', { name: /Processar Pedido/ }).click();
-  await expect(page.getByText(/Atendimento comercial finalizado/)).toBeVisible();
+  await expect(page.getByText('Mica I.A. — Atendimento seguro V1')).toBeVisible();
+  await expect(
+    page.getByText(/Mica V1 está desativada neste ambiente.*fluxo legado de venda automática foi removido por segurança/),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: /Processar Pedido/ })).toHaveCount(0);
+  await expect(page.locator('body')).not.toContainText('Atendimento comercial finalizado');
   await expect(page.locator('body')).not.toContainText('GEMINI_API_KEY');
   await expectNoFatal(page);
 });
