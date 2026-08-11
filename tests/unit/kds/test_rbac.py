@@ -1,11 +1,17 @@
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import cast
 
 import pytest
 
-from core.kds import ErroKDS, ProducaoItem, RepositorioAuditoriaEmMemoria, ServicoKDS
-from core.seguranca import ContextoExecucao, MATRIZ_PADRAO, Papel
-
+from core.kds import (
+    ErroKDS,
+    ProducaoItem,
+    RepositorioAuditoriaEmMemoria,
+    RepositorioKDSSQLAlchemy,
+    ServicoKDS,
+)
+from core.seguranca import MATRIZ_PADRAO, ContextoExecucao, Papel
 
 AGORA = datetime(2026, 8, 10, 15, 0, tzinfo=UTC)
 
@@ -57,8 +63,8 @@ class RepositorioMinimo:
 
 
 def servico(item: ProducaoItem) -> ServicoKDS:
-    return ServicoKDS(  # type: ignore[arg-type]
-        RepositorioMinimo(item),
+    return ServicoKDS(
+        cast(RepositorioKDSSQLAlchemy, RepositorioMinimo(item)),
         RepositorioAuditoriaEmMemoria(),
         agora=lambda: AGORA,
     )

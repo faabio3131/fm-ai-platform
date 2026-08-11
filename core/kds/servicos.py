@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
 from hashlib import sha256
 from json import dumps
-from typing import Any, Mapping, cast
+from typing import Any, cast
 from uuid import uuid4
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -112,8 +113,9 @@ def calcular_sla(
     item: ProducaoItem,
     setor: SetorProducao,
     agora: datetime,
-    configuracao: ConfiguracaoSLAKDS = ConfiguracaoSLAKDS(),
+    configuracao: ConfiguracaoSLAKDS | None = None,
 ) -> IndicadorSLA:
+    configuracao = configuracao or ConfiguracaoSLAKDS()
     if agora.tzinfo is None:
         raise ValueError("timestamp_invalido")
     agora = agora.astimezone(timezone.utc)
@@ -157,14 +159,14 @@ class ServicoKDS:
         cache: CacheFilaKDS | None = None,
         metricas: ColetorMetricasKDS | None = None,
         agora=_agora_utc,
-        configuracao_sla: ConfiguracaoSLAKDS = ConfiguracaoSLAKDS(),
+        configuracao_sla: ConfiguracaoSLAKDS | None = None,
     ) -> None:
         self.repositorio = repositorio
         self.auditoria = auditoria
         self.cache = cache or CacheFilaKDS()
         self.metricas = metricas or ColetorMetricasKDS()
         self.agora = agora
-        self.configuracao_sla = configuracao_sla
+        self.configuracao_sla = configuracao_sla or ConfiguracaoSLAKDS()
 
     def criar_setor(
         self,

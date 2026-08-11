@@ -3,7 +3,6 @@ from decimal import Decimal
 
 from core.kds import ProducaoItem, SetorProducao, calcular_sla
 
-
 AGORA = datetime(2026, 8, 10, 15, 0, tzinfo=UTC)
 
 

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from core.seguranca import ContextoExecucao, MATRIZ_PADRAO, Papel
+from core.seguranca import MATRIZ_PADRAO, ContextoExecucao, Papel
 from core.seguranca.auditoria import RepositorioAuditoriaEmMemoria
 
 from .adaptador_sqlalchemy import RepositorioKDSSQLAlchemy

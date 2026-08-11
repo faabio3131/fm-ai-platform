@@ -1,13 +1,13 @@
 """Modelos SQLAlchemy aditivos do KDS V1."""
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     CheckConstraint,
     DateTime,
     ForeignKeyConstraint,
     Index,
     Integer,
-    JSON,
     Numeric,
     String,
     UniqueConstraint,

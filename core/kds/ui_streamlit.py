@@ -84,7 +84,7 @@ def render_kds(
             st.info("Nenhum setor de produção configurado.")
             return
 
-        opcoes = {"Todos os setores": None}
+        opcoes: dict[str, str | None] = {"Todos os setores": None}
         opcoes.update({setor.nome: setor.setor_id for setor in setores})
         nome_setor = st.selectbox("Setor", tuple(opcoes), key="kds-setor")
         setor_id = opcoes[nome_setor]
@@ -191,16 +191,17 @@ def render_kds(
                         "em_preparo",
                         precondicoes={"impedimento_resolvido": True},
                     )
-            elif producao.status == "pronta":
-                if st.button("Registrar retirada", key=f"kds-retirar-{selecionado}"):
-                    executar(
-                        "retirada",
-                        precondicoes={
-                            "conferencia_realizada": True,
-                            "posse_transferida": True,
-                        },
-                        papel="expedicao",
-                    )
+            elif producao.status == "pronta" and st.button(
+                "Registrar retirada", key=f"kds-retirar-{selecionado}"
+            ):
+                executar(
+                    "retirada",
+                    precondicoes={
+                        "conferencia_realizada": True,
+                        "posse_transferida": True,
+                    },
+                    papel="expedicao",
+                )
         except ErroKDS as exc:
             sessao.rollback()
             st.error(f"Comando KDS recusado: {exc.codigo}")

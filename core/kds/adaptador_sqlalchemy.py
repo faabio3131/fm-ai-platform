@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import and_, select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
 from core.pedidos.modelos_orm import ItemPedidoORM
@@ -296,15 +297,18 @@ class RepositorioKDSSQLAlchemy:
         elif destino == "retirada":
             valores["retirada_em"] = instante
 
-        resultado = self.session.execute(
-            update(ProducaoItemORM)
-            .where(
-                ProducaoItemORM.id == atual.producao_id,
-                ProducaoItemORM.tenant_id == atual.tenant_id,
-                ProducaoItemORM.unidade_id == atual.unidade_id,
-                ProducaoItemORM.versao == atual.versao,
-            )
-            .values(**valores)
+        resultado = cast(
+            CursorResult[Any],
+            self.session.execute(
+                update(ProducaoItemORM)
+                .where(
+                    ProducaoItemORM.id == atual.producao_id,
+                    ProducaoItemORM.tenant_id == atual.tenant_id,
+                    ProducaoItemORM.unidade_id == atual.unidade_id,
+                    ProducaoItemORM.versao == atual.versao,
+                )
+                .values(**valores)
+            ),
         )
         if resultado.rowcount != 1:
             raise ErroKDS("producao_concorrente")

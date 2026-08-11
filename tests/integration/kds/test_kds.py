@@ -15,8 +15,7 @@ from core.kds import (
     ServicoKDS,
 )
 from core.pedidos.modelos_orm import ItemPedidoORM, OrdersBase, PedidoORM
-from core.seguranca import ContextoExecucao, MATRIZ_PADRAO, Papel
-
+from core.seguranca import MATRIZ_PADRAO, ContextoExecucao, Papel
 
 AGORA = datetime(2026, 8, 10, 15, 0, tzinfo=UTC)
 
