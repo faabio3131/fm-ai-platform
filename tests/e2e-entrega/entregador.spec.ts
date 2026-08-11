@@ -1,6 +1,6 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
-async function abrirEntregador(page) {
+async function abrirEntregador(page: Page) {
   await page.goto('/?papel=entregador');
   await expect(page.locator('[data-fm-ai-e2e-ready="true"]')).toHaveAttribute(
     'data-fm-ai-e2e-papel',
