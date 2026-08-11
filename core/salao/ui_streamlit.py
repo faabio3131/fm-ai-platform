@@ -24,6 +24,8 @@ from core.salao import (
     preparar_schema_teste,
 )
 
+from .runtime_teste import registrar_pagamento_confirmado_teste
+
 
 def _contexto():
     return contexto_salao_teste(
@@ -352,10 +354,22 @@ def render_salao(*, engine: Any, session_factory: Callable[[], Session]) -> None
                     "Confirmar próxima parcela",
                     key=f"confirmar-parcela-{comanda.comanda_id}-{proxima.ordem}",
                 ):
+                    if not pedidos:
+                        raise ErroSalao("pedido_indisponivel")
+                    pagamento_id = f"ui-pay-{uuid4().hex}"
+                    registrar_pagamento_confirmado_teste(
+                        sessao,
+                        pagamento_id=pagamento_id,
+                        pedido_id=pedidos[0].pedido_id,
+                        comanda_id=comanda.comanda_id,
+                        metodo=proxima.metodo.value,
+                        valor=proxima.valor,
+                        agora=datetime.now(timezone.utc),
+                    )
                     servico.registrar_pagamento_confirmado(
                         contexto,
                         comanda_id=comanda.comanda_id,
-                        pagamento_id=f"ui-pay-{uuid4().hex}",
+                        pagamento_id=pagamento_id,
                         metodo=proxima.metodo,
                         valor=proxima.valor,
                         expected_version=comanda.versao,

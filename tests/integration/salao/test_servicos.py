@@ -5,6 +5,12 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+from core.dominio.enums import PagamentoStatus
+from core.pagamentos.modelos_orm import (
+    ObrigacaoPagamentoORM,
+    PagamentoORM,
+    PaymentsBase,
+)
 from core.pedidos.modelos_orm import OrdersBase, PedidoORM
 from core.salao import (
     ErroSalao,
@@ -37,6 +43,7 @@ def contexto(papel: Papel = Papel.GERENTE, *, tenant_id: str = "tenant-1") -> Co
 def novo_servico() -> tuple[Session, ServicoSalao]:
     engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
     OrdersBase.metadata.create_all(engine)
+    PaymentsBase.metadata.create_all(engine)
     SalaoBase.metadata.create_all(engine)
     session = Session(engine)
     return session, ServicoSalao(RepositorioSalaoSQLAlchemy(session), agora=lambda: AGORA)
@@ -63,6 +70,60 @@ def pedido(session: Session, pedido_id: str, total: str, *, tenant_id: str = "te
             descontos=Decimal("0.00"),
             taxas=Decimal("0.00"),
             total=valor,
+        )
+    )
+    session.flush()
+
+
+def pagamento_confirmado(
+    session: Session,
+    *,
+    pagamento_id: str,
+    pedido_id: str,
+    comanda_id: str,
+    metodo: MetodoFechamento,
+    valor: Decimal,
+    status: str = PagamentoStatus.PAGO.value,
+) -> None:
+    session.add(
+        ObrigacaoPagamentoORM(
+            id=pagamento_id,
+            tenant_id="tenant-1",
+            unidade_id="unidade-1",
+            pedido_id=pedido_id,
+            comanda_id=comanda_id,
+            valor_previsto=valor,
+            moeda="BRL",
+            criado_em=AGORA,
+            versao=1,
+            correlation_id=f"corr-{pagamento_id}",
+            idempotency_key=f"obrigacao-{pagamento_id}",
+            request_hash=f"hash-obrigacao-{pagamento_id}",
+        )
+    )
+    session.flush()
+    session.add(
+        PagamentoORM(
+            id=pagamento_id,
+            tenant_id="tenant-1",
+            unidade_id="unidade-1",
+            pedido_id=pedido_id,
+            comanda_id=comanda_id,
+            status=status,
+            metodo=metodo.value,
+            valor_previsto=valor,
+            valor_pago=valor if status == PagamentoStatus.PAGO.value else Decimal("0.00"),
+            valor_estornado=Decimal("0.00"),
+            saldo=Decimal("0.00") if status == PagamentoStatus.PAGO.value else valor,
+            moeda="BRL",
+            recebimento_posterior=False,
+            provedor="pytest",
+            criado_em=AGORA,
+            atualizado_em=AGORA,
+            versao=1,
+            correlation_id=f"corr-{pagamento_id}",
+            idempotency_key=f"pagamento-{pagamento_id}",
+            request_hash=f"hash-pagamento-{pagamento_id}",
         )
     )
     session.flush()
@@ -157,6 +218,14 @@ def test_fluxo_completo_pagamento_misto_e_fechamento() -> None:
         )
         assert sum((p.valor for p in parcelas), Decimal("0.00")) == Decimal("70.00")
 
+        pagamento_confirmado(
+            session,
+            pagamento_id="pay-1",
+            pedido_id="pedido-1",
+            comanda_id="cmd-1",
+            metodo=MetodoFechamento.PIX,
+            valor=Decimal("40.00"),
+        )
         comanda = servico.registrar_pagamento_confirmado(
             ctx,
             comanda_id="cmd-1",
@@ -168,6 +237,14 @@ def test_fluxo_completo_pagamento_misto_e_fechamento() -> None:
         )
         assert comanda.status == StatusComanda.PARCIALMENTE_PAGA
         assert comanda.saldo == Decimal("30.00")
+        pagamento_confirmado(
+            session,
+            pagamento_id="pay-2",
+            pedido_id="pedido-2",
+            comanda_id="cmd-1",
+            metodo=MetodoFechamento.DINHEIRO,
+            valor=Decimal("30.00"),
+        )
         comanda = servico.registrar_pagamento_confirmado(
             ctx,
             comanda_id="cmd-1",

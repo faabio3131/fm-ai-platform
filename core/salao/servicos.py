@@ -10,6 +10,8 @@ from uuid import uuid4
 
 from sqlalchemy import func, select, update
 
+from core.dominio.enums import PagamentoStatus
+from core.pagamentos.modelos_orm import PagamentoORM
 from core.pedidos.modelos_orm import PedidoORM
 from core.seguranca import AutorizarAcao, ContextoExecucao, Papel, Permissao
 
@@ -28,7 +30,12 @@ from .modelos import (
     StatusComanda,
     StatusMesa,
 )
-from .modelos_orm import ComandaORM, EventoSalaoORM, ParticipanteComandaORM
+from .modelos_orm import (
+    ComandaORM,
+    EventoSalaoORM,
+    PagamentoConfirmadoComandaORM,
+    ParticipanteComandaORM,
+)
 
 _ATIVOS = {
     StatusComanda.ABERTA,
@@ -156,6 +163,43 @@ def _outras_comandas_na_mesa(
         )
         or 0
     )
+
+
+def _validar_pagamento_autoritativo(
+    repositorio: RepositorioSalaoSQLAlchemy,
+    contexto: ContextoExecucao,
+    *,
+    comanda_id: str,
+    pagamento_id: str,
+    metodo: MetodoFechamento,
+    valor: Decimal,
+) -> None:
+    pagamento = repositorio.session.get(
+        PagamentoORM, (pagamento_id, contexto.tenant_id, contexto.unidade_id)
+    )
+    if pagamento is None:
+        raise ErroSalao("pagamento_nao_confirmado")
+    if pagamento.comanda_id != comanda_id:
+        raise ErroSalao("pagamento_nao_pertence_comanda")
+    if pagamento.status != PagamentoStatus.PAGO.value:
+        raise ErroSalao("pagamento_nao_confirmado")
+    if pagamento.metodo != metodo.value:
+        raise ErroSalao("pagamento_metodo_divergente")
+    valor_liquido = _centavos(
+        Decimal(str(pagamento.valor_pago)) - Decimal(str(pagamento.valor_estornado))
+    )
+    saldo_financeiro = _centavos(Decimal(str(pagamento.saldo)))
+    if valor_liquido != valor or saldo_financeiro != Decimal("0.00"):
+        raise ErroSalao("pagamento_valor_divergente")
+    ja_projetado = repositorio.session.scalar(
+        select(PagamentoConfirmadoComandaORM).where(
+            PagamentoConfirmadoComandaORM.tenant_id == contexto.tenant_id,
+            PagamentoConfirmadoComandaORM.unidade_id == contexto.unidade_id,
+            PagamentoConfirmadoComandaORM.pagamento_id == pagamento_id,
+        )
+    )
+    if ja_projetado is not None:
+        raise ErroSalao("pagamento_ja_projetado")
 
 
 class ServicoSalao:
@@ -832,6 +876,137 @@ class ServicoSalao:
         )
         return atualizado
 
+    def retomar_consumo(
+        self,
+        contexto: ContextoExecucao,
+        *,
+        comanda_id: str,
+        expected_version: int,
+        idempotency_key: str,
+    ) -> Comanda:
+        comanda = _obter_comanda_ativa(self.repositorio, contexto, comanda_id)
+        _autorizar(
+            contexto,
+            Permissao.COMANDA_ALTERAR,
+            "comanda",
+            comanda.tenant_id,
+            comanda.unidade_id,
+        )
+        if _evento_existente(
+            self.repositorio,
+            contexto,
+            chave=idempotency_key,
+            tipo="comanda.consumo_retomado",
+            agregado_id=comanda_id,
+        ):
+            atual = self.repositorio.obter_comanda(
+                contexto.tenant_id, contexto.unidade_id, comanda_id
+            )
+            if atual is None:
+                raise ErroSalao("recurso_indisponivel")
+            return atual
+        if comanda.status != StatusComanda.CONTA_SOLICITADA:
+            raise ErroSalao("transicao_comanda_invalida")
+        if comanda.versao != expected_version:
+            raise ErroSalao("comanda_concorrente")
+        atualizado = replace(
+            comanda, status=StatusComanda.EM_CONSUMO, versao=comanda.versao + 1
+        )
+        self.repositorio.salvar_comanda(atualizado, expected_version)
+        _registrar_evento(
+            self.repositorio,
+            contexto,
+            agregado_tipo="comanda",
+            agregado_id=comanda_id,
+            tipo="comanda.consumo_retomado",
+            versao=atualizado.versao,
+            chave=idempotency_key,
+            ocorrido_em=self.agora(),
+        )
+        return atualizado
+
+    def cancelar_comanda(
+        self,
+        contexto: ContextoExecucao,
+        *,
+        comanda_id: str,
+        expected_version: int,
+        idempotency_key: str,
+        pedidos_resolvidos: bool,
+    ) -> Comanda:
+        comanda = self.repositorio.obter_comanda(
+            contexto.tenant_id, contexto.unidade_id, comanda_id
+        )
+        if comanda is None:
+            raise ErroSalao("comanda_indisponivel")
+        _autorizar(
+            contexto,
+            Permissao.COMANDA_FECHAR,
+            "comanda",
+            comanda.tenant_id,
+            comanda.unidade_id,
+        )
+        if not ({Papel.ADMINISTRADOR, Papel.GERENTE} & contexto.papeis):
+            raise ErroSalao("alçada_insuficiente")
+        if _evento_existente(
+            self.repositorio,
+            contexto,
+            chave=idempotency_key,
+            tipo="comanda.cancelada",
+            agregado_id=comanda_id,
+        ):
+            return comanda
+        if comanda.status not in {
+            StatusComanda.ABERTA,
+            StatusComanda.EM_CONSUMO,
+            StatusComanda.CONTA_SOLICITADA,
+        }:
+            raise ErroSalao("transicao_comanda_invalida")
+        if comanda.versao != expected_version:
+            raise ErroSalao("comanda_concorrente")
+        if not pedidos_resolvidos:
+            raise ErroSalao("pedidos_nao_resolvidos")
+        if self.repositorio.total_pago_confirmado(
+            contexto.tenant_id, contexto.unidade_id, comanda_id
+        ) > 0:
+            raise ErroSalao("comanda_com_pagamento_nao_pode_cancelar")
+        instante = self.agora()
+        cancelada = replace(
+            comanda,
+            status=StatusComanda.CANCELADA,
+            saldo=Decimal("0.00"),
+            mesa_id=None,
+            versao=comanda.versao + 1,
+        )
+        self.repositorio.salvar_comanda(cancelada, expected_version)
+        if comanda.mesa_id and _outras_comandas_na_mesa(
+            self.repositorio, contexto, comanda.mesa_id, exceto=comanda_id
+        ) == 0:
+            mesa = self.repositorio.obter_mesa(
+                contexto.tenant_id, contexto.unidade_id, comanda.mesa_id
+            )
+            if mesa is not None:
+                self.repositorio.salvar_mesa(
+                    replace(
+                        mesa,
+                        status=StatusMesa.LIVRE,
+                        versao=mesa.versao + 1,
+                        atualizado_em=instante,
+                    ),
+                    mesa.versao,
+                )
+        _registrar_evento(
+            self.repositorio,
+            contexto,
+            agregado_tipo="comanda",
+            agregado_id=comanda_id,
+            tipo="comanda.cancelada",
+            versao=cancelada.versao,
+            chave=idempotency_key,
+            ocorrido_em=instante,
+        )
+        return cancelada
+
     def definir_divisao_pagamento(
         self,
         contexto: ContextoExecucao,
@@ -1012,6 +1187,14 @@ class ServicoSalao:
         valor = _centavos(valor)
         if valor <= 0 or valor > comanda.saldo:
             raise ErroSalao("valor_pagamento_invalido")
+        _validar_pagamento_autoritativo(
+            self.repositorio,
+            contexto,
+            comanda_id=comanda_id,
+            pagamento_id=pagamento_id,
+            metodo=metodo,
+            valor=valor,
+        )
         instante = self.agora()
         self.repositorio.registrar_pagamento_confirmado(
             PagamentoConfirmadoComanda(
@@ -1065,7 +1248,11 @@ class ServicoSalao:
         idempotency_key: str,
         pedidos_resolvidos: bool,
     ) -> Comanda:
-        comanda = _obter_comanda_ativa(self.repositorio, contexto, comanda_id)
+        comanda = self.repositorio.obter_comanda(
+            contexto.tenant_id, contexto.unidade_id, comanda_id
+        )
+        if comanda is None:
+            raise ErroSalao("comanda_indisponivel")
         _autorizar(
             contexto,
             Permissao.COMANDA_FECHAR,
@@ -1080,12 +1267,7 @@ class ServicoSalao:
             tipo="comanda.fechada",
             agregado_id=comanda_id,
         ):
-            atual = self.repositorio.obter_comanda(
-                contexto.tenant_id, contexto.unidade_id, comanda_id
-            )
-            if atual is None:
-                raise ErroSalao("recurso_indisponivel")
-            return atual
+            return comanda
         if comanda.status not in {
             StatusComanda.FECHAMENTO_EM_ANDAMENTO,
             StatusComanda.PARCIALMENTE_PAGA,
