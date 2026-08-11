@@ -1,0 +1,55 @@
+name: PR20 Typing Hotfix Temporario
+
+on:
+  push:
+    branches: [codex/implementar-gerente-ia-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/implementar-gerente-ia-v1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Corrigir narrow de inteiros
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('core/gerente_ia/servicos.py')
+          s = p.read_text()
+          s = s.replace('int(argumentos["prioridade"])', '_inteiro_tool(argumentos["prioridade"], "prioridade_invalida")')
+          s = s.replace('int(duracao) if duracao is not None else None', '_inteiro_tool(duracao, "duracao_minutos_invalido") if duracao is not None else None')
+          s = s.replace('int(args["prioridade"])', '_inteiro_tool(args["prioridade"], "prioridade_invalida")')
+          marker = '\ndef _recurso_tipo(tool: ToolGerenteIA) -> str:\n'
+          helper = '''\ndef _inteiro_tool(valor: object, codigo: str) -> int:\n    if isinstance(valor, bool) or not isinstance(valor, (str, int, float)):\n        raise ErroGerenteIA(codigo)\n    try:\n        inteiro = int(valor)\n    except (TypeError, ValueError) as exc:\n        raise ErroGerenteIA(codigo) from exc\n    if isinstance(valor, float) and not valor.is_integer():\n        raise ErroGerenteIA(codigo)\n    return inteiro\n\n'''
+          if '_inteiro_tool(valor: object' not in s:
+              s = s.replace(marker, helper + marker)
+          p.write_text(s)
+
+          p = Path('core/gerente_ia/runtime_teste.py')
+          s = p.read_text()
+          s = s.replace('int(dado["prioridade"])', 'int(str(dado["prioridade"]))')
+          s = s.replace('int(dado["versao"])', 'int(str(dado["versao"]))')
+          p.write_text(s)
+          PY
+      - name: Validar
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install ruff==0.16.1 mypy==1.20.2
+          ruff check core/gerente_ai.py core/gerente_ia --fix
+          ruff check core/gerente_ai.py core/gerente_ia
+          mypy core/gerente_ai.py core/gerente_ia
+      - name: Commit
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add core/gerente_ia
+          git diff --cached --quiet || git commit -m 'fix(gerente-ia): estreitar tipos numericos PR20'
+          git push origin HEAD:codex/implementar-gerente-ia-v1
