@@ -33,6 +33,8 @@ class EntregaORM(DeliveryBase):
     versao: Mapped[int] = mapped_column(Integer, nullable=False)
     tentativa: Mapped[int] = mapped_column(Integer, nullable=False)
     entregador_id: Mapped[str | None] = mapped_column(String(64))
+    producao_pronta_em: Mapped[object | None] = mapped_column(DateTime(timezone=True))
+    checklist_concluido_em: Mapped[object | None] = mapped_column(DateTime(timezone=True))
     atribuida_em: Mapped[object | None] = mapped_column(DateTime(timezone=True))
     coletada_em: Mapped[object | None] = mapped_column(DateTime(timezone=True))
     saiu_em: Mapped[object | None] = mapped_column(DateTime(timezone=True))
