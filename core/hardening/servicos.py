@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from datetime import datetime, timezone
-from typing import Iterable
 
 from .modelos import (
+    TIPOS_OBRIGATORIOS_GATE_E,
     AmostraSlo,
     DecisaoGateE,
     EvidenciaGateE,
@@ -15,7 +16,6 @@ from .modelos import (
     ResultadoRestore,
     ResultadoSlo,
     SnapshotIntegridade,
-    TIPOS_OBRIGATORIOS_GATE_E,
     TipoEvidenciaGateE,
 )
 
@@ -45,29 +45,34 @@ class ServicoHardeningGateE:
         restaurado: SnapshotIntegridade,
     ) -> ResultadoRestore:
         divergencias: list[str] = []
-        self._comparar_mapa("contagem", origem.contagens, restaurado.contagens, divergencias)
         self._comparar_mapa(
-            "soma_centavos", origem.somas_centavos, restaurado.somas_centavos, divergencias
+            "contagem", origem.contagens, restaurado.contagens, divergencias
         )
-        self._comparar_mapa("checksum", origem.checksums, restaurado.checksums, divergencias)
+        self._comparar_mapa(
+            "soma_centavos",
+            origem.somas_centavos,
+            restaurado.somas_centavos,
+            divergencias,
+        )
+        self._comparar_mapa(
+            "checksum", origem.checksums, restaurado.checksums, divergencias
+        )
         return ResultadoRestore(aprovado=not divergencias, divergencias=tuple(divergencias))
 
     @staticmethod
     def _comparar_mapa(
         prefixo: str,
-        esperado: object,
-        obtido: object,
+        esperado: Mapping[str, object],
+        obtido: Mapping[str, object],
         divergencias: list[str],
     ) -> None:
-        esperado_dict = dict(esperado)  # type: ignore[arg-type]
-        obtido_dict = dict(obtido)  # type: ignore[arg-type]
-        chaves = sorted(set(esperado_dict) | set(obtido_dict))
+        chaves = sorted(set(esperado) | set(obtido))
         for chave in chaves:
-            if chave not in esperado_dict:
+            if chave not in esperado:
                 divergencias.append(f"{prefixo}:{chave}:extra_no_restore")
-            elif chave not in obtido_dict:
+            elif chave not in obtido:
                 divergencias.append(f"{prefixo}:{chave}:ausente_no_restore")
-            elif esperado_dict[chave] != obtido_dict[chave]:
+            elif esperado[chave] != obtido[chave]:
                 divergencias.append(f"{prefixo}:{chave}:divergente")
 
     def avaliar_pronto_para_homologacao(
