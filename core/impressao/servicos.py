@@ -9,7 +9,11 @@ from decimal import Decimal
 from uuid import uuid4
 
 from core.kds.modelos import ProducaoItem, SetorProducao
-from core.seguranca.auditoria import EventoAuditoria, sanitizar_metadata
+from core.seguranca.auditoria import (
+    EventoAuditoria,
+    RepositorioAuditoria,
+    sanitizar_metadata,
+)
 from core.seguranca.autorizacao import AutorizarAcao
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import Permissao
@@ -81,10 +85,12 @@ class ServicoSpoolImpressao:
         *,
         repositorio: RepositorioSpoolImpressao,
         impressora: PortaImpressora,
+        auditoria: RepositorioAuditoria,
         destinos: tuple[DestinoImpressao, ...],
     ) -> None:
         self.repositorio = repositorio
         self.impressora = impressora
+        self.auditoria = auditoria
         self._destinos = {
             (destino.tenant_id, destino.unidade_id, destino.setor_id): destino
             for destino in destinos
@@ -297,7 +303,7 @@ class ServicoSpoolImpressao:
         )
         salvo = self.repositorio.adicionar(novo)
         papel = next(iter(sorted(contexto.papeis, key=str)), None)
-        auditoria = EventoAuditoria(
+        evento_auditoria = EventoAuditoria(
             audit_id=str(uuid4()),
             tenant_id=contexto.tenant_id,
             unidade_id=contexto.unidade_id,
@@ -321,4 +327,5 @@ class ServicoSpoolImpressao:
                 }
             ),
         )
-        return salvo, auditoria
+        self.auditoria.adicionar(evento_auditoria)
+        return salvo, evento_auditoria
