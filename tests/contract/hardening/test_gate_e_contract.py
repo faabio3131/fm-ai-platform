@@ -52,6 +52,7 @@ def test_documentacao_declara_que_ci_sintetico_nao_autoriza_producao() -> None:
     doc = (ROOT / "docs" / "hardening-transversal-v1.md").read_text(
         encoding="utf-8"
     ).lower()
-    assert "evidência sintética não autoriza release" in doc
-    assert "nenhum teste desta pr toca banco ou credencial real" in doc
-    assert "no-go" in doc
+    doc_normalizado = " ".join(doc.split())
+    assert "evidência sintética não autoriza release" in doc_normalizado
+    assert "nenhum teste desta pr toca banco ou credencial real" in doc_normalizado
+    assert "no-go" in doc_normalizado
