@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import os
+from collections.abc import Callable
 from decimal import Decimal
-from typing import Any, Callable
+from typing import Any
 from uuid import uuid4
 
 import streamlit as st
@@ -13,8 +14,13 @@ import streamlit as st
 from core.pagamentos.modelos import MetodoPagamento
 
 from .adapters import OperacaoMicaFake
+from .erros import ErroMica
 from .flags import mica_v1_enabled
-from .modelos import EstadoAtendimentoMica, ProdutoCatalogoMica, ResultadoAtendimentoMica
+from .modelos import (
+    EstadoAtendimentoMica,
+    ProdutoCatalogoMica,
+    ResultadoAtendimentoMica,
+)
 from .servicos import ServicoMica
 
 
@@ -110,7 +116,7 @@ def render_mica_v1(
             try:
                 resposta = generate_content(contents=_prompt(menu, mensagem))
                 raw = str(resposta.text)
-            except Exception:
+            except Exception:  # noqa: BLE001 - fronteira de provedor externo
                 raw = "{resposta-invalida"
             resultado = _servico().interpretar(
                 tenant_id=tenant_id,
@@ -153,9 +159,8 @@ def render_mica_v1(
                 metodo=metodos[metodo_label],
                 idempotency_key=str(st.session_state["_mica_v1_idempotencia"]),
             )
-        except Exception as exc:
-            codigo = getattr(exc, "codigo", "confirmacao_recusada")
-            st.error(f"Pedido não confirmado: {codigo}")
+        except ErroMica as exc:
+            st.error(f"Pedido não confirmado: {exc.codigo}")
             return
         st.session_state["_mica_v1_resultado"] = final
         st.success(final.mensagem)
