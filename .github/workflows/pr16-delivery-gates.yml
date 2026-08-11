@@ -53,7 +53,7 @@ jobs:
       - name: Instalar dependencias Node
         run: npm ci
       - name: Instalar Chromium
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
       - name: Rodar E2E Delivery
         env:
           FM_AI_TEST_MODE: '1'
