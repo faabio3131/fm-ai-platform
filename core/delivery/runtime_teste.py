@@ -10,6 +10,7 @@ from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from threading import RLock
+from typing import ClassVar
 
 from core.dominio.enums import PagamentoStatus
 from core.entrega.modelos import StatusEntrega
@@ -332,7 +333,7 @@ class MemoriaPagamentosDelivery:
 
 
 class MemoriaEntregasDelivery:
-    _TRANSICOES = {
+    _TRANSICOES: ClassVar[dict[StatusEntrega, set[StatusEntrega]]] = {
         StatusEntrega.AGUARDANDO_PRODUCAO: {StatusEntrega.AGUARDANDO_EXPEDICAO},
         StatusEntrega.AGUARDANDO_EXPEDICAO: {
             StatusEntrega.AGUARDANDO_ENTREGADOR,
@@ -470,7 +471,7 @@ class RuntimeDeliveryTeste:
                 unidade_id="unidade-demo",
                 nome="Burger Delivery",
                 preco=Decimal("32.00"),
-                estoque_disponivel=Decimal("20"),
+                estoque_disponivel=Decimal(20),
                 custo_estimado=Decimal("12.00"),
             ),
             ProdutoDelivery(
@@ -479,7 +480,7 @@ class RuntimeDeliveryTeste:
                 unidade_id="unidade-demo",
                 nome="Batata Crocante",
                 preco=Decimal("15.00"),
-                estoque_disponivel=Decimal("30"),
+                estoque_disponivel=Decimal(30),
                 custo_estimado=Decimal("5.00"),
             ),
         )
@@ -502,8 +503,8 @@ class RuntimeDeliveryTeste:
                 tenant_id="tenant-demo",
                 unidade_id="unidade-demo",
                 tipo=TipoCupom.PERCENTUAL,
-                valor=Decimal("10"),
-                minimo_pedido=Decimal("20"),
+                valor=Decimal(10),
+                minimo_pedido=Decimal(20),
                 inicio=agora - timedelta(days=1),
                 fim=agora + timedelta(days=30),
                 limite_total=100,

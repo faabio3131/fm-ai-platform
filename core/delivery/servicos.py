@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Iterable
 from dataclasses import replace
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Iterable
 
 from core.dominio.enums import PagamentoStatus, PedidoStatus
 from core.entrega.modelos import StatusEntrega
@@ -524,18 +524,18 @@ class ServicoDelivery:
                 pedido.total
                 if pedido.pagamento.status
                 in {PagamentoStatus.PAGO, PagamentoStatus.ESTORNADO}
-                else Decimal("0")
+                else Decimal(0)
             )
             return ResultadoCancelamentoDelivery(
                 pedido=pedido,
                 estagio=estagio,
                 estorno_previsto=estorno,
                 desperdicio_estimado=(
-                    Decimal("0")
+                    Decimal(0)
                     if estagio is EstagioCancelamento.ANTES_PRODUCAO
                     else sum(
                         (i.custo_estimado for i in pedido.itens),
-                        start=Decimal("0"),
+                        start=Decimal(0),
                     )
                 ),
                 cashback_restaurado=pedido.cashback_usado,
@@ -555,7 +555,7 @@ class ServicoDelivery:
             tenant_id=tenant_id, unidade_id=unidade_id, pedido_id=pedido_id
         ).status
         estorno_previsto = (
-            pedido.total if status_pagamento is PagamentoStatus.PAGO else Decimal("0")
+            pedido.total if status_pagamento is PagamentoStatus.PAGO else Decimal(0)
         )
         status_final = self.pagamentos.cancelar_ou_estornar(
             tenant_id=tenant_id,
@@ -591,9 +591,9 @@ class ServicoDelivery:
             idempotency_key=f"delivery:cancelamento:pedido:{idempotency_key}",
         )
         desperdicio = (
-            Decimal("0")
+            Decimal(0)
             if estagio is EstagioCancelamento.ANTES_PRODUCAO
-            else sum((i.custo_estimado for i in pedido.itens), start=Decimal("0"))
+            else sum((i.custo_estimado for i in pedido.itens), start=Decimal(0))
         )
         return ResultadoCancelamentoDelivery(
             pedido=cancelado,

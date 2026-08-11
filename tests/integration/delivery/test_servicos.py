@@ -4,13 +4,16 @@ from decimal import Decimal
 
 import pytest
 
+from core.delivery.erros import ErroDelivery
+from core.delivery.modelos import (
+    EnderecoDelivery,
+    EstagioCancelamento,
+    StatusCarrinhoDelivery,
+)
+from core.delivery.runtime_teste import RuntimeDeliveryTeste
 from core.dominio.enums import PagamentoStatus, PedidoStatus
 from core.entrega.modelos import StatusEntrega
 from core.pagamentos.modelos import MetodoPagamento
-from core.delivery.erros import ErroDelivery
-from core.delivery.modelos import EnderecoDelivery, EstagioCancelamento, StatusCarrinhoDelivery
-from core.delivery.runtime_teste import RuntimeDeliveryTeste
-
 
 TENANT = "tenant-demo"
 UNIDADE = "unidade-demo"
@@ -71,7 +74,7 @@ def test_jornada_completa_cupom_cashback_pix_e_tracking() -> None:
         tenant_id=TENANT,
         unidade_id=UNIDADE,
         carrinho_id=carrinho.carrinho_id,
-        valor_desejado=Decimal("5"),
+        valor_desejado=Decimal(5),
         expected_version=carrinho.versao,
     )
     assert carrinho.total == Decimal("30.80")
@@ -156,7 +159,7 @@ def test_fechamento_revalida_preco_versao_e_estoque() -> None:
 def test_fechamento_revalida_taxa_e_sla_versionados() -> None:
     runtime = RuntimeDeliveryTeste()
     carrinho = _pronto(runtime)
-    nova_area = replace(runtime.areas[0], taxa=Decimal("9"), versao=2)
+    nova_area = replace(runtime.areas[0], taxa=Decimal(9), versao=2)
     with pytest.raises(ErroDelivery, match="cotacao_alterada_reconfirmacao"):
         runtime.servico.confirmar(
             tenant_id=TENANT,
@@ -177,7 +180,7 @@ def test_cashback_nunca_reserva_acima_do_saldo_autoritativo() -> None:
         tenant_id=TENANT,
         unidade_id=UNIDADE,
         carrinho_id=carrinho.carrinho_id,
-        valor_desejado=Decimal("999"),
+        valor_desejado=Decimal(999),
         expected_version=carrinho.versao,
     )
     assert carrinho.cashback_reservado == Decimal("20.00")
@@ -200,7 +203,7 @@ def test_repetir_pedido_revalida_preco_area_e_nao_copia_promocao() -> None:
         areas=runtime.areas,
     )
     novo_catalogo = (
-        replace(runtime.catalogo[0], preco=Decimal("36"), versao=2),
+        replace(runtime.catalogo[0], preco=Decimal(36), versao=2),
         runtime.catalogo[1],
     )
     repetido = runtime.servico.repetir(
@@ -259,7 +262,7 @@ def test_cancelamento_reconcilia_pagamento_cashback_cupom_e_entrega() -> None:
         tenant_id=TENANT,
         unidade_id=UNIDADE,
         carrinho_id=carrinho.carrinho_id,
-        valor_desejado=Decimal("5"),
+        valor_desejado=Decimal(5),
         expected_version=carrinho.versao,
     )
     confirmado = runtime.servico.confirmar(

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
 
 from core.dominio.enums import PagamentoStatus, PedidoStatus
@@ -64,7 +64,7 @@ class ProdutoDelivery:
     nome: str
     preco: Decimal
     estoque_disponivel: Decimal
-    custo_estimado: Decimal = Decimal("0")
+    custo_estimado: Decimal = Decimal(0)
     ativo: bool = True
     versao: int = 1
 
@@ -219,7 +219,7 @@ class CupomDelivery:
         object.__setattr__(self, "fim", utc(self.fim))
         if self.fim <= self.inicio:
             raise ErroDelivery("vigencia_cupom_invalida")
-        if self.tipo is TipoCupom.PERCENTUAL and self.valor > Decimal("100"):
+        if self.tipo is TipoCupom.PERCENTUAL and self.valor > Decimal(100):
             raise ErroDelivery("percentual_cupom_invalido")
         if self.limite_total is not None and self.limite_total < 1:
             raise ErroDelivery("limite_cupom_invalido")
@@ -232,7 +232,7 @@ class CupomDelivery:
             raise ErroDelivery("cupom_minimo_nao_atingido")
         if self.tipo is TipoCupom.FIXO:
             return min(self.valor, subtotal)
-        return min(moeda(subtotal * self.valor / Decimal("100")), subtotal)
+        return min(moeda(subtotal * self.valor / Decimal(100)), subtotal)
 
 
 @dataclass(frozen=True)
@@ -247,8 +247,8 @@ class CarrinhoDelivery:
     endereco: EnderecoDelivery | None = None
     cotacao: CotacaoEntrega | None = None
     cupom_codigo: str | None = None
-    desconto_cupom: Decimal = Decimal("0")
-    cashback_reservado: Decimal = Decimal("0")
+    desconto_cupom: Decimal = Decimal(0)
+    cashback_reservado: Decimal = Decimal(0)
     pedido_id: str | None = None
     idempotency_confirmacao: str | None = None
 
@@ -277,7 +277,7 @@ class CarrinhoDelivery:
 
     @property
     def subtotal(self) -> Decimal:
-        return moeda(sum((item.subtotal for item in self.itens), start=Decimal("0")))
+        return moeda(sum((item.subtotal for item in self.itens), start=Decimal(0)))
 
     @property
     def taxa_entrega(self) -> Decimal:
@@ -286,12 +286,12 @@ class CarrinhoDelivery:
     @property
     def total(self) -> Decimal:
         base = self.subtotal + self.taxa_entrega - self.desconto_cupom
-        return moeda(max(Decimal("0"), base - self.cashback_reservado))
+        return moeda(max(Decimal(0), base - self.cashback_reservado))
 
     @property
     def custo_estimado_itens(self) -> Decimal:
         return moeda(
-            sum((item.custo_estimado for item in self.itens), start=Decimal("0"))
+            sum((item.custo_estimado for item in self.itens), start=Decimal(0))
         )
 
 

@@ -3,9 +3,6 @@ from decimal import Decimal
 
 import pytest
 
-from core.dominio.enums import PagamentoStatus, PedidoStatus
-from core.entrega.modelos import StatusEntrega
-from core.pagamentos.modelos import MetodoPagamento
 from core.delivery.erros import ErroDelivery
 from core.delivery.modelos import (
     AreaEntrega,
@@ -22,6 +19,9 @@ from core.delivery.modelos import (
     TipoCupom,
     moeda,
 )
+from core.dominio.enums import PagamentoStatus, PedidoStatus
+from core.entrega.modelos import StatusEntrega
+from core.pagamentos.modelos import MetodoPagamento
 
 
 def test_moeda_arredonda_e_rejeita_negativo() -> None:
@@ -66,7 +66,7 @@ def test_area_valida_taxa_sla_e_prefixos() -> None:
         unidade_id="u1",
         nome="Centro",
         prefixos_cep=("010", "01001"),
-        taxa=Decimal("7"),
+        taxa=Decimal(7),
         sla_minutos=30,
         sla_maxutos=45,
         versao=1,
@@ -82,15 +82,15 @@ def test_cupom_percentual_respeita_minimo() -> None:
         tenant_id="t",
         unidade_id="u",
         tipo=TipoCupom.PERCENTUAL,
-        valor=Decimal("10"),
-        minimo_pedido=Decimal("20"),
+        valor=Decimal(10),
+        minimo_pedido=Decimal(20),
         inicio=agora - timedelta(hours=1),
         fim=agora + timedelta(hours=1),
     )
     assert cupom.codigo == "DEZ"
-    assert cupom.calcular_desconto(Decimal("32")) == Decimal("3.20")
+    assert cupom.calcular_desconto(Decimal(32)) == Decimal("3.20")
     with pytest.raises(ErroDelivery, match="cupom_minimo_nao_atingido"):
-        cupom.calcular_desconto(Decimal("10"))
+        cupom.calcular_desconto(Decimal(10))
 
 
 def test_carrinho_calcula_total_com_taxa_cupom_e_cashback() -> None:
@@ -98,8 +98,8 @@ def test_carrinho_calcula_total_com_taxa_cupom_e_cashback() -> None:
         produto_id="p1",
         nome="Burger",
         quantidade=2,
-        preco_unitario=Decimal("20"),
-        custo_estimado_unitario=Decimal("8"),
+        preco_unitario=Decimal(20),
+        custo_estimado_unitario=Decimal(8),
         produto_versao=1,
     )
     carrinho = CarrinhoDelivery(
@@ -113,13 +113,13 @@ def test_carrinho_calcula_total_com_taxa_cupom_e_cashback() -> None:
         cotacao=CotacaoEntrega(
             area_id="a1",
             nome_area="Centro",
-            taxa=Decimal("7"),
+            taxa=Decimal(7),
             sla_minutos=30,
             sla_maxutos=45,
             versao_area=1,
         ),
-        desconto_cupom=Decimal("5"),
-        cashback_reservado=Decimal("10"),
+        desconto_cupom=Decimal(5),
+        cashback_reservado=Decimal(10),
     )
     assert carrinho.subtotal == Decimal("40.00")
     assert carrinho.total == Decimal("32.00")
@@ -133,8 +133,8 @@ def test_produto_rejeita_estoque_negativo() -> None:
             tenant_id="t",
             unidade_id="u",
             nome="Produto",
-            preco=Decimal("1"),
-            estoque_disponivel=Decimal("-1"),
+            preco=Decimal(1),
+            estoque_disponivel=Decimal(-1),
         )
 
 
@@ -156,7 +156,7 @@ def test_tracking_exige_timestamp_com_timezone() -> None:
             entrega_id="e",
             status=StatusEntrega.AGUARDANDO_PRODUCAO,
             mensagem="Aguardando",
-            ocorrido_em=datetime.now(),
+            ocorrido_em=datetime.now(timezone.utc).replace(tzinfo=None),
         )
 
 
@@ -174,7 +174,7 @@ def test_pedido_delivery_preserva_autoridades_financeira_e_logistica() -> None:
     cotacao = CotacaoEntrega(
         area_id="a",
         nome_area="Centro",
-        taxa=Decimal("7"),
+        taxa=Decimal(7),
         sla_minutos=30,
         sla_maxutos=45,
         versao_area=1,
@@ -183,8 +183,8 @@ def test_pedido_delivery_preserva_autoridades_financeira_e_logistica() -> None:
         produto_id="p",
         nome="Produto",
         quantidade=1,
-        preco_unitario=Decimal("20"),
-        custo_estimado_unitario=Decimal("8"),
+        preco_unitario=Decimal(20),
+        custo_estimado_unitario=Decimal(8),
         produto_versao=1,
     )
     pedido = PedidoDelivery(
@@ -196,9 +196,9 @@ def test_pedido_delivery_preserva_autoridades_financeira_e_logistica() -> None:
         itens=(item,),
         endereco=endereco,
         cotacao=cotacao,
-        desconto_cupom=Decimal("0"),
-        cashback_usado=Decimal("0"),
-        total=Decimal("27"),
+        desconto_cupom=Decimal(0),
+        cashback_usado=Decimal(0),
+        total=Decimal(27),
         pagamento=PagamentoDeliveryRef(
             pagamento_id="pay",
             status=PagamentoStatus.PENDENTE,
