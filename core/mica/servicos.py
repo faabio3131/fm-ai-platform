@@ -8,8 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from decimal import Decimal
-from typing import Iterable
+from collections.abc import Iterable
 
 from core.dominio.enums import PagamentoStatus
 from core.pagamentos.modelos import MetodoPagamento
