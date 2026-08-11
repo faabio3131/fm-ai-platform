@@ -11,7 +11,7 @@ from uuid import uuid4
 from sqlalchemy import func, select, update
 
 from core.dominio.enums import PagamentoStatus
-from core.pagamentos.modelos_orm import PagamentoORM
+from core.pagamentos.modelos_orm import PagamentoORM, VendaFinanceiraORM
 from core.pedidos.modelos_orm import PedidoORM
 from core.seguranca import AutorizarAcao, ContextoExecucao, Papel, Permissao
 
@@ -163,6 +163,42 @@ def _outras_comandas_na_mesa(
         )
         or 0
     )
+
+
+def _validar_parcela_planejada(
+    repositorio: RepositorioSalaoSQLAlchemy,
+    contexto: ContextoExecucao,
+    *,
+    comanda_id: str,
+    metodo: MetodoFechamento,
+    valor: Decimal,
+) -> None:
+    parcelas = repositorio.listar_parcelas(
+        contexto.tenant_id, contexto.unidade_id, comanda_id
+    )
+    compativeis = tuple(
+        parcela
+        for parcela in parcelas
+        if parcela.metodo == metodo and parcela.valor == valor
+    )
+    if not compativeis:
+        raise ErroSalao("pagamento_fora_plano")
+    confirmadas = int(
+        repositorio.session.scalar(
+            select(func.count())
+            .select_from(PagamentoConfirmadoComandaORM)
+            .where(
+                PagamentoConfirmadoComandaORM.tenant_id == contexto.tenant_id,
+                PagamentoConfirmadoComandaORM.unidade_id == contexto.unidade_id,
+                PagamentoConfirmadoComandaORM.comanda_id == comanda_id,
+                PagamentoConfirmadoComandaORM.metodo == metodo.value,
+                PagamentoConfirmadoComandaORM.valor == valor,
+            )
+        )
+        or 0
+    )
+    if confirmadas >= len(compativeis):
+        raise ErroSalao("pagamento_fora_plano")
 
 
 def _validar_pagamento_autoritativo(
@@ -970,6 +1006,20 @@ class ServicoSalao:
             contexto.tenant_id, contexto.unidade_id, comanda_id
         ) > 0:
             raise ErroSalao("comanda_com_pagamento_nao_pode_cancelar")
+        venda_reconhecida = int(
+            self.repositorio.session.scalar(
+                select(func.count())
+                .select_from(VendaFinanceiraORM)
+                .where(
+                    VendaFinanceiraORM.tenant_id == contexto.tenant_id,
+                    VendaFinanceiraORM.unidade_id == contexto.unidade_id,
+                    VendaFinanceiraORM.comanda_id == comanda_id,
+                )
+            )
+            or 0
+        )
+        if venda_reconhecida:
+            raise ErroSalao("comanda_com_venda_reconhecida_nao_pode_cancelar")
         instante = self.agora()
         cancelada = replace(
             comanda,
@@ -1187,6 +1237,13 @@ class ServicoSalao:
         valor = _centavos(valor)
         if valor <= 0 or valor > comanda.saldo:
             raise ErroSalao("valor_pagamento_invalido")
+        _validar_parcela_planejada(
+            self.repositorio,
+            contexto,
+            comanda_id=comanda_id,
+            metodo=metodo,
+            valor=valor,
+        )
         _validar_pagamento_autoritativo(
             self.repositorio,
             contexto,
