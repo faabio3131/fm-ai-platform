@@ -1,0 +1,51 @@
+name: PR16 Hotfix Temporario
+
+on:
+  push:
+    branches: [codex/implementar-delivery-proprio-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/implementar-delivery-proprio-v1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Corrigir inferencia de tipo
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('core/delivery/servicos.py')
+          s = p.read_text()
+          s = s.replace(
+              '            pedido_id = _id("ped", f"{tenant_id}:{unidade_id}:{idempotency_key}")\n            reivindicado = replace(\n',
+              '            novo_pedido_id = _id("ped", f"{tenant_id}:{unidade_id}:{idempotency_key}")\n            reivindicado = replace(\n',
+              1,
+          )
+          s = s.replace(
+              '                pedido_id=pedido_id,\n                idempotency_confirmacao=idempotency_key,\n',
+              '                pedido_id=novo_pedido_id,\n                idempotency_confirmacao=idempotency_key,\n',
+              1,
+          )
+          p.write_text(s)
+          PY
+      - name: Validar
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install ruff==0.16.1 mypy==1.20.2
+          ruff check core/delivery tests/unit/delivery tests/integration/delivery
+          mypy core/delivery
+      - name: Commit
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add core/delivery/servicos.py
+          git diff --cached --quiet || git commit -m 'fix(delivery): estabilizar tipo do pedido na confirmação'
+          git push origin HEAD:codex/implementar-delivery-proprio-v1
