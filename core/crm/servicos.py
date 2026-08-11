@@ -221,8 +221,8 @@ class ServicoCRM:
             expira_em=instante + timedelta(days=ttl_dias),
             apelido=apelido,
         )
-        salvo, criado = self.marketplace_clientes.registrar(cliente)
-        if criado:
+        salvo, idempotente = self.marketplace_clientes.registrar(cliente)
+        if not idempotente:
             self._registrar_funil(
                 tenant_id=tenant_id,
                 unidade_id=unidade_id,
