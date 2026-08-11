@@ -1,128 +1,13 @@
-name: PR11 Fix Temporario
+name: PR11 Fix Temporario Desativado
 
 on:
-  push:
-    branches:
-      - codex/implementar-mesas-comandas-v1
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  corrigir:
-    if: github.actor != 'github-actions[bot]'
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Corrigir UI e E2E
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          ui = Path("core/salao/ui_streamlit.py")
-          s = ui.read_text(encoding="utf-8")
-
-          antigo = '''                vinculados = {item.pedido_id for item in pedidos}
-                          pedidos_disponiveis = tuple(
-                              sessao.scalars(
-                                  select(PedidoORM)
-                                  .where(
-                                      PedidoORM.tenant_id == contexto.tenant_id,
-                                      PedidoORM.unidade_id == contexto.unidade_id,
-                                      PedidoORM.status != "cancelado",
-                                      PedidoORM.id.notin_(vinculados) if vinculados else True,
-                                  )
-                                  .order_by(PedidoORM.criado_em, PedidoORM.id)
-                              )
-                          )
-          '''
-          novo = '''                vinculados = {item.pedido_id for item in pedidos}
-                          consulta_pedidos = (
-                              select(PedidoORM)
-                              .where(
-                                  PedidoORM.tenant_id == contexto.tenant_id,
-                                  PedidoORM.unidade_id == contexto.unidade_id,
-                                  PedidoORM.status != "cancelado",
-                              )
-                              .order_by(PedidoORM.criado_em, PedidoORM.id)
-                          )
-                          if vinculados:
-                              consulta_pedidos = consulta_pedidos.where(
-                                  PedidoORM.id.notin_(vinculados)
-                              )
-                          pedidos_disponiveis = tuple(sessao.scalars(consulta_pedidos))
-          '''
-          assert antigo in s, "consulta de pedidos esperada nao encontrada"
-          s = s.replace(antigo, novo, 1)
-
-          s = s.replace(
-              '''                    destino = opcoes_destino[destino_nome]
-                              servico.transferir_comanda(
-                                  contexto,
-                                  comanda_id=comanda.comanda_id,
-                                  mesa_destino_id=destino.mesa_id,
-                                  expected_comanda_version=comanda.versao,
-                                  expected_origem_version=mesa.versao,
-                                  expected_destino_version=destino.versao,
-          ''',
-              '''                    mesa_destino = opcoes_destino[destino_nome]
-                              servico.transferir_comanda(
-                                  contexto,
-                                  comanda_id=comanda.comanda_id,
-                                  mesa_destino_id=mesa_destino.mesa_id,
-                                  expected_comanda_version=comanda.versao,
-                                  expected_origem_version=mesa.versao,
-                                  expected_destino_version=mesa_destino.versao,
-          ''',
-              1,
-          )
-          s = s.replace(
-              '''                    destino = opcoes_juntar[juntar_nome]
-                              servico.juntar_comandas(
-                                  contexto,
-                                  origem_id=comanda.comanda_id,
-                                  destino_id=destino.comanda_id,
-                                  expected_origem_version=comanda.versao,
-                                  expected_destino_version=destino.versao,
-                                  idempotency_key=(
-                                      f"ui:juntar:{comanda.comanda_id}:{destino.comanda_id}"
-          ''',
-              '''                    comanda_destino = opcoes_juntar[juntar_nome]
-                              servico.juntar_comandas(
-                                  contexto,
-                                  origem_id=comanda.comanda_id,
-                                  destino_id=comanda_destino.comanda_id,
-                                  expected_origem_version=comanda.versao,
-                                  expected_destino_version=comanda_destino.versao,
-                                  idempotency_key=(
-                                      f"ui:juntar:{comanda.comanda_id}:{comanda_destino.comanda_id}"
-          ''',
-              1,
-          )
-          ui.write_text(s, encoding="utf-8")
-
-          spec = Path("tests/e2e-salao/salao.spec.ts")
-          t = spec.read_text(encoding="utf-8")
-          t = t.replace(
-              "import { expect, test } from '@playwright/test';",
-              "import { expect, test, type Page } from '@playwright/test';",
-              1,
-          )
-          t = t.replace("async function abrirSalao(page) {", "async function abrirSalao(page: Page) {", 1)
-          t = t.replace("  await selectComboboxOption(page, 'Pedido disponível', /pedido-salao-1/);\n", "", 1)
-          t = t.replace("  await selectComboboxOption(page, 'Pedido disponível', /pedido-salao-2/);\n", "", 1)
-          spec.write_text(t, encoding="utf-8")
-          PY
-      - name: Persistir correcoes
-        run: |
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add core/salao/ui_streamlit.py tests/e2e-salao/salao.spec.ts
-            git commit -m "fix(salao): corrigir tipagem e selecao E2E"
-            git push origin HEAD:codex/implementar-mesas-comandas-v1
-          fi
+      - run: echo "Workflow temporario desativado; remover antes do merge."
