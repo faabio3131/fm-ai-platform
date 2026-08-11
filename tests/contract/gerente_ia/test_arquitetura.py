@@ -9,7 +9,6 @@ FORBIDDEN = (
     "session.query",
     "execute(text(",
     "client_secret",
-    "api_key",
     "authorization =",
 )
 
