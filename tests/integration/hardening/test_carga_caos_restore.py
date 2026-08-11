@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from core.delivery.erros import ErroDelivery
 from core.delivery.runtime_teste import RuntimeDeliveryTeste
-from core.hardening import ModoDegradacao, ResultadoCaos, ServicoHardeningGateE
+from core.hardening import ModoDegradacao, ResultadoCaos
 
 TENANT = "tenant-demo"
 UNIDADE = "unidade-demo"
@@ -53,7 +53,6 @@ def test_pico_concorrente_nao_duplica_mutacao_do_mesmo_carrinho() -> None:
 
 
 def test_caos_fail_closed_reprova_perda_duplicidade_e_recuperacao_lenta() -> None:
-    servico = ServicoHardeningGateE()
     saudavel = ResultadoCaos(
         cenario="marketplace_timeout",
         modo_esperado=ModoDegradacao.FAIL_CLOSED,
