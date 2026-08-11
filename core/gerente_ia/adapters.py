@@ -129,6 +129,15 @@ class RepositorioPreviewsGerenteIA(Protocol):
         fingerprint: str,
     ) -> PreviewAcao: ...
 
+    def liberar_execucao(
+        self,
+        *,
+        tenant_id: str,
+        unidade_id: str,
+        preview_id: str,
+        fingerprint: str,
+    ) -> None: ...
+
     def concluir(self, resultado: ResultadoAcao) -> None: ...
 
     def obter_resultado_por_idempotencia(
