@@ -1,91 +1,115 @@
 # Política de Retenção e Descarte de Dados — V1
 
-**Status:** MINUTA — NÃO APROVADA JURIDICAMENTE
+**Status:** VIGENTE PARA HOMOLOGAÇÃO PRÉ-COMERCIAL
+
+**Produção / uso comercial:** NÃO AUTORIZADOS POR ESTA VERSÃO
 
 **Projeto:** F&M Tecnologia / FM AI Platform
 
-**Escopo:** homologação V1 e preparação para produção.
+**Versão:** `v1-pre-comercial`
 
 ## 1. Objetivo
 
-Definir critérios mínimos de retenção, eliminação, anonimização e descarte seguro de dados tratados pela plataforma, respeitando finalidade, necessidade, segurança, prevenção e prestação de contas.
+Definir os critérios de retenção, eliminação, anonimização e descarte seguro aplicáveis à fase atual de desenvolvimento e homologação, mantendo uma separação explícita entre testes pré-comerciais e a futura operação de produção.
 
-Esta minuta não substitui parecer jurídico, análise do encarregado/DPO ou obrigações legais, fiscais, trabalhistas, consumeristas, contratuais ou regulatórias aplicáveis ao negócio.
+Esta política é um instrumento interno de governança. Ela não substitui parecer jurídico, obrigações legais, fiscais, consumeristas, contratuais ou regulatórias que venham a incidir na operação comercial.
 
-## 2. Regras gerais
+## 2. Estado atual do projeto
 
-1. Dados pessoais só devem ser mantidos enquanto houver finalidade válida e base jurídica aplicável.
-2. Encerrada a finalidade do tratamento, os dados devem ser eliminados ou anonimizados, salvo hipótese legal de conservação.
-3. A retenção deve ser mínima, justificada e documentada por categoria de dado.
-4. Dados de teste e homologação devem ser sintéticos ou anonimizados sempre que possível.
-5. Segredos, tokens, credenciais e chaves não devem ser gravados no repositório nem em artefatos de evidência.
-6. Backups de teste devem ser temporários, criptografados quando persistidos e eliminados após a validação técnica.
-7. Evidências técnicas devem evitar PII e conter apenas o necessário para auditoria.
-8. Toda exceção de retenção deve registrar responsável, fundamento, prazo e destino final.
+O titular declarou em 12/08/2026 que atua atualmente como pessoa física e constituirá CNPJ antes do uso comercial dos produtos.
 
-## 3. Matriz de retenção V1
+Nesta fase:
 
-| Categoria | Ambiente | Conteúdo permitido | Retenção V1 | Destino final | Status |
+- não há autorização para uso comercial;
+- a homologação deve utilizar dados sintéticos ou anonimizados;
+- credenciais reais de clientes, gateways ou marketplaces não devem ser usadas;
+- dados de produção não devem ser copiados para o ambiente de teste;
+- o Gate E de produção permanece bloqueado por desenho até o gate pré-lançamento.
+
+## 3. Regras gerais
+
+1. Dados pessoais, quando houver tratamento aplicável, devem observar finalidade, necessidade, segurança e base jurídica adequada.
+2. Dados de homologação devem ser sintéticos ou anonimizados sempre que possível.
+3. Segredos, tokens, credenciais e chaves não devem ser gravados no repositório nem em artefatos de evidência.
+4. Backups de teste devem ser temporários, criptografados quando persistidos e eliminados após a validação técnica.
+5. Evidências técnicas devem evitar PII e conter apenas o necessário para auditoria.
+6. Nenhum dado de produção pode ser usado para contornar a ausência de uma política comercial definitiva.
+7. O lançamento comercial exige nova versão desta política, aprovada após a constituição do controlador comercial e a análise dos tratamentos reais.
+
+## 4. Matriz de retenção — fase pré-comercial
+
+| Categoria | Ambiente | Conteúdo permitido | Retenção V1 | Destino final | Estado |
 |---|---|---|---|---|---|
-| Banco SQLite de homologação | Homologação | Dados sintéticos/anonimizados | Efêmero durante a execução | Exclusão ao término do runner | Técnico definido |
-| Backup de homologação | Homologação | Cópia de teste criptografada | Somente durante backup/restore | Exclusão após validação | Técnico definido |
-| Artefatos Gate E | Homologação | JSON sem banco bruto/PII | 14 dias conforme workflow atual | Expiração automática do artefato | Técnico definido |
-| Logs de homologação | Homologação | Sem segredos/PII intencional | Conforme política operacional do provedor | Expiração conforme configuração aplicável | Revisar antes de produção |
-| Dados cadastrais de clientes | Produção | Mínimo necessário | A definir pelo Jurídico/DPO | Eliminação ou anonimização | Pendente aprovação |
-| Dados de pedidos/comandas | Produção | Dados necessários à operação | A definir conforme obrigações aplicáveis | Eliminação/anonimização quando cabível | Pendente aprovação |
-| Dados financeiros/fiscais | Produção | Dados exigidos para a finalidade | A definir conforme obrigações legais/regulatórias | Descarte após prazo aplicável | Pendente aprovação |
-| Dados de CRM/marketing | Produção | Somente com fundamento e consentimento quando aplicável | A definir por finalidade | Eliminação após término da finalidade ou solicitação válida | Pendente aprovação |
-| Auditoria e segurança | Produção | Identificadores e metadados mínimos | A definir por risco e necessidade | Eliminação segura | Pendente aprovação |
+| Banco SQLite de homologação | Homologação | Dados sintéticos/anonimizados | Efêmero durante a execução | Exclusão ao término do runner | Vigente |
+| Backup de homologação | Homologação | Cópia de teste criptografada | Somente durante backup/restore | Exclusão após validação | Vigente |
+| Artefatos Gate E | Homologação | JSON sem banco bruto/PII | 14 dias conforme workflow | Expiração automática | Vigente |
+| Logs de homologação | Homologação | Sem segredos/PII intencional | Conforme política do provedor | Expiração conforme configuração | Vigente |
 | Credenciais e segredos | Todos | Nunca em texto no repositório | Enquanto necessários ao serviço | Rotação/revogação e exclusão segura | Regra obrigatória |
+| Dados cadastrais de clientes | Produção | **Não autorizados nesta fase** | Definir no gate pré-lançamento | Definir no gate pré-lançamento | Bloqueado |
+| Pedidos/comandas reais | Produção | **Não autorizados nesta fase** | Definir no gate pré-lançamento | Definir no gate pré-lançamento | Bloqueado |
+| Dados financeiros/fiscais reais | Produção | **Não autorizados nesta fase** | Definir conforme obrigações aplicáveis | Definir no gate pré-lançamento | Bloqueado |
+| CRM/marketing real | Produção | **Não autorizado nesta fase** | Definir por finalidade/base legal | Definir no gate pré-lançamento | Bloqueado |
+| Auditoria de usuários reais | Produção | **Não autorizada nesta fase** | Definir por risco/necessidade | Definir no gate pré-lançamento | Bloqueado |
 
-## 4. Procedimento de descarte
+Os itens de produção não são “pendências” da homologação: são capacidades deliberadamente bloqueadas até a formalização da operação comercial.
 
-Para cada categoria aprovada, o descarte deverá observar:
+## 5. Procedimento de descarte em homologação
 
-- confirmação de que a finalidade terminou ou que o prazo aprovado expirou;
-- verificação de eventual obrigação de conservação;
-- eliminação segura ou anonimização quando juridicamente adequada;
-- propagação do descarte às cópias sob controle da empresa, respeitando limitações técnicas e legais;
-- registro mínimo de auditoria sem preservar o conteúdo eliminado;
-- revogação/rotação de credenciais quando o descarte envolver segredos.
+Para os dados de teste e suas cópias:
 
-## 5. Solicitações de titulares
+- eliminar arquivos temporários ao término do runner;
+- eliminar cópias de backup após a validação de restore;
+- não publicar banco bruto como artefato;
+- não registrar segredos ou PII intencional em logs;
+- manter apenas evidências técnicas mínimas e temporárias;
+- revogar ou rotacionar qualquer credencial de teste que deixe de ser necessária.
 
-Pedidos de acesso, correção, eliminação, revogação de consentimento ou demais direitos devem ser avaliados conforme a LGPD e as hipóteses legais de conservação. A plataforma não deve eliminar automaticamente dados sujeitos a obrigação legal ou regulatória sem validação adequada.
+## 6. Pessoa natural e agente de pequeno porte
 
-## 6. Homologação Gate E
+A Resolução CD/ANPD nº 2/2022 inclui pessoas naturais no conceito de agentes de tratamento de pequeno porte quando realizam tratamento assumindo obrigações típicas de controlador ou operador. O regulamento também prevê dispensa de indicação de encarregado para agentes de pequeno porte elegíveis, com manutenção de canal de comunicação com titulares quando aplicável.
 
-Para o Gate E atual:
+A elegibilidade ao regime diferenciado e a avaliação de alto risco deverão ser refeitas no lançamento comercial, pois dependem da operação concreta, escala, riscos e demais critérios regulatórios.
 
-- o release candidate permanece imutável;
-- o banco é isolado e de teste;
-- nenhum dado de produção deve ser usado;
-- artefatos não devem conter banco bruto ou PII;
-- a evidência de privacidade só poderá ser marcada como aprovada após aceite humano jurídico/DPO desta política ou de versão substituta formalmente aprovada.
+Referência oficial:
 
-## 7. Aprovação necessária
+- Resolução CD/ANPD nº 2/2022 — https://www.gov.br/anpd/pt-br/acesso-a-informacao/institucional/atos-normativos/regulamentacoes_anpd/resolucao-cd-anpd-no-2-de-27-de-janeiro-de-2022
 
-Antes de qualquer GO técnico para produção, o Jurídico/DPO deve revisar e decidir, no mínimo:
+## 7. Direitos de titulares
 
-- categorias de dados efetivamente tratadas;
-- finalidade e fundamento de cada tratamento;
-- prazos de retenção de produção;
-- hipóteses de conservação após término do tratamento;
-- procedimento de eliminação/anonimização;
-- tratamento de backups e logs;
-- atendimento de direitos dos titulares;
-- responsabilidades entre controlador, operador, fornecedores e suboperadores.
+A fase atual não autoriza ingestão de dados reais de clientes para homologação. Se, excepcionalmente, qualquer dado pessoal real for introduzido, o teste deve ser interrompido e o caso deve ser tratado segundo a LGPD e a governança aplicável antes de prosseguir.
 
-A aprovação deve ser registrada em documento/issue auditável contendo nome ou identificação do responsável, função, data, versão da política e decisão explícita.
+Para produção, os mecanismos de atendimento aos direitos dos titulares deverão estar definidos e validados no gate pré-lançamento comercial.
 
-## 8. Referências oficiais para revisão
+## 8. Gate obrigatório antes do lançamento comercial
 
-- Lei nº 13.709/2018 — LGPD, especialmente princípios do art. 6º e regras de término/conservação dos arts. 15 e 16.
-- Orientações e perguntas frequentes da Autoridade Nacional de Proteção de Dados — ANPD.
-- Guia Orientativo sobre Segurança da Informação para Agentes de Tratamento de Pequeno Porte — ANPD.
+Nenhum lançamento comercial pode ocorrer sem o cumprimento integral de `docs/compliance/gate-pre-lancamento-comercial-v1.md`.
 
-## 9. Controle de versão
+Esse gate exige, entre outros pontos:
 
-- Versão: `v1-draft`
-- Estado: `PENDENTE_APROVACAO_JURIDICO_DPO`
-- Esta versão não autoriza deploy, migration de produção, uso de credenciais reais ou liberação comercial.
+- CNPJ/controlador constituído e identificado;
+- responsabilidades de controlador e operadores definidas;
+- inventário real de tratamentos;
+- bases legais/finalidades registradas;
+- prazos de retenção de produção definidos;
+- canal de titulares;
+- avaliação de alto risco;
+- decisão documentada sobre encarregado/DPO;
+- contratos, segurança, incidentes e privacidade revalidados;
+- novo GO técnico e decisão humana separada de produção.
+
+## 9. Relação com o Gate E
+
+O Gate E técnico de produção pode permanecer com `legal_approval=false` enquanto o projeto estiver pré-comercial. Esse valor funciona como trava de produção e não invalida a conclusão da homologação interna com dados de teste.
+
+Estados válidos:
+
+- `HOMOLOGACAO_PRE_COMERCIAL_CONCLUIDA`
+- `PRODUCAO_BLOQUEADA_ATE_GATE_PRE_LANCAMENTO`
+
+## 10. Controle de versão
+
+- Versão: `v1-pre-comercial`
+- Data de vigência interna: `2026-08-12`
+- Escopo: desenvolvimento e homologação pré-comercial
+- Estado da produção: bloqueada
+- Próxima revisão obrigatória: antes da constituição do ambiente comercial/produção e após a definição do CNPJ/controlador

@@ -1,47 +1,81 @@
-# Termo de Aceite — Retenção e Descarte de Dados V1
+# Registro de Governança — Retenção e Descarte de Dados V1
 
-**Status atual:** PENDENTE — NÃO ASSINADO / NÃO APROVADO
+**Status atual:** CONCLUÍDO PARA HOMOLOGAÇÃO PRÉ-COMERCIAL
 
-Este documento registra a decisão humana exigida pelo Gate E. Ele não pode ser aprovado automaticamente por CI, IA ou pelo próprio workflow.
+**Produção / uso comercial:** NÃO AUTORIZADOS POR ESTE REGISTRO
 
-## Release candidate
+Este documento substitui a pendência genérica de “aceite jurídico/DPO” da fase de homologação por uma decisão de governança compatível com o estado real do projeto. Ele não é parecer jurídico, não simula assinatura de advogado ou encarregado e não autoriza produção.
 
-- RC: `cc6352d3ba6fbbed517faba82badadf719f5e36d`
-- Política submetida à revisão: `docs/compliance/politica-retencao-descarte-v1.md`
-- Versão da política: `v1-draft`
+## 1. Situação declarada do projeto
 
-## Checklist de revisão
+Em 12/08/2026, o titular do projeto declarou que:
 
-- [ ] Categorias de dados de produção revisadas
-- [ ] Finalidade e fundamento de tratamento revisados
-- [ ] Prazos de retenção de produção definidos
-- [ ] Hipóteses de conservação pós-término revisadas
-- [ ] Procedimento de eliminação/anonimização aprovado
-- [ ] Política de backups e logs aprovada
-- [ ] Direitos dos titulares contemplados
-- [ ] Papéis de controlador, operador e fornecedores revisados
-- [ ] Riscos e exceções documentados
+- atua atualmente como **pessoa física**;
+- o projeto está em fase de desenvolvimento e homologação, sem lançamento comercial;
+- o CNPJ será constituído **antes de qualquer uso comercial dos produtos**.
 
-## Decisão humana
+O GitHub não foi usado para validar identidade civil, CNPJ inexistente ou qualificação profissional jurídica. O registro é uma declaração de governança do titular do projeto para o escopo pré-comercial.
 
-**Decisão:** `PENDENTE`
+## 2. Escopo desta decisão
 
-Valores válidos após revisão humana: `APROVADO` ou `REPROVADO`.
+Esta decisão cobre somente:
 
-**Responsável pela revisão:**
+- desenvolvimento;
+- testes automatizados;
+- homologação técnica isolada;
+- dados sintéticos ou anonimizados no ambiente de teste;
+- evidências sem banco bruto, PII intencional, credenciais reais ou tráfego real de clientes.
 
-**Função/qualificação (Jurídico / DPO / Encarregado):**
+O release candidate homologado permanece `cc6352d3ba6fbbed517faba82badadf719f5e36d`.
 
-**Data da decisão:**
+## 3. Decisão de governança
 
-**Versão aprovada da política:**
+**Decisão:** `APROVADO_PARA_HOMOLOGACAO_PRE_COMERCIAL`
 
-**Observações / condicionantes:**
+A política `docs/compliance/politica-retencao-descarte-v1.md`, versão `v1-pre-comercial`, fica adotada como política interna do projeto para a fase pré-comercial.
 
-## Regra de automação
+Não há pendência jurídica necessária para continuar desenvolvimento e homologação no escopo acima, porque o Gate E atual não utiliza dados de produção e não concede liberação comercial.
 
-Enquanto este termo permanecer `PENDENTE`, a evidência de privacidade do Gate E deve continuar com `legal_approval=false` e a decisão de produção deve permanecer fail-closed.
+## 4. Tratamento como pessoa natural
 
-Após uma decisão `APROVADO`, o aceite deve ser registrado por uma pessoa competente e de forma auditável antes de qualquer alteração da evidência para `legal_approval=true`. A automação pode validar a existência e a consistência desse registro, mas não pode criá-lo nem se autoaprovar.
+A Resolução CD/ANPD nº 2/2022 inclui pessoas naturais no conceito de agentes de tratamento de pequeno porte quando assumem obrigações típicas de controlador ou operador. A mesma resolução prevê que agentes de pequeno porte, quando elegíveis ao regime diferenciado, não são obrigados a indicar encarregado, devendo manter canal de comunicação com titulares quando aplicável.
 
-Mesmo após eventual `APROVADO`, o resultado será apenas uma pré-condição para reavaliar o Gate E. Um GO técnico não autoriza deploy, migration de produção, credenciais reais ou ativação global; essas ações continuam exigindo decisão humana separada.
+Esse enquadramento não é presumido para a futura operação comercial: deverá ser reavaliado conforme natureza, escala, receita, risco e tratamentos efetivamente realizados.
+
+Referência oficial:
+
+- Resolução CD/ANPD nº 2/2022 — https://www.gov.br/anpd/pt-br/acesso-a-informacao/institucional/atos-normativos/regulamentacoes_anpd/resolucao-cd-anpd-no-2-de-27-de-janeiro-de-2022
+
+## 5. Regra obrigatória antes do lançamento comercial
+
+Antes de qualquer deploy ou uso comercial, deverá ser cumprido integralmente o documento `docs/compliance/gate-pre-lancamento-comercial-v1.md`.
+
+Entre as condições obrigatórias estão:
+
+- constituição e identificação do CNPJ/controlador;
+- definição do responsável legal pela governança de privacidade;
+- reavaliação do enquadramento como agente de pequeno porte e de eventual tratamento de alto risco;
+- definição das bases legais e finalidades reais de tratamento;
+- definição dos prazos de retenção de produção por categoria;
+- canal para titulares;
+- contratos e responsabilidades com operadores/suboperadores;
+- decisão documentada sobre necessidade ou dispensa de encarregado;
+- nova validação de segurança, privacidade e Gate E para produção.
+
+## 6. Efeito sobre o Gate E atual
+
+O campo técnico `legal_approval=false` pode permanecer no Gate E de **produção**. Ele passa a representar um bloqueio de lançamento comercial por desenho, e não uma pendência da homologação pré-comercial.
+
+Consequentemente:
+
+- homologação pré-comercial: **CONCLUÍDA**;
+- produção/comercialização: **BLOQUEADA POR POLÍTICA ATÉ O GATE PRÉ-LANÇAMENTO**;
+- nenhum deploy, migration de produção, credencial real ou liberação comercial é autorizado por este documento.
+
+## 7. Controle de versão
+
+- Versão do registro: `v1-pre-comercial`
+- Data: `2026-08-12`
+- Responsável atual: titular pessoa física do projeto, identificado operacionalmente pela conta GitHub `faabio3131`
+- Natureza: decisão interna de governança pré-comercial
+- Parecer jurídico externo: não emitido / não simulado
