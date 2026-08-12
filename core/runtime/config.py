@@ -104,11 +104,17 @@ def load_runtime_settings(*, test_database_url: str | None = None) -> RuntimeSet
         if not database_url and environment is RuntimeEnvironment.DEVELOPMENT:
             database_url = "sqlite:///./banco_erp_local.db"
 
+    commercial = environment in {
+        RuntimeEnvironment.STAGING,
+        RuntimeEnvironment.PRODUCTION,
+    }
+    tenant_default = "" if commercial else "tenant-local"
+    unidade_default = "" if commercial else "unidade-local"
     settings = RuntimeSettings(
         environment=environment,
         database_url=database_url,
-        tenant_id=os.getenv("FM_AI_TENANT_ID", "tenant-local").strip(),
-        unidade_id=os.getenv("FM_AI_UNIDADE_ID", "unidade-local").strip(),
+        tenant_id=os.getenv("FM_AI_TENANT_ID", tenant_default).strip(),
+        unidade_id=os.getenv("FM_AI_UNIDADE_ID", unidade_default).strip(),
         allow_sqlite_commercial=_bool_env("FM_AI_ALLOW_SQLITE_COMMERCIAL"),
     )
     return settings.validate()
