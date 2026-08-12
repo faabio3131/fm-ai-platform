@@ -1,12 +1,20 @@
 from __future__ import annotations
 
+import json
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
 from sqlalchemy import inspect
 
-from core.runtime.backup import backup_database, restore_database, verify_backup
+from core.runtime.backup import (
+    BackupRetentionPolicy,
+    backup_database,
+    prune_backups,
+    restore_database,
+    verify_backup,
+)
 from core.runtime.config import RuntimeEnvironment, load_runtime_settings
 from core.runtime.database import build_engine, check_database_health
 from core.runtime.registry import ModuleSpec, module_readiness
@@ -133,16 +141,19 @@ def test_sqlite_health_and_versioned_migration_are_idempotent(
     assert "fm_credenciais_referencias_v1" in tables
 
 
-def test_sqlite_backup_manifest_and_restore(tmp_path: Path) -> None:
-    source = tmp_path / "source.sqlite3"
-    backup = tmp_path / "backup.sqlite3"
-    restored = tmp_path / "restored.sqlite3"
-
-    connection = sqlite3.connect(source)
+def _create_source_database(path: Path) -> None:
+    connection = sqlite3.connect(path)
     connection.execute("CREATE TABLE teste (id INTEGER PRIMARY KEY, valor TEXT NOT NULL)")
     connection.execute("INSERT INTO teste(valor) VALUES ('ok')")
     connection.commit()
     connection.close()
+
+
+def test_sqlite_backup_manifest_and_restore(tmp_path: Path) -> None:
+    source = tmp_path / "source.sqlite3"
+    backup = tmp_path / "backup.sqlite3"
+    restored = tmp_path / "restored.sqlite3"
+    _create_source_database(source)
 
     manifest = backup_database(f"sqlite:///{source}", backup)
     assert manifest.size_bytes > 0
@@ -159,3 +170,31 @@ def test_sqlite_backup_manifest_and_restore(tmp_path: Path) -> None:
     finally:
         restored_connection.close()
     assert value == ("ok",)
+
+
+def test_retention_keeps_recent_and_last_backup_but_prunes_old_excess(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.sqlite3"
+    _create_source_database(source)
+    backups: list[Path] = []
+    now = datetime(2026, 8, 12, 20, 0, tzinfo=timezone.utc)
+
+    for index, age_days in enumerate((0, 10, 20), start=1):
+        path = tmp_path / f"backup-{index}.sqlite3"
+        backup_database(f"sqlite:///{source}", path)
+        manifest_path = path.with_suffix(path.suffix + ".manifest.json")
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        payload["created_at"] = (now - timedelta(days=age_days)).isoformat()
+        manifest_path.write_text(json.dumps(payload), encoding="utf-8")
+        backups.append(path)
+
+    removed = prune_backups(
+        tmp_path,
+        BackupRetentionPolicy(keep_last=1, max_age_days=5),
+        now=now,
+    )
+    assert set(removed) == {backups[1], backups[2]}
+    assert backups[0].exists()
+    assert not backups[1].exists()
+    assert not backups[2].exists()
