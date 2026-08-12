@@ -2,7 +2,7 @@
 
 Adapters de produção devem receber referências (por exemplo ``env:IFOOD_CLIENT_SECRET``)
 em vez de gravar tokens/API keys em tabelas de configuração ou logs. A implementação
-inicial usa ambiente/mapping injetado e já define o contrato para um secret store
+inicial usa ambiente ou mapping injetado e já define o contrato para um secret store
 externo futuro.
 """
 
@@ -55,7 +55,7 @@ class ReferenceSecretStore:
 
         if source == "env":
             value = os.getenv(key)
-        elif source in {"mapping", "streamlit"}:
+        elif source == "mapping":
             value = self._mapping.get(key)
         else:
             raise ReferenciaSegredoInvalida("origem de segredo nao suportada")
