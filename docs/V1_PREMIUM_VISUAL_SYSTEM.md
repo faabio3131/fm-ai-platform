@@ -106,17 +106,19 @@ Os módulos funcionais dessas áreas permanecem sem alterações de regra de neg
 - `premium_ui.py`: camada CSS centralizada de apresentação, sem estado ou lógica de negócio.
 - `app.py`: apenas importa e ativa a camada visual após `st.set_page_config`; nenhuma lógica existente foi reescrita.
 
-## Validação final
+## Validação final do runtime visual
 
-Na revisão final da iniciativa:
+Na última rodada que alterou o runtime visual:
 
 - `app.py` recebeu somente duas linhas de ativação visual;
 - nenhuma linha funcional existente foi removida;
 - nenhuma query, cálculo, validação, persistência ou integração foi alterada;
-- 11 dos 12 workflows da rodada final concluíram com sucesso, incluindo Hardening Gate E, Salão, CRM, Mica, Delivery, Gerente IA, Marketplace, Adapters, Entrega, Garçom e Impressão;
+- 11 dos 12 workflows concluíram com sucesso, incluindo Hardening Gate E, Salão, CRM, Mica, Delivery, Gerente IA, Marketplace, Adapters, Entrega, Garçom e Impressão;
 - o workflow KDS teve sucesso no E2E específico de KDS, Ruff/mypy e testes Python, mas o E2E geral apresentou uma falha isolada no teste legado de CRM/PDV;
 - o mesmo teste legado já havia falhado, no mesmo ponto de sincronização do seletor de pagamento, em execução anterior à iniciativa visual, demonstrando que a oscilação é preexistente e não foi introduzida por esta transformação;
 - outro teste completo de pagamento em dinheiro passou na mesma execução.
+
+Os commits posteriores a essa rodada alteram somente este documento de registro e não modificam o runtime da aplicação.
 
 O warning legado de `use_container_width` foi deliberadamente mantido fora desta iniciativa para não ampliar o escopo além da transformação visual.
 
