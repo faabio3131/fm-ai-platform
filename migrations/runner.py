@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, DateTime, Engine, MetaData, String, Table, insert, select
 from sqlalchemy.engine import Connection
 
+from infra.legacy_schema import legacy_metadata
 from infra.seguranca.modelos_orm import CredencialReferenciaORM, SecurityBase
 
 _metadata = MetaData()
@@ -43,15 +44,40 @@ def _credential_references_v1(connection: Connection) -> None:
     CredencialReferenciaORM.__table__.create(bind=connection, checkfirst=True)
 
 
+def _legacy_app_schema_v1(connection: Connection) -> None:
+    legacy_metadata.create_all(bind=connection, checkfirst=True)
+
+
 DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001_security_identity_v1", _security_identity_v1),
     Migration("0002_credential_references_v1", _credential_references_v1),
+    Migration("0003_legacy_app_schema_v1", _legacy_app_schema_v1),
 )
 
 
 def applied_versions(connection: Connection) -> frozenset[str]:
     _metadata.create_all(bind=connection, checkfirst=True)
     return frozenset(connection.execute(select(_schema_migrations.c.version)).scalars())
+
+
+def pending_versions(engine: Engine) -> tuple[str, ...]:
+    with engine.begin() as connection:
+        applied = applied_versions(connection)
+    return tuple(
+        migration.version
+        for migration in DEFAULT_MIGRATIONS
+        if migration.version not in applied
+    )
+
+
+def assert_schema_current(engine: Engine) -> None:
+    pending = pending_versions(engine)
+    if pending:
+        versions = ", ".join(pending)
+        raise RuntimeError(
+            "Schema comercial desatualizado. Execute python -m scripts.migrate_v1. "
+            f"Migrations pendentes: {versions}"
+        )
 
 
 def run_migrations(
