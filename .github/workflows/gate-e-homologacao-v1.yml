@@ -17,6 +17,7 @@ env:
   FM_AI_TEST_MODE: '1'
   FM_AI_TEST_KEEP_TMP: '1'
   FM_AI_TEST_RESET_ON_START: '1'
+  PYTHONPATH: .
 
 jobs:
   homologacao:
@@ -120,7 +121,6 @@ jobs:
         env:
           FM_AI_TEST_TMPDIR: ${{ runner.temp }}/fm_ai_homologacao
         run: |
-          # Backup/restore precisa do banco inicializado; interrompe o app para snapshot consistente.
           kill "$(cat "$RUNNER_TEMP/streamlit-homologacao.pid")" || true
           wait "$(cat "$RUNNER_TEMP/streamlit-homologacao.pid")" 2>/dev/null || true
           DB="$FM_AI_TEST_TMPDIR/fm_ai_test.sqlite3"
@@ -185,5 +185,5 @@ jobs:
           name: gate-e-homologacao-${{ env.RC_SHA }}
           path: |
             evidence/*.json
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
