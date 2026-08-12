@@ -102,6 +102,9 @@ jobs:
           FM_AI_TEST_TMPDIR: ${{ runner.temp }}/fm_ai_homologacao
         run: |
           mkdir -p "$FM_AI_TEST_TMPDIR"
+          python tests/e2e/init_test_db.py
+          DB="$FM_AI_TEST_TMPDIR/fm_ai_test.sqlite3"
+          test -s "$DB"
           python -m streamlit run app.py \
             --server.headless true \
             --server.port 8501 \
@@ -109,12 +112,13 @@ jobs:
             > "$RUNNER_TEMP/streamlit-homologacao.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/streamlit-homologacao.pid"
           for i in $(seq 1 60); do
-            if curl -fsS http://127.0.0.1:8501/_stcore/health >/dev/null; then
+            if curl -fsS http://127.0.0.1:8501/_stcore/health >/dev/null && test -s "$DB"; then
               exit 0
             fi
             sleep 1
           done
           cat "$RUNNER_TEMP/streamlit-homologacao.log"
+          ls -la "$FM_AI_TEST_TMPDIR"
           exit 1
 
       - name: Medir SLO HTTP da release candidate
@@ -139,12 +143,18 @@ jobs:
             --server.address 127.0.0.1 \
             > "$RUNNER_TEMP/streamlit-slo.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/streamlit-slo.pid"
+          READY=0
           for i in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:8501/_stcore/health >/dev/null; then
+              READY=1
               break
             fi
             sleep 1
           done
+          if [ "$READY" != "1" ]; then
+            cat "$RUNNER_TEMP/streamlit-slo.log"
+            exit 1
+          fi
           python ops/homologacao/gate_e_runner.py slo \
             --restore-json evidence/restore.json \
             --output evidence/slo.json \
