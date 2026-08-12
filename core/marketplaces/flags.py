@@ -5,7 +5,7 @@ a camada só é liberada quando pedidos/autorização e o adapter real da plataf
 foram explicitamente configurados.
 """
 
-from core.runtime.registry import adapter_real_configured, module_v1_enabled
+from core.runtime.registry import module_v1_enabled
 
 
 def marketplace_v1_enabled() -> bool:
@@ -19,15 +19,11 @@ def marketplace_v1_enabled() -> bool:
 def _plataforma_habilitada(flag_env: str, adapter: str) -> bool:
     if not marketplace_v1_enabled():
         return False
-    # module_v1_enabled preserva o comportamento de testes e exige o adapter real
-    # apenas fora de FM_AI_TEST_MODE.
-    if module_v1_enabled(
+    return module_v1_enabled(
         name=f"marketplace_{adapter}",
         flag_env=flag_env,
         required_adapters=(adapter,),
-    ):
-        return True
-    return False
+    )
 
 
 def ifood_adapter_v1_enabled() -> bool:
