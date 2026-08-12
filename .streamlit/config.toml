@@ -40,7 +40,7 @@ grayColor = "#94A3B8"
 grayBackgroundColor = "#151B23"
 chartCategoricalColors = ["#F97316", "#60A5FA", "#34D399", "#A78BFA", "#FBBF24", "#FB7185", "#38BDF8", "#C084FC"]
 chartSequentialColors = ["#431407", "#7C2D12", "#9A3412", "#C2410C", "#EA580C", "#F97316", "#FB923C", "#FDBA74", "#FED7AA", "#FFF7ED"]
-chartDivergingColors = ["#2563EB", "#60A5FA", "#93C5FD", "#DBEAFE", "#F8FAFC", "#FFEDD5", "#FDBA74", "#F97316", "#C2410C"]
+chartDivergingColors = ["#2563EB", "#60A5FA", "#93C5FD", "#DBEAFE", "#F8FAFC", "#FFF7ED", "#FFEDD5", "#FDBA74", "#F97316", "#C2410C"]
 
 [theme.sidebar]
 primaryColor = "#FB923C"
