@@ -1,0 +1,49 @@
+name: V1 Wave0 Apply App Integration
+
+on:
+  push:
+    branches: [impl/v1-wave0-production-foundation]
+    paths:
+      - 'scripts/apply_wave0_app_patch.py'
+      - '.github/workflows/v1-wave0-apply-app-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: impl/v1-wave0-production-foundation
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Aplicar patch determinístico
+        run: python scripts/apply_wave0_app_patch.py
+      - name: Validar sintaxe e diff
+        run: |
+          python -m py_compile app.py
+          git diff --check
+      - name: Testes Python completos
+        run: pytest -q
+      - name: Commitar somente app.py se validado
+        run: |
+          if git diff --quiet -- app.py; then
+            echo "app.py já integrado."
+            exit 0
+          fi
+          git config user.name "fm-ai-wave0-bot"
+          git config user.email "fm-ai-wave0-bot@users.noreply.github.com"
+          git add app.py
+          git commit -m "V1 Wave0: wire production runtime and authentication into app"
+          git push origin HEAD:impl/v1-wave0-production-foundation
