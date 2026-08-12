@@ -18,7 +18,7 @@ from core.runtime.backup import (
 from core.runtime.config import RuntimeEnvironment, load_runtime_settings
 from core.runtime.database import build_engine, check_database_health
 from core.runtime.registry import ModuleSpec, module_readiness
-from migrations.runner import run_migrations
+from migrations.runner import assert_schema_current, pending_versions, run_migrations
 
 
 def _clear_runtime_env(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -129,16 +129,31 @@ def test_sqlite_health_and_versioned_migration_are_idempotent(
     settings = load_runtime_settings(test_database_url="sqlite:///:memory:")
     engine = build_engine(settings)
     assert check_database_health(engine).ok is True
+    assert pending_versions(engine) == (
+        "0001_security_identity_v1",
+        "0002_credential_references_v1",
+        "0003_legacy_app_schema_v1",
+    )
+    with pytest.raises(RuntimeError, match="Schema comercial desatualizado"):
+        assert_schema_current(engine)
+
     assert run_migrations(engine) == (
         "0001_security_identity_v1",
         "0002_credential_references_v1",
+        "0003_legacy_app_schema_v1",
     )
     assert run_migrations(engine) == ()
+    assert pending_versions(engine) == ()
+    assert_schema_current(engine)
+
     tables = set(inspect(engine).get_table_names())
     assert "fm_schema_migrations" in tables
     assert "fm_usuarios_v1" in tables
     assert "fm_usuario_papeis_v1" in tables
     assert "fm_credenciais_referencias_v1" in tables
+    assert "produtos" in tables
+    assert "vendas" in tables
+    assert "configuracoes_meta" in tables
 
 
 def _create_source_database(path: Path) -> None:
