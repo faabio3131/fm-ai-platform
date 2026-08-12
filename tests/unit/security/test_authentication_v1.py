@@ -4,16 +4,16 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from core.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 from core.seguranca.autenticacao import (
     ServicoAutenticacao,
     hash_password,
     verify_password,
 )
 from core.seguranca.erros import CredenciaisInvalidas, SegredoAusente, UsuarioInativo
-from core.seguranca.modelos_orm import SecurityBase
 from core.seguranca.permissoes import Papel, Permissao
 from core.seguranca.segredos import ReferenceSecretStore
+from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
+from infra.seguranca.modelos_orm import SecurityBase
 
 
 def test_password_hash_is_salted_and_verifiable() -> None:
@@ -46,7 +46,7 @@ def test_identity_repository_authenticates_and_builds_rbac_context() -> None:
         identity = auth.autenticar(
             email=" admin@example.com ", password="senha-super-segura"
         )
-        context = identity.contexto(origem="streamlit")
+        context = identity.contexto(origem="web")
         assert context.tenant_id == "tenant-1"
         assert context.unidade_id == "loja-a"
         assert context.unidades_permitidas == frozenset({"loja-a", "loja-b"})
