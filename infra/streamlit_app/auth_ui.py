@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
-from typing import Callable
 
 import streamlit as st
 from sqlalchemy.exc import SQLAlchemyError
