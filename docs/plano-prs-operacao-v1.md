@@ -58,3 +58,7 @@ Complementa a [arquitetura](arquitetura-operacional-v1.md) e o [plano de migraç
 * **Gate E (PR 21):** restore/rollback, SLOs, segurança, LGPD e critérios da arquitetura aprovados.
 
 Nenhum gate autoriza merge automático, deploy, migration real ou início do PR seguinte; cada etapa aguarda aprovação humana.
+
+## Continuação
+
+A expansão posterior à V1 está definida em [Plano de Pull Requests — evolução operacional V2](plano-prs-operacao-v2.md). O primeiro passo planejado da V2 é a PR22, que liga o Gerente IA às projeções/services reais somente para consultas em runtime local/homologação, mantendo produção fail-closed.
