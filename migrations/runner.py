@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, DateTime, Engine, MetaData, String, Table, insert, select
 from sqlalchemy.engine import Connection
 
-from core.seguranca.modelos_orm import SecurityBase
+from infra.seguranca.modelos_orm import SecurityBase
 
 _metadata = MetaData()
 _schema_migrations = Table(
