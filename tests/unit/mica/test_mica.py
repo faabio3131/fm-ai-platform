@@ -35,12 +35,24 @@ def _servico(status: PagamentoStatus = PagamentoStatus.PENDENTE):
     return ServicoMica(pedidos=operacao, pagamentos=operacao, handoff=operacao), operacao
 
 
-def test_flag_fail_closed(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_flag_habilita_runtime_normal_e_respeita_kill_switch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv("FM_AI_TEST_MODE", raising=False)
-    monkeypatch.setenv("FM_AI_MICA_V1", "1")
-    assert not mica_v1_enabled()
-    monkeypatch.setenv("FM_AI_TEST_MODE", "1")
+    monkeypatch.delenv("FM_AI_MICA_V1", raising=False)
     assert mica_v1_enabled()
+
+    monkeypatch.setenv("FM_AI_MICA_V1", "0")
+    assert not mica_v1_enabled()
+
+    monkeypatch.setenv("FM_AI_MICA_V1", "1")
+    assert mica_v1_enabled()
+
+    monkeypatch.setenv("FM_AI_MICA_V1", "true")
+    assert mica_v1_enabled()
+
+    monkeypatch.setenv("FM_AI_MICA_V1", "valor-invalido")
+    assert not mica_v1_enabled()
 
 
 def test_schema_rejeita_markdown_e_campos_extras() -> None:
