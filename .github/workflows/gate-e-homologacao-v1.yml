@@ -1,0 +1,189 @@
+name: Gate E Homologacao V1
+
+on:
+  push:
+    branches: [ops/homologacao-gate-e-rc-cc6352d3]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gate-e-homologacao-v1
+  cancel-in-progress: false
+
+env:
+  RC_SHA: cc6352d3ba6fbbed517faba82badadf719f5e36d
+  FM_AI_TEST_MODE: '1'
+  FM_AI_TEST_KEEP_TMP: '1'
+  FM_AI_TEST_RESET_ON_START: '1'
+
+jobs:
+  homologacao:
+    name: Homologacao tecnica Gate E
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: homologacao
+
+    steps:
+      - name: Checkout automacao operacional
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Confirmar release candidate imutavel
+        run: |
+          git cat-file -e "$RC_SHA^{commit}"
+          git diff --exit-code "$RC_SHA" -- \
+            app.py core migrations tests requirements.txt package.json package-lock.json \
+            playwright.config.ts test_mode.py pdv_utils.py gemini_config.py
+          echo "RC verificado: $RC_SHA"
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+          npm ci
+          npx playwright install chromium
+          python -m py_compile ops/homologacao/gate_e_runner.py
+          mkdir -p evidence
+
+      - name: Suite completa da release candidate
+        run: |
+          pytest -q
+          python ops/homologacao/gate_e_runner.py mark \
+            --output evidence/testes.json \
+            --observation "Suite Python completa executada no ambiente isolado de homologacao."
+
+      - name: Carga concorrente e caos/offline
+        run: |
+          pytest -q tests/integration/hardening/test_carga_caos_restore.py
+          python ops/homologacao/gate_e_runner.py mark \
+            --output evidence/carga.json \
+            --observation "Carga concorrente Gate E executada no runner de homologacao."
+          python ops/homologacao/gate_e_runner.py chaos-mark \
+            --output evidence/caos_offline.json
+
+      - name: Seguranca e privacidade tecnica
+        run: |
+          pytest -q tests/security
+          python ops/homologacao/gate_e_runner.py mark \
+            --output evidence/seguranca.json \
+            --observation "Testes de seguranca e isolamento executados em homologacao."
+          python ops/homologacao/gate_e_runner.py mark \
+            --output evidence/privacidade.json \
+            --no-legal-approval \
+            --observation "Guardas tecnicas LGPD/PII aprovadas; retencao e descarte ainda exigem aceite juridico/DPO."
+
+      - name: Acessibilidade browser-driven
+        run: |
+          npx playwright test tests/e2e/hardening-accessibility.spec.ts \
+            -c playwright.config.ts --reporter=list
+          python ops/homologacao/gate_e_runner.py mark \
+            --output evidence/acessibilidade.json \
+            --observation "Jornadas criticas verificadas por navegador, nome acessivel e teclado."
+
+      - name: Inicializar banco e app isolados
+        env:
+          FM_AI_TEST_TMPDIR: ${{ runner.temp }}/fm_ai_homologacao
+        run: |
+          mkdir -p "$FM_AI_TEST_TMPDIR"
+          python -m streamlit run app.py \
+            --server.headless true \
+            --server.port 8501 \
+            --server.address 127.0.0.1 \
+            > "$RUNNER_TEMP/streamlit-homologacao.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/streamlit-homologacao.pid"
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8501/_stcore/health >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/streamlit-homologacao.log"
+          exit 1
+
+      - name: Medir SLO HTTP da release candidate
+        env:
+          FM_AI_TEST_TMPDIR: ${{ runner.temp }}/fm_ai_homologacao
+        run: |
+          # Backup/restore precisa do banco inicializado; interrompe o app para snapshot consistente.
+          kill "$(cat "$RUNNER_TEMP/streamlit-homologacao.pid")" || true
+          wait "$(cat "$RUNNER_TEMP/streamlit-homologacao.pid")" 2>/dev/null || true
+          DB="$FM_AI_TEST_TMPDIR/fm_ai_test.sqlite3"
+          test -s "$DB"
+          python ops/homologacao/gate_e_runner.py backup-restore \
+            --database "$DB" \
+            --output-dir evidence
+          python ops/homologacao/gate_e_runner.py migration \
+            --database "$DB" \
+            --repo-root . \
+            --output evidence/migration.json
+
+          FM_AI_TEST_RESET_ON_START=0 python -m streamlit run app.py \
+            --server.headless true \
+            --server.port 8501 \
+            --server.address 127.0.0.1 \
+            > "$RUNNER_TEMP/streamlit-slo.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/streamlit-slo.pid"
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8501/_stcore/health >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          python ops/homologacao/gate_e_runner.py slo \
+            --restore-json evidence/restore.json \
+            --output evidence/slo.json \
+            --requests 200
+          kill "$(cat "$RUNNER_TEMP/streamlit-slo.pid")" || true
+
+      - name: Registrar runbook versionado
+        run: |
+          test -s docs/runbooks/gate-e-release-v1.md
+          python ops/homologacao/gate_e_runner.py mark \
+            --output evidence/runbook.json \
+            --observation "Runbook Gate E versionado e aplicado ao RC $RC_SHA."
+
+      - name: Avaliar Gate E de release
+        run: |
+          python ops/homologacao/gate_e_runner.py gate \
+            --evidence-dir evidence \
+            --rc-sha "$RC_SHA" \
+            --output evidence/gate-e-decision.json
+          echo "## Gate E — Homologacao V1" >> "$GITHUB_STEP_SUMMARY"
+          echo "Release candidate: \`$RC_SHA\`" >> "$GITHUB_STEP_SUMMARY"
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+          data = json.loads(Path('evidence/gate-e-decision.json').read_text())
+          print(f"Decisao tecnica: **{data['decision']}**")
+          if data['blocks']:
+              print('')
+              print('Bloqueios:')
+              for block in data['blocks']:
+                  print(f"- `{block}`")
+          PY
+
+      - name: Publicar evidencias sem PII
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-e-homologacao-${{ env.RC_SHA }}
+          path: |
+            evidence/*.json
+          if-no-files-found: error
+          retention-days: 14
