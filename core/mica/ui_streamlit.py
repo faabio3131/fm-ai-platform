@@ -1,4 +1,4 @@
-"""Interface Streamlit da Mica V1, atrás de flag fail-closed."""
+"""Interface Streamlit da Mica V1, atrás de flag operacional."""
 
 from __future__ import annotations
 
@@ -24,6 +24,21 @@ from .modelos import (
 from .servicos import ServicoMica
 
 
+_MICA_RESET_FLAG = "_mica_v1_reset_pendente"
+_MICA_FLASH_FINALIZACAO = "_mica_v1_flash_finalizacao"
+_MICA_WIDGET_KEYS = (
+    "mica_v1_tel",
+    "mica_v1_msg",
+    "mica_v1_metodo",
+    "mica_v1_confirmacao",
+)
+_MICA_FLOW_KEYS = (
+    "_mica_v1_resultado",
+    "_mica_v1_idempotencia",
+    "_mica_v1_conversa",
+)
+
+
 def _cliente_ref(telefone: str) -> str:
     return hashlib.sha256(telefone.strip().encode("utf-8")).hexdigest()
 
@@ -38,6 +53,28 @@ def _operacao() -> OperacaoMicaFake:
 def _servico() -> ServicoMica:
     operacao = _operacao()
     return ServicoMica(pedidos=operacao, pagamentos=operacao, handoff=operacao)
+
+
+def _aplicar_reset_pendente() -> None:
+    """Limpa o atendimento anterior antes de recriar os widgets."""
+
+    if not st.session_state.pop(_MICA_RESET_FLAG, False):
+        return
+    for chave in (*_MICA_WIDGET_KEYS, *_MICA_FLOW_KEYS):
+        st.session_state.pop(chave, None)
+
+
+def _agendar_novo_atendimento(flash: dict[str, str] | None = None) -> None:
+    """Agenda limpeza segura para o próximo ciclo do Streamlit."""
+
+    if flash is not None:
+        st.session_state[_MICA_FLASH_FINALIZACAO] = flash
+    st.session_state[_MICA_RESET_FLAG] = True
+
+
+def _consumir_flash_finalizacao() -> dict[str, str] | None:
+    flash = st.session_state.pop(_MICA_FLASH_FINALIZACAO, None)
+    return flash if isinstance(flash, dict) else None
 
 
 def _prompt(menu: str, mensagem: str) -> str:
@@ -65,6 +102,15 @@ def render_mica_v1(
         )
         return
 
+    _aplicar_reset_pendente()
+    flash = _consumir_flash_finalizacao()
+    if flash:
+        st.success(flash["mensagem"])
+        if flash.get("pedido"):
+            st.write(flash["pedido"])
+        if flash.get("pagamento"):
+            st.write(flash["pagamento"])
+
     tenant_id = os.getenv("FM_AI_TEST_TENANT", "tenant-e2e")
     unidade_id = os.getenv("FM_AI_TEST_UNIDADE", "unidade-e2e")
     db = session_factory()
@@ -91,11 +137,22 @@ def render_mica_v1(
     st.caption(
         "A IA interpreta a conversa, mas não escolhe pagamento, não confirma dinheiro, não baixa estoque e não cria Venda diretamente."
     )
-    telefone = st.text_input("WhatsApp do cliente", value="5511999995432", key="mica_v1_tel")
+    telefone = st.text_input(
+        "WhatsApp do cliente",
+        value="",
+        placeholder="Ex.: 5511999999999",
+        key="mica_v1_tel",
+    )
     mensagem = st.text_area("Mensagem do cliente", key="mica_v1_msg")
     metodo_label = st.selectbox(
         "Forma de pagamento solicitada pelo cliente",
-        ["Pix", "Dinheiro", "Cartão de crédito", "Cartão de débito", "Pagamento na entrega"],
+        [
+            "Pix",
+            "Dinheiro",
+            "Cartão de crédito",
+            "Cartão de débito",
+            "Pagamento na entrega",
+        ],
         key="mica_v1_metodo",
     )
     metodos = {
@@ -134,6 +191,9 @@ def render_mica_v1(
         return
     if resultado.estado is EstadoAtendimentoMica.HANDOFF_HUMANO:
         st.warning(f"Atendimento humano solicitado: {resultado.handoff_motivo}")
+        if st.button("Iniciar novo atendimento", key="mica_v1_novo_handoff"):
+            _agendar_novo_atendimento()
+            st.rerun()
         return
     if resultado.carrinho is None:
         return
@@ -162,11 +222,15 @@ def render_mica_v1(
         except ErroMica as exc:
             st.error(f"Pedido não confirmado: {exc.codigo}")
             return
-        st.session_state["_mica_v1_resultado"] = final
-        st.success(final.mensagem)
+
+        flash_finalizacao = {"mensagem": final.mensagem}
         if final.pedido:
-            st.write(f"Pedido: `{final.pedido.pedido_id}` — {final.pedido.status}")
+            flash_finalizacao["pedido"] = (
+                f"Pedido: `{final.pedido.pedido_id}` — {final.pedido.status}"
+            )
         if final.pagamento:
-            st.write(
+            flash_finalizacao["pagamento"] = (
                 f"Pagamento: `{final.pagamento.pagamento_id}` — **{final.pagamento.status.value}**"
             )
+        _agendar_novo_atendimento(flash_finalizacao)
+        st.rerun()
