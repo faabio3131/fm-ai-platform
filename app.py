@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import streamlit as st
 from streamlit.errors import StreamlitSecretNotFoundError
+from premium_ui import apply_premium_visual_system
 
 # Patch: ensure compatibility with custom keyword args used across the app
 try:
@@ -122,6 +123,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+apply_premium_visual_system()
 
 if is_test_mode():
     st.session_state["_fm_ai_e2e_run"] = (
