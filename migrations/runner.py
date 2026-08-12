@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, DateTime, Engine, MetaData, String, Table, insert, select
 from sqlalchemy.engine import Connection
 
-from infra.seguranca.modelos_orm import SecurityBase
+from infra.seguranca.modelos_orm import CredencialReferenciaORM, SecurityBase
 
 _metadata = MetaData()
 _schema_migrations = Table(
@@ -39,8 +39,13 @@ def _security_identity_v1(connection: Connection) -> None:
     SecurityBase.metadata.create_all(bind=connection, checkfirst=True)
 
 
+def _credential_references_v1(connection: Connection) -> None:
+    CredencialReferenciaORM.__table__.create(bind=connection, checkfirst=True)
+
+
 DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001_security_identity_v1", _security_identity_v1),
+    Migration("0002_credential_references_v1", _credential_references_v1),
 )
 
 
