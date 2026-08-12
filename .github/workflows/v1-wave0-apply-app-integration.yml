@@ -5,6 +5,7 @@ on:
     branches: [impl/v1-wave0-production-foundation]
     paths:
       - 'scripts/apply_wave0_app_patch.py'
+      - 'scripts/apply_wave0_session_guard_patch.py'
       - '.github/workflows/v1-wave0-apply-app-integration.yml'
   workflow_dispatch:
 
@@ -28,8 +29,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest
-      - name: Aplicar patch determinístico
-        run: python scripts/apply_wave0_app_patch.py
+      - name: Aplicar patches determinísticos
+        run: |
+          python scripts/apply_wave0_app_patch.py
+          python scripts/apply_wave0_session_guard_patch.py
       - name: Validar sintaxe e diff
         run: |
           python -m py_compile app.py
@@ -45,7 +48,7 @@ jobs:
           git config user.name "fm-ai-wave0-bot"
           git config user.email "fm-ai-wave0-bot@users.noreply.github.com"
           git add app.py
-          git commit -m "V1 Wave0: enforce versioned commercial schema in app"
+          git commit -m "V1 Wave0: protect commercial ORM session"
           git fetch origin impl/v1-wave0-production-foundation
           git rebase origin/impl/v1-wave0-production-foundation
           git push origin HEAD:impl/v1-wave0-production-foundation
