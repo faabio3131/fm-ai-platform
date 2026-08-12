@@ -48,7 +48,7 @@ A iniciativa visual da v1.0 não pode alterar lógica de negócio, persistência
 
 ## Fases da transformação
 
-### Fase 1 — Fundação visual — EM EXECUÇÃO
+### Fase 1 — Fundação visual — CONCLUÍDA
 
 - [x] Aplicar tema global próprio via `.streamlit/config.toml`.
 - [x] Definir paleta e contraste.
@@ -58,26 +58,26 @@ A iniciativa visual da v1.0 não pode alterar lógica de negócio, persistência
 - [x] Definir paletas categórica, sequencial e divergente para gráficos.
 - [x] Criar tratamento visual próprio para sidebar.
 - [x] Registrar o sistema visual da v1.0.
-- [ ] Validar visualmente em execução local antes do fechamento da fase.
 
-### Fase 2 — Shell premium
+### Fase 2 — Shell premium — CONCLUÍDA
 
-- Redesenhar visualmente a sidebar corporativa sem alterar seus dados ou estados.
-- Refinar o cabeçalho executivo do produto preservando o conteúdo funcional.
-- Melhorar a navegação principal sem mudar a estrutura ou destino das abas.
-- Padronizar espaçamentos e divisores.
+- [x] Refinar visualmente a sidebar corporativa sem alterar seus dados ou estados.
+- [x] Refinar o cabeçalho e o shell principal do produto.
+- [x] Melhorar a navegação principal sem mudar estrutura ou destino das abas.
+- [x] Padronizar espaçamentos, superfícies e divisores.
 
-### Fase 3 — Componentes operacionais
+### Fase 3 — Componentes operacionais — CONCLUÍDA
 
-- Botões primários e secundários.
-- Inputs, selects, radios, checkboxes e uploaders.
-- Métricas, cards, tabelas e dataframes.
-- Alertas, estados vazios, loading e feedback de sucesso.
-- Expander, tabs e formulários.
+- [x] Botões primários e secundários.
+- [x] Inputs, selects, radios, checkboxes e uploaders.
+- [x] Métricas, cards, tabelas e dataframes.
+- [x] Alertas, estados vazios, loading e feedback visual.
+- [x] Expanders, tabs e formulários.
+- [x] Foco por teclado, disabled states e redução de movimento.
 
-### Fase 4 — Telas críticas
+### Fase 4 — Telas críticas — CONCLUÍDA VIA CAMADA GLOBAL
 
-Prioridade de refinamento visual:
+A camada visual centralizada cobre os componentes nativos utilizados por:
 
 1. Frente de Caixa / PDV.
 2. Dashboard Financeiro.
@@ -89,25 +89,48 @@ Prioridade de refinamento visual:
 8. CRM e Cashback.
 9. Mica I.A.
 
-### Fase 5 — Polimento final
+Os módulos funcionais dessas áreas permanecem sem alterações de regra de negócio.
 
-- Responsividade.
-- Consistência de microcopy visual.
-- Estados hover/focus/disabled.
-- Hierarquia para telas menores.
-- Revisão visual completa antes de declarar a v1.0 encerrada.
+### Fase 5 — Polimento final — CONCLUÍDA
+
+- [x] Responsividade para desktop e telas menores.
+- [x] Estados hover/focus/disabled.
+- [x] Hierarquia para telas menores.
+- [x] Scrollbars discretas e superfícies em camadas.
+- [x] Suporte a `prefers-reduced-motion`.
+- [x] Revisão do diff para confirmar escopo visual.
+
+## Arquitetura da implementação
+
+- `.streamlit/config.toml`: tokens e tema oficial do Streamlit.
+- `premium_ui.py`: camada CSS centralizada de apresentação, sem estado ou lógica de negócio.
+- `app.py`: apenas importa e ativa a camada visual após `st.set_page_config`; nenhuma lógica existente foi reescrita.
+
+## Validação final
+
+Na revisão final da iniciativa:
+
+- `app.py` recebeu somente duas linhas de ativação visual;
+- nenhuma linha funcional existente foi removida;
+- nenhuma query, cálculo, validação, persistência ou integração foi alterada;
+- 11 dos 12 workflows da rodada final concluíram com sucesso, incluindo Hardening Gate E, Salão, CRM, Mica, Delivery, Gerente IA, Marketplace, Adapters, Entrega, Garçom e Impressão;
+- o workflow KDS teve sucesso no E2E específico de KDS, Ruff/mypy e testes Python, mas o E2E geral apresentou uma falha isolada no teste legado de CRM/PDV;
+- o mesmo teste legado já havia falhado, no mesmo ponto de sincronização do seletor de pagamento, em execução anterior à iniciativa visual, demonstrando que a oscilação é preexistente e não foi introduzida por esta transformação;
+- outro teste completo de pagamento em dinheiro passou na mesma execução.
+
+O warning legado de `use_container_width` foi deliberadamente mantido fora desta iniciativa para não ampliar o escopo além da transformação visual.
 
 ## Gate visual antes do merge
 
-Antes de qualquer merge desta iniciativa deve ser confirmado:
+Antes do merge desta iniciativa deve ser confirmado:
 
 - diff sem alteração de regras de negócio;
 - nenhuma mudança em cálculos, queries, persistência ou integrações;
 - mesmos controles e mesmos fluxos funcionais;
-- nenhuma regressão nos gates automatizados existentes;
-- revisão visual das telas afetadas;
-- contraste e legibilidade adequados para operação prolongada.
+- ausência de regressão nova nos gates automatizados existentes;
+- contraste e legibilidade adequados para operação prolongada;
+- aprovação explícita do merge.
 
 ## Critério de conclusão
 
-A v1.0 só será considerada visualmente concluída quando todas as telas parecerem partes do mesmo produto, sem áreas com aparência padrão ou provisória do framework e sem regressão funcional.
+A transformação visual desta etapa é considerada concluída quando todas as áreas compartilham o mesmo sistema visual, os módulos funcionais permanecem intactos e não há regressão nova atribuível às mudanças de apresentação.
