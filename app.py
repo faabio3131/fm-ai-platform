@@ -14,6 +14,7 @@ from infra.streamlit_app.auth_ui import (
     render_identity_sidebar,
     require_authentication,
 )
+from infra.seguranca.session_guard import build_session_factory
 from migrations.runner import assert_schema_current
 
 # Patch: ensure compatibility with custom keyword args used across the app
@@ -91,9 +92,8 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    create_engine,
 )
-from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+from sqlalchemy.orm import declarative_base, relationship
 import io
 
 from core.pdv.adaptadores_sqlalchemy import (
@@ -149,7 +149,9 @@ RUNTIME_SETTINGS = load_runtime_settings(
 )
 DATABASE_URL = RUNTIME_SETTINGS.database_url
 engine = build_runtime_engine(RUNTIME_SETTINGS)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = build_session_factory(
+    engine=engine, commercial=RUNTIME_SETTINGS.commercial
+)
 Base = declarative_base()
 
 
