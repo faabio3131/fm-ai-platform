@@ -36,7 +36,7 @@ jobs:
           git diff --check
       - name: Testes Python completos
         run: pytest -q
-      - name: Commitar somente app.py se validado
+      - name: Commitar app.py validado sobre a cabeça mais recente
         run: |
           if git diff --quiet -- app.py; then
             echo "app.py já integrado."
@@ -45,5 +45,7 @@ jobs:
           git config user.name "fm-ai-wave0-bot"
           git config user.email "fm-ai-wave0-bot@users.noreply.github.com"
           git add app.py
-          git commit -m "V1 Wave0: wire production runtime and authentication into app"
+          git commit -m "V1 Wave0: enforce versioned commercial schema in app"
+          git fetch origin impl/v1-wave0-production-foundation
+          git rebase origin/impl/v1-wave0-production-foundation
           git push origin HEAD:impl/v1-wave0-production-foundation
