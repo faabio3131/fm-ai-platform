@@ -44,6 +44,18 @@ def test_production_requires_explicit_database(monkeypatch: pytest.MonkeyPatch) 
         load_runtime_settings()
 
 
+def test_production_requires_explicit_tenant_and_unit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_runtime_env(monkeypatch)
+    monkeypatch.setenv("FM_AI_ENV", "production")
+    monkeypatch.setenv(
+        "DATABASE_URL", "postgresql+psycopg://user:secret@db.internal/gerente_ai"
+    )
+    with pytest.raises(RuntimeError, match="FM_AI_TENANT_ID"):
+        load_runtime_settings()
+
+
 def test_production_rejects_sqlite_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     _clear_runtime_env(monkeypatch)
     monkeypatch.setenv("FM_AI_ENV", "production")
@@ -105,8 +117,6 @@ def test_sqlite_health_and_versioned_migration_are_idempotent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _clear_runtime_env(monkeypatch)
-    settings = load_runtime_settings(test_database_url="sqlite:///:memory:")
-    # load_runtime_settings só usa o URL injetado quando o modo de teste está ativo.
     monkeypatch.setenv("FM_AI_TEST_MODE", "1")
     settings = load_runtime_settings(test_database_url="sqlite:///:memory:")
     engine = build_engine(settings)
