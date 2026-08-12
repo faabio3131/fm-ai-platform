@@ -5,7 +5,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from core.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
-from core.seguranca.autenticacao import ServicoAutenticacao, hash_password, verify_password
+from core.seguranca.autenticacao import (
+    ServicoAutenticacao,
+    hash_password,
+    verify_password,
+)
 from core.seguranca.erros import CredenciaisInvalidas, SegredoAusente, UsuarioInativo
 from core.seguranca.modelos_orm import SecurityBase
 from core.seguranca.permissoes import Papel, Permissao
