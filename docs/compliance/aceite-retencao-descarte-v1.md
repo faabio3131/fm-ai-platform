@@ -42,4 +42,6 @@ Valores válidos após revisão humana: `APROVADO` ou `REPROVADO`.
 
 Enquanto este termo permanecer `PENDENTE`, a evidência de privacidade do Gate E deve continuar com `legal_approval=false` e a decisão de produção deve permanecer fail-closed.
 
+Após uma decisão `APROVADO`, o aceite deve ser registrado por uma pessoa competente e de forma auditável antes de qualquer alteração da evidência para `legal_approval=true`. A automação pode validar a existência e a consistência desse registro, mas não pode criá-lo nem se autoaprovar.
+
 Mesmo após eventual `APROVADO`, o resultado será apenas uma pré-condição para reavaliar o Gate E. Um GO técnico não autoriza deploy, migration de produção, credenciais reais ou ativação global; essas ações continuam exigindo decisão humana separada.
