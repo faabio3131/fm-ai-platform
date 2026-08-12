@@ -118,7 +118,7 @@ Na última rodada que alterou o runtime visual:
 - o mesmo teste legado já havia falhado, no mesmo ponto de sincronização do seletor de pagamento, em execução anterior à iniciativa visual, demonstrando que a oscilação é preexistente e não foi introduzida por esta transformação;
 - outro teste completo de pagamento em dinheiro passou na mesma execução.
 
-Os commits posteriores a essa rodada alteram somente este documento de registro e não modificam o runtime da aplicação.
+Os commits posteriores à rodada de runtime alteram somente este documento de registro e não modificam a aplicação.
 
 O warning legado de `use_container_width` foi deliberadamente mantido fora desta iniciativa para não ampliar o escopo além da transformação visual.
 
