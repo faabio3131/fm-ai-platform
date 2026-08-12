@@ -70,7 +70,7 @@ class RuntimeSettings:
     def test(self) -> bool:
         return self.environment is RuntimeEnvironment.TEST
 
-    def validate(self) -> "RuntimeSettings":
+    def validate(self) -> RuntimeSettings:
         url = self.database_url.strip()
         if not url:
             raise RuntimeError("DATABASE_URL nao definida para o runtime atual.")
