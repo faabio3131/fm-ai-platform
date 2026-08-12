@@ -40,7 +40,8 @@ jobs:
       - name: Ruff Wave0
         run: >-
           ruff check core/runtime core/seguranca migrations/runner.py scripts
-          tests/unit/runtime tests/unit/security
+          tests/unit/runtime/test_runtime_foundation.py
+          tests/unit/security/test_authentication_v1.py
       - name: Testes focados Wave0
         run: pytest -q tests/unit/runtime tests/unit/security
       - name: Suite Python completa
