@@ -14,7 +14,7 @@ import shutil
 import sqlite3
 import subprocess
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from sqlalchemy.engine import URL, make_url
@@ -28,6 +28,33 @@ class BackupManifest:
     file_name: str
     sha256: str
     size_bytes: int
+
+
+@dataclass(frozen=True)
+class BackupRetentionPolicy:
+    """Retenção local. RPO/RTO são metas de operação, não garantias do código."""
+
+    keep_last: int = 30
+    max_age_days: int = 90
+    target_rpo_minutes: int = 60
+    target_rto_minutes: int = 120
+
+    def __post_init__(self) -> None:
+        if self.keep_last < 1:
+            raise ValueError("keep_last deve ser >= 1")
+        if self.max_age_days < 1:
+            raise ValueError("max_age_days deve ser >= 1")
+        if self.target_rpo_minutes < 1 or self.target_rto_minutes < 1:
+            raise ValueError("RPO/RTO devem ser positivos")
+
+    @classmethod
+    def from_env(cls) -> BackupRetentionPolicy:
+        return cls(
+            keep_last=int(os.getenv("FM_AI_BACKUP_KEEP_LAST", "30")),
+            max_age_days=int(os.getenv("FM_AI_BACKUP_MAX_AGE_DAYS", "90")),
+            target_rpo_minutes=int(os.getenv("FM_AI_TARGET_RPO_MINUTES", "60")),
+            target_rto_minutes=int(os.getenv("FM_AI_TARGET_RTO_MINUTES", "120")),
+        )
 
 
 def _sha256(path: Path) -> str:
@@ -122,6 +149,51 @@ def verify_backup(backup_file: str | Path) -> BackupManifest:
     return manifest
 
 
+def list_verified_backups(directory: str | Path) -> tuple[tuple[Path, BackupManifest], ...]:
+    root = Path(directory).expanduser().resolve()
+    if not root.exists():
+        return ()
+    valid: list[tuple[Path, BackupManifest]] = []
+    for manifest_path in root.glob("*.manifest.json"):
+        suffix = ".manifest.json"
+        backup_path = manifest_path.with_name(manifest_path.name[: -len(suffix)])
+        try:
+            manifest = verify_backup(backup_path)
+        except (FileNotFoundError, RuntimeError, ValueError, json.JSONDecodeError):
+            continue
+        valid.append((backup_path, manifest))
+    return tuple(
+        sorted(valid, key=lambda item: item[1].created_at, reverse=True)
+    )
+
+
+def prune_backups(
+    directory: str | Path,
+    policy: BackupRetentionPolicy,
+    *,
+    now: datetime | None = None,
+) -> tuple[Path, ...]:
+    """Remove apenas backups verificados fora da retenção; corruptos ficam para análise."""
+
+    reference = now or datetime.now(timezone.utc)
+    if reference.tzinfo is None or reference.utcoffset() is None:
+        raise ValueError("now deve conter timezone")
+    cutoff = reference.astimezone(timezone.utc) - timedelta(days=policy.max_age_days)
+    removed: list[Path] = []
+
+    for index, (backup_path, manifest) in enumerate(list_verified_backups(directory)):
+        created = datetime.fromisoformat(manifest.created_at).astimezone(timezone.utc)
+        keep_by_count = index < policy.keep_last
+        keep_by_age = created >= cutoff
+        if keep_by_count or keep_by_age:
+            continue
+        manifest_path = backup_path.with_suffix(backup_path.suffix + ".manifest.json")
+        backup_path.unlink(missing_ok=True)
+        manifest_path.unlink(missing_ok=True)
+        removed.append(backup_path)
+    return tuple(removed)
+
+
 def restore_database(
     database_url: str,
     backup_file: str | Path,
@@ -136,7 +208,8 @@ def restore_database(
 
     path = Path(backup_file).expanduser().resolve()
     manifest = verify_backup(path)
-    if manifest.backend not in {backend, "postgres" if backend == "postgresql" else backend}:
+    compatible_backend = "postgres" if backend == "postgresql" else backend
+    if manifest.backend not in {backend, compatible_backend}:
         raise RuntimeError("backend do backup incompativel com destino")
 
     if backend == "sqlite":
