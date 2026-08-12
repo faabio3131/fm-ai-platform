@@ -121,12 +121,16 @@ def test_sqlite_health_and_versioned_migration_are_idempotent(
     settings = load_runtime_settings(test_database_url="sqlite:///:memory:")
     engine = build_engine(settings)
     assert check_database_health(engine).ok is True
-    assert run_migrations(engine) == ("0001_security_identity_v1",)
+    assert run_migrations(engine) == (
+        "0001_security_identity_v1",
+        "0002_credential_references_v1",
+    )
     assert run_migrations(engine) == ()
     tables = set(inspect(engine).get_table_names())
     assert "fm_schema_migrations" in tables
     assert "fm_usuarios_v1" in tables
     assert "fm_usuario_papeis_v1" in tables
+    assert "fm_credenciais_referencias_v1" in tables
 
 
 def test_sqlite_backup_manifest_and_restore(tmp_path: Path) -> None:
