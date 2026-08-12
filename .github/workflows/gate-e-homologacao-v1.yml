@@ -59,7 +59,7 @@ jobs:
           pip install pytest ruff==0.16.1 mypy==1.20.2
           npm ci
           npx playwright install chromium
-          python -m py_compile ops/homologacao/gate_e_runner.py
+          python -m py_compile ops/homologacao/gate_e_runner.py ops/homologacao/migration_dry_run.py
           mkdir -p evidence
 
       - name: Suite completa da release candidate
@@ -132,7 +132,7 @@ jobs:
           python ops/homologacao/gate_e_runner.py backup-restore \
             --database "$DB" \
             --output-dir evidence
-          python ops/homologacao/gate_e_runner.py migration \
+          python ops/homologacao/migration_dry_run.py \
             --database "$DB" \
             --repo-root . \
             --output evidence/migration.json
