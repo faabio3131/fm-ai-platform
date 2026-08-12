@@ -151,20 +151,27 @@ export async function selectComboboxOption(
     return;
   }
 
-  const listbox = page.getByRole('listbox').filter({ visible: true }).last();
-  await expect(async () => {
-    await combobox.focus();
-    await combobox.press('ArrowDown');
-    await expect(combobox).toHaveAttribute('aria-expanded', 'true', { timeout: 5_000 });
-    await expect(listbox).toBeVisible({ timeout: 5_000 });
-  }).toPass({ timeout: 15_000 });
-  const selectedOption = listbox.getByRole('option', {
-    name: option,
-    exact: typeof option === 'string',
-  });
-  await expect(selectedOption).toBeVisible();
   const runBeforeSelection = await readyMarker.getAttribute('data-fm-ai-e2e-run');
-  await selectedOption.click();
+  await expect(async () => {
+    if (typeof option === 'string' && (await combobox.inputValue()) === option) {
+      return;
+    }
+
+    await combobox.focus();
+    if ((await combobox.getAttribute('aria-expanded')) !== 'true') {
+      await combobox.press('ArrowDown');
+    }
+    await expect(combobox).toHaveAttribute('aria-expanded', 'true', { timeout: 3_000 });
+
+    const listbox = page.getByRole('listbox').filter({ visible: true }).last();
+    await expect(listbox).toBeVisible({ timeout: 3_000 });
+    const selectedOption = listbox.getByRole('option', {
+      name: option,
+      exact: typeof option === 'string',
+    });
+    await expect(selectedOption).toBeVisible({ timeout: 3_000 });
+    await selectedOption.click();
+  }).toPass({ timeout: 20_000, intervals: [250, 500, 1_000] });
 
   await expect
     .poll(
