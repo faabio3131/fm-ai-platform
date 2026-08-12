@@ -9,6 +9,7 @@ on:
       - 'core/runtime/**'
       - 'core/seguranca/**'
       - 'core/*/flags.py'
+      - 'infra/**'
       - 'migrations/**'
       - 'scripts/**'
       - 'tests/unit/runtime/**'
@@ -36,10 +37,10 @@ jobs:
           pip install -r requirements.txt
           pip install pytest ruff==0.16.1 mypy==1.20.2
       - name: Compilar fundação
-        run: python -m compileall -q core/runtime core/seguranca migrations scripts
+        run: python -m compileall -q core/runtime core/seguranca infra migrations scripts
       - name: Ruff Wave0
         run: >-
-          ruff check core/runtime core/seguranca migrations/runner.py scripts
+          ruff check core/runtime core/seguranca infra migrations/runner.py scripts
           tests/unit/runtime/test_runtime_foundation.py
           tests/unit/security/test_authentication_v1.py
       - name: Testes focados Wave0
