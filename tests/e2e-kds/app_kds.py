@@ -3,7 +3,9 @@
 
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
@@ -17,6 +19,7 @@ import streamlit as st
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from core.kds import contexto_kds_teste
 from core.kds.ui_streamlit import render_kds
 
 TMPDIR_RAW = os.environ.get("FM_AI_TEST_TMPDIR")
@@ -54,10 +57,13 @@ render_kds(
     engine=engine,
     session_factory=SessionLocal,
     permitir_simulacao_offline=True,
+    contexto=contexto_kds_teste(
+        correlation_id=str(uuid4()),
+        solicitado_em=datetime.now(timezone.utc),
+        papel="administrador",
+    ),
 )
 
-# Contrato de prontidao browser-driven: so aparece depois que o render do KDS
-# terminou e muda a cada rerun, permitindo ao Playwright sincronizar a UI real.
 st.markdown(
     f'<span data-fm-ai-e2e-ready="true" '
     f'data-fm-ai-e2e-run="{st.session_state["_fm_ai_e2e_run"]}" '
