@@ -9,6 +9,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
+from hashlib import sha256
+from json import dumps
 from typing import Protocol
 from uuid import uuid4
 
@@ -40,6 +42,8 @@ from core.seguranca.auditoria import (
 )
 
 from .repositorios import RepositorioPedidos
+
+_REQUEST_FINGERPRINT_KEY = "_request_fingerprint"
 
 
 class PortaOutboxPedidos(Protocol):
@@ -88,6 +92,26 @@ def _validar_contexto(pedido: Pedido, contexto: ContextoExecucao) -> None:
         or str(pedido.unidade_id) != contexto.unidade_id
     ):
         raise PermissaoNegada("Pedido fora do tenant/unidade ativo")
+
+
+def _fingerprint_transicao(
+    *,
+    destino: PedidoStatus,
+    versao_esperada: int,
+    motivo: str | None,
+    precondicoes: Mapping[str, bool],
+) -> str:
+    """Fingerprint durável com a mesma semântica usada pela máquina normativa."""
+
+    payload = {
+        "destino": destino.value,
+        "versao": versao_esperada,
+        "motivo": motivo,
+        "pre": sorted(precondicoes.items()),
+    }
+    return sha256(
+        dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
 
 
 def _auditoria_criacao(
@@ -212,15 +236,30 @@ def transicionar_pedido(
 ) -> ResultadoPedidoAutoritativo:
     """Aplica exclusivamente uma transição permitida pela máquina normativa."""
 
+    precondicoes_efetivas = dict(precondicoes or {})
+    fingerprint = _fingerprint_transicao(
+        destino=destino,
+        versao_esperada=versao_esperada,
+        motivo=motivo,
+        precondicoes=precondicoes_efetivas,
+    )
+    metadata_efetiva = dict(metadata or {})
+    metadata_efetiva[_REQUEST_FINGERPRINT_KEY] = fingerprint
+
     repetido = outbox.consultar(
         tenant_id=tenant_id,
         unidade_id=unidade_id,
         idempotency_key=idempotency_key,
     )
     if repetido is not None:
+        fingerprint_persistido = repetido.payload.get(_REQUEST_FINGERPRINT_KEY)
         if (
             repetido.aggregate_id != str(pedido_id)
             or repetido.payload.get("destino") != destino.value
+            or (
+                fingerprint_persistido is not None
+                and fingerprint_persistido != fingerprint
+            )
         ):
             raise ConflitoIdempotencia("idempotency_key reutilizada em outra transição")
         atual = repositorio.buscar(tenant_id, unidade_id, pedido_id)
@@ -248,10 +287,10 @@ def transicionar_pedido(
             idempotency_key=str(idempotency_key),
             timestamp=timestamp,
             contexto=contexto,
-            precondicoes=precondicoes or {},
+            precondicoes=precondicoes_efetivas,
             motivo=motivo,
             decisao_cozinha=decisao_cozinha,
-            metadata=metadata or {},
+            metadata=metadata_efetiva,
         ),
     )
     atualizado = replace(
