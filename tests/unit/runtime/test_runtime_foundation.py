@@ -28,6 +28,7 @@ _EXPECTED_MIGRATIONS = (
     "0005_payments_authoritative_v1",
     "0006_stock_authoritative_v1",
     "0007_event_bus_persistence_v1",
+    "0008_audit_log_v1",
 )
 
 
@@ -154,6 +155,7 @@ def test_sqlite_health_and_versioned_migration_are_idempotent(
         "fm_usuarios_v1",
         "fm_usuario_papeis_v1",
         "fm_credenciais_referencias_v1",
+        "fm_auditoria_v1",
         "produtos",
         "vendas",
         "configuracoes_meta",
