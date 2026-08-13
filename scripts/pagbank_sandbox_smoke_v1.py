@@ -89,11 +89,12 @@ def main() -> int:
         )
 
         if args.command == "create":
-            referencia = f"smoke-{uuid4()}"
+            # Mantém a chave enviada ao PagBank estritamente alfanumérica.
+            referencia = f"smoke{uuid4().hex}"
             cobranca = adapter.criar_pix(
                 pagamento_id=referencia,
                 valor=_valor(args.amount),
-                idempotency_key=f"smoke:{referencia}",
+                idempotency_key=referencia,
                 cliente=_cliente_interativo(),
                 descricao="Homologacao Gerente AI",
             )
