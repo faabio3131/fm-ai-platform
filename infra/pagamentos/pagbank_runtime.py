@@ -24,7 +24,7 @@ class PagBankRuntimeConfig:
     timeout_seconds: float = 10.0
 
     @classmethod
-    def from_env(cls) -> "PagBankRuntimeConfig":
+    def from_env(cls) -> PagBankRuntimeConfig:
         ambiente = os.getenv("FM_AI_PAGBANK_ENV", "sandbox").strip().lower()
         notification_url = os.getenv("FM_AI_PAGBANK_NOTIFICATION_URL", "").strip() or None
         timeout_raw = os.getenv("FM_AI_PAGBANK_TIMEOUT_SECONDS", "10").strip()
