@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from hashlib import sha256
 from json import dumps
-from typing import Any, Mapping
+from typing import Any
 from uuid import uuid4
 
 from core.dominio.decisoes import DecisaoCozinha

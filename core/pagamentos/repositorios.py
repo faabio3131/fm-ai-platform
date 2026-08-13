@@ -1,9 +1,10 @@
 """Porta financeira e implementacao atomica append-only em memoria."""
 
+from collections.abc import Callable
 from threading import RLock
-from typing import Callable, Protocol, TypeVar
+from typing import Protocol, TypeVar
 
-from .erros import ConflitoIdempotenciaPagamento, ConcorrenciaPagamento
+from .erros import ConcorrenciaPagamento, ConflitoIdempotenciaPagamento
 from .modelos import (
     CriterioFinanceiro,
     ObrigacaoPagamento,

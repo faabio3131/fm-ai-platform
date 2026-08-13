@@ -1,6 +1,7 @@
 """Registro tipado e processador sincrono/idempotente de mensagens."""
 
-from typing import Callable, Protocol, TypeAlias
+from collections.abc import Callable
+from typing import Protocol, TypeAlias
 
 from core.dominio.tempo import Clock
 from core.seguranca.contexto import ContextoExecucao

@@ -13,7 +13,7 @@ from sqlalchemy import insert, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from .erros import ConflitoIdempotenciaEstoque, ConcorrenciaEstoque, SaldoInsuficiente
+from .erros import ConcorrenciaEstoque, ConflitoIdempotenciaEstoque, SaldoInsuficiente
 from .modelos import (
     ItemSnapshotFicha,
     MovimentoEstoque,

@@ -6,14 +6,19 @@ pela mesma unidade de trabalho. Nenhum canal deve atualizar status diretamente.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
-from typing import Mapping, Protocol
+from typing import Protocol
 from uuid import uuid4
 
 from core.dominio.decisoes import DecisaoCozinha
 from core.dominio.enums import PedidoStatus
-from core.dominio.erros import ConflitoIdempotencia, PermissaoNegada, RecursoNaoEncontrado
+from core.dominio.erros import (
+    ConflitoIdempotencia,
+    PermissaoNegada,
+    RecursoNaoEncontrado,
+)
 from core.dominio.eventos import EventoPedidoOperacional, PedidoCriado
 from core.dominio.ids import (
     CausationId,

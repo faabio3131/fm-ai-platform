@@ -3,8 +3,8 @@
 import hashlib
 import json
 from dataclasses import replace
-from decimal import Decimal
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
@@ -201,8 +201,8 @@ def criar_obrigacao_pagamento(
             status,
             metodo,
             valor_previsto,
-            Dinheiro(Decimal("0"), valor_previsto.moeda),
-            Dinheiro(Decimal("0"), valor_previsto.moeda),
+            Dinheiro(Decimal(0), valor_previsto.moeda),
+            Dinheiro(Decimal(0), valor_previsto.moeda),
             valor_previsto,
             valor_previsto.moeda,
             recebimento_posterior,
@@ -220,7 +220,7 @@ def criar_obrigacao_pagamento(
             pagamento.unidade_id,
             TipoTransacao.INICIACAO,
             StatusTransacao.PENDENTE,
-            Dinheiro(Decimal("0"), pagamento.moeda),
+            Dinheiro(Decimal(0), pagamento.moeda),
             metodo,
             provedor,
             None,
@@ -310,7 +310,7 @@ def confirmar_pagamento(
         saldo = pagamento.saldo
         recebido = valor_recebido or valor
         financeiro = valor
-        troco = Dinheiro(Decimal("0"), pagamento.moeda)
+        troco = Dinheiro(Decimal(0), pagamento.moeda)
         if metodo == MetodoPagamento.DINHEIRO and recebido.valor > saldo.valor:
             financeiro = saldo
             troco = recebido - saldo
@@ -542,7 +542,7 @@ def _registrar_estado_sem_valor(
             pagamento.unidade_id,
             tipo_transacao,
             status_transacao,
-            Dinheiro(Decimal("0"), pagamento.moeda),
+            Dinheiro(Decimal(0), pagamento.moeda),
             pagamento.metodo,
             pagamento.provedor,
             None,
@@ -612,7 +612,7 @@ def avaliar_criterio_financeiro(
     motivo: str | None = None,
     confirmacao_humana: bool = False,
 ) -> CriterioFinanceiro:
-    zero = Dinheiro(Decimal("0"), pagamento.moeda if pagamento else "BRL")
+    zero = Dinheiro(Decimal(0), pagamento.moeda if pagamento else "BRL")
     codigo, elegivel, valor, razao = (
         CodigoCriterioFinanceiro.NAO_ELEGIVEL,
         False,

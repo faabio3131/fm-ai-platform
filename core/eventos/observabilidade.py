@@ -3,7 +3,6 @@
 from collections import Counter
 from typing import Protocol
 
-
 METRICAS = frozenset(
     {
         "messages_received",

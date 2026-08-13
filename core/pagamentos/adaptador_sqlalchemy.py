@@ -1,8 +1,9 @@
 """Repository financeiro SQLAlchemy, escopado e sem APIs destrutivas."""
 
+from collections.abc import Callable
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Callable, TypeVar, cast
+from typing import TypeVar, cast
 from uuid import NAMESPACE_URL, uuid5
 
 from sqlalchemy import select, update
@@ -12,7 +13,7 @@ from sqlalchemy.orm import Session
 from core.dominio.dinheiro import Dinheiro
 from core.dominio.enums import PagamentoStatus
 
-from .erros import ConflitoIdempotenciaPagamento, ConcorrenciaPagamento
+from .erros import ConcorrenciaPagamento, ConflitoIdempotenciaPagamento
 from .modelos import (
     CodigoCriterioFinanceiro,
     CriterioFinanceiro,
