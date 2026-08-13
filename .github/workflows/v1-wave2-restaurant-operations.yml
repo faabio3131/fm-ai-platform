@@ -1,0 +1,65 @@
+name: V1 Wave2 Restaurant Operations
+
+on:
+  push:
+    branches: [impl/v1-wave2-restaurant-operations]
+  pull_request:
+    branches: [impl/v1-wave1-authoritative-transactions]
+    paths:
+      - 'core/central_pedidos/**'
+      - 'core/pedidos/**'
+      - 'core/estados/**'
+      - 'core/seguranca/**'
+      - 'infra/eventos/**'
+      - 'infra/seguranca/**'
+      - 'tests/integration/wave2/**'
+      - 'tests/e2e-orders-center/**'
+      - 'playwright.order-center.config.ts'
+      - '.github/workflows/v1-wave2-restaurant-operations.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  central:
+    name: CENTRAL-001 autoritativa e navegador
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1
+          npm ci
+          npx playwright install chromium
+
+      - name: Compilar Central
+        run: >-
+          python -m compileall -q core/central_pedidos core/pedidos core/estados
+          infra/eventos infra/seguranca tests/integration/wave2
+
+      - name: Ruff Central
+        run: >-
+          ruff check core/central_pedidos core/pedidos core/estados
+          infra/eventos infra/seguranca tests/integration/wave2
+
+      - name: Provas autoritativas CENTRAL-001
+        run: pytest -q tests/integration/wave2
+
+      - name: Regressao Python completa
+        run: pytest -q
+
+      - name: Jornada real de navegador da Central
+        run: npx playwright test -c playwright.order-center.config.ts --reporter=list
