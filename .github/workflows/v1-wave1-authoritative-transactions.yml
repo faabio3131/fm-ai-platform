@@ -7,6 +7,7 @@ on:
     branches: [impl/v1-wave0-production-foundation]
     paths:
       - 'application/**'
+      - 'http_api/**'
       - 'core/pedidos/**'
       - 'core/pagamentos/**'
       - 'core/estoque/**'
@@ -15,9 +16,11 @@ on:
       - 'core/estados/**'
       - 'core/pdv/**'
       - 'infra/eventos/**'
+      - 'infra/pagamentos/**'
       - 'infra/transacoes/**'
       - 'infra/seguranca/**'
       - 'migrations/**'
+      - 'requirements.txt'
       - 'tests/integration/wave1/**'
       - 'tests/integration/pdv/**'
       - 'tests/unit/events/**'
@@ -49,13 +52,13 @@ jobs:
           pip install pytest ruff==0.16.1 mypy==1.20.2
       - name: Compilar Onda 1
         run: >-
-          python -m compileall -q application core/pedidos core/pagamentos core/estoque
-          core/eventos core/dominio core/estados core/pdv infra/eventos infra/transacoes
-          infra/seguranca migrations
+          python -m compileall -q application http_api core/pedidos core/pagamentos core/estoque
+          core/eventos core/dominio core/estados core/pdv infra/eventos infra/pagamentos
+          infra/transacoes infra/seguranca migrations
       - name: Ruff Onda 1
         run: >-
-          ruff check application core/pedidos core/pagamentos core/estoque core/eventos
-          core/dominio core/estados infra/eventos infra/transacoes infra/seguranca
+          ruff check application http_api core/pedidos core/pagamentos core/estoque core/eventos
+          core/dominio core/estados infra/eventos infra/pagamentos infra/transacoes infra/seguranca
           migrations/runner.py core/pdv/cutover_canonico.py core/pdv/executor_canonico.py
           core/pdv/modelos.py tests/integration/wave1 tests/unit/events
           tests/unit/orders/test_canais_canonicos.py
