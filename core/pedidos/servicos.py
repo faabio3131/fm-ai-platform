@@ -20,6 +20,7 @@ from core.dominio.ids import (
     CorrelationId,
     EventoId,
     IdempotencyKey,
+    PedidoId,
     TenantId,
     UnidadeId,
 )
@@ -190,7 +191,7 @@ def transicionar_pedido(
     *,
     tenant_id: TenantId,
     unidade_id: UnidadeId,
-    pedido_id: object,
+    pedido_id: PedidoId,
     destino: PedidoStatus,
     versao_esperada: int,
     idempotency_key: IdempotencyKey,
@@ -206,9 +207,6 @@ def transicionar_pedido(
 ) -> ResultadoPedidoAutoritativo:
     """Aplica exclusivamente uma transição permitida pela máquina normativa."""
 
-    from core.dominio.ids import PedidoId  # evita dependência circular em tipagem antiga
-
-    pid = pedido_id if isinstance(pedido_id, PedidoId) else PedidoId(str(pedido_id))
     repetido = outbox.consultar(
         tenant_id=tenant_id,
         unidade_id=unidade_id,
@@ -216,16 +214,16 @@ def transicionar_pedido(
     )
     if repetido is not None:
         if (
-            repetido.aggregate_id != str(pid)
+            repetido.aggregate_id != str(pedido_id)
             or repetido.payload.get("destino") != destino.value
         ):
             raise ConflitoIdempotencia("idempotency_key reutilizada em outra transição")
-        atual = repositorio.buscar(tenant_id, unidade_id, pid)
+        atual = repositorio.buscar(tenant_id, unidade_id, pedido_id)
         if atual is None:
             raise RecursoNaoEncontrado("pedido não encontrado")
         return ResultadoPedidoAutoritativo(atual, repetido, None, True)
 
-    atual = repositorio.buscar(tenant_id, unidade_id, pid)
+    atual = repositorio.buscar(tenant_id, unidade_id, pedido_id)
     if atual is None:
         raise RecursoNaoEncontrado("pedido não encontrado")
     _validar_contexto(atual, contexto)
