@@ -1,7 +1,8 @@
-"""Unit of Work único para Pedido, Pagamento, Estoque, Eventos e Auditoria.
+"""Composição transacional única para Pedido, Pagamento, Estoque e efeitos.
 
-Todos os repositorios compartilham exatamente a mesma Session. O commit é explícito;
-se qualquer efeito falhar, a saída do contexto faz rollback de tudo.
+`RecursosTransacionaisV1` permite reutilizar uma Session cuja transação já pertence
+a outra composition root (por exemplo, o cutover do PDV). `UnitOfWorkV1` continua
+dono da Session quando a operação nasce diretamente na camada de aplicação.
 """
 
 from __future__ import annotations
@@ -25,25 +26,52 @@ from infra.eventos.adaptador_sqlalchemy import (
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
 
 
+class RecursosTransacionaisV1:
+    """Repositories autoritativos ligados à mesma Session, sem assumir o commit."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+        self.pedidos = RepositorioPedidosSQLAlchemy(session)
+        self.pagamentos = RepositorioPagamentosSQLAlchemy(session)
+        self.estoque = RepositorioLedgerSQLAlchemy(session)
+        self.outbox = RepositorioOutboxSQLAlchemy(session)
+        self.inbox = RepositorioInboxSQLAlchemy(session)
+        self.dlq = RepositorioDLQSQLAlchemy(session)
+        self.auditoria = RepositorioAuditoriaSQLAlchemy(session)
+
+    def registrar_efeitos(
+        self,
+        *,
+        eventos: Iterable[EnvelopeMensagem] = (),
+        auditorias: Iterable[EventoAuditoria] = (),
+    ) -> None:
+        for evento in eventos:
+            self.outbox.adicionar(evento)
+        for evento_auditoria in auditorias:
+            self.auditoria.adicionar(evento_auditoria)
+
+
 class UnitOfWorkV1:
-    """Fronteira transacional autoritativa da aplicação V1."""
+    """Fronteira autoritativa que possui Session e commit/rollback da aplicação."""
 
     def __init__(self, session_factory: Callable[[], Session]) -> None:
         self._session_factory = session_factory
         self.session: Session | None = None
         self.committed = False
+        self._recursos: RecursosTransacionaisV1 | None = None
 
     def __enter__(self) -> Self:
         if self.session is not None:
             raise RuntimeError("UnitOfWorkV1 nao pode ser reutilizado enquanto aberto")
         self.session = self._session_factory()
-        self.pedidos = RepositorioPedidosSQLAlchemy(self.session)
-        self.pagamentos = RepositorioPagamentosSQLAlchemy(self.session)
-        self.estoque = RepositorioLedgerSQLAlchemy(self.session)
-        self.outbox = RepositorioOutboxSQLAlchemy(self.session)
-        self.inbox = RepositorioInboxSQLAlchemy(self.session)
-        self.dlq = RepositorioDLQSQLAlchemy(self.session)
-        self.auditoria = RepositorioAuditoriaSQLAlchemy(self.session)
+        self._recursos = RecursosTransacionaisV1(self.session)
+        self.pedidos = self._recursos.pedidos
+        self.pagamentos = self._recursos.pagamentos
+        self.estoque = self._recursos.estoque
+        self.outbox = self._recursos.outbox
+        self.inbox = self._recursos.inbox
+        self.dlq = self._recursos.dlq
+        self.auditoria = self._recursos.auditoria
         self.committed = False
         return self
 
@@ -53,14 +81,9 @@ class UnitOfWorkV1:
         eventos: Iterable[EnvelopeMensagem] = (),
         auditorias: Iterable[EventoAuditoria] = (),
     ) -> None:
-        """Anexa efeitos produzidos por serviços puros à mesma transação SQL."""
-
-        if self.session is None:
+        if self._recursos is None:
             raise RuntimeError("UnitOfWorkV1 nao iniciado")
-        for evento in eventos:
-            self.outbox.adicionar(evento)
-        for evento_auditoria in auditorias:
-            self.auditoria.adicionar(evento_auditoria)
+        self._recursos.registrar_efeitos(eventos=eventos, auditorias=auditorias)
 
     def commit(self) -> None:
         if self.session is None:
@@ -93,4 +116,5 @@ class UnitOfWorkV1:
         finally:
             self.session.close()
             self.session = None
+            self._recursos = None
         return False
