@@ -6,6 +6,7 @@ on:
   pull_request:
     branches: [impl/v1-wave0-production-foundation]
     paths:
+      - 'application/**'
       - 'core/pedidos/**'
       - 'core/pagamentos/**'
       - 'core/estoque/**'
@@ -18,6 +19,9 @@ on:
       - 'migrations/**'
       - 'tests/integration/wave1/**'
       - 'tests/unit/events/**'
+      - 'tests/unit/orders/**'
+      - 'tests/unit/payments/**'
+      - 'tests/unit/stock/**'
       - 'tests/unit/runtime/**'
       - '.github/workflows/v1-wave1-authoritative-transactions.yml'
   workflow_dispatch:
@@ -43,13 +47,15 @@ jobs:
           pip install pytest ruff==0.16.1 mypy==1.20.2
       - name: Compilar Onda 1
         run: >-
-          python -m compileall -q core/pedidos core/pagamentos core/estoque core/eventos
-          core/dominio core/estados infra/eventos infra/transacoes infra/seguranca migrations
+          python -m compileall -q application core/pedidos core/pagamentos core/estoque
+          core/eventos core/dominio core/estados infra/eventos infra/transacoes
+          infra/seguranca migrations
       - name: Ruff Onda 1
         run: >-
-          ruff check core/pedidos core/pagamentos core/estoque core/eventos core/dominio
-          core/estados infra/eventos infra/transacoes infra/seguranca migrations/runner.py
-          tests/integration/wave1 tests/unit/events tests/unit/runtime/test_runtime_foundation.py
+          ruff check application core/pedidos core/pagamentos core/estoque core/eventos
+          core/dominio core/estados infra/eventos infra/transacoes infra/seguranca
+          migrations/runner.py tests/integration/wave1 tests/unit/events tests/unit/orders
+          tests/unit/payments tests/unit/stock tests/unit/runtime/test_runtime_foundation.py
       - name: Testes focados Onda 1
         run: >-
           pytest -q tests/integration/wave1 tests/unit/events
