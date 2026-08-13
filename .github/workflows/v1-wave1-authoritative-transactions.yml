@@ -22,6 +22,7 @@ on:
       - 'migrations/**'
       - 'requirements.txt'
       - 'scripts/configure_pagbank_v1.py'
+      - 'scripts/pagbank_sandbox_smoke_v1.py'
       - 'tests/integration/wave1/**'
       - 'tests/integration/pdv/**'
       - 'tests/unit/events/**'
@@ -56,11 +57,12 @@ jobs:
           python -m compileall -q application http_api core/pedidos core/pagamentos core/estoque
           core/eventos core/dominio core/estados core/pdv infra/eventos infra/pagamentos
           infra/transacoes infra/seguranca migrations scripts/configure_pagbank_v1.py
+          scripts/pagbank_sandbox_smoke_v1.py
       - name: Ruff Onda 1
         run: >-
           ruff check application http_api core/pedidos core/pagamentos core/estoque core/eventos
           core/dominio core/estados infra/eventos infra/pagamentos infra/transacoes infra/seguranca
-          migrations/runner.py scripts/configure_pagbank_v1.py
+          migrations/runner.py scripts/configure_pagbank_v1.py scripts/pagbank_sandbox_smoke_v1.py
           core/pdv/cutover_canonico.py core/pdv/executor_canonico.py
           core/pdv/modelos.py tests/integration/wave1 tests/unit/events
           tests/unit/orders/test_canais_canonicos.py
