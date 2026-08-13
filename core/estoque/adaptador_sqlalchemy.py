@@ -82,7 +82,7 @@ def _snapshot_to_dict(snapshot: SnapshotFichaEstoque) -> dict[str, Any]:
 def _snapshot_from_dict(payload: dict[str, Any]) -> SnapshotFichaEstoque:
     itens_raw = payload.get("itens")
     if not isinstance(itens_raw, list):
-        raise ValueError("snapshot de estoque persistido invalido")
+        raise TypeError("snapshot de estoque persistido invalido")
     return SnapshotFichaEstoque(
         pedido_id=str(payload["pedido_id"]),
         versao_ficha=str(payload["versao_ficha"]),

@@ -35,7 +35,7 @@ class EventoDominio(Serializavel):
 
     def __post_init__(self):
         if not isinstance(self.correlation_id, CorrelationId):
-            raise ValueError("correlation_id é obrigatório")
+            raise TypeError("correlation_id é obrigatório")
         object.__setattr__(self, "occurred_at", em_utc(self.occurred_at))
 
     def para_dict(self):
@@ -57,7 +57,7 @@ class EventoPedidoOperacional(EventoDominio):
     def __post_init__(self):
         super().__post_init__()
         if not self.tipo_evento.strip() or not self.tipo_evento.startswith("pedido."):
-            raise TypeError("tipo de evento operacional de pedido invalido")
+            raise ValueError("tipo de evento operacional de pedido invalido")
 
 
 @dataclass(frozen=True, kw_only=True)

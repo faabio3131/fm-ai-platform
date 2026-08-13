@@ -296,9 +296,9 @@ def _exigir_precondicoes(snapshot: SnapshotEstado, comando: ComandoTransicao) ->
         snapshot.aggregate_type == "pedido"
         and snapshot.estado == "confirmado"
         and comando.destino == "enviado_producao"
+        and (comando.decisao_cozinha is None or not comando.decisao_cozinha.permitido)
     ):
-        if comando.decisao_cozinha is None or not comando.decisao_cozinha.permitido:
-            raise ErroTransicao("cozinha_nao_autorizada")
+        raise ErroTransicao("cozinha_nao_autorizada")
     if comando.destino == "cancelado" and not (comando.motivo or "").strip():
         raise ErroTransicao("motivo_obrigatorio")
 
