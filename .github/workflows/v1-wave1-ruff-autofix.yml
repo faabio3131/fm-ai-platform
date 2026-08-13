@@ -1,0 +1,60 @@
+name: V1 Wave1 Ruff Autofix
+
+on:
+  push:
+    branches: [impl/v1-wave1-authoritative-transactions]
+    paths:
+      - '.github/workflows/v1-wave1-ruff-autofix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  autofix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: impl/v1-wave1-authoritative-transactions
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1
+      - name: Aplicar somente fixes seguros do Ruff
+        run: >-
+          ruff check --fix core/pedidos core/pagamentos core/estoque core/eventos core/dominio
+          core/estados infra/eventos infra/transacoes infra/seguranca migrations/runner.py
+          tests/integration/wave1 tests/unit/events tests/unit/runtime/test_runtime_foundation.py
+      - name: Confirmar Ruff limpo
+        run: >-
+          ruff check core/pedidos core/pagamentos core/estoque core/eventos core/dominio
+          core/estados infra/eventos infra/transacoes infra/seguranca migrations/runner.py
+          tests/integration/wave1 tests/unit/events tests/unit/runtime/test_runtime_foundation.py
+      - name: Validar sintaxe e testes focados
+        run: |
+          python -m compileall -q core/pedidos core/pagamentos core/estoque core/eventos core/dominio core/estados infra/eventos infra/transacoes infra/seguranca migrations
+          pytest -q tests/integration/wave1 tests/unit/events tests/unit/orders tests/unit/payments tests/unit/stock tests/unit/runtime/test_runtime_foundation.py
+      - name: Suite Python completa
+        run: pytest -q
+      - name: Commitar correções validadas
+        run: |
+          if git diff --quiet; then
+            echo "Nenhuma correção automática necessária."
+            exit 0
+          fi
+          git diff --check
+          git config user.name "fm-ai-wave1-bot"
+          git config user.email "fm-ai-wave1-bot@users.noreply.github.com"
+          git add core infra migrations tests
+          git commit -m "V1 Wave1: apply safe Ruff fixes"
+          git fetch origin impl/v1-wave1-authoritative-transactions
+          git rebase origin/impl/v1-wave1-authoritative-transactions
+          git push origin HEAD:impl/v1-wave1-authoritative-transactions
