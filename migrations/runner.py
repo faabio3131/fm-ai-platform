@@ -16,6 +16,7 @@ from sqlalchemy.engine import Connection
 
 from core.estoque.modelos_orm import StockBase
 from core.pagamentos.modelos_orm import PaymentsBase
+from core.pdv.modelos_orm import PDVBase
 from core.pedidos.modelos_orm import OrdersBase
 from infra.eventos.modelos_orm import EventBusBase
 from infra.legacy_schema import legacy_metadata
@@ -76,6 +77,10 @@ def _audit_log_v1(connection: Connection) -> None:
     EventoAuditoriaORM.__table__.create(bind=connection, checkfirst=True)
 
 
+def _pdv_authoritative_runtime_v1(connection: Connection) -> None:
+    PDVBase.metadata.create_all(bind=connection, checkfirst=True)
+
+
 DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001_security_identity_v1", _security_identity_v1),
     Migration("0002_credential_references_v1", _credential_references_v1),
@@ -85,6 +90,7 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0006_stock_authoritative_v1", _stock_authoritative_v1),
     Migration("0007_event_bus_persistence_v1", _event_bus_persistence_v1),
     Migration("0008_audit_log_v1", _audit_log_v1),
+    Migration("0009_pdv_authoritative_runtime_v1", _pdv_authoritative_runtime_v1),
 )
 
 
