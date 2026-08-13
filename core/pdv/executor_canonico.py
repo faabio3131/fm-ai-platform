@@ -29,7 +29,7 @@ from .adaptadores_sqlalchemy import (
     LegacyPDVSQLAlchemyAdapter,
     RepositorioPDVSQLAlchemy,
 )
-from .cutover_canonico import montar_checkout_pdv
+from .cutover_canonico import contexto_estoque_automatico_pdv, montar_checkout_pdv
 from .modelos import EntradaPDV, ResultadoPDV, mapear_metodo
 from .reconciliacao import ReconciliacaoPDV, detectar_divergencias
 
@@ -104,6 +104,7 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
         instante = datetime.now(timezone.utc)
         pdv = RepositorioPDVSQLAlchemy(self.session)
         recursos = RecursosTransacionaisV1(self.session)
+        contexto_estoque = contexto_estoque_automatico_pdv(self.contexto, instante)
         conciliada = pdv.buscar_reconciliacao(
             self.contexto.tenant_id,
             self.contexto.unidade_id,
@@ -133,6 +134,7 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
             comando=comando,
             contexto=self.contexto,
             recursos=recursos,
+            contexto_estoque=contexto_estoque,
         )
         pedido = checkout.aguardando_confirmacao.pedido
         iniciado = checkout.pagamento
@@ -220,7 +222,7 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
 
         if checkout.reserva is not None:
             consumido = consumir_reserva(
-                contexto=self.contexto,
+                contexto=contexto_estoque,
                 repositorio=recursos.estoque,
                 pedido_id=str(pedido.id),
                 pedido_version=confirmado_pedido.pedido.versao,
@@ -302,6 +304,7 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
             efeitos_estoque=contagens.get("ESTOQUE_LEGADO", 0),
             efeitos_cashback_usado=contagens.get("CASHBACK_USADO", 0),
         )
+        self.fault("before_reconciliacao")
         pdv.reconciliar(
             tenant_id=self.contexto.tenant_id,
             unidade_id=self.contexto.unidade_id,
