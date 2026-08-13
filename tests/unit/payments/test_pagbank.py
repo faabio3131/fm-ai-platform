@@ -81,6 +81,27 @@ def _order(*, paid: bool = False):
     }
 
 
+def test_cliente_normaliza_tax_id_com_pontuacao() -> None:
+    cliente = ClientePagBank(
+        nome="Cliente Teste",
+        email="cliente@example.com",
+        tax_id="123.456.789-09",
+    )
+
+    assert cliente.para_payload()["tax_id"] == "12345678909"
+
+
+def test_cliente_recusa_tax_id_com_tamanho_invalido() -> None:
+    cliente = ClientePagBank(
+        nome="Cliente Teste",
+        email="cliente@example.com",
+        tax_id="123",
+    )
+
+    with pytest.raises(ValueError, match="11 ou 14"):
+        cliente.para_payload()
+
+
 def test_criar_pix_usa_bearer_idempotencia_centavos_e_qr_code() -> None:
     http = TransporteFake([RespostaFake(201, _order())])
     adapter = AdapterPagBank(
@@ -178,3 +199,33 @@ def test_erro_http_e_sanitizado_e_nao_expoe_token() -> None:
 
     assert "401" in str(erro.value)
     assert token not in str(erro.value)
+
+
+def test_erro_400_mostra_codigo_e_parametro_sem_descricao_ou_valor() -> None:
+    segredo = "DADO-SENSIVEL-NAO-PODE-VAZAR"
+    resposta = {
+        "error_messages": [
+            {
+                "code": "40002",
+                "description": f"campo inválido {segredo}",
+                "parameter_name": "customer.tax_id",
+            }
+        ]
+    }
+    http = TransporteFake([RespostaFake(400, resposta)])
+    adapter = AdapterPagBank(ConfiguracaoPagBank(token="token"), transporte=http)
+
+    with pytest.raises(ErroPagBank) as erro:
+        adapter.criar_pix(
+            pagamento_id="pay-1",
+            valor=Dinheiro("10"),
+            idempotency_key="idem",
+            cliente=_cliente(),
+        )
+
+    mensagem = str(erro.value)
+    assert "400" in mensagem
+    assert "code=40002" in mensagem
+    assert "parameter=customer.tax_id" in mensagem
+    assert segredo not in mensagem
+    assert "campo inválido" not in mensagem
