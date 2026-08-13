@@ -19,6 +19,7 @@ process.env.FM_AI_TEST_TERMINAL = 'pdv-e2e';
 
 export default defineConfig({
   testDir: './tests/e2e-pdv',
+  testMatch: '**/canary.spec.ts',
   globalSetup: './tests/e2e/global-setup.ts',
   timeout: 120_000,
   expect: { timeout: 20_000 },
