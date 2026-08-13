@@ -1,0 +1,1021 @@
+RUF100 [*] Unused `noqa` directive (non-enabled: `F405`)
+ --> core/dominio/comandos.py:1:1
+  |
+1 | # ruff: noqa: F405
+  | ^^^^^^^^^^^^^^^^^^
+2 | """Mensagens de intenção; não contêm handlers nem acesso a infraestrutura."""
+  |
+help: Remove unused `noqa` directive
+  |
+  - # ruff: noqa: F405
+1 | """Mensagens de intenção; não contêm handlers nem acesso a infraestrutura."""
+  |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `F403`)
+  --> core/dominio/comandos.py:10:21
+   |
+ 8 | from .dinheiro import Dinheiro
+ 9 | from .enums import FormaPagamento, MotivoCancelamento, OrigemPedido, ProducaoStatus
+10 | from .ids import *  # noqa: F403
+   |                     ^^^^^^^^^^^^
+11 | from .serializacao import Serializavel
+12 | from .tempo import em_utc
+   |
+help: Remove unused `noqa` directive
+   |
+9  | from .enums import FormaPagamento, MotivoCancelamento, OrigemPedido, ProducaoStatus
+   - from .ids import *  # noqa: F403
+10 + from .ids import *
+11 | from .serializacao import Serializavel
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> core/dominio/dinheiro.py:1:1
+  |
+1 | / from dataclasses import dataclass
+2 | | from decimal import Decimal, ROUND_HALF_UP
+3 | |
+4 | | from .erros import ValorMonetarioInvalido
+5 | | from .serializacao import Serializavel
+  | |______________________________________^
+help: Organize imports
+  |
+1 | from dataclasses import dataclass
+  - from decimal import Decimal, ROUND_HALF_UP
+2 + from decimal import ROUND_HALF_UP, Decimal
+3 |
+  |
+
+TRY004 Prefer `TypeError` exception for invalid type
+  --> core/dominio/eventos.py:38:13
+   |
+36 |     def __post_init__(self):
+37 |         if not isinstance(self.correlation_id, CorrelationId):
+38 |             raise ValueError("correlation_id é obrigatório")
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+39 |         object.__setattr__(self, "occurred_at", em_utc(self.occurred_at))
+   |
+
+RUF022 [*] `__all__` is not sorted
+   --> core/dominio/ids.py:139:11
+    |
+139 |   __all__ = [
+    |  ___________^
+140 | |     "Identificador",
+141 | |     "TenantId",
+142 | |     "UnidadeId",
+143 | |     "PedidoId",
+144 | |     "PedidoItemId",
+145 | |     "ClienteId",
+146 | |     "ProdutoId",
+147 | |     "PagamentoId",
+148 | |     "TransacaoPagamentoId",
+149 | |     "VendaId",
+150 | |     "MesaId",
+151 | |     "ComandaId",
+152 | |     "UsuarioId",
+153 | |     "GarcomId",
+154 | |     "SetorProducaoId",
+155 | |     "ProducaoItemId",
+156 | |     "EntregaId",
+157 | |     "EntregadorId",
+158 | |     "EventoId",
+159 | |     "CorrelationId",
+160 | |     "CausationId",
+161 | |     "IdempotencyKey",
+162 | |     "CommandId",
+163 | | ]
+    | |_^
+help: Apply an isort-style sorting to `__all__`
+    |
+139 | __all__ = [
+140 +     "CausationId",
+141 +     "ClienteId",
+142 +     "ComandaId",
+143 +     "CommandId",
+144 +     "CorrelationId",
+145 +     "EntregaId",
+146 +     "EntregadorId",
+147 +     "EventoId",
+148 +     "GarcomId",
+149 +     "IdempotencyKey",
+150 |     "Identificador",
+    -     "TenantId",
+    -     "UnidadeId",
+151 +     "MesaId",
+152 +     "PagamentoId",
+153 |     "PedidoId",
+154 |     "PedidoItemId",
+    -     "ClienteId",
+155 +     "ProducaoItemId",
+156 |     "ProdutoId",
+    -     "PagamentoId",
+157 +     "SetorProducaoId",
+158 +     "TenantId",
+159 |     "TransacaoPagamentoId",
+    -     "VendaId",
+    -     "MesaId",
+    -     "ComandaId",
+160 +     "UnidadeId",
+161 |     "UsuarioId",
+    -     "GarcomId",
+    -     "SetorProducaoId",
+    -     "ProducaoItemId",
+    -     "EntregaId",
+    -     "EntregadorId",
+    -     "EventoId",
+    -     "CorrelationId",
+    -     "CausationId",
+    -     "IdempotencyKey",
+    -     "CommandId",
+162 +     "VendaId",
+163 | ]
+    |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `F403`, `F405`)
+ --> core/dominio/snapshots.py:1:1
+  |
+1 | # ruff: noqa: F403, F405
+  | ^^^^^^^^^^^^^^^^^^^^^^^^
+2 | from dataclasses import dataclass
+3 | from datetime import datetime
+  |
+help: Remove unused `noqa` directive
+  |
+  - # ruff: noqa: F403, F405
+1 | from dataclasses import dataclass
+  |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `F403`)
+ --> core/dominio/snapshots.py:7:21
+  |
+5 | from .dinheiro import Dinheiro
+6 | from .enums import *
+7 | from .ids import *  # noqa: F403
+  |                     ^^^^^^^^^^^^
+8 | from .serializacao import Serializavel
+9 | from .tempo import em_utc
+  |
+help: Remove unused `noqa` directive
+  |
+6 | from .enums import *
+  - from .ids import *  # noqa: F403
+7 + from .ids import *
+8 | from .serializacao import Serializavel
+  |
+
+UP035 [*] Import from `collections.abc` instead: `Mapping`
+  --> core/estados/maquinas.py:9:1
+   |
+ 7 | from hashlib import sha256
+ 8 | from json import dumps
+ 9 | from typing import Any, Mapping
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+10 | from uuid import uuid4
+   |
+help: Import from `collections.abc`
+   |
+8  | from json import dumps
+   - from typing import Any, Mapping
+9  + from typing import Any
+10 + from collections.abc import Mapping
+11 | from uuid import uuid4
+   |
+
+SIM102 Use a single `if` statement instead of nested `if` statements
+   --> core/estados/maquinas.py:294:5
+    |
+292 |           if not comando.precondicoes.get(nome):
+293 |               raise ErroTransicao("precondicao_nao_atendida", nome)
+294 | /     if (
+295 | |         snapshot.aggregate_type == "pedido"
+296 | |         and snapshot.estado == "confirmado"
+297 | |         and comando.destino == "enviado_producao"
+298 | |     ):
+299 | |         if comando.decisao_cozinha is None or not comando.decisao_cozinha.permitido:
+    | |____________________________________________________________________________________^
+300 |               raise ErroTransicao("cozinha_nao_autorizada")
+301 |       if comando.destino == "cancelado" and not (comando.motivo or "").strip():
+    |
+help: Combine `if` statements using `and`
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `F403`)
+ --> core/estoque/__init__.py:3:25
+  |
+1 | """Estoque operacional V1, isolado do estoque legado."""
+2 |
+3 | from .modelos import *  # noqa: F403
+  |                         ^^^^^^^^^^^^
+4 | from .repositorios import RepositorioEstoqueEmMemoria
+5 | from .servicos import (
+  |
+help: Remove unused `noqa` directive
+  |
+2 |
+  - from .modelos import *  # noqa: F403
+3 + from .modelos import *
+4 | from .repositorios import RepositorioEstoqueEmMemoria
+  |
+
+RUF022 [*] `__all__` is not sorted
+  --> core/estoque/__init__.py:13:11
+   |
+11 |   )
+12 |
+13 |   __all__ = [
+   |  ___________^
+14 | |     "RepositorioEstoqueEmMemoria",
+15 | |     "reservar_estoque",
+16 | |     "consumir_reserva",
+17 | |     "liberar_reserva",
+18 | |     "registrar_movimento",
+19 | |     "registrar_devolucao",
+20 | | ]
+   | |_^
+help: Apply an isort-style sorting to `__all__`
+   |
+14 |     "RepositorioEstoqueEmMemoria",
+   -     "reservar_estoque",
+15 |     "consumir_reserva",
+16 |     "liberar_reserva",
+17 +     "registrar_devolucao",
+18 |     "registrar_movimento",
+   -     "registrar_devolucao",
+19 +     "reservar_estoque",
+20 | ]
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> core/estoque/adaptador_sqlalchemy.py:3:1
+   |
+ 1 |   """Ledger SQL append-only, escopado, com saldo materializado por CAS."""
+ 2 |
+ 3 | / from __future__ import annotations
+ 4 | |
+ 5 | | import hashlib
+ 6 | | import json
+ 7 | | from collections.abc import Callable
+ 8 | | from datetime import datetime, timezone
+ 9 | | from decimal import Decimal
+10 | | from typing import Any, TypeVar, cast
+11 | |
+12 | | from sqlalchemy import insert, select, update
+13 | | from sqlalchemy.exc import IntegrityError
+14 | | from sqlalchemy.orm import Session
+15 | |
+16 | | from .erros import ConflitoIdempotenciaEstoque, ConcorrenciaEstoque, SaldoInsuficiente
+17 | | from .modelos import (
+18 | |     ItemSnapshotFicha,
+19 | |     MovimentoEstoque,
+20 | |     ReservaEstoque,
+21 | |     SaldoEstoque,
+22 | |     SnapshotFichaEstoque,
+23 | |     StatusReserva,
+24 | |     TipoMovimento,
+25 | | )
+26 | | from .modelos_orm import MovimentoEstoqueORM, ReservaEstoqueORM, SaldoEstoqueORM
+27 | | from .repositorios import _aplicar
+   | |__________________________________^
+28 |
+29 |   T = TypeVar("T")
+   |
+help: Organize imports
+   |
+15 |
+   - from .erros import ConflitoIdempotenciaEstoque, ConcorrenciaEstoque, SaldoInsuficiente
+16 + from .erros import ConcorrenciaEstoque, ConflitoIdempotenciaEstoque, SaldoInsuficiente
+17 | from .modelos import (
+   |
+
+TRY004 Prefer `TypeError` exception for invalid type
+  --> core/estoque/adaptador_sqlalchemy.py:85:9
+   |
+83 |     itens_raw = payload.get("itens")
+84 |     if not isinstance(itens_raw, list):
+85 |         raise ValueError("snapshot de estoque persistido invalido")
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+86 |     return SnapshotFichaEstoque(
+87 |         pedido_id=str(payload["pedido_id"]),
+   |
+
+UP035 [*] Import from `collections.abc` instead: `Mapping`
+ --> core/estoque/modelos.py:8:1
+  |
+6 | from enum import StrEnum
+7 | from types import MappingProxyType
+8 | from typing import Any, Mapping
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: Import from `collections.abc`
+   |
+7  | from types import MappingProxyType
+   - from typing import Any, Mapping
+8  + from typing import Any
+9  + from collections.abc import Mapping
+10 |
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> core/estoque/repositorios.py:3:1
+   |
+ 1 |   """Porta append-only e implementacao atomica em memoria."""
+ 2 |
+ 3 | / from dataclasses import replace
+ 4 | | from decimal import Decimal
+ 5 | | from threading import RLock
+ 6 | | from typing import Callable, Protocol, TypeVar
+ 7 | |
+ 8 | | from .erros import (
+ 9 | |     ConflitoIdempotenciaEstoque,
+10 | |     ConcorrenciaEstoque,
+11 | |     RecursoEstoqueIndisponivel,
+12 | |     SaldoInsuficiente,
+13 | | )
+14 | | from .modelos import (
+15 | |     MovimentoEstoque,
+16 | |     ReservaEstoque,
+17 | |     SaldoEstoque,
+18 | |     TipoMovimento,
+19 | | )
+   | |_^
+20 |
+21 |   T = TypeVar("T")
+   |
+help: Organize imports
+   |
+8  | from .erros import (
+9  +     ConcorrenciaEstoque,
+10 |     ConflitoIdempotenciaEstoque,
+   -     ConcorrenciaEstoque,
+11 |     RecursoEstoqueIndisponivel,
+   |
+
+UP035 [*] Import from `collections.abc` instead: `Callable`
+ --> core/estoque/repositorios.py:6:1
+  |
+4 | from decimal import Decimal
+5 | from threading import RLock
+6 | from typing import Callable, Protocol, TypeVar
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+7 |
+8 | from .erros import (
+  |
+help: Import from `collections.abc`
+  |
+5 | from threading import RLock
+  - from typing import Callable, Protocol, TypeVar
+6 + from typing import Protocol, TypeVar
+7 + from collections.abc import Callable
+8 |
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> core/estoque/servicos.py:3:1
+   |
+ 1 |   """Casos de uso puros para reserva e movimentos do estoque V1."""
+ 2 |
+ 3 | / import hashlib
+ 4 | | import json
+ 5 | | from dataclasses import replace
+ 6 | | from datetime import datetime, timezone
+ 7 | | from decimal import Decimal
+ 8 | | from typing import Any
+ 9 | | from uuid import uuid4
+10 | |
+11 | | from core.dominio.ids import (
+12 | |     CausationId,
+13 | |     CorrelationId,
+14 | |     EventoId,
+15 | |     IdempotencyKey,
+16 | |     TenantId,
+17 | |     UnidadeId,
+18 | | )
+19 | | from core.eventos.modelos import EnvelopeMensagem
+20 | | from core.seguranca.auditoria import EventoAuditoria, sanitizar_metadata
+21 | | from core.seguranca.autorizacao import AutorizarAcao
+22 | | from core.seguranca.contexto import ContextoExecucao
+23 | | from core.seguranca.permissoes import Permissao
+24 | |
+25 | | from .erros import (
+26 | |     ConflitoIdempotenciaEstoque,
+27 | |     OperacaoEstoqueNaoAutorizada,
+28 | |     ReservaInvalida,
+29 | | )
+30 | | from .modelos import (
+31 | |     MovimentoEstoque,
+32 | |     ReservaEstoque,
+33 | |     ResultadoMovimento,
+34 | |     ResultadoReserva,
+35 | |     SnapshotFichaEstoque,
+36 | |     StatusReserva,
+37 | |     TipoMovimento,
+38 | |     quantidade,
+39 | | )
+40 | | from .repositorios import RepositorioEstoque
+   | |____________________________________________^
+help: Organize imports
+   |
+41 |
+   -
+42 | PERMISSOES = {
+   |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `F403`)
+ --> core/eventos/__init__.py:3:23
+  |
+1 | """Infraestrutura pura de eventos operacionais V1."""
+2 |
+3 | from .erros import *  # noqa: F403
+  |                       ^^^^^^^^^^^^
+4 | from .modelos import *  # noqa: F403
+5 | from .observabilidade import ColetorMetricasEmMemoria, MetricasEventos
+  |
+help: Remove unused `noqa` directive
+  |
+2 |
+  - from .erros import *  # noqa: F403
+3 + from .erros import *
+4 | from .modelos import *  # noqa: F403
+  |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `F403`)
+ --> core/eventos/__init__.py:4:25
+  |
+3 | from .erros import *  # noqa: F403
+4 | from .modelos import *  # noqa: F403
+  |                         ^^^^^^^^^^^^
+5 | from .observabilidade import ColetorMetricasEmMemoria, MetricasEventos
+6 | from .processador import ProcessadorMensagens, RegistroHandlers
+  |
+help: Remove unused `noqa` directive
+  |
+3 | from .erros import *  # noqa: F403
+  - from .modelos import *  # noqa: F403
+4 + from .modelos import *
+5 | from .observabilidade import ColetorMetricasEmMemoria, MetricasEventos
+  |
+
+RUF022 [*] `__all__` is not sorted
+  --> core/eventos/__init__.py:15:11
+   |
+13 |   from .retry import ErroNaoRetryable, PoliticaRetry
+14 |
+15 |   __all__ = [
+   |  ___________^
+16 | |     "ColetorMetricasEmMemoria",
+17 | |     "MetricasEventos",
+18 | |     "ProcessadorMensagens",
+19 | |     "RegistroHandlers",
+20 | |     "RepositorioDLQEmMemoria",
+21 | |     "RepositorioInboxEmMemoria",
+22 | |     "RepositorioOutboxEmMemoria",
+23 | |     "StatusOutbox",
+24 | |     "ErroNaoRetryable",
+25 | |     "PoliticaRetry",
+26 | | ]
+   | |_^
+help: Apply an isort-style sorting to `__all__`
+   |
+16 |     "ColetorMetricasEmMemoria",
+17 +     "ErroNaoRetryable",
+18 |     "MetricasEventos",
+19 +     "PoliticaRetry",
+20 |     "ProcessadorMensagens",
+--------------------------------------------------------------------------------
+25 |     "StatusOutbox",
+   -     "ErroNaoRetryable",
+   -     "PoliticaRetry",
+26 | ]
+   |
+
+UP035 [*] Import from `collections.abc` instead: `Mapping`
+ --> core/eventos/modelos.py:7:1
+  |
+5 | from enum import Enum
+6 | from types import MappingProxyType
+7 | from typing import Any, Mapping
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+8 |
+9 | from core.dominio.ids import (
+  |
+help: Import from `collections.abc`
+  |
+6 | from types import MappingProxyType
+  - from typing import Any, Mapping
+7 + from typing import Any
+8 + from collections.abc import Mapping
+9 |
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> core/eventos/observabilidade.py:3:1
+  |
+1 |   """Metricas operacionais portaveis, sem dependencia de fornecedor."""
+2 |
+3 | / from collections import Counter
+4 | | from typing import Protocol
+  | |___________________________^
+help: Organize imports
+  |
+5 |
+  -
+6 | METRICAS = frozenset(
+  |
+
+UP035 [*] Import from `collections.abc` instead: `Callable`
+ --> core/eventos/processador.py:3:1
+  |
+1 | """Registro tipado e processador sincrono/idempotente de mensagens."""
+2 |
+3 | from typing import Callable, Protocol, TypeAlias
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+4 |
+5 | from core.dominio.tempo import Clock
+  |
+help: Import from `collections.abc`
+  |
+2 |
+  - from typing import Callable, Protocol, TypeAlias
+3 + from typing import Protocol, TypeAlias
+4 + from collections.abc import Callable
+5 |
+  |
+
+BLE001 Do not catch blind exception: `Exception`
+  --> core/eventos/processador.py:82:16
+   |
+80 |         try:
+81 |             self._handlers.obter(mensagem.event_type)(mensagem)
+82 |         except Exception as exc:
+   |                ^^^^^^^^^
+83 |             erro = normalizar_erro(exc)
+84 |             self._inbox.marcar_falha(mensagem.idempotency_key, erro)
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> core/eventos/retry.py:3:1
+  |
+1 |   """Politica de retry pura, sem espera ou efeitos de IO."""
+2 |
+3 | / from dataclasses import dataclass
+4 | | from datetime import datetime, timedelta
+5 | |
+6 | | from .modelos import ClassificacaoErro, ErroNormalizado
+7 | | from .erros import ErroEventos
+  | |______________________________^
+help: Organize imports
+  |
+5 |
+6 + from .erros import ErroEventos
+7 | from .modelos import ClassificacaoErro, ErroNormalizado
+  - from .erros import ErroEventos
+8 |
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> core/pagamentos/__init__.py:1:1
+   |
+ 1 | / from .adapters import (  # noqa: F401
+ 2 | |     AdapterProvedorPagamento,
+ 3 | |     ProvedorPagamentoFake,
+ 4 | |     WebhookNormalizado,
+ 5 | | )
+ 6 | | from .adaptador_sqlalchemy import RepositorioPagamentosSQLAlchemy  # noqa: F401
+ 7 | | from .flags import FlagsPagamentosV1  # noqa: F401
+ 8 | | from .modelos import *  # noqa: F401,F403
+ 9 | | from .repositorios import (  # noqa: F401
+10 | |     RepositorioPagamentos,
+11 | |     RepositorioPagamentosEmMemoria,
+12 | | )
+13 | | from .servicos import (  # noqa: F401
+14 | |     avaliar_criterio_financeiro,
+15 | |     cancelar_pagamento,
+16 | |     confirmar_pagamento,
+17 | |     criar_obrigacao_pagamento,
+18 | |     processar_webhook,
+19 | |     reconciliar_pagamentos,
+20 | |     reconhecer_venda,
+21 | |     registrar_falha,
+22 | |     registrar_estorno,
+23 | |     solicitar_estorno,
+24 | |     retentar_pagamento,
+25 | | )
+26 | | from .venda_legada import AdapterVendaLegada  # noqa: F401
+   | |____________________________________________^
+27 |
+28 |   __all__ = [name for name in globals() if not name.startswith("_")]
+   |
+help: Organize imports
+   |
+1  + from .adaptador_sqlalchemy import RepositorioPagamentosSQLAlchemy  # noqa: F401
+2  | from .adapters import (  # noqa: F401
+--------------------------------------------------------------------------------
+6  | )
+   - from .adaptador_sqlalchemy import RepositorioPagamentosSQLAlchemy  # noqa: F401
+7  | from .flags import FlagsPagamentosV1  # noqa: F401
+--------------------------------------------------------------------------------
+20 |     reconhecer_venda,
+21 +     registrar_estorno,
+22 |     registrar_falha,
+   -     registrar_estorno,
+   -     solicitar_estorno,
+23 |     retentar_pagamento,
+24 +     solicitar_estorno,
+25 | )
+   |
+
+RUF100 [*] Unused `noqa` directive (unused: `F401`; non-enabled: `F403`)
+  --> core/pagamentos/__init__.py:8:25
+   |
+ 6 | from .adaptador_sqlalchemy import RepositorioPagamentosSQLAlchemy  # noqa: F401
+ 7 | from .flags import FlagsPagamentosV1  # noqa: F401
+ 8 | from .modelos import *  # noqa: F401,F403
+   |                         ^^^^^^^^^^^^^^^^^
+ 9 | from .repositorios import (  # noqa: F401
+10 |     RepositorioPagamentos,
+   |
+help: Remove unused `noqa` directive
+  |
+7 | from .flags import FlagsPagamentosV1  # noqa: F401
+  - from .modelos import *  # noqa: F401,F403
+8 + from .modelos import *
+9 | from .repositorios import (  # noqa: F401
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> core/pagamentos/adaptador_sqlalchemy.py:3:1
+   |
+ 1 |   """Repository financeiro SQLAlchemy, escopado e sem APIs destrutivas."""
+ 2 |
+ 3 | / from datetime import datetime, timezone
+ 4 | | from decimal import Decimal
+ 5 | | from typing import Callable, TypeVar, cast
+ 6 | | from uuid import NAMESPACE_URL, uuid5
+ 7 | |
+ 8 | | from sqlalchemy import select, update
+ 9 | | from sqlalchemy.exc import IntegrityError
+10 | | from sqlalchemy.orm import Session
+11 | |
+12 | | from core.dominio.dinheiro import Dinheiro
+13 | | from core.dominio.enums import PagamentoStatus
+14 | |
+15 | | from .erros import ConflitoIdempotenciaPagamento, ConcorrenciaPagamento
+16 | | from .modelos import (
+17 | |     CodigoCriterioFinanceiro,
+18 | |     CriterioFinanceiro,
+19 | |     MetodoPagamento,
+20 | |     ObrigacaoPagamento,
+21 | |     Pagamento,
+22 | |     StatusTransacao,
+23 | |     TipoTransacao,
+24 | |     TransacaoPagamento,
+25 | |     VendaFinanceira,
+26 | | )
+27 | | from .modelos_orm import (
+28 | |     CriterioFinanceiroORM,
+29 | |     ObrigacaoPagamentoORM,
+30 | |     PagamentoORM,
+31 | |     TransacaoPagamentoORM,
+32 | |     VendaFinanceiraORM,
+33 | | )
+   | |_^
+34 |
+35 |   T = TypeVar("T")
+   |
+help: Organize imports
+   |
+14 |
+   - from .erros import ConflitoIdempotenciaPagamento, ConcorrenciaPagamento
+15 + from .erros import ConcorrenciaPagamento, ConflitoIdempotenciaPagamento
+16 | from .modelos import (
+   |
+
+UP035 [*] Import from `collections.abc` instead: `Callable`
+ --> core/pagamentos/adaptador_sqlalchemy.py:5:1
+  |
+3 | from datetime import datetime, timezone
+4 | from decimal import Decimal
+5 | from typing import Callable, TypeVar, cast
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+6 | from uuid import NAMESPACE_URL, uuid5
+  |
+help: Import from `collections.abc`
+  |
+4 | from decimal import Decimal
+  - from typing import Callable, TypeVar, cast
+5 + from typing import TypeVar, cast
+6 + from collections.abc import Callable
+7 | from uuid import NAMESPACE_URL, uuid5
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> core/pagamentos/repositorios.py:3:1
+   |
+ 1 |   """Porta financeira e implementacao atomica append-only em memoria."""
+ 2 |
+ 3 | / from threading import RLock
+ 4 | | from typing import Callable, Protocol, TypeVar
+ 5 | |
+ 6 | | from .erros import ConflitoIdempotenciaPagamento, ConcorrenciaPagamento
+ 7 | | from .modelos import (
+ 8 | |     CriterioFinanceiro,
+ 9 | |     ObrigacaoPagamento,
+10 | |     Pagamento,
+11 | |     TransacaoPagamento,
+12 | |     VendaFinanceira,
+13 | | )
+   | |_^
+14 |
+15 |   T = TypeVar("T")
+   |
+help: Organize imports
+  |
+5 |
+  - from .erros import ConflitoIdempotenciaPagamento, ConcorrenciaPagamento
+6 + from .erros import ConcorrenciaPagamento, ConflitoIdempotenciaPagamento
+7 | from .modelos import (
+  |
+
+UP035 [*] Import from `collections.abc` instead: `Callable`
+ --> core/pagamentos/repositorios.py:4:1
+  |
+3 | from threading import RLock
+4 | from typing import Callable, Protocol, TypeVar
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+5 |
+6 | from .erros import ConflitoIdempotenciaPagamento, ConcorrenciaPagamento
+  |
+help: Import from `collections.abc`
+  |
+3 | from threading import RLock
+  - from typing import Callable, Protocol, TypeVar
+4 + from typing import Protocol, TypeVar
+5 + from collections.abc import Callable
+6 |
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> core/pagamentos/servicos.py:3:1
+   |
+ 1 |   """Casos de uso financeiros puros; nenhum efeito em Pedido, cozinha ou estoque."""
+ 2 |
+ 3 | / import hashlib
+ 4 | | import json
+ 5 | | from dataclasses import replace
+ 6 | | from decimal import Decimal
+ 7 | | from datetime import datetime
+ 8 | | from typing import Any
+ 9 | | from uuid import uuid4
+10 | |
+11 | | from core.dominio.dinheiro import Dinheiro
+12 | | from core.dominio.enums import PagamentoStatus
+13 | | from core.dominio.ids import (
+14 | |     CausationId,
+15 | |     CorrelationId,
+16 | |     EventoId,
+17 | |     IdempotencyKey,
+18 | |     TenantId,
+19 | |     UnidadeId,
+20 | | )
+21 | | from core.eventos.modelos import EnvelopeMensagem
+22 | | from core.seguranca.auditoria import EventoAuditoria, sanitizar_metadata
+23 | | from core.seguranca.autorizacao import AutorizarAcao
+24 | | from core.seguranca.contexto import ContextoExecucao
+25 | | from core.seguranca.permissoes import Papel, Permissao
+26 | |
+27 | | from .adapters import WebhookNormalizado
+28 | | from .erros import (
+29 | |     OperacaoPagamentoNaoAutorizada,
+30 | |     RecursoPagamentoIndisponivel,
+31 | |     ValorPagamentoInvalido,
+32 | | )
+33 | | from .modelos import (
+34 | |     CodigoCriterioFinanceiro,
+35 | |     ConfirmacaoPagamento,
+36 | |     CriterioFinanceiro,
+37 | |     DivergenciaReconciliacao,
+38 | |     MetodoPagamento,
+39 | |     ObrigacaoPagamento,
+40 | |     Pagamento,
+41 | |     ResultadoPagamento,
+42 | |     ResultadoReconciliacao,
+43 | |     ResultadoReconhecimentoVenda,
+44 | |     StatusTransacao,
+45 | |     TipoTransacao,
+46 | |     TransacaoPagamento,
+47 | |     VendaFinanceira,
+48 | | )
+49 | | from .repositorios import RepositorioPagamentos
+50 | | from .venda_legada import AdapterVendaLegada
+   | |____________________________________________^
+help: Organize imports
+  |
+5 | from dataclasses import replace
+6 + from datetime import datetime
+7 | from decimal import Decimal
+  - from datetime import datetime
+8 | from typing import Any
+  |
+
+FURB157 [*] Verbose expression in `Decimal` constructor
+   --> core/pagamentos/servicos.py:204:30
+    |
+202 |             metodo,
+203 |             valor_previsto,
+204 |             Dinheiro(Decimal("0"), valor_previsto.moeda),
+    |                              ^^^
+205 |             Dinheiro(Decimal("0"), valor_previsto.moeda),
+206 |             valor_previsto,
+    |
+help: Replace with `0`
+    |
+203 |             valor_previsto,
+    -             Dinheiro(Decimal("0"), valor_previsto.moeda),
+204 +             Dinheiro(Decimal(0), valor_previsto.moeda),
+205 |             Dinheiro(Decimal("0"), valor_previsto.moeda),
+    |
+
+FURB157 [*] Verbose expression in `Decimal` constructor
+   --> core/pagamentos/servicos.py:205:30
+    |
+203 |             valor_previsto,
+204 |             Dinheiro(Decimal("0"), valor_previsto.moeda),
+205 |             Dinheiro(Decimal("0"), valor_previsto.moeda),
+    |                              ^^^
+206 |             valor_previsto,
+207 |             valor_previsto.moeda,
+    |
+help: Replace with `0`
+    |
+204 |             Dinheiro(Decimal("0"), valor_previsto.moeda),
+    -             Dinheiro(Decimal("0"), valor_previsto.moeda),
+205 +             Dinheiro(Decimal(0), valor_previsto.moeda),
+206 |             valor_previsto,
+    |
+
+FURB157 [*] Verbose expression in `Decimal` constructor
+   --> core/pagamentos/servicos.py:223:30
+    |
+221 |             TipoTransacao.INICIACAO,
+222 |             StatusTransacao.PENDENTE,
+223 |             Dinheiro(Decimal("0"), pagamento.moeda),
+    |                              ^^^
+224 |             metodo,
+225 |             provedor,
+    |
+help: Replace with `0`
+    |
+222 |             StatusTransacao.PENDENTE,
+    -             Dinheiro(Decimal("0"), pagamento.moeda),
+223 +             Dinheiro(Decimal(0), pagamento.moeda),
+224 |             metodo,
+    |
+
+FURB157 [*] Verbose expression in `Decimal` constructor
+   --> core/pagamentos/servicos.py:313:34
+    |
+311 |         recebido = valor_recebido or valor
+312 |         financeiro = valor
+313 |         troco = Dinheiro(Decimal("0"), pagamento.moeda)
+    |                                  ^^^
+314 |         if metodo == MetodoPagamento.DINHEIRO and recebido.valor > saldo.valor:
+315 |             financeiro = saldo
+    |
+help: Replace with `0`
+    |
+312 |         financeiro = valor
+    -         troco = Dinheiro(Decimal("0"), pagamento.moeda)
+313 +         troco = Dinheiro(Decimal(0), pagamento.moeda)
+314 |         if metodo == MetodoPagamento.DINHEIRO and recebido.valor > saldo.valor:
+    |
+
+FURB157 [*] Verbose expression in `Decimal` constructor
+   --> core/pagamentos/servicos.py:545:30
+    |
+543 |             tipo_transacao,
+544 |             status_transacao,
+545 |             Dinheiro(Decimal("0"), pagamento.moeda),
+    |                              ^^^
+546 |             pagamento.metodo,
+547 |             pagamento.provedor,
+    |
+help: Replace with `0`
+    |
+544 |             status_transacao,
+    -             Dinheiro(Decimal("0"), pagamento.moeda),
+545 +             Dinheiro(Decimal(0), pagamento.moeda),
+546 |             pagamento.metodo,
+    |
+
+FURB157 [*] Verbose expression in `Decimal` constructor
+   --> core/pagamentos/servicos.py:615:29
+    |
+613 |     confirmacao_humana: bool = False,
+614 | ) -> CriterioFinanceiro:
+615 |     zero = Dinheiro(Decimal("0"), pagamento.moeda if pagamento else "BRL")
+    |                             ^^^
+616 |     codigo, elegivel, valor, razao = (
+617 |         CodigoCriterioFinanceiro.NAO_ELEGIVEL,
+    |
+help: Replace with `0`
+    |
+614 | ) -> CriterioFinanceiro:
+    -     zero = Dinheiro(Decimal("0"), pagamento.moeda if pagamento else "BRL")
+615 +     zero = Dinheiro(Decimal(0), pagamento.moeda if pagamento else "BRL")
+616 |     codigo, elegivel, valor, razao = (
+    |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> core/pedidos/servicos.py:7:1
+   |
+ 5 |   """
+ 6 |
+ 7 | / from __future__ import annotations
+ 8 | |
+ 9 | | from dataclasses import dataclass, replace
+10 | | from datetime import datetime, timezone
+11 | | from typing import Mapping, Protocol
+12 | | from uuid import uuid4
+13 | |
+14 | | from core.dominio.decisoes import DecisaoCozinha
+15 | | from core.dominio.enums import PedidoStatus
+16 | | from core.dominio.erros import ConflitoIdempotencia, PermissaoNegada, RecursoNaoEncontrado
+17 | | from core.dominio.eventos import EventoPedidoOperacional, PedidoCriado
+18 | | from core.dominio.ids import (
+19 | |     CausationId,
+20 | |     CorrelationId,
+21 | |     EventoId,
+22 | |     IdempotencyKey,
+23 | |     PedidoId,
+24 | |     TenantId,
+25 | |     UnidadeId,
+26 | | )
+27 | | from core.dominio.pedidos import Pedido
+28 | | from core.estados.maquinas import ComandoTransicao, SnapshotEstado, transicionar
+29 | | from core.eventos.modelos import EnvelopeMensagem
+30 | | from core.seguranca import AutorizarAcao, ContextoExecucao, Permissao
+31 | | from core.seguranca.auditoria import (
+32 | |     EventoAuditoria,
+33 | |     RepositorioAuditoria,
+34 | |     sanitizar_metadata,
+35 | | )
+36 | |
+37 | | from .repositorios import RepositorioPedidos
+   | |____________________________________________^
+help: Organize imports
+   |
+15 | from core.dominio.enums import PedidoStatus
+   - from core.dominio.erros import ConflitoIdempotencia, PermissaoNegada, RecursoNaoEncontrado
+16 + from core.dominio.erros import (
+17 +     ConflitoIdempotencia,
+18 +     PermissaoNegada,
+19 +     RecursoNaoEncontrado,
+20 + )
+21 | from core.dominio.eventos import EventoPedidoOperacional, PedidoCriado
+   |
+
+UP035 [*] Import from `collections.abc` instead: `Mapping`
+  --> core/pedidos/servicos.py:11:1
+   |
+ 9 | from dataclasses import dataclass, replace
+10 | from datetime import datetime, timezone
+11 | from typing import Mapping, Protocol
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+12 | from uuid import uuid4
+   |
+help: Import from `collections.abc`
+   |
+10 | from datetime import datetime, timezone
+   - from typing import Mapping, Protocol
+11 + from typing import Protocol
+12 + from collections.abc import Mapping
+13 | from uuid import uuid4
+   |
+
+PYI034 `__enter__` methods in classes like `UnitOfWorkV1` usually return `self` at runtime
+  --> infra/transacoes/uow.py:35:9
+   |
+33 |         self.committed = False
+34 |
+35 |     def __enter__(self) -> UnitOfWorkV1:
+   |         ^^^^^^^^^
+36 |         if self.session is not None:
+37 |             raise RuntimeError("UnitOfWorkV1 nao pode ser reutilizado enquanto aberto")
+   |
+help: Use `Self` as return type
+
+SIM117 Use a single `with` statement with multiple contexts instead of nested `with` statements
+   --> tests/integration/wave1/test_authoritative_transaction.py:201:5
+    |
+199 |       contexto = _context()
+200 |
+201 | /     with pytest.raises(RuntimeError, match="falha depois dos efeitos"):
+202 | |         with UnitOfWorkV1(factory) as uow:
+    | |__________________________________________^
+203 |               registrar_novo_pedido(
+204 |                   pedido=_order(),
+    |
+help: Combine `with` statements
+
+Found 42 errors.
+[*] 36 fixable with the `--fix` option (2 hidden fixes can be enabled with the `--unsafe-fixes` option).
+exit_code=1
