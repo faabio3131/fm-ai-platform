@@ -148,7 +148,7 @@ def test_central_transiciona_no_pedido_canonico_com_outbox_auditoria_e_replay() 
         assert session.scalar(select(func.count()).select_from(EventoAuditoriaORM)) == 1
 
 
-def test_central_respeita_rbac_e_nao_altera_pedido_sem_permissao() -> None:
+def test_central_respeita_rbac_e_persiste_apenas_auditoria_da_negativa() -> None:
     factory = _infra()
     _seed(factory)
 
@@ -163,7 +163,7 @@ def test_central_respeita_rbac_e_nao_altera_pedido_sem_permissao() -> None:
                 precondicoes={"itens_validos": True, "precos_calculados": True},
             )
         assert erro.value.codigo == "permissao_insuficiente"
-        session.rollback()
+        session.commit()
 
     with factory() as session:
         pedido = session.scalar(select(PedidoORM).where(PedidoORM.id == PEDIDO_ID))
@@ -171,3 +171,7 @@ def test_central_respeita_rbac_e_nao_altera_pedido_sem_permissao() -> None:
         assert pedido.status == "rascunho"
         assert pedido.versao == 1
         assert session.scalar(select(func.count()).select_from(OutboxEventoORM)) == 0
+        auditorias = session.scalars(select(EventoAuditoriaORM)).all()
+        assert len(auditorias) == 1
+        assert auditorias[0].resultado == "negado"
+        assert auditorias[0].motivo == "permissao_insuficiente"
