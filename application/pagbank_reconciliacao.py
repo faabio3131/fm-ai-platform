@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from application.finalizacao_pagamento import finalizar_pagamento_liquidado_em_transacao
 from core.pagamentos.fontes_financeiras import confirmar_pix_por_consulta_provedor
 from core.pagamentos.modelos import ResultadoPagamento, TipoTransacao
 from core.pagamentos.pagbank import AdapterPagBank
@@ -61,5 +62,11 @@ def reconciliar_order_pagbank_em_transacao(
         recursos.registrar_efeitos(
             eventos=resultado.eventos,
             auditorias=resultado.auditorias,
+        )
+    if resultado is not None:
+        finalizar_pagamento_liquidado_em_transacao(
+            recursos=recursos,
+            pagamento=resultado.pagamento,
+            timestamp=timestamp,
         )
     return resultado
