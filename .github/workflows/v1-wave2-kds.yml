@@ -56,7 +56,10 @@ jobs:
           core/kds core/pedidos core/estados infra/eventos infra/seguranca
           migrations/runner.py tests/integration/wave2
       - name: Provas autoritativas KDS-001
-        run: pytest -q tests/integration/wave2/test_kds_authoritative_runtime.py tests/integration/kds
+        run: >-
+          pytest -x -vv --tb=short
+          tests/integration/wave2/test_kds_authoritative_runtime.py
+          tests/integration/kds
       - name: Regressao Python completa
         run: pytest -q
       - name: Jornada real de navegador KDS
