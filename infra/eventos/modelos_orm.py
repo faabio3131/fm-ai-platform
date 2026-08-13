@@ -27,7 +27,12 @@ def _utc_now() -> datetime:
 class OutboxEventoORM(EventBusBase):
     __tablename__ = "event_outbox_v1"
     __table_args__ = (
-        UniqueConstraint("idempotency_key", name="uq_event_outbox_idempotency_v1"),
+        UniqueConstraint(
+            "tenant_id",
+            "unidade_id",
+            "idempotency_key",
+            name="uq_event_outbox_scope_idempotency_v1",
+        ),
         Index("ix_event_outbox_status_next_v1", "status", "next_attempt_at"),
         Index("ix_event_outbox_scope_v1", "tenant_id", "unidade_id", "occurred_at"),
         Index("ix_event_outbox_corr_v1", "correlation_id"),
@@ -58,18 +63,17 @@ class OutboxEventoORM(EventBusBase):
 class InboxEventoORM(EventBusBase):
     __tablename__ = "event_inbox_v1"
     __table_args__ = (
-        UniqueConstraint("idempotency_key", name="uq_event_inbox_idempotency_v1"),
         Index("ix_event_inbox_scope_v1", "tenant_id", "unidade_id", "received_at"),
         Index("ix_event_inbox_corr_v1", "correlation_id"),
     )
 
+    tenant_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    unidade_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     idempotency_key: Mapped[str] = mapped_column(String(192), primary_key=True)
     event_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     event_type: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     aggregate_id: Mapped[str] = mapped_column(String(128), nullable=False)
     aggregate_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    tenant_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    unidade_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     correlation_id: Mapped[str] = mapped_column(String(128), nullable=False)
     causation_id: Mapped[str | None] = mapped_column(String(128))
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
