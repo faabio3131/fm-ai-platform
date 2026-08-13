@@ -10,10 +10,12 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
+from application.finalizacao_pagamento import FinalizacaoPagamentoInvalida
 from application.pagbank import (
     PagBankAplicacaoInvalida,
     processar_webhook_pagbank_em_transacao,
 )
+from application.pdv_legacy_projection import ProjecaoLegadaInvalida
 from core.pagamentos.erros import ConflitoIdempotenciaPagamento
 from core.pagamentos.modelos import TipoTransacao
 from core.pagamentos.pagbank import ErroPagBank
@@ -120,7 +122,11 @@ def build_http_app(
                 )
             except ErroPagBank:
                 return Response(status_code=status.HTTP_204_NO_CONTENT)
-            except PagBankAplicacaoInvalida:
+            except (
+                PagBankAplicacaoInvalida,
+                FinalizacaoPagamentoInvalida,
+                ProjecaoLegadaInvalida,
+            ):
                 return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
 
             if resultado is None:
