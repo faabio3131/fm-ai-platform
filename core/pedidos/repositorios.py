@@ -26,9 +26,17 @@ class RepositorioPedidos(Protocol):
     ) -> Pedido: ...
 
     def salvar_eventos(
-        self, pedido: Pedido, eventos: tuple[EventoDominio, ...]
+        self,
+        tenant_id: TenantId,
+        unidade_id: UnidadeId,
+        pedido_id: PedidoId,
+        eventos: tuple[EventoDominio, ...],
     ) -> None: ...
 
     def salvar_mensagem_evento(
-        self, pedido: Pedido, mensagem: EnvelopeMensagem
+        self,
+        tenant_id: TenantId,
+        unidade_id: UnidadeId,
+        pedido_id: PedidoId,
+        mensagem: EnvelopeMensagem,
     ) -> None: ...
