@@ -75,8 +75,14 @@ def test_pix_pago_assincrono_finaliza_tudo_e_replay_nao_duplica(
         session.commit()
 
     with fabrica() as session:
-        pagamento_row = session.get(PagamentoORM, pendente.pagamento_id)
-        pedido_row = session.get(PedidoORM, pendente.pedido_id)
+        pagamento_row = session.get(
+            PagamentoORM,
+            (pendente.pagamento_id, contexto.tenant_id, contexto.unidade_id),
+        )
+        pedido_row = session.get(
+            PedidoORM,
+            (pendente.pedido_id, contexto.tenant_id, contexto.unidade_id),
+        )
         assert pagamento_row is not None and pagamento_row.status == "pago"
         assert pedido_row is not None and pedido_row.status == "confirmado"
         reserva = session.scalar(
