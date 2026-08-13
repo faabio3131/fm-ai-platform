@@ -1,0 +1,77 @@
+name: V1 Wave1 PAY Trusted Source Patch
+
+on:
+  push:
+    branches: [impl/v1-wave1-authoritative-transactions]
+    paths:
+      - '.github/workflows/v1-wave1-pay-trusted-source.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: impl/v1-wave1-authoritative-transactions
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Aplicar gate de fonte financeira confiável
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('core/pagamentos/servicos.py')
+          text = path.read_text(encoding='utf-8')
+
+          def replace_once(old: str, new: str) -> None:
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'esperado exatamente 1 trecho; encontrado {count}: {old[:80]!r}')
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              '''from .erros import (\n    OperacaoPagamentoNaoAutorizada,\n    RecursoPagamentoIndisponivel,\n    ValorPagamentoInvalido,\n)''',
+              '''from .erros import (\n    FonteFinanceiraNaoConfiavel,\n    OperacaoPagamentoNaoAutorizada,\n    RecursoPagamentoIndisponivel,\n    ValorPagamentoInvalido,\n)''',
+          )
+
+          replace_once(
+              '''def confirmar_pagamento(\n    *,\n    contexto: ContextoExecucao,\n    repositorio: RepositorioPagamentos,\n    pagamento_id: str,\n    valor: Dinheiro,\n    metodo: MetodoPagamento,\n    idempotency_key: str,\n    expected_version: int,\n    timestamp: datetime,\n    referencia_externa: str | None = None,\n    correlation_id: str | None = None,\n    valor_recebido: Dinheiro | None = None,\n) -> ResultadoPagamento:\n    if valor.valor <= 0:''',
+              '''_METODOS_CONFIRMAVEIS_MANUALMENTE = frozenset({MetodoPagamento.DINHEIRO})\n\n\ndef _confirmar_pagamento_validado(\n    *,\n    contexto: ContextoExecucao,\n    repositorio: RepositorioPagamentos,\n    pagamento_id: str,\n    valor: Dinheiro,\n    metodo: MetodoPagamento,\n    idempotency_key: str,\n    expected_version: int,\n    timestamp: datetime,\n    referencia_externa: str | None = None,\n    correlation_id: str | None = None,\n    valor_recebido: Dinheiro | None = None,\n    fonte_financeira_validada: bool,\n) -> ResultadoPagamento:\n    if not fonte_financeira_validada and metodo not in _METODOS_CONFIRMAVEIS_MANUALMENTE:\n        raise FonteFinanceiraNaoConfiavel(\n            "metodo exige confirmacao de fonte financeira validada"\n        )\n    if valor.valor <= 0:''',
+          )
+
+          marker = '''\n\ndef processar_webhook(\n    *,\n    contexto: ContextoExecucao,'''
+          wrapper = '''\n\ndef confirmar_pagamento(\n    *,\n    contexto: ContextoExecucao,\n    repositorio: RepositorioPagamentos,\n    pagamento_id: str,\n    valor: Dinheiro,\n    metodo: MetodoPagamento,\n    idempotency_key: str,\n    expected_version: int,\n    timestamp: datetime,\n    referencia_externa: str | None = None,\n    correlation_id: str | None = None,\n    valor_recebido: Dinheiro | None = None,\n) -> ResultadoPagamento:\n    """Confirmação humana/manual; somente dinheiro pode liquidar sem provedor."""\n\n    return _confirmar_pagamento_validado(\n        contexto=contexto,\n        repositorio=repositorio,\n        pagamento_id=pagamento_id,\n        valor=valor,\n        metodo=metodo,\n        idempotency_key=idempotency_key,\n        expected_version=expected_version,\n        timestamp=timestamp,\n        referencia_externa=referencia_externa,\n        correlation_id=correlation_id,\n        valor_recebido=valor_recebido,\n        fonte_financeira_validada=False,\n    )\n\n\ndef processar_webhook(\n    *,\n    contexto: ContextoExecucao,'''
+          replace_once(marker, wrapper)
+
+          replace_once(
+              '''    return confirmar_pagamento(\n        contexto=contexto,\n        repositorio=repositorio,\n        pagamento_id=pagamento_id,\n        valor=webhook.valor,\n        metodo=MetodoPagamento.PIX,\n        referencia_externa=webhook.id_externo,\n        idempotency_key=f"webhook:{webhook.provedor}:{webhook.idempotency_key}",\n        expected_version=expected_version,\n        timestamp=webhook.timestamp,\n    )''',
+              '''    return _confirmar_pagamento_validado(\n        contexto=contexto,\n        repositorio=repositorio,\n        pagamento_id=pagamento_id,\n        valor=webhook.valor,\n        metodo=MetodoPagamento.PIX,\n        referencia_externa=webhook.id_externo,\n        idempotency_key=f"webhook:{webhook.provedor}:{webhook.idempotency_key}",\n        expected_version=expected_version,\n        timestamp=webhook.timestamp,\n        fonte_financeira_validada=True,\n    )''',
+          )
+
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Validar patch
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install pytest ruff==0.16.1
+          ruff check core/pagamentos/servicos.py core/pagamentos/erros.py
+          python -m compileall -q core/pagamentos
+          pytest -q tests/unit/payments
+      - name: Commitar patch validado
+        run: |
+          git diff --check
+          git config user.name "fm-ai-wave1-bot"
+          git config user.email "fm-ai-wave1-bot@users.noreply.github.com"
+          git add core/pagamentos/servicos.py
+          git commit -m "V1 Wave1 PAY-001: require trusted source for electronic payment confirmation"
+          git fetch origin impl/v1-wave1-authoritative-transactions
+          git rebase origin/impl/v1-wave1-authoritative-transactions
+          git push origin HEAD:impl/v1-wave1-authoritative-transactions
