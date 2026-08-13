@@ -18,7 +18,11 @@ from sqlalchemy.orm import Session
 
 from core.central_pedidos import CentralPedidosSQLAlchemy, FiltroCentralPedidos
 from core.central_pedidos.servicos import ServicoComandosCentral
-from core.dominio.erros import ConflitoIdempotencia, PermissaoNegada, RecursoNaoEncontrado
+from core.dominio.erros import (
+    ConflitoIdempotencia,
+    PermissaoNegada,
+    RecursoNaoEncontrado,
+)
 from core.estados.maquinas import ErroTransicao
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.contexto import ContextoExecucao
@@ -182,22 +186,21 @@ def render_central_pedidos(
         status = detalhe.resumo.status
         versao = detalhe.resumo.versao
 
-        if status == "rascunho":
-            if st.button(
-                "Enviar para confirmação",
-                key=f"central-enviar-{selecionado}-{versao}",
-                type="primary",
-            ):
-                _executar_transicao(
-                    session=sessao_central,
-                    contexto=contexto_central,
-                    pedido_id=selecionado,
-                    destino="aguardando_confirmacao",
-                    versao=versao,
-                    precondicoes={"itens_validos": True, "precos_calculados": True},
-                )
-                st.success("Pedido enviado para confirmação pelo Core.")
-                st.rerun()
+        if status == "rascunho" and st.button(
+            "Enviar para confirmação",
+            key=f"central-enviar-{selecionado}-{versao}",
+            type="primary",
+        ):
+            _executar_transicao(
+                session=sessao_central,
+                contexto=contexto_central,
+                pedido_id=selecionado,
+                destino="aguardando_confirmacao",
+                versao=versao,
+                precondicoes={"itens_validos": True, "precos_calculados": True},
+            )
+            st.success("Pedido enviado para confirmação pelo Core.")
+            st.rerun()
 
         cancelaveis = {
             "rascunho",
