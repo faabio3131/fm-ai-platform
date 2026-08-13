@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -9,6 +11,12 @@ from core.seguranca.auditoria import EventoAuditoria
 from core.seguranca.permissoes import Papel
 
 from .modelos_orm import EventoAuditoriaORM
+
+
+def _utc(value: datetime) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 class RepositorioAuditoriaSQLAlchemy:
@@ -69,7 +77,7 @@ class RepositorioAuditoriaSQLAlchemy:
                 resultado=row.resultado,
                 motivo=row.motivo,
                 correlation_id=row.correlation_id,
-                timestamp=row.timestamp,
+                timestamp=_utc(row.timestamp),
                 origem=row.origem,
                 politica=row.politica,
                 versao=row.versao,
