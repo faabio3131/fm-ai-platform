@@ -18,6 +18,10 @@ def id_produto_legado(valor: object) -> str:
     return f"legacy:produto:{valor}"
 
 
+def id_insumo_legado(valor: object) -> str:
+    return f"legacy:insumo:{valor}"
+
+
 def id_cliente_legado(valor: object | None) -> str | None:
     return None if valor is None else f"legacy:cliente:{valor}"
 
