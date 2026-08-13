@@ -18,14 +18,20 @@ import requests
 
 
 _SANDBOX_URL = "https://sandbox.api.pagseguro.com/orders"
+_EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 
 def _sanitize(value: object) -> str:
     text = str(value)
-    text = re.sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "[email-redacted]", text)
+    text = re.sub(
+        r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}",
+        "[email-redacted]",
+        text,
+    )
     text = re.sub(r"\b\d{8,}\b", "[number-redacted]", text)
     text = re.sub(
-        r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b",
+        r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+        r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b",
         "[id-redacted]",
         text,
     )
@@ -73,9 +79,9 @@ def main() -> int:
     if not token:
         raise RuntimeError("PAGBANK_TOKEN não está carregado nesta sessão do PowerShell")
 
-    buyer_email = input("E-mail do comprador de teste do Sandbox: ").strip()
-    if not buyer_email.endswith("@sandbox.pagseguro.com.br"):
-        raise RuntimeError("use o e-mail do comprador de teste terminado em @sandbox.pagseguro.com.br")
+    buyer_email = input("E-mail do cliente de teste: ").strip()
+    if not (10 <= len(buyer_email) <= 255 and _EMAIL_RE.fullmatch(buyer_email)):
+        raise RuntimeError("informe um e-mail válido para o cliente de teste")
 
     reference = f"probe-{uuid4()}"
     payload = {
