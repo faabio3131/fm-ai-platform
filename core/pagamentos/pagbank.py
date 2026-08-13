@@ -52,12 +52,17 @@ class ClientePagBank:
     tax_id: str
 
     def para_payload(self) -> dict[str, str]:
-        if not self.nome.strip() or not self.email.strip() or not self.tax_id.strip():
+        nome = self.nome.strip()
+        email = self.email.strip()
+        tax_id = "".join(caractere for caractere in self.tax_id if caractere.isdigit())
+        if not nome or not email or not tax_id:
             raise ValueError("cliente PagBank incompleto")
+        if len(tax_id) not in {11, 14}:
+            raise ValueError("CPF/CNPJ do cliente deve conter 11 ou 14 dígitos")
         return {
-            "name": self.nome.strip(),
-            "email": self.email.strip(),
-            "tax_id": self.tax_id.strip(),
+            "name": nome,
+            "email": email,
+            "tax_id": tax_id,
         }
 
 
@@ -156,6 +161,35 @@ def _payload_exibicao(payload: Mapping[str, Any]) -> tuple[tuple[str, str], ...]
     return tuple(itens)
 
 
+def _detalhes_seguros_erro_http(resposta: RespostaHTTP) -> str:
+    """Extrai somente código e parâmetro; nunca descrição nem valores recebidos."""
+
+    try:
+        dados = resposta.json()
+    except (ValueError, TypeError):
+        return ""
+    if not isinstance(dados, Mapping):
+        return ""
+    mensagens = dados.get("error_messages")
+    if not isinstance(mensagens, list):
+        return ""
+
+    detalhes: list[str] = []
+    for mensagem in mensagens[:5]:
+        if not isinstance(mensagem, Mapping):
+            continue
+        codigo = str(mensagem.get("code", "")).strip()
+        parametro = str(mensagem.get("parameter_name", "")).strip()
+        partes: list[str] = []
+        if codigo:
+            partes.append(f"code={codigo[:80]}")
+        if parametro:
+            partes.append(f"parameter={parametro[:120]}")
+        if partes:
+            detalhes.append(",".join(partes))
+    return "; ".join(detalhes)
+
+
 class AdapterPagBank:
     nome = "pagbank"
 
@@ -199,7 +233,11 @@ class AdapterPagBank:
         except requests.RequestException as exc:
             raise ErroPagBank("falha de transporte PagBank") from exc
         if resposta.status_code < 200 or resposta.status_code >= 300:
-            raise ErroPagBank(f"PagBank respondeu HTTP {resposta.status_code}")
+            mensagem = f"PagBank respondeu HTTP {resposta.status_code}"
+            detalhes = _detalhes_seguros_erro_http(resposta)
+            if detalhes:
+                mensagem = f"{mensagem} ({detalhes})"
+            raise ErroPagBank(mensagem)
         try:
             dados = resposta.json()
         except (ValueError, TypeError) as exc:
