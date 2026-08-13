@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -18,6 +18,7 @@ from core.estoque.servicos import consumir_reserva
 from core.pagamentos.modelos import Pagamento
 from core.pagamentos.servicos import avaliar_criterio_financeiro, reconhecer_venda
 from core.pdv.adaptadores_sqlalchemy import RepositorioPDVSQLAlchemy
+from core.pdv.finalizacao_claim import FINALIZADA, adquirir
 from core.pdv.finalizacao_pendente import (
     RepositorioFinalizacaoPendentePDV,
     reconstruir_entrada,
@@ -25,6 +26,7 @@ from core.pdv.finalizacao_pendente import (
 from core.pdv.modelos_orm import ReconciliacaoPDVORM
 from core.pedidos.servicos import transicionar_pedido
 from core.seguranca.contexto import ContextoExecucao
+from core.seguranca.permissoes import Permissao
 from infra.transacoes.uow import RecursosTransacionaisV1
 
 
@@ -50,7 +52,7 @@ def _fingerprint(*valores: object) -> str:
 
 
 def _contexto(pagamento: Pagamento, timestamp: datetime) -> ContextoExecucao:
-    return ContextoExecucao.sistema(
+    tecnico = ContextoExecucao.sistema(
         identidade="pagamento-finalizador-v1",
         motivo="efeitos derivados de pagamento eletrônico liquidado por fonte confiável",
         tenant_id=pagamento.tenant_id,
@@ -58,6 +60,7 @@ def _contexto(pagamento: Pagamento, timestamp: datetime) -> ContextoExecucao:
         correlation_id=pagamento.correlation_id,
         solicitado_em=timestamp,
     )
+    return replace(tecnico, permissoes=frozenset({Permissao.PEDIDO_ALTERAR}))
 
 
 def _atualizar_reconciliacao(
@@ -97,6 +100,18 @@ def _atualizar_reconciliacao(
     recursos.session.flush()
 
 
+def _resultado_idempotente(pendente) -> ResultadoFinalizacaoPagamento:
+    return ResultadoFinalizacaoPagamento(
+        True,
+        True,
+        True,
+        pendente.pedido_id,
+        pendente.pagamento_id,
+        pendente.venda_financeira_id,
+        pendente.venda_legada_id,
+    )
+
+
 def finalizar_pagamento_liquidado_em_transacao(
     *,
     recursos: RecursosTransacionaisV1,
@@ -118,15 +133,12 @@ def finalizar_pagamento_liquidado_em_transacao(
     if pendente is None:
         return ResultadoFinalizacaoPagamento(False, False, pagamento_id=pagamento.id)
     if pendencias.finalizada(pendente):
-        return ResultadoFinalizacaoPagamento(
-            True,
-            True,
-            True,
-            pendente.pedido_id,
-            pendente.pagamento_id,
-            pendente.venda_financeira_id,
-            pendente.venda_legada_id,
-        )
+        return _resultado_idempotente(pendente)
+
+    if not adquirir(recursos.session, pendente):
+        if pendente.status == FINALIZADA:
+            return _resultado_idempotente(pendente)
+        raise FinalizacaoPagamentoInvalida("finalizacao_em_processamento")
 
     entrada = reconstruir_entrada(pendente)
     contexto = _contexto(pagamento, timestamp)
