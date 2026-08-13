@@ -55,7 +55,7 @@ def _seed_pedido(factory, *, pedido_id="pedido-kds", status="confirmado", dois=T
             tenant_id=TENANT,
             unidade_id=UNIDADE,
             origem="pdv",
-            canal="balcao",
+            canal="pdv",
             status=status,
             cliente_id=None,
             criado_em=AGORA,
