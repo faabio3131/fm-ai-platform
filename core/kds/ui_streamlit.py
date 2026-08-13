@@ -1,5 +1,5 @@
-"""Compatibilidade do entrypoint KDS; renderer comercial vive em ui_runtime."""
+"""Compatibilidade do entrypoint KDS; composição comercial vive em ui_comercial."""
 
-from .ui_runtime import render_kds
+from .ui_comercial import render_kds
 
 __all__ = ["render_kds"]
