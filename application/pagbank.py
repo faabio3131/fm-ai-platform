@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import uuid4
 
+from application.finalizacao_pagamento import finalizar_pagamento_liquidado_em_transacao
 from core.dominio.dinheiro import Dinheiro
 from core.dominio.ids import (
     CorrelationId,
@@ -200,5 +201,11 @@ def processar_webhook_pagbank_em_transacao(
     if resultado is not None and not resultado.idempotente:
         recursos.registrar_efeitos(
             eventos=resultado.eventos, auditorias=resultado.auditorias
+        )
+    if resultado is not None:
+        finalizar_pagamento_liquidado_em_transacao(
+            recursos=recursos,
+            pagamento=resultado.pagamento,
+            timestamp=webhook.timestamp,
         )
     return resultado
