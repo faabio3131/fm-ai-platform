@@ -108,7 +108,7 @@ def preparar_snapshot_estoque_pdv(
 
     itens: list[ItemSnapshotFicha] = []
     for insumo, necessario in consumos:
-        insumo_id = id_insumo_legado(getattr(insumo, "id"))
+        insumo_id = id_insumo_legado(insumo.id)
         saldo_legado = Decimal(str(getattr(insumo, "saldo_atual", 0) or 0))
         saldo = recursos.estoque.consultar_saldo(
             contexto.tenant_id, contexto.unidade_id, insumo_id
