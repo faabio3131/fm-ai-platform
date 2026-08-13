@@ -7,16 +7,20 @@ from core.seguranca.auditoria import RepositorioAuditoriaEmMemoria
 
 
 def preparar_schema_teste(engine) -> None:
-    """Cria apenas schema efemero quando a flag server-side de teste esta ativa."""
+    """Cria schema efemero completo somente no E2E isolado da Central."""
     if not order_center_v1_enabled():
         raise RuntimeError("Schema da Central so pode ser preparado em teste isolado")
     from core.pagamentos.modelos_orm import PaymentsBase
     from core.pdv.modelos_orm import PDVBase
     from core.pedidos.modelos_orm import OrdersBase
+    from infra.eventos.modelos_orm import EventBusBase
+    from infra.seguranca.modelos_orm import SecurityBase
 
     OrdersBase.metadata.create_all(engine, checkfirst=True)
     PaymentsBase.metadata.create_all(engine, checkfirst=True)
     PDVBase.metadata.create_all(engine, checkfirst=True)
+    EventBusBase.metadata.create_all(engine, checkfirst=True)
+    SecurityBase.metadata.create_all(engine, checkfirst=True)
 
 
 def contexto_central_teste(
