@@ -121,7 +121,7 @@ def test_order_pagbank_persistido_resolve_webhook_em_nova_sessao() -> None:
         uow.registrar_efeitos(eventos=inicio.eventos, auditorias=inicio.auditorias)
         criado = criar_pix_pagbank_em_transacao(
             contexto=contexto,
-            recursos=uow._recursos,  # mesma fronteira transacional da UoW
+            recursos=uow.recursos,  # mesma fronteira transacional da UoW
             adapter=adapter,
             pagamento_id="pay-pagbank-1",
             cliente=_cliente(),
@@ -147,7 +147,7 @@ def test_order_pagbank_persistido_resolve_webhook_em_nova_sessao() -> None:
     assinatura = hashlib.sha256(TOKEN.encode() + b"-" + bruto).hexdigest()
     with UnitOfWorkV1(factory) as uow:
         resultado = processar_webhook_pagbank_em_transacao(
-            recursos=uow._recursos,
+            recursos=uow.recursos,
             adapter=adapter,
             payload_bruto=bruto,
             assinatura=assinatura,
@@ -187,7 +187,7 @@ def test_assinatura_invalida_nao_resolve_nem_muda_pagamento() -> None:
         uow.registrar_efeitos(eventos=inicio.eventos, auditorias=inicio.auditorias)
         criar_pix_pagbank_em_transacao(
             contexto=contexto,
-            recursos=uow._recursos,
+            recursos=uow.recursos,
             adapter=adapter,
             pagamento_id="pay-pagbank-2",
             cliente=_cliente(),
@@ -199,7 +199,7 @@ def test_assinatura_invalida_nao_resolve_nem_muda_pagamento() -> None:
     with UnitOfWorkV1(factory) as uow:
         assert (
             processar_webhook_pagbank_em_transacao(
-                recursos=uow._recursos,
+                recursos=uow.recursos,
                 adapter=adapter,
                 payload_bruto=_payload_pago(),
                 assinatura="0" * 64,
