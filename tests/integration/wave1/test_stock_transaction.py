@@ -96,8 +96,8 @@ def test_reserva_e_consumo_sql_persistem_saldo_eventos_e_auditoria() -> None:
         uow.registrar_efeitos(eventos=reserva.eventos, auditorias=reserva.auditorias)
         assert reserva.reserva and reserva.reserva.status is StatusReserva.ATIVA
         saldo = uow.estoque.consultar_saldo("tenant-1", "loja-1", "carne")
-        assert saldo.saldo_fisico == Decimal("10")
-        assert saldo.saldo_reservado == Decimal("3")
+        assert saldo.saldo_fisico == Decimal(10)
+        assert saldo.saldo_reservado == Decimal(3)
         uow.commit()
 
     with UnitOfWorkV1(factory) as uow:
@@ -110,8 +110,8 @@ def test_reserva_e_consumo_sql_persistem_saldo_eventos_e_auditoria() -> None:
         )
         uow.registrar_efeitos(eventos=consumo.eventos, auditorias=consumo.auditorias)
         saldo = uow.estoque.consultar_saldo("tenant-1", "loja-1", "carne")
-        assert saldo.saldo_fisico == Decimal("7")
-        assert saldo.saldo_reservado == Decimal("0")
+        assert saldo.saldo_fisico == Decimal(7)
+        assert saldo.saldo_reservado == Decimal(0)
         reserva = uow.estoque.buscar_reserva("tenant-1", "loja-1", "pedido-1")
         assert reserva and reserva.status is StatusReserva.CONSUMIDA
         uow.commit()
@@ -128,8 +128,8 @@ def test_reserva_e_consumo_sql_persistem_saldo_eventos_e_auditoria() -> None:
         assert replay.eventos == ()
         assert replay.auditorias == ()
         saldo = uow.estoque.consultar_saldo("tenant-1", "loja-1", "carne")
-        assert saldo.saldo_fisico == Decimal("7")
-        assert saldo.saldo_reservado == Decimal("0")
+        assert saldo.saldo_fisico == Decimal(7)
+        assert saldo.saldo_reservado == Decimal(0)
         uow.commit()
 
     with Session(engine) as session:
@@ -163,8 +163,8 @@ def test_liberacao_sql_devolve_disponibilidade_sem_baixar_fisico() -> None:
         )
         uow.registrar_efeitos(eventos=liberacao.eventos, auditorias=liberacao.auditorias)
         saldo = uow.estoque.consultar_saldo("tenant-1", "loja-1", "carne")
-        assert saldo.saldo_fisico == Decimal("10")
-        assert saldo.saldo_reservado == Decimal("0")
+        assert saldo.saldo_fisico == Decimal(10)
+        assert saldo.saldo_reservado == Decimal(0)
         reserva = uow.estoque.buscar_reserva(
             "tenant-1", "loja-1", "pedido-cancelado"
         )
