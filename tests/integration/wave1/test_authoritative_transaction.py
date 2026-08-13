@@ -198,15 +198,16 @@ def test_uow_rolls_back_everything_when_operation_fails() -> None:
     engine, factory = _factory()
     contexto = _context()
 
-    with pytest.raises(RuntimeError, match="falha depois dos efeitos"):
-        with UnitOfWorkV1(factory) as uow:
-            registrar_novo_pedido(
-                pedido=_order(),
-                contexto=contexto,
-                repositorio=uow.pedidos,
-                outbox=uow.outbox,
-                auditoria=uow.auditoria,
-            )
-            raise RuntimeError("falha depois dos efeitos")
+    with pytest.raises(
+        RuntimeError, match="falha depois dos efeitos"
+    ), UnitOfWorkV1(factory) as uow:
+        registrar_novo_pedido(
+            pedido=_order(),
+            contexto=contexto,
+            repositorio=uow.pedidos,
+            outbox=uow.outbox,
+            auditoria=uow.auditoria,
+        )
+        raise RuntimeError("falha depois dos efeitos")
 
     assert _counts(engine) == (0, 0, 0, 0)
