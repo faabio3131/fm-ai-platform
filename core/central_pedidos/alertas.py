@@ -17,8 +17,9 @@ def calcular_alertas(
     atualizado_em: datetime,
     financeiro: ResumoFinanceiroCentral,
     agora: datetime,
-    configuracao: ConfiguracaoAlertas = ConfiguracaoAlertas(),
+    configuracao: ConfiguracaoAlertas | None = None,
 ) -> tuple[AlertaPedidoCentral, ...]:
+    config = configuracao if configuracao is not None else ConfiguracaoAlertas()
     if agora.utcoffset() is None:
         raise ValueError("agora deve ser timezone-aware")
     atualizado = (
@@ -40,8 +41,7 @@ def calcular_alertas(
         )
     if (
         status not in terminais
-        and agora.astimezone(timezone.utc) - atualizado
-        >= configuracao.sem_atualizacao_apos
+        and agora.astimezone(timezone.utc) - atualizado >= config.sem_atualizacao_apos
     ):
         alertas.append(
             AlertaPedidoCentral(
