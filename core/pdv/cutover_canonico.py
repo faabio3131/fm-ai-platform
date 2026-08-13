@@ -49,6 +49,21 @@ def _id_deterministico(chave: str) -> str:
     return str(uuid5(NAMESPACE_URL, chave))
 
 
+def contexto_estoque_automatico_pdv(
+    contexto: ContextoExecucao, instante: datetime
+) -> ContextoExecucao:
+    """Identidade técnica para efeitos derivados; não amplia privilégios do caixa."""
+
+    return ContextoExecucao.sistema(
+        identidade="pdv-estoque-automatico",
+        motivo="efeito de estoque derivado de checkout PDV previamente autorizado",
+        tenant_id=contexto.tenant_id,
+        unidade_id=contexto.unidade_id,
+        correlation_id=contexto.correlation_id,
+        solicitado_em=instante,
+    )
+
+
 def montar_pedido_pdv(
     *, entrada: EntradaPDV, contexto: ContextoExecucao, instante: datetime
 ) -> Pedido:
@@ -106,6 +121,7 @@ def preparar_snapshot_estoque_pdv(
     if not consumos:
         return None, consumos
 
+    contexto_sistema = contexto_estoque_automatico_pdv(contexto, pedido.criado_em)
     itens: list[ItemSnapshotFicha] = []
     for insumo, necessario in consumos:
         insumo_id = id_insumo_legado(insumo.id)
@@ -115,7 +131,7 @@ def preparar_snapshot_estoque_pdv(
         )
         if saldo.versao == 0:
             bootstrap = registrar_movimento(
-                contexto=contexto,
+                contexto=contexto_sistema,
                 repositorio=recursos.estoque,
                 insumo_id=insumo_id,
                 tipo=TipoMovimento.ENTRADA,
