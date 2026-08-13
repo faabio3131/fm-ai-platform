@@ -260,6 +260,22 @@ class RepositorioPagamentosSQLAlchemy:
         ).all()
         return tuple(self._transacao(row) for row in rows)
 
+    def buscar_transacao_externa(
+        self, provedor: str, id_externo: str, tipo: TipoTransacao
+    ) -> TransacaoPagamento | None:
+        rows = self._session.scalars(
+            select(TransacaoPagamentoORM).where(
+                TransacaoPagamentoORM.provedor == provedor,
+                TransacaoPagamentoORM.id_externo == id_externo,
+                TransacaoPagamentoORM.tipo == tipo.value,
+            )
+        ).all()
+        if len(rows) > 1:
+            escopos = {(row.tenant_id, row.unidade_id, row.pagamento_id) for row in rows}
+            if len(escopos) > 1:
+                raise ConflitoIdempotenciaPagamento("referencia_externa_ambigua")
+        return self._transacao(rows[0]) if rows else None
+
     @staticmethod
     def _transacao(row: TransacaoPagamentoORM) -> TransacaoPagamento:
         return TransacaoPagamento(
