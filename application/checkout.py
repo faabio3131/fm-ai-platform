@@ -1,8 +1,9 @@
 """Checkout canônico da V1.
 
-Esta é a fronteira de aplicação que canais como PDV, Mica, Salão, Delivery e
-marketplaces devem usar. Ela não replica regras de domínio: apenas compõe Pedido,
-Pagamento, Estoque, Outbox e Auditoria sob uma única Unit of Work.
+Canais como PDV, Mica, Salão, Delivery e marketplaces devem entrar por esta
+fronteira. A função `executar_checkout_em_transacao` não faz commit e permite que
+um cutover/adapter componha efeitos legados na mesma transação. A função pública
+`executar_checkout_v1` continua sendo a conveniência que possui o Unit of Work.
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ from core.pedidos.servicos import (
     transicionar_pedido,
 )
 from core.seguranca.contexto import ContextoExecucao
-from infra.transacoes.uow import UnitOfWorkV1
+from infra.transacoes.uow import RecursosTransacionaisV1, UnitOfWorkV1
 
 
 class CheckoutInvalido(ValueError):
@@ -78,6 +79,85 @@ def _validar(comando: ComandoCheckoutV1, contexto: ContextoExecucao) -> None:
         raise CheckoutInvalido("pedido zerado não deve criar obrigação financeira")
 
 
+def executar_checkout_em_transacao(
+    *,
+    comando: ComandoCheckoutV1,
+    contexto: ContextoExecucao,
+    recursos: RecursosTransacionaisV1,
+) -> ResultadoCheckoutV1:
+    """Executa o checkout na Session recebida; o chamador continua dono do commit."""
+
+    _validar(comando, contexto)
+    pedido = comando.pedido
+    raiz = str(pedido.idempotency_key)
+
+    criado = registrar_novo_pedido(
+        pedido=pedido,
+        contexto=contexto,
+        repositorio=recursos.pedidos,
+        outbox=recursos.outbox,
+        auditoria=recursos.auditoria,
+    )
+
+    pagamento: ResultadoPagamento | None = None
+    if pedido.total.valor > 0:
+        assert comando.pagamento_id is not None
+        assert comando.metodo_pagamento is not None
+        pagamento = criar_obrigacao_pagamento(
+            contexto=contexto,
+            repositorio=recursos.pagamentos,
+            pagamento_id=comando.pagamento_id,
+            pedido_id=str(pedido.id),
+            valor_previsto=pedido.total,
+            metodo=comando.metodo_pagamento,
+            idempotency_key=f"{raiz}:pagamento",
+            timestamp=comando.timestamp,
+            provedor=comando.provedor_pagamento,
+            recebimento_posterior=comando.recebimento_posterior,
+        )
+        if not pagamento.idempotente:
+            recursos.registrar_efeitos(
+                eventos=pagamento.eventos,
+                auditorias=pagamento.auditorias,
+            )
+
+    reserva: ResultadoReserva | None = None
+    if comando.snapshot_estoque is not None:
+        reserva = reservar_estoque(
+            contexto=contexto,
+            repositorio=recursos.estoque,
+            pedido_id=str(pedido.id),
+            pedido_version=pedido.versao,
+            snapshot_ficha=comando.snapshot_estoque,
+            idempotency_key=f"{raiz}:estoque",
+        )
+        if not reserva.idempotente:
+            recursos.registrar_efeitos(
+                eventos=reserva.eventos,
+                auditorias=reserva.auditorias,
+            )
+
+    aguardando = transicionar_pedido(
+        tenant_id=pedido.tenant_id,
+        unidade_id=pedido.unidade_id,
+        pedido_id=pedido.id,
+        destino=PedidoStatus.AGUARDANDO_CONFIRMACAO,
+        versao_esperada=pedido.versao,
+        idempotency_key=IdempotencyKey(f"{raiz}:aguardando_confirmacao"),
+        contexto=contexto,
+        repositorio=recursos.pedidos,
+        outbox=recursos.outbox,
+        auditoria=recursos.auditoria,
+        timestamp=comando.timestamp,
+        precondicoes={"itens_validos": bool(pedido.itens), "precos_calculados": True},
+        metadata={
+            "pagamento_criado": pagamento is not None,
+            "estoque_reservado": reserva is not None,
+        },
+    )
+    return ResultadoCheckoutV1(criado, pagamento, reserva, aguardando)
+
+
 def executar_checkout_v1(
     *,
     comando: ComandoCheckoutV1,
@@ -86,74 +166,11 @@ def executar_checkout_v1(
 ) -> ResultadoCheckoutV1:
     """Registra checkout inteiro ou nada; replays usam as mesmas chaves derivadas."""
 
-    _validar(comando, contexto)
-    pedido = comando.pedido
-    raiz = str(pedido.idempotency_key)
-
     with UnitOfWorkV1(session_factory) as uow:
-        criado = registrar_novo_pedido(
-            pedido=pedido,
+        resultado = executar_checkout_em_transacao(
+            comando=comando,
             contexto=contexto,
-            repositorio=uow.pedidos,
-            outbox=uow.outbox,
-            auditoria=uow.auditoria,
-        )
-
-        pagamento: ResultadoPagamento | None = None
-        if pedido.total.valor > 0:
-            assert comando.pagamento_id is not None
-            assert comando.metodo_pagamento is not None
-            pagamento = criar_obrigacao_pagamento(
-                contexto=contexto,
-                repositorio=uow.pagamentos,
-                pagamento_id=comando.pagamento_id,
-                pedido_id=str(pedido.id),
-                valor_previsto=pedido.total,
-                metodo=comando.metodo_pagamento,
-                idempotency_key=f"{raiz}:pagamento",
-                timestamp=comando.timestamp,
-                provedor=comando.provedor_pagamento,
-                recebimento_posterior=comando.recebimento_posterior,
-            )
-            if not pagamento.idempotente:
-                uow.registrar_efeitos(
-                    eventos=pagamento.eventos,
-                    auditorias=pagamento.auditorias,
-                )
-
-        reserva: ResultadoReserva | None = None
-        if comando.snapshot_estoque is not None:
-            reserva = reservar_estoque(
-                contexto=contexto,
-                repositorio=uow.estoque,
-                pedido_id=str(pedido.id),
-                pedido_version=pedido.versao,
-                snapshot_ficha=comando.snapshot_estoque,
-                idempotency_key=f"{raiz}:estoque",
-            )
-            if not reserva.idempotente:
-                uow.registrar_efeitos(
-                    eventos=reserva.eventos,
-                    auditorias=reserva.auditorias,
-                )
-
-        aguardando = transicionar_pedido(
-            tenant_id=pedido.tenant_id,
-            unidade_id=pedido.unidade_id,
-            pedido_id=pedido.id,
-            destino=PedidoStatus.AGUARDANDO_CONFIRMACAO,
-            versao_esperada=pedido.versao,
-            idempotency_key=IdempotencyKey(f"{raiz}:aguardando_confirmacao"),
-            contexto=contexto,
-            repositorio=uow.pedidos,
-            outbox=uow.outbox,
-            auditoria=uow.auditoria,
-            timestamp=comando.timestamp,
-            precondicoes={"itens_validos": bool(pedido.itens), "precos_calculados": True},
-            metadata={
-                "pagamento_criado": pagamento is not None,
-                "estoque_reservado": reserva is not None,
-            },
+            recursos=RecursosTransacionaisV1(uow.session),
         )
         uow.commit()
-        return ResultadoCheckoutV1(criado, pagamento, reserva, aguardando)
+        return resultado
