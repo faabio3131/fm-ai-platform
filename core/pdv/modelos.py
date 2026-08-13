@@ -1,6 +1,6 @@
 """Contratos tipados na fronteira do PDV; valores V1 nunca usam float."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 
 from core.dominio.dinheiro import Dinheiro
@@ -12,6 +12,10 @@ def dinheiro_legado(valor: object) -> Dinheiro:
     if isinstance(valor, float):
         valor = str(valor)
     return Dinheiro(Decimal(str(valor)))
+
+
+def dinheiro_zero() -> Dinheiro:
+    return Dinheiro(0)
 
 
 def id_produto_legado(valor: object) -> str:
@@ -57,7 +61,7 @@ class EntradaPDV:
     cliente_id: int | None = None
     valor_recebido: Dinheiro | None = None
     usar_cashback: bool = False
-    desconto_cashback: Dinheiro = Dinheiro(Decimal("0"))
+    desconto_cashback: Dinheiro = field(default_factory=dinheiro_zero)
     pix_sandbox: bool = False
     confirmacao_presencial: bool = False
 
@@ -89,5 +93,5 @@ class ResultadoPDV:
     pagamento_id: str | None = None
     venda_financeira_id: str | None = None
     venda_legada_id: str | None = None
-    troco: Dinheiro = Dinheiro(Decimal("0"))
+    troco: Dinheiro = field(default_factory=dinheiro_zero)
     motivo: str | None = None
