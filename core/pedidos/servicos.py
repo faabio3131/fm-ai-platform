@@ -32,7 +32,12 @@ from core.dominio.ids import (
     UnidadeId,
 )
 from core.dominio.pedidos import Pedido
-from core.estados.maquinas import ComandoTransicao, SnapshotEstado, transicionar
+from core.estados.maquinas import (
+    ComandoTransicao,
+    ErroTransicao,
+    SnapshotEstado,
+    transicionar,
+)
 from core.eventos.modelos import EnvelopeMensagem
 from core.seguranca import AutorizarAcao, ContextoExecucao, Permissao
 from core.seguranca.auditoria import (
@@ -140,6 +145,42 @@ def _auditoria_criacao(
             ("canal", pedido.canal.value),
         ),
         metadata=sanitizar_metadata({"quantidade_itens": len(pedido.itens)}),
+    )
+
+
+def _auditoria_transicao_negada(
+    *,
+    pedido: Pedido,
+    contexto: ContextoExecucao,
+    destino: PedidoStatus,
+    erro: ErroTransicao,
+    timestamp: datetime,
+    metadata: Mapping[str, object],
+) -> EventoAuditoria:
+    papel = next(iter(sorted(contexto.papeis, key=str)), None)
+    instante = (
+        timestamp.astimezone(timezone.utc)
+        if timestamp.tzinfo is not None
+        else datetime.now(timezone.utc)
+    )
+    return EventoAuditoria(
+        audit_id=str(uuid4()),
+        tenant_id=contexto.tenant_id,
+        unidade_id=contexto.unidade_id,
+        usuario_id=contexto.usuario_id,
+        papel_efetivo=papel,
+        acao=f"pedido.{destino.value}",
+        recurso_tipo="pedido",
+        recurso_id=str(pedido.id),
+        resultado="negado",
+        motivo=erro.codigo,
+        correlation_id=contexto.correlation_id,
+        timestamp=instante,
+        origem=contexto.origem,
+        politica="deny_by_default",
+        causation_id=contexto.causation_id,
+        antes_resumido=(("estado", pedido.status.value),),
+        metadata=sanitizar_metadata(dict(metadata)),
     )
 
 
@@ -279,20 +320,34 @@ def transicionar_pedido(
         estado=atual.status.value,
         version=atual.versao,
     )
-    resultado = transicionar(
-        snapshot,
-        ComandoTransicao(
-            destino=destino.value,
-            versao_esperada=versao_esperada,
-            idempotency_key=str(idempotency_key),
-            timestamp=timestamp,
-            contexto=contexto,
-            precondicoes=precondicoes_efetivas,
-            motivo=motivo,
-            decisao_cozinha=decisao_cozinha,
-            metadata=metadata_efetiva,
-        ),
-    )
+    try:
+        resultado = transicionar(
+            snapshot,
+            ComandoTransicao(
+                destino=destino.value,
+                versao_esperada=versao_esperada,
+                idempotency_key=str(idempotency_key),
+                timestamp=timestamp,
+                contexto=contexto,
+                precondicoes=precondicoes_efetivas,
+                motivo=motivo,
+                decisao_cozinha=decisao_cozinha,
+                metadata=metadata_efetiva,
+            ),
+        )
+    except ErroTransicao as erro:
+        auditoria.adicionar(
+            _auditoria_transicao_negada(
+                pedido=atual,
+                contexto=contexto,
+                destino=destino,
+                erro=erro,
+                timestamp=timestamp,
+                metadata=metadata_efetiva,
+            )
+        )
+        raise
+
     atualizado = replace(
         atual,
         status=PedidoStatus(resultado.snapshot.estado),
