@@ -6,6 +6,16 @@ from uuid import uuid4
 import streamlit as st
 from streamlit.errors import StreamlitSecretNotFoundError
 from premium_ui import apply_premium_visual_system
+from core.runtime import (
+    build_engine as build_runtime_engine,
+    load_runtime_settings,
+)
+from infra.streamlit_app.auth_ui import (
+    render_identity_sidebar,
+    require_authentication,
+)
+from infra.seguranca.session_guard import build_session_factory
+from migrations.runner import assert_schema_current
 
 # Patch: ensure compatibility with custom keyword args used across the app
 try:
@@ -82,9 +92,8 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    create_engine,
 )
-from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+from sqlalchemy.orm import declarative_base, relationship
 import io
 
 from core.pdv.adaptadores_sqlalchemy import (
@@ -135,9 +144,14 @@ load_dotenv()
 TEST_RUNTIME = build_runtime()
 os.makedirs(TEST_RUNTIME.files_dir, exist_ok=True)
 
-DATABASE_URL = TEST_RUNTIME.database_url
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+RUNTIME_SETTINGS = load_runtime_settings(
+    test_database_url=TEST_RUNTIME.database_url if is_test_mode() else None
+)
+DATABASE_URL = RUNTIME_SETTINGS.database_url
+engine = build_runtime_engine(RUNTIME_SETTINGS)
+SessionLocal = build_session_factory(
+    engine=engine, commercial=RUNTIME_SETTINGS.commercial
+)
 Base = declarative_base()
 
 
@@ -244,14 +258,18 @@ class ContatoGerencial(Base):  # type: ignore[misc, valid-type]
     receber_alertas_estoque = Column(Integer, default=1)
 
 
-# Criar todas as tabelas no banco de dados com proteção contra tabelas existentes
+# Desenvolvimento/teste podem criar schema local; runtime comercial exige migration.
 try:
     if is_test_mode() and os.getenv("FM_AI_TEST_RESET_ON_START") == "1":
         reset_database(engine, Base)
+    elif RUNTIME_SETTINGS.commercial:
+        assert_schema_current(engine)
     else:
         Base.metadata.create_all(bind=engine, checkfirst=True)
 except Exception as e:
     st.error(f"❌ Erro ao inicializar o banco de dados: {e}")
+    if RUNTIME_SETTINGS.commercial:
+        st.stop()
 
 # Schemas V1 nunca sao criados automaticamente fora do banco temporario E2E.
 _pdv_rollout = carregar_rollout_ambiente()
@@ -265,6 +283,12 @@ if is_test_mode() and _pdv_rollout.modo is not ModoPDV.LEGACY:
 
         upgrade_payments_v1(engine)
     upgrade_pdv_v1(engine)
+
+
+CURRENT_IDENTITY = require_authentication(
+    session_factory=SessionLocal,
+    settings=RUNTIME_SETTINGS,
+)
 
 
 def get_db():
@@ -744,8 +768,7 @@ with st.sidebar:
     st.caption("Professional Gastronomy ERP & AI")
     st.markdown("---")
     st.subheader("🔐 Acesso Corporativo")
-    st.success("Conectado como:\n**admin@micaburger.com**")
-    st.info("🏪 **Loja Ativa:**\nMica Burguer & Restaurante")
+    render_identity_sidebar(CURRENT_IDENTITY, RUNTIME_SETTINGS)
 
     if GENAI_DISPONIVEL:
         if is_test_mode():

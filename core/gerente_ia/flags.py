@@ -1,10 +1,13 @@
-"""Feature flag fail-closed do Gerente IA V1."""
+"""Feature flag do Gerente IA V1."""
 
-import os
+from core.runtime.registry import module_v1_enabled
 
 
 def gerente_ia_v1_enabled() -> bool:
-    return (
-        os.getenv("FM_AI_TEST_MODE") == "1"
-        and os.getenv("FM_AI_GERENTE_IA_V1", "0") == "1"
+    """Libera o Cérebro somente quando adapters reais mínimos estiverem prontos."""
+
+    return module_v1_enabled(
+        name="gerente_ia",
+        flag_env="FM_AI_GERENTE_IA_V1",
+        required_adapters=("orders", "stock", "auth"),
     )

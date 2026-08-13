@@ -1,4 +1,4 @@
-"""Erros seguros e estaveis da fundacao de seguranca."""
+"""Erros seguros e estáveis da fundação de segurança."""
 
 
 class ErroSeguranca(ValueError):
@@ -39,3 +39,19 @@ class RecursoProtegido(ErroSeguranca):
 
 class MetadataAuditoriaInvalida(ErroSeguranca):
     codigo = "seguranca.metadata_invalida"
+
+
+class CredenciaisInvalidas(ErroSeguranca):
+    codigo = "seguranca.credenciais_invalidas"
+
+
+class UsuarioInativo(ErroSeguranca):
+    codigo = "seguranca.usuario_inativo"
+
+
+class SegredoAusente(ErroSeguranca):
+    codigo = "seguranca.segredo_ausente"
+
+
+class ReferenciaSegredoInvalida(ErroSeguranca):
+    codigo = "seguranca.referencia_segredo_invalida"

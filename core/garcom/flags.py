@@ -1,8 +1,13 @@
 """Feature flag da interface do garçom V1."""
 
-import os
+from core.runtime.registry import module_v1_enabled
 
 
 def garcom_v1_enabled() -> bool:
-    """Habilita a PR12 somente no runtime explicitamente marcado como teste."""
-    return os.getenv("FM_AI_TEST_MODE") == "1" and os.getenv("FM_AI_GARCOM_V1", "0") == "1"
+    """Libera Garçom somente com adapters operacionais e autorização reais."""
+
+    return module_v1_enabled(
+        name="garcom",
+        flag_env="FM_AI_GARCOM_V1",
+        required_adapters=("garcom", "salao", "kds", "auth"),
+    )
