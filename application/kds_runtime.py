@@ -89,6 +89,18 @@ class ServicoKDSCanonico:
         )
         return replace(tecnico, permissoes=frozenset({Permissao.PEDIDO_ALTERAR}))
 
+    @staticmethod
+    def _precondicoes_pedido_derivadas(destino: PedidoStatus) -> dict[str, bool]:
+        por_destino = {
+            PedidoStatus.ENVIADO_PRODUCAO: {"itens_roteados": True},
+            PedidoStatus.EM_PREPARO: {"producao_iniciada": True},
+            PedidoStatus.PRONTO: {"itens_resolvidos": True},
+        }
+        try:
+            return por_destino[destino]
+        except KeyError as exc:
+            raise ErroKDS("transicao_pedido_derivada_nao_suportada") from exc
+
     def _transicionar_pedido_derivado(
         self,
         *,
@@ -117,6 +129,7 @@ class ServicoKDSCanonico:
             outbox=self.outbox,
             auditoria=self.auditoria,
             timestamp=instante,
+            precondicoes=self._precondicoes_pedido_derivadas(destino),
             metadata={"origem_derivada": "kds"},
         )
         return resultado.pedido
@@ -140,7 +153,10 @@ class ServicoKDSCanonico:
             idempotency_key=idem,
         )
         if existente is not None:
-            if existente.aggregate_id != item.producao_id or existente.event_type != event_type:
+            if (
+                existente.aggregate_id != item.producao_id
+                or existente.event_type != event_type
+            ):
                 raise ErroKDS("conflito_evento_core")
             return
         self.outbox.adicionar(
@@ -279,7 +295,9 @@ class ServicoKDSCanonico:
                 ProducaoItemORM.pedido_id == item.pedido_id,
             )
         ).all()
-        return bool(rows) and all(row.status in {"pronta", "retirada"} for row in rows)
+        return bool(rows) and all(
+            row.status in {"pronta", "retirada"} for row in rows
+        )
 
     def _sincronizar_pedido_pos_transicao(
         self,
