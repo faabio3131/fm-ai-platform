@@ -1,0 +1,59 @@
+name: V1 Wave1 PDV E2E Schema Patch
+
+on:
+  push:
+    branches: [impl/v1-wave1-authoritative-transactions]
+    paths:
+      - '.github/workflows/v1-wave1-pdv-e2e-schema-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: impl/v1-wave1-authoritative-transactions
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compor schema E2E com migrations canônicas
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('app.py')
+          text = path.read_text(encoding='utf-8')
+
+          old_import = 'from migrations.runner import assert_schema_current'
+          new_import = 'from migrations.runner import assert_schema_current, run_migrations'
+          if text.count(old_import) != 1:
+              raise SystemExit('import de migrations não está no estado esperado')
+          text = text.replace(old_import, new_import, 1)
+
+          old = '''# Schemas V1 nunca sao criados automaticamente fora do banco temporario E2E.\n_pdv_rollout = carregar_rollout_ambiente()\nif is_test_mode() and _pdv_rollout.modo is not ModoPDV.LEGACY:\n    from migrations.orders_v1 import upgrade as upgrade_orders_v1\n    from migrations.pdv_v1 import upgrade as upgrade_pdv_v1\n\n    upgrade_orders_v1(engine)\n    if _pdv_rollout.modo is ModoPDV.AUTHORITATIVE_CANARY:\n        from migrations.payments_v1 import upgrade as upgrade_payments_v1\n\n        upgrade_payments_v1(engine)\n    upgrade_pdv_v1(engine)'''
+          new = '''# Schemas V1 nunca sao criados automaticamente fora do banco temporario E2E.\n_pdv_rollout = carregar_rollout_ambiente()\nif is_test_mode() and _pdv_rollout.modo is not ModoPDV.LEGACY:\n    from migrations.pdv_v1 import upgrade as upgrade_pdv_v1\n\n    if _pdv_rollout.modo is ModoPDV.AUTHORITATIVE_CANARY:\n        # O E2E autoritativo usa a mesma trilha canônica do runtime comercial:\n        # Pedido, Pagamento, Estoque, Event Bus e Auditoria.\n        run_migrations(engine)\n    else:\n        from migrations.orders_v1 import upgrade as upgrade_orders_v1\n\n        upgrade_orders_v1(engine)\n    upgrade_pdv_v1(engine)'''
+          if text.count(old) != 1:
+              raise SystemExit('bloco de schema PDV não está no estado esperado')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Validar patch
+        run: |
+          python -m pip install -r requirements.txt
+          python -m py_compile app.py
+          python -m compileall -q migrations core/pdv application infra/transacoes
+      - name: Commitar patch
+        run: |
+          git diff --check
+          git config user.name "fm-ai-wave1-bot"
+          git config user.email "fm-ai-wave1-bot@users.noreply.github.com"
+          git add app.py
+          git commit -m "V1 Wave1 PDV-001: use canonical migrations in authoritative E2E startup"
+          git fetch origin impl/v1-wave1-authoritative-transactions
+          git rebase origin/impl/v1-wave1-authoritative-transactions
+          git push origin HEAD:impl/v1-wave1-authoritative-transactions
