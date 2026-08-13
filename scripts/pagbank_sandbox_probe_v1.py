@@ -83,7 +83,9 @@ def main() -> int:
     if not (10 <= len(buyer_email) <= 255 and _EMAIL_RE.fullmatch(buyer_email)):
         raise RuntimeError("informe um e-mail válido para o cliente de teste")
 
-    reference = f"probe-{uuid4()}"
+    # O gateway PagBank documenta chaves de idempotência alfanuméricas em suas
+    # APIs. Use somente [A-Za-z0-9] para não depender de tolerância a ':'/'-'.
+    reference = f"probe{uuid4().hex}"
     payload = {
         "reference_id": reference,
         "customer": {
@@ -116,7 +118,7 @@ def main() -> int:
             "Authorization": f"Bearer {token}",
             "Accept": "application/json",
             "Content-Type": "application/json",
-            "x-idempotency-key": f"probe:{reference}",
+            "x-idempotency-key": reference,
         },
         json=payload,
         timeout=15,
