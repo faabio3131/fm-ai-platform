@@ -57,7 +57,7 @@ class EventoPedidoOperacional(EventoDominio):
     def __post_init__(self):
         super().__post_init__()
         if not self.tipo_evento.strip() or not self.tipo_evento.startswith("pedido."):
-            raise ValueError("tipo de evento operacional de pedido invalido")
+            raise TypeError("tipo de evento operacional de pedido invalido")
 
 
 @dataclass(frozen=True, kw_only=True)
