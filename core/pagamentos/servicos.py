@@ -26,6 +26,7 @@ from core.seguranca.permissoes import Papel, Permissao
 
 from .adapters import WebhookNormalizado
 from .erros import (
+    FonteFinanceiraNaoConfiavel,
     OperacaoPagamentoNaoAutorizada,
     RecursoPagamentoIndisponivel,
     ValorPagamentoInvalido,
@@ -246,7 +247,10 @@ def criar_obrigacao_pagamento(
     return repositorio.executar_atomicamente(op)
 
 
-def confirmar_pagamento(
+_METODOS_CONFIRMAVEIS_MANUALMENTE = frozenset({MetodoPagamento.DINHEIRO})
+
+
+def _confirmar_pagamento_validado(
     *,
     contexto: ContextoExecucao,
     repositorio: RepositorioPagamentos,
@@ -259,7 +263,12 @@ def confirmar_pagamento(
     referencia_externa: str | None = None,
     correlation_id: str | None = None,
     valor_recebido: Dinheiro | None = None,
+    fonte_financeira_validada: bool,
 ) -> ResultadoPagamento:
+    if not fonte_financeira_validada and metodo not in _METODOS_CONFIRMAVEIS_MANUALMENTE:
+        raise FonteFinanceiraNaoConfiavel(
+            "metodo exige confirmacao de fonte financeira validada"
+        )
     if valor.valor <= 0:
         raise ValorPagamentoInvalido("valor deve ser positivo")
     fp = _hash(
@@ -380,6 +389,38 @@ def confirmar_pagamento(
     return repositorio.executar_atomicamente(op)
 
 
+def confirmar_pagamento(
+    *,
+    contexto: ContextoExecucao,
+    repositorio: RepositorioPagamentos,
+    pagamento_id: str,
+    valor: Dinheiro,
+    metodo: MetodoPagamento,
+    idempotency_key: str,
+    expected_version: int,
+    timestamp: datetime,
+    referencia_externa: str | None = None,
+    correlation_id: str | None = None,
+    valor_recebido: Dinheiro | None = None,
+) -> ResultadoPagamento:
+    """Confirmação humana/manual; somente dinheiro pode liquidar sem provedor."""
+
+    return _confirmar_pagamento_validado(
+        contexto=contexto,
+        repositorio=repositorio,
+        pagamento_id=pagamento_id,
+        valor=valor,
+        metodo=metodo,
+        idempotency_key=idempotency_key,
+        expected_version=expected_version,
+        timestamp=timestamp,
+        referencia_externa=referencia_externa,
+        correlation_id=correlation_id,
+        valor_recebido=valor_recebido,
+        fonte_financeira_validada=False,
+    )
+
+
 def processar_webhook(
     *,
     contexto: ContextoExecucao,
@@ -390,7 +431,7 @@ def processar_webhook(
 ) -> ResultadoPagamento | None:
     if not webhook.assinatura_validada or webhook.tipo not in {"confirmado", "pago"}:
         return None
-    return confirmar_pagamento(
+    return _confirmar_pagamento_validado(
         contexto=contexto,
         repositorio=repositorio,
         pagamento_id=pagamento_id,
@@ -400,6 +441,7 @@ def processar_webhook(
         idempotency_key=f"webhook:{webhook.provedor}:{webhook.idempotency_key}",
         expected_version=expected_version,
         timestamp=webhook.timestamp,
+        fonte_financeira_validada=True,
     )
 
 
