@@ -21,6 +21,7 @@ from sqlalchemy.orm import sessionmaker
 
 from core.kds import contexto_kds_teste
 from core.kds.ui_streamlit import render_kds
+from core_schema import preparar as preparar_core_schema
 
 TMPDIR_RAW = os.environ.get("FM_AI_TEST_TMPDIR")
 if not TMPDIR_RAW:
@@ -40,6 +41,7 @@ engine = create_engine(
     f"sqlite+pysqlite:///{DB_PATH.as_posix()}",
     connect_args={"check_same_thread": False},
 )
+preparar_core_schema(engine)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 st.set_page_config(
