@@ -140,7 +140,7 @@ def test_kds_sincroniza_estado_macro_do_pedido_sem_dar_permissao_extra_a_cozinha
             pedido_id="pedido-kds",
             pedido_item_id="item-pedido-kds-1",
             setor_id="setor-quente",
-            quantidade=Decimal("1"),
+            quantidade=Decimal(1),
             idempotency_key="route-kds-1",
             producao_id="producao-kds-1",
         )
@@ -149,7 +149,7 @@ def test_kds_sincroniza_estado_macro_do_pedido_sem_dar_permissao_extra_a_cozinha
             pedido_id="pedido-kds",
             pedido_item_id="item-pedido-kds-2",
             setor_id="setor-quente",
-            quantidade=Decimal("1"),
+            quantidade=Decimal(1),
             idempotency_key="route-kds-2",
             producao_id="producao-kds-2",
         )
@@ -248,7 +248,7 @@ def test_kds_roteamento_e_idempotente_e_nao_duplica_evento_core():
             pedido_id="pedido-kds",
             pedido_item_id="item-pedido-kds-1",
             setor_id="setor-quente",
-            quantidade=Decimal("1"),
+            quantidade=Decimal(1),
             idempotency_key="route-idem",
             producao_id="producao-idem",
         )
@@ -257,7 +257,7 @@ def test_kds_roteamento_e_idempotente_e_nao_duplica_evento_core():
             pedido_id="pedido-kds",
             pedido_item_id="item-pedido-kds-1",
             setor_id="setor-quente",
-            quantidade=Decimal("1"),
+            quantidade=Decimal(1),
             idempotency_key="route-idem",
             producao_id="producao-idem",
         )
@@ -286,7 +286,7 @@ def test_kds_falha_de_roteamento_reverte_transicao_derivada_do_pedido():
                 pedido_id="pedido-rollback",
                 pedido_item_id="item-inexistente",
                 setor_id="setor-quente",
-                quantidade=Decimal("1"),
+                quantidade=Decimal(1),
                 idempotency_key="route-rollback",
             )
         assert erro.value.codigo == "pedido_item_inexistente"
@@ -309,7 +309,7 @@ def test_kds_nao_roteia_pedido_cancelado():
                 pedido_id="pedido-cancelado",
                 pedido_item_id="item-pedido-cancelado-1",
                 setor_id="setor-quente",
-                quantidade=Decimal("1"),
+                quantidade=Decimal(1),
                 idempotency_key="route-cancelado",
             )
         assert erro.value.codigo == "pedido_fora_fluxo_producao"
