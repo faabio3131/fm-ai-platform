@@ -263,7 +263,7 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
         )
         if not reconhecida.idempotente:
             recursos.registrar_efeitos(
-                eventos=reconhecida.eventos, auditorias=reconhecida.auditorias
+                eventos=(reconhecida.evento,), auditorias=(reconhecida.auditoria,)
             )
         self.fault("after_venda_financeira")
 
