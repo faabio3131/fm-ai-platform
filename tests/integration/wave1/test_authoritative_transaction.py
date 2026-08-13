@@ -52,29 +52,37 @@ def _context() -> ContextoExecucao:
 
 def _order() -> Pedido:
     now = datetime.now(timezone.utc)
+    tenant = TenantId("tenant-1")
+    unidade = UnidadeId("loja-1")
     item = ItemPedido(
         id=PedidoItemId("item-1"),
+        tenant_id=tenant,
+        unidade_id=unidade,
         produto_id=ProdutoId("produto-1"),
-        nome_snapshot="X-Bacon",
+        nome_produto="X-Bacon",
         quantidade=QuantidadeItem(1),
         preco_unitario=Dinheiro(Decimal("30.00")),
         subtotal=Dinheiro(Decimal("30.00")),
     )
     return Pedido.novo(
         id=PedidoId("pedido-1"),
-        tenant_id=TenantId("tenant-1"),
-        unidade_id=UnidadeId("loja-1"),
+        tenant_id=tenant,
+        unidade_id=unidade,
         origem=OrigemPedido.BALCAO,
         canal=CanalAtendimento.PRESENCIAL,
-        itens=(item,),
-        subtotal=Dinheiro(Decimal("30.00")),
-        desconto=Dinheiro.zero(),
-        taxa_entrega=Dinheiro.zero(),
-        total=Dinheiro(Decimal("30.00")),
+        status=PedidoStatus.RASCUNHO,
+        cliente_id=None,
         criado_em=now,
         atualizado_em=now,
+        versao=1,
         correlation_id=CorrelationId("corr-pedido-1"),
         idempotency_key=IdempotencyKey("pedido-create-1"),
+        subtotal=Dinheiro(Decimal("30.00")),
+        descontos=Dinheiro.zero(),
+        taxas=Dinheiro.zero(),
+        total=Dinheiro(Decimal("30.00")),
+        itens=(item,),
+        observacoes=(),
     )
 
 
