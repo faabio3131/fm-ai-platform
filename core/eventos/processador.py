@@ -79,7 +79,7 @@ class ProcessadorMensagens:
             )
         try:
             self._handlers.obter(mensagem.event_type)(mensagem)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - fronteira de handlers externos
             erro = normalizar_erro(exc)
             self._inbox.marcar_falha(mensagem.idempotency_key, erro)
             attempt = registro.tentativas
