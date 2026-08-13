@@ -56,15 +56,25 @@ def _validar(comando: ComandoCheckoutV1, contexto: ContextoExecucao) -> None:
     pedido = comando.pedido
     if pedido.status is not PedidoStatus.RASCUNHO:
         raise CheckoutInvalido("checkout exige pedido em rascunho")
-    if str(pedido.tenant_id) != contexto.tenant_id or str(pedido.unidade_id) != contexto.unidade_id:
+    if (
+        str(pedido.tenant_id) != contexto.tenant_id
+        or str(pedido.unidade_id) != contexto.unidade_id
+    ):
         raise CheckoutInvalido("pedido fora do tenant/unidade do checkout")
     if pedido.total.valor < 0:
         raise CheckoutInvalido("total do pedido não pode ser negativo")
-    if comando.snapshot_estoque is not None and comando.snapshot_estoque.pedido_id != str(pedido.id):
+    if (
+        comando.snapshot_estoque is not None
+        and comando.snapshot_estoque.pedido_id != str(pedido.id)
+    ):
         raise CheckoutInvalido("snapshot de estoque pertence a outro pedido")
-    if pedido.total.valor > 0 and (not comando.pagamento_id or comando.metodo_pagamento is None):
+    if pedido.total.valor > 0 and (
+        not comando.pagamento_id or comando.metodo_pagamento is None
+    ):
         raise CheckoutInvalido("pedido com valor exige obrigação de pagamento")
-    if pedido.total.valor == 0 and (comando.pagamento_id or comando.metodo_pagamento is not None):
+    if pedido.total.valor == 0 and (
+        comando.pagamento_id or comando.metodo_pagamento is not None
+    ):
         raise CheckoutInvalido("pedido zerado não deve criar obrigação financeira")
 
 
@@ -117,7 +127,7 @@ def executar_checkout_v1(
                 contexto=contexto,
                 repositorio=uow.estoque,
                 pedido_id=str(pedido.id),
-                pedido_version=criado.pedido.versao,
+                pedido_version=pedido.versao,
                 snapshot_ficha=comando.snapshot_estoque,
                 idempotency_key=f"{raiz}:estoque",
             )
@@ -132,7 +142,7 @@ def executar_checkout_v1(
             unidade_id=pedido.unidade_id,
             pedido_id=pedido.id,
             destino=PedidoStatus.AGUARDANDO_CONFIRMACAO,
-            versao_esperada=1,
+            versao_esperada=pedido.versao,
             idempotency_key=IdempotencyKey(f"{raiz}:aguardando_confirmacao"),
             contexto=contexto,
             repositorio=uow.pedidos,
