@@ -19,7 +19,11 @@ from core.pagamentos.modelos_orm import PaymentsBase
 from core.pedidos.modelos_orm import OrdersBase
 from infra.eventos.modelos_orm import EventBusBase
 from infra.legacy_schema import legacy_metadata
-from infra.seguranca.modelos_orm import CredencialReferenciaORM, SecurityBase
+from infra.seguranca.modelos_orm import (
+    CredencialReferenciaORM,
+    EventoAuditoriaORM,
+    SecurityBase,
+)
 
 _metadata = MetaData()
 _schema_migrations = Table(
@@ -68,6 +72,10 @@ def _event_bus_persistence_v1(connection: Connection) -> None:
     EventBusBase.metadata.create_all(bind=connection, checkfirst=True)
 
 
+def _audit_log_v1(connection: Connection) -> None:
+    EventoAuditoriaORM.__table__.create(bind=connection, checkfirst=True)
+
+
 DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001_security_identity_v1", _security_identity_v1),
     Migration("0002_credential_references_v1", _credential_references_v1),
@@ -76,6 +84,7 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0005_payments_authoritative_v1", _payments_authoritative_v1),
     Migration("0006_stock_authoritative_v1", _stock_authoritative_v1),
     Migration("0007_event_bus_persistence_v1", _event_bus_persistence_v1),
+    Migration("0008_audit_log_v1", _audit_log_v1),
 )
 
 
