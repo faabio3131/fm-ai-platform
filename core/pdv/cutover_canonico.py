@@ -99,10 +99,13 @@ def preparar_snapshot_estoque_pdv(
     pedido: Pedido,
     recursos: RecursosTransacionaisV1,
     legado: LegacyPDVSQLAlchemyAdapter,
-) -> tuple[SnapshotFichaEstoque, list[tuple[object, Decimal]]]:
+) -> tuple[SnapshotFichaEstoque | None, list[tuple[object, Decimal]]]:
     """Valida/ancora o saldo do cutover e cria snapshot imutável da receita."""
 
     consumos = legado.validar_estoque(entrada)
+    if not consumos:
+        return None, consumos
+
     itens: list[ItemSnapshotFicha] = []
     for insumo, necessario in consumos:
         insumo_id = id_insumo_legado(getattr(insumo, "id"))
