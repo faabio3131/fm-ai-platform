@@ -3,7 +3,6 @@ from typing import Protocol
 from core.dominio.eventos import EventoDominio
 from core.dominio.ids import IdempotencyKey, PedidoId, TenantId, UnidadeId
 from core.dominio.pedidos import Pedido
-from core.eventos.modelos import EnvelopeMensagem
 
 
 class RepositorioPedidos(Protocol):
@@ -31,12 +30,4 @@ class RepositorioPedidos(Protocol):
         unidade_id: UnidadeId,
         pedido_id: PedidoId,
         eventos: tuple[EventoDominio, ...],
-    ) -> None: ...
-
-    def salvar_mensagem_evento(
-        self,
-        tenant_id: TenantId,
-        unidade_id: UnidadeId,
-        pedido_id: PedidoId,
-        mensagem: EnvelopeMensagem,
     ) -> None: ...
