@@ -9,6 +9,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
+from hashlib import sha256
+from json import dumps
 from typing import Protocol
 from uuid import uuid4
 
@@ -30,7 +32,12 @@ from core.dominio.ids import (
     UnidadeId,
 )
 from core.dominio.pedidos import Pedido
-from core.estados.maquinas import ComandoTransicao, SnapshotEstado, transicionar
+from core.estados.maquinas import (
+    ComandoTransicao,
+    ErroTransicao,
+    SnapshotEstado,
+    transicionar,
+)
 from core.eventos.modelos import EnvelopeMensagem
 from core.seguranca import AutorizarAcao, ContextoExecucao, Permissao
 from core.seguranca.auditoria import (
@@ -40,6 +47,8 @@ from core.seguranca.auditoria import (
 )
 
 from .repositorios import RepositorioPedidos
+
+_REQUEST_FINGERPRINT_KEY = "_request_fingerprint"
 
 
 class PortaOutboxPedidos(Protocol):
@@ -90,6 +99,26 @@ def _validar_contexto(pedido: Pedido, contexto: ContextoExecucao) -> None:
         raise PermissaoNegada("Pedido fora do tenant/unidade ativo")
 
 
+def _fingerprint_transicao(
+    *,
+    destino: PedidoStatus,
+    versao_esperada: int,
+    motivo: str | None,
+    precondicoes: Mapping[str, bool],
+) -> str:
+    """Fingerprint durável com a mesma semântica usada pela máquina normativa."""
+
+    payload = {
+        "destino": destino.value,
+        "versao": versao_esperada,
+        "motivo": motivo,
+        "pre": sorted(precondicoes.items()),
+    }
+    return sha256(
+        dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
 def _auditoria_criacao(
     pedido: Pedido, contexto: ContextoExecucao, *, timestamp: datetime
 ) -> EventoAuditoria:
@@ -116,6 +145,42 @@ def _auditoria_criacao(
             ("canal", pedido.canal.value),
         ),
         metadata=sanitizar_metadata({"quantidade_itens": len(pedido.itens)}),
+    )
+
+
+def _auditoria_transicao_negada(
+    *,
+    pedido: Pedido,
+    contexto: ContextoExecucao,
+    destino: PedidoStatus,
+    erro: ErroTransicao,
+    timestamp: datetime,
+    metadata: Mapping[str, object],
+) -> EventoAuditoria:
+    papel = next(iter(sorted(contexto.papeis, key=str)), None)
+    instante = (
+        timestamp.astimezone(timezone.utc)
+        if timestamp.tzinfo is not None
+        else datetime.now(timezone.utc)
+    )
+    return EventoAuditoria(
+        audit_id=str(uuid4()),
+        tenant_id=contexto.tenant_id,
+        unidade_id=contexto.unidade_id,
+        usuario_id=contexto.usuario_id,
+        papel_efetivo=papel,
+        acao=f"pedido.{destino.value}",
+        recurso_tipo="pedido",
+        recurso_id=str(pedido.id),
+        resultado="negado",
+        motivo=erro.codigo,
+        correlation_id=contexto.correlation_id,
+        timestamp=instante,
+        origem=contexto.origem,
+        politica="deny_by_default",
+        causation_id=contexto.causation_id,
+        antes_resumido=(("estado", pedido.status.value),),
+        metadata=sanitizar_metadata(dict(metadata)),
     )
 
 
@@ -212,15 +277,30 @@ def transicionar_pedido(
 ) -> ResultadoPedidoAutoritativo:
     """Aplica exclusivamente uma transição permitida pela máquina normativa."""
 
+    precondicoes_efetivas = dict(precondicoes or {})
+    fingerprint = _fingerprint_transicao(
+        destino=destino,
+        versao_esperada=versao_esperada,
+        motivo=motivo,
+        precondicoes=precondicoes_efetivas,
+    )
+    metadata_efetiva = dict(metadata or {})
+    metadata_efetiva[_REQUEST_FINGERPRINT_KEY] = fingerprint
+
     repetido = outbox.consultar(
         tenant_id=tenant_id,
         unidade_id=unidade_id,
         idempotency_key=idempotency_key,
     )
     if repetido is not None:
+        fingerprint_persistido = repetido.payload.get(_REQUEST_FINGERPRINT_KEY)
         if (
             repetido.aggregate_id != str(pedido_id)
             or repetido.payload.get("destino") != destino.value
+            or (
+                fingerprint_persistido is not None
+                and fingerprint_persistido != fingerprint
+            )
         ):
             raise ConflitoIdempotencia("idempotency_key reutilizada em outra transição")
         atual = repositorio.buscar(tenant_id, unidade_id, pedido_id)
@@ -240,20 +320,34 @@ def transicionar_pedido(
         estado=atual.status.value,
         version=atual.versao,
     )
-    resultado = transicionar(
-        snapshot,
-        ComandoTransicao(
-            destino=destino.value,
-            versao_esperada=versao_esperada,
-            idempotency_key=str(idempotency_key),
-            timestamp=timestamp,
-            contexto=contexto,
-            precondicoes=precondicoes or {},
-            motivo=motivo,
-            decisao_cozinha=decisao_cozinha,
-            metadata=metadata or {},
-        ),
-    )
+    try:
+        resultado = transicionar(
+            snapshot,
+            ComandoTransicao(
+                destino=destino.value,
+                versao_esperada=versao_esperada,
+                idempotency_key=str(idempotency_key),
+                timestamp=timestamp,
+                contexto=contexto,
+                precondicoes=precondicoes_efetivas,
+                motivo=motivo,
+                decisao_cozinha=decisao_cozinha,
+                metadata=metadata_efetiva,
+            ),
+        )
+    except ErroTransicao as erro:
+        auditoria.adicionar(
+            _auditoria_transicao_negada(
+                pedido=atual,
+                contexto=contexto,
+                destino=destino,
+                erro=erro,
+                timestamp=timestamp,
+                metadata=metadata_efetiva,
+            )
+        )
+        raise
+
     atualizado = replace(
         atual,
         status=PedidoStatus(resultado.snapshot.estado),
