@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from types import TracebackType
+from typing import Self
 
 from sqlalchemy.orm import Session
 
@@ -32,7 +33,7 @@ class UnitOfWorkV1:
         self.session: Session | None = None
         self.committed = False
 
-    def __enter__(self) -> UnitOfWorkV1:
+    def __enter__(self) -> Self:
         if self.session is not None:
             raise RuntimeError("UnitOfWorkV1 nao pode ser reutilizado enquanto aberto")
         self.session = self._session_factory()
