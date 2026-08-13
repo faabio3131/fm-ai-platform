@@ -74,6 +74,10 @@ def _executar_transicao(
             metadata={"origem_ui": "central_pedidos"},
         )
         session.commit()
+    except ErroTransicao:
+        # A máquina não alterou Pedido/Outbox; confirma somente a trilha de negativa.
+        session.commit()
+        raise
     except Exception:
         session.rollback()
         raise
