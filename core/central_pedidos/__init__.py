@@ -1,9 +1,10 @@
 """Central de Pedidos V1: leitura derivada e comandos normativos."""
 
+from core.seguranca.auditoria import RepositorioAuditoriaEmMemoria
+
 from .adaptador_sqlalchemy import CentralPedidosSQLAlchemy
 from .flags import order_center_v1_enabled
-from .modelos import *  # noqa: F403
-from core.seguranca.auditoria import RepositorioAuditoriaEmMemoria
+from .modelos import *
 
 
 def preparar_schema_teste(engine) -> None:
@@ -29,7 +30,7 @@ def contexto_central_teste(
     """Contexto fixo apenas para o banco isolado do E2E, nunca para producao."""
     if not order_center_v1_enabled():
         raise RuntimeError("Contexto E2E indisponivel")
-    from core.seguranca import ContextoExecucao, MATRIZ_PADRAO, Papel
+    from core.seguranca import MATRIZ_PADRAO, ContextoExecucao, Papel
 
     papel_efetivo = Papel(papel)
     return ContextoExecucao(
@@ -47,8 +48,8 @@ def contexto_central_teste(
 
 __all__ = [
     "CentralPedidosSQLAlchemy",
+    "RepositorioAuditoriaEmMemoria",
+    "contexto_central_teste",
     "order_center_v1_enabled",
     "preparar_schema_teste",
-    "contexto_central_teste",
-    "RepositorioAuditoriaEmMemoria",
 ]
