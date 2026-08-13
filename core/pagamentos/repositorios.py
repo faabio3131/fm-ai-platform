@@ -9,6 +9,7 @@ from .modelos import (
     CriterioFinanceiro,
     ObrigacaoPagamento,
     Pagamento,
+    TipoTransacao,
     TransacaoPagamento,
     VendaFinanceira,
 )
@@ -34,6 +35,9 @@ class RepositorioPagamentos(Protocol):
     def listar_transacoes(
         self, tenant_id: str, unidade_id: str, pagamento_id: str
     ) -> tuple[TransacaoPagamento, ...]: ...
+    def buscar_transacao_externa(
+        self, provedor: str, id_externo: str, tipo: TipoTransacao
+    ) -> TransacaoPagamento | None: ...
     def salvar_venda(
         self, venda: VendaFinanceira, fingerprint: str
     ) -> VendaFinanceira: ...
@@ -148,6 +152,22 @@ class RepositorioPagamentosEmMemoria:
             and t.unidade_id == unidade_id
             and t.pagamento_id == pagamento_id
         )
+
+    def buscar_transacao_externa(
+        self, provedor: str, id_externo: str, tipo: TipoTransacao
+    ) -> TransacaoPagamento | None:
+        encontradas = [
+            t
+            for t in self._transacoes
+            if t.provedor == provedor
+            and t.id_externo == id_externo
+            and t.tipo is tipo
+        ]
+        if len(encontradas) > 1:
+            escopos = {(t.tenant_id, t.unidade_id, t.pagamento_id) for t in encontradas}
+            if len(escopos) > 1:
+                raise ConflitoIdempotenciaPagamento("referencia_externa_ambigua")
+        return encontradas[0] if encontradas else None
 
     def salvar_venda(self, venda: VendaFinanceira, fingerprint: str) -> VendaFinanceira:
         anterior = self._idempotente(
