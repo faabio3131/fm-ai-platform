@@ -20,11 +20,7 @@ from core.dominio.ids import (
 from core.dominio.pedidos import ItemPedido, Pedido
 from core.dominio.tipos import QuantidadeItem
 from core.estoque.erros import SaldoInsuficiente
-from core.estoque.modelos import (
-    ItemSnapshotFicha,
-    ReservaEstoqueORM if False else SnapshotFichaEstoque,
-    TipoMovimento,
-)
+from core.estoque.modelos import ItemSnapshotFicha, SnapshotFichaEstoque, TipoMovimento
 from core.estoque.modelos_orm import ReservaEstoqueORM
 from core.estoque.servicos import registrar_movimento
 from core.pagamentos.modelos import MetodoPagamento
@@ -151,7 +147,10 @@ def test_checkout_commita_pedido_pagamento_reserva_eventos_e_auditoria_uma_vez()
     primeiro = executar_checkout_v1(
         comando=comando, contexto=_contexto(), session_factory=factory
     )
-    assert primeiro.aguardando_confirmacao.pedido.status is PedidoStatus.AGUARDANDO_CONFIRMACAO
+    assert (
+        primeiro.aguardando_confirmacao.pedido.status
+        is PedidoStatus.AGUARDANDO_CONFIRMACAO
+    )
     assert primeiro.pagamento and primeiro.pagamento.pagamento.pedido_id == str(pedido.id)
     assert primeiro.reserva and primeiro.reserva.reserva is not None
 
@@ -186,7 +185,9 @@ def test_checkout_com_saldo_insuficiente_faz_rollback_de_pedido_e_pagamento() ->
     )
 
     with pytest.raises(SaldoInsuficiente):
-        executar_checkout_v1(comando=comando, contexto=_contexto(), session_factory=factory)
+        executar_checkout_v1(
+            comando=comando, contexto=_contexto(), session_factory=factory
+        )
 
     with Session(engine) as session:
         assert _contagem(session, PedidoORM) == 0
