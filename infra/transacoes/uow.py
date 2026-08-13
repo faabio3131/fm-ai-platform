@@ -6,14 +6,16 @@ se qualquer efeito falhar, a saída do contexto faz rollback de tudo.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from types import TracebackType
 
 from sqlalchemy.orm import Session
 
 from core.estoque.adaptador_sqlalchemy import RepositorioLedgerSQLAlchemy
+from core.eventos.modelos import EnvelopeMensagem
 from core.pagamentos.adaptador_sqlalchemy import RepositorioPagamentosSQLAlchemy
 from core.pedidos.adaptador_sqlalchemy import RepositorioPedidosSQLAlchemy
+from core.seguranca.auditoria import EventoAuditoria
 from infra.eventos.adaptador_sqlalchemy import (
     RepositorioDLQSQLAlchemy,
     RepositorioInboxSQLAlchemy,
@@ -43,6 +45,21 @@ class UnitOfWorkV1:
         self.auditoria = RepositorioAuditoriaSQLAlchemy(self.session)
         self.committed = False
         return self
+
+    def registrar_efeitos(
+        self,
+        *,
+        eventos: Iterable[EnvelopeMensagem] = (),
+        auditorias: Iterable[EventoAuditoria] = (),
+    ) -> None:
+        """Anexa efeitos produzidos por serviços puros à mesma transação SQL."""
+
+        if self.session is None:
+            raise RuntimeError("UnitOfWorkV1 nao iniciado")
+        for evento in eventos:
+            self.outbox.adicionar(evento)
+        for evento_auditoria in auditorias:
+            self.auditoria.adicionar(evento_auditoria)
 
     def commit(self) -> None:
         if self.session is None:
