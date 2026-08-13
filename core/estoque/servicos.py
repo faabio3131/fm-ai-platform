@@ -39,7 +39,6 @@ from .modelos import (
 )
 from .repositorios import RepositorioEstoque
 
-
 PERMISSOES = {
     TipoMovimento.RESERVA: Permissao.ESTOQUE_RESERVAR,
     TipoMovimento.CONSUMO: Permissao.ESTOQUE_BAIXAR,

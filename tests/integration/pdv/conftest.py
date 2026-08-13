@@ -14,12 +14,15 @@ from sqlalchemy import (
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from core.dominio.dinheiro import Dinheiro
+from core.estoque.modelos_orm import StockBase
 from core.pagamentos.modelos_orm import PaymentsBase
 from core.pdv.modelos import EntradaPDV
 from core.pdv.modelos_orm import PDVBase
 from core.pedidos.modelos_orm import OrdersBase
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import MATRIZ_PADRAO, Papel
+from infra.eventos.modelos_orm import EventBusBase
+from infra.seguranca.modelos_orm import SecurityBase
 
 LegacyBase = declarative_base()
 
@@ -77,6 +80,9 @@ def fabrica(tmp_path):
     LegacyBase.metadata.create_all(engine)
     OrdersBase.metadata.create_all(engine)
     PaymentsBase.metadata.create_all(engine)
+    StockBase.metadata.create_all(engine)
+    EventBusBase.metadata.create_all(engine)
+    SecurityBase.metadata.create_all(engine)
     PDVBase.metadata.create_all(engine)
     factory = sessionmaker(engine, expire_on_commit=False)
     with factory() as session:

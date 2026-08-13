@@ -1,0 +1,52 @@
+name: V1 Wave1 PAY002 External Lookup Patch
+
+on:
+  push:
+    branches: [impl/v1-wave1-authoritative-transactions]
+    paths:
+      - '.github/workflows/v1-wave1-pay002-external-lookup.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: impl/v1-wave1-authoritative-transactions
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Adicionar busca durável por referência externa
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('core/pagamentos/adaptador_sqlalchemy.py')
+          text = path.read_text(encoding='utf-8')
+          marker = '''    @staticmethod\n    def _transacao(row: TransacaoPagamentoORM) -> TransacaoPagamento:\n'''
+          if text.count(marker) != 1:
+              raise SystemExit('marcador _transacao inesperado')
+          method = '''    def buscar_transacao_externa(\n        self, provedor: str, id_externo: str, tipo: TipoTransacao\n    ) -> TransacaoPagamento | None:\n        rows = self._session.scalars(\n            select(TransacaoPagamentoORM).where(\n                TransacaoPagamentoORM.provedor == provedor,\n                TransacaoPagamentoORM.id_externo == id_externo,\n                TransacaoPagamentoORM.tipo == tipo.value,\n            )\n        ).all()\n        if len(rows) > 1:\n            escopos = {(row.tenant_id, row.unidade_id, row.pagamento_id) for row in rows}\n            if len(escopos) > 1:\n                raise ConflitoIdempotenciaPagamento("referencia_externa_ambigua")\n        return self._transacao(rows[0]) if rows else None\n\n'''
+          text = text.replace(marker, method + marker, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Validar patch
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install ruff==0.16.1
+          ruff check core/pagamentos/adaptador_sqlalchemy.py core/pagamentos/repositorios.py
+          python -m compileall -q core/pagamentos
+      - name: Commitar patch
+        run: |
+          git diff --check
+          git config user.name "fm-ai-wave1-bot"
+          git config user.email "fm-ai-wave1-bot@users.noreply.github.com"
+          git add core/pagamentos/adaptador_sqlalchemy.py
+          git commit -m "V1 Wave1 PAY-002: resolve external provider transaction durably"
+          git fetch origin impl/v1-wave1-authoritative-transactions
+          git rebase origin/impl/v1-wave1-authoritative-transactions
+          git push origin HEAD:impl/v1-wave1-authoritative-transactions

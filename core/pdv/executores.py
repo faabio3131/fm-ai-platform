@@ -443,3 +443,10 @@ class ExecutorAutoritativoSQLAlchemy:
             venda_legada_id=str(venda.id),
             troco=troco,
         )
+
+
+# O canary da Onda 1 usa o núcleo transacional canônico; shadow/legacy acima
+# permanecem disponíveis para comparação e rollback controlado.
+from .executor_canonico import ExecutorAutoritativoCanonicoSQLAlchemy
+
+ExecutorAutoritativoSQLAlchemy = ExecutorAutoritativoCanonicoSQLAlchemy

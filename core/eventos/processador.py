@@ -1,6 +1,7 @@
 """Registro tipado e processador sincrono/idempotente de mensagens."""
 
-from typing import Callable, Protocol, TypeAlias
+from collections.abc import Callable
+from typing import Protocol, TypeAlias
 
 from core.dominio.tempo import Clock
 from core.seguranca.contexto import ContextoExecucao
@@ -79,7 +80,7 @@ class ProcessadorMensagens:
             )
         try:
             self._handlers.obter(mensagem.event_type)(mensagem)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - fronteira de handlers externos
             erro = normalizar_erro(exc)
             self._inbox.marcar_falha(mensagem.idempotency_key, erro)
             attempt = registro.tentativas

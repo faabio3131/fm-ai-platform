@@ -2,6 +2,11 @@ from decimal import Decimal
 
 from sqlalchemy import func, select
 
+from core.estoque.modelos_orm import (
+    MovimentoEstoqueORM,
+    ReservaEstoqueORM,
+    SaldoEstoqueORM,
+)
 from core.pagamentos.modelos_orm import (
     CriterioFinanceiroORM,
     ObrigacaoPagamentoORM,
@@ -25,11 +30,17 @@ def test_canary_dinheiro_pr7_e_retry_exatamente_uma_vez(fabrica, contexto, entra
     resultado = executar(fabrica, contexto, entrada, ModoPDV.AUTHORITATIVE_CANARY)
     repetido = executar(fabrica, contexto, entrada, ModoPDV.AUTHORITATIVE_CANARY)
     assert resultado.sucesso and repetido.sucesso
+    assert repetido.idempotente is True
     assert resultado.troco.valor == Decimal("25.10")
     with fabrica() as s:
         assert s.scalar(select(func.count()).select_from(PedidoORM)) == 1
+        pedido = s.scalar(select(PedidoORM))
+        assert pedido is not None
+        assert pedido.origem == "pdv"
+        assert pedido.canal == "pdv"
+        assert pedido.status == "confirmado"
         assert (
-            s.scalar(select(func.count()).select_from(EventoPedidoPersistidoORM)) == 2
+            s.scalar(select(func.count()).select_from(EventoPedidoPersistidoORM)) == 3
         )
         assert s.scalar(select(func.count()).select_from(ObrigacaoPagamentoORM)) == 1
         assert s.scalar(select(func.count()).select_from(PagamentoORM)) == 1
@@ -43,6 +54,20 @@ def test_canary_dinheiro_pr7_e_retry_exatamente_uma_vez(fabrica, contexto, entra
         )
         assert s.scalar(select(func.count()).select_from(CriterioFinanceiroORM)) == 1
         assert s.scalar(select(func.count()).select_from(VendaFinanceiraORM)) == 1
+        assert s.scalar(select(func.count()).select_from(MovimentoEstoqueORM)) == 3
+        reserva = s.scalar(
+            select(ReservaEstoqueORM).where(
+                ReservaEstoqueORM.pedido_id == resultado.pedido_id
+            )
+        )
+        assert reserva is not None and reserva.status == "consumida"
+        saldo = s.get(
+            SaldoEstoqueORM,
+            ("tenant-teste", "unidade-teste", "legacy:insumo:1"),
+        )
+        assert saldo is not None
+        assert Decimal(str(saldo.saldo_fisico)) == Decimal(9)
+        assert Decimal(str(saldo.saldo_reservado)) == Decimal(0)
         assert s.scalar(select(func.count()).select_from(VendaTeste)) == 1
         assert s.scalar(select(func.count()).select_from(VendaLegadaLinkORM)) == 1
         assert s.scalar(select(func.count()).select_from(EfeitoCompatPDVORM)) == 4

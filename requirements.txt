@@ -6,5 +6,8 @@ sqlalchemy
 psycopg[binary]
 pandas
 requests
+fastapi
+uvicorn
+httpx
 pillow
 pypdf
