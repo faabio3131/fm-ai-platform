@@ -35,7 +35,9 @@ def _utc(value: object) -> datetime:
     return dt.astimezone(timezone.utc)
 
 
-def _envelope(row: OutboxEventoORM | InboxEventoORM | DeadLetterEventoORM) -> EnvelopeMensagem:
+def _envelope(
+    row: OutboxEventoORM | InboxEventoORM | DeadLetterEventoORM,
+) -> EnvelopeMensagem:
     return EnvelopeMensagem(
         event_id=EventoId(row.event_id),
         event_type=row.event_type,
@@ -63,7 +65,14 @@ class RepositorioOutboxSQLAlchemy:
             select(OutboxEventoORM).where(
                 or_(
                     OutboxEventoORM.event_id == str(mensagem.event_id),
-                    OutboxEventoORM.idempotency_key == str(mensagem.idempotency_key),
+                    (
+                        (OutboxEventoORM.tenant_id == str(mensagem.tenant_id))
+                        & (OutboxEventoORM.unidade_id == str(mensagem.unidade_id))
+                        & (
+                            OutboxEventoORM.idempotency_key
+                            == str(mensagem.idempotency_key)
+                        )
+                    ),
                 )
             )
         )
@@ -95,12 +104,17 @@ class RepositorioOutboxSQLAlchemy:
     def consultar(
         self,
         *,
+        tenant_id: TenantId,
+        unidade_id: UnidadeId,
         event_id: EventoId | None = None,
         idempotency_key: IdempotencyKey | None = None,
     ) -> EnvelopeMensagem | None:
         if event_id is None and idempotency_key is None:
             raise ValueError("event_id ou idempotency_key obrigatorio")
-        predicates = []
+        predicates = [
+            OutboxEventoORM.tenant_id == str(tenant_id),
+            OutboxEventoORM.unidade_id == str(unidade_id),
+        ]
         if event_id is not None:
             predicates.append(OutboxEventoORM.event_id == str(event_id))
         if idempotency_key is not None:
@@ -128,23 +142,39 @@ class RepositorioOutboxSQLAlchemy:
         ).all()
         return tuple(_envelope(row) for row in rows)
 
-    def marcar_publicada(self, event_id: EventoId) -> None:
+    def marcar_publicada(
+        self, tenant_id: TenantId, unidade_id: UnidadeId, event_id: EventoId
+    ) -> None:
         now = datetime.now(timezone.utc)
-        self._session.execute(
+        result = self._session.execute(
             update(OutboxEventoORM)
-            .where(OutboxEventoORM.event_id == str(event_id))
+            .where(
+                OutboxEventoORM.tenant_id == str(tenant_id),
+                OutboxEventoORM.unidade_id == str(unidade_id),
+                OutboxEventoORM.event_id == str(event_id),
+            )
             .values(status="published", published_at=now, next_attempt_at=None)
         )
+        if getattr(result, "rowcount", 0) != 1:
+            raise KeyError(str(event_id))
         self._session.flush()
 
     def registrar_falha(
         self,
+        tenant_id: TenantId,
+        unidade_id: UnidadeId,
         event_id: EventoId,
         *,
         erro: str,
         proxima_tentativa: datetime,
     ) -> None:
-        row = self._session.get(OutboxEventoORM, str(event_id))
+        row = self._session.scalar(
+            select(OutboxEventoORM).where(
+                OutboxEventoORM.tenant_id == str(tenant_id),
+                OutboxEventoORM.unidade_id == str(unidade_id),
+                OutboxEventoORM.event_id == str(event_id),
+            )
+        )
         if row is None:
             raise KeyError(str(event_id))
         row.status = "retry"
@@ -160,8 +190,16 @@ class RepositorioInboxSQLAlchemy:
     def __init__(self, session: Session) -> None:
         self._session = session
 
+    @staticmethod
+    def _pk(
+        tenant_id: TenantId, unidade_id: UnidadeId, idempotency_key: IdempotencyKey
+    ) -> tuple[str, str, str]:
+        return str(tenant_id), str(unidade_id), str(idempotency_key)
+
     def registrar(self, mensagem: EnvelopeMensagem) -> bool:
-        key = str(mensagem.idempotency_key)
+        key = self._pk(
+            mensagem.tenant_id, mensagem.unidade_id, mensagem.idempotency_key
+        )
         existente = self._session.get(InboxEventoORM, key)
         if existente is not None:
             if existente.event_id != str(mensagem.event_id):
@@ -169,13 +207,13 @@ class RepositorioInboxSQLAlchemy:
             return False
         self._session.add(
             InboxEventoORM(
-                idempotency_key=key,
+                tenant_id=str(mensagem.tenant_id),
+                unidade_id=str(mensagem.unidade_id),
+                idempotency_key=str(mensagem.idempotency_key),
                 event_id=str(mensagem.event_id),
                 event_type=mensagem.event_type,
                 aggregate_id=mensagem.aggregate_id,
                 aggregate_type=mensagem.aggregate_type,
-                tenant_id=str(mensagem.tenant_id),
-                unidade_id=str(mensagem.unidade_id),
                 correlation_id=str(mensagem.correlation_id),
                 causation_id=str(mensagem.causation_id) if mensagem.causation_id else None,
                 occurred_at=mensagem.occurred_at,
@@ -191,12 +229,26 @@ class RepositorioInboxSQLAlchemy:
             raise ConflitoInbox() from exc
         return True
 
-    def ja_processada(self, idempotency_key: IdempotencyKey) -> bool:
-        row = self._session.get(InboxEventoORM, str(idempotency_key))
+    def ja_processada(
+        self,
+        tenant_id: TenantId,
+        unidade_id: UnidadeId,
+        idempotency_key: IdempotencyKey,
+    ) -> bool:
+        row = self._session.get(
+            InboxEventoORM, self._pk(tenant_id, unidade_id, idempotency_key)
+        )
         return bool(row and row.processed)
 
-    def marcar_processada(self, idempotency_key: IdempotencyKey) -> None:
-        row = self._session.get(InboxEventoORM, str(idempotency_key))
+    def marcar_processada(
+        self,
+        tenant_id: TenantId,
+        unidade_id: UnidadeId,
+        idempotency_key: IdempotencyKey,
+    ) -> None:
+        row = self._session.get(
+            InboxEventoORM, self._pk(tenant_id, unidade_id, idempotency_key)
+        )
         if row is None:
             raise KeyError(str(idempotency_key))
         row.processed = True
@@ -215,6 +267,11 @@ class RepositorioDLQSQLAlchemy:
         message = item.mensagem
         existing = self._session.get(DeadLetterEventoORM, str(message.event_id))
         if existing is not None:
+            if (
+                existing.tenant_id != str(message.tenant_id)
+                or existing.unidade_id != str(message.unidade_id)
+            ):
+                raise ValueError("event_id de outra unidade")
             return
         self._session.add(
             DeadLetterEventoORM(
@@ -241,7 +298,9 @@ class RepositorioDLQSQLAlchemy:
         )
         self._session.flush()
 
-    def listar(self, tenant_id: TenantId, unidade_id: UnidadeId) -> tuple[DeadLetter, ...]:
+    def listar(
+        self, tenant_id: TenantId, unidade_id: UnidadeId
+    ) -> tuple[DeadLetter, ...]:
         rows = self._session.scalars(
             select(DeadLetterEventoORM)
             .where(
