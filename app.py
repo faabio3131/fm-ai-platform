@@ -15,7 +15,7 @@ from infra.streamlit_app.auth_ui import (
     require_authentication,
 )
 from infra.seguranca.session_guard import build_session_factory
-from migrations.runner import assert_schema_current
+from migrations.runner import assert_schema_current, run_migrations
 
 # Patch: ensure compatibility with custom keyword args used across the app
 try:
@@ -274,14 +274,16 @@ except Exception as e:
 # Schemas V1 nunca sao criados automaticamente fora do banco temporario E2E.
 _pdv_rollout = carregar_rollout_ambiente()
 if is_test_mode() and _pdv_rollout.modo is not ModoPDV.LEGACY:
-    from migrations.orders_v1 import upgrade as upgrade_orders_v1
     from migrations.pdv_v1 import upgrade as upgrade_pdv_v1
 
-    upgrade_orders_v1(engine)
     if _pdv_rollout.modo is ModoPDV.AUTHORITATIVE_CANARY:
-        from migrations.payments_v1 import upgrade as upgrade_payments_v1
+        # O E2E autoritativo usa a mesma trilha canônica do runtime comercial:
+        # Pedido, Pagamento, Estoque, Event Bus e Auditoria.
+        run_migrations(engine)
+    else:
+        from migrations.orders_v1 import upgrade as upgrade_orders_v1
 
-        upgrade_payments_v1(engine)
+        upgrade_orders_v1(engine)
     upgrade_pdv_v1(engine)
 
 
