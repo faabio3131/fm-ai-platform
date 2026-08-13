@@ -22,7 +22,7 @@ from core.dominio.tipos import QuantidadeItem
 from core.estados.maquinas import ErroTransicao
 from core.pedidos.adaptador_sqlalchemy import RepositorioPedidosSQLAlchemy
 from core.pedidos.modelos_orm import EventoPedidoPersistidoORM, OrdersBase, PedidoORM
-from core.seguranca import ContextoExecucao, MATRIZ_PADRAO, Papel
+from core.seguranca import MATRIZ_PADRAO, ContextoExecucao, Papel
 from infra.eventos.modelos_orm import EventBusBase, OutboxEventoORM
 from infra.seguranca.modelos_orm import EventoAuditoriaORM, SecurityBase
 
