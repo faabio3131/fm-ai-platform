@@ -1,0 +1,49 @@
+name: V1 Wave1 PAY002 Test Cleanup
+
+on:
+  push:
+    branches: [impl/v1-wave1-authoritative-transactions]
+    paths:
+      - '.github/workflows/v1-wave1-pay002-test-cleanup.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: impl/v1-wave1-authoritative-transactions
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Usar facade pública de recursos
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tests/integration/wave1/test_pagbank_application.py')
+          text = p.read_text(encoding='utf-8')
+          if text.count('uow._recursos') != 4:
+              raise SystemExit('quantidade inesperada de acessos privados')
+          p.write_text(text.replace('uow._recursos', 'uow.recursos'), encoding='utf-8')
+          PY
+      - name: Validar PAY-002 focal
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install pytest ruff==0.16.1
+          ruff check application/pagbank.py core/pagamentos/pagbank.py core/pagamentos/repositorios.py core/pagamentos/adaptador_sqlalchemy.py infra/transacoes/uow.py tests/integration/wave1/test_pagbank_application.py tests/unit/payments/test_pagbank.py
+          pytest -q tests/unit/payments/test_pagbank.py tests/integration/wave1/test_pagbank_application.py
+      - name: Commitar limpeza validada
+        run: |
+          git diff --check
+          git config user.name "fm-ai-wave1-bot"
+          git config user.email "fm-ai-wave1-bot@users.noreply.github.com"
+          git add tests/integration/wave1/test_pagbank_application.py
+          git commit -m "V1 Wave1 PAY-002: use public UoW resources facade"
+          git fetch origin impl/v1-wave1-authoritative-transactions
+          git rebase origin/impl/v1-wave1-authoritative-transactions
+          git push origin HEAD:impl/v1-wave1-authoritative-transactions
