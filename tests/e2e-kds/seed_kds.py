@@ -47,7 +47,7 @@ def pedido(pedido_id: str, item_id: str, nome: str, ordem: int) -> tuple[PedidoO
         tenant_id=TENANT,
         unidade_id=UNIDADE,
         origem="pdv",
-        canal="balcao",
+        canal="pdv",
         status="enviado_producao",
         cliente_id=None,
         criado_em=now - timedelta(minutes=2),
