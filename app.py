@@ -13,6 +13,8 @@ from infra.streamlit_app.auth_ui import (
     render_identity_sidebar,
     require_authentication,
 )
+from infra.seguranca.session_guard import build_session_factory
+from migrations.runner import assert_schema_current
 
 # Patch: ensure compatibility with custom keyword args used across the app
 try:
@@ -89,9 +91,8 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    create_engine,
 )
-from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+from sqlalchemy.orm import declarative_base, relationship
 import io
 
 from core.pdv.adaptadores_sqlalchemy import (
@@ -146,7 +147,9 @@ RUNTIME_SETTINGS = load_runtime_settings(
 )
 DATABASE_URL = RUNTIME_SETTINGS.database_url
 engine = build_runtime_engine(RUNTIME_SETTINGS)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = build_session_factory(
+    engine=engine, commercial=RUNTIME_SETTINGS.commercial
+)
 Base = declarative_base()
 
 
@@ -253,14 +256,18 @@ class ContatoGerencial(Base):  # type: ignore[misc, valid-type]
     receber_alertas_estoque = Column(Integer, default=1)
 
 
-# Criar todas as tabelas no banco de dados com proteção contra tabelas existentes
+# Desenvolvimento/teste podem criar schema local; runtime comercial exige migration.
 try:
     if is_test_mode() and os.getenv("FM_AI_TEST_RESET_ON_START") == "1":
         reset_database(engine, Base)
+    elif RUNTIME_SETTINGS.commercial:
+        assert_schema_current(engine)
     else:
         Base.metadata.create_all(bind=engine, checkfirst=True)
 except Exception as e:
     st.error(f"❌ Erro ao inicializar o banco de dados: {e}")
+    if RUNTIME_SETTINGS.commercial:
+        st.stop()
 
 # Schemas V1 nunca sao criados automaticamente fora do banco temporario E2E.
 _pdv_rollout = carregar_rollout_ambiente()
