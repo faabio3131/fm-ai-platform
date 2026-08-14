@@ -24,6 +24,7 @@ from core.pedidos.adaptador_sqlalchemy import RepositorioPedidosSQLAlchemy
 from core.pedidos.modelos_orm import EventoPedidoPersistidoORM, OrdersBase, PedidoORM
 from core.seguranca import MATRIZ_PADRAO, ContextoExecucao, Papel
 from infra.eventos.modelos_orm import EventBusBase, OutboxEventoORM
+from infra.gerente_ia.modelos_orm import CoreRuntimeBase
 from infra.seguranca.modelos_orm import EventoAuditoriaORM, SecurityBase
 
 TENANT = "tenant-central-runtime"
@@ -40,6 +41,7 @@ def _infra():
     )
     OrdersBase.metadata.create_all(engine)
     EventBusBase.metadata.create_all(engine)
+    CoreRuntimeBase.metadata.create_all(engine)
     SecurityBase.metadata.create_all(engine)
     return sessionmaker(bind=engine, expire_on_commit=False)
 

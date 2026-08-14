@@ -39,6 +39,7 @@ _EXPECTED_MIGRATIONS = (
     "0010_kds_authoritative_runtime_v1",
     "0011_external_services_config_v1",
     "0012_restaurant_operations_runtime_v1",
+    "0013_core_runtime_v1",
 )
 
 
@@ -180,6 +181,13 @@ def test_sqlite_health_and_versioned_migration_are_idempotent(
         "mesas_v1",
         "entregas_v1",
         "impressao_jobs_v1",
+        "assistente_atendimento_identidade_v1",
+        "gerente_ia_eventos_v1",
+        "gerente_ia_previews_v1",
+        "gerente_ia_resultados_acao_v1",
+        "produto_disponibilidade_v1",
+        "crm_consentimentos_atuais_v1",
+        "crm_rascunhos_campanha_v1",
     ):
         assert table in tables
 
@@ -200,6 +208,7 @@ def test_migration_0011_upgrade_downgrade_and_reapply_are_atomic(
     assert pending_versions(engine) == (
         "0011_external_services_config_v1",
         "0012_restaurant_operations_runtime_v1",
+        "0013_core_runtime_v1",
     )
 
     assert run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:11]) == (
@@ -220,6 +229,22 @@ def test_rollback_rejeita_migration_nao_reversivel_e_nao_aplicada(
     run_migrations(engine)
     with pytest.raises(RuntimeError, match="nao possui rollback"):
         rollback_migration(engine, "0010_kds_authoritative_runtime_v1")
+
+
+def test_migration_0013_core_upgrade_downgrade_e_reapply(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_runtime_env(monkeypatch)
+    monkeypatch.setenv("FM_AI_TEST_MODE", "1")
+    engine = build_engine(load_runtime_settings(test_database_url="sqlite:///:memory:"))
+    run_migrations(engine)
+
+    assert "gerente_ia_previews_v1" in inspect(engine).get_table_names()
+    assert rollback_migration(engine, "0013_core_runtime_v1") == "0013_core_runtime_v1"
+    assert "gerente_ia_previews_v1" not in inspect(engine).get_table_names()
+    assert pending_versions(engine) == ("0013_core_runtime_v1",)
+    assert run_migrations(engine) == ("0013_core_runtime_v1",)
+    assert "gerente_ia_previews_v1" in inspect(engine).get_table_names()
 
 
 def _create_source_database(path: Path) -> None:

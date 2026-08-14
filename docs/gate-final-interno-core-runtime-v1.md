@@ -1,5 +1,8 @@
 # Gate Final Interno V1 — Core e Runtime
 
+> Registro histórico da auditoria anterior à execução. O resultado implementado
+> está em `gate-final-interno-core-runtime-v1-executado.md`.
+
 ## Decisão
 
 A composição do Gerente IA com dados e services reais é uma pendência obrigatória

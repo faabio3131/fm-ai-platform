@@ -68,10 +68,11 @@ def test_core_correlaciona_fontes_canonicas_sem_vazar_outro_tenant() -> None:
         )[0].para_dict()
 
     assert [item.para_dict()["pedido_id"] for item in pedidos] == ["pedido-a"]
-    assert relatorio == {
-        "entregas_abertas": 1,
-        "integracoes_prontas": 1,
-        "itens_cozinha": 1,
-        "pedidos": 1,
-        "receita_confirmada": 100.0,
-    }
+    assert relatorio["entregas_abertas"] == 1
+    assert relatorio["integracoes_prontas"] == 1
+    assert relatorio["integracoes_total"] == 1
+    assert relatorio["itens_cozinha"] == 1
+    assert relatorio["pedidos"] == 1
+    assert relatorio["receita_confirmada"] == 100.0
+    assert relatorio["tipo_relatorio"] == "operacional"
+    assert "crm_consentimentos_atuais_v1" in str(relatorio["fontes"])

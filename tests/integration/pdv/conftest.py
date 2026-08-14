@@ -22,6 +22,7 @@ from core.pedidos.modelos_orm import OrdersBase
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import MATRIZ_PADRAO, Papel
 from infra.eventos.modelos_orm import EventBusBase
+from infra.gerente_ia.modelos_orm import CoreRuntimeBase
 from infra.seguranca.modelos_orm import SecurityBase
 
 LegacyBase = declarative_base()
@@ -82,6 +83,7 @@ def fabrica(tmp_path):
     PaymentsBase.metadata.create_all(engine)
     StockBase.metadata.create_all(engine)
     EventBusBase.metadata.create_all(engine)
+    CoreRuntimeBase.metadata.create_all(engine)
     SecurityBase.metadata.create_all(engine)
     PDVBase.metadata.create_all(engine)
     factory = sessionmaker(engine, expire_on_commit=False)
