@@ -2,6 +2,14 @@
 
 Este plano começa somente depois da conclusão técnica da V1 e do hardening do Gate E. A V2 transforma os contratos e runtimes hoje seguros/testáveis em uma plataforma progressivamente utilizável em homologação, sem antecipar produção ou comercialização.
 
+> **Correção de escopo do Gate Final Interno V1:** a composição de consultas reais,
+> os adapters internos necessários, a correlação operacional e o entrypoint do
+> Gerente IA eram descritos abaixo como PR22–24. Esses itens são necessários para
+> o Core cumprir seu requisito obrigatório de gerente geral e foram
+> [reclassificados como gates da V1](gate-final-interno-core-runtime-v1.md). A
+> numeração histórica abaixo não autoriza tratá-los como expansão da V2 nem
+> encerrar a V1 sem implementá-los e validá-los.
+
 ## Princípios da V2
 
 1. Nenhum modelo de IA recebe autoridade direta sobre banco, pagamentos, estoque, campanhas, pedidos ou integrações externas.
@@ -27,7 +35,7 @@ Este plano começa somente depois da conclusão técnica da V1 e do hardening do
 | 29 | **Privacidade/operabilidade comercial:** fluxo de direitos dos titulares, inventário técnico de tratamentos, exportação/anonimização controlada, observabilidade, suporte e resposta a incidentes sem exposição cross-tenant | PR27–28; Gate Pré-Lançamento continua NO-GO enquanto itens legais/empresariais estiverem incompletos |
 | 30 | **Gate F pré-comercial:** novo release candidate, reexecução do Gate E em homologação representativa, restore/rollback, carga/caos, segurança, privacidade, acessibilidade, SLOs, integrações sandbox e checklist do Gate Pré-Lançamento | Todos; produz somente recomendação GO/NO-GO. Deploy/migration/ativação comercial exigem aprovações humanas separadas |
 
-## PR22 — primeiro passo executável da V2
+## PR22 — referência histórica reclassificada como Gate Core V1
 
 A PR22 deve ser pequena e exclusivamente de leitura. O objetivo é tornar o Gerente IA capaz de consultar dados operacionais por adapters reais de aplicação, sem ampliar sua autoridade.
 

@@ -61,4 +61,12 @@ Nenhum gate autoriza merge automático, deploy, migration real ou início do PR 
 
 ## Continuação
 
-A expansão posterior à V1 está definida em [Plano de Pull Requests — evolução operacional V2](plano-prs-operacao-v2.md). O primeiro passo planejado da V2 é a PR22, que liga o Gerente IA às projeções/services reais somente para consultas em runtime local/homologação, mantendo produção fail-closed.
+O [Gate Final Interno do Core](gate-final-interno-core-runtime-v1.md) comprovou que
+a composição real do Gerente IA não pode permanecer classificada como V2: sem ela,
+o Core não cumpre o requisito V1 de gerente geral funcional. O antigo número PR22
+é preservado apenas como referência histórica. Consultas reais, correlação,
+adapters internos necessários, entrypoint e validação ponta a ponta passam a ser
+gates de conclusão da V1, sempre fail-closed e sem autorizar produção.
+
+A expansão genuína da V2 permanece definida no plano próprio e só começa depois
+da estabilização, transformação visual, regressão e aprovação formal da V1.
