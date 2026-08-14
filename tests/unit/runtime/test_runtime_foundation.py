@@ -40,6 +40,7 @@ _EXPECTED_MIGRATIONS = (
     "0011_external_services_config_v1",
     "0012_restaurant_operations_runtime_v1",
     "0013_core_runtime_v1",
+    "0014_legacy_schema_upgrade_v1",
 )
 
 
@@ -209,6 +210,7 @@ def test_migration_0011_upgrade_downgrade_and_reapply_are_atomic(
         "0011_external_services_config_v1",
         "0012_restaurant_operations_runtime_v1",
         "0013_core_runtime_v1",
+        "0014_legacy_schema_upgrade_v1",
     )
 
     assert run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:11]) == (
@@ -237,13 +239,18 @@ def test_migration_0013_core_upgrade_downgrade_e_reapply(
     _clear_runtime_env(monkeypatch)
     monkeypatch.setenv("FM_AI_TEST_MODE", "1")
     engine = build_engine(load_runtime_settings(test_database_url="sqlite:///:memory:"))
-    run_migrations(engine)
+    run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:13])
 
     assert "gerente_ia_previews_v1" in inspect(engine).get_table_names()
     assert rollback_migration(engine, "0013_core_runtime_v1") == "0013_core_runtime_v1"
     assert "gerente_ia_previews_v1" not in inspect(engine).get_table_names()
-    assert pending_versions(engine) == ("0013_core_runtime_v1",)
-    assert run_migrations(engine) == ("0013_core_runtime_v1",)
+    assert pending_versions(engine) == (
+        "0013_core_runtime_v1",
+        "0014_legacy_schema_upgrade_v1",
+    )
+    assert run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:13]) == (
+        "0013_core_runtime_v1",
+    )
     assert "gerente_ia_previews_v1" in inspect(engine).get_table_names()
 
 

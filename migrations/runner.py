@@ -37,6 +37,7 @@ from infra.eventos.modelos_orm import EventBusBase
 from infra.gerente_ia.modelos_orm import CoreRuntimeBase
 from infra.integracoes.modelos_orm import IntegrationConfigBase
 from infra.legacy_schema import legacy_metadata
+from migrations.legacy_schema_upgrade_v1 import upgrade_legacy_schema_v1
 from infra.seguranca.modelos_orm import (
     CredencialReferenciaORM,
     EventoAuditoriaORM,
@@ -155,6 +156,7 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
         _revert_restaurant_operations_runtime_v1,
     ),
     Migration("0013_core_runtime_v1", _core_runtime_v1, _revert_core_runtime_v1),
+    Migration("0014_legacy_schema_upgrade_v1", upgrade_legacy_schema_v1),
 )
 
 
