@@ -5,6 +5,14 @@ from uuid import uuid4
 
 import streamlit as st
 from streamlit.errors import StreamlitSecretNotFoundError
+from core.runtime import (
+    build_engine as build_runtime_engine,
+    load_runtime_settings,
+)
+from infra.streamlit_app.auth_ui import (
+    render_identity_sidebar,
+    require_authentication,
+)
 
 # Patch: ensure compatibility with custom keyword args used across the app
 try:
@@ -133,8 +141,11 @@ load_dotenv()
 TEST_RUNTIME = build_runtime()
 os.makedirs(TEST_RUNTIME.files_dir, exist_ok=True)
 
-DATABASE_URL = TEST_RUNTIME.database_url
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+RUNTIME_SETTINGS = load_runtime_settings(
+    test_database_url=TEST_RUNTIME.database_url if is_test_mode() else None
+)
+DATABASE_URL = RUNTIME_SETTINGS.database_url
+engine = build_runtime_engine(RUNTIME_SETTINGS)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -263,6 +274,12 @@ if is_test_mode() and _pdv_rollout.modo is not ModoPDV.LEGACY:
 
         upgrade_payments_v1(engine)
     upgrade_pdv_v1(engine)
+
+
+CURRENT_IDENTITY = require_authentication(
+    session_factory=SessionLocal,
+    settings=RUNTIME_SETTINGS,
+)
 
 
 def get_db():
@@ -742,8 +759,7 @@ with st.sidebar:
     st.caption("Professional Gastronomy ERP & AI")
     st.markdown("---")
     st.subheader("🔐 Acesso Corporativo")
-    st.success("Conectado como:\n**admin@micaburger.com**")
-    st.info("🏪 **Loja Ativa:**\nMica Burguer & Restaurante")
+    render_identity_sidebar(CURRENT_IDENTITY, RUNTIME_SETTINGS)
 
     if GENAI_DISPONIVEL:
         if is_test_mode():

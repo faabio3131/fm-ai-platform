@@ -1,8 +1,13 @@
 """Feature flag da Impressão por Setor V1."""
 
-import os
+from core.runtime.registry import module_v1_enabled
 
 
 def impressao_v1_enabled() -> bool:
-    """Habilita a PR14 somente em runtime explicitamente marcado como teste."""
-    return os.getenv("FM_AI_TEST_MODE") == "1" and os.getenv("FM_AI_PRINT_V1", "0") == "1"
+    """Libera impressão somente com pedido e spool/adapter reais configurados."""
+
+    return module_v1_enabled(
+        name="impressao",
+        flag_env="FM_AI_PRINT_V1",
+        required_adapters=("orders", "print"),
+    )

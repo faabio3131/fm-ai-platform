@@ -1,11 +1,13 @@
 """Feature flag do Delivery Próprio V1."""
 
-import os
+from core.runtime.registry import module_v1_enabled
 
 
 def delivery_v1_enabled() -> bool:
-    """Habilita PR16 somente em runtime explicitamente marcado como teste."""
-    return (
-        os.getenv("FM_AI_TEST_MODE") == "1"
-        and os.getenv("FM_AI_DELIVERY_V1", "0") == "1"
+    """Libera Delivery somente com pedidos, pagamentos, entrega e autorização reais."""
+
+    return module_v1_enabled(
+        name="delivery",
+        flag_env="FM_AI_DELIVERY_V1",
+        required_adapters=("orders", "payments", "delivery", "auth"),
     )
