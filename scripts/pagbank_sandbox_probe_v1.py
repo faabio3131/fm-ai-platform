@@ -16,7 +16,6 @@ from uuid import uuid4
 
 import requests
 
-
 _SANDBOX_URL = "https://sandbox.api.pagseguro.com/orders"
 _EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
