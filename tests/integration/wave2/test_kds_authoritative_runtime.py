@@ -10,7 +10,11 @@ from application.kds_runtime import ServicoKDSCanonico
 from core.dominio.enums import PedidoStatus
 from core.kds.erros import ErroKDS
 from core.kds.modelos_orm import KDSBase, SetorProducaoORM
-from core.pagamentos.modelos_orm import PaymentsBase
+from core.pagamentos.modelos_orm import (
+    ObrigacaoPagamentoORM,
+    PagamentoORM,
+    PaymentsBase,
+)
 from core.pedidos.modelos_orm import ItemPedidoORM, OrdersBase, PedidoORM
 from core.seguranca import MATRIZ_PADRAO, ContextoExecucao, Papel
 from infra.eventos.modelos_orm import EventBusBase, OutboxEventoORM
@@ -106,6 +110,47 @@ def _seed_pedido(factory, *, pedido_id="pedido-kds", status="confirmado", dois=T
             )
         pedido.itens = itens
         session.add(pedido)
+        valor_total = Decimal("40.00" if dois else "20.00")
+        session.add(
+            ObrigacaoPagamentoORM(
+                id=f"pagamento-{pedido_id}",
+                tenant_id=TENANT,
+                unidade_id=UNIDADE,
+                pedido_id=pedido_id,
+                comanda_id=None,
+                valor_previsto=valor_total,
+                moeda="BRL",
+                criado_em=AGORA,
+                versao=1,
+                correlation_id=f"corr-{pedido_id}",
+                idempotency_key=f"obrigacao-{pedido_id}",
+                request_hash=f"hash-obrigacao-{pedido_id}",
+            )
+        )
+        session.add(
+            PagamentoORM(
+                id=f"pagamento-{pedido_id}",
+                tenant_id=TENANT,
+                unidade_id=UNIDADE,
+                pedido_id=pedido_id,
+                comanda_id=None,
+                status="pago",
+                metodo="dinheiro",
+                valor_previsto=valor_total,
+                valor_pago=valor_total,
+                valor_estornado=Decimal("0.00"),
+                saldo=Decimal("0.00"),
+                moeda="BRL",
+                recebimento_posterior=False,
+                provedor=None,
+                criado_em=AGORA,
+                atualizado_em=AGORA,
+                versao=1,
+                correlation_id=f"corr-{pedido_id}",
+                idempotency_key=f"pagamento-{pedido_id}",
+                request_hash=f"hash-pagamento-{pedido_id}",
+            )
+        )
         session.add(
             SetorProducaoORM(
                 id="setor-quente",
@@ -232,9 +277,9 @@ def test_kds_sincroniza_estado_macro_do_pedido_sem_dar_permissao_extra_a_cozinha
         assert "producaoroteada.v1" in tipos
         assert "producaoempreparo.v1" in tipos
         assert "producaopronta.v1" in tipos
-        assert "pedidoenviado_producao.v1" in tipos
-        assert "pedidoem_preparo.v1" in tipos
-        assert "pedidopronto.v1" in tipos
+        assert "pedido.enviado_producao" in tipos
+        assert "pedido.em_preparo" in tipos
+        assert "pedido.pronto" in tipos
         assert session.scalar(select(func.count()).select_from(EventoAuditoriaORM)) >= 8
 
 

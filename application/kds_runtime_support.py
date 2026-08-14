@@ -1,10 +1,18 @@
 """Suporte transacional do KDS canônico V1."""
 from __future__ import annotations
+
 from dataclasses import replace
 from datetime import datetime
 from uuid import NAMESPACE_URL, uuid4, uuid5
+
 from core.dominio.enums import PedidoStatus
-from core.dominio.ids import CorrelationId, EventoId, IdempotencyKey, TenantId, UnidadeId
+from core.dominio.ids import (
+    CorrelationId,
+    EventoId,
+    IdempotencyKey,
+    TenantId,
+    UnidadeId,
+)
 from core.eventos.modelos import EnvelopeMensagem
 from core.kds.erros import ErroKDS
 from core.kds.modelos import ProducaoItem
@@ -12,6 +20,7 @@ from core.pedidos.servicos import transicionar_pedido
 from core.seguranca.auditoria import EventoAuditoria, sanitizar_metadata
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import Permissao
+
 from .kds_decisao import decidir_cozinha
 
 
