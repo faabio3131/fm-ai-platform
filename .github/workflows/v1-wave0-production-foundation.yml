@@ -37,17 +37,23 @@ jobs:
           pip install -r requirements.txt
           pip install pytest ruff==0.16.1 mypy==1.20.2
       - name: Compilar fundação
-        run: python -m compileall -q core/runtime core/seguranca infra migrations scripts
+        run: >-
+          python -m compileall -q core/integracoes core/runtime core/seguranca infra
+          migrations scripts
       - name: Ruff Wave0
         run: >-
-          ruff check core/runtime core/seguranca infra migrations/runner.py scripts
+          ruff check core/integracoes core/runtime core/seguranca infra
+          migrations/runner.py scripts
+          tests/integration/integracoes tests/unit/integracoes
           tests/unit/runtime/test_runtime_foundation.py
           tests/unit/security/test_authentication_v1.py
       - name: Mypy Wave0
         run: >-
-          mypy core/runtime core/seguranca infra/seguranca infra/streamlit_app
-          migrations/runner.py
+          mypy core/integracoes core/runtime core/seguranca infra/integracoes
+          infra/seguranca infra/streamlit_app migrations/runner.py
       - name: Testes focados Wave0
-        run: pytest -q tests/unit/runtime tests/unit/security
+        run: >-
+          pytest -q tests/integration/integracoes tests/unit/integracoes
+          tests/unit/runtime tests/unit/security
       - name: Suite Python completa
         run: pytest -q

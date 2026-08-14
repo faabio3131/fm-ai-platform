@@ -21,6 +21,7 @@ from core.pagamentos.modelos_orm import PaymentsBase
 from core.pdv.modelos_orm import PDVBase
 from core.pedidos.modelos_orm import OrdersBase
 from infra.eventos.modelos_orm import EventBusBase
+from infra.integracoes.modelos_orm import IntegrationConfigBase
 from infra.legacy_schema import legacy_metadata
 from infra.seguranca.modelos_orm import (
     CredencialReferenciaORM,
@@ -89,6 +90,10 @@ def _kds_authoritative_runtime_v1(connection: Connection) -> None:
     KDSBase.metadata.create_all(bind=connection, checkfirst=True)
 
 
+def _external_services_config_v1(connection: Connection) -> None:
+    IntegrationConfigBase.metadata.create_all(bind=connection, checkfirst=True)
+
+
 DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001_security_identity_v1", _security_identity_v1),
     Migration("0002_credential_references_v1", _credential_references_v1),
@@ -100,6 +105,7 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0008_audit_log_v1", _audit_log_v1),
     Migration("0009_pdv_authoritative_runtime_v1", _pdv_authoritative_runtime_v1),
     Migration("0010_kds_authoritative_runtime_v1", _kds_authoritative_runtime_v1),
+    Migration("0011_external_services_config_v1", _external_services_config_v1),
 )
 
 

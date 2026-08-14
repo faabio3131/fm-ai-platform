@@ -31,6 +31,7 @@ _EXPECTED_MIGRATIONS = (
     "0008_audit_log_v1",
     "0009_pdv_authoritative_runtime_v1",
     "0010_kds_authoritative_runtime_v1",
+    "0011_external_services_config_v1",
 )
 
 
@@ -168,6 +169,7 @@ def test_sqlite_health_and_versioned_migration_are_idempotent(
         "event_inbox_v1",
         "event_dlq_v1",
         "pdv_finalizacoes_pendentes_v1",
+        "fm_servicos_externos_config_v1",
     ):
         assert table in tables
 
