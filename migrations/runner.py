@@ -34,6 +34,7 @@ from core.pdv.modelos_orm import PDVBase
 from core.pedidos.modelos_orm import OrdersBase
 from core.salao.modelos_orm import SalaoBase
 from infra.eventos.modelos_orm import EventBusBase
+from infra.gerente_ia.modelos_orm import CoreRuntimeBase
 from infra.integracoes.modelos_orm import IntegrationConfigBase
 from infra.legacy_schema import legacy_metadata
 from infra.seguranca.modelos_orm import (
@@ -124,6 +125,14 @@ def _revert_restaurant_operations_runtime_v1(connection: Connection) -> None:
     SalaoBase.metadata.drop_all(bind=connection, checkfirst=True)
 
 
+def _core_runtime_v1(connection: Connection) -> None:
+    CoreRuntimeBase.metadata.create_all(bind=connection, checkfirst=True)
+
+
+def _revert_core_runtime_v1(connection: Connection) -> None:
+    CoreRuntimeBase.metadata.drop_all(bind=connection, checkfirst=True)
+
+
 DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001_security_identity_v1", _security_identity_v1),
     Migration("0002_credential_references_v1", _credential_references_v1),
@@ -145,6 +154,7 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
         _restaurant_operations_runtime_v1,
         _revert_restaurant_operations_runtime_v1,
     ),
+    Migration("0013_core_runtime_v1", _core_runtime_v1, _revert_core_runtime_v1),
 )
 
 

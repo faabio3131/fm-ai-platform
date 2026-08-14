@@ -1,7 +1,9 @@
-"""Feature flag da Mica V1: executável somente no runtime isolado de teste."""
+"""Compatibilidade da feature flag histórica do Assistente de Atendimento."""
 
-import os
+from core.assistente_atendimento.flags import assistente_atendimento_v1_enabled
 
 
 def mica_v1_enabled() -> bool:
-    return os.getenv("FM_AI_TEST_MODE") == "1" and os.getenv("FM_AI_MICA_V1") == "1"
+    """Alias legado; preserve testes/configurações antigas sem fixar identidade pública."""
+
+    return assistente_atendimento_v1_enabled()

@@ -23,6 +23,7 @@ from infra.eventos.adaptador_sqlalchemy import (
     RepositorioInboxSQLAlchemy,
     RepositorioOutboxSQLAlchemy,
 )
+from infra.gerente_ia.persistencia_sqlalchemy import ConsumidorEventosCoreSQLAlchemy
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
 
 
@@ -34,7 +35,9 @@ class RecursosTransacionaisV1:
         self.pedidos = RepositorioPedidosSQLAlchemy(session)
         self.pagamentos = RepositorioPagamentosSQLAlchemy(session)
         self.estoque = RepositorioLedgerSQLAlchemy(session)
-        self.outbox = RepositorioOutboxSQLAlchemy(session)
+        self.outbox = RepositorioOutboxSQLAlchemy(
+            session, ao_adicionar=ConsumidorEventosCoreSQLAlchemy(session).consumir
+        )
         self.inbox = RepositorioInboxSQLAlchemy(session)
         self.dlq = RepositorioDLQSQLAlchemy(session)
         self.auditoria = RepositorioAuditoriaSQLAlchemy(session)

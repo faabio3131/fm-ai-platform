@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import cast
 
@@ -57,8 +58,14 @@ def _envelope(
 class RepositorioOutboxSQLAlchemy:
     """Outbox transacional; commit pertence ao Unit of Work chamador."""
 
-    def __init__(self, session: Session) -> None:
+    def __init__(
+        self,
+        session: Session,
+        *,
+        ao_adicionar: Callable[[EnvelopeMensagem], object] | None = None,
+    ) -> None:
         self._session = session
+        self._ao_adicionar = ao_adicionar
 
     def adicionar(self, mensagem: EnvelopeMensagem) -> None:
         existente = self._session.scalar(
@@ -100,6 +107,8 @@ class RepositorioOutboxSQLAlchemy:
             self._session.flush()
         except IntegrityError as exc:
             raise DuplicataOutbox() from exc
+        if self._ao_adicionar is not None:
+            self._ao_adicionar(mensagem)
 
     def consultar(
         self,

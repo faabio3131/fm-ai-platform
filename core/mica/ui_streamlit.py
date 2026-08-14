@@ -15,7 +15,7 @@ from core.pagamentos.modelos import MetodoPagamento
 
 from .adapters import OperacaoMicaFake
 from .erros import ErroMica
-from .flags import mica_v1_enabled
+from .flags import assistente_atendimento_v1_enabled
 from .modelos import (
     EstadoAtendimentoMica,
     ProdutoCatalogoMica,
@@ -40,8 +40,8 @@ def _servico() -> ServicoMica:
     return ServicoMica(pedidos=operacao, pagamentos=operacao, handoff=operacao)
 
 
-def _prompt(menu: str, mensagem: str) -> str:
-    return f"""Você é a Mica, assistente de atendimento. Interprete sem inventar produtos.
+def _prompt(menu: str, mensagem: str, nome_publico: str) -> str:
+    return f"""Você é {nome_publico}, o Assistente de Atendimento deste estabelecimento. Interprete sem inventar produtos.
 Cardápio autorizado:
 {menu}
 Mensagem do cliente:
@@ -57,11 +57,13 @@ def render_mica_v1(
     session_factory: Callable[[], Any],
     produto_cls: Any,
     generate_content: Callable[..., Any],
+    nome_publico: str = "Assistente de Atendimento",
 ) -> None:
-    st.header("💬 Mica I.A. — Atendimento seguro V1")
-    if not mica_v1_enabled():
+    nome_publico = " ".join(nome_publico.split()) or "Assistente de Atendimento"
+    st.header(f"💬 {nome_publico} — Atendimento seguro V1")
+    if not assistente_atendimento_v1_enabled():
         st.info(
-            "A Mica V1 está desativada neste ambiente. O fluxo legado de venda automática foi removido por segurança."
+            "O Assistente de Atendimento está desativado neste ambiente. O fluxo legado de venda automática foi removido por segurança."
         )
         return
 
@@ -106,7 +108,7 @@ def render_mica_v1(
         "Pagamento na entrega": MetodoPagamento.PAGAMENTO_NA_ENTREGA,
     }
 
-    if st.button("Analisar pedido com a Mica", type="primary", key="mica_v1_analisar"):
+    if st.button(f"Analisar pedido com {nome_publico}", type="primary", key="mica_v1_analisar"):
         if not telefone.strip() or not mensagem.strip():
             st.error("WhatsApp e mensagem são obrigatórios.")
         else:
@@ -114,7 +116,7 @@ def render_mica_v1(
             st.session_state["_mica_v1_conversa"] = conversa_id
             mensagem_id = str(uuid4())
             try:
-                resposta = generate_content(contents=_prompt(menu, mensagem))
+                resposta = generate_content(contents=_prompt(menu, mensagem, nome_publico))
                 raw = str(resposta.text)
             except Exception:  # noqa: BLE001 - fronteira de provedor externo
                 raw = "{resposta-invalida"

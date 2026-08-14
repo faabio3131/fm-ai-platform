@@ -19,6 +19,7 @@ from core.kds.servicos import ResultadoComandoKDS, ServicoKDS
 from core.pedidos.adaptador_sqlalchemy import RepositorioPedidosSQLAlchemy
 from core.seguranca.contexto import ContextoExecucao
 from infra.eventos.adaptador_sqlalchemy import RepositorioOutboxSQLAlchemy
+from infra.gerente_ia.persistencia_sqlalchemy import ConsumidorEventosCoreSQLAlchemy
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
 
 from .kds_runtime_support import (
@@ -43,7 +44,9 @@ class ServicoKDSCanonico:
         self.agora = agora or (lambda: datetime.now(timezone.utc))
         self.kds_repo = RepositorioKDSSQLAlchemy(session)
         self.pedido_repo = RepositorioPedidosSQLAlchemy(session)
-        self.outbox = RepositorioOutboxSQLAlchemy(session)
+        self.outbox = RepositorioOutboxSQLAlchemy(
+            session, ao_adicionar=ConsumidorEventosCoreSQLAlchemy(session).consumir
+        )
         self.auditoria = RepositorioAuditoriaSQLAlchemy(session)
         self.kds = ServicoKDS(self.kds_repo, self.auditoria, agora=self.agora)
 
