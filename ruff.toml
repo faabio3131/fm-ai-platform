@@ -1,0 +1,2 @@
+[lint.per-file-ignores]
+"core/central_pedidos/servicos.py" = ["UP037"]

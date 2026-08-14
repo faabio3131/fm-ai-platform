@@ -44,11 +44,15 @@ def _decimal(value: object | None) -> Decimal:
 
 class CentralPedidosSQLAlchemy:
     def __init__(
-        self, session: Session, *, agora=None, alertas=ConfiguracaoAlertas()
+        self,
+        session: Session,
+        *,
+        agora=None,
+        alertas: ConfiguracaoAlertas | None = None,
     ) -> None:
         self._session = session
         self._agora = agora or (lambda: datetime.now(timezone.utc))
-        self._config_alertas = alertas
+        self._config_alertas = alertas if alertas is not None else ConfiguracaoAlertas()
 
     @staticmethod
     def _autorizar(contexto: ContextoExecucao) -> None:
@@ -357,7 +361,8 @@ class CentralPedidosSQLAlchemy:
                 EventoPedidoPersistidoORM.pedido_id == pedido_id,
             )
             .order_by(
-                EventoPedidoPersistidoORM.occurred_at, EventoPedidoPersistidoORM.version
+                EventoPedidoPersistidoORM.occurred_at,
+                EventoPedidoPersistidoORM.version,
             )
         ).all()
         itens = tuple(

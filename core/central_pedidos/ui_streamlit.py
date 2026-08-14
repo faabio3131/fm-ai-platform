@@ -1,9 +1,13 @@
-"""UI Streamlit reutilizável da Central de Pedidos V1.
+"""UI Streamlit comercial da Central de Pedidos V1.
 
-A composição recebe engine e fábrica de sessão por injeção. Regras de domínio,
-RBAC e transições continuam nos serviços existentes da Central.
+A tela consulta somente Pedido V1 e executa comandos pela fachada canonica da
+Central. O contexto vem da identidade autenticada; contexto artificial existe
+apenas quando injetado explicitamente pelo E2E isolado.
 """
 
+from __future__ import annotations
+
+import os
 from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
@@ -12,27 +16,88 @@ from uuid import uuid4
 import streamlit as st
 from sqlalchemy.orm import Session
 
-from core.central_pedidos import (
-    CentralPedidosSQLAlchemy,
-    FiltroCentralPedidos,
-    RepositorioAuditoriaEmMemoria,
-    contexto_central_teste,
-    preparar_schema_teste,
-)
+from core.central_pedidos import CentralPedidosSQLAlchemy, FiltroCentralPedidos
 from core.central_pedidos.servicos import ServicoComandosCentral
+from core.dominio.erros import (
+    ConflitoIdempotencia,
+    PermissaoNegada,
+    RecursoNaoEncontrado,
+)
 from core.estados.maquinas import ErroTransicao
+from core.seguranca.autenticacao import IdentidadeUsuario
+from core.seguranca.contexto import ContextoExecucao
+
+_AUTH_SESSION_KEY = "_fm_ai_authenticated_identity_v1"
+
+
+def _contexto_runtime() -> ContextoExecucao:
+    identidade = st.session_state.get(_AUTH_SESSION_KEY)
+    if not isinstance(identidade, IdentidadeUsuario) or not identidade.ativo:
+        raise PermissionError("identidade_autenticada_ausente")
+    return identidade.contexto(
+        origem="central_pedidos_streamlit",
+        correlation_id=str(uuid4()),
+        solicitado_em=datetime.now(timezone.utc),
+    )
+
+
+def _preparar_e2e_se_injetado(engine: Any, contexto: ContextoExecucao | None) -> None:
+    if contexto is None:
+        return
+    if os.getenv("FM_AI_TEST_MODE") != "1":
+        raise RuntimeError("contexto_injetado_so_permitido_em_teste")
+    from core.central_pedidos import preparar_schema_teste
+
+    preparar_schema_teste(engine)
+
+
+def _executar_transicao(
+    *,
+    session: Session,
+    contexto: ContextoExecucao,
+    pedido_id: str,
+    destino: str,
+    versao: int,
+    precondicoes: dict[str, bool] | None = None,
+    motivo: str | None = None,
+) -> None:
+    chave = f"central:{pedido_id}:{versao}:{destino}"
+    try:
+        ServicoComandosCentral(session).transicionar(
+            contexto=contexto,
+            pedido_id=pedido_id,
+            destino=destino,
+            versao_esperada=versao,
+            idempotency_key=chave,
+            precondicoes=precondicoes,
+            motivo=motivo,
+            metadata={"origem_ui": "central_pedidos"},
+        )
+        session.commit()
+    except ErroTransicao:
+        # A máquina não alterou Pedido/Outbox; confirma somente a trilha de negativa.
+        session.commit()
+        raise
+    except Exception:
+        session.rollback()
+        raise
 
 
 def render_central_pedidos(
     *,
     engine: Any,
     session_factory: Callable[[], Session],
+    contexto: ContextoExecucao | None = None,
 ) -> None:
-    """Renderiza a Central usando somente o backend V1 e contexto E2E protegido."""
-    preparar_schema_teste(engine)
+    """Renderiza a Central sobre o runtime V1 ou E2E explicitamente injetado."""
+
+    _preparar_e2e_se_injetado(engine, contexto)
+    contexto_central = contexto or _contexto_runtime()
+
     st.header("📋 Central de Pedidos")
     st.caption(
-        "Projeção operacional de Pedidos V1 — atualização automática desativada."
+        "Pedidos canônicos em tempo real operacional — mesma fonte usada por PDV, "
+        "KDS, salão e integrações."
     )
 
     col_busca, col_status, col_canal = st.columns(3)
@@ -41,10 +106,6 @@ def render_central_pedidos(
     )
     status_central = col_status.text_input("Status", key="central_status")
     canal_central = col_canal.text_input("Canal", key="central_canal")
-
-    contexto_central = contexto_central_teste(
-        correlation_id=str(uuid4()), solicitado_em=datetime.now(timezone.utc)
-    )
 
     sessao_central: Session | None = None
     try:
@@ -60,7 +121,7 @@ def render_central_pedidos(
         )
 
         if not pagina_central.itens:
-            st.info("Nenhum pedido encontrado.")
+            st.info("Nenhum pedido encontrado para os filtros atuais.")
             return
 
         st.dataframe(
@@ -90,6 +151,7 @@ def render_central_pedidos(
         st.subheader(f"Pedido {selecionado}")
         st.write(
             f"**Status:** {detalhe.resumo.status} · "
+            f"**Canal:** {detalhe.resumo.canal} · "
             f"**Total:** R$ {detalhe.resumo.total:.2f} · "
             f"**Versão:** {detalhe.resumo.versao}"
         )
@@ -103,15 +165,15 @@ def render_central_pedidos(
         st.markdown("#### Situação financeira")
         st.write(detalhe.financeiro.situacao)
         st.caption(
-            "Pagamento: " + (", ".join(detalhe.financeiro.pagamento_ids) or "ausente")
+            "Pagamento: "
+            + (", ".join(detalhe.financeiro.pagamento_ids) or "ausente")
         )
         st.caption(
-            f"VendaFinanceira: {detalhe.financeiro.venda_financeira_id or 'ausente'}"
+            f"Venda financeira: {detalhe.financeiro.venda_financeira_id or 'ausente'}"
         )
         st.caption(
-            f"Venda legada vinculada: {detalhe.financeiro.venda_legada_id or 'ausente'}"
+            f"Reconciliação: {detalhe.financeiro.reconciliacao_id or 'ausente'}"
         )
-        st.caption(f"Reconciliação: {detalhe.financeiro.reconciliacao_id or 'ausente'}")
 
         st.markdown("#### Alertas")
         if detalhe.alertas:
@@ -124,76 +186,70 @@ def render_central_pedidos(
         for evento in detalhe.timeline:
             st.write(f"{evento.ocorrido_em.isoformat()} — {evento.tipo}")
 
-        st.markdown("#### Ações de teste RBAC")
-        st.caption(
-            "Disponíveis somente no modo E2E isolado; produção exige identidade humana confiável."
-        )
+        st.markdown("#### Ações operacionais")
+        status = detalhe.resumo.status
+        versao = detalhe.resumo.versao
 
-        if detalhe.resumo.status == "rascunho" and st.button(
-            "Enviar para confirmação", key=f"central-acao-{selecionado}"
+        if status == "rascunho" and st.button(
+            "Enviar para confirmação",
+            key=f"central-enviar-{selecionado}-{versao}",
+            type="primary",
         ):
-            auditoria = RepositorioAuditoriaEmMemoria()
-            ServicoComandosCentral(sessao_central, auditoria).transicionar(
+            _executar_transicao(
+                session=sessao_central,
                 contexto=contexto_central,
                 pedido_id=selecionado,
                 destino="aguardando_confirmacao",
-                versao_esperada=detalhe.resumo.versao,
-                idempotency_key=f"ui:{selecionado}:aguardando",
-                precondicoes={
-                    "itens_validos": True,
-                    "precos_calculados": True,
-                },
+                versao=versao,
+                precondicoes={"itens_validos": True, "precos_calculados": True},
             )
-            sessao_central.commit()
-            st.success(
-                f"Comando permitido; evento e auditoria registrados ({len(auditoria.eventos)})."
-            )
+            st.success("Pedido enviado para confirmação pelo Core.")
+            st.rerun()
 
-        if st.button("Demonstrar ação negada", key=f"central-negada-{selecionado}"):
-            auditoria = RepositorioAuditoriaEmMemoria()
-            contexto_negado = contexto_central_teste(
-                correlation_id=str(uuid4()),
-                solicitado_em=datetime.now(timezone.utc),
-                papel="atendimento",
+        cancelaveis = {
+            "rascunho",
+            "aguardando_confirmacao",
+            "confirmado",
+            "enviado_producao",
+            "em_preparo",
+            "pronto",
+            "em_expedicao",
+            "saiu_entrega",
+        }
+        if status in cancelaveis:
+            motivo = st.text_input(
+                "Motivo do cancelamento",
+                key=f"central-motivo-cancelamento-{selecionado}-{versao}",
             )
-            try:
-                ServicoComandosCentral(sessao_central, auditoria).transicionar(
-                    contexto=contexto_negado,
-                    pedido_id=selecionado,
-                    destino="aguardando_confirmacao",
-                    versao_esperada=detalhe.resumo.versao,
-                    idempotency_key=f"ui:{selecionado}:negado",
-                    precondicoes={
-                        "itens_validos": True,
-                        "precos_calculados": True,
-                    },
-                )
-            except ErroTransicao as erro:
-                st.warning(
-                    f"Comando negado por RBAC: {erro.codigo}; "
-                    f"auditoria={len(auditoria.eventos)}."
-                )
+            if st.button(
+                "Cancelar pedido",
+                key=f"central-cancelar-{selecionado}-{versao}",
+            ):
+                if not motivo.strip():
+                    st.warning("Informe o motivo do cancelamento.")
+                else:
+                    _executar_transicao(
+                        session=sessao_central,
+                        contexto=contexto_central,
+                        pedido_id=selecionado,
+                        destino="cancelado",
+                        versao=versao,
+                        motivo=motivo.strip(),
+                    )
+                    st.success("Pedido cancelado pelo Core com trilha de auditoria.")
+                    st.rerun()
 
-        if st.button(
-            "Demonstrar versão desatualizada",
-            key=f"central-concorrente-{selecionado}",
-        ):
-            auditoria = RepositorioAuditoriaEmMemoria()
-            try:
-                ServicoComandosCentral(sessao_central, auditoria).transicionar(
-                    contexto=contexto_central,
-                    pedido_id=selecionado,
-                    destino="aguardando_confirmacao",
-                    versao_esperada=0,
-                    idempotency_key=f"ui:{selecionado}:concorrente",
-                    precondicoes={
-                        "itens_validos": True,
-                        "precos_calculados": True,
-                    },
-                )
-            except ErroTransicao as erro:
-                st.warning(f"Optimistic locking: {erro.codigo}.")
-    # Fronteira da UI: converte falhas inesperadas em mensagem segura sem expor detalhes.
+        if status in {"concluido", "cancelado"}:
+            st.caption("Pedido em estado terminal; não há ações operacionais disponíveis.")
+
+    except ErroTransicao as exc:
+        st.warning(f"Ação recusada pelo Core: {exc.codigo}.")
+    except (PermissaoNegada, PermissionError):
+        st.error("Seu usuário não possui permissão para esta operação.")
+    except RecursoNaoEncontrado:
+        st.warning("O pedido não está mais disponível nesta unidade.")
+    except ConflitoIdempotencia:
+        st.warning("A operação já foi processada com conteúdo diferente; atualize a tela.")
     except Exception as exc:  # noqa: BLE001
         st.error(f"Não foi possível carregar a Central: {type(exc).__name__}")
     finally:
