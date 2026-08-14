@@ -2,7 +2,7 @@ name: V1 Wave2 KDS
 
 on:
   push:
-    branches: [impl/v1-wave2-restaurant-operations]
+    branches: [impl/v1-wave2-restaurant-operations, integration/v1-functional-baseline]
   pull_request:
     branches: [impl/v1-wave1-authoritative-transactions]
     paths:

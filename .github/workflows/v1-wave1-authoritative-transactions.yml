@@ -2,7 +2,7 @@ name: V1 Wave1 Authoritative Transactions
 
 on:
   push:
-    branches: [impl/v1-wave1-authoritative-transactions]
+    branches: [impl/v1-wave1-authoritative-transactions, integration/v1-functional-baseline]
   pull_request:
     branches: [impl/v1-wave0-production-foundation]
     paths:

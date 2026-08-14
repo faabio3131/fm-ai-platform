@@ -2,7 +2,7 @@ name: V1 Wave0 Production Foundation
 
 on:
   push:
-    branches: [impl/v1-wave0-production-foundation]
+    branches: [impl/v1-wave0-production-foundation, integration/v1-functional-baseline]
   pull_request:
     branches: [main]
     paths:

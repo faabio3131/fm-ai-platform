@@ -2,7 +2,7 @@ name: V1 Wave1 PDV Browser Gate
 
 on:
   push:
-    branches: [impl/v1-wave1-authoritative-transactions]
+    branches: [impl/v1-wave1-authoritative-transactions, integration/v1-functional-baseline]
     paths:
       - 'app.py'
       - 'playwright.pdv.config.ts'
