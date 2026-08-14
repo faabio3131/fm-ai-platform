@@ -93,6 +93,7 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.exc import SQLAlchemyError
 import io
 
 from core.pdv.adaptadores_sqlalchemy import (
@@ -117,7 +118,11 @@ from core.kds.flags import kds_v1_enabled
 from core.kds.ui_streamlit import render_kds
 from core.salao.flags import salao_v1_enabled
 from core.salao.ui_streamlit import render_salao
-from core.mica.ui_streamlit import render_mica_v1
+from core.assistente_atendimento.modelos import ConfiguracaoIdentidadeAssistente
+from core.assistente_atendimento.ui_streamlit import render_assistente_atendimento_v1
+from infra.gerente_ia.persistencia_sqlalchemy import (
+    RepositorioIdentidadeAssistenteSQLAlchemy,
+)
 
 try:
     import pypdf
@@ -796,7 +801,7 @@ _nomes_abas = [
     "🛒 Frente de Caixa (PDV & Pix)",
     "📦 Estoque & Validades (Novo!)",
     "📊 Dashboard Financeiro",
-    "💬 Bot Cliente (Mica I.A.)",
+    "💬 Assistente de Atendimento",
 ]
 if order_center_v1_enabled():
     _nomes_abas.append("\U0001F4CB Central de Pedidos")
@@ -1887,13 +1892,32 @@ with aba5:
 
 
 # ==============================================================================
-# ABA 6: MICA I.A. V1 — FLUXO SEGURO
+# ABA 6: ASSISTENTE DE ATENDIMENTO V1 — FLUXO SEGURO
 # ==============================================================================
 with aba6:
-    render_mica_v1(
+    db_identidade_assistente = SessionLocal()
+    try:
+        identidade_assistente = RepositorioIdentidadeAssistenteSQLAlchemy(
+            db_identidade_assistente
+        ).obter(
+            tenant_id=CURRENT_IDENTITY.tenant_id,
+            unidade_id=CURRENT_IDENTITY.unidade_id,
+        ) or ConfiguracaoIdentidadeAssistente.fallback(
+            tenant_id=CURRENT_IDENTITY.tenant_id,
+            unidade_id=CURRENT_IDENTITY.unidade_id,
+        )
+    except SQLAlchemyError:  # compatibilidade local antes da migration 0013
+        identidade_assistente = ConfiguracaoIdentidadeAssistente.fallback(
+            tenant_id=CURRENT_IDENTITY.tenant_id,
+            unidade_id=CURRENT_IDENTITY.unidade_id,
+        )
+    finally:
+        db_identidade_assistente.close()
+    render_assistente_atendimento_v1(
         session_factory=SessionLocal,
         produto_cls=Produto,
         generate_content=generate_content,
+        nome_publico=identidade_assistente.nome_publico,
     )
 
 # Contrato técnico de prontidão dos testes browser-driven. Ele é emitido apenas

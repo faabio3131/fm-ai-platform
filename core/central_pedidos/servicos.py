@@ -26,6 +26,7 @@ from core.seguranca.auditoria import (
 )
 from core.seguranca.contexto import ContextoExecucao
 from infra.eventos.adaptador_sqlalchemy import RepositorioOutboxSQLAlchemy
+from infra.gerente_ia.persistencia_sqlalchemy import ConsumidorEventosCoreSQLAlchemy
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
 
 
@@ -102,7 +103,9 @@ class ServicoComandosCentral:
         self._outbox = (
             _OutboxCentralEmMemoriaSomenteTeste()
             if self._harness_legado
-            else RepositorioOutboxSQLAlchemy(session)
+            else RepositorioOutboxSQLAlchemy(
+                session, ao_adicionar=ConsumidorEventosCoreSQLAlchemy(session).consumir
+            )
         )
 
     def transicionar(

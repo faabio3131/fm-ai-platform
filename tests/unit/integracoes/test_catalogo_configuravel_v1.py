@@ -44,6 +44,12 @@ from core.integracoes import CATALOGO_V1, ErroConfiguracaoServico
             {"notification_url"},
             {"access_token", "webhook_secret"},
         ),
+        (
+            "ia.generativa",
+            "gemini",
+            {"model", "region"},
+            {"api_key"},
+        ),
     ),
 )
 def test_catalogo_declara_contrato_minimo_por_servico_e_provedor(

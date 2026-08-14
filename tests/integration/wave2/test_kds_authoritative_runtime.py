@@ -18,6 +18,7 @@ from core.pagamentos.modelos_orm import (
 from core.pedidos.modelos_orm import ItemPedidoORM, OrdersBase, PedidoORM
 from core.seguranca import MATRIZ_PADRAO, ContextoExecucao, Papel
 from infra.eventos.modelos_orm import EventBusBase, OutboxEventoORM
+from infra.gerente_ia.modelos_orm import CoreRuntimeBase
 from infra.seguranca.modelos_orm import EventoAuditoriaORM, SecurityBase
 from migrations.runner import run_migrations
 
@@ -36,6 +37,7 @@ def _infra():
     PaymentsBase.metadata.create_all(engine)
     KDSBase.metadata.create_all(engine)
     EventBusBase.metadata.create_all(engine)
+    CoreRuntimeBase.metadata.create_all(engine)
     SecurityBase.metadata.create_all(engine)
     return engine, sessionmaker(bind=engine, expire_on_commit=False)
 

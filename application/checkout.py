@@ -1,6 +1,6 @@
 """Checkout canônico da V1.
 
-Canais como PDV, Mica, Salão, Delivery e marketplaces devem entrar por esta
+Canais como PDV, Assistente de Atendimento, Salão, Delivery e marketplaces devem entrar por esta
 fronteira. Pedido/Pagamento preservam a identidade do operador/canal, enquanto
 efeitos automáticos de estoque podem usar uma identidade técnica auditável.
 """
