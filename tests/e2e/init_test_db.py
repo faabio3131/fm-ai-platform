@@ -4,7 +4,7 @@ import os
 import sqlite3
 from pathlib import Path
 
-from test_database import initialize_database
+from test_database import initialize_database, required_tables
 
 ROOT = Path(__file__).resolve().parents[2]
 TMPDIR = Path(os.environ["FM_AI_TEST_TMPDIR"]).resolve()
@@ -17,15 +17,7 @@ if DB_PATH.resolve() == REAL_DB.resolve():
 TMPDIR.mkdir(parents=True, exist_ok=True)
 initialize_database(DB_PATH)
 
-required = {
-    "usuarios",
-    "clientes",
-    "produtos",
-    "insumos",
-    "fichas_tecnicas",
-    "vendas",
-    "configuracoes_meta",
-}
+required = required_tables()
 
 conn = sqlite3.connect(DB_PATH)
 try:

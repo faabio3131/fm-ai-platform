@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import os
 import sqlite3
+import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+from sqlalchemy import create_engine
+from sqlalchemy.engine import URL
 
 SCHEMA = """
 create table usuarios (id integer primary key, email varchar unique, senha_hash varchar);
@@ -16,6 +21,42 @@ create table gateway_config (id integer primary key, gateway_provider varchar(50
 create table configuracoes_meta (id integer primary key, meta_access_token varchar, facebook_page_id varchar, instagram_account_id varchar, whatsapp_token varchar, whatsapp_phone_id varchar, gateway_provider varchar, gateway_pix_key varchar, gateway_api_key varchar);
 create table contatos_gerenciais (id integer primary key, nome varchar, whatsapp varchar unique, cargo varchar, receber_alertas_estoque integer);
 """
+
+LEGACY_REQUIRED_TABLES = frozenset(
+    {
+        "usuarios",
+        "clientes",
+        "produtos",
+        "insumos",
+        "fichas_tecnicas",
+        "vendas",
+        "configuracoes_meta",
+    }
+)
+
+KDS_CANONICAL_REQUIRED_TABLES = frozenset(
+    {
+        "pedidos_v1",
+        "itens_pedido_v1",
+        "adicionais_item_pedido_v1",
+        "observacoes_pedido_v1",
+        "eventos_pedido_v1",
+        "setores_producao_v1",
+        "producao_itens_v1",
+        "eventos_producao_v1",
+    }
+)
+
+KDS_CANONICAL_DELETE_ORDER = (
+    "eventos_producao_v1",
+    "producao_itens_v1",
+    "setores_producao_v1",
+    "eventos_pedido_v1",
+    "observacoes_pedido_v1",
+    "adicionais_item_pedido_v1",
+    "itens_pedido_v1",
+    "pedidos_v1",
+)
 
 DELETE_ORDER = (
     "fichas_tecnicas",
@@ -30,9 +71,53 @@ DELETE_ORDER = (
 )
 
 
+def _kds_schema_enabled() -> bool:
+    return (
+        os.environ.get("FM_AI_TEST_MODE") == "1"
+        and os.environ.get("FM_AI_KDS_V1") == "1"
+    )
+
+
+def required_tables() -> frozenset[str]:
+    if _kds_schema_enabled():
+        return LEGACY_REQUIRED_TABLES | KDS_CANONICAL_REQUIRED_TABLES
+    return LEGACY_REQUIRED_TABLES
+
+
+def _prepare_canonical_schema_if_enabled(db_path: Path) -> None:
+    if not _kds_schema_enabled():
+        return
+
+    project_root = str(Path(__file__).resolve().parents[2])
+    added_project_root = project_root not in sys.path
+    if added_project_root:
+        sys.path.insert(0, project_root)
+    try:
+        from core.kds import preparar_schema_teste
+    finally:
+        if added_project_root:
+            sys.path.remove(project_root)
+
+    engine = create_engine(URL.create("sqlite", database=str(db_path)))
+    try:
+        preparar_schema_teste(engine)
+    finally:
+        engine.dispose()
+
+
+def _validate_required_schema(cursor: sqlite3.Cursor) -> None:
+    existing = {
+        row[0]
+        for row in cursor.execute("select name from sqlite_master where type='table'")
+    }
+    missing = sorted(required_tables() - existing)
+    if missing:
+        raise RuntimeError(f"Schema de teste incompleto; tabelas ausentes: {missing}")
+
+
 def seed_database(cursor: sqlite3.Cursor) -> None:
     """Restore the complete E2E fixture with stable primary keys."""
-    now = datetime.now().replace(microsecond=0)
+    now = datetime.now(timezone.utc).replace(microsecond=0)
     cursor.execute(
         "insert into usuarios (id, email, senha_hash) values (1, ?, ?)",
         ("admin.test@fm.ai", "test-only"),
@@ -124,20 +209,38 @@ def initialize_database(db_path: Path) -> None:
         cursor.close()
         connection.close()
 
+    _prepare_canonical_schema_if_enabled(db_path)
+
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+    try:
+        _validate_required_schema(cursor)
+        validate_foreign_keys(cursor)
+    finally:
+        cursor.close()
+        connection.close()
+
 
 def reset_database_in_place(
     db_path: Path, *, attempts: int = 4, retry_delay: float = 0.2
 ) -> None:
     """Reset an active E2E database without replacing its Windows file handle."""
+    _prepare_canonical_schema_if_enabled(db_path)
+    delete_order = (
+        KDS_CANONICAL_DELETE_ORDER + DELETE_ORDER
+        if _kds_schema_enabled()
+        else DELETE_ORDER
+    )
     for attempt in range(1, attempts + 1):
         connection = sqlite3.connect(db_path, timeout=0)
         cursor = connection.cursor()
         try:
             cursor.execute("pragma foreign_keys = on")
             cursor.execute("begin immediate")
-            for table in DELETE_ORDER:
+            for table in delete_order:
                 cursor.execute(f'delete from "{table}"')
             seed_database(cursor)
+            _validate_required_schema(cursor)
             validate_foreign_keys(cursor)
             connection.commit()
             return

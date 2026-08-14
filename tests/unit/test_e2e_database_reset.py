@@ -71,3 +71,29 @@ def test_reset_database_retries_a_temporary_lock(tmp_path):
     finally:
         cursor.close()
         connection.close()
+
+
+def test_kds_enabled_database_creates_and_preserves_canonical_schema(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("FM_AI_TEST_MODE", "1")
+    monkeypatch.setenv("FM_AI_KDS_V1", "1")
+    db_path = tmp_path / "fm_ai_test.sqlite3"
+
+    e2e_test_database.initialize_database(db_path)
+    e2e_test_database.reset_database_in_place(db_path)
+
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+    try:
+        existing = {
+            row[0]
+            for row in cursor.execute(
+                "select name from sqlite_master where type='table'"
+            )
+        }
+        assert e2e_test_database.KDS_CANONICAL_REQUIRED_TABLES <= existing
+        assert cursor.execute("pragma foreign_key_check").fetchall() == []
+    finally:
+        cursor.close()
+        connection.close()
