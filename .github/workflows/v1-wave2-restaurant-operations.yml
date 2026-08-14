@@ -2,9 +2,9 @@ name: V1 Wave2 Restaurant Operations
 
 on:
   push:
-    branches: [impl/v1-wave2-restaurant-operations, integration/v1-functional-baseline]
+    branches: [main, impl/v1-wave2-restaurant-operations, integration/v1-functional-baseline]
   pull_request:
-    branches: [impl/v1-wave1-authoritative-transactions]
+    branches: [main]
     paths:
       - 'core/central_pedidos/**'
       - 'core/pedidos/**'
@@ -41,7 +41,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest ruff==0.16.1
+          pip install pytest ruff==0.16.1 mypy==1.20.2
           npm ci
           npx playwright install chromium
 
@@ -54,6 +54,11 @@ jobs:
         run: >-
           ruff check core/central_pedidos core/pedidos core/estados
           infra/eventos infra/seguranca tests/integration/wave2
+
+      - name: Mypy Central
+        run: >-
+          mypy core/central_pedidos core/pedidos core/estados
+          infra/eventos infra/seguranca
 
       - name: Provas autoritativas CENTRAL-001
         run: pytest -q tests/integration/wave2

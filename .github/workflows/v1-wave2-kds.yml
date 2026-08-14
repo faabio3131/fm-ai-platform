@@ -2,9 +2,9 @@ name: V1 Wave2 KDS
 
 on:
   push:
-    branches: [impl/v1-wave2-restaurant-operations, integration/v1-functional-baseline]
+    branches: [main, impl/v1-wave2-restaurant-operations, integration/v1-functional-baseline]
   pull_request:
-    branches: [impl/v1-wave1-authoritative-transactions]
+    branches: [main]
     paths:
       - 'application/kds_*.py'
       - 'core/kds/**'
@@ -42,7 +42,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest ruff==0.16.1
+          pip install pytest ruff==0.16.1 mypy==1.20.2
           npm ci
           npx playwright install chromium
       - name: Compilar KDS
@@ -55,6 +55,11 @@ jobs:
           ruff check application/kds_runtime.py application/kds_roteamento.py
           core/kds core/pedidos core/estados infra/eventos infra/seguranca
           migrations/runner.py tests/integration/wave2
+      - name: Mypy KDS
+        run: >-
+          mypy application/kds_runtime.py application/kds_roteamento.py
+          core/kds core/pedidos core/estados infra/eventos infra/seguranca
+          migrations/runner.py
       - name: Provas autoritativas KDS-001
         run: >-
           pytest -x -vv --tb=short

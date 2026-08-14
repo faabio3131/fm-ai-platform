@@ -129,7 +129,7 @@ def criar_e_confirmar_pedido(
         idempotency_key=IdempotencyKey(f"{chave}:pedido"),
         subtotal=entrada.subtotal,
         descontos=entrada.desconto_cashback,
-        taxas=Dinheiro(Decimal("0")),
+        taxas=Dinheiro(Decimal(0)),
         total=entrada.total,
         itens=(item,),
     )
@@ -228,7 +228,7 @@ class EscritorShadowSQLAlchemy:
         return str(pedido.id)
 
 
-class ExecutorAutoritativoSQLAlchemy:
+class ExecutorAutoritativoLegadoSQLAlchemy:
     def __init__(
         self,
         *,
@@ -297,12 +297,12 @@ class ExecutorAutoritativoSQLAlchemy:
                 venda_legada_id=None,
                 idempotency_key=f"{entrada.idempotency_key}:reconciliacao",
                 valor_pedido=entrada.total.valor,
-                valor_pagamento=Decimal("0"),
+                valor_pagamento=Decimal(0),
                 valor_venda_financeira=None,
                 valor_venda_legada=None,
                 estoque_estrategia="legado_pendente",
-                cashback_usado=Decimal("0"),
-                cashback_ganho=Decimal("0"),
+                cashback_usado=Decimal(0),
+                cashback_ganho=Decimal(0),
                 status="conciliado",
                 divergencias=[],
                 criado_em=instante,
@@ -421,7 +421,7 @@ class ExecutorAutoritativoSQLAlchemy:
             estoque_estrategia="legado",
             cashback_usado=entrada.desconto_cashback.valor
             if entrada.usar_cashback
-            else Decimal("0"),
+            else Decimal(0),
             cashback_ganho=(entrada.total.valor * Decimal(".05")).quantize(
                 Decimal(".01"), rounding=ROUND_HALF_UP
             ),
@@ -432,7 +432,7 @@ class ExecutorAutoritativoSQLAlchemy:
         troco = (
             confirmado.confirmacao.troco
             if confirmado.confirmacao
-            else Dinheiro(Decimal("0"))
+            else Dinheiro(Decimal(0))
         )
         return ResultadoPDV(
             "authoritative_canary",
@@ -447,6 +447,12 @@ class ExecutorAutoritativoSQLAlchemy:
 
 # O canary da Onda 1 usa o núcleo transacional canônico; shadow/legacy acima
 # permanecem disponíveis para comparação e rollback controlado.
-from .executor_canonico import ExecutorAutoritativoCanonicoSQLAlchemy
+from .executor_canonico import (
+    ExecutorAutoritativoCanonicoSQLAlchemy as ExecutorAutoritativoSQLAlchemy,
+)
 
-ExecutorAutoritativoSQLAlchemy = ExecutorAutoritativoCanonicoSQLAlchemy
+__all__ = [
+    "EscritorShadowSQLAlchemy",
+    "ExecutorAutoritativoLegadoSQLAlchemy",
+    "ExecutorAutoritativoSQLAlchemy",
+]

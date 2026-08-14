@@ -15,7 +15,7 @@ def dinheiro_legado(valor: object) -> Dinheiro:
 
 
 def dinheiro_zero() -> Dinheiro:
-    return Dinheiro(0)
+    return Dinheiro(Decimal(0))
 
 
 def id_produto_legado(valor: object) -> str:

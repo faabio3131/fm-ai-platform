@@ -34,7 +34,6 @@ from infra.transacoes.uow import RecursosTransacionaisV1
 from .adaptadores_sqlalchemy import LegacyPDVSQLAlchemyAdapter
 from .modelos import (
     EntradaPDV,
-    id_cliente_legado,
     id_insumo_legado,
     id_produto_legado,
     mapear_metodo,
@@ -90,7 +89,7 @@ def montar_pedido_pdv(
         origem=OrigemPedido.PDV,
         canal=CanalAtendimento.PDV,
         status=PedidoStatus.RASCUNHO,
-        cliente_id=ClienteId(id_cliente_legado(entrada.cliente_id))
+        cliente_id=ClienteId(f"legacy:cliente:{entrada.cliente_id}")
         if entrada.cliente_id is not None
         else None,
         criado_em=instante,
@@ -100,7 +99,7 @@ def montar_pedido_pdv(
         idempotency_key=IdempotencyKey(f"{chave}:pedido"),
         subtotal=entrada.subtotal,
         descontos=entrada.desconto_cashback,
-        taxas=Dinheiro(0),
+        taxas=Dinheiro(Decimal(0)),
         total=entrada.total,
         itens=(item,),
         observacoes=(),

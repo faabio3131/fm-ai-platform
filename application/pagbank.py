@@ -6,6 +6,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from uuid import uuid4
 
 from application.finalizacao_pagamento import finalizar_pagamento_liquidado_em_transacao
@@ -105,7 +106,7 @@ def criar_pix_pagbank_em_transacao(
         pagamento.unidade_id,
         TipoTransacao.INICIACAO,
         StatusTransacao.PENDENTE,
-        Dinheiro(0, pagamento.moeda),
+        Dinheiro(Decimal(0), pagamento.moeda),
         MetodoPagamento.PIX,
         "pagbank",
         cobranca.id_externo,

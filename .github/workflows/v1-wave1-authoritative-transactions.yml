@@ -2,9 +2,9 @@ name: V1 Wave1 Authoritative Transactions
 
 on:
   push:
-    branches: [impl/v1-wave1-authoritative-transactions, integration/v1-functional-baseline]
+    branches: [main, impl/v1-wave1-authoritative-transactions, integration/v1-functional-baseline]
   pull_request:
-    branches: [impl/v1-wave0-production-foundation]
+    branches: [main]
     paths:
       - 'application/**'
       - 'http_api/**'
@@ -63,11 +63,15 @@ jobs:
           ruff check application http_api core/pedidos core/pagamentos core/estoque core/eventos
           core/dominio core/estados infra/eventos infra/pagamentos infra/transacoes infra/seguranca
           migrations/runner.py scripts/configure_pagbank_v1.py scripts/pagbank_sandbox_smoke_v1.py
-          core/pdv/cutover_canonico.py core/pdv/executor_canonico.py
-          core/pdv/modelos.py tests/integration/wave1 tests/unit/events
+          core/pdv tests/integration/wave1 tests/unit/events
           tests/unit/orders/test_canais_canonicos.py
           tests/unit/payments/test_fonte_financeira.py
           tests/unit/runtime/test_runtime_foundation.py
+      - name: Mypy baseline funcional
+        run: >-
+          mypy application http_api core/runtime core/seguranca core/pedidos
+          core/pagamentos core/estoque core/eventos core/pdv core/central_pedidos
+          core/kds infra migrations/runner.py
       - name: Testes focados Onda 1
         run: >-
           pytest -q tests/integration/wave1 tests/integration/pdv tests/unit/events

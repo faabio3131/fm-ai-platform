@@ -152,7 +152,7 @@ class CentralPedidosSQLAlchemy:
                     else "pendente"
                 )
             )
-            venda, link, rec = (
+            venda_resumo, link, rec = (
                 vendas.get(pedido_id),
                 links.get(pedido_id),
                 recs.get(pedido_id),
@@ -162,7 +162,7 @@ class CentralPedidosSQLAlchemy:
                 previsto,
                 pago,
                 tuple(p.id for p in ps),
-                venda.id if venda else None,
+                venda_resumo.id if venda_resumo else None,
                 link.venda_legada_id if link else None,
                 rec.id if rec else None,
                 rec.status if rec else None,

@@ -336,7 +336,11 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
             divergencias=list(divergencias),
             criado_em=instante,
         )
-        troco = confirmado.confirmacao.troco if confirmado.confirmacao else Dinheiro(0)
+        troco = (
+            confirmado.confirmacao.troco
+            if confirmado.confirmacao
+            else Dinheiro(Decimal(0))
+        )
         return ResultadoPDV(
             "authoritative_canary",
             True,

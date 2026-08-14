@@ -114,15 +114,17 @@ def executar_checkout_em_transacao(
 
     pagamento: ResultadoPagamento | None = None
     if pedido.total.valor > 0:
-        assert comando.pagamento_id is not None
-        assert comando.metodo_pagamento is not None
+        pagamento_id = comando.pagamento_id
+        metodo_pagamento = comando.metodo_pagamento
+        if pagamento_id is None or metodo_pagamento is None:
+            raise CheckoutInvalido("pedido com valor exige obrigação de pagamento")
         pagamento = criar_obrigacao_pagamento(
             contexto=contexto,
             repositorio=recursos.pagamentos,
-            pagamento_id=comando.pagamento_id,
+            pagamento_id=pagamento_id,
             pedido_id=str(pedido.id),
             valor_previsto=pedido.total,
-            metodo=comando.metodo_pagamento,
+            metodo=metodo_pagamento,
             idempotency_key=f"{raiz}:pagamento",
             timestamp=comando.timestamp,
             provedor=comando.provedor_pagamento,
@@ -184,7 +186,7 @@ def executar_checkout_v1(
         resultado = executar_checkout_em_transacao(
             comando=comando,
             contexto=contexto,
-            recursos=RecursosTransacionaisV1(uow.session),
+            recursos=uow.recursos,
             contexto_estoque=contexto_estoque,
         )
         uow.commit()

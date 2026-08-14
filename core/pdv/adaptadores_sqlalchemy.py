@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from contextlib import AbstractContextManager
 from datetime import datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
-from typing import Any, Callable
+from typing import Any, Self
 from uuid import NAMESPACE_URL, uuid5
 
 from sqlalchemy import func, select
@@ -60,7 +61,7 @@ class SQLAlchemyPDVUnitOfWork(AbstractContextManager["SQLAlchemyPDVUnitOfWork"])
         self.commits = 0
         self._fault = fault or (lambda _ponto: None)
 
-    def __enter__(self) -> "SQLAlchemyPDVUnitOfWork":
+    def __enter__(self) -> Self:
         if self.session is None:
             self.session = self._fabrica()
         return self

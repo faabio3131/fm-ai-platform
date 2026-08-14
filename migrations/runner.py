@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import cast
 
 from sqlalchemy import Column, DateTime, Engine, MetaData, String, Table, insert, select
 from sqlalchemy.engine import Connection
@@ -51,7 +52,9 @@ def _security_identity_v1(connection: Connection) -> None:
 
 
 def _credential_references_v1(connection: Connection) -> None:
-    CredencialReferenciaORM.__table__.create(bind=connection, checkfirst=True)
+    cast(Table, CredencialReferenciaORM.__table__).create(
+        bind=connection, checkfirst=True
+    )
 
 
 def _legacy_app_schema_v1(connection: Connection) -> None:
@@ -75,7 +78,7 @@ def _event_bus_persistence_v1(connection: Connection) -> None:
 
 
 def _audit_log_v1(connection: Connection) -> None:
-    EventoAuditoriaORM.__table__.create(bind=connection, checkfirst=True)
+    cast(Table, EventoAuditoriaORM.__table__).create(bind=connection, checkfirst=True)
 
 
 def _pdv_authoritative_runtime_v1(connection: Connection) -> None:

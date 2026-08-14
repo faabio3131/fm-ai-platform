@@ -1,6 +1,6 @@
 """Persistencia aditiva de vinculos, efeitos idempotentes e reconciliacao."""
 
-from sqlalchemy import DateTime, Index, JSON, Numeric, String, UniqueConstraint
+from sqlalchemy import JSON, DateTime, Index, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 

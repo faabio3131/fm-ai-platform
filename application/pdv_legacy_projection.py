@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Any, cast
 
 from sqlalchemy import insert, select, update
+from sqlalchemy.engine import CursorResult
 
 from core.estoque.modelos import ReservaEstoque
 from core.pdv.adaptadores_sqlalchemy import RepositorioPDVSQLAlchemy, TipoEfeitoCompat
@@ -47,16 +49,19 @@ def projetar_legado_em_transacao(
     if efeito_venda and efeito_venda.referencia_legada:
         venda_legada_id = efeito_venda.referencia_legada
     else:
-        resultado = session.execute(
-            insert(vendas).values(
-                produto_id=entrada.produto_id,
-                cliente_id=entrada.cliente_id,
-                quantidade=entrada.quantidade,
-                valor_total=float(entrada.total.valor),
-                custo_total=float(entrada.custo_total.valor),
-                forma_pagamento=entrada.forma_pagamento,
-                status_pagamento="Aprovado",
-                data_venda=timestamp.replace(tzinfo=None),
+        resultado = cast(
+            CursorResult[Any],
+            session.execute(
+                insert(vendas).values(
+                    produto_id=entrada.produto_id,
+                    cliente_id=entrada.cliente_id,
+                    quantidade=entrada.quantidade,
+                    valor_total=float(entrada.total.valor),
+                    custo_total=float(entrada.custo_total.valor),
+                    forma_pagamento=entrada.forma_pagamento,
+                    status_pagamento="Aprovado",
+                    data_venda=timestamp.replace(tzinfo=None),
+                )
             )
         )
         chave = resultado.inserted_primary_key

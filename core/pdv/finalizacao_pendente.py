@@ -14,7 +14,6 @@ from core.dominio.dinheiro import Dinheiro
 from .modelos import EntradaPDV
 from .modelos_orm import FinalizacaoPendentePDVORM
 
-
 _STATUS_PENDENTE = "PENDENTE"
 _STATUS_FINALIZADA = "FINALIZADA"
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from types import TracebackType
-from typing import Self
+from typing import Literal, Self
 
 from sqlalchemy.orm import Session
 
@@ -110,7 +110,7 @@ class UnitOfWorkV1:
         exc_type: type[BaseException] | None,
         exc: BaseException | None,
         traceback: TracebackType | None,
-    ) -> bool:
+    ) -> Literal[False]:
         del exc, traceback
         if self.session is None:
             return False
