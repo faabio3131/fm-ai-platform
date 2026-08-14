@@ -30,6 +30,7 @@ _EXPECTED_MIGRATIONS = (
     "0007_event_bus_persistence_v1",
     "0008_audit_log_v1",
     "0009_pdv_authoritative_runtime_v1",
+    "0010_kds_authoritative_runtime_v1",
 )
 
 
