@@ -1,8 +1,8 @@
 """Composição transacional única para Pedido, Pagamento, Estoque e efeitos.
 
 `RecursosTransacionaisV1` permite reutilizar uma Session cuja transação já pertence
-a outra composition root (por exemplo, o cutover do PDV). `UnitOfWorkV1` continua
-dono da Session quando a operação nasce diretamente na camada de aplicação.
+a outra composition root. `UnitOfWorkV1` continua dono da Session quando a operação
+nasce diretamente na camada de aplicação.
 """
 
 from __future__ import annotations
@@ -60,6 +60,12 @@ class UnitOfWorkV1:
         self.committed = False
         self._recursos: RecursosTransacionaisV1 | None = None
 
+    @property
+    def recursos(self) -> RecursosTransacionaisV1:
+        if self._recursos is None:
+            raise RuntimeError("UnitOfWorkV1 nao iniciado")
+        return self._recursos
+
     def __enter__(self) -> Self:
         if self.session is not None:
             raise RuntimeError("UnitOfWorkV1 nao pode ser reutilizado enquanto aberto")
@@ -81,9 +87,7 @@ class UnitOfWorkV1:
         eventos: Iterable[EnvelopeMensagem] = (),
         auditorias: Iterable[EventoAuditoria] = (),
     ) -> None:
-        if self._recursos is None:
-            raise RuntimeError("UnitOfWorkV1 nao iniciado")
-        self._recursos.registrar_efeitos(eventos=eventos, auditorias=auditorias)
+        self.recursos.registrar_efeitos(eventos=eventos, auditorias=auditorias)
 
     def commit(self) -> None:
         if self.session is None:

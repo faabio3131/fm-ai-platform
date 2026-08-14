@@ -70,7 +70,7 @@ def test_legacy_shadow_e_canary() -> None:
         PDVFlags(
             OrdersFeatureFlags(orders_authoritative=True),
             FlagsPagamentosV1(True, True, True),
-            False,
+            True,
         ),
         True,
     )
@@ -84,6 +84,23 @@ def test_legacy_shadow_e_canary() -> None:
         decidir_modo(contexto=contexto("outro"), terminal_id="cx", config=canary)
         is ModoPDV.LEGACY
     )
+
+
+def test_canary_falha_fechado_sem_estoque_canonico_autoritativo() -> None:
+    config = PDVRolloutConfig(
+        "t",
+        "u",
+        frozenset({"cx"}),
+        ModoPDV.AUTHORITATIVE_CANARY,
+        PDVFlags(
+            OrdersFeatureFlags(orders_authoritative=True),
+            FlagsPagamentosV1(True, True, True),
+            False,
+        ),
+        True,
+    )
+    with pytest.raises(ConfiguracaoRolloutInvalida, match="canary_incompleto"):
+        decidir_modo(contexto=contexto(), terminal_id="cx", config=config)
 
 
 def test_rbac_minimo_caixa_e_gerente_ia() -> None:
@@ -118,3 +135,6 @@ def test_loader_canary_exige_ambiente_explicito(monkeypatch) -> None:
     assert config.modo is ModoPDV.AUTHORITATIVE_CANARY
     assert config.contexto_confiavel
     assert config.terminais_permitidos == frozenset({"cx"})
+    assert config.flags.orders.orders_authoritative
+    assert config.flags.payments.payments_v1_enabled
+    assert config.flags.stock_ledger_authoritative

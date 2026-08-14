@@ -1,4 +1,4 @@
-"""Loader server-side: fora do test mode nenhum rollout V1 pode ser ativado."""
+"""Loader server-side do rollout do PDV V1."""
 
 import os
 
@@ -23,7 +23,7 @@ def carregar_rollout_ambiente() -> PDVRolloutConfig:
         flags = PDVFlags(
             orders=OrdersFeatureFlags(orders_authoritative=True),
             payments=FlagsPagamentosV1(True, True, True),
-            stock_ledger_authoritative=False,
+            stock_ledger_authoritative=True,
         )
     else:
         flags = PDVFlags()

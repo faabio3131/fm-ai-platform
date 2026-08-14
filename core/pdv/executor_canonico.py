@@ -30,6 +30,7 @@ from .adaptadores_sqlalchemy import (
     RepositorioPDVSQLAlchemy,
 )
 from .cutover_canonico import contexto_estoque_automatico_pdv, montar_checkout_pdv
+from .finalizacao_pendente import RepositorioFinalizacaoPendentePDV
 from .modelos import EntradaPDV, ResultadoPDV, mapear_metodo
 from .reconciliacao import ReconciliacaoPDV, detectar_divergencias
 
@@ -72,6 +73,14 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
         instante: datetime,
         motivo: str,
     ) -> ResultadoPDV:
+        RepositorioFinalizacaoPendentePDV(self.session).registrar(
+            tenant_id=self.contexto.tenant_id,
+            unidade_id=self.contexto.unidade_id,
+            pedido_id=pedido_id,
+            pagamento_id=pagamento_id,
+            entrada=entrada,
+            instante=instante,
+        )
         pdv.reconciliar(
             tenant_id=self.contexto.tenant_id,
             unidade_id=self.contexto.unidade_id,
@@ -263,7 +272,7 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
         )
         if not reconhecida.idempotente:
             recursos.registrar_efeitos(
-                eventos=reconhecida.eventos, auditorias=reconhecida.auditorias
+                eventos=(reconhecida.evento,), auditorias=(reconhecida.auditoria,)
             )
         self.fault("after_venda_financeira")
 
