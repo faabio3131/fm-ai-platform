@@ -1,0 +1,53 @@
+name: V1 Wave0 Production Foundation
+
+on:
+  push:
+    branches: [main, impl/v1-wave0-production-foundation, integration/v1-functional-baseline]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'core/runtime/**'
+      - 'core/seguranca/**'
+      - 'core/*/flags.py'
+      - 'infra/**'
+      - 'migrations/**'
+      - 'scripts/**'
+      - 'tests/unit/runtime/**'
+      - 'tests/unit/security/**'
+      - 'requirements.txt'
+      - '.github/workflows/v1-wave0-production-foundation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wave0:
+    name: Runtime, DB e Segurança V1
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Compilar fundação
+        run: python -m compileall -q core/runtime core/seguranca infra migrations scripts
+      - name: Ruff Wave0
+        run: >-
+          ruff check core/runtime core/seguranca infra migrations/runner.py scripts
+          tests/unit/runtime/test_runtime_foundation.py
+          tests/unit/security/test_authentication_v1.py
+      - name: Mypy Wave0
+        run: >-
+          mypy core/runtime core/seguranca infra/seguranca infra/streamlit_app
+          migrations/runner.py
+      - name: Testes focados Wave0
+        run: pytest -q tests/unit/runtime tests/unit/security
+      - name: Suite Python completa
+        run: pytest -q

@@ -35,13 +35,29 @@ class EventoDominio(Serializavel):
 
     def __post_init__(self):
         if not isinstance(self.correlation_id, CorrelationId):
-            raise ValueError("correlation_id é obrigatório")
+            raise TypeError("correlation_id é obrigatório")
         object.__setattr__(self, "occurred_at", em_utc(self.occurred_at))
 
     def para_dict(self):
         result = super().para_dict()
         result["event_type"] = self.event_type
         return dict(sorted(result.items()))
+
+
+@dataclass(frozen=True, kw_only=True)
+class EventoPedidoOperacional(EventoDominio):
+    """Evento tipado pela máquina normativa sem perder o nome operacional."""
+
+    tipo_evento: str = "pedido.operacional.v1"
+
+    @property
+    def event_type(self):
+        return self.tipo_evento
+
+    def __post_init__(self):
+        super().__post_init__()
+        if not self.tipo_evento.strip() or not self.tipo_evento.startswith("pedido."):
+            raise ValueError("tipo de evento operacional de pedido invalido")
 
 
 @dataclass(frozen=True, kw_only=True)

@@ -3,7 +3,9 @@
 
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
@@ -17,6 +19,7 @@ import streamlit as st
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from core.central_pedidos import contexto_central_teste
 from core.central_pedidos.ui_streamlit import render_central_pedidos
 
 TMPDIR_RAW = os.environ.get("FM_AI_TEST_TMPDIR")
@@ -46,4 +49,11 @@ st.set_page_config(
 )
 
 st.caption("Central E2E pronta")
-render_central_pedidos(engine=engine, session_factory=SessionLocal)
+render_central_pedidos(
+    engine=engine,
+    session_factory=SessionLocal,
+    contexto=contexto_central_teste(
+        correlation_id=str(uuid4()),
+        solicitado_em=datetime.now(timezone.utc),
+    ),
+)

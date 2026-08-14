@@ -18,21 +18,23 @@ from .conftest import ClienteTeste, FichaTeste, InsumoTeste, VendaTeste
 
 
 def executar(factory, contexto, entrada, modo: ModoPDV, fault=None):
+    canary = modo is ModoPDV.AUTHORITATIVE_CANARY
     config = PDVRolloutConfig(
         contexto.tenant_id,
         contexto.unidade_id,
         frozenset({entrada.terminal_id}),
         modo,
         PDVFlags(
-            OrdersFeatureFlags(
+            orders=OrdersFeatureFlags(
                 orders_shadow_write=modo is ModoPDV.SHADOW,
-                orders_authoritative=modo is ModoPDV.AUTHORITATIVE_CANARY,
+                orders_authoritative=canary,
             ),
-            FlagsPagamentosV1(
-                payments_v1_enabled=modo is ModoPDV.AUTHORITATIVE_CANARY,
-                sales_from_orders_enabled=modo is ModoPDV.AUTHORITATIVE_CANARY,
-                legacy_sale_adapter_enabled=modo is ModoPDV.AUTHORITATIVE_CANARY,
+            payments=FlagsPagamentosV1(
+                payments_v1_enabled=canary,
+                sales_from_orders_enabled=canary,
+                legacy_sale_adapter_enabled=canary,
             ),
+            stock_ledger_authoritative=canary,
         ),
         True,
     )
@@ -67,7 +69,7 @@ def executar(factory, contexto, entrada, modo: ModoPDV, fault=None):
         ExecutorAutoritativoSQLAlchemy(
             session=session, contexto=contexto, legado=legado, fault=fault
         )
-        if modo is ModoPDV.AUTHORITATIVE_CANARY
+        if canary
         else None
     )
     return finalizar_venda_pdv(

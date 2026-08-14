@@ -3,8 +3,8 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from .modelos import ClassificacaoErro, ErroNormalizado
 from .erros import ErroEventos
+from .modelos import ClassificacaoErro, ErroNormalizado
 
 
 @dataclass(frozen=True)

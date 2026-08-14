@@ -1,6 +1,6 @@
 """Persistencia aditiva de vinculos, efeitos idempotentes e reconciliacao."""
 
-from sqlalchemy import DateTime, Index, JSON, Numeric, String, UniqueConstraint
+from sqlalchemy import JSON, DateTime, Index, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -87,4 +87,40 @@ class ReconciliacaoPDVORM(PDVBase):
             name="uq_pdv_reconciliacao_checkout",
         ),
         Index("ix_pdv_reconciliacao_status", "tenant_id", "unidade_id", "status"),
+    )
+
+
+class FinalizacaoPendentePDVORM(PDVBase):
+    """Snapshot duravel para concluir pagamento assincrono fora do Streamlit."""
+
+    __tablename__ = "pdv_finalizacoes_pendentes_v1"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    unidade_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    pedido_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    pagamento_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    venda_financeira_id: Mapped[str | None] = mapped_column(String(64))
+    venda_legada_id: Mapped[str | None] = mapped_column(String(64))
+    criado_em: Mapped[object] = mapped_column(DateTime(timezone=True), nullable=False)
+    finalizada_em: Mapped[object | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "unidade_id", "pedido_id", name="uq_pdv_finalizacao_pedido"
+        ),
+        UniqueConstraint(
+            "tenant_id",
+            "unidade_id",
+            "pagamento_id",
+            name="uq_pdv_finalizacao_pagamento",
+        ),
+        UniqueConstraint(
+            "tenant_id",
+            "unidade_id",
+            "idempotency_key",
+            name="uq_pdv_finalizacao_idempotencia",
+        ),
+        Index("ix_pdv_finalizacao_status", "tenant_id", "unidade_id", "status"),
     )

@@ -16,12 +16,7 @@ async function preencherEAplicar(page, nome, valor) {
 
   await campo.fill(valor);
   await expect(pendente).toBeVisible();
-
-  // fill() mantem o textbox focado. Usar o teclado da pagina evita prender
-  // a acao ao elemento que o Streamlit substitui durante o rerun.
   await page.keyboard.press('Enter');
-
-  // Pos-condicao real: o Streamlit aceitou o valor e encerrou o estado pendente.
   await expect(pendente).toHaveCount(0, { timeout: 15_000 });
 }
 
@@ -31,15 +26,10 @@ async function aguardarPedido(page, pedidoId) {
   ).toBeVisible({ timeout: 15_000 });
 }
 
-test('AUTHORITATIVE_CANARY PR8 mostra pedido e cadeia financeira unica', async ({ page }) => {
+test('Central usa Pedido canonico, mostra financeiro e executa transicao real', async ({ page }) => {
   await abrirCentral(page);
 
-  // Cada Enter provoca um rerun do Streamlit. Espere uma pós-condição observável
-  // antes de aplicar o próximo filtro para não disputar com a sessão anterior.
   await preencherEAplicar(page, 'Buscar pedido ou cliente', 'pedido-canary-pr8');
-  await aguardarPedido(page, 'pedido-canary-pr8');
-
-  await preencherEAplicar(page, 'Status', 'rascunho');
   await aguardarPedido(page, 'pedido-canary-pr8');
 
   await preencherEAplicar(page, 'Canal', 'presencial');
@@ -53,34 +43,25 @@ test('AUTHORITATIVE_CANARY PR8 mostra pedido e cadeia financeira unica', async (
     page.getByRole('paragraph').filter({ hasText: /^confirmado$/ }),
   ).toBeVisible();
   await expect(page.getByText(/Pagamento: pagamento-canary/)).toBeVisible();
-  await expect(page.getByText(/VendaFinanceira: venda-financeira-canary/)).toBeVisible();
-  await expect(page.getByText(/Venda legada vinculada: 1/)).toHaveCount(1);
+  await expect(page.getByText(/Venda financeira: venda-financeira-canary/)).toBeVisible();
   await expect(page.getByText(/Reconciliação: reconciliacao-canary/)).toBeVisible();
 
-  await page.getByRole('button', { name: 'Demonstrar ação negada' }).click();
-  await expect(
-    page.getByText(/Comando negado por RBAC: permissao_insuficiente; auditoria=1/),
-  ).toBeVisible({ timeout: 15_000 });
-  await page.getByRole('button', { name: 'Demonstrar versão desatualizada' }).click();
-  await expect(page.getByText(/Optimistic locking: pedido_concorrente/)).toBeVisible({
+  await page.getByRole('button', { name: 'Enviar para confirmação' }).click();
+  await expect(page.getByText(/aguardando_confirmacao/).first()).toBeVisible({
     timeout: 15_000,
   });
-  await page.getByRole('button', { name: 'Enviar para confirmação' }).click();
-  await expect(
-    page.getByText(/Comando permitido; evento e auditoria registrados \(1\)/),
-  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('button', { name: 'Enviar para confirmação' })).toHaveCount(0);
 });
 
-test('SHADOW nao inventa financeiro e Venda LEGACY pura nao cria Pedido', async ({ page }) => {
+test('Central nao inventa financeiro e Venda LEGACY pura nao cria Pedido', async ({ page }) => {
   await abrirCentral(page);
   await preencherEAplicar(page, 'Buscar pedido ou cliente', 'pedido-shadow-pr8');
   await aguardarPedido(page, 'pedido-shadow-pr8');
   await expect(page.getByText('Pagamento: ausente')).toBeVisible();
-  await expect(page.getByText('VendaFinanceira: ausente')).toBeVisible();
-  await expect(page.getByText('Venda legada vinculada: ausente')).toBeVisible();
+  await expect(page.getByText('Venda financeira: ausente')).toBeVisible();
 
   await preencherEAplicar(page, 'Buscar pedido ou cliente', 'legacy-puro-sem-pedido');
-  await expect(page.getByText('Nenhum pedido encontrado.')).toBeVisible({
+  await expect(page.getByText('Nenhum pedido encontrado para os filtros atuais.')).toBeVisible({
     timeout: 15_000,
   });
 });

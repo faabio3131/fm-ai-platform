@@ -24,10 +24,21 @@ EntregaStatus = _enum(
     "EntregaStatus",
     "AGUARDANDO_PRODUCAO AGUARDANDO_EXPEDICAO AGUARDANDO_ENTREGADOR ATRIBUIDA COLETADA EM_ROTA ENTREGUE TENTATIVA_FALHOU CANCELADA",
 )
+
+# Origem identifica de onde o pedido nasceu. Mantemos valores genéricos legados
+# para retrocompatibilidade, mas novos adapters devem preferir a origem específica.
 OrigemPedido = _enum(
     "OrigemPedido",
-    "BALCAO MESA RETIRADA DELIVERY_PROPRIO MARKETPLACE WHATSAPP GARCOM ADMINISTRATIVO",
+    "BALCAO PDV SALAO MESA RETIRADA DELIVERY_PROPRIO IFOOD FOOD99 KEETA MARKETPLACE WHATSAPP MICA GARCOM TELEFONE ADMINISTRATIVO OUTRO",
 )
+
+# Canal identifica a jornada comercial usada pelo cliente/operador. Plataformas
+# recebem valores próprios para permitir financeiro e observabilidade por canal.
+CanalAtendimento = _enum(
+    "CanalAtendimento",
+    "PRESENCIAL PDV SALAO WHATSAPP MICA DELIVERY_PROPRIO IFOOD FOOD99 KEETA MARKETPLACE QR_MESA GARCOM TELEFONE ADMINISTRATIVO OUTRO",
+)
+
 FormaPagamento = _enum(
     "FormaPagamento",
     "PIX DINHEIRO CARTAO_CREDITO CARTAO_DEBITO CARTAO_ONLINE PAGAMENTO_MISTO CORTESIA OUTRO",
@@ -35,10 +46,6 @@ FormaPagamento = _enum(
 MomentoPagamento = _enum(
     "MomentoPagamento",
     "ANTECIPADO NA_ENTREGA NA_RETIRADA NO_FECHAMENTO NA_SAIDA POSTERIOR_AUTORIZADO",
-)
-CanalAtendimento = _enum(
-    "CanalAtendimento",
-    "PRESENCIAL WHATSAPP DELIVERY_PROPRIO MARKETPLACE QR_MESA GARCOM TELEFONE ADMINISTRATIVO",
 )
 RiscoPedido = _enum("RiscoPedido", "BAIXO MEDIO ALTO BLOQUEADO")
 PapelUsuario = _enum(

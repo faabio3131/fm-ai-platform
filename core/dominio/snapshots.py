@@ -1,10 +1,9 @@
-# ruff: noqa: F403, F405
 from dataclasses import dataclass
 from datetime import datetime
 
 from .dinheiro import Dinheiro
 from .enums import *
-from .ids import *  # noqa: F403
+from .ids import *
 from .serializacao import Serializavel
 from .tempo import em_utc
 from .tipos import QuantidadeItem

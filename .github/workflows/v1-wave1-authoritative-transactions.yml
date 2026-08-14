@@ -1,0 +1,81 @@
+name: V1 Wave1 Authoritative Transactions
+
+on:
+  push:
+    branches: [main, impl/v1-wave1-authoritative-transactions, integration/v1-functional-baseline]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'application/**'
+      - 'http_api/**'
+      - 'core/pedidos/**'
+      - 'core/pagamentos/**'
+      - 'core/estoque/**'
+      - 'core/eventos/**'
+      - 'core/dominio/**'
+      - 'core/estados/**'
+      - 'core/pdv/**'
+      - 'infra/eventos/**'
+      - 'infra/pagamentos/**'
+      - 'infra/transacoes/**'
+      - 'infra/seguranca/**'
+      - 'migrations/**'
+      - 'requirements.txt'
+      - 'scripts/configure_pagbank_v1.py'
+      - 'scripts/pagbank_sandbox_smoke_v1.py'
+      - 'tests/integration/wave1/**'
+      - 'tests/integration/pdv/**'
+      - 'tests/unit/events/**'
+      - 'tests/unit/orders/test_canais_canonicos.py'
+      - 'tests/unit/payments/test_fonte_financeira.py'
+      - 'tests/unit/pdv/**'
+      - 'tests/unit/runtime/**'
+      - '.github/workflows/v1-wave1-authoritative-transactions.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wave1:
+    name: Pedido, Pagamento, Estoque, Eventos e PDV
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Compilar Onda 1
+        run: >-
+          python -m compileall -q application http_api core/pedidos core/pagamentos core/estoque
+          core/eventos core/dominio core/estados core/pdv infra/eventos infra/pagamentos
+          infra/transacoes infra/seguranca migrations scripts/configure_pagbank_v1.py
+          scripts/pagbank_sandbox_smoke_v1.py
+      - name: Ruff Onda 1
+        run: >-
+          ruff check application http_api core/pedidos core/pagamentos core/estoque core/eventos
+          core/dominio core/estados infra/eventos infra/pagamentos infra/transacoes infra/seguranca
+          migrations/runner.py scripts/configure_pagbank_v1.py scripts/pagbank_sandbox_smoke_v1.py
+          core/pdv tests/integration/wave1 tests/unit/events
+          tests/unit/orders/test_canais_canonicos.py
+          tests/unit/payments/test_fonte_financeira.py
+          tests/unit/runtime/test_runtime_foundation.py
+      - name: Mypy baseline funcional
+        run: >-
+          mypy application http_api core/runtime core/seguranca core/pedidos
+          core/pagamentos core/estoque core/eventos core/pdv core/central_pedidos
+          core/kds infra migrations/runner.py
+      - name: Testes focados Onda 1
+        run: >-
+          pytest -q tests/integration/wave1 tests/integration/pdv tests/unit/events
+          tests/unit/orders tests/unit/payments tests/unit/stock tests/unit/pdv
+          tests/unit/runtime/test_runtime_foundation.py
+      - name: Suite Python completa
+        run: pytest -q

@@ -11,7 +11,12 @@ from .repositorios import (
     RegistroReconciliacao,
     UnitOfWorkPDV,
 )
-from .roteamento import ModoPDV, PDVRolloutConfig, decidir_modo
+from .roteamento import (
+    ConfiguracaoRolloutInvalida,
+    ModoPDV,
+    PDVRolloutConfig,
+    decidir_modo,
+)
 
 
 class CheckoutNaoAutorizado(RuntimeError):
@@ -64,8 +69,7 @@ def finalizar_venda_pdv(
             return ResultadoPDV(
                 **{**resultado.__dict__, "modo": modo.value, "pedido_id": pedido_id}
             )
-        except Exception as exc:
-            uow_shadow.rollback()
+        except Exception as exc:  # noqa: BLE001 - shadow nunca invalida a venda legada
             if reconciliacao:
                 reconciliacao.registrar_falha_shadow(
                     entrada, resultado.venda_legada_id, type(exc).__name__
@@ -79,14 +83,7 @@ def finalizar_venda_pdv(
             )
     if autoritativo is None or uow_autoritativo is None:
         raise ConfiguracaoRolloutInvalida("executor_autoritativo_ausente")
-    try:
-        with uow_autoritativo:
-            resultado = autoritativo.executar(entrada)
-            uow_autoritativo.commit()
-            return resultado
-    except Exception:
-        uow_autoritativo.rollback()
-        raise
-
-
-from .roteamento import ConfiguracaoRolloutInvalida  # noqa: E402
+    with uow_autoritativo:
+        resultado = autoritativo.executar(entrada)
+        uow_autoritativo.commit()
+        return resultado

@@ -28,8 +28,8 @@ class ReconciliacaoPDV:
     valor_venda_financeira: Decimal | None = None
     valor_venda_legada: Decimal | None = None
     estoque_estrategia: str = "legado"
-    cashback_usado: Decimal = Decimal("0")
-    cashback_ganho: Decimal = Decimal("0")
+    cashback_usado: Decimal = Decimal(0)
+    cashback_ganho: Decimal = Decimal(0)
     status: StatusReconciliacao = StatusReconciliacao.CONCILIADO
     divergencias: tuple[str, ...] = ()
 

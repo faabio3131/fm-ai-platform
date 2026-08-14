@@ -10,6 +10,10 @@ class OperacaoPagamentoNaoAutorizada(ErroPagamento):
     pass
 
 
+class FonteFinanceiraNaoConfiavel(ErroPagamento):
+    """Confirmação eletrônica sem evidência produzida por fonte financeira validada."""
+
+
 class ConflitoIdempotenciaPagamento(ErroPagamento):
     pass
 

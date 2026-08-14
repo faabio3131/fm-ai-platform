@@ -32,6 +32,8 @@ def test_harness_e2e_central_e_isolado_e_reusa_renderer():
         "from core.central_pedidos.ui_streamlit import render_central_pedidos"
         in harness
     )
+    assert "contexto_central_teste" in harness
+    assert "contexto=contexto_central_teste(" in harness
     assert "import app" not in harness
     assert 'FM_AI_TEST_MODE") != "1"' in harness
     assert "banco_erp_local.db" in harness
@@ -56,10 +58,9 @@ def test_app_reusa_renderer_central_sem_duplicacao():
         "render_central_pedidos( engine=engine, session_factory=SessionLocal, )"
         in app_normalizado
     )
-    assert (
-        "render_central_pedidos(engine=engine, session_factory=SessionLocal)"
-        in harness_normalizado
-    )
+    assert "render_central_pedidos(" in harness_normalizado
+    assert "session_factory=SessionLocal" in harness_normalizado
+    assert "contexto=contexto_central_teste(" in harness_normalizado
 
     inicio = app.index("if aba_central is not None:")
     fim = app.index("with aba1:", inicio)

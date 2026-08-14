@@ -1,0 +1,1 @@
+CENTRAL-001: implementada, aguardando gates e validacao manual. PagBank segue pendente por dependencia externa.

@@ -1,0 +1,81 @@
+name: V1 Wave1 PDV Browser Gate
+
+on:
+  push:
+    branches: [main, impl/v1-wave1-authoritative-transactions, integration/v1-functional-baseline]
+    paths:
+      - 'app.py'
+      - 'playwright.pdv.config.ts'
+      - 'core/pdv/**'
+      - 'core/pedidos/**'
+      - 'core/pagamentos/**'
+      - 'core/estoque/**'
+      - 'core/eventos/**'
+      - 'application/**'
+      - 'infra/transacoes/**'
+      - 'migrations/**'
+      - 'tests/e2e/**'
+      - 'tests/e2e-pdv/**'
+      - '.github/workflows/v1-wave1-pdv-e2e.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app.py'
+      - 'playwright.pdv.config.ts'
+      - 'core/pdv/**'
+      - 'core/pedidos/**'
+      - 'core/pagamentos/**'
+      - 'core/estoque/**'
+      - 'core/eventos/**'
+      - 'application/**'
+      - 'infra/transacoes/**'
+      - 'migrations/**'
+      - 'tests/e2e/**'
+      - 'tests/e2e-pdv/**'
+      - '.github/workflows/v1-wave1-pdv-e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pdv-browser:
+    name: PDV canary no navegador
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Instalar dependências Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Instalar dependências Node
+        run: npm ci
+      - name: Instalar Chromium Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Executar jornada PDV canary no Streamlit
+        env:
+          FM_AI_TEST_MODE: '1'
+          FM_AI_PDV_MODE: authoritative_canary
+          FM_AI_TEST_TENANT: tenant-e2e
+          FM_AI_TEST_UNIDADE: unidade-e2e
+          FM_AI_TEST_TERMINAL: pdv-e2e
+        run: npx playwright test -c playwright.pdv.config.ts --reporter=list
+      - name: Publicar diagnóstico do navegador em caso de falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pdv-browser-failure
+          path: |
+            playwright-report-pdv
+            test-results
+          if-no-files-found: ignore
+          retention-days: 7

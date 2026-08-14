@@ -1,7 +1,13 @@
-"""Feature flag do KDS V1, fail-closed e restrita ao modo de teste nesta PR."""
+"""Feature flag do KDS V1."""
 
-import os
+from core.runtime.registry import module_v1_enabled
 
 
 def kds_v1_enabled() -> bool:
-    return os.getenv("FM_AI_TEST_MODE") == "1" and os.getenv("FM_AI_KDS_V1", "0") == "1"
+    """Libera KDS somente quando pedidos, KDS e autorização reais estiverem prontos."""
+
+    return module_v1_enabled(
+        name="kds",
+        flag_env="FM_AI_KDS_V1",
+        required_adapters=("orders", "kds", "auth"),
+    )

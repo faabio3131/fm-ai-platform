@@ -1,4 +1,3 @@
-# ruff: noqa: F405
 """Mensagens de intenção; não contêm handlers nem acesso a infraestrutura."""
 
 from dataclasses import dataclass, field
@@ -7,7 +6,7 @@ from typing import Any
 
 from .dinheiro import Dinheiro
 from .enums import FormaPagamento, MotivoCancelamento, OrigemPedido, ProducaoStatus
-from .ids import *  # noqa: F403
+from .ids import *
 from .serializacao import Serializavel
 from .tempo import em_utc
 from .tipos import QuantidadeItem

@@ -59,7 +59,7 @@ def decidir_modo(
         and config.flags.payments.payments_v1_enabled
         and config.flags.payments.sales_from_orders_enabled
         and config.flags.payments.legacy_sale_adapter_enabled
-        and not config.flags.stock_ledger_authoritative
+        and config.flags.stock_ledger_authoritative
     )
     if not coerentes:
         raise ConfiguracaoRolloutInvalida("canary_incompleto_ou_nao_confiavel")

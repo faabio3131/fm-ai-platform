@@ -1,8 +1,9 @@
 """Repository financeiro SQLAlchemy, escopado e sem APIs destrutivas."""
 
+from collections.abc import Callable
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Callable, TypeVar, cast
+from typing import TypeVar, cast
 from uuid import NAMESPACE_URL, uuid5
 
 from sqlalchemy import select, update
@@ -12,7 +13,7 @@ from sqlalchemy.orm import Session
 from core.dominio.dinheiro import Dinheiro
 from core.dominio.enums import PagamentoStatus
 
-from .erros import ConflitoIdempotenciaPagamento, ConcorrenciaPagamento
+from .erros import ConcorrenciaPagamento, ConflitoIdempotenciaPagamento
 from .modelos import (
     CodigoCriterioFinanceiro,
     CriterioFinanceiro,
@@ -258,6 +259,22 @@ class RepositorioPagamentosSQLAlchemy:
             )
         ).all()
         return tuple(self._transacao(row) for row in rows)
+
+    def buscar_transacao_externa(
+        self, provedor: str, id_externo: str, tipo: TipoTransacao
+    ) -> TransacaoPagamento | None:
+        rows = self._session.scalars(
+            select(TransacaoPagamentoORM).where(
+                TransacaoPagamentoORM.provedor == provedor,
+                TransacaoPagamentoORM.id_externo == id_externo,
+                TransacaoPagamentoORM.tipo == tipo.value,
+            )
+        ).all()
+        if len(rows) > 1:
+            escopos = {(row.tenant_id, row.unidade_id, row.pagamento_id) for row in rows}
+            if len(escopos) > 1:
+                raise ConflitoIdempotenciaPagamento("referencia_externa_ambigua")
+        return self._transacao(rows[0]) if rows else None
 
     @staticmethod
     def _transacao(row: TransacaoPagamentoORM) -> TransacaoPagamento:
