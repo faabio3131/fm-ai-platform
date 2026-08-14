@@ -1,13 +1,14 @@
 """Porta append-only e implementacao atomica em memoria."""
 
+from collections.abc import Callable
 from dataclasses import replace
 from decimal import Decimal
 from threading import RLock
-from typing import Callable, Protocol, TypeVar
+from typing import Protocol, TypeVar
 
 from .erros import (
-    ConflitoIdempotenciaEstoque,
     ConcorrenciaEstoque,
+    ConflitoIdempotenciaEstoque,
     RecursoEstoqueIndisponivel,
     SaldoInsuficiente,
 )

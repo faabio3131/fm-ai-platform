@@ -20,6 +20,17 @@ from core.runtime.database import build_engine, check_database_health
 from core.runtime.registry import ModuleSpec, module_readiness
 from migrations.runner import assert_schema_current, pending_versions, run_migrations
 
+_EXPECTED_MIGRATIONS = (
+    "0001_security_identity_v1",
+    "0002_credential_references_v1",
+    "0003_legacy_app_schema_v1",
+    "0004_orders_authoritative_v1",
+    "0005_payments_authoritative_v1",
+    "0006_stock_authoritative_v1",
+    "0007_event_bus_persistence_v1",
+    "0008_audit_log_v1",
+)
+
 
 def _clear_runtime_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in (
@@ -129,31 +140,33 @@ def test_sqlite_health_and_versioned_migration_are_idempotent(
     settings = load_runtime_settings(test_database_url="sqlite:///:memory:")
     engine = build_engine(settings)
     assert check_database_health(engine).ok is True
-    assert pending_versions(engine) == (
-        "0001_security_identity_v1",
-        "0002_credential_references_v1",
-        "0003_legacy_app_schema_v1",
-    )
+    assert pending_versions(engine) == _EXPECTED_MIGRATIONS
     with pytest.raises(RuntimeError, match="Schema comercial desatualizado"):
         assert_schema_current(engine)
 
-    assert run_migrations(engine) == (
-        "0001_security_identity_v1",
-        "0002_credential_references_v1",
-        "0003_legacy_app_schema_v1",
-    )
+    assert run_migrations(engine) == _EXPECTED_MIGRATIONS
     assert run_migrations(engine) == ()
     assert pending_versions(engine) == ()
     assert_schema_current(engine)
 
     tables = set(inspect(engine).get_table_names())
-    assert "fm_schema_migrations" in tables
-    assert "fm_usuarios_v1" in tables
-    assert "fm_usuario_papeis_v1" in tables
-    assert "fm_credenciais_referencias_v1" in tables
-    assert "produtos" in tables
-    assert "vendas" in tables
-    assert "configuracoes_meta" in tables
+    for table in (
+        "fm_schema_migrations",
+        "fm_usuarios_v1",
+        "fm_usuario_papeis_v1",
+        "fm_credenciais_referencias_v1",
+        "fm_auditoria_v1",
+        "produtos",
+        "vendas",
+        "configuracoes_meta",
+        "pedidos_v1",
+        "obrigacoes_pagamento_v1",
+        "estoque_ledger_v1",
+        "event_outbox_v1",
+        "event_inbox_v1",
+        "event_dlq_v1",
+    ):
+        assert table in tables
 
 
 def _create_source_database(path: Path) -> None:

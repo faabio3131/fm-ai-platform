@@ -1,0 +1,50 @@
+name: V1 Wave1 Ruff Safe Fix Commit
+
+on:
+  push:
+    branches: [impl/v1-wave1-authoritative-transactions]
+    paths:
+      - '.github/workflows/v1-wave1-ruff-fix-commit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  safe-fix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: impl/v1-wave1-authoritative-transactions
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Instalar Ruff
+        run: pip install ruff==0.16.1
+      - name: Aplicar fixes seguros e capturar residual
+        shell: bash
+        run: |
+          set +e
+          TARGETS="core/pedidos core/pagamentos core/estoque core/eventos core/dominio core/estados infra/eventos infra/transacoes infra/seguranca migrations/runner.py tests/integration/wave1 tests/unit/events tests/unit/runtime/test_runtime_foundation.py"
+          ruff check --fix $TARGETS
+          ruff check $TARGETS > ruff-wave1-after-fix.txt 2>&1
+          echo "exit_code=$?" >> ruff-wave1-after-fix.txt
+          cat ruff-wave1-after-fix.txt
+          exit 0
+      - name: Commitar somente fixes seguros e residual
+        run: |
+          git config user.name "fm-ai-wave1-bot"
+          git config user.email "fm-ai-wave1-bot@users.noreply.github.com"
+          git add core infra migrations tests ruff-wave1-after-fix.txt
+          if git diff --cached --quiet; then
+            echo "Nada para commitar."
+            exit 0
+          fi
+          git diff --check
+          git commit -m "V1 Wave1: apply safe Ruff fixes"
+          git fetch origin impl/v1-wave1-authoritative-transactions
+          git rebase origin/impl/v1-wave1-authoritative-transactions
+          git push origin HEAD:impl/v1-wave1-authoritative-transactions

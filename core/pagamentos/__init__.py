@@ -1,11 +1,11 @@
+from .adaptador_sqlalchemy import RepositorioPagamentosSQLAlchemy  # noqa: F401
 from .adapters import (  # noqa: F401
     AdapterProvedorPagamento,
     ProvedorPagamentoFake,
     WebhookNormalizado,
 )
-from .adaptador_sqlalchemy import RepositorioPagamentosSQLAlchemy  # noqa: F401
 from .flags import FlagsPagamentosV1  # noqa: F401
-from .modelos import *  # noqa: F401,F403
+from .modelos import *
 from .repositorios import (  # noqa: F401
     RepositorioPagamentos,
     RepositorioPagamentosEmMemoria,
@@ -18,10 +18,10 @@ from .servicos import (  # noqa: F401
     processar_webhook,
     reconciliar_pagamentos,
     reconhecer_venda,
-    registrar_falha,
     registrar_estorno,
-    solicitar_estorno,
+    registrar_falha,
     retentar_pagamento,
+    solicitar_estorno,
 )
 from .venda_legada import AdapterVendaLegada  # noqa: F401
 

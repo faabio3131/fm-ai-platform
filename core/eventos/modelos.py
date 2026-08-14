@@ -1,10 +1,11 @@
 """Objetos imutaveis compartilhados pela infraestrutura de eventos."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from types import MappingProxyType
-from typing import Any, Mapping
+from typing import Any
 
 from core.dominio.ids import (
     CausationId,

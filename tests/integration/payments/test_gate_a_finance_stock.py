@@ -20,10 +20,11 @@ from core.estoque.servicos import (
 from core.pagamentos import (
     AdapterVendaLegada,
     MetodoPagamento,
+    ProvedorPagamentoFake,
     RepositorioPagamentosEmMemoria,
     avaliar_criterio_financeiro,
-    confirmar_pagamento,
     criar_obrigacao_pagamento,
+    processar_webhook,
     reconhecer_venda,
 )
 from core.seguranca import ContextoExecucao, Permissao
@@ -75,6 +76,20 @@ def avancar(
             decisao_cozinha=decisao,
         ),
     ).snapshot
+
+
+def _webhook_pix_confirmado():
+    return ProvedorPagamentoFake().normalizar_webhook(
+        {
+            "evento_externo": "evt-gate",
+            "id_externo": "pix-gate",
+            "tipo": "confirmado",
+            "valor": "24.00",
+            "timestamp": AGORA,
+            "assinatura_validada": True,
+            "idempotency_key": "confirmacao-gate",
+        }
+    )
 
 
 def test_gate_a_fluxo_real_prova_zero_dupla_baixa_e_zero_dupla_venda() -> None:
@@ -146,17 +161,15 @@ def test_gate_a_fluxo_real_prova_zero_dupla_baixa_e_zero_dupla_venda() -> None:
         idempotency_key="obrigacao-gate",
         timestamp=AGORA,
     )
-    confirmado = confirmar_pagamento(
+    webhook = _webhook_pix_confirmado()
+    confirmado = processar_webhook(
         contexto=contexto(),
         repositorio=financeiro,
         pagamento_id="pay-gate",
-        valor=contrato_pedido.total,
-        metodo=MetodoPagamento.PIX,
-        idempotency_key="confirmacao-gate",
+        webhook=webhook,
         expected_version=1,
-        timestamp=AGORA,
-        referencia_externa="pix-gate",
     )
+    assert confirmado is not None
     assert confirmado.pagamento.status == PagamentoStatus.PAGO
     criterio = avaliar_criterio_financeiro(
         contexto=contexto(),
@@ -180,17 +193,14 @@ def test_gate_a_fluxo_real_prova_zero_dupla_baixa_e_zero_dupla_venda() -> None:
         idempotency_key="venda-gate",
         timestamp=AGORA,
     )
-    confirmacao_repetida = confirmar_pagamento(
+    confirmacao_repetida = processar_webhook(
         contexto=contexto(),
         repositorio=financeiro,
         pagamento_id="pay-gate",
-        valor=contrato_pedido.total,
-        metodo=MetodoPagamento.PIX,
-        idempotency_key="confirmacao-gate",
+        webhook=webhook,
         expected_version=2,
-        timestamp=AGORA,
-        referencia_externa="pix-gate",
     )
+    assert confirmacao_repetida is not None
     antes_adapter = estoque.listar_movimentos("tenant-a", "unidade-a", "farinha")
     AdapterVendaLegada().materializar(primeira.venda, produto_id=1)
     depois_financeiro = estoque.listar_movimentos("tenant-a", "unidade-a", "farinha")
