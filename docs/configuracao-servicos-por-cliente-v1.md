@@ -112,3 +112,12 @@ com este contrato e não são a fonte canônica. A migração de valores existen
 deve ocorrer somente com procedimento seguro, sem imprimir o valor e sem apagá-lo
 antes de backup e validação. A remoção física dessas colunas é uma etapa destrutiva
 posterior, não executada automaticamente.
+
+## Adapters e homologação
+
+Os contratos operacionais e acessos externos estão na
+[`matriz de homologação`](matriz-homologacao-integracoes-v1.md). Os adapters
+recebem configuração e segredos resolvidos por tenant/unidade, aplicam timeout e
+retry limitado, sanitizam falhas e ficam bloqueados até a homologação. No Maps,
+geocodificação e Routes usam somente a chave de servidor; a chave de navegador é
+resolvida separadamente para a origem web autorizada.

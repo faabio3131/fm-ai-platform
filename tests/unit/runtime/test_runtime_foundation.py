@@ -18,7 +18,13 @@ from core.runtime.backup import (
 from core.runtime.config import RuntimeEnvironment, load_runtime_settings
 from core.runtime.database import build_engine, check_database_health
 from core.runtime.registry import ModuleSpec, module_readiness
-from migrations.runner import assert_schema_current, pending_versions, run_migrations
+from migrations.runner import (
+    DEFAULT_MIGRATIONS,
+    assert_schema_current,
+    pending_versions,
+    rollback_migration,
+    run_migrations,
+)
 
 _EXPECTED_MIGRATIONS = (
     "0001_security_identity_v1",
@@ -32,6 +38,7 @@ _EXPECTED_MIGRATIONS = (
     "0009_pdv_authoritative_runtime_v1",
     "0010_kds_authoritative_runtime_v1",
     "0011_external_services_config_v1",
+    "0012_restaurant_operations_runtime_v1",
 )
 
 
@@ -170,8 +177,49 @@ def test_sqlite_health_and_versioned_migration_are_idempotent(
         "event_dlq_v1",
         "pdv_finalizacoes_pendentes_v1",
         "fm_servicos_externos_config_v1",
+        "mesas_v1",
+        "entregas_v1",
+        "impressao_jobs_v1",
     ):
         assert table in tables
+
+
+def test_migration_0011_upgrade_downgrade_and_reapply_are_atomic(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_runtime_env(monkeypatch)
+    monkeypatch.setenv("FM_AI_TEST_MODE", "1")
+    engine = build_engine(load_runtime_settings(test_database_url="sqlite:///:memory:"))
+    run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:11])
+
+    assert "fm_servicos_externos_config_v1" in inspect(engine).get_table_names()
+    assert rollback_migration(engine, "0011_external_services_config_v1") == (
+        "0011_external_services_config_v1"
+    )
+    assert "fm_servicos_externos_config_v1" not in inspect(engine).get_table_names()
+    assert pending_versions(engine) == (
+        "0011_external_services_config_v1",
+        "0012_restaurant_operations_runtime_v1",
+    )
+
+    assert run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:11]) == (
+        "0011_external_services_config_v1",
+    )
+    assert "fm_servicos_externos_config_v1" in inspect(engine).get_table_names()
+
+
+def test_rollback_rejeita_migration_nao_reversivel_e_nao_aplicada(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_runtime_env(monkeypatch)
+    monkeypatch.setenv("FM_AI_TEST_MODE", "1")
+    engine = build_engine(load_runtime_settings(test_database_url="sqlite:///:memory:"))
+
+    with pytest.raises(RuntimeError, match="nao aplicada"):
+        rollback_migration(engine, "0011_external_services_config_v1")
+    run_migrations(engine)
+    with pytest.raises(RuntimeError, match="nao possui rollback"):
+        rollback_migration(engine, "0010_kds_authoritative_runtime_v1")
 
 
 def _create_source_database(path: Path) -> None:

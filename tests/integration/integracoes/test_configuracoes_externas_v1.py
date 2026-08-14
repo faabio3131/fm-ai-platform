@@ -12,12 +12,14 @@ from core.integracoes import (
     EstadoProntidaoServico,
     ServicoConfiguracoesExternas,
 )
+from core.integracoes.google_maps import RespostaHTTPMaps
 from core.integracoes.repositorios import ConflitoVersaoConfiguracao
 from core.seguranca.auditoria import RepositorioAuditoriaEmMemoria
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import Papel, Permissao
 from core.seguranca.segredos import ReferenceSecretStore
 from infra.integracoes import (
+    FabricaAdaptersExternos,
     IntegrationConfigBase,
     ProntidaoCredenciaisSQLAlchemy,
     RepositorioConfiguracoesExternasSQLAlchemy,
@@ -227,3 +229,83 @@ def test_repositorio_isola_tenant_e_detecta_concorrencia_otimista() -> None:
             ConflitoVersaoConfiguracao, match="versao_configuracao_divergente"
         ):
             _configurar_maps(servico, contexto, versao_esperada=0)
+
+
+class _HTTPMapsCaptura:
+    def __init__(self) -> None:
+        self.chamadas: list[dict] = []
+
+    def request(self, **kwargs):
+        self.chamadas.append(kwargs)
+        return RespostaHTTPMaps(
+            status_code=200,
+            payload={
+                "status": "OK",
+                "results": [
+                    {
+                        "formatted_address": "Rua Teste",
+                        "place_id": "place-test",
+                        "geometry": {"location": {"lat": -23.5, "lng": -46.6}},
+                    }
+                ],
+            },
+        )
+
+
+def test_fabrica_runtime_resolve_somente_credencial_do_tenant_e_unidade() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    SecurityBase.metadata.create_all(engine)
+    IntegrationConfigBase.metadata.create_all(engine)
+    store = ReferenceSecretStore(
+        mapping={
+            "a-browser": "browser-a",
+            "a-server": "server-a",
+            "b-browser": "browser-b",
+            "b-server": "server-b",
+        }
+    )
+    contexto_a = _contexto(tenant="tenant-a")
+    contexto_b = _contexto(tenant="tenant-b")
+
+    with Session(engine) as session:
+        credenciais = ServicoCredenciaisReferenciadas(session, store)
+        for contexto, prefixo in ((contexto_a, "a"), (contexto_b, "b")):
+            credenciais.rotacionar(
+                contexto=contexto,
+                provedor="google_maps",
+                finalidade="maps_browser_api_key",
+                nova_referencia=f"mapping:{prefixo}-browser",
+            )
+            credenciais.rotacionar(
+                contexto=contexto,
+                provedor="google_maps",
+                finalidade="maps_server_api_key",
+                nova_referencia=f"mapping:{prefixo}-server",
+            )
+            servico, _ = _servico(session, store)
+            _configurar_maps(servico, contexto)
+            servico.registrar_homologacao(
+                contexto=contexto,
+                configuracao_id="maps-loja-1",
+                evidencia_ref=f"evidence://maps/{prefixo}",
+                versao_esperada=1,
+            )
+
+        fabrica = FabricaAdaptersExternos(session=session, secret_store=store)
+        http_a = _HTTPMapsCaptura()
+        http_b = _HTTPMapsCaptura()
+        fabrica.google_maps(
+            contexto=contexto_a, configuracao_id="maps-loja-1", http=http_a
+        ).geocodificar("Rua A")
+        fabrica.google_maps(
+            contexto=contexto_b, configuracao_id="maps-loja-1", http=http_b
+        ).geocodificar("Rua B")
+
+        assert http_a.chamadas[0]["params"]["key"] == "server-a"
+        assert http_b.chamadas[0]["params"]["key"] == "server-b"
+        assert fabrica.chave_navegador_maps(
+            contexto=contexto_a, configuracao_id="maps-loja-1"
+        ) == "browser-a"
+        assert fabrica.chave_navegador_maps(
+            contexto=contexto_b, configuracao_id="maps-loja-1"
+        ) == "browser-b"

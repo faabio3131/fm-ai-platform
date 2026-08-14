@@ -12,14 +12,27 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import cast
 
-from sqlalchemy import Column, DateTime, Engine, MetaData, String, Table, insert, select
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Engine,
+    MetaData,
+    String,
+    Table,
+    delete,
+    insert,
+    select,
+)
 from sqlalchemy.engine import Connection
 
+from core.entrega.modelos_orm import DeliveryBase
 from core.estoque.modelos_orm import StockBase
+from core.impressao.modelos_orm import ImpressaoBase
 from core.kds.modelos_orm import KDSBase
 from core.pagamentos.modelos_orm import PaymentsBase
 from core.pdv.modelos_orm import PDVBase
 from core.pedidos.modelos_orm import OrdersBase
+from core.salao.modelos_orm import SalaoBase
 from infra.eventos.modelos_orm import EventBusBase
 from infra.integracoes.modelos_orm import IntegrationConfigBase
 from infra.legacy_schema import legacy_metadata
@@ -42,6 +55,7 @@ _schema_migrations = Table(
 class Migration:
     version: str
     apply: Callable[[Connection], None]
+    revert: Callable[[Connection], None] | None = None
 
     def __post_init__(self) -> None:
         if not self.version.strip():
@@ -94,6 +108,22 @@ def _external_services_config_v1(connection: Connection) -> None:
     IntegrationConfigBase.metadata.create_all(bind=connection, checkfirst=True)
 
 
+def _revert_external_services_config_v1(connection: Connection) -> None:
+    IntegrationConfigBase.metadata.drop_all(bind=connection, checkfirst=True)
+
+
+def _restaurant_operations_runtime_v1(connection: Connection) -> None:
+    SalaoBase.metadata.create_all(bind=connection, checkfirst=True)
+    DeliveryBase.metadata.create_all(bind=connection, checkfirst=True)
+    ImpressaoBase.metadata.create_all(bind=connection, checkfirst=True)
+
+
+def _revert_restaurant_operations_runtime_v1(connection: Connection) -> None:
+    ImpressaoBase.metadata.drop_all(bind=connection, checkfirst=True)
+    DeliveryBase.metadata.drop_all(bind=connection, checkfirst=True)
+    SalaoBase.metadata.drop_all(bind=connection, checkfirst=True)
+
+
 DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001_security_identity_v1", _security_identity_v1),
     Migration("0002_credential_references_v1", _credential_references_v1),
@@ -105,7 +135,16 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0008_audit_log_v1", _audit_log_v1),
     Migration("0009_pdv_authoritative_runtime_v1", _pdv_authoritative_runtime_v1),
     Migration("0010_kds_authoritative_runtime_v1", _kds_authoritative_runtime_v1),
-    Migration("0011_external_services_config_v1", _external_services_config_v1),
+    Migration(
+        "0011_external_services_config_v1",
+        _external_services_config_v1,
+        _revert_external_services_config_v1,
+    ),
+    Migration(
+        "0012_restaurant_operations_runtime_v1",
+        _restaurant_operations_runtime_v1,
+        _revert_restaurant_operations_runtime_v1,
+    ),
 )
 
 
@@ -166,3 +205,39 @@ def run_migrations(
         applied_now.append(migration.version)
 
     return tuple(applied_now)
+
+
+def rollback_migration(engine: Engine, version: str) -> str:
+    """Reverte uma migration explicitamente reversível em uma única transação.
+
+    O rollback é deliberadamente restrito à última versão aplicada. Isso impede
+    remover uma dependência estrutural ainda usada por migrations posteriores.
+    Migrations sem ``revert`` permanecem fail-closed e exigem um plano manual.
+    """
+
+    by_version = {migration.version: migration for migration in DEFAULT_MIGRATIONS}
+    migration = by_version.get(version)
+    if migration is None:
+        raise ValueError("migration desconhecida")
+    if migration.revert is None:
+        raise RuntimeError("migration nao possui rollback automatico")
+
+    with engine.begin() as connection:
+        applied = applied_versions(connection)
+        if version not in applied:
+            raise RuntimeError("migration nao aplicada")
+        latest = next(
+            (
+                candidate.version
+                for candidate in reversed(DEFAULT_MIGRATIONS)
+                if candidate.version in applied
+            ),
+            None,
+        )
+        if latest != version:
+            raise RuntimeError("rollback permitido somente para a ultima migration")
+        migration.revert(connection)
+        connection.execute(
+            delete(_schema_migrations).where(_schema_migrations.c.version == version)
+        )
+    return version
