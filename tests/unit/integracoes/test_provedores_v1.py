@@ -11,6 +11,7 @@ from core.integracoes.provedores import (
     ConfiguracaoGeminiTenant,
     ConfiguracaoMercadoPago,
     ConfiguracaoMeta,
+    ErroProvedorExterno,
     ErroProvedorTransitorio,
     GeminiTenantAdapter,
     MercadoPagoAdapter,
@@ -84,12 +85,27 @@ def test_meta_cobre_whatsapp_facebook_instagram_e_assinatura() -> None:
         legenda="Oferta",
         idempotency_key="media-1",
     ) == "media-1"
-    payload = b'{"object":"whatsapp_business_account"}'
+    payload = (
+        b'{"object":"whatsapp_business_account","entry":[{"id":"waba-1",'
+        b'"changes":[{"field":"messages","value":{"messages":[{"id":'
+        b'"wamid-in-1"}]}}]}]}'
+    )
     assinatura = "sha256=" + hmac.new(b"app-secret", payload, hashlib.sha256).hexdigest()
     assert whatsapp.validar_webhook(payload, assinatura) is True
+    evento = whatsapp.normalizar_webhook(
+        payload_bruto=payload, assinatura=assinatura
+    )[0]
+    assert evento.recurso_id == "wamid-in-1"
+    assert evento.idempotency_key == "meta:waba-1:messages:wamid-in-1:mensagem"
     assert whatsapp.validar_desafio(verify_token="verify-secret", challenge="123") == "123"
+    assert http.chamadas[0]["json_body"]["biz_opaque_callback_data"] == "msg-1"
     assert "access-secret" not in repr(config)
     assert "app-secret" not in repr(config)
+
+    with pytest.raises(ErroProvedorExterno, match="nao autorizado"):
+        facebook.enviar_whatsapp(
+            destinatario="5511999999999", texto="x", idempotency_key="cross-1"
+        )
 
 
 def test_mercado_pago_pix_idempotente_e_webhook_hmac() -> None:
@@ -102,6 +118,12 @@ def test_mercado_pago_pix_idempotente_e_webhook_hmac() -> None:
                         "status": "pending",
                         "transaction_amount": "10.50",
                         "external_reference": "pedido-1",
+                        "point_of_interaction": {
+                            "transaction_data": {
+                                "qr_code": "000201PIX",
+                                "ticket_url": "https://mercadopago.test/ticket/42",
+                            }
+                        },
                     },
                 )
         ]
@@ -119,6 +141,7 @@ def test_mercado_pago_pix_idempotente_e_webhook_hmac() -> None:
         idempotency_key="idem-1",
     )
     assert cobranca.pagamento_id == "42"
+    assert cobranca.pix_copia_cola == "000201PIX"
     assert http.chamadas[0]["headers"]["X-Idempotency-Key"] == "idem-1"
 
     manifesto = "id:42;request-id:req-1;ts:1710000000;"
@@ -131,6 +154,13 @@ def test_mercado_pago_pix_idempotente_e_webhook_hmac() -> None:
     assert not adapter.validar_webhook(
         data_id="42", request_id="req-1", x_signature="ts=1710000000,v1=invalida"
     )
+    evento = adapter.normalizar_webhook(
+        payload={"id": "evt-1", "action": "payment.updated"},
+        data_id="42",
+        request_id="req-1",
+        x_signature=f"ts=1710000000,v1={digest}",
+    )
+    assert evento.idempotency_key == "mercado_pago:evt-1:42:payment.updated"
 
 
 class GeminiFixture:
@@ -174,3 +204,5 @@ def test_retry_esgotado_sanitiza_excecao_do_provedor() -> None:
     with pytest.raises(ErroProvedorTransitorio) as capturado:
         adapter.publicar_facebook(mensagem="x", idempotency_key="post-timeout")
     assert "access-secret" not in str(capturado.value)
+    assert "reconciliacao obrigatoria" in str(capturado.value)
+    assert len(http.chamadas) == 1
