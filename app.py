@@ -613,6 +613,11 @@ def render_cadastro_ficha_tecnica(
 
 
 def executar_forecasting_e_alertar(db_session):
+    if not is_test_mode():
+        return (
+            "⚠️ Disparo legado bloqueado. Configure e homologue "
+            "mensageria.whatsapp/meta no control plane seguro da V1."
+        )
     insumos = db_session.query(Insumo).all()
     destinatarios = (
         db_session.query(ContatoGerencial)
@@ -1069,7 +1074,9 @@ with aba3:
     lista_clientes_pdv = db_pdv.query(Cliente).all()
     config_gtw = db_pdv.query(ConfiguracaoMeta).first()
 
-    modo_producao_ativo = bool(
+    # A configuração legada só existe para E2E isolado. Nunca promove o PDV
+    # comercial nem autoriza uso das colunas de segredo em texto puro.
+    modo_producao_ativo = is_test_mode() and bool(
         config_gtw and config_gtw.gateway_api_key and config_gtw.gateway_pix_key
     )
 
@@ -1079,7 +1086,9 @@ with aba3:
         )
     else:
         st.warning(
-            "🟡 **MODO SANDBOX (SIMULADOR DE TREINAMENTO):** Credenciais bancárias PJ ainda não cadastradas. O sistema está gerando Pix de teste. Para ativar recebimentos reais na conta da empresa, configure abaixo."
+            "🟡 **GATEWAY LEGADO DESATIVADO:** nenhuma credencial armazenada nas "
+            "tabelas legadas autoriza pagamentos reais. Use a configuração segura "
+            "por cliente e conclua a homologação do provedor."
         )
 
     with st.expander(
@@ -1103,6 +1112,7 @@ with aba3:
                         "Gerencianet / Efí",
                     ],
                     index=0,
+                    disabled=not is_test_mode(),
                 )
                 g_pix_key = st.text_input(
                     "Chave Pix CNPJ da Loja",
@@ -1110,6 +1120,7 @@ with aba3:
                     if config_gtw and config_gtw.gateway_pix_key
                     else "",
                     placeholder="Ex: 12.345.678/0001-90",
+                    disabled=not is_test_mode(),
                 )
             with g_col2:
                 g_api_key = st.text_input(
@@ -1119,15 +1130,22 @@ with aba3:
                     else "",
                     type="password",
                     placeholder="Cole o token secreto do banco aqui...",
+                    disabled=not is_test_mode(),
                 )
                 st.caption(
-                    "A chave secreta é armazenada com segurança no banco de dados local da aplicação."
+                    "Formulário legado disponível somente no E2E isolado. Em runtime "
+                    "normal, segredos são configurados por referência no control plane V1."
                 )
 
             btn_salvar_gateway = st.form_submit_button(
-                "💾 Salvar Credenciais & Ativar Modo Produção", type="primary"
+                "💾 Salvar configuração simulada de teste",
+                type="primary",
+                disabled=not is_test_mode(),
             )
             if btn_salvar_gateway:
+                if not is_test_mode():
+                    st.error("Configuração legada bloqueada fora do ambiente de teste.")
+                    st.stop()
                 db_g_save = get_db()
                 try:
                     conf_db = db_g_save.query(ConfiguracaoMeta).first()
@@ -1139,7 +1157,7 @@ with aba3:
                     conf_db.gateway_api_key = g_api_key
                     db_g_save.commit()
                     st.success(
-                        "✅ Credenciais do Gateway salvas com sucesso! O sistema assumiu o Modo Produção."
+                        "✅ Configuração simulada salva no banco temporário de teste."
                     )
                     st.rerun()
                 except Exception as e_gtw:
