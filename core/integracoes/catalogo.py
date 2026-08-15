@@ -42,6 +42,12 @@ class CatalogoServicosExternos:
         except KeyError as exc:
             raise ErroConfiguracaoServico("servico_provedor_nao_suportado") from exc
 
+    def listar(self) -> tuple[EspecificacaoServico, ...]:
+        return tuple(
+            self._itens[chave]
+            for chave in sorted(self._itens, key=lambda item: (item[0], item[1]))
+        )
+
 
 CATALOGO_V1 = CatalogoServicosExternos(
     (
