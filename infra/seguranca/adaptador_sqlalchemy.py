@@ -90,6 +90,13 @@ class RepositorioIdentidadesSQLAlchemy:
             ativo=True,
         )
         self._session.add(usuario)
+
+        # Garante que a linha-pai exista fisicamente antes das associações que
+        # possuem FK para fm_usuarios_v1. Sem este flush intermediário, objetos
+        # filhos criados apenas com usuario_id podem ser emitidos primeiro em
+        # alguns cenários, causando ForeignKeyViolation no PostgreSQL.
+        self._session.flush()
+
         self._session.add_all(
             [UsuarioPapelORM(usuario_id=uid, papel=papel.value) for papel in papeis_set]
         )
