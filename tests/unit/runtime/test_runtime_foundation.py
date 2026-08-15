@@ -42,6 +42,7 @@ _EXPECTED_MIGRATIONS = (
     "0013_core_runtime_v1",
     "0014_legacy_schema_upgrade_v1",
     "0015_legacy_schema_reconciliation_v1",
+    "0016_integration_secret_vault_v1",
 )
 
 
@@ -168,6 +169,7 @@ def test_sqlite_health_and_versioned_migration_are_idempotent(
         "fm_usuarios_v1",
         "fm_usuario_papeis_v1",
         "fm_credenciais_referencias_v1",
+        "fm_segredos_integracoes_v1",
         "fm_auditoria_v1",
         "produtos",
         "vendas",
@@ -213,6 +215,7 @@ def test_migration_0011_upgrade_downgrade_and_reapply_are_atomic(
         "0013_core_runtime_v1",
         "0014_legacy_schema_upgrade_v1",
         "0015_legacy_schema_reconciliation_v1",
+        "0016_integration_secret_vault_v1",
     )
 
     assert run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:11]) == (
@@ -250,6 +253,7 @@ def test_migration_0013_core_upgrade_downgrade_e_reapply(
         "0013_core_runtime_v1",
         "0014_legacy_schema_upgrade_v1",
         "0015_legacy_schema_reconciliation_v1",
+        "0016_integration_secret_vault_v1",
     )
     assert run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:13]) == (
         "0013_core_runtime_v1",
