@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from core.runtime.config import RuntimeEnvironment, RuntimeSettings
 from core.seguranca.autenticacao import IdentidadeUsuario, ServicoAutenticacao
 from core.seguranca.erros import CredenciaisInvalidas, UsuarioInativo
-from core.seguranca.permissoes import Papel
+from core.seguranca.permissoes import Papel, Permissao
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 
 _TRUE_VALUES = {"1", "true", "yes", "on"}
@@ -139,6 +139,12 @@ def render_identity_sidebar(
     st.info(f"🏪 **Unidade ativa:**\n{settings.unidade_id}")
     papeis = ", ".join(sorted(papel.value for papel in identity.papeis))
     st.caption(f"Perfil: {papeis}")
+    if Permissao.INTEGRACAO_GERENCIAR in identity.permissoes:
+        st.page_link(
+            "pages/7_Integracoes_e_Credenciais.py",
+            label="🔐 Integrações e Credenciais",
+            use_container_width=True,
+        )
     if _auth_required(settings) and st.button("Sair", key="fm_ai_logout_v1"):
         st.session_state.pop(_SESSION_KEY, None)
         _clear_failures()
