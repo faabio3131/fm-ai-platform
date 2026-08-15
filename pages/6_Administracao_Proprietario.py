@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import streamlit as st
 
 from core.runtime import build_engine, load_runtime_settings
+from core.seguranca.permissoes import Permissao
 from infra.seguranca.session_guard import build_session_factory
 from infra.streamlit_app.auth_ui import (
     render_identity_sidebar,
@@ -48,12 +49,18 @@ st.caption(
 st.success("Acesso administrativo confirmado por até 10 minutos nesta sessão.")
 
 st.subheader("Configurações sensíveis")
-st.page_link(
-    "pages/7_Integracoes_e_Credenciais.py",
-    label="Integrações e Credenciais",
-    icon="🔑",
-    use_container_width=True,
-)
+if Permissao.INTEGRACAO_GERENCIAR in identity.permissoes:
+    st.page_link(
+        "pages/7_Integracoes_e_Credenciais.py",
+        label="Integrações e Credenciais",
+        icon="🔑",
+        use_container_width=True,
+    )
+else:
+    st.caption(
+        "Integrações e Credenciais não está disponível para este usuário porque a "
+        "permissão específica de gerenciamento de integrações não foi concedida."
+    )
 
 st.info(
     "As demais funções administrativas — financeiro, relatórios, usuários, permissões "
