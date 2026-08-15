@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from dotenv import load_dotenv
+
 from core.runtime import build_engine, check_database_health, load_runtime_settings
 from migrations.runner import run_migrations
 
 
 def main() -> int:
+    load_dotenv(dotenv_path=".env")
     settings = load_runtime_settings()
     engine = build_engine(settings)
     health = check_database_health(engine)

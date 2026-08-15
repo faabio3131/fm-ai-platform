@@ -58,8 +58,10 @@ def test_upgrade_de_schema_legado_preserva_dados_e_e_idempotente() -> None:
         column["name"] for column in inspect(engine).get_columns("insumos")
     }
 
-    assert run_migrations(engine) == ("0014_legacy_schema_upgrade_v1",)
-    assert run_migrations(engine) == ()
+    assert run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:14]) == (
+        "0014_legacy_schema_upgrade_v1",
+    )
+    assert run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:14]) == ()
 
     columns = {
         column["name"] for column in inspect(engine).get_columns("insumos")

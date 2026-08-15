@@ -41,6 +41,7 @@ _EXPECTED_MIGRATIONS = (
     "0012_restaurant_operations_runtime_v1",
     "0013_core_runtime_v1",
     "0014_legacy_schema_upgrade_v1",
+    "0015_legacy_schema_reconciliation_v1",
 )
 
 
@@ -211,6 +212,7 @@ def test_migration_0011_upgrade_downgrade_and_reapply_are_atomic(
         "0012_restaurant_operations_runtime_v1",
         "0013_core_runtime_v1",
         "0014_legacy_schema_upgrade_v1",
+        "0015_legacy_schema_reconciliation_v1",
     )
 
     assert run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:11]) == (
@@ -247,6 +249,7 @@ def test_migration_0013_core_upgrade_downgrade_e_reapply(
     assert pending_versions(engine) == (
         "0013_core_runtime_v1",
         "0014_legacy_schema_upgrade_v1",
+        "0015_legacy_schema_reconciliation_v1",
     )
     assert run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:13]) == (
         "0013_core_runtime_v1",
