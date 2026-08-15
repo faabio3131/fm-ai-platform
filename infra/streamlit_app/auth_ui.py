@@ -177,20 +177,20 @@ def require_sensitive_reauthentication(
     session_factory: Callable[[], Session],
     settings: RuntimeSettings,
 ) -> None:
-    """Exige confirmação recente de senha para abrir credenciais de integrações."""
+    """Exige confirmação recente de senha para abrir áreas administrativas sensíveis."""
 
     if Permissao.INTEGRACAO_GERENCIAR not in identity.permissoes or not (
         identity.papeis & _SENSITIVE_ROLES
     ):
         st.error(
             "Área restrita: somente gerente ou proprietário/administrador pode "
-            "gerenciar credenciais de integrações."
+            "acessar configurações administrativas sensíveis."
         )
         st.stop()
 
     if identity.usuario_id == "runtime-local" or not _auth_required(settings):
         st.error(
-            "Acesso às credenciais bloqueado para a identidade automática de "
+            "Acesso administrativo sensível bloqueado para a identidade automática de "
             "desenvolvimento. Ative a autenticação V1 e entre com um usuário real "
             "de gerente ou proprietário/administrador."
         )
@@ -212,7 +212,7 @@ def require_sensitive_reauthentication(
 
     st.warning(
         "Área protegida. Confirme novamente sua senha de gerente ou "
-        "proprietário/administrador para acessar credenciais."
+        "proprietário/administrador para continuar."
     )
     st.caption(f"Usuário autenticado: {identity.email}")
     with st.form("fm_ai_sensitive_reauth_v1", clear_on_submit=True):
@@ -270,10 +270,13 @@ def render_identity_sidebar(
     st.info(f"🏪 **Unidade ativa:**\n{settings.unidade_id}")
     papeis = ", ".join(sorted(papel.value for papel in identity.papeis))
     st.caption(f"Perfil: {papeis}")
-    if Permissao.INTEGRACAO_GERENCIAR in identity.permissoes:
+    if (
+        Permissao.INTEGRACAO_GERENCIAR in identity.permissoes
+        and identity.papeis & _SENSITIVE_ROLES
+    ):
         st.page_link(
-            "pages/7_Integracoes_e_Credenciais.py",
-            label="🔐 Integrações e Credenciais",
+            "pages/6_Administracao_Proprietario.py",
+            label="🔐 Administração / Proprietário",
             use_container_width=True,
         )
     if _auth_required(settings) and st.button("Sair", key="fm_ai_logout_v1"):
