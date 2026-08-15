@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import getpass
 
+from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 
 from core.runtime import build_engine, check_database_health, load_runtime_settings
@@ -25,6 +26,10 @@ def main() -> int:
     parser.add_argument("--email", required=True)
     args = parser.parse_args()
 
+    # Mantém o bootstrap de administrador no mesmo runtime/banco usado pelo app.
+    # Sem carregar o .env aqui, o script pode cair nos defaults locais enquanto o
+    # Streamlit usa DATABASE_URL/tenant/unidade reais definidos no ambiente.
+    load_dotenv()
     settings = load_runtime_settings()
     engine = build_engine(settings)
     health = check_database_health(engine)
