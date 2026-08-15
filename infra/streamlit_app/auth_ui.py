@@ -55,6 +55,25 @@ def _development_identity(settings: RuntimeSettings) -> IdentidadeUsuario:
     )
 
 
+def can_access_sensitive_area(
+    identity: IdentidadeUsuario,
+    *,
+    required_permission: Permissao | None = None,
+) -> bool:
+    """Decide autorização de entrada sem confundir papel com permissão da seção.
+
+    A área Administração/Proprietário exige papel privilegiado. Cada subseção pode
+    acrescentar sua própria permissão (por exemplo, integrações) sem transformar
+    ``integracao.gerenciar`` em uma chave universal de toda a administração.
+    """
+
+    if not identity.ativo or not (identity.papeis & _SENSITIVE_ROLES):
+        return False
+    if required_permission is None:
+        return True
+    return required_permission in identity.permissoes
+
+
 def _blocked_until() -> datetime | None:
     value = st.session_state.get(_BLOCKED_UNTIL_KEY)
     return value if isinstance(value, datetime) else None
@@ -176,15 +195,15 @@ def require_sensitive_reauthentication(
     identity: IdentidadeUsuario,
     session_factory: Callable[[], Session],
     settings: RuntimeSettings,
+    required_permission: Permissao | None = None,
 ) -> None:
     """Exige confirmação recente de senha para abrir áreas administrativas sensíveis."""
 
-    if Permissao.INTEGRACAO_GERENCIAR not in identity.permissoes or not (
-        identity.papeis & _SENSITIVE_ROLES
+    if not can_access_sensitive_area(
+        identity, required_permission=required_permission
     ):
         st.error(
-            "Área restrita: somente gerente ou proprietário/administrador pode "
-            "acessar configurações administrativas sensíveis."
+            "Área restrita: seu usuário não possui autorização para esta seção administrativa."
         )
         st.stop()
 
@@ -238,8 +257,9 @@ def require_sensitive_reauthentication(
                 and authenticated.tenant_id == identity.tenant_id
                 and identity.unidade_id in authenticated.unidades_permitidas
             )
-            privileged = bool(authenticated.papeis & _SENSITIVE_ROLES) and (
-                Permissao.INTEGRACAO_GERENCIAR in authenticated.permissoes
+            privileged = can_access_sensitive_area(
+                authenticated,
+                required_permission=required_permission,
             )
             if not same_scope or not privileged:
                 raise CredenciaisInvalidas("credenciais invalidas")
@@ -270,10 +290,7 @@ def render_identity_sidebar(
     st.info(f"🏪 **Unidade ativa:**\n{settings.unidade_id}")
     papeis = ", ".join(sorted(papel.value for papel in identity.papeis))
     st.caption(f"Perfil: {papeis}")
-    if (
-        Permissao.INTEGRACAO_GERENCIAR in identity.permissoes
-        and identity.papeis & _SENSITIVE_ROLES
-    ):
+    if can_access_sensitive_area(identity):
         st.page_link(
             "pages/6_Administracao_Proprietario.py",
             label="🔐 Administração / Proprietário",
