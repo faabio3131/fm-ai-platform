@@ -20,8 +20,14 @@ _TRUE_VALUES = {"1", "true", "yes", "on"}
 _SESSION_KEY = "_fm_ai_authenticated_identity_v1"
 _FAILED_KEY = "_fm_ai_auth_failed_attempts_v1"
 _BLOCKED_UNTIL_KEY = "_fm_ai_auth_blocked_until_v1"
+_SENSITIVE_AUTH_KEY = "_fm_ai_sensitive_auth_v1"
+_SENSITIVE_FAILED_KEY = "_fm_ai_sensitive_auth_failed_attempts_v1"
+_SENSITIVE_BLOCKED_UNTIL_KEY = "_fm_ai_sensitive_auth_blocked_until_v1"
 _MAX_ATTEMPTS = 5
 _BLOCK_SECONDS = 30
+_SENSITIVE_BLOCK_SECONDS = 60
+_SENSITIVE_TTL_SECONDS = 600
+_SENSITIVE_ROLES = frozenset({Papel.ADMINISTRADOR, Papel.GERENTE})
 
 
 def _auth_required(settings: RuntimeSettings) -> bool:
@@ -67,6 +73,39 @@ def _register_failure() -> None:
 def _clear_failures() -> None:
     st.session_state.pop(_FAILED_KEY, None)
     st.session_state.pop(_BLOCKED_UNTIL_KEY, None)
+
+
+def _sensitive_blocked_until() -> datetime | None:
+    value = st.session_state.get(_SENSITIVE_BLOCKED_UNTIL_KEY)
+    return value if isinstance(value, datetime) else None
+
+
+def _register_sensitive_failure() -> None:
+    attempts = int(st.session_state.get(_SENSITIVE_FAILED_KEY, 0)) + 1
+    st.session_state[_SENSITIVE_FAILED_KEY] = attempts
+    if attempts >= _MAX_ATTEMPTS:
+        st.session_state[_SENSITIVE_BLOCKED_UNTIL_KEY] = datetime.now(
+            timezone.utc
+        ) + timedelta(seconds=_SENSITIVE_BLOCK_SECONDS)
+        st.session_state[_SENSITIVE_FAILED_KEY] = 0
+
+
+def _clear_sensitive_auth() -> None:
+    st.session_state.pop(_SENSITIVE_AUTH_KEY, None)
+    st.session_state.pop(_SENSITIVE_FAILED_KEY, None)
+    st.session_state.pop(_SENSITIVE_BLOCKED_UNTIL_KEY, None)
+
+
+def _sensitive_auth_valid(identity: IdentidadeUsuario) -> bool:
+    grant = st.session_state.get(_SENSITIVE_AUTH_KEY)
+    if not isinstance(grant, dict):
+        return False
+    expires_at = grant.get("expires_at")
+    return bool(
+        grant.get("usuario_id") == identity.usuario_id
+        and isinstance(expires_at, datetime)
+        and expires_at > datetime.now(timezone.utc)
+    )
 
 
 def require_authentication(
@@ -115,6 +154,7 @@ def require_authentication(
                 raise CredenciaisInvalidas("credenciais invalidas")
             st.session_state[_SESSION_KEY] = identity
             _clear_failures()
+            _clear_sensitive_auth()
             st.rerun()
         except (CredenciaisInvalidas, UsuarioInativo):
             _register_failure()
@@ -129,6 +169,97 @@ def require_authentication(
 
     st.stop()
     raise RuntimeError("unreachable")
+
+
+def require_sensitive_reauthentication(
+    *,
+    identity: IdentidadeUsuario,
+    session_factory: Callable[[], Session],
+    settings: RuntimeSettings,
+) -> None:
+    """Exige confirmação recente de senha para abrir credenciais de integrações."""
+
+    if Permissao.INTEGRACAO_GERENCIAR not in identity.permissoes or not (
+        identity.papeis & _SENSITIVE_ROLES
+    ):
+        st.error(
+            "Área restrita: somente gerente ou proprietário/administrador pode "
+            "gerenciar credenciais de integrações."
+        )
+        st.stop()
+
+    if identity.usuario_id == "runtime-local" or not _auth_required(settings):
+        st.error(
+            "Acesso às credenciais bloqueado para a identidade automática de "
+            "desenvolvimento. Ative a autenticação V1 e entre com um usuário real "
+            "de gerente ou proprietário/administrador."
+        )
+        st.stop()
+
+    if _sensitive_auth_valid(identity):
+        return
+
+    blocked = _sensitive_blocked_until()
+    now = datetime.now(timezone.utc)
+    if blocked is not None and blocked > now:
+        remaining = max(1, int((blocked - now).total_seconds()))
+        st.error(
+            f"Muitas tentativas de confirmação inválidas. Aguarde {remaining} segundos."
+        )
+        st.stop()
+    if blocked is not None:
+        _clear_sensitive_auth()
+
+    st.warning(
+        "Área protegida. Confirme novamente sua senha de gerente ou "
+        "proprietário/administrador para acessar credenciais."
+    )
+    st.caption(f"Usuário autenticado: {identity.email}")
+    with st.form("fm_ai_sensitive_reauth_v1", clear_on_submit=True):
+        password = st.text_input(
+            "Senha",
+            type="password",
+            autocomplete="current-password",
+        )
+        submit = st.form_submit_button(
+            "Desbloquear por 10 minutos",
+            type="primary",
+            use_container_width=True,
+        )
+
+    if submit:
+        db = session_factory()
+        try:
+            authenticated = ServicoAutenticacao(
+                RepositorioIdentidadesSQLAlchemy(db)
+            ).autenticar(email=identity.email, password=password)
+            same_scope = (
+                authenticated.usuario_id == identity.usuario_id
+                and authenticated.tenant_id == identity.tenant_id
+                and identity.unidade_id in authenticated.unidades_permitidas
+            )
+            privileged = bool(authenticated.papeis & _SENSITIVE_ROLES) and (
+                Permissao.INTEGRACAO_GERENCIAR in authenticated.permissoes
+            )
+            if not same_scope or not privileged:
+                raise CredenciaisInvalidas("credenciais invalidas")
+            st.session_state[_SENSITIVE_AUTH_KEY] = {
+                "usuario_id": identity.usuario_id,
+                "expires_at": datetime.now(timezone.utc)
+                + timedelta(seconds=_SENSITIVE_TTL_SECONDS),
+            }
+            st.session_state.pop(_SENSITIVE_FAILED_KEY, None)
+            st.session_state.pop(_SENSITIVE_BLOCKED_UNTIL_KEY, None)
+            st.rerun()
+        except (CredenciaisInvalidas, UsuarioInativo):
+            _register_sensitive_failure()
+            st.error("Senha inválida ou usuário sem autorização para esta área.")
+        except SQLAlchemyError:
+            st.error("Não foi possível validar a autorização neste momento.")
+        finally:
+            db.close()
+
+    st.stop()
 
 
 def render_identity_sidebar(
@@ -148,4 +279,5 @@ def render_identity_sidebar(
     if _auth_required(settings) and st.button("Sair", key="fm_ai_logout_v1"):
         st.session_state.pop(_SESSION_KEY, None)
         _clear_failures()
+        _clear_sensitive_auth()
         st.rerun()
