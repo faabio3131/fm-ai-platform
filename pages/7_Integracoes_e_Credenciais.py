@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import streamlit as st
 
 from core.runtime import build_engine, load_runtime_settings
+from core.seguranca.permissoes import Permissao
 from infra.seguranca.session_guard import build_session_factory
 from infra.streamlit_app.auth_ui import (
     render_identity_sidebar,
@@ -38,5 +39,6 @@ require_sensitive_reauthentication(
     identity=identity,
     session_factory=session_factory,
     settings=settings,
+    required_permission=Permissao.INTEGRACAO_GERENCIAR,
 )
 render_integracoes_admin(identidade=identity, session_factory=session_factory)
