@@ -7,7 +7,11 @@ import streamlit as st
 
 from core.runtime import build_engine, load_runtime_settings
 from infra.seguranca.session_guard import build_session_factory
-from infra.streamlit_app.auth_ui import require_authentication, render_identity_sidebar
+from infra.streamlit_app.auth_ui import (
+    render_identity_sidebar,
+    require_authentication,
+    require_sensitive_reauthentication,
+)
 from infra.streamlit_app.integracoes_admin import render_integracoes_admin
 from migrations.runner import assert_schema_current
 
@@ -30,4 +34,9 @@ with st.sidebar:
     st.subheader("🔐 Acesso Corporativo")
     render_identity_sidebar(identity, settings)
 
+require_sensitive_reauthentication(
+    identity=identity,
+    session_factory=session_factory,
+    settings=settings,
+)
 render_integracoes_admin(identidade=identity, session_factory=session_factory)
