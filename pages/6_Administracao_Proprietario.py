@@ -46,7 +46,14 @@ st.caption(
     "recente de senha e respeita empresa, unidade e permissões do usuário autenticado."
 )
 
-st.success("Acesso administrativo confirmado por até 10 minutos nesta sessão.")
+st.success(
+    "Acesso administrativo confirmado nesta sessão. O desbloqueio expira após "
+    "3 minutos sem atividade e pode ser bloqueado imediatamente pela barra lateral."
+)
+st.info(
+    "Ações críticas permanecem protegidas por confirmação de senha no momento da "
+    "execução, mesmo enquanto a área administrativa estiver desbloqueada."
+)
 
 st.subheader("Configurações sensíveis")
 if Permissao.INTEGRACAO_GERENCIAR in identity.permissoes:
