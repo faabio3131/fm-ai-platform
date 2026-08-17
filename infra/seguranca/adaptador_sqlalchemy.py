@@ -8,7 +8,12 @@ from uuid import uuid4
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from core.seguranca.autenticacao import IdentidadeUsuario, hash_password
+from core.seguranca.autenticacao import (
+    IdentidadeUsuario,
+    hash_admin_pin,
+    hash_password,
+    verify_admin_pin,
+)
 from core.seguranca.permissoes import Papel
 
 from .modelos_orm import UsuarioPapelORM, UsuarioSegurancaORM, UsuarioUnidadeORM
@@ -64,6 +69,7 @@ class RepositorioIdentidadesSQLAlchemy:
         papeis: Iterable[Papel],
         unidades_permitidas: Iterable[str] | None = None,
         usuario_id: str | None = None,
+        admin_pin: str | None = None,
     ) -> IdentidadeUsuario:
         normalizado = email.strip().casefold()
         if not normalizado or "@" not in normalizado:
@@ -85,6 +91,7 @@ class RepositorioIdentidadesSQLAlchemy:
             usuario_id=uid,
             email=normalizado,
             senha_hash=hash_password(password),
+            admin_pin_hash=hash_admin_pin(admin_pin) if admin_pin is not None else None,
             tenant_id=tenant_id.strip(),
             unidade_padrao_id=unidade_padrao_id.strip(),
             ativo=True,
@@ -115,6 +122,23 @@ class RepositorioIdentidadesSQLAlchemy:
             raise ValueError("usuario inexistente")
         usuario.senha_hash = hash_password(nova_senha)
         self._session.flush()
+
+    def definir_pin_admin(self, *, usuario_id: str, novo_pin: str) -> None:
+        usuario = self._session.get(UsuarioSegurancaORM, usuario_id)
+        if usuario is None:
+            raise ValueError("usuario inexistente")
+        usuario.admin_pin_hash = hash_admin_pin(novo_pin)
+        self._session.flush()
+
+    def possui_pin_admin(self, *, usuario_id: str) -> bool:
+        usuario = self._session.get(UsuarioSegurancaORM, usuario_id)
+        return bool(usuario is not None and usuario.admin_pin_hash)
+
+    def verificar_pin_admin(self, *, usuario_id: str, pin: str) -> bool:
+        usuario = self._session.get(UsuarioSegurancaORM, usuario_id)
+        if usuario is None or not usuario.ativo:
+            return False
+        return verify_admin_pin(pin, usuario.admin_pin_hash)
 
     def definir_papeis(self, *, usuario_id: str, papeis: Iterable[Papel]) -> None:
         papeis_set = frozenset(papeis)
