@@ -57,6 +57,7 @@ class RepositorioIdentidadesSQLAlchemy:
             papeis=papeis,
             unidades_permitidas=unidades,
             ativo=usuario.ativo,
+            acesso_admin_sensivel=bool(usuario.acesso_admin_sensivel),
         )
 
     def criar_usuario(
@@ -70,6 +71,7 @@ class RepositorioIdentidadesSQLAlchemy:
         unidades_permitidas: Iterable[str] | None = None,
         usuario_id: str | None = None,
         admin_pin: str | None = None,
+        acesso_admin_sensivel: bool = False,
     ) -> IdentidadeUsuario:
         normalizado = email.strip().casefold()
         if not normalizado or "@" not in normalizado:
@@ -92,6 +94,7 @@ class RepositorioIdentidadesSQLAlchemy:
             email=normalizado,
             senha_hash=hash_password(password),
             admin_pin_hash=hash_admin_pin(admin_pin) if admin_pin is not None else None,
+            acesso_admin_sensivel=bool(acesso_admin_sensivel),
             tenant_id=tenant_id.strip(),
             unidade_padrao_id=unidade_padrao_id.strip(),
             ativo=True,
@@ -128,6 +131,13 @@ class RepositorioIdentidadesSQLAlchemy:
         if usuario is None:
             raise ValueError("usuario inexistente")
         usuario.admin_pin_hash = hash_admin_pin(novo_pin)
+        self._session.flush()
+
+    def definir_acesso_admin_sensivel(self, *, usuario_id: str, autorizado: bool) -> None:
+        usuario = self._session.get(UsuarioSegurancaORM, usuario_id)
+        if usuario is None:
+            raise ValueError("usuario inexistente")
+        usuario.acesso_admin_sensivel = bool(autorizado)
         self._session.flush()
 
     def possui_pin_admin(self, *, usuario_id: str) -> bool:
