@@ -46,17 +46,18 @@ with st.sidebar:
 
 st.title("🔐 Administração / Proprietário")
 st.caption(
-    "Área administrativa protegida do estabelecimento. O acesso exige confirmação "
-    "recente de senha e respeita empresa, unidade e permissões do usuário autenticado."
+    "Área administrativa protegida do estabelecimento. O acesso exige o PIN "
+    "administrativo individual, separado da senha normal de login, e respeita empresa, "
+    "unidade, papel e permissões do usuário autenticado."
 )
 
 st.success(
     "Acesso administrativo confirmado nesta sessão. O desbloqueio expira após "
-    "3 minutos sem atividade e a tela é bloqueada automaticamente em seguida."
+    "3 minutos sem atividade real e a tela é bloqueada automaticamente em seguida."
 )
 st.info(
-    "Ações críticas permanecem protegidas por confirmação de senha no momento da "
-    "execução, mesmo enquanto a área administrativa estiver desbloqueada."
+    "Ações críticas permanecem protegidas por nova confirmação do PIN administrativo "
+    "no momento da execução, mesmo enquanto a área estiver desbloqueada."
 )
 
 st.subheader("Configurações sensíveis")
