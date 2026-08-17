@@ -10,7 +10,11 @@ from infra.streamlit_app.auth_ui import (
 )
 
 
-def _identity(*papeis: Papel, ativo: bool = True) -> IdentidadeUsuario:
+def _identity(
+    *papeis: Papel,
+    ativo: bool = True,
+    acesso_admin_sensivel: bool = False,
+) -> IdentidadeUsuario:
     return IdentidadeUsuario(
         usuario_id="user-1",
         email="user@example.com",
@@ -20,12 +24,24 @@ def _identity(*papeis: Papel, ativo: bool = True) -> IdentidadeUsuario:
         papeis=frozenset(papeis),
         unidades_permitidas=frozenset({"loja-a"}),
         ativo=ativo,
+        acesso_admin_sensivel=acesso_admin_sensivel,
     )
 
 
-def test_administrador_e_gerente_podem_entrar_no_shell_administrativo() -> None:
+def test_administrador_entra_no_shell_administrativo() -> None:
     assert can_access_sensitive_area(_identity(Papel.ADMINISTRADOR)) is True
-    assert can_access_sensitive_area(_identity(Papel.GERENTE)) is True
+
+
+def test_gerente_sem_autorizacao_explicita_nao_entra_no_shell_administrativo() -> None:
+    gerente = _identity(Papel.GERENTE)
+    assert Permissao.ADMIN_ACESSAR not in gerente.permissoes
+    assert can_access_sensitive_area(gerente) is False
+
+
+def test_gerente_com_autorizacao_explicita_entra_no_shell_administrativo() -> None:
+    gerente = _identity(Papel.GERENTE, acesso_admin_sensivel=True)
+    assert Permissao.ADMIN_ACESSAR in gerente.permissoes
+    assert can_access_sensitive_area(gerente) is True
 
 
 def test_perfis_operacionais_nao_entram_no_shell_administrativo() -> None:
@@ -42,10 +58,10 @@ def test_perfis_operacionais_nao_entram_no_shell_administrativo() -> None:
         assert can_access_sensitive_area(_identity(papel)) is False
 
 
-def test_subsecao_exige_permissao_especifica_alem_do_papel() -> None:
+def test_subsecao_exige_permissao_especifica_alem_do_gate_administrativo() -> None:
     administrador = _identity(Papel.ADMINISTRADOR)
-    gerente = _identity(Papel.GERENTE)
-    caixa = _identity(Papel.CAIXA)
+    gerente_autorizado = _identity(Papel.GERENTE, acesso_admin_sensivel=True)
+    caixa = _identity(Papel.CAIXA, acesso_admin_sensivel=True)
 
     assert (
         can_access_sensitive_area(
@@ -56,11 +72,12 @@ def test_subsecao_exige_permissao_especifica_alem_do_papel() -> None:
     )
     assert (
         can_access_sensitive_area(
-            gerente,
+            gerente_autorizado,
             required_permission=Permissao.INTEGRACAO_GERENCIAR,
         )
         is True
     )
+    # Mesmo com o flag explícito, um papel operacional não vira gerente/admin.
     assert (
         can_access_sensitive_area(
             caixa,
@@ -72,6 +89,12 @@ def test_subsecao_exige_permissao_especifica_alem_do_papel() -> None:
 
 def test_usuario_inativo_falha_fechado_mesmo_com_papel_privilegiado() -> None:
     assert can_access_sensitive_area(_identity(Papel.ADMINISTRADOR, ativo=False)) is False
+    assert (
+        can_access_sensitive_area(
+            _identity(Papel.GERENTE, ativo=False, acesso_admin_sensivel=True)
+        )
+        is False
+    )
 
 
 def test_desbloqueio_sensivel_valido_antes_de_tres_minutos_de_inatividade() -> None:
