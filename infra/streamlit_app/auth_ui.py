@@ -148,37 +148,40 @@ def _sensitive_auth_valid(identity: IdentidadeUsuario) -> bool:
     return True
 
 
-def verify_sensitive_password(
+def sensitive_pin_is_configured(
     *,
     identity: IdentidadeUsuario,
-    password: str,
+    session_factory: Callable[[], Session],
+) -> bool:
+    db = session_factory()
+    try:
+        return RepositorioIdentidadesSQLAlchemy(db).possui_pin_admin(
+            usuario_id=identity.usuario_id
+        )
+    except SQLAlchemyError:
+        return False
+    finally:
+        db.close()
+
+
+def verify_sensitive_pin(
+    *,
+    identity: IdentidadeUsuario,
+    pin: str,
     session_factory: Callable[[], Session],
     required_permission: Permissao | None = None,
 ) -> bool:
-    """Confirma senha no momento de uma ação crítica, sem criar novo desbloqueio."""
+    """Confirma o PIN administrativo individual no momento da operação sensível."""
 
-    if not password or not can_access_sensitive_area(
+    if not pin or not can_access_sensitive_area(
         identity, required_permission=required_permission
     ):
         return False
     db = session_factory()
     try:
-        authenticated = ServicoAutenticacao(
-            RepositorioIdentidadesSQLAlchemy(db)
-        ).autenticar(email=identity.email, password=password)
-        same_scope = (
-            authenticated.usuario_id == identity.usuario_id
-            and authenticated.tenant_id == identity.tenant_id
-            and identity.unidade_id in authenticated.unidades_permitidas
-        )
-        return bool(
-            same_scope
-            and can_access_sensitive_area(
-                authenticated,
-                required_permission=required_permission,
-            )
-        )
-    except (CredenciaisInvalidas, UsuarioInativo, SQLAlchemyError):
+        repo = RepositorioIdentidadesSQLAlchemy(db)
+        return repo.verificar_pin_admin(usuario_id=identity.usuario_id, pin=pin)
+    except SQLAlchemyError:
         return False
     finally:
         db.close()
@@ -254,7 +257,7 @@ def require_sensitive_reauthentication(
     settings: RuntimeSettings,
     required_permission: Permissao | None = None,
 ) -> None:
-    """Exige confirmação recente e renova somente com atividade administrativa real."""
+    """Exige PIN administrativo individual para a área sensível."""
 
     if not can_access_sensitive_area(
         identity, required_permission=required_permission
@@ -275,31 +278,44 @@ def require_sensitive_reauthentication(
     if _sensitive_auth_valid(identity):
         return
 
+    if not sensitive_pin_is_configured(
+        identity=identity,
+        session_factory=session_factory,
+    ):
+        st.error(
+            "PIN administrativo individual ainda não configurado para este usuário. "
+            "Configure o PIN antes de acessar áreas sensíveis."
+        )
+        st.caption(
+            "No ambiente atual, use `python -m scripts.set_admin_pin_v1 --email SEU_EMAIL`."
+        )
+        st.stop()
+
     blocked = _sensitive_blocked_until()
     now = datetime.now(timezone.utc)
     if blocked is not None and blocked > now:
         remaining = max(1, int((blocked - now).total_seconds()))
         st.error(
-            f"Muitas tentativas de confirmação inválidas. Aguarde {remaining} segundos."
+            f"Muitas tentativas de PIN inválidas. Aguarde {remaining} segundos."
         )
         st.stop()
     if blocked is not None:
         _clear_sensitive_auth()
 
     st.warning(
-        "Área protegida. Confirme novamente sua senha de gerente ou "
-        "proprietário/administrador para continuar."
+        "Área protegida. Informe seu PIN administrativo individual para continuar."
     )
     st.caption(
-        "O desbloqueio expira após 3 minutos sem atividade. Ações críticas podem exigir "
-        "nova confirmação de senha no momento da execução."
+        "O PIN é diferente da senha de login. O desbloqueio expira após 3 minutos sem "
+        "atividade real, e ações críticas podem exigir o PIN novamente."
     )
     st.caption(f"Usuário autenticado: {identity.email}")
     with st.form("fm_ai_sensitive_reauth_v1", clear_on_submit=True):
-        password = st.text_input(
-            "Senha",
+        pin = st.text_input(
+            "PIN administrativo",
             type="password",
-            autocomplete="current-password",
+            autocomplete="off",
+            max_chars=8,
         )
         submit = st.form_submit_button(
             "Desbloquear área administrativa",
@@ -308,9 +324,9 @@ def require_sensitive_reauthentication(
         )
 
     if submit:
-        if verify_sensitive_password(
+        if verify_sensitive_pin(
             identity=identity,
-            password=password,
+            pin=pin,
             session_factory=session_factory,
             required_permission=required_permission,
         ):
@@ -323,7 +339,7 @@ def require_sensitive_reauthentication(
             st.rerun()
         else:
             _register_sensitive_failure()
-            st.error("Senha inválida ou usuário sem autorização para esta área.")
+            st.error("PIN administrativo inválido ou usuário sem autorização para esta área.")
 
     st.stop()
 
