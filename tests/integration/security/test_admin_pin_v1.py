@@ -1,17 +1,72 @@
 from __future__ import annotations
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, event, select
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from core.seguranca.autenticacao import ServicoAutenticacao
 from core.seguranca.permissoes import Papel
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
-from infra.seguranca.modelos_orm import UsuarioSegurancaORM
+from infra.seguranca.modelos_orm import (
+    UsuarioPapelORM,
+    UsuarioSegurancaORM,
+    UsuarioUnidadeORM,
+)
 from migrations.runner import run_migrations
 
 
-def test_admin_pin_e_individual_separado_da_senha_e_nao_fica_em_texto_puro() -> None:
+def _sqlite_engine_com_fk() -> Engine:
     engine = create_engine("sqlite:///:memory:")
+
+    @event.listens_for(engine, "connect")
+    def _enable_sqlite_foreign_keys(dbapi_connection, _connection_record) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    return engine
+
+
+def test_bootstrap_primeiro_administrador_respeita_fk_com_foreign_keys_ativas() -> None:
+    """Regressão do ForeignKeyViolation observado ao criar o primeiro administrador."""
+
+    engine = _sqlite_engine_com_fk()
+    run_migrations(engine)
+
+    with Session(engine) as session:
+        repo = RepositorioIdentidadesSQLAlchemy(session)
+        identidade = repo.criar_usuario(
+            email="first-owner@example.test",
+            password="senha-bootstrap-segura-123",
+            admin_pin="739284",
+            tenant_id="tenant-bootstrap",
+            unidade_padrao_id="matriz-1",
+            papeis=(Papel.ADMINISTRADOR,),
+            unidades_permitidas=("matriz-1",),
+        )
+        session.commit()
+
+        usuario = session.get(UsuarioSegurancaORM, identidade.usuario_id)
+        papel = session.scalar(
+            select(UsuarioPapelORM).where(
+                UsuarioPapelORM.usuario_id == identidade.usuario_id
+            )
+        )
+        unidade = session.scalar(
+            select(UsuarioUnidadeORM).where(
+                UsuarioUnidadeORM.usuario_id == identidade.usuario_id
+            )
+        )
+
+        assert usuario is not None
+        assert papel is not None
+        assert papel.papel == Papel.ADMINISTRADOR.value
+        assert unidade is not None
+        assert unidade.unidade_id == "matriz-1"
+
+
+def test_admin_pin_e_individual_separado_da_senha_e_nao_fica_em_texto_puro() -> None:
+    engine = _sqlite_engine_com_fk()
     applied = run_migrations(engine)
     assert "0017_admin_pin_v1" in applied
     assert run_migrations(engine) == ()
@@ -29,8 +84,6 @@ def test_admin_pin_e_individual_separado_da_senha_e_nao_fica_em_texto_puro() -> 
         )
         session.commit()
 
-        # O primeiro administrador existe fisicamente antes de papéis/unidades,
-        # cobrindo a regressão de FK observada no PostgreSQL.
         assert identidade.email == "owner@example.test"
 
         autenticado = ServicoAutenticacao(repo).autenticar(
@@ -63,7 +116,7 @@ def test_admin_pin_e_individual_separado_da_senha_e_nao_fica_em_texto_puro() -> 
 
 
 def test_usuario_existente_sem_pin_falha_fechado_ate_configurar_pin_individual() -> None:
-    engine = create_engine("sqlite:///:memory:")
+    engine = _sqlite_engine_com_fk()
     run_migrations(engine)
 
     with Session(engine) as session:
