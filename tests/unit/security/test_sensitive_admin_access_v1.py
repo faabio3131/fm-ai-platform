@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.permissoes import Papel, Permissao
-from infra.streamlit_app.auth_ui import can_access_sensitive_area
+from infra.streamlit_app.auth_ui import (
+    can_access_sensitive_area,
+    sensitive_grant_is_valid,
+)
 
 
 def _identity(*papeis: Papel, ativo: bool = True) -> IdentidadeUsuario:
@@ -67,3 +72,43 @@ def test_subsecao_exige_permissao_especifica_alem_do_papel() -> None:
 
 def test_usuario_inativo_falha_fechado_mesmo_com_papel_privilegiado() -> None:
     assert can_access_sensitive_area(_identity(Papel.ADMINISTRADOR, ativo=False)) is False
+
+
+def test_desbloqueio_sensivel_valido_antes_de_tres_minutos_de_inatividade() -> None:
+    identity = _identity(Papel.ADMINISTRADOR)
+    now = datetime(2026, 8, 16, 22, 0, tzinfo=timezone.utc)
+    grant = {
+        "usuario_id": identity.usuario_id,
+        "last_activity_at": now - timedelta(seconds=179),
+    }
+
+    assert sensitive_grant_is_valid(grant, identity, now=now) is True
+
+
+def test_desbloqueio_sensivel_expira_apos_tres_minutos_de_inatividade() -> None:
+    identity = _identity(Papel.ADMINISTRADOR)
+    now = datetime(2026, 8, 16, 22, 0, tzinfo=timezone.utc)
+    grant = {
+        "usuario_id": identity.usuario_id,
+        "last_activity_at": now - timedelta(seconds=181),
+    }
+
+    assert sensitive_grant_is_valid(grant, identity, now=now) is False
+
+
+def test_desbloqueio_sensivel_nao_pode_ser_reutilizado_por_outro_usuario() -> None:
+    identity = _identity(Papel.ADMINISTRADOR)
+    other = IdentidadeUsuario(
+        usuario_id="user-2",
+        email="other@example.com",
+        senha_hash="hash-nao-usado-neste-teste",
+        tenant_id="tenant-1",
+        unidade_id="loja-a",
+        papeis=frozenset({Papel.ADMINISTRADOR}),
+        unidades_permitidas=frozenset({"loja-a"}),
+        ativo=True,
+    )
+    now = datetime(2026, 8, 16, 22, 0, tzinfo=timezone.utc)
+    grant = {"usuario_id": identity.usuario_id, "last_activity_at": now}
+
+    assert sensitive_grant_is_valid(grant, other, now=now) is False
