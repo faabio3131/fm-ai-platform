@@ -65,6 +65,8 @@ def can_access_sensitive_area(
 
     if not identity.ativo or not (identity.papeis & _SENSITIVE_ROLES):
         return False
+    if Permissao.ADMIN_ACESSAR not in identity.permissoes:
+        return False
     if required_permission is None:
         return True
     return required_permission in identity.permissoes
