@@ -109,6 +109,7 @@ class IdentidadeUsuario:
     papeis: frozenset[Papel]
     unidades_permitidas: frozenset[str]
     ativo: bool = True
+    acesso_admin_sensivel: bool = False
 
     def __post_init__(self) -> None:
         obrigatorios = (
@@ -130,6 +131,8 @@ class IdentidadeUsuario:
         acumuladas: set[Permissao] = set()
         for papel in self.papeis:
             acumuladas.update(MATRIZ_PADRAO.get(papel, frozenset()))
+        if self.acesso_admin_sensivel:
+            acumuladas.add(Permissao.ADMIN_ACESSAR)
         return frozenset(acumuladas)
 
     def contexto(
