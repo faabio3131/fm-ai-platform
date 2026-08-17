@@ -14,6 +14,9 @@ from infra.streamlit_app.auth_ui import (
     require_sensitive_reauthentication,
 )
 from infra.streamlit_app.integracoes_admin import render_integracoes_admin
+from infra.streamlit_app.sensitive_idle_watchdog import (
+    render_sensitive_idle_watchdog,
+)
 from migrations.runner import assert_schema_current
 
 
@@ -41,4 +44,5 @@ require_sensitive_reauthentication(
     settings=settings,
     required_permission=Permissao.INTEGRACAO_GERENCIAR,
 )
+render_sensitive_idle_watchdog(identity)
 render_integracoes_admin(identidade=identity, session_factory=session_factory)
