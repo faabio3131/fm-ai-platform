@@ -66,24 +66,17 @@ class Papel(StrEnum):
     GERENTE_IA = "gerente_ia"
 
 
-_SENSIVEIS_ADMIN = frozenset(
-    {
-        Permissao.ADMIN_ACESSAR,
-        Permissao.USUARIO_GERENCIAR,
-        Permissao.PERMISSAO_GERENCIAR,
-        Permissao.INTEGRACAO_GERENCIAR,
-        Permissao.AUDITORIA_VISUALIZAR,
-        Permissao.CONFIGURACAO_ALTERAR,
-    }
-)
-
-
 MATRIZ_PADRAO: dict[Papel, frozenset[Permissao]] = {
     Papel.ADMINISTRADOR: frozenset(Permissao),
-    # Gerente possui capacidades operacionais amplas, mas não recebe acesso
-    # administrativo sensível implicitamente. Essas permissões devem ser
-    # concedidas explicitamente por usuário.
-    Papel.GERENTE: frozenset(p for p in Permissao if p not in _SENSIVEIS_ADMIN),
+    # O gerente mantém capacidades gerenciais/operacionais amplas, porém não
+    # recebe implicitamente o gate da área Administração/Proprietário nem a
+    # capacidade de alterar a própria matriz de permissões. ADMIN_ACESSAR só é
+    # acrescentada à identidade quando houver autorização explícita por usuário.
+    Papel.GERENTE: frozenset(
+        p
+        for p in Permissao
+        if p not in {Permissao.ADMIN_ACESSAR, Permissao.PERMISSAO_GERENCIAR}
+    ),
     Papel.CAIXA: frozenset(
         {
             Permissao.PEDIDO_CRIAR,
