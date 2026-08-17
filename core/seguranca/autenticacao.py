@@ -1,8 +1,8 @@
 """Autenticação e derivação de contexto para o runtime comercial.
 
-A senha nunca é armazenada em texto puro. O formato versionado abaixo usa
-PBKDF2-HMAC-SHA256 com salt aleatório e permite aumentar o custo no futuro sem
-quebrar hashes já persistidos.
+Senhas e PINs administrativos nunca são armazenados em texto puro. O formato
+versionado usa PBKDF2-HMAC-SHA256 com salt aleatório e permite aumentar o custo
+no futuro sem quebrar hashes já persistidos.
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from .permissoes import MATRIZ_PADRAO, Papel, Permissao
 _ALGORITMO = "pbkdf2_sha256"
 _ITERACOES_PADRAO = 390_000
 _SALT_BYTES = 16
+_ADMIN_PIN_PREFIX = "admin-pin-v1:"
 
 
 def _b64(data: bytes) -> str:
@@ -34,19 +35,15 @@ def _unb64(value: str) -> bytes:
     return base64.urlsafe_b64decode(value + padding)
 
 
-def hash_password(password: str, *, iterations: int = _ITERACOES_PADRAO) -> str:
-    if not isinstance(password, str) or len(password) < 10:
-        raise ValueError("senha deve ter no minimo 10 caracteres")
+def _hash_secret(secret: str, *, iterations: int = _ITERACOES_PADRAO) -> str:
     if iterations < 100_000:
         raise ValueError("custo PBKDF2 inseguro")
     salt = os.urandom(_SALT_BYTES)
-    digest = hashlib.pbkdf2_hmac(
-        "sha256", password.encode("utf-8"), salt, iterations
-    )
+    digest = hashlib.pbkdf2_hmac("sha256", secret.encode("utf-8"), salt, iterations)
     return f"{_ALGORITMO}${iterations}${_b64(salt)}${_b64(digest)}"
 
 
-def verify_password(password: str, encoded: str) -> bool:
+def _verify_secret(secret: str, encoded: str) -> bool:
     try:
         algorithm, raw_iterations, raw_salt, raw_digest = encoded.split("$", 3)
         if algorithm != _ALGORITMO:
@@ -57,11 +54,49 @@ def verify_password(password: str, encoded: str) -> bool:
         salt = _unb64(raw_salt)
         expected = _unb64(raw_digest)
         calculated = hashlib.pbkdf2_hmac(
-            "sha256", password.encode("utf-8"), salt, iterations
+            "sha256", secret.encode("utf-8"), salt, iterations
         )
         return hmac.compare_digest(calculated, expected)
-    except (TypeError, ValueError):
+    except (AttributeError, TypeError, ValueError):
         return False
+
+
+def hash_password(password: str, *, iterations: int = _ITERACOES_PADRAO) -> str:
+    if not isinstance(password, str) or len(password) < 10:
+        raise ValueError("senha deve ter no minimo 10 caracteres")
+    return _hash_secret(password, iterations=iterations)
+
+
+def verify_password(password: str, encoded: str) -> bool:
+    return _verify_secret(password, encoded)
+
+
+def validate_admin_pin(pin: str) -> str:
+    """Valida o PIN administrativo individual sem aceitar formatos fracos/ambíguos."""
+
+    if not isinstance(pin, str):
+        raise ValueError("PIN administrativo invalido")
+    normalized = pin.strip()
+    if not normalized.isdigit() or not 6 <= len(normalized) <= 8:
+        raise ValueError("PIN administrativo deve ter de 6 a 8 digitos")
+    if len(set(normalized)) == 1:
+        raise ValueError("PIN administrativo muito fraco")
+    return normalized
+
+
+def hash_admin_pin(pin: str, *, iterations: int = _ITERACOES_PADRAO) -> str:
+    normalized = validate_admin_pin(pin)
+    return _hash_secret(_ADMIN_PIN_PREFIX + normalized, iterations=iterations)
+
+
+def verify_admin_pin(pin: str, encoded: str | None) -> bool:
+    if not encoded:
+        return False
+    try:
+        normalized = validate_admin_pin(pin)
+    except ValueError:
+        return False
+    return _verify_secret(_ADMIN_PIN_PREFIX + normalized, encoded)
 
 
 @dataclass(frozen=True)
