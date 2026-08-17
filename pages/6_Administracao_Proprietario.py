@@ -13,6 +13,9 @@ from infra.streamlit_app.auth_ui import (
     require_authentication,
     require_sensitive_reauthentication,
 )
+from infra.streamlit_app.sensitive_idle_watchdog import (
+    render_sensitive_idle_watchdog,
+)
 from migrations.runner import assert_schema_current
 
 
@@ -35,6 +38,7 @@ require_sensitive_reauthentication(
     session_factory=session_factory,
     settings=settings,
 )
+render_sensitive_idle_watchdog(identity)
 
 with st.sidebar:
     st.subheader("🔐 Acesso Corporativo")
@@ -48,7 +52,7 @@ st.caption(
 
 st.success(
     "Acesso administrativo confirmado nesta sessão. O desbloqueio expira após "
-    "3 minutos sem atividade e pode ser bloqueado imediatamente pela barra lateral."
+    "3 minutos sem atividade e a tela é bloqueada automaticamente em seguida."
 )
 st.info(
     "Ações críticas permanecem protegidas por confirmação de senha no momento da "
