@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import datetime, timezone
 from typing import Any
-from uuid import uuid4
 
 import streamlit as st
 from sqlalchemy.orm import Session
@@ -217,6 +215,21 @@ def _render_one(
                 key=_key(spec, f"secret_{role}_{sensitive_nonce}"),
             )
 
+        st.markdown("**Homologação**")
+        st.caption(
+            "O status Ativo só deve ser registrado após validação real do provedor. "
+            "Informe abaixo uma referência verificável da evidência (ticket, log sanitizado, "
+            "execução de healthcheck ou registro de homologação). Não cole tokens, chaves, PINs "
+            "ou qualquer outro segredo neste campo."
+        )
+        evidence_ref = st.text_input(
+            "Referência da evidência de homologação",
+            value="",
+            max_chars=512,
+            placeholder="Ex.: healthcheck://meta/2026-08-17/resultado-123",
+            key=_key(spec, "homolog_evidence_ref"),
+        )
+
         st.markdown("**Confirmação para ação crítica**")
         st.caption(
             "Salvar credenciais/configurações ou homologar exige seu PIN administrativo "
@@ -304,11 +317,18 @@ def _render_one(
                     missing = (*readiness.faltam_finalidades, *readiness.faltam_credenciais)
                     st.error("Faltam credenciais: " + ", ".join(sorted(set(missing))))
                 else:
-                    st.success("Configuração e credenciais válidas no control plane.")
+                    st.success(
+                        "Configuração estrutural e credenciais válidas no control plane. "
+                        "A homologação externa continua pendente até existir evidência real."
+                    )
             except Exception as exc:
                 st.error(f"Falha de validação: {type(exc).__name__}")
 
-        can_homologate = Papel.ADMINISTRADOR in identidade.papeis and existing is not None
+        can_homologate = (
+            Papel.ADMINISTRADOR in identidade.papeis
+            and existing is not None
+            and bool(evidence_ref.strip())
+        )
         if c_homolog.button(
             "Homologar",
             key=_key(spec, "homolog"),
@@ -332,19 +352,14 @@ def _render_one(
                 service.registrar_homologacao(
                     contexto=contexto,
                     configuracao_id=config_id,
-                    evidencia_ref=(
-                        "ui-manual:"
-                        + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-                        + ":"
-                        + uuid4().hex[:12]
-                    ),
+                    evidencia_ref=evidence_ref.strip(),
                     versao_esperada=current.versao,
                 )
                 session.commit()
                 _set_flash(
                     spec,
                     "success",
-                    "Homologação registrada com auditoria. O PIN foi consumido e limpo.",
+                    "Homologação registrada com evidência e auditoria. O PIN foi consumido e limpo.",
                 )
                 st.rerun()
             except Exception as exc:
