@@ -41,6 +41,7 @@ class Permissao(StrEnum):
     CAMPANHA_CRIAR = "campanha.criar"
     CAMPANHA_APROVAR = "campanha.aprovar"
     CONSENTIMENTO_VISUALIZAR = "consentimento.visualizar"
+    ADMIN_ACESSAR = "admin.acessar"
     USUARIO_GERENCIAR = "usuario.gerenciar"
     PERMISSAO_GERENCIAR = "permissao.gerenciar"
     INTEGRACAO_GERENCIAR = "integracao.gerenciar"
@@ -65,11 +66,24 @@ class Papel(StrEnum):
     GERENTE_IA = "gerente_ia"
 
 
+_SENSIVEIS_ADMIN = frozenset(
+    {
+        Permissao.ADMIN_ACESSAR,
+        Permissao.USUARIO_GERENCIAR,
+        Permissao.PERMISSAO_GERENCIAR,
+        Permissao.INTEGRACAO_GERENCIAR,
+        Permissao.AUDITORIA_VISUALIZAR,
+        Permissao.CONFIGURACAO_ALTERAR,
+    }
+)
+
+
 MATRIZ_PADRAO: dict[Papel, frozenset[Permissao]] = {
     Papel.ADMINISTRADOR: frozenset(Permissao),
-    Papel.GERENTE: frozenset(
-        p for p in Permissao if not p.value.startswith("permissao.")
-    ),
+    # Gerente possui capacidades operacionais amplas, mas não recebe acesso
+    # administrativo sensível implicitamente. Essas permissões devem ser
+    # concedidas explicitamente por usuário.
+    Papel.GERENTE: frozenset(p for p in Permissao if p not in _SENSIVEIS_ADMIN),
     Papel.CAIXA: frozenset(
         {
             Permissao.PEDIDO_CRIAR,
