@@ -22,6 +22,7 @@ from infra.integracoes.repositorio_sqlalchemy import (
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
 from infra.seguranca.credenciais import ServicoCredenciaisReferenciadas
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
+from infra.streamlit_app.auth_ui import verify_sensitive_password
 
 
 _LABELS = {
@@ -90,10 +91,25 @@ def _status_text(service: ServicoConfiguracoesExternas, contexto: Any, config_id
     return _STATUS_LABELS.get(status.estado.value, status.estado.value)
 
 
+def _critical_password_ok(
+    *,
+    identidade: IdentidadeUsuario,
+    password: str,
+    session_factory: Callable[[], Session],
+) -> bool:
+    return verify_sensitive_password(
+        identity=identidade,
+        password=password,
+        session_factory=session_factory,
+        required_permission=Permissao.INTEGRACAO_GERENCIAR,
+    )
+
+
 def _render_one(
     *,
     spec: EspecificacaoServico,
     session: Session,
+    session_factory: Callable[[], Session],
     identidade: IdentidadeUsuario,
     service: ServicoConfiguracoesExternas,
     credentials: ServicoCredenciaisReferenciadas,
@@ -166,46 +182,66 @@ def _render_one(
                 key=_key(spec, f"secret_{role}"),
             )
 
+        st.markdown("**Confirmação para ação crítica**")
+        st.caption(
+            "Salvar credenciais/configurações ou homologar exige sua senha novamente, "
+            "mesmo com a área administrativa já desbloqueada."
+        )
+        critical_password = st.text_input(
+            "Senha do usuário autenticado",
+            value="",
+            type="password",
+            autocomplete="current-password",
+            key=_key(spec, "critical_password"),
+        )
+
         c_save, c_validate, c_homolog = st.columns(3)
         if c_save.button("Salvar / atualizar", key=_key(spec, "save"), type="primary"):
-            try:
-                finalidades = dict(current_purposes)
-                for role, value in new_secrets.items():
-                    if not value.strip():
-                        continue
-                    purpose = _purpose(spec, role)
-                    reference = vault.armazenar(
-                        contexto=contexto,
-                        provedor=spec.provedor,
-                        finalidade=purpose,
-                        valor=value,
-                    )
-                    credentials.rotacionar(
-                        contexto=contexto,
-                        provedor=spec.provedor,
-                        finalidade=purpose,
-                        nova_referencia=reference,
-                    )
-                    finalidades[role] = purpose
+            if not _critical_password_ok(
+                identidade=identidade,
+                password=critical_password,
+                session_factory=session_factory,
+            ):
+                st.error("Confirmação de senha inválida. Nenhuma alteração foi salva.")
+            else:
+                try:
+                    finalidades = dict(current_purposes)
+                    for role, value in new_secrets.items():
+                        if not value.strip():
+                            continue
+                        purpose = _purpose(spec, role)
+                        reference = vault.armazenar(
+                            contexto=contexto,
+                            provedor=spec.provedor,
+                            finalidade=purpose,
+                            valor=value,
+                        )
+                        credentials.rotacionar(
+                            contexto=contexto,
+                            provedor=spec.provedor,
+                            finalidade=purpose,
+                            nova_referencia=reference,
+                        )
+                        finalidades[role] = purpose
 
-                service.configurar(
-                    contexto=contexto,
-                    configuracao_id=config_id,
-                    servico=spec.servico,
-                    provedor=spec.provedor,
-                    conta_externa=conta_externa or "principal",
-                    ambiente=ambiente,
-                    parametros_publicos=public_values,
-                    finalidades_credenciais=finalidades,
-                    habilitada=habilitada,
-                    versao_esperada=existing.versao if existing else 0,
-                )
-                session.commit()
-                st.success("Configuração salva com segurança.")
-                st.rerun()
-            except Exception as exc:
-                session.rollback()
-                st.error(f"Não foi possível salvar a configuração: {type(exc).__name__}")
+                    service.configurar(
+                        contexto=contexto,
+                        configuracao_id=config_id,
+                        servico=spec.servico,
+                        provedor=spec.provedor,
+                        conta_externa=conta_externa or "principal",
+                        ambiente=ambiente,
+                        parametros_publicos=public_values,
+                        finalidades_credenciais=finalidades,
+                        habilitada=habilitada,
+                        versao_esperada=existing.versao if existing else 0,
+                    )
+                    session.commit()
+                    st.success("Configuração salva com segurança.")
+                    st.rerun()
+                except Exception as exc:
+                    session.rollback()
+                    st.error(f"Não foi possível salvar a configuração: {type(exc).__name__}")
 
         if c_validate.button("Validar configuração", key=_key(spec, "validate")):
             try:
@@ -226,25 +262,32 @@ def _render_one(
             key=_key(spec, "homolog"),
             disabled=not can_homologate,
         ):
-            try:
-                current = service.obter(contexto=contexto, configuracao_id=config_id)
-                service.registrar_homologacao(
-                    contexto=contexto,
-                    configuracao_id=config_id,
-                    evidencia_ref=(
-                        "ui-manual:"
-                        + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-                        + ":"
-                        + uuid4().hex[:12]
-                    ),
-                    versao_esperada=current.versao,
-                )
-                session.commit()
-                st.success("Homologação registrada com auditoria.")
-                st.rerun()
-            except Exception as exc:
-                session.rollback()
-                st.error(f"Não foi possível homologar: {type(exc).__name__}")
+            if not _critical_password_ok(
+                identidade=identidade,
+                password=critical_password,
+                session_factory=session_factory,
+            ):
+                st.error("Confirmação de senha inválida. A homologação não foi registrada.")
+            else:
+                try:
+                    current = service.obter(contexto=contexto, configuracao_id=config_id)
+                    service.registrar_homologacao(
+                        contexto=contexto,
+                        configuracao_id=config_id,
+                        evidencia_ref=(
+                            "ui-manual:"
+                            + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                            + ":"
+                            + uuid4().hex[:12]
+                        ),
+                        versao_esperada=current.versao,
+                    )
+                    session.commit()
+                    st.success("Homologação registrada com auditoria.")
+                    st.rerun()
+                except Exception as exc:
+                    session.rollback()
+                    st.error(f"Não foi possível homologar: {type(exc).__name__}")
 
 
 def render_integracoes_admin(
@@ -289,6 +332,7 @@ def render_integracoes_admin(
             _render_one(
                 spec=spec,
                 session=session,
+                session_factory=session_factory,
                 identidade=identidade,
                 service=service,
                 credentials=credentials,
