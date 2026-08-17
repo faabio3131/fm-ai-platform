@@ -105,6 +105,38 @@ def _critical_pin_ok(
     )
 
 
+def _sensitive_nonce(spec: EspecificacaoServico) -> int:
+    raw = st.session_state.get(_key(spec, "sensitive_nonce"), 0)
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _consume_sensitive_inputs(spec: EspecificacaoServico) -> None:
+    """Invalida PIN/segredos digitados para impedir reutilização entre ações."""
+
+    nonce_key = _key(spec, "sensitive_nonce")
+    st.session_state[nonce_key] = _sensitive_nonce(spec) + 1
+
+
+def _set_flash(spec: EspecificacaoServico, level: str, message: str) -> None:
+    st.session_state[_key(spec, "critical_flash")] = (level, message)
+
+
+def _render_flash(spec: EspecificacaoServico) -> None:
+    flash = st.session_state.pop(_key(spec, "critical_flash"), None)
+    if not isinstance(flash, tuple) or len(flash) != 2:
+        return
+    level, message = flash
+    if level == "success":
+        st.success(str(message))
+    elif level == "error":
+        st.error(str(message))
+    else:
+        st.info(str(message))
+
+
 def _render_one(
     *,
     spec: EspecificacaoServico,
@@ -126,6 +158,7 @@ def _render_one(
     label = _LABELS.get((spec.servico, spec.provedor), f"{spec.servico} · {spec.provedor}")
     status = _status_text(service, contexto, config_id)
     with st.expander(f"{label} — {status}", expanded=False):
+        _render_flash(spec)
         st.caption(
             "Credenciais são cifradas antes de chegar ao banco. O valor salvo nunca é "
             "reexibido; para trocar uma credencial, informe um novo valor."
@@ -161,6 +194,7 @@ def _render_one(
                 key=_key(spec, f"param_{name}"),
             )
 
+        sensitive_nonce = _sensitive_nonce(spec)
         st.markdown("**Credenciais protegidas**")
         new_secrets: dict[str, str] = {}
         current_purposes: dict[str, str] = {}
@@ -178,71 +212,88 @@ def _render_one(
                 f"{_SECRET_LABELS.get(role, role)} · {state}",
                 value="",
                 type="password",
+                autocomplete="new-password",
                 placeholder="Deixe vazio para manter a credencial atual",
-                key=_key(spec, f"secret_{role}"),
+                key=_key(spec, f"secret_{role}_{sensitive_nonce}"),
             )
 
         st.markdown("**Confirmação para ação crítica**")
         st.caption(
             "Salvar credenciais/configurações ou homologar exige seu PIN administrativo "
-            "individual novamente, mesmo com a área já desbloqueada."
+            "individual novamente, mesmo com a área já desbloqueada. O PIN é consumido "
+            "pela ação e não pode ser reutilizado no próximo clique."
         )
         critical_pin = st.text_input(
             "PIN administrativo",
             value="",
             type="password",
-            autocomplete="off",
+            autocomplete="one-time-code",
             max_chars=8,
-            key=_key(spec, "critical_pin"),
+            key=_key(spec, f"critical_pin_{sensitive_nonce}"),
         )
 
         c_save, c_validate, c_homolog = st.columns(3)
         if c_save.button("Salvar / atualizar", key=_key(spec, "save"), type="primary"):
-            if not _critical_pin_ok(
+            pin_ok = _critical_pin_ok(
                 identidade=identidade,
                 pin=critical_pin,
                 session_factory=session_factory,
-            ):
-                st.error("PIN administrativo inválido. Nenhuma alteração foi salva.")
-            else:
-                try:
-                    finalidades = dict(current_purposes)
-                    for role, value in new_secrets.items():
-                        if not value.strip():
-                            continue
-                        purpose = _purpose(spec, role)
-                        reference = vault.armazenar(
-                            contexto=contexto,
-                            provedor=spec.provedor,
-                            finalidade=purpose,
-                            valor=value,
-                        )
-                        credentials.rotacionar(
-                            contexto=contexto,
-                            provedor=spec.provedor,
-                            finalidade=purpose,
-                            nova_referencia=reference,
-                        )
-                        finalidades[role] = purpose
-
-                    service.configurar(
+            )
+            _consume_sensitive_inputs(spec)
+            if not pin_ok:
+                _set_flash(
+                    spec,
+                    "error",
+                    "PIN administrativo inválido. Nenhuma alteração foi salva. Digite o PIN novamente para uma nova tentativa.",
+                )
+                st.rerun()
+            try:
+                finalidades = dict(current_purposes)
+                for role, value in new_secrets.items():
+                    if not value.strip():
+                        continue
+                    purpose = _purpose(spec, role)
+                    reference = vault.armazenar(
                         contexto=contexto,
-                        configuracao_id=config_id,
-                        servico=spec.servico,
                         provedor=spec.provedor,
-                        conta_externa=conta_externa or "principal",
-                        ambiente=ambiente,
-                        parametros_publicos=public_values,
-                        finalidades_credenciais=finalidades,
-                        habilitada=habilitada,
-                        versao_esperada=existing.versao if existing else 0,
+                        finalidade=purpose,
+                        valor=value,
                     )
-                    session.commit()
-                    st.success("Configuração salva com segurança.")
-                    st.rerun()
-                except Exception as exc:
-                    session.rollback()
-                    st.error(f"Não foi possível salvar a configuração: {type(exc).__name__}")
+                    credentials.rotacionar(
+                        contexto=contexto,
+                        provedor=spec.provedor,
+                        finalidade=purpose,
+                        nova_referencia=reference,
+                    )
+                    finalidades[role] = purpose
+
+                service.configurar(
+                    contexto=contexto,
+                    configuracao_id=config_id,
+                    servico=spec.servico,
+                    provedor=spec.provedor,
+                    conta_externa=conta_externa or "principal",
+                    ambiente=ambiente,
+                    parametros_publicos=public_values,
+                    finalidades_credenciais=finalidades,
+                    habilitada=habilitada,
+                    versao_esperada=existing.versao if existing else 0,
+                )
+                session.commit()
+                _set_flash(
+                    spec,
+                    "success",
+                    "Configuração salva com segurança. PIN e valores sensíveis digitados foram limpos da sessão de entrada.",
+                )
+                st.rerun()
+            except Exception as exc:
+                session.rollback()
+                _set_flash(
+                    spec,
+                    "error",
+                    f"Não foi possível salvar a configuração: {type(exc).__name__}. PIN e valores sensíveis digitados foram limpos.",
+                )
+                st.rerun()
 
         if c_validate.button("Validar configuração", key=_key(spec, "validate")):
             try:
@@ -263,32 +314,47 @@ def _render_one(
             key=_key(spec, "homolog"),
             disabled=not can_homologate,
         ):
-            if not _critical_pin_ok(
+            pin_ok = _critical_pin_ok(
                 identidade=identidade,
                 pin=critical_pin,
                 session_factory=session_factory,
-            ):
-                st.error("PIN administrativo inválido. A homologação não foi registrada.")
-            else:
-                try:
-                    current = service.obter(contexto=contexto, configuracao_id=config_id)
-                    service.registrar_homologacao(
-                        contexto=contexto,
-                        configuracao_id=config_id,
-                        evidencia_ref=(
-                            "ui-manual:"
-                            + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-                            + ":"
-                            + uuid4().hex[:12]
-                        ),
-                        versao_esperada=current.versao,
-                    )
-                    session.commit()
-                    st.success("Homologação registrada com auditoria.")
-                    st.rerun()
-                except Exception as exc:
-                    session.rollback()
-                    st.error(f"Não foi possível homologar: {type(exc).__name__}")
+            )
+            _consume_sensitive_inputs(spec)
+            if not pin_ok:
+                _set_flash(
+                    spec,
+                    "error",
+                    "PIN administrativo inválido. A homologação não foi registrada. Digite o PIN novamente para uma nova tentativa.",
+                )
+                st.rerun()
+            try:
+                current = service.obter(contexto=contexto, configuracao_id=config_id)
+                service.registrar_homologacao(
+                    contexto=contexto,
+                    configuracao_id=config_id,
+                    evidencia_ref=(
+                        "ui-manual:"
+                        + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                        + ":"
+                        + uuid4().hex[:12]
+                    ),
+                    versao_esperada=current.versao,
+                )
+                session.commit()
+                _set_flash(
+                    spec,
+                    "success",
+                    "Homologação registrada com auditoria. O PIN foi consumido e limpo.",
+                )
+                st.rerun()
+            except Exception as exc:
+                session.rollback()
+                _set_flash(
+                    spec,
+                    "error",
+                    f"Não foi possível homologar: {type(exc).__name__}. O PIN foi consumido e limpo.",
+                )
+                st.rerun()
 
 
 def render_integracoes_admin(
