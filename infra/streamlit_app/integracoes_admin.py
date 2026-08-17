@@ -22,7 +22,7 @@ from infra.integracoes.repositorio_sqlalchemy import (
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
 from infra.seguranca.credenciais import ServicoCredenciaisReferenciadas
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
-from infra.streamlit_app.auth_ui import verify_sensitive_password
+from infra.streamlit_app.auth_ui import verify_sensitive_pin
 
 
 _LABELS = {
@@ -91,15 +91,15 @@ def _status_text(service: ServicoConfiguracoesExternas, contexto: Any, config_id
     return _STATUS_LABELS.get(status.estado.value, status.estado.value)
 
 
-def _critical_password_ok(
+def _critical_pin_ok(
     *,
     identidade: IdentidadeUsuario,
-    password: str,
+    pin: str,
     session_factory: Callable[[], Session],
 ) -> bool:
-    return verify_sensitive_password(
+    return verify_sensitive_pin(
         identity=identidade,
-        password=password,
+        pin=pin,
         session_factory=session_factory,
         required_permission=Permissao.INTEGRACAO_GERENCIAR,
     )
@@ -184,25 +184,26 @@ def _render_one(
 
         st.markdown("**Confirmação para ação crítica**")
         st.caption(
-            "Salvar credenciais/configurações ou homologar exige sua senha novamente, "
-            "mesmo com a área administrativa já desbloqueada."
+            "Salvar credenciais/configurações ou homologar exige seu PIN administrativo "
+            "individual novamente, mesmo com a área já desbloqueada."
         )
-        critical_password = st.text_input(
-            "Senha do usuário autenticado",
+        critical_pin = st.text_input(
+            "PIN administrativo",
             value="",
             type="password",
-            autocomplete="current-password",
-            key=_key(spec, "critical_password"),
+            autocomplete="off",
+            max_chars=8,
+            key=_key(spec, "critical_pin"),
         )
 
         c_save, c_validate, c_homolog = st.columns(3)
         if c_save.button("Salvar / atualizar", key=_key(spec, "save"), type="primary"):
-            if not _critical_password_ok(
+            if not _critical_pin_ok(
                 identidade=identidade,
-                password=critical_password,
+                pin=critical_pin,
                 session_factory=session_factory,
             ):
-                st.error("Confirmação de senha inválida. Nenhuma alteração foi salva.")
+                st.error("PIN administrativo inválido. Nenhuma alteração foi salva.")
             else:
                 try:
                     finalidades = dict(current_purposes)
@@ -262,12 +263,12 @@ def _render_one(
             key=_key(spec, "homolog"),
             disabled=not can_homologate,
         ):
-            if not _critical_password_ok(
+            if not _critical_pin_ok(
                 identidade=identidade,
-                password=critical_password,
+                pin=critical_pin,
                 session_factory=session_factory,
             ):
-                st.error("Confirmação de senha inválida. A homologação não foi registrada.")
+                st.error("PIN administrativo inválido. A homologação não foi registrada.")
             else:
                 try:
                     current = service.obter(contexto=contexto, configuracao_id=config_id)
