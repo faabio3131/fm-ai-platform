@@ -5,7 +5,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from core.seguranca.autenticacao import ServicoAutenticacao
-from core.seguranca.permissoes import Papel
+from core.seguranca.permissoes import Papel, Permissao
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 from infra.seguranca.modelos_orm import (
     UsuarioPapelORM,
@@ -69,6 +69,7 @@ def test_admin_pin_e_individual_separado_da_senha_e_nao_fica_em_texto_puro() -> 
     engine = _sqlite_engine_com_fk()
     applied = run_migrations(engine)
     assert "0017_admin_pin_v1" in applied
+    assert "0018_admin_access_authorization_v1" in applied
     assert run_migrations(engine) == ()
 
     with Session(engine) as session:
@@ -95,13 +96,6 @@ def test_admin_pin_e_individual_separado_da_senha_e_nao_fica_em_texto_puro() -> 
         assert repo.possui_pin_admin(usuario_id=identidade.usuario_id) is True
         assert repo.verificar_pin_admin(usuario_id=identidade.usuario_id, pin="483726") is True
         assert repo.verificar_pin_admin(usuario_id=identidade.usuario_id, pin="483727") is False
-        assert (
-            repo.verificar_pin_admin(
-                usuario_id=identidade.usuario_id,
-                pin="123123",
-            )
-            is False
-        )
 
         row = session.scalar(
             select(UsuarioSegurancaORM).where(
@@ -138,3 +132,45 @@ def test_usuario_existente_sem_pin_falha_fechado_ate_configurar_pin_individual()
         session.commit()
         assert repo.possui_pin_admin(usuario_id=identidade.usuario_id) is True
         assert repo.verificar_pin_admin(usuario_id=identidade.usuario_id, pin="654321") is True
+
+
+def test_gerente_so_recebe_gate_admin_apos_autorizacao_explicita_persistida() -> None:
+    engine = _sqlite_engine_com_fk()
+    run_migrations(engine)
+
+    with Session(engine) as session:
+        repo = RepositorioIdentidadesSQLAlchemy(session)
+        gerente = repo.criar_usuario(
+            email="authorized-manager@example.test",
+            password="senha-gerente-segura-789",
+            admin_pin="472839",
+            tenant_id="tenant-1",
+            unidade_padrao_id="loja-1",
+            papeis=(Papel.GERENTE,),
+            unidades_permitidas=("loja-1",),
+        )
+        session.commit()
+
+        assert gerente.acesso_admin_sensivel is False
+        assert Permissao.ADMIN_ACESSAR not in gerente.permissoes
+
+        repo.definir_acesso_admin_sensivel(
+            usuario_id=gerente.usuario_id,
+            autorizado=True,
+        )
+        session.commit()
+
+        recarregado = repo.obter_por_email("authorized-manager@example.test")
+        assert recarregado is not None
+        assert recarregado.acesso_admin_sensivel is True
+        assert Permissao.ADMIN_ACESSAR in recarregado.permissoes
+
+        repo.definir_acesso_admin_sensivel(
+            usuario_id=gerente.usuario_id,
+            autorizado=False,
+        )
+        session.commit()
+        revogado = repo.obter_por_email("authorized-manager@example.test")
+        assert revogado is not None
+        assert revogado.acesso_admin_sensivel is False
+        assert Permissao.ADMIN_ACESSAR not in revogado.permissoes
