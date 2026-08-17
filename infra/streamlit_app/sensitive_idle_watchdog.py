@@ -1,50 +1,30 @@
 """Watchdog visual do timeout das áreas administrativas sensíveis.
 
-A proteção combina duas camadas:
-1. fragmento periódico do Streamlit para validar o grant no servidor;
-2. relógio de inatividade no navegador, renovado somente por atividade real do usuário.
+O relógio de 3 minutos roda no navegador e é renovado somente por atividade real
+do usuário: digitação, alteração de campos, clique/toque e rolagem. Reruns automáticos
+do Streamlit não contam como atividade.
 
-O navegador não usa um prazo fixo desde o desbloqueio. Digitação, clique, toque,
-rolagem ou alteração de campo renovam o relógio. Reruns automáticos do Streamlit não
-contam como atividade do usuário e, portanto, não mantêm a área aberta sozinhos.
+Quando o limite ocioso é atingido, o watchdog aciona o mesmo botão de bloqueio manual
+da barra lateral. Isso limpa o grant no servidor e rerenderiza a página protegida.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 import json
 
 import streamlit as st
 import streamlit.components.v1 as components
 
 from core.seguranca.autenticacao import IdentidadeUsuario
-from infra.streamlit_app.auth_ui import lock_sensitive_area, sensitive_grant_is_valid
 
 _SENSITIVE_AUTH_KEY = "_fm_ai_sensitive_auth_v1"
-_WATCHDOG_INTERVAL_SECONDS = 5
 _BROWSER_IDLE_TIMEOUT_MS = 180_000
 _BROWSER_CHECK_INTERVAL_MS = 1_000
 
 
-def _watchdog_check(identity: IdentidadeUsuario, *, now: datetime | None = None) -> bool:
-    """Retorna True quando o grant do servidor expirou e a tela deve ser bloqueada."""
-
-    grant = st.session_state.get(_SENSITIVE_AUTH_KEY)
-    return not sensitive_grant_is_valid(
-        grant,
-        identity,
-        now=now or datetime.now(timezone.utc),
-    )
-
-
-def _watchdog_body(identity: IdentidadeUsuario) -> None:
-    if _watchdog_check(identity):
-        lock_sensitive_area()
-        st.rerun()
-
-
 def _grant_marker(identity: IdentidadeUsuario) -> str:
-    """Identifica a geração/atividade real conhecida do grant sem expor segredo."""
+    """Identifica a geração/atividade conhecida do grant sem expor qualquer segredo."""
 
     grant = st.session_state.get(_SENSITIVE_AUTH_KEY)
     if not isinstance(grant, dict) or grant.get("usuario_id") != identity.usuario_id:
@@ -56,7 +36,7 @@ def _grant_marker(identity: IdentidadeUsuario) -> str:
 
 
 def _render_browser_idle_watchdog(identity: IdentidadeUsuario) -> None:
-    """Bloqueia após 3 min sem atividade REAL no documento principal do navegador."""
+    """Bloqueia após 3 minutos sem atividade REAL no documento principal."""
 
     marker = json.dumps(_grant_marker(identity))
     components.html(
@@ -68,7 +48,7 @@ def _render_browser_idle_watchdog(identity: IdentidadeUsuario) -> None:
             const marker = {marker};
             const timeoutMs = {_BROWSER_IDLE_TIMEOUT_MS};
             const checkEveryMs = {_BROWSER_CHECK_INTERVAL_MS};
-            const stateKey = '__fmAiSensitiveIdleV2';
+            const stateKey = '__fmAiSensitiveIdleV3';
 
             let state = parentWindow[stateKey];
             if (!state || state.marker !== marker) {{
@@ -94,15 +74,25 @@ def _render_browser_idle_watchdog(identity: IdentidadeUsuario) -> None:
                 parentDocument.addEventListener(eventName, markRealActivity, {{capture: true, passive: true}});
             }}
 
+            const lockSensitiveArea = () => {{
+                const buttons = Array.from(parentDocument.querySelectorAll('button'));
+                const lockButton = buttons.find((button) =>
+                    (button.innerText || button.textContent || '').includes('Bloquear área administrativa agora')
+                );
+                if (lockButton) {{
+                    lockButton.click();
+                    return;
+                }}
+                // Fallback fail-closed: força rerun completo; o gate do servidor
+                // revalida o grant antes de renderizar novamente a área sensível.
+                parentWindow.location.reload();
+            }};
+
             const intervalId = parentWindow.setInterval(() => {{
                 if (state.expired) return;
                 if ((Date.now() - state.lastRealActivityAt) >= timeoutMs) {{
                     state.expired = true;
-                    try {{
-                        parentWindow.location.reload();
-                    }} catch (_) {{
-                        window.location.reload();
-                    }}
+                    lockSensitiveArea();
                 }}
             }}, checkEveryMs);
 
@@ -124,20 +114,3 @@ def render_sensitive_idle_watchdog(identity: IdentidadeUsuario) -> None:
     """Mantém a área aberta enquanto há uso real e a fecha após 3 min ociosa."""
 
     _render_browser_idle_watchdog(identity)
-
-    fragment = getattr(st, "fragment", None)
-    if fragment is None:
-        fragment = getattr(st, "experimental_fragment", None)
-    if fragment is None:
-        lock_sensitive_area()
-        st.error(
-            "A proteção automática por inatividade exige uma versão compatível do "
-            "Streamlit. A área administrativa foi bloqueada por segurança."
-        )
-        st.stop()
-
-    @fragment(run_every=_WATCHDOG_INTERVAL_SECONDS)
-    def _sensitive_idle_watchdog_fragment() -> None:
-        _watchdog_body(identity)
-
-    _sensitive_idle_watchdog_fragment()
