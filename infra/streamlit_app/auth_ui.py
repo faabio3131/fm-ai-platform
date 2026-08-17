@@ -26,7 +26,7 @@ _SENSITIVE_BLOCKED_UNTIL_KEY = "_fm_ai_sensitive_auth_blocked_until_v1"
 _MAX_ATTEMPTS = 5
 _BLOCK_SECONDS = 30
 _SENSITIVE_BLOCK_SECONDS = 60
-_SENSITIVE_TTL_SECONDS = 600
+_SENSITIVE_IDLE_SECONDS = 180
 _SENSITIVE_ROLES = frozenset({Papel.ADMINISTRADOR, Papel.GERENTE})
 
 
@@ -60,18 +60,33 @@ def can_access_sensitive_area(
     *,
     required_permission: Permissao | None = None,
 ) -> bool:
-    """Decide autorização de entrada sem confundir papel com permissão da seção.
-
-    A área Administração/Proprietário exige papel privilegiado. Cada subseção pode
-    acrescentar sua própria permissão (por exemplo, integrações) sem transformar
-    ``integracao.gerenciar`` em uma chave universal de toda a administração.
-    """
+    """Decide autorização de entrada sem confundir papel com permissão da seção."""
 
     if not identity.ativo or not (identity.papeis & _SENSITIVE_ROLES):
         return False
     if required_permission is None:
         return True
     return required_permission in identity.permissoes
+
+
+def sensitive_grant_is_valid(
+    grant: object,
+    identity: IdentidadeUsuario,
+    *,
+    now: datetime | None = None,
+) -> bool:
+    """Valida um desbloqueio sensível pelo mesmo usuário e por inatividade máxima."""
+
+    if not isinstance(grant, dict):
+        return False
+    last_activity_at = grant.get("last_activity_at")
+    if not isinstance(last_activity_at, datetime):
+        return False
+    current = now or datetime.now(timezone.utc)
+    return bool(
+        grant.get("usuario_id") == identity.usuario_id
+        and current - last_activity_at <= timedelta(seconds=_SENSITIVE_IDLE_SECONDS)
+    )
 
 
 def _blocked_until() -> datetime | None:
@@ -115,16 +130,58 @@ def _clear_sensitive_auth() -> None:
     st.session_state.pop(_SENSITIVE_BLOCKED_UNTIL_KEY, None)
 
 
+def lock_sensitive_area() -> None:
+    """Bloqueia imediatamente qualquer autorização administrativa desta sessão."""
+
+    _clear_sensitive_auth()
+
+
 def _sensitive_auth_valid(identity: IdentidadeUsuario) -> bool:
     grant = st.session_state.get(_SENSITIVE_AUTH_KEY)
-    if not isinstance(grant, dict):
+    now = datetime.now(timezone.utc)
+    if not sensitive_grant_is_valid(grant, identity, now=now):
+        if isinstance(grant, dict):
+            _clear_sensitive_auth()
         return False
-    expires_at = grant.get("expires_at")
-    return bool(
-        grant.get("usuario_id") == identity.usuario_id
-        and isinstance(expires_at, datetime)
-        and expires_at > datetime.now(timezone.utc)
-    )
+    grant["last_activity_at"] = now
+    st.session_state[_SENSITIVE_AUTH_KEY] = grant
+    return True
+
+
+def verify_sensitive_password(
+    *,
+    identity: IdentidadeUsuario,
+    password: str,
+    session_factory: Callable[[], Session],
+    required_permission: Permissao | None = None,
+) -> bool:
+    """Confirma senha no momento de uma ação crítica, sem criar novo desbloqueio."""
+
+    if not password or not can_access_sensitive_area(
+        identity, required_permission=required_permission
+    ):
+        return False
+    db = session_factory()
+    try:
+        authenticated = ServicoAutenticacao(
+            RepositorioIdentidadesSQLAlchemy(db)
+        ).autenticar(email=identity.email, password=password)
+        same_scope = (
+            authenticated.usuario_id == identity.usuario_id
+            and authenticated.tenant_id == identity.tenant_id
+            and identity.unidade_id in authenticated.unidades_permitidas
+        )
+        return bool(
+            same_scope
+            and can_access_sensitive_area(
+                authenticated,
+                required_permission=required_permission,
+            )
+        )
+    except (CredenciaisInvalidas, UsuarioInativo, SQLAlchemyError):
+        return False
+    finally:
+        db.close()
 
 
 def require_authentication(
@@ -197,7 +254,7 @@ def require_sensitive_reauthentication(
     settings: RuntimeSettings,
     required_permission: Permissao | None = None,
 ) -> None:
-    """Exige confirmação recente de senha para abrir áreas administrativas sensíveis."""
+    """Exige confirmação recente e renova somente com atividade administrativa real."""
 
     if not can_access_sensitive_area(
         identity, required_permission=required_permission
@@ -233,6 +290,10 @@ def require_sensitive_reauthentication(
         "Área protegida. Confirme novamente sua senha de gerente ou "
         "proprietário/administrador para continuar."
     )
+    st.caption(
+        "O desbloqueio expira após 3 minutos sem atividade. Ações críticas podem exigir "
+        "nova confirmação de senha no momento da execução."
+    )
     st.caption(f"Usuário autenticado: {identity.email}")
     with st.form("fm_ai_sensitive_reauth_v1", clear_on_submit=True):
         password = st.text_input(
@@ -241,43 +302,28 @@ def require_sensitive_reauthentication(
             autocomplete="current-password",
         )
         submit = st.form_submit_button(
-            "Desbloquear por 10 minutos",
+            "Desbloquear área administrativa",
             type="primary",
             use_container_width=True,
         )
 
     if submit:
-        db = session_factory()
-        try:
-            authenticated = ServicoAutenticacao(
-                RepositorioIdentidadesSQLAlchemy(db)
-            ).autenticar(email=identity.email, password=password)
-            same_scope = (
-                authenticated.usuario_id == identity.usuario_id
-                and authenticated.tenant_id == identity.tenant_id
-                and identity.unidade_id in authenticated.unidades_permitidas
-            )
-            privileged = can_access_sensitive_area(
-                authenticated,
-                required_permission=required_permission,
-            )
-            if not same_scope or not privileged:
-                raise CredenciaisInvalidas("credenciais invalidas")
+        if verify_sensitive_password(
+            identity=identity,
+            password=password,
+            session_factory=session_factory,
+            required_permission=required_permission,
+        ):
             st.session_state[_SENSITIVE_AUTH_KEY] = {
                 "usuario_id": identity.usuario_id,
-                "expires_at": datetime.now(timezone.utc)
-                + timedelta(seconds=_SENSITIVE_TTL_SECONDS),
+                "last_activity_at": datetime.now(timezone.utc),
             }
             st.session_state.pop(_SENSITIVE_FAILED_KEY, None)
             st.session_state.pop(_SENSITIVE_BLOCKED_UNTIL_KEY, None)
             st.rerun()
-        except (CredenciaisInvalidas, UsuarioInativo):
+        else:
             _register_sensitive_failure()
             st.error("Senha inválida ou usuário sem autorização para esta área.")
-        except SQLAlchemyError:
-            st.error("Não foi possível validar a autorização neste momento.")
-        finally:
-            db.close()
 
     st.stop()
 
@@ -296,6 +342,15 @@ def render_identity_sidebar(
             label="🔐 Administração / Proprietário",
             use_container_width=True,
         )
+        grant = st.session_state.get(_SENSITIVE_AUTH_KEY)
+        if isinstance(grant, dict) and grant.get("usuario_id") == identity.usuario_id:
+            if st.button(
+                "🔒 Bloquear área administrativa agora",
+                key="fm_ai_lock_sensitive_area_v1",
+                use_container_width=True,
+            ):
+                lock_sensitive_area()
+                st.rerun()
     if _auth_required(settings) and st.button("Sair", key="fm_ai_logout_v1"):
         st.session_state.pop(_SESSION_KEY, None)
         _clear_failures()
