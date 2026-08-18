@@ -50,6 +50,7 @@ from migrations.client_payment_identity_v1 import upgrade_client_payment_identit
 from migrations.integration_secret_vault_v1 import upgrade_integration_secret_vault_v1
 from migrations.legacy_schema_reconciliation_v1 import reconcile_legacy_schema_v1
 from migrations.legacy_schema_upgrade_v1 import upgrade_legacy_schema_v1
+from migrations.product_unit_scope_compat_v1 import upgrade_product_unit_scope_compat_v1
 
 _metadata = MetaData()
 _schema_migrations = Table(
@@ -169,6 +170,7 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0017_admin_pin_v1", upgrade_admin_pin_v1),
     Migration("0018_admin_access_authorization_v1", upgrade_admin_access_authorization_v1),
     Migration("0019_client_payment_identity_v1", upgrade_client_payment_identity_v1),
+    Migration("0020_product_unit_scope_compat_v1", upgrade_product_unit_scope_compat_v1),
 )
 
 
