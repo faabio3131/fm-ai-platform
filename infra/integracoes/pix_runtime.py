@@ -46,6 +46,15 @@ class CobrancaPixRuntime:
     qr_code_url: str | None = None
     qr_code_base64: str | None = None
 
+    @property
+    def paga(self) -> bool:
+        return self.status.strip().casefold() in {
+            "pago",
+            "paid",
+            "approved",
+            "autorizado",
+        }
+
 
 def selecionar_integracao_pix(
     configuracoes: Sequence[ConfiguracaoServicoExterno],
@@ -129,6 +138,64 @@ def criar_cobranca_pix(
     raise ErroConfiguracaoServico("provedor_pix_nao_suportado")
 
 
+def consultar_cobranca_pix(
+    *,
+    fabrica: FabricaPixRuntime,
+    contexto: ContextoExecucao,
+    configuracao: ConfiguracaoServicoExterno,
+    id_externo: str,
+) -> CobrancaPixRuntime:
+    identificador = id_externo.strip()
+    if not identificador:
+        raise ValueError("identificador_pix_invalido")
+
+    if configuracao.provedor == "pagbank":
+        adapter = fabrica.pagbank(
+            contexto=contexto,
+            configuracao_id=configuracao.configuracao_id,
+        )
+        cobranca = adapter.consultar_transacao(identificador)
+        if cobranca is None:
+            raise ErroConfiguracaoServico("cobranca_pix_nao_encontrada")
+        exibicao = dict(cobranca.payload_exibicao)
+        return CobrancaPixRuntime(
+            provedor="pagbank",
+            id_externo=cobranca.id_externo,
+            status=cobranca.status,
+            pix_copia_cola=exibicao.get("pix_copia_cola"),
+            qr_code_url=exibicao.get("qr_code_png_url"),
+        )
+
+    if configuracao.provedor == "mercado_pago":
+        adapter = fabrica.mercado_pago(
+            contexto=contexto,
+            configuracao_id=configuracao.configuracao_id,
+        )
+        cobranca = adapter.consultar_pagamento(identificador)
+        return CobrancaPixRuntime(
+            provedor="mercado_pago",
+            id_externo=cobranca.pagamento_id,
+            status=cobranca.status,
+            pix_copia_cola=cobranca.pix_copia_cola,
+            qr_code_base64=cobranca.qr_code_base64,
+            qr_code_url=cobranca.ticket_url,
+        )
+
+    raise ErroConfiguracaoServico("provedor_pix_nao_suportado")
+
+
+def _configuracao_pix_do_contexto(
+    *,
+    repositorio: RepositorioPixRuntime,
+    contexto: ContextoExecucao,
+) -> ConfiguracaoServicoExterno:
+    configuracoes = repositorio.listar(
+        tenant_id=contexto.tenant_id,
+        unidade_id=contexto.unidade_id,
+    )
+    return selecionar_integracao_pix(configuracoes)
+
+
 def criar_cobranca_pix_por_control_plane(
     *,
     repositorio: RepositorioPixRuntime,
@@ -139,18 +206,12 @@ def criar_cobranca_pix_por_control_plane(
     idempotency_key: str,
     pagador: DadosPagadorPix,
 ) -> CobrancaPixRuntime:
-    """Resolve a configuração Pix do escopo autenticado e cria a cobrança.
+    """Resolve a configuração Pix do escopo autenticado e cria a cobrança."""
 
-    O repositório recebe exclusivamente tenant/unidade do contexto já autenticado.
-    A seleção falha fechado se não houver exatamente um provedor habilitado e
-    homologado. Nenhuma credencial é aceita como argumento desta função.
-    """
-
-    configuracoes = repositorio.listar(
-        tenant_id=contexto.tenant_id,
-        unidade_id=contexto.unidade_id,
+    configuracao = _configuracao_pix_do_contexto(
+        repositorio=repositorio,
+        contexto=contexto,
     )
-    configuracao = selecionar_integracao_pix(configuracoes)
     return criar_cobranca_pix(
         fabrica=fabrica,
         contexto=contexto,
@@ -159,4 +220,28 @@ def criar_cobranca_pix_por_control_plane(
         valor=valor,
         idempotency_key=idempotency_key,
         pagador=pagador,
+    )
+
+
+def consultar_cobranca_pix_por_control_plane(
+    *,
+    repositorio: RepositorioPixRuntime,
+    fabrica: FabricaPixRuntime,
+    contexto: ContextoExecucao,
+    provedor: str,
+    id_externo: str,
+) -> CobrancaPixRuntime:
+    """Consulta a cobrança somente pelo provedor Pix ativo do escopo autenticado."""
+
+    configuracao = _configuracao_pix_do_contexto(
+        repositorio=repositorio,
+        contexto=contexto,
+    )
+    if configuracao.provedor != provedor.strip().casefold():
+        raise ErroConfiguracaoServico("provedor_pix_divergente")
+    return consultar_cobranca_pix(
+        fabrica=fabrica,
+        contexto=contexto,
+        configuracao=configuracao,
+        id_externo=id_externo,
     )
