@@ -703,7 +703,7 @@ def executar_forecasting_e_alertar(db_session):
 def popular_dados_iniciais():
     db = SessionLocal()
     try:
-        if db.query(ConfiguracaoMeta).count() == 0:
+        if is_test_mode() and db.query(ConfiguracaoMeta).count() == 0:
             db.add(ConfiguracaoMeta(gateway_provider="Mercado Pago"))
             db.commit()
 
@@ -761,7 +761,40 @@ seed_database(
 
 # Verificação da Inteligência Artificial Gemini
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GENAI_DISPONIVEL = is_test_mode() or bool(GEMINI_API_KEY)
+
+
+def _gemini_disponivel_no_runtime() -> bool:
+    if is_test_mode():
+        return True
+
+    if not RUNTIME_SETTINGS.commercial:
+        return bool(GEMINI_API_KEY)
+
+    db = SessionLocal()
+    try:
+        from infra.integracoes import FabricaAdaptersExternos
+        from infra.seguranca.segredos_sqlalchemy import (
+            EncryptedSQLAlchemySecretStore,
+        )
+
+        vault = EncryptedSQLAlchemySecretStore(db)
+        FabricaAdaptersExternos(
+            session=db,
+            secret_store=vault,
+        ).gemini(
+            contexto=CURRENT_IDENTITY.contexto(
+                origem="app.gemini_availability"
+            ),
+            configuracao_id="ia.generativa--gemini",
+        )
+        return True
+    except Exception:
+        return False
+    finally:
+        db.close()
+
+
+GENAI_DISPONIVEL = _gemini_disponivel_no_runtime()
 
 
 # --- 6. BARRA LATERAL (SIDEBAR CORPORATIVA) ---
@@ -1077,7 +1110,11 @@ with aba3:
     db_pdv = get_db()
     lista_pratos_pdv = db_pdv.query(Produto).all()
     lista_clientes_pdv = db_pdv.query(Cliente).all()
-    config_gtw = db_pdv.query(ConfiguracaoMeta).first()
+    config_gtw = (
+        db_pdv.query(ConfiguracaoMeta).first()
+        if is_test_mode()
+        else None
+    )
 
     # A configuração legada só existe para E2E isolado. Nunca promove o PDV
     # comercial nem autoriza uso das colunas de segredo em texto puro.
