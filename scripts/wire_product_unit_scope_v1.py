@@ -1,8 +1,8 @@
 """Aplica wiring idempotente de ``loja_id`` aos produtos criados pelo app V1.
 
-O patch é deliberadamente estreito: mapeia a coluna de compatibilidade e garante que
-novos produtos, tanto no cadastro manual quanto na importação Gemini, recebam a
-unidade da identidade autenticada. Se o contrato esperado divergir, falha fechado.
+Este patch representa o passo histórico que introduziu o escopo por unidade. Quando
+o app já foi promovido para o helper refletido de compatibilidade com schemas legados,
+ele deve virar um no-op em vez de tentar reintroduzir o mapeamento estático String.
 """
 
 from __future__ import annotations
@@ -22,6 +22,12 @@ def _replace_once(texto: str, antigo: str, novo: str, rotulo: str) -> str:
 
 
 def aplicar(texto: str) -> str:
+    # Estado canônico mais novo: a persistência não mapeia loja_id estaticamente no
+    # ORM legado; ``inserir_produto_legado`` reflete o tipo real da coluna em runtime.
+    # Reaplicar este patch antigo sobre esse estado seria uma regressão.
+    if "inserir_produto_legado(" in texto:
+        return texto
+
     texto = _replace_once(
         texto,
         '''class Produto(Base):  # type: ignore[misc, valid-type]\n    __tablename__ = "produtos"\n    id = Column(Integer, primary_key=True, index=True)\n    nome = Column(String, index=True)\n''',
@@ -49,7 +55,7 @@ def main() -> None:
     original = APP.read_text(encoding="utf-8")
     atualizado = aplicar(original)
     if atualizado == original:
-        print("app.py já contém o escopo de unidade dos produtos; nenhuma alteração necessária.")
+        print("app.py já contém escopo de produto compatível; nenhuma alteração necessária.")
         return
     APP.write_text(atualizado, encoding="utf-8")
     print("app.py atualizado para persistir loja_id da unidade autenticada nos produtos.")
