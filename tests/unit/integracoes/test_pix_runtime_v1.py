@@ -77,6 +77,7 @@ class _PagBankFake:
 class _MercadoPagoCobranca:
     pagamento_id = "mp-123"
     status = "pending"
+    valor = Decimal("31.90")
     pix_copia_cola = "000201-mp"
     qr_code_base64 = "base64-qr"
     ticket_url = "https://example.invalid/ticket"
@@ -85,6 +86,7 @@ class _MercadoPagoCobranca:
 class _MercadoPagoCobrancaPaga:
     pagamento_id = "mp-123"
     status = "approved"
+    valor = Decimal("31.90")
     pix_copia_cola = "000201-mp"
     qr_code_base64 = "base64-qr"
     ticket_url = "https://example.invalid/ticket"
@@ -196,6 +198,7 @@ def test_cria_pix_pagbank_por_adapter_injetado_sem_io_real():
         provedor="pagbank",
         id_externo="ORDE_TESTE",
         status="pendente",
+        valor=Decimal("25.50"),
         pix_copia_cola="000201-pagbank",
         qr_code_url="https://example.invalid/qr.png",
     )
@@ -221,6 +224,7 @@ def test_cria_pix_mercado_pago_por_adapter_injetado_sem_io_real():
         provedor="mercado_pago",
         id_externo="mp-123",
         status="pending",
+        valor=Decimal("31.90"),
         pix_copia_cola="000201-mp",
         qr_code_url="https://example.invalid/ticket",
         qr_code_base64="base64-qr",
@@ -255,6 +259,7 @@ def test_control_plane_lista_somente_escopo_do_contexto_e_roteia_pagbank():
     assert repositorio.chamadas == [("tenant-a", "unidade-a")]
     assert resultado.provedor == "pagbank"
     assert resultado.id_externo == "ORDE_TESTE"
+    assert resultado.valor == Decimal("25.50")
     assert fabrica.pagbank_calls == 1
     assert fabrica.mercado_pago_calls == 0
 
@@ -268,6 +273,7 @@ def test_consulta_pagbank_normaliza_status_pago_sem_criar_nova_cobranca():
         id_externo="ORDE_TESTE",
     )
     assert resultado.status == "pago"
+    assert resultado.valor == Decimal("25.50")
     assert resultado.paga is True
     assert fabrica.pagbank_calls == 1
     assert fabrica.mercado_pago_calls == 0
@@ -282,6 +288,7 @@ def test_consulta_mercado_pago_normaliza_status_aprovado():
         id_externo="mp-123",
     )
     assert resultado.status == "approved"
+    assert resultado.valor == Decimal("31.90")
     assert resultado.paga is True
     assert fabrica.mercado_pago_calls == 1
     assert fabrica.pagbank_calls == 0
