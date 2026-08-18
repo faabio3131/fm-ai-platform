@@ -13,6 +13,7 @@ from core.integracoes.modelos import AmbienteIntegracao, ErroConfiguracaoServico
 from core.integracoes.servicos import ServicoConfiguracoesExternas
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.permissoes import Papel, Permissao
+from infra.integracoes.gemini_healthcheck import executar_healthcheck_gemini
 from infra.integracoes.repositorio_sqlalchemy import (
     ProntidaoCredenciaisSQLAlchemy,
     RepositorioConfiguracoesExternasSQLAlchemy,
@@ -215,6 +216,15 @@ def _render_one(
             )
 
         st.markdown("**Homologação**")
+        ultima_evidencia_real = st.session_state.get(
+            _key(spec, "last_real_healthcheck_evidence")
+        )
+        if spec.provedor == "gemini" and ultima_evidencia_real:
+            st.success("Último healthcheck externo real do Gemini concluído com sucesso.")
+            st.code(str(ultima_evidencia_real), language=None)
+            st.caption(
+                "Copie esta referência para o campo de evidência abaixo. Ela não contém a API key nem conteúdo sensível."
+            )
         st.caption(
             "O status Ativo só deve ser registrado após validação real do provedor. "
             "Informe abaixo uma referência verificável da evidência (ticket, log sanitizado, "
@@ -243,6 +253,53 @@ def _render_one(
             max_chars=8,
             key=_key(spec, f"critical_pin_{sensitive_nonce}"),
         )
+
+        if spec.provedor == "gemini" and existing is not None:
+            st.caption(
+                "O teste abaixo faz uma chamada mínima real ao Google Gemini usando somente a credencial já salva no cofre. "
+                "Ele valida o modelo configurado, gera uma referência sanitizada e não homologa automaticamente."
+            )
+            if st.button(
+                "Testar Gemini real antes de homologar",
+                key=_key(spec, "real_healthcheck"),
+            ):
+                pin_ok = _critical_pin_ok(
+                    identidade=identidade,
+                    pin=critical_pin,
+                    session_factory=session_factory,
+                )
+                _consume_sensitive_inputs(spec)
+                if not pin_ok:
+                    _set_flash(
+                        spec,
+                        "error",
+                        "PIN administrativo inválido. O healthcheck externo não foi executado.",
+                    )
+                    st.rerun()
+                try:
+                    resultado = executar_healthcheck_gemini(
+                        session=session,
+                        secret_store=vault,
+                        contexto=contexto,
+                        configuracao_id=config_id,
+                    )
+                    st.session_state[_key(spec, "last_real_healthcheck_evidence")] = (
+                        resultado.evidencia_ref
+                    )
+                    _set_flash(
+                        spec,
+                        "success",
+                        f"Healthcheck externo real concluído com sucesso usando o modelo {resultado.model}. "
+                        "A referência sanitizada foi gerada abaixo para a homologação.",
+                    )
+                    st.rerun()
+                except Exception:
+                    _set_flash(
+                        spec,
+                        "error",
+                        "O healthcheck externo real do Gemini falhou. A integração continua não homologada; revise o modelo, a credencial e a disponibilidade da conta. Nenhum segredo foi exposto.",
+                    )
+                    st.rerun()
 
         c_save, c_validate, c_homolog = st.columns(3)
         if c_save.button("Salvar / atualizar", key=_key(spec, "save"), type="primary"):

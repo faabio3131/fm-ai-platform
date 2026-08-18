@@ -181,7 +181,6 @@ class Cliente(Base):  # type: ignore[misc, valid-type]
 class Produto(Base):  # type: ignore[misc, valid-type]
     __tablename__ = "produtos"
     id = Column(Integer, primary_key=True, index=True)
-    loja_id = Column(String(64), nullable=True, index=True)
     nome = Column(String, index=True)
     categoria = Column(String)
     descricao_bruta = Column(Text)
@@ -482,19 +481,23 @@ def render_cadastro_ficha_tecnica(
             elif not st.session_state.itens_ficha_tecnica:
                 st.error("❌ Adicione pelo menos 1 insumo à ficha técnica.")
             else:
-                novo_prod = Produto(
-                    loja_id=CURRENT_IDENTITY.unidade_id,
-                    nome=nome_produto,
-                    categoria=categoria,
-                    preco_venda=preco_venda_final,
-                    custo_total_cmv=cmv_total_calculado,
+                from infra.legacy_product_scope import inserir_produto_legado
+
+                novo_prod_id = inserir_produto_legado(
+                    db_session,
+                    unidade_id=CURRENT_IDENTITY.unidade_id,
+                    valores={
+                        "nome": nome_produto,
+                        "categoria": categoria,
+                        "preco_venda": preco_venda_final,
+                        "custo_total_cmv": cmv_total_calculado,
+                    },
                 )
-                db_session.add(novo_prod)
                 db_session.commit()
 
                 for item in st.session_state.itens_ficha_tecnica:
                     nova_ft = FichaTecnica(
-                        produto_id=novo_prod.id,
+                        produto_id=novo_prod_id,
                         insumo_id=item["insumo_id"],
                         quantidade_utilizada=item["quantidade"],
                     )
@@ -601,15 +604,19 @@ def render_cadastro_ficha_tecnica(
                     qtd_cadastrados = 0
                     for prod in produtos_extraidos:
                         cmv_est = round(float(prod.get("preco", 0)) * 0.32, 2)
-                        novo_prod = Produto(
-                            loja_id=CURRENT_IDENTITY.unidade_id,
-                            nome=prod.get("nome"),
-                            categoria=prod.get("categoria", "Geral"),
-                            preco_venda=float(prod.get("preco", 0)),
-                            custo_total_cmv=cmv_est,
-                            descricao_bruta=prod.get("ingredientes", ""),
+                        from infra.legacy_product_scope import inserir_produto_legado
+
+                        inserir_produto_legado(
+                            db_session,
+                            unidade_id=CURRENT_IDENTITY.unidade_id,
+                            valores={
+                                "nome": prod.get("nome"),
+                                "categoria": prod.get("categoria", "Geral"),
+                                "preco_venda": float(prod.get("preco", 0)),
+                                "custo_total_cmv": cmv_est,
+                                "descricao_bruta": prod.get("ingredientes", ""),
+                            },
                         )
-                        db_session.add(novo_prod)
                         qtd_cadastrados += 1
 
                     db_session.commit()
