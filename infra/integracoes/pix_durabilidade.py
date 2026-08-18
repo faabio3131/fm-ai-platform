@@ -11,14 +11,19 @@ from sqlalchemy.orm import Session
 
 from core.dominio.dinheiro import Dinheiro
 from core.pagamentos.adaptador_sqlalchemy import RepositorioPagamentosSQLAlchemy
+from core.pagamentos.adapters import CobrancaProvedor
+from core.pagamentos.fontes_financeiras import confirmar_pix_por_consulta_provedor
 from core.pagamentos.modelos import (
     MetodoPagamento,
+    ResultadoPagamento,
     StatusTransacao,
     TipoTransacao,
     TransacaoPagamento,
 )
 from core.pagamentos.servicos import criar_obrigacao_pagamento
 from core.seguranca.contexto import ContextoExecucao
+
+from .pix_runtime import CobrancaPixRuntime
 
 
 def _agora_utc() -> datetime:
@@ -160,3 +165,45 @@ def recuperar_vinculo_cobranca_pix(
     if not candidatas:
         return None
     return max(candidatas, key=lambda item: item.occurred_at)
+
+
+def confirmar_cobranca_pix_consultada(
+    *,
+    session: Session,
+    contexto: ContextoExecucao,
+    pagamento_id: str,
+    cobranca: CobrancaPixRuntime,
+    timestamp: datetime | None = None,
+) -> ResultadoPagamento | None:
+    """Persiste liquidação somente após consulta autenticada retornar estado pago.
+
+    Estados pendentes não alteram o agregado financeiro. Quando a consulta é
+    confirmada, a liquidação reutiliza a regra canônica de fonte financeira da V1,
+    mantendo idempotência, versão otimista e vínculo com a referência externa.
+    """
+
+    repo = RepositorioPagamentosSQLAlchemy(session)
+    pagamento = repo.buscar_pagamento(
+        contexto.tenant_id,
+        contexto.unidade_id,
+        pagamento_id,
+    )
+    if pagamento is None:
+        raise RuntimeError("pagamento Pix durável não encontrado")
+
+    resultado = confirmar_pix_por_consulta_provedor(
+        contexto=contexto,
+        repositorio=repo,
+        pagamento_id=pagamento_id,
+        provedor=cobranca.provedor,
+        cobranca=CobrancaProvedor(
+            id_externo=cobranca.id_externo,
+            status=cobranca.status,
+            valor=Dinheiro(cobranca.valor, pagamento.moeda),
+        ),
+        expected_version=pagamento.versao,
+        timestamp=timestamp or _agora_utc(),
+    )
+    if resultado is not None:
+        session.commit()
+    return resultado
