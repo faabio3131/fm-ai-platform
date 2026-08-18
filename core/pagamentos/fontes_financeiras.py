@@ -17,7 +17,7 @@ from .modelos import MetodoPagamento, ResultadoPagamento
 from .repositorios import RepositorioPagamentos
 from .servicos import _confirmar_pagamento_validado
 
-_STATUS_PAGOS = frozenset({"pago", "paid"})
+_STATUS_PAGOS = frozenset({"pago", "paid", "approved", "aprovado", "autorizado"})
 
 
 def confirmar_pix_por_consulta_provedor(
