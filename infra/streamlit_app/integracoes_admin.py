@@ -353,7 +353,7 @@ def _render_one(
                         "O mapa abaixo e a prova real da Browser API Key. Se carregar e ficar verde, copie a evidencia final exibida dentro do proprio teste. "
                         "Se o Google rejeitar a chave, o painel mostrara falha e a integracao continua nao homologada."
                     )
-                    components.html(preparacao.html, height=430, scrolling=False)
+                    components.iframe(preparacao.url, height=430, scrolling=False)
                 except Exception:
                     st.error(
                         "Nao foi possivel preparar o teste real do navegador. A integracao continua nao homologada; revise a Browser API Key e tente novamente. Nenhum segredo foi exposto."
