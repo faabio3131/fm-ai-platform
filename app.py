@@ -847,11 +847,14 @@ def _provedor_pix_control_plane() -> str:
 def _criar_pix_control_plane(
     *,
     pagamento_id: str,
+    pedido_id: str,
     valor: float,
     idempotency_key: str,
     nome_pagador: str,
     email_pagador: str,
     documento_pagador: str,
+    terminal_id: str,
+    assinatura_checkout: str,
 ):
     db = SessionLocal()
     try:
@@ -874,12 +877,13 @@ def _criar_pix_control_plane(
         fabrica = FabricaAdaptersExternos(session=db, secret_store=vault)
         repositorio = RepositorioConfiguracoesExternasSQLAlchemy(db)
 
-        return criar_cobranca_pix_por_control_plane(
+        valor_decimal = Decimal(str(round(valor, 2)))
+        cobranca = criar_cobranca_pix_por_control_plane(
             repositorio=repositorio,
             fabrica=fabrica,
             contexto=contexto,
             pagamento_id=pagamento_id,
-            valor=Decimal(str(round(valor, 2))),
+            valor=valor_decimal,
             idempotency_key=idempotency_key,
             pagador=DadosPagadorPix(
                 nome=nome_pagador,
@@ -887,11 +891,29 @@ def _criar_pix_control_plane(
                 documento=documento_pagador,
             ),
         )
+
+        from infra.integracoes.pix_durabilidade import registrar_vinculo_cobranca_pix
+
+        registrar_vinculo_cobranca_pix(
+            session=db,
+            contexto=contexto,
+            pagamento_id=pagamento_id,
+            pedido_id=pedido_id,
+            valor=valor_decimal,
+            provedor=cobranca.provedor,
+            id_externo=cobranca.id_externo,
+            idempotency_key=f"{idempotency_key}:vinculo",
+            terminal_id=terminal_id,
+            assinatura_checkout=assinatura_checkout,
+        )
+        return cobranca
     finally:
         db.close()
 
 
-def _consultar_pix_control_plane(*, provedor: str, id_externo: str):
+def _consultar_pix_control_plane(
+    *, provedor: str, id_externo: str, pagamento_id: str | None = None
+):
     db = SessionLocal()
     try:
         from infra.integracoes import FabricaAdaptersExternos
@@ -910,12 +932,39 @@ def _consultar_pix_control_plane(*, provedor: str, id_externo: str):
         fabrica = FabricaAdaptersExternos(session=db, secret_store=vault)
         repositorio = RepositorioConfiguracoesExternasSQLAlchemy(db)
 
-        return consultar_cobranca_pix_por_control_plane(
+        cobranca = consultar_cobranca_pix_por_control_plane(
             repositorio=repositorio,
             fabrica=fabrica,
             contexto=contexto,
             provedor=provedor,
             id_externo=id_externo,
+        )
+        if pagamento_id:
+            from infra.integracoes.pix_durabilidade import (
+                confirmar_cobranca_pix_consultada,
+            )
+
+            confirmar_cobranca_pix_consultada(
+                session=db,
+                contexto=contexto,
+                pagamento_id=pagamento_id,
+                cobranca=cobranca,
+            )
+        return cobranca
+    finally:
+        db.close()
+
+
+def _recuperar_pix_control_plane(*, terminal_id: str, assinatura_checkout: str):
+    db = SessionLocal()
+    try:
+        from infra.integracoes.pix_durabilidade import recuperar_pix_aberto_por_terminal
+
+        return recuperar_pix_aberto_por_terminal(
+            session=db,
+            contexto=CURRENT_IDENTITY.contexto(origem="app.pdv.pix_recovery"),
+            terminal_id=terminal_id,
+            assinatura_checkout=assinatura_checkout,
         )
     finally:
         db.close()
@@ -1580,9 +1629,13 @@ with aba3:
                     )
 
                 checkout_id_pix = st.session_state["pdv_checkout_id"]
-                assinatura_pix = (
-                    f"{checkout_id_pix}:{getattr(prod_pdv, 'id', '')}:"
+                terminal_pix_pdv = os.getenv("FM_AI_TEST_TERMINAL", "pdv-default")
+                assinatura_checkout_duravel = (
+                    f"{getattr(prod_pdv, 'id', '')}:"
                     f"{qtd_pdv}:{cliente_id_pdv}:{total_final_pdv:.2f}"
+                )
+                assinatura_pix = (
+                    f"{checkout_id_pix}:{assinatura_checkout_duravel}"
                 )
 
                 if st.session_state.get("pdv_pix_assinatura") != assinatura_pix:
@@ -1594,6 +1647,7 @@ with aba3:
                         "pdv_pix_qr_url",
                         "pdv_pix_qr_base64",
                         "pdv_pix_confirmado",
+                        "pdv_pix_pagamento_id",
                     ):
                         st.session_state.pop(chave, None)
                     st.session_state["pdv_pix_assinatura"] = assinatura_pix
@@ -1646,6 +1700,34 @@ with aba3:
                 if motivo_dados:
                     st.info(motivo_dados)
 
+                if not st.session_state.get("pdv_pix_id_externo"):
+                    try:
+                        vinculo_pix = _recuperar_pix_control_plane(
+                            terminal_id=terminal_pix_pdv,
+                            assinatura_checkout=assinatura_checkout_duravel,
+                        )
+                        if vinculo_pix is not None:
+                            st.session_state["pdv_pix_provedor"] = vinculo_pix.provedor
+                            st.session_state["pdv_pix_id_externo"] = vinculo_pix.id_externo
+                            st.session_state["pdv_pix_pagamento_id"] = vinculo_pix.pagamento_id
+                            if vinculo_pix.pagamento_id.startswith("pdv-"):
+                                st.session_state["pdv_checkout_id"] = vinculo_pix.pagamento_id[4:]
+                            consulta_recuperada = _consultar_pix_control_plane(
+                                provedor=vinculo_pix.provedor,
+                                id_externo=vinculo_pix.id_externo,
+                                pagamento_id=vinculo_pix.pagamento_id,
+                            )
+                            st.session_state["pdv_pix_status"] = consulta_recuperada.status
+                            st.session_state["pdv_pix_copia_cola"] = consulta_recuperada.pix_copia_cola
+                            st.session_state["pdv_pix_qr_url"] = consulta_recuperada.qr_code_url
+                            st.session_state["pdv_pix_qr_base64"] = consulta_recuperada.qr_code_base64
+                            st.session_state["pdv_pix_confirmado"] = _pix_status_confirmado(
+                                consulta_recuperada.status
+                            )
+                    except Exception:
+                        # Recuperação é best-effort; uma falha de consulta nunca confirma Pix.
+                        pass
+
                 tem_cobranca_pix = bool(
                     st.session_state.get("pdv_pix_id_externo")
                 )
@@ -1659,14 +1741,19 @@ with aba3:
                         ),
                     ):
                         try:
+                            pagamento_id_pix = f"pdv-{checkout_id_pix}"
                             cobranca_pix = _criar_pix_control_plane(
-                                pagamento_id=f"pdv-{checkout_id_pix}",
+                                pagamento_id=pagamento_id_pix,
+                                pedido_id=checkout_id_pix,
                                 valor=float(total_final_pdv),
                                 idempotency_key=f"pdv-pix-{checkout_id_pix}",
                                 nome_pagador=nome_pagador,
                                 email_pagador=email_pagador,
                                 documento_pagador=documento_pagador,
+                                terminal_id=terminal_pix_pdv,
+                                assinatura_checkout=assinatura_checkout_duravel,
                             )
+                            st.session_state["pdv_pix_pagamento_id"] = pagamento_id_pix
                             st.session_state["pdv_pix_provedor"] = (
                                 cobranca_pix.provedor
                             )
@@ -1752,6 +1839,12 @@ with aba3:
                                     ),
                                     id_externo=str(
                                         st.session_state["pdv_pix_id_externo"]
+                                    ),
+                                    pagamento_id=str(
+                                        st.session_state.get(
+                                            "pdv_pix_pagamento_id",
+                                            f"pdv-{st.session_state['pdv_checkout_id']}",
+                                        )
                                     ),
                                 )
                                 st.session_state["pdv_pix_status"] = (
