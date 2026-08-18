@@ -42,6 +42,7 @@ class CobrancaPixRuntime:
     provedor: str
     id_externo: str
     status: str
+    valor: Decimal
     pix_copia_cola: str | None
     qr_code_url: str | None = None
     qr_code_base64: str | None = None
@@ -52,6 +53,7 @@ class CobrancaPixRuntime:
             "pago",
             "paid",
             "approved",
+            "aprovado",
             "autorizado",
         }
 
@@ -109,6 +111,7 @@ def criar_cobranca_pix(
             provedor="pagbank",
             id_externo=cobranca.id_externo,
             status=cobranca.status,
+            valor=cobranca.valor.valor,
             pix_copia_cola=exibicao.get("pix_copia_cola"),
             qr_code_url=exibicao.get("qr_code_png_url"),
         )
@@ -130,6 +133,7 @@ def criar_cobranca_pix(
             provedor="mercado_pago",
             id_externo=cobranca.pagamento_id,
             status=cobranca.status,
+            valor=cobranca.valor,
             pix_copia_cola=cobranca.pix_copia_cola,
             qr_code_base64=cobranca.qr_code_base64,
             qr_code_url=cobranca.ticket_url,
@@ -162,6 +166,7 @@ def consultar_cobranca_pix(
             provedor="pagbank",
             id_externo=cobranca.id_externo,
             status=cobranca.status,
+            valor=cobranca.valor.valor,
             pix_copia_cola=exibicao.get("pix_copia_cola"),
             qr_code_url=exibicao.get("qr_code_png_url"),
         )
@@ -176,6 +181,7 @@ def consultar_cobranca_pix(
             provedor="mercado_pago",
             id_externo=cobranca.pagamento_id,
             status=cobranca.status,
+            valor=cobranca.valor,
             pix_copia_cola=cobranca.pix_copia_cola,
             qr_code_base64=cobranca.qr_code_base64,
             qr_code_url=cobranca.ticket_url,
