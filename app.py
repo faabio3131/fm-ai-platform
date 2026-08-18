@@ -170,6 +170,8 @@ class Cliente(Base):  # type: ignore[misc, valid-type]
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String, index=True)
     whatsapp = Column(String, unique=True, index=True)
+    email = Column(String, nullable=True)
+    documento_fiscal = Column(String, nullable=True)
     ultima_compra = Column(DateTime, default=datetime.now)
     total_gasto = Column(Float, default=0.0)
     saldo_cashback = Column(Float, default=0.0)
@@ -1054,9 +1056,35 @@ with aba2:
                 st.markdown("### 🧪 Cadastro seguro de cliente para testes E2E")
                 nome_cliente_e2e = st.text_input("Nome do Cliente E2E")
                 whatsapp_cliente_e2e = st.text_input("WhatsApp do Cliente E2E")
+                email_cliente_e2e = st.text_input(
+                    "E-mail do Cliente E2E (opcional)"
+                )
+                documento_cliente_e2e = st.text_input(
+                    "CPF/CNPJ do Cliente E2E (opcional)"
+                )
                 if st.form_submit_button("💾 Salvar Cliente E2E", type="secondary"):
+                    documento_normalizado = "".join(
+                        caractere
+                        for caractere in documento_cliente_e2e
+                        if caractere.isdigit()
+                    )
+                    documento_valido = (
+                        not documento_normalizado
+                        or len(documento_normalizado) in {11, 14}
+                    )
+                    email_normalizado = email_cliente_e2e.strip()
+
                     if not nome_cliente_e2e.strip() or not whatsapp_cliente_e2e.strip():
                         st.error("Nome e WhatsApp do cliente E2E são obrigatórios.")
+                    elif not documento_valido:
+                        st.error(
+                            "CPF/CNPJ deve conter 11 ou 14 dígitos quando informado."
+                        )
+                    elif email_normalizado and (
+                        "@" not in email_normalizado
+                        or "." not in email_normalizado.rsplit("@", 1)[-1]
+                    ):
+                        st.error("Informe um e-mail válido quando preencher o campo.")
                     else:
                         db_cli_e2e = get_db()
                         try:
@@ -1074,6 +1102,10 @@ with aba2:
                                     Cliente(
                                         nome=nome_cliente_e2e.strip(),
                                         whatsapp=whatsapp_cliente_e2e.strip(),
+                                        email=email_normalizado or None,
+                                        documento_fiscal=(
+                                            documento_normalizado or None
+                                        ),
                                         status="Ativo",
                                         saldo_cashback=0.0,
                                     )
