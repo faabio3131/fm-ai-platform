@@ -45,7 +45,6 @@ _PARAM_LABELS = {
     "currency": "Moeda (ex.: BRL)",
     "notification_url": "URL de notificação / webhook",
     "model": "Modelo",
-    "region": "Região",
 }
 
 _SECRET_LABELS = {
@@ -304,12 +303,12 @@ def _render_one(
                 )
                 _set_flash(spec, "success", mensagem)
                 st.rerun()
-            except Exception as exc:
+            except Exception:
                 session.rollback()
                 _set_flash(
                     spec,
                     "error",
-                    f"Não foi possível salvar a configuração: {type(exc).__name__}. PIN e valores sensíveis digitados foram limpos.",
+                    "Não foi possível salvar a configuração. Nenhuma informação interna foi exposta; PIN e valores sensíveis digitados foram limpos. Revise os dados e tente novamente.",
                 )
                 st.rerun()
 
@@ -348,8 +347,10 @@ def _render_one(
                         "A configuração salva não pôde ser validada. Revise os dados da "
                         "integração e salve novamente antes de prosseguir."
                     )
-                except Exception as exc:
-                    st.error(f"Falha inesperada de validação: {type(exc).__name__}")
+                except Exception:
+                    st.error(
+                        "Ocorreu uma falha inesperada durante a validação. Nenhuma informação interna foi exposta; tente novamente ou consulte os logs administrativos sanitizados."
+                    )
 
         can_homologate = (
             Papel.ADMINISTRADOR in identidade.papeis
@@ -389,12 +390,12 @@ def _render_one(
                     "Homologação registrada com evidência e auditoria. O PIN foi consumido e limpo.",
                 )
                 st.rerun()
-            except Exception as exc:
+            except Exception:
                 session.rollback()
                 _set_flash(
                     spec,
                     "error",
-                    f"Não foi possível homologar: {type(exc).__name__}. O PIN foi consumido e limpo.",
+                    "Não foi possível homologar. Nenhuma informação interna foi exposta; o PIN foi consumido e limpo. Revise a configuração e a evidência antes de tentar novamente.",
                 )
                 st.rerun()
 
