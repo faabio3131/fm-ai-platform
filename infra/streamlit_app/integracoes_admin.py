@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Any
 
 import streamlit as st
+import streamlit.components.v1 as components
 from sqlalchemy.orm import Session
 
 from core.integracoes.catalogo import CATALOGO_V1, EspecificacaoServico
@@ -14,6 +15,7 @@ from core.integracoes.servicos import ServicoConfiguracoesExternas
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.permissoes import Papel, Permissao
 from infra.integracoes.gemini_healthcheck import executar_healthcheck_gemini
+from infra.integracoes.google_maps_browser_healthcheck import preparar_healthcheck_browser_google_maps
 from infra.integracoes.google_maps_healthcheck import executar_healthcheck_google_maps
 from infra.integracoes.repositorio_sqlalchemy import (
     ProntidaoCredenciaisSQLAlchemy,
@@ -312,6 +314,50 @@ def _render_one(
                         "O healthcheck externo real do Google Maps falhou. A integração continua não homologada; revise habilitação das APIs, restrições das chaves e faturamento do projeto. Nenhum segredo foi exposto.",
                     )
                     st.rerun()
+
+        if spec.provedor == "google_maps" and existing is not None:
+            evidencia_servidor = st.session_state.get(
+                _key(spec, "last_real_maps_server_healthcheck_evidence")
+            )
+            st.caption(
+                "Depois do teste servidor, valide aqui a Browser API Key carregando um mapa real pela Maps JavaScript API no navegador atual. "
+                "A evidencia final so aparece se os tiles do mapa forem realmente carregados."
+            )
+            if st.button(
+                "Testar Google Maps real (navegador)",
+                key=_key(spec, "real_maps_browser_healthcheck"),
+                disabled=not bool(evidencia_servidor),
+            ):
+                pin_ok = _critical_pin_ok(
+                    identidade=identidade,
+                    pin=critical_pin,
+                    session_factory=session_factory,
+                )
+                _consume_sensitive_inputs(spec)
+                if not pin_ok:
+                    _set_flash(
+                        spec,
+                        "error",
+                        "PIN administrativo invalido. O teste real do navegador nao foi iniciado.",
+                    )
+                    st.rerun()
+                try:
+                    preparacao = preparar_healthcheck_browser_google_maps(
+                        session=session,
+                        secret_store=vault,
+                        contexto=contexto,
+                        configuracao_id=config_id,
+                        evidencia_servidor=str(evidencia_servidor or ""),
+                    )
+                    st.info(
+                        "O mapa abaixo e a prova real da Browser API Key. Se carregar e ficar verde, copie a evidencia final exibida dentro do proprio teste. "
+                        "Se o Google rejeitar a chave, o painel mostrara falha e a integracao continua nao homologada."
+                    )
+                    components.html(preparacao.html, height=430, scrolling=False)
+                except Exception:
+                    st.error(
+                        "Nao foi possivel preparar o teste real do navegador. A integracao continua nao homologada; revise a Browser API Key e tente novamente. Nenhum segredo foi exposto."
+                    )
 
         if spec.provedor == "gemini" and existing is not None:
             st.caption(
