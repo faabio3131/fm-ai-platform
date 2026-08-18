@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.permissoes import Papel
 from infra.seguranca.credenciais import ServicoCredenciaisReferenciadas
+from infra.seguranca.modelos_orm import CredencialReferenciaORM
 from infra.seguranca.segredos_orm import SegredoIntegracaoORM
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
 from migrations.runner import run_migrations
@@ -125,3 +126,68 @@ def test_vault_isola_mesmo_tenant_por_unidade() -> None:
             )
             is False
         )
+
+
+def test_rotacao_preserva_historico_e_deixa_so_ultima_versao_ativa() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    run_migrations(engine)
+    key = Fernet.generate_key().decode("ascii")
+
+    with Session(engine) as session:
+        contexto = _identity("tenant-a", "admin-a").contexto(origem="test")
+        vault = EncryptedSQLAlchemySecretStore(session, master_key=key)
+        credentials = ServicoCredenciaisReferenciadas(session, vault)
+        finalidade = "maps_server_api_key"
+
+        referencias: list[str] = []
+        for valor in ("server-key-v1", "server-key-v2", "server-key-v3"):
+            referencia = vault.armazenar(
+                contexto=contexto,
+                provedor="google_maps",
+                finalidade=finalidade,
+                valor=valor,
+            )
+            referencias.append(referencia)
+            credentials.rotacionar(
+                contexto=contexto,
+                provedor="google_maps",
+                finalidade=finalidade,
+                nova_referencia=referencia,
+            )
+        session.commit()
+
+        atual = credentials.atual(
+            contexto=contexto,
+            provedor="google_maps",
+            finalidade=finalidade,
+        )
+        historico = credentials.historico(
+            contexto=contexto,
+            provedor="google_maps",
+            finalidade=finalidade,
+        )
+        rows = session.scalars(
+            select(CredencialReferenciaORM)
+            .where(
+                CredencialReferenciaORM.tenant_id == "tenant-a",
+                CredencialReferenciaORM.unidade_id == "loja-1",
+                CredencialReferenciaORM.provedor == "google_maps",
+                CredencialReferenciaORM.finalidade == finalidade,
+            )
+            .order_by(CredencialReferenciaORM.versao.asc())
+        ).all()
+
+        assert atual is not None
+        assert atual.versao == 3
+        assert atual.referencia == referencias[2]
+        assert [item.versao for item in historico] == [3, 2, 1]
+        assert [item.referencia for item in historico] == list(reversed(referencias))
+        assert [row.ativa for row in rows] == [False, False, True]
+        assert rows[0].desativada_em is not None
+        assert rows[1].desativada_em is not None
+        assert rows[2].desativada_em is None
+        assert credentials.resolver_valor(
+            contexto=contexto,
+            provedor="google_maps",
+            finalidade=finalidade,
+        ) == "server-key-v3"
