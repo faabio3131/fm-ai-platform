@@ -26,7 +26,14 @@ def test_patch_mapeia_loja_e_preenche_unidade_nos_dois_fluxos() -> None:
     assert 'loja_id = Column(String(64), nullable=True, index=True)' not in atualizado
     assert "loja_id=CURRENT_IDENTITY.unidade_id" not in atualizado
     assert atualizado.count("inserir_produto_legado(") == 2
-    assert atualizado.count("unidade_id=CURRENT_IDENTITY.unidade_id") == 2
+    assert (
+        '''novo_prod_id = inserir_produto_legado(\n                    db_session,\n                    unidade_id=CURRENT_IDENTITY.unidade_id,'''
+        in atualizado
+    )
+    assert (
+        '''inserir_produto_legado(\n                            db_session,\n                            unidade_id=CURRENT_IDENTITY.unidade_id,'''
+        in atualizado
+    )
     assert "produto_id=novo_prod_id" in atualizado
 
 
