@@ -314,20 +314,42 @@ def _render_one(
                 st.rerun()
 
         if c_validate.button("Validar configuração", key=_key(spec, "validate")):
-            try:
-                readiness = service.avaliar(contexto=contexto, configuracao_id=config_id)
-                if readiness.faltam_parametros:
-                    st.error("Faltam parâmetros: " + ", ".join(readiness.faltam_parametros))
-                elif readiness.faltam_finalidades or readiness.faltam_credenciais:
-                    missing = (*readiness.faltam_finalidades, *readiness.faltam_credenciais)
-                    st.error("Faltam credenciais: " + ", ".join(sorted(set(missing))))
-                else:
-                    st.success(
-                        "Configuração estrutural e credenciais válidas no control plane. "
-                        "A homologação externa continua pendente até existir evidência real."
+            if existing is None:
+                st.warning(
+                    "Esta integração ainda não possui configuração salva. Preencha os "
+                    "parâmetros e credenciais necessários e use Salvar / atualizar antes "
+                    "de validar a prontidão."
+                )
+            else:
+                try:
+                    readiness = service.avaliar(
+                        contexto=contexto, configuracao_id=config_id
                     )
-            except Exception as exc:
-                st.error(f"Falha de validação: {type(exc).__name__}")
+                    if readiness.faltam_parametros:
+                        st.error(
+                            "Faltam parâmetros: " + ", ".join(readiness.faltam_parametros)
+                        )
+                    elif readiness.faltam_finalidades or readiness.faltam_credenciais:
+                        missing = (
+                            *readiness.faltam_finalidades,
+                            *readiness.faltam_credenciais,
+                        )
+                        st.error(
+                            "Faltam credenciais: "
+                            + ", ".join(sorted(set(missing)))
+                        )
+                    else:
+                        st.success(
+                            "Configuração estrutural e credenciais válidas no control plane. "
+                            "A homologação externa continua pendente até existir evidência real."
+                        )
+                except ErroConfiguracaoServico:
+                    st.error(
+                        "A configuração salva não pôde ser validada. Revise os dados da "
+                        "integração e salve novamente antes de prosseguir."
+                    )
+                except Exception as exc:
+                    st.error(f"Falha inesperada de validação: {type(exc).__name__}")
 
         can_homologate = (
             Papel.ADMINISTRADOR in identidade.papeis
