@@ -817,6 +817,113 @@ def _enviar_whatsapp_control_plane(
         db.close()
 
 
+def _provedor_pix_control_plane() -> str:
+    db = SessionLocal()
+    try:
+        from infra.integracoes.pix_runtime import selecionar_integracao_pix
+        from infra.integracoes.repositorio_sqlalchemy import (
+            RepositorioConfiguracoesExternasSQLAlchemy,
+        )
+
+        contexto = CURRENT_IDENTITY.contexto(origem="app.pdv.pix_discovery")
+        repositorio = RepositorioConfiguracoesExternasSQLAlchemy(db)
+        configuracao = selecionar_integracao_pix(
+            repositorio.listar(
+                tenant_id=contexto.tenant_id,
+                unidade_id=contexto.unidade_id,
+            )
+        )
+        return configuracao.provedor
+    finally:
+        db.close()
+
+
+def _criar_pix_control_plane(
+    *,
+    pagamento_id: str,
+    valor: float,
+    idempotency_key: str,
+    nome_pagador: str,
+    email_pagador: str,
+    documento_pagador: str,
+):
+    db = SessionLocal()
+    try:
+        from decimal import Decimal
+
+        from infra.integracoes import FabricaAdaptersExternos
+        from infra.integracoes.pix_runtime import (
+            DadosPagadorPix,
+            criar_cobranca_pix_por_control_plane,
+        )
+        from infra.integracoes.repositorio_sqlalchemy import (
+            RepositorioConfiguracoesExternasSQLAlchemy,
+        )
+        from infra.seguranca.segredos_sqlalchemy import (
+            EncryptedSQLAlchemySecretStore,
+        )
+
+        contexto = CURRENT_IDENTITY.contexto(origem="app.pdv.pix_create")
+        vault = EncryptedSQLAlchemySecretStore(db)
+        fabrica = FabricaAdaptersExternos(session=db, secret_store=vault)
+        repositorio = RepositorioConfiguracoesExternasSQLAlchemy(db)
+
+        return criar_cobranca_pix_por_control_plane(
+            repositorio=repositorio,
+            fabrica=fabrica,
+            contexto=contexto,
+            pagamento_id=pagamento_id,
+            valor=Decimal(str(round(valor, 2))),
+            idempotency_key=idempotency_key,
+            pagador=DadosPagadorPix(
+                nome=nome_pagador,
+                email=email_pagador,
+                documento=documento_pagador,
+            ),
+        )
+    finally:
+        db.close()
+
+
+def _consultar_pix_control_plane(*, provedor: str, id_externo: str):
+    db = SessionLocal()
+    try:
+        from infra.integracoes import FabricaAdaptersExternos
+        from infra.integracoes.pix_runtime import (
+            consultar_cobranca_pix_por_control_plane,
+        )
+        from infra.integracoes.repositorio_sqlalchemy import (
+            RepositorioConfiguracoesExternasSQLAlchemy,
+        )
+        from infra.seguranca.segredos_sqlalchemy import (
+            EncryptedSQLAlchemySecretStore,
+        )
+
+        contexto = CURRENT_IDENTITY.contexto(origem="app.pdv.pix_status")
+        vault = EncryptedSQLAlchemySecretStore(db)
+        fabrica = FabricaAdaptersExternos(session=db, secret_store=vault)
+        repositorio = RepositorioConfiguracoesExternasSQLAlchemy(db)
+
+        return consultar_cobranca_pix_por_control_plane(
+            repositorio=repositorio,
+            fabrica=fabrica,
+            contexto=contexto,
+            provedor=provedor,
+            id_externo=id_externo,
+        )
+    finally:
+        db.close()
+
+
+def _pix_status_confirmado(status: str) -> bool:
+    return status.strip().casefold() in {
+        "pago",
+        "paid",
+        "approved",
+        "aprovado",
+    }
+
+
 # --- 6. BARRA LATERAL (SIDEBAR CORPORATIVA) ---
 with st.sidebar:
     if os.path.exists("logo.png"):
@@ -1428,34 +1535,13 @@ with aba3:
                     pass
             st.info(f"🤖 *{sugestao_upsell}*")
 
+        if "pdv_checkout_id" not in st.session_state:
+            st.session_state["pdv_checkout_id"] = str(uuid4())
+
         if forma_pag_pdv.startswith("Pix"):
             st.markdown("---")
-            if modo_producao_ativo:
-                st.subheader(
-                    f"📱 Cobrança Pix Real Gerada via API ({config_gtw.gateway_provider})"
-                )
-                payload_pix = f"00020126580014br.gov.bcb.pix0136{config_gtw.gateway_pix_key}5204000053039865405{float(total_final_pdv):.2f}5802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A"
-                col_pix1, col_pix2 = st.columns([1, 3])
-                with col_pix1:
-                    try:
-                        st.image(
-                            montar_url_qrcode_pix(payload_pix),
-                            width=180,
-                            caption="QR Code Oficial da Conta PJ",
-                        )
-                    except Exception:
-                        st.warning(
-                            "Não foi possível exibir o QR Code Pix agora. Use a chave/código Pix abaixo para concluir o pagamento."
-                        )
-                with col_pix2:
-                    st.success(
-                        f"⚡ **Chave Pix Oficial:** `{config_gtw.gateway_pix_key}`"
-                    )
-                    st.code(payload_pix, language="text")
-                    st.write(
-                        "🟢 **Status:** Aguardando sinal de confirmação do Webhook do banco na conta da Michele..."
-                    )
-            else:
+
+            if is_test_mode():
                 st.subheader("📱 Gateway Pix Automático (Simulador de Treinamento)")
                 payload_pix = montar_payload_pix_simulado(total_final_pdv)
                 col_pix1, col_pix2 = st.columns([1, 3])
@@ -1468,16 +1554,216 @@ with aba3:
                         )
                     except Exception:
                         st.warning(
-                            "Não foi possível exibir o QR Code Pix agora. Use a chave/código Pix abaixo para concluir o pagamento."
+                            "Não foi possível exibir o QR Code Pix agora. "
+                            "Use o código Pix abaixo."
                         )
                 with col_pix2:
                     st.info(
-                        "🟡 **Chave Pix de Treinamento (Simulado):**\n\n`00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-426614174000520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A`"
+                        "🟡 **Pix de treinamento — nenhuma cobrança financeira real.**"
                     )
                     st.code(payload_pix, language="text")
-                    st.write(
-                        "👉 *No modo Sandbox, clique no botão abaixo para simular a aprovação do recebimento:*"
+            else:
+                try:
+                    provedor_pix_pdv = _provedor_pix_control_plane()
+                    erro_provedor_pix_pdv = None
+                except Exception:
+                    provedor_pix_pdv = None
+                    erro_provedor_pix_pdv = (
+                        "Nenhum provedor Pix único, habilitado e homologado está "
+                        "disponível para esta unidade."
                     )
+
+                checkout_id_pix = st.session_state["pdv_checkout_id"]
+                assinatura_pix = (
+                    f"{checkout_id_pix}:{getattr(prod_pdv, 'id', '')}:"
+                    f"{qtd_pdv}:{cliente_id_pdv}:{total_final_pdv:.2f}"
+                )
+
+                if st.session_state.get("pdv_pix_assinatura") != assinatura_pix:
+                    for chave in (
+                        "pdv_pix_provedor",
+                        "pdv_pix_id_externo",
+                        "pdv_pix_status",
+                        "pdv_pix_copia_cola",
+                        "pdv_pix_qr_url",
+                        "pdv_pix_qr_base64",
+                        "pdv_pix_confirmado",
+                    ):
+                        st.session_state.pop(chave, None)
+                    st.session_state["pdv_pix_assinatura"] = assinatura_pix
+
+                st.subheader("📱 Cobrança Pix via Control Plane")
+
+                if erro_provedor_pix_pdv:
+                    st.warning(erro_provedor_pix_pdv)
+                else:
+                    st.caption(
+                        f"Provedor homologado da unidade: {provedor_pix_pdv}."
+                    )
+
+                email_pagador = (
+                    str(getattr(cliente_pdv, "email", "") or "").strip()
+                    if cliente_pdv
+                    else ""
+                )
+                documento_pagador = (
+                    str(getattr(cliente_pdv, "documento_fiscal", "") or "").strip()
+                    if cliente_pdv
+                    else ""
+                )
+                nome_pagador = (
+                    str(getattr(cliente_pdv, "nome", "") or "").strip()
+                    if cliente_pdv
+                    else ""
+                )
+
+                dados_pagador_ok = bool(cliente_pdv and email_pagador)
+                motivo_dados = None
+
+                if not cliente_pdv:
+                    motivo_dados = (
+                        "Identifique um cliente para gerar a cobrança Pix comercial."
+                    )
+                elif not email_pagador:
+                    motivo_dados = (
+                        "O cliente precisa ter e-mail cadastrado para pagamento Pix."
+                    )
+                elif provedor_pix_pdv == "pagbank" and len(documento_pagador) not in {
+                    11,
+                    14,
+                }:
+                    dados_pagador_ok = False
+                    motivo_dados = (
+                        "Para PagBank, cadastre CPF ou CNPJ válido do cliente."
+                    )
+
+                if motivo_dados:
+                    st.info(motivo_dados)
+
+                tem_cobranca_pix = bool(
+                    st.session_state.get("pdv_pix_id_externo")
+                )
+
+                if not tem_cobranca_pix:
+                    if st.button(
+                        "⚡ Gerar cobrança Pix",
+                        key="pdv_gerar_pix_real",
+                        disabled=bool(
+                            erro_provedor_pix_pdv or not dados_pagador_ok
+                        ),
+                    ):
+                        try:
+                            cobranca_pix = _criar_pix_control_plane(
+                                pagamento_id=f"pdv-{checkout_id_pix}",
+                                valor=float(total_final_pdv),
+                                idempotency_key=f"pdv-pix-{checkout_id_pix}",
+                                nome_pagador=nome_pagador,
+                                email_pagador=email_pagador,
+                                documento_pagador=documento_pagador,
+                            )
+                            st.session_state["pdv_pix_provedor"] = (
+                                cobranca_pix.provedor
+                            )
+                            st.session_state["pdv_pix_id_externo"] = (
+                                cobranca_pix.id_externo
+                            )
+                            st.session_state["pdv_pix_status"] = cobranca_pix.status
+                            st.session_state["pdv_pix_copia_cola"] = (
+                                cobranca_pix.pix_copia_cola
+                            )
+                            st.session_state["pdv_pix_qr_url"] = (
+                                cobranca_pix.qr_code_url
+                            )
+                            st.session_state["pdv_pix_qr_base64"] = (
+                                cobranca_pix.qr_code_base64
+                            )
+                            st.session_state["pdv_pix_confirmado"] = (
+                                _pix_status_confirmado(cobranca_pix.status)
+                            )
+                            st.rerun()
+                        except Exception:
+                            st.error(
+                                "Não foi possível gerar a cobrança Pix. "
+                                "Verifique a integração e os dados do pagador."
+                            )
+                else:
+                    st.success(
+                        f"Cobrança criada via "
+                        f"{st.session_state.get('pdv_pix_provedor', '')}."
+                    )
+
+                    pix_copia_cola = st.session_state.get("pdv_pix_copia_cola")
+                    pix_qr_url = st.session_state.get("pdv_pix_qr_url")
+                    pix_qr_base64 = st.session_state.get("pdv_pix_qr_base64")
+
+                    col_pix1, col_pix2 = st.columns([1, 3])
+                    with col_pix1:
+                        try:
+                            if pix_qr_base64:
+                                import base64
+
+                                st.image(
+                                    base64.b64decode(pix_qr_base64),
+                                    width=180,
+                                    caption="QR Code Pix",
+                                )
+                            elif pix_qr_url:
+                                st.image(
+                                    pix_qr_url,
+                                    width=180,
+                                    caption="QR Code Pix",
+                                )
+                        except Exception:
+                            st.warning(
+                                "QR Code indisponível para exibição. "
+                                "Use o Pix copia e cola."
+                            )
+
+                    with col_pix2:
+                        if pix_copia_cola:
+                            st.code(pix_copia_cola, language="text")
+
+                        status_pix = str(
+                            st.session_state.get("pdv_pix_status", "pendente")
+                        )
+                        if st.session_state.get("pdv_pix_confirmado", False):
+                            st.success(
+                                f"✅ Pagamento confirmado pelo provedor: {status_pix}"
+                            )
+                        else:
+                            st.warning(
+                                f"⏳ Pagamento ainda não confirmado: {status_pix}"
+                            )
+
+                        if st.button(
+                            "🔄 Consultar status do pagamento",
+                            key="pdv_consultar_pix_real",
+                        ):
+                            try:
+                                consulta_pix = _consultar_pix_control_plane(
+                                    provedor=str(
+                                        st.session_state["pdv_pix_provedor"]
+                                    ),
+                                    id_externo=str(
+                                        st.session_state["pdv_pix_id_externo"]
+                                    ),
+                                )
+                                st.session_state["pdv_pix_status"] = (
+                                    consulta_pix.status
+                                )
+                                st.session_state["pdv_pix_confirmado"] = (
+                                    _pix_status_confirmado(consulta_pix.status)
+                                )
+                                if consulta_pix.pix_copia_cola:
+                                    st.session_state["pdv_pix_copia_cola"] = (
+                                        consulta_pix.pix_copia_cola
+                                    )
+                                st.rerun()
+                            except Exception:
+                                st.error(
+                                    "Não foi possível consultar o pagamento agora. "
+                                    "A venda continua bloqueada até confirmação."
+                                )
 
         st.markdown("---")
         if "pdv_checkout_id" not in st.session_state:
@@ -1517,8 +1803,14 @@ with aba3:
                 cliente_existe=cliente_existe_pdv,
                 usar_cashback=usa_cashback_pdv,
                 desconto_cashback=desconto_cb_pdv,
-                pix_confirmado=not modo_producao_ativo or _canary_pdv,
-                pix_producao=modo_producao_ativo,
+                pix_confirmado=(
+                    True
+                    if is_test_mode()
+                    else bool(st.session_state.get("pdv_pix_confirmado", False))
+                ),
+                pix_producao=(
+                    forma_pag_pdv.startswith("Pix") and not is_test_mode()
+                ),
             )
             if not validacao_pdv.valido:
                 st.session_state["pdv_processando"] = False
