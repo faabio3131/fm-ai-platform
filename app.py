@@ -670,11 +670,17 @@ def executar_forecasting_e_alertar(db_session):
                     if envio_mock["ok"]:
                         total_enviados += 1
                 else:
+                    from infra.integracoes.idempotencia_alertas import (
+                        chave_idempotencia_alerta_estoque,
+                    )
+
                     mensagem_id = _enviar_whatsapp_control_plane(
                         destinatario=contato.whatsapp,
                         texto=texto_msg,
-                        idempotency_key=(
-                            f"estoque-{contato.id}-{date.today().isoformat()}"
+                        idempotency_key=chave_idempotencia_alerta_estoque(
+                            contato_id=contato.id,
+                            alerta=alerta,
+                            data_referencia=date.today(),
                         ),
                     )
                     if mensagem_id:
