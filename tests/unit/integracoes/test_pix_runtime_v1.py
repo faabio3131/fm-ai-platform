@@ -16,6 +16,7 @@ from infra.integracoes.pix_runtime import (
     CobrancaPixRuntime,
     DadosPagadorPix,
     criar_cobranca_pix,
+    criar_cobranca_pix_por_control_plane,
     selecionar_integracao_pix,
 )
 
@@ -99,6 +100,16 @@ class _FabricaFake:
         assert contexto.unidade_id == "unidade-a"
         assert configuracao_id == "pagamentos.pix--mercado_pago"
         return _MercadoPagoFake()
+
+
+class _RepositorioFake:
+    def __init__(self, configuracoes):
+        self.configuracoes = tuple(configuracoes)
+        self.chamadas = []
+
+    def listar(self, *, tenant_id, unidade_id):
+        self.chamadas.append((tenant_id, unidade_id))
+        return self.configuracoes
 
 
 def _contexto():
@@ -193,3 +204,33 @@ def test_cria_pix_mercado_pago_por_adapter_injetado_sem_io_real():
     )
     assert fabrica.mercado_pago_calls == 1
     assert fabrica.pagbank_calls == 0
+
+
+def test_control_plane_lista_somente_escopo_do_contexto_e_roteia_pagbank():
+    repositorio = _RepositorioFake(
+        (
+            _config(provedor="pagbank"),
+            _config(provedor="mercado_pago", homologada=False),
+        )
+    )
+    fabrica = _FabricaFake()
+
+    resultado = criar_cobranca_pix_por_control_plane(
+        repositorio=repositorio,
+        fabrica=fabrica,
+        contexto=_contexto(),
+        pagamento_id="pedido-1",
+        valor=Decimal("25.50"),
+        idempotency_key="idem-1",
+        pagador=DadosPagadorPix(
+            nome="Cliente Teste",
+            email="cliente@example.com",
+            documento="12345678901",
+        ),
+    )
+
+    assert repositorio.chamadas == [("tenant-a", "unidade-a")]
+    assert resultado.provedor == "pagbank"
+    assert resultado.id_externo == "ORDE_TESTE"
+    assert fabrica.pagbank_calls == 1
+    assert fabrica.mercado_pago_calls == 0
