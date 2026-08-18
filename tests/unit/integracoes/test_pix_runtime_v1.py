@@ -4,7 +4,11 @@ from decimal import Decimal
 import pytest
 
 from core.dominio.dinheiro import Dinheiro
-from core.integracoes.modelos import AmbienteIntegracao, ConfiguracaoServicoExterno, ErroConfiguracaoServico
+from core.integracoes.modelos import (
+    AmbienteIntegracao,
+    ConfiguracaoServicoExterno,
+    ErroConfiguracaoServico,
+)
 from core.pagamentos.adapters import CobrancaProvedor
 from core.pagamentos.pagbank import ClientePagBank
 from core.seguranca.contexto import ContextoExecucao
@@ -39,7 +43,9 @@ def _config(*, provedor: str, habilitada: bool = True, homologada: bool = True):
 
 
 class _PagBankFake:
-    def criar_pix(self, *, pagamento_id, valor, idempotency_key, cliente: ClientePagBank):
+    def criar_pix(
+        self, *, pagamento_id, valor, idempotency_key, cliente: ClientePagBank
+    ):
         assert pagamento_id == "pedido-1"
         assert valor == Dinheiro(Decimal("25.50"))
         assert idempotency_key == "idem-1"
@@ -49,7 +55,10 @@ class _PagBankFake:
             "ORDE_TESTE",
             "pendente",
             valor,
-            (("pix_copia_cola", "000201-pagbank"), ("qr_code_png_url", "https://example.invalid/qr.png")),
+            (
+                ("pix_copia_cola", "000201-pagbank"),
+                ("qr_code_png_url", "https://example.invalid/qr.png"),
+            ),
         )
 
 
@@ -62,7 +71,9 @@ class _MercadoPagoCobranca:
 
 
 class _MercadoPagoFake:
-    def criar_pix(self, *, valor, email_pagador, referencia_externa, idempotency_key):
+    def criar_pix(
+        self, *, valor, email_pagador, referencia_externa, idempotency_key
+    ):
         assert valor == Decimal("31.90")
         assert email_pagador == "cliente@example.com"
         assert referencia_externa == "pedido-2"
@@ -95,26 +106,41 @@ def _contexto():
         tenant_id="tenant-a",
         unidade_id="unidade-a",
         usuario_id="usuario-a",
+        papeis=frozenset(),
+        permissoes=frozenset(),
         correlation_id="corr-runtime",
+        solicitado_em=datetime.now(timezone.utc),
         origem="teste.pix_runtime",
+        unidades_permitidas=frozenset({"unidade-a"}),
     )
 
 
 def test_seleciona_somente_um_provedor_pix_habilitado_e_homologado():
     selecionada = selecionar_integracao_pix(
-        (_config(provedor="pagbank"), _config(provedor="mercado_pago", homologada=False))
+        (
+            _config(provedor="pagbank"),
+            _config(provedor="mercado_pago", homologada=False),
+        )
     )
     assert selecionada.provedor == "pagbank"
 
 
 def test_falha_fechado_sem_provedor_pix_homologado():
-    with pytest.raises(ErroConfiguracaoServico, match="pix_sem_provedor_homologado"):
-        selecionar_integracao_pix((_config(provedor="pagbank", habilitada=False),))
+    with pytest.raises(
+        ErroConfiguracaoServico, match="pix_sem_provedor_homologado"
+    ):
+        selecionar_integracao_pix(
+            (_config(provedor="pagbank", habilitada=False),)
+        )
 
 
 def test_falha_fechado_com_dois_provedores_pix_homologados():
-    with pytest.raises(ErroConfiguracaoServico, match="pix_multiplos_provedores_homologados"):
-        selecionar_integracao_pix((_config(provedor="pagbank"), _config(provedor="mercado_pago")))
+    with pytest.raises(
+        ErroConfiguracaoServico, match="pix_multiplos_provedores_homologados"
+    ):
+        selecionar_integracao_pix(
+            (_config(provedor="pagbank"), _config(provedor="mercado_pago"))
+        )
 
 
 def test_cria_pix_pagbank_por_adapter_injetado_sem_io_real():
