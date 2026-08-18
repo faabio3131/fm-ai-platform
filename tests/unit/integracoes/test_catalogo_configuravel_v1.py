@@ -47,7 +47,7 @@ from core.integracoes import CATALOGO_V1, ErroConfiguracaoServico
         (
             "ia.generativa",
             "gemini",
-            {"model", "region"},
+            {"model"},
             {"api_key"},
         ),
     ),
