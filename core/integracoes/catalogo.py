@@ -100,7 +100,12 @@ CATALOGO_V1 = CatalogoServicosExternos(
         EspecificacaoServico(
             servico="ia.generativa",
             provedor="gemini",
-            parametros_obrigatorios=frozenset({"model", "region"}),
+            # O runtime Gemini baseado em API key usa somente o modelo como
+            # configuração pública efetivamente consumida. Exigir ``region`` aqui
+            # criava um campo morto: o control plane o marcava como obrigatório,
+            # mas nenhum adapter/gateway o utilizava. Parâmetros obrigatórios devem
+            # corresponder apenas ao contrato executável real.
+            parametros_obrigatorios=frozenset({"model"}),
             credenciais_obrigatorias=frozenset({"api_key"}),
         ),
     )
