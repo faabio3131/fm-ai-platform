@@ -24,6 +24,12 @@ class FabricaPixRuntime(Protocol):
     def mercado_pago(self, *, contexto: ContextoExecucao, configuracao_id: str): ...
 
 
+class RepositorioPixRuntime(Protocol):
+    def listar(
+        self, *, tenant_id: str, unidade_id: str
+    ) -> tuple[ConfiguracaoServicoExterno, ...]: ...
+
+
 @dataclass(frozen=True, kw_only=True)
 class DadosPagadorPix:
     nome: str
@@ -121,3 +127,36 @@ def criar_cobranca_pix(
         )
 
     raise ErroConfiguracaoServico("provedor_pix_nao_suportado")
+
+
+def criar_cobranca_pix_por_control_plane(
+    *,
+    repositorio: RepositorioPixRuntime,
+    fabrica: FabricaPixRuntime,
+    contexto: ContextoExecucao,
+    pagamento_id: str,
+    valor: Decimal,
+    idempotency_key: str,
+    pagador: DadosPagadorPix,
+) -> CobrancaPixRuntime:
+    """Resolve a configuração Pix do escopo autenticado e cria a cobrança.
+
+    O repositório recebe exclusivamente tenant/unidade do contexto já autenticado.
+    A seleção falha fechado se não houver exatamente um provedor habilitado e
+    homologado. Nenhuma credencial é aceita como argumento desta função.
+    """
+
+    configuracoes = repositorio.listar(
+        tenant_id=contexto.tenant_id,
+        unidade_id=contexto.unidade_id,
+    )
+    configuracao = selecionar_integracao_pix(configuracoes)
+    return criar_cobranca_pix(
+        fabrica=fabrica,
+        contexto=contexto,
+        configuracao=configuracao,
+        pagamento_id=pagamento_id,
+        valor=valor,
+        idempotency_key=idempotency_key,
+        pagador=pagador,
+    )
