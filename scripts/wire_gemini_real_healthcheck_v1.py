@@ -17,6 +17,17 @@ def _replace_once(texto: str, antigo: str, novo: str, rotulo: str) -> str:
 
 
 def aplicar(texto: str) -> str:
+    # Se os três marcadores canônicos já existem, a UI já está integralmente
+    # conectada. Retornar imediatamente evita duplicar o import em uma segunda
+    # execução do patch, pois o bloco antigo de imports continua contido no novo.
+    if (
+        "from infra.integracoes.gemini_healthcheck import executar_healthcheck_gemini"
+        in texto
+        and "last_real_healthcheck_evidence" in texto
+        and "Testar Gemini real antes de homologar" in texto
+    ):
+        return texto
+
     texto = _replace_once(
         texto,
         '''from infra.integracoes.repositorio_sqlalchemy import (\n    ProntidaoCredenciaisSQLAlchemy,\n    RepositorioConfiguracoesExternasSQLAlchemy,\n)\n''',
