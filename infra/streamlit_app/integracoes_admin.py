@@ -262,9 +262,11 @@ def _render_one(
                 st.rerun()
             try:
                 finalidades = dict(current_purposes)
+                credencial_rotacionada = False
                 for role, value in new_secrets.items():
                     if not value.strip():
                         continue
+                    credencial_rotacionada = True
                     purpose = _purpose(spec, role)
                     reference = vault.armazenar(
                         contexto=contexto,
@@ -291,13 +293,16 @@ def _render_one(
                     finalidades_credenciais=finalidades,
                     habilitada=habilitada,
                     versao_esperada=existing.versao if existing else 0,
+                    forcar_rehomologacao=credencial_rotacionada,
                 )
                 session.commit()
-                _set_flash(
-                    spec,
-                    "success",
-                    "Configuração salva com segurança. PIN e valores sensíveis digitados foram limpos da sessão de entrada.",
+                mensagem = (
+                    "Configuração salva com segurança. Como uma credencial foi alterada, "
+                    "a homologação anterior foi invalidada e deve ser refeita com nova evidência."
+                    if credencial_rotacionada and existing is not None and existing.homologada
+                    else "Configuração salva com segurança. PIN e valores sensíveis digitados foram limpos da sessão de entrada."
                 )
+                _set_flash(spec, "success", mensagem)
                 st.rerun()
             except Exception as exc:
                 session.rollback()
