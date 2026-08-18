@@ -82,7 +82,6 @@ import json
 from dotenv import load_dotenv
 import pandas as pd  # type: ignore[import-untyped]
 from PIL import Image
-import requests
 from sqlalchemy import (
     Column,
     DateTime,
@@ -618,23 +617,15 @@ def render_cadastro_ficha_tecnica(
 
 
 def executar_forecasting_e_alertar(db_session):
-    if not is_test_mode():
-        return (
-            "⚠️ Disparo legado bloqueado. Configure e homologue "
-            "mensageria.whatsapp/meta no control plane seguro da V1."
-        )
     insumos = db_session.query(Insumo).all()
     destinatarios = (
         db_session.query(ContatoGerencial)
         .filter(ContatoGerencial.receber_alertas_estoque == 1)
         .all()
     )
-    config_meta = db_session.query(ConfiguracaoMeta).first()
 
     if not destinatarios:
         return "⚠️ Nenhum gerente ou administrador está configurado para receber alertas na Aba 4."
-    if not config_meta or not config_meta.whatsapp_token:
-        return "⚠️ Configure o token de acesso da Meta Cloud API para ativar os disparos reais de WhatsApp."
 
     resumo_estoque = ""
     for i in insumos:
@@ -667,37 +658,32 @@ def executar_forecasting_e_alertar(db_session):
         if not alertas_ia:
             return "✅ Estoque operacional seguro e validades sob controle. Nenhum alerta preditivo gerado."
 
-        url_wa = f"[https://graph.facebook.com/v17.0/](https://graph.facebook.com/v17.0/){config_meta.whatsapp_phone_id}/messages"
-        headers = {
-            "Authorization": f"Bearer {config_meta.whatsapp_token}",
-            "Content-Type": "application/json",
-        }
-
         total_enviados = 0
         for alerta in alertas_ia:
             texto_msg = f"🚨 *ALERTA PREDITIVO DE ESTOQUE (F&M AI FOOD)* 🚨\n\nItem: *{alerta['insumo']}*\nRisco/Previsão: *{alerta['previsao_esgotamento']}*\nStatus: {alerta['mensagem_alerta']}\n\n*Acesse o painel para reposição ou criar promoção de queima.*"
 
             for contato in destinatarios:
-                payload = {
-                    "messaging_product": "whatsapp",
-                    "to": contato.whatsapp,
-                    "type": "text",
-                    "text": {"body": texto_msg},
-                }
                 if is_test_mode():
                     envio_mock = mock_whatsapp_send(contato.whatsapp, texto_msg)
                     if envio_mock["ok"]:
                         total_enviados += 1
                 else:
-                    response = requests.post(
-                        url_wa, headers=headers, json=payload, timeout=15
+                    mensagem_id = _enviar_whatsapp_control_plane(
+                        destinatario=contato.whatsapp,
+                        texto=texto_msg,
+                        idempotency_key=(
+                            f"estoque-{contato.id}-{date.today().isoformat()}"
+                        ),
                     )
-                    if response.status_code == 200:
+                    if mensagem_id:
                         total_enviados += 1
 
         return f"🚀 Análise concluída com sucesso! {len(alertas_ia)} alertas preditivos (Estoque/Validade) disparados para {total_enviados} gestores via WhatsApp."
-    except Exception as e:
-        return f"❌ Erro técnico ao processar forecasting inteligente: {e}"
+    except Exception:
+        return (
+            "❌ Não foi possível concluir o forecasting ou enviar os alertas. "
+            "Verifique as integrações Gemini e Meta/WhatsApp desta unidade."
+        )
 
 
 def popular_dados_iniciais():
@@ -795,6 +781,38 @@ def _gemini_disponivel_no_runtime() -> bool:
 
 
 GENAI_DISPONIVEL = _gemini_disponivel_no_runtime()
+
+
+def _enviar_whatsapp_control_plane(
+    *,
+    destinatario: str,
+    texto: str,
+    idempotency_key: str,
+) -> str:
+    db = SessionLocal()
+    try:
+        from infra.integracoes import FabricaAdaptersExternos
+        from infra.seguranca.segredos_sqlalchemy import (
+            EncryptedSQLAlchemySecretStore,
+        )
+
+        vault = EncryptedSQLAlchemySecretStore(db)
+        adapter = FabricaAdaptersExternos(
+            session=db,
+            secret_store=vault,
+        ).meta(
+            contexto=CURRENT_IDENTITY.contexto(
+                origem="app.whatsapp_runtime"
+            ),
+            configuracao_id="mensageria.whatsapp--meta",
+        )
+        return adapter.enviar_whatsapp(
+            destinatario=destinatario,
+            texto=texto,
+            idempotency_key=idempotency_key,
+        )
+    finally:
+        db.close()
 
 
 # --- 6. BARRA LATERAL (SIDEBAR CORPORATIVA) ---
@@ -970,9 +988,35 @@ with aba2:
                             key=f"btn_zap_resgate_{cli.id}",
                             type="primary",
                         ):
-                            st.success(
-                                f"✅ Campanha de resgate enviada com sucesso para o número {cli.whatsapp}!"
-                            )
+                            try:
+                                if is_test_mode():
+                                    envio = mock_whatsapp_send(
+                                        cli.whatsapp,
+                                        msg_resgate_padrao,
+                                    )
+                                    if not envio.get("ok"):
+                                        raise RuntimeError("envio_teste_falhou")
+                                else:
+                                    mensagem_id = _enviar_whatsapp_control_plane(
+                                        destinatario=cli.whatsapp,
+                                        texto=msg_resgate_padrao,
+                                        idempotency_key=(
+                                            f"crm-resgate-{cli.id}-"
+                                            f"{date.today().isoformat()}"
+                                        ),
+                                    )
+                                    if not mensagem_id:
+                                        raise RuntimeError("envio_sem_confirmacao")
+
+                                st.success(
+                                    f"✅ Campanha de resgate enviada com sucesso para o número {cli.whatsapp}!"
+                                )
+                            except Exception:
+                                st.error(
+                                    "Não foi possível enviar a campanha pelo WhatsApp. "
+                                    "Verifique se a integração Meta/WhatsApp desta unidade "
+                                    "está configurada, habilitada e homologada."
+                                )
         else:
             st.success(
                 "🎉 Excelente notícia! Nenhum cliente inativo há mais de 15 dias foi identificado no momento. Sua base está altamente engajada!"
