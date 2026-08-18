@@ -14,6 +14,7 @@ from core.integracoes.servicos import ServicoConfiguracoesExternas
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.permissoes import Papel, Permissao
 from infra.integracoes.gemini_healthcheck import executar_healthcheck_gemini
+from infra.integracoes.google_maps_healthcheck import executar_healthcheck_google_maps
 from infra.integracoes.repositorio_sqlalchemy import (
     ProntidaoCredenciaisSQLAlchemy,
     RepositorioConfiguracoesExternasSQLAlchemy,
@@ -225,6 +226,15 @@ def _render_one(
             st.caption(
                 "Copie esta referência para o campo de evidência abaixo. Ela não contém a API key nem conteúdo sensível."
             )
+        ultima_evidencia_maps = st.session_state.get(
+            _key(spec, "last_real_maps_server_healthcheck_evidence")
+        )
+        if spec.provedor == "google_maps" and ultima_evidencia_maps:
+            st.success("Geocoding API e Routes API foram validadas externamente com a chave de servidor.")
+            st.code(str(ultima_evidencia_maps), language=None)
+            st.caption(
+                "Esta referência comprova somente o caminho servidor. A chave de navegador ainda precisa de prova real no navegador antes da homologação final."
+            )
         st.caption(
             "O status Ativo só deve ser registrado após validação real do provedor. "
             "Informe abaixo uma referência verificável da evidência (ticket, log sanitizado, "
@@ -253,6 +263,55 @@ def _render_one(
             max_chars=8,
             key=_key(spec, f"critical_pin_{sensitive_nonce}"),
         )
+
+        if spec.provedor == "google_maps" and existing is not None:
+            st.caption(
+                "O teste abaixo chama de verdade a Geocoding API e a Routes API usando somente a Server API Key salva no cofre. "
+                "Ele também confirma que a Browser API Key existe e pode ser resolvida, mas não a considera externamente homologada no navegador."
+            )
+            if st.button(
+                "Testar Google Maps real (servidor)",
+                key=_key(spec, "real_maps_server_healthcheck"),
+            ):
+                pin_ok = _critical_pin_ok(
+                    identidade=identidade,
+                    pin=critical_pin,
+                    session_factory=session_factory,
+                )
+                _consume_sensitive_inputs(spec)
+                if not pin_ok:
+                    _set_flash(
+                        spec,
+                        "error",
+                        "PIN administrativo inválido. O healthcheck externo do Google Maps não foi executado.",
+                    )
+                    st.rerun()
+                try:
+                    resultado = executar_healthcheck_google_maps(
+                        session=session,
+                        secret_store=vault,
+                        contexto=contexto,
+                        configuracao_id=config_id,
+                    )
+                    st.session_state[_key(spec, "last_real_maps_server_healthcheck_evidence")] = (
+                        resultado.evidencia_ref
+                    )
+                    _set_flash(
+                        spec,
+                        "success",
+                        f"Google Maps servidor validado de ponta a ponta: geocodificação + rota real, "
+                        f"{resultado.distancia_metros / 1000:.1f} km e ETA aproximado de "
+                        f"{max(1, (resultado.duracao_segundos + 59) // 60)} min. "
+                        "A chave de navegador ainda precisa de prova real no navegador antes da homologação final.",
+                    )
+                    st.rerun()
+                except Exception:
+                    _set_flash(
+                        spec,
+                        "error",
+                        "O healthcheck externo real do Google Maps falhou. A integração continua não homologada; revise habilitação das APIs, restrições das chaves e faturamento do projeto. Nenhum segredo foi exposto.",
+                    )
+                    st.rerun()
 
         if spec.provedor == "gemini" and existing is not None:
             st.caption(
