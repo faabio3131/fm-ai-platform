@@ -133,6 +133,8 @@ class ServicoConfiguracoesExternas:
         if Papel.ADMINISTRADOR not in contexto.papeis:
             raise PermissaoInsuficiente("administrador obrigatorio para homologacao")
         atual = self.obter(contexto=contexto, configuracao_id=configuracao_id)
+        if not atual.habilitada:
+            raise ErroConfiguracaoServico("homologacao_exige_integracao_habilitada")
         if not evidencia_ref.strip():
             raise ErroConfiguracaoServico("homologacao_sem_evidencia")
         status = self.avaliar(contexto=contexto, configuracao_id=configuracao_id)
