@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from core.integracoes import (
     AmbienteIntegracao,
+    ErroConfiguracaoServico,
     EstadoProntidaoServico,
     ServicoConfiguracoesExternas,
 )
@@ -169,3 +170,66 @@ def test_todos_provedores_v1_configuram_persistem_e_so_ficam_ativos_apos_homolog
             servico_config.avaliar(contexto=contexto, configuracao_id=config_id).estado
             is EstadoProntidaoServico.PRONTO
         )
+
+
+def test_homologacao_rejeita_integracao_desabilitada_mesmo_com_credenciais_completas() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    SecurityBase.metadata.create_all(engine)
+    IntegrationConfigBase.metadata.create_all(engine)
+    contexto = _contexto()
+    store = ReferenceSecretStore(
+        mapping={
+            "browser": "browser-key",
+            "server": "server-key",
+        }
+    )
+
+    with Session(engine) as session:
+        credentials = ServicoCredenciaisReferenciadas(session, store)
+        for finalidade, referencia in (
+            ("mapas_browser_api_key", "mapping:browser"),
+            ("mapas_server_api_key", "mapping:server"),
+        ):
+            credentials.rotacionar(
+                contexto=contexto,
+                provedor="google_maps",
+                finalidade=finalidade,
+                nova_referencia=referencia,
+            )
+
+        servico_config = ServicoConfiguracoesExternas(
+            repositorio=RepositorioConfiguracoesExternasSQLAlchemy(session),
+            prontidao_credenciais=ProntidaoCredenciaisSQLAlchemy(session, store),
+            auditoria=RepositorioAuditoriaEmMemoria(),
+        )
+        servico_config.configurar(
+            contexto=contexto,
+            configuracao_id="mapas--google_maps",
+            servico="mapas",
+            provedor="google_maps",
+            conta_externa="principal",
+            ambiente=AmbienteIntegracao.HOMOLOGACAO,
+            parametros_publicos={
+                "origin_address": "Rua Exemplo, 100",
+                "country_code": "BR",
+                "language": "pt-BR",
+                "currency": "BRL",
+            },
+            finalidades_credenciais={
+                "browser_api_key": "mapas_browser_api_key",
+                "server_api_key": "mapas_server_api_key",
+            },
+            habilitada=False,
+            versao_esperada=0,
+        )
+
+        with pytest.raises(
+            ErroConfiguracaoServico,
+            match="homologacao_exige_integracao_habilitada",
+        ):
+            servico_config.registrar_homologacao(
+                contexto=contexto,
+                configuracao_id="mapas--google_maps",
+                evidencia_ref="evidence://maps/nao-deve-validar",
+                versao_esperada=1,
+            )
