@@ -181,6 +181,7 @@ class Cliente(Base):  # type: ignore[misc, valid-type]
 class Produto(Base):  # type: ignore[misc, valid-type]
     __tablename__ = "produtos"
     id = Column(Integer, primary_key=True, index=True)
+    loja_id = Column(String(64), nullable=True, index=True)
     nome = Column(String, index=True)
     categoria = Column(String)
     descricao_bruta = Column(Text)
@@ -482,6 +483,7 @@ def render_cadastro_ficha_tecnica(
                 st.error("❌ Adicione pelo menos 1 insumo à ficha técnica.")
             else:
                 novo_prod = Produto(
+                    loja_id=CURRENT_IDENTITY.unidade_id,
                     nome=nome_produto,
                     categoria=categoria,
                     preco_venda=preco_venda_final,
@@ -600,6 +602,7 @@ def render_cadastro_ficha_tecnica(
                     for prod in produtos_extraidos:
                         cmv_est = round(float(prod.get("preco", 0)) * 0.32, 2)
                         novo_prod = Produto(
+                            loja_id=CURRENT_IDENTITY.unidade_id,
                             nome=prod.get("nome"),
                             categoria=prod.get("categoria", "Geral"),
                             preco_venda=float(prod.get("preco", 0)),
