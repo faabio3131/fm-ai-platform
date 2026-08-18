@@ -47,5 +47,5 @@ def test_migration_0019_adiciona_dados_de_pagador_sem_perder_cliente_existente()
         )
 
 
-def test_runner_registra_0019_como_ultima_migration() -> None:
-    assert DEFAULT_MIGRATIONS[-1].version == "0019_client_payment_identity_v1"
+def test_runner_registra_0020_como_ultima_migration() -> None:
+    assert DEFAULT_MIGRATIONS[-1].version == "0020_product_unit_scope_compat_v1"
