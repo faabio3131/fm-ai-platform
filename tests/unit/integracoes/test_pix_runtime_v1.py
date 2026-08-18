@@ -15,6 +15,8 @@ from core.seguranca.contexto import ContextoExecucao
 from infra.integracoes.pix_runtime import (
     CobrancaPixRuntime,
     DadosPagadorPix,
+    consultar_cobranca_pix,
+    consultar_cobranca_pix_por_control_plane,
     criar_cobranca_pix,
     criar_cobranca_pix_por_control_plane,
     selecionar_integracao_pix,
@@ -62,10 +64,27 @@ class _PagBankFake:
             ),
         )
 
+    def consultar_transacao(self, id_externo):
+        assert id_externo == "ORDE_TESTE"
+        return CobrancaProvedor(
+            "ORDE_TESTE",
+            "pago",
+            Dinheiro(Decimal("25.50")),
+            (("pix_copia_cola", "000201-pagbank"),),
+        )
+
 
 class _MercadoPagoCobranca:
     pagamento_id = "mp-123"
     status = "pending"
+    pix_copia_cola = "000201-mp"
+    qr_code_base64 = "base64-qr"
+    ticket_url = "https://example.invalid/ticket"
+
+
+class _MercadoPagoCobrancaPaga:
+    pagamento_id = "mp-123"
+    status = "approved"
     pix_copia_cola = "000201-mp"
     qr_code_base64 = "base64-qr"
     ticket_url = "https://example.invalid/ticket"
@@ -80,6 +99,10 @@ class _MercadoPagoFake:
         assert referencia_externa == "pedido-2"
         assert idempotency_key == "idem-2"
         return _MercadoPagoCobranca()
+
+    def consultar_pagamento(self, pagamento_id):
+        assert pagamento_id == "mp-123"
+        return _MercadoPagoCobrancaPaga()
 
 
 class _FabricaFake:
@@ -234,3 +257,44 @@ def test_control_plane_lista_somente_escopo_do_contexto_e_roteia_pagbank():
     assert resultado.id_externo == "ORDE_TESTE"
     assert fabrica.pagbank_calls == 1
     assert fabrica.mercado_pago_calls == 0
+
+
+def test_consulta_pagbank_normaliza_status_pago_sem_criar_nova_cobranca():
+    fabrica = _FabricaFake()
+    resultado = consultar_cobranca_pix(
+        fabrica=fabrica,
+        contexto=_contexto(),
+        configuracao=_config(provedor="pagbank"),
+        id_externo="ORDE_TESTE",
+    )
+    assert resultado.status == "pago"
+    assert resultado.paga is True
+    assert fabrica.pagbank_calls == 1
+    assert fabrica.mercado_pago_calls == 0
+
+
+def test_consulta_mercado_pago_normaliza_status_aprovado():
+    fabrica = _FabricaFake()
+    resultado = consultar_cobranca_pix(
+        fabrica=fabrica,
+        contexto=_contexto(),
+        configuracao=_config(provedor="mercado_pago"),
+        id_externo="mp-123",
+    )
+    assert resultado.status == "approved"
+    assert resultado.paga is True
+    assert fabrica.mercado_pago_calls == 1
+    assert fabrica.pagbank_calls == 0
+
+
+def test_consulta_control_plane_rejeita_provedor_divergente():
+    repositorio = _RepositorioFake((_config(provedor="pagbank"),))
+    with pytest.raises(ErroConfiguracaoServico, match="provedor_pix_divergente"):
+        consultar_cobranca_pix_por_control_plane(
+            repositorio=repositorio,
+            fabrica=_FabricaFake(),
+            contexto=_contexto(),
+            provedor="mercado_pago",
+            id_externo="mp-123",
+        )
+    assert repositorio.chamadas == [("tenant-a", "unidade-a")]
