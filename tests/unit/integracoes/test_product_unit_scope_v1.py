@@ -7,23 +7,32 @@ from sqlalchemy import create_engine, inspect, text
 from migrations.product_unit_scope_compat_v1 import (
     upgrade_product_unit_scope_compat_v1,
 )
-from scripts.wire_product_unit_scope_v1 import aplicar
+from scripts.wire_product_legacy_store_compat_v1 import aplicar as aplicar_compat
+from scripts.wire_product_unit_scope_v1 import aplicar as aplicar_unit_scope
 
 
 APP_SOURCE = Path("app.py").read_text(encoding="utf-8")
 
 
-def test_patch_mapeia_loja_e_preenche_unidade_nos_dois_fluxos() -> None:
-    atualizado = aplicar(APP_SOURCE)
+def _estado_canonico(source: str) -> str:
+    """Normaliza tanto o app pré-compat quanto o já convertido para o wiring atual."""
 
-    assert 'loja_id = Column(String(64), nullable=True, index=True)' in atualizado
-    assert atualizado.count("loja_id=CURRENT_IDENTITY.unidade_id") == 2
-    assert "novo_prod = Produto(" in atualizado
+    return aplicar_compat(aplicar_unit_scope(source))
+
+
+def test_patch_mapeia_loja_e_preenche_unidade_nos_dois_fluxos() -> None:
+    atualizado = _estado_canonico(APP_SOURCE)
+
+    assert 'loja_id = Column(String(64), nullable=True, index=True)' not in atualizado
+    assert "loja_id=CURRENT_IDENTITY.unidade_id" not in atualizado
+    assert atualizado.count("inserir_produto_legado(") == 2
+    assert atualizado.count("unidade_id=CURRENT_IDENTITY.unidade_id") == 2
+    assert "produto_id=novo_prod_id" in atualizado
 
 
 def test_patch_e_idempotente() -> None:
-    primeira = aplicar(APP_SOURCE)
-    segunda = aplicar(primeira)
+    primeira = _estado_canonico(APP_SOURCE)
+    segunda = _estado_canonico(primeira)
     assert segunda == primeira
 
 
