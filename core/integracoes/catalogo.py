@@ -78,9 +78,11 @@ CATALOGO_V1 = CatalogoServicosExternos(
         EspecificacaoServico(
             servico="mapas",
             provedor="google_maps",
-            parametros_obrigatorios=frozenset(
-                {"origin_address", "country_code", "language", "currency"}
-            ),
+            # O adapter executável usa apenas idioma e país como parâmetros
+            # públicos. Endereço de origem pertence ao contexto de cada rota e
+            # moeda não participa de geocodificação/Routes API; mantê-los como
+            # obrigatórios criava campos mortos no Control Plane.
+            parametros_obrigatorios=frozenset({"country_code", "language"}),
             credenciais_obrigatorias=frozenset(
                 {"browser_api_key", "server_api_key"}
             ),
