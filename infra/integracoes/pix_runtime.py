@@ -1,0 +1,123 @@
+"""Orquestração do Pix comercial pelo Control Plane da V1.
+
+Este módulo não lê credenciais globais, não escolhe silenciosamente entre múltiplos
+provedores e não executa I/O por conta própria. A fábrica já autenticada e isolada
+por tenant/unidade resolve o adapter homologado; os testes podem injetar adapters
+falsos sem movimentação financeira real.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from decimal import Decimal
+from typing import Protocol, Sequence
+
+from core.dominio.dinheiro import Dinheiro
+from core.integracoes.modelos import ConfiguracaoServicoExterno, ErroConfiguracaoServico
+from core.pagamentos.pagbank import ClientePagBank
+from core.seguranca.contexto import ContextoExecucao
+
+
+class FabricaPixRuntime(Protocol):
+    def pagbank(self, *, contexto: ContextoExecucao, configuracao_id: str): ...
+
+    def mercado_pago(self, *, contexto: ContextoExecucao, configuracao_id: str): ...
+
+
+@dataclass(frozen=True, kw_only=True)
+class DadosPagadorPix:
+    nome: str
+    email: str
+    documento: str = ""
+
+
+@dataclass(frozen=True, kw_only=True)
+class CobrancaPixRuntime:
+    provedor: str
+    id_externo: str
+    status: str
+    pix_copia_cola: str | None
+    qr_code_url: str | None = None
+    qr_code_base64: str | None = None
+
+
+def selecionar_integracao_pix(
+    configuracoes: Sequence[ConfiguracaoServicoExterno],
+) -> ConfiguracaoServicoExterno:
+    candidatas = tuple(
+        config
+        for config in configuracoes
+        if config.servico == "pagamentos.pix"
+        and config.provedor in {"pagbank", "mercado_pago"}
+        and config.habilitada
+        and config.homologada
+    )
+    if not candidatas:
+        raise ErroConfiguracaoServico("pix_sem_provedor_homologado")
+    if len(candidatas) > 1:
+        raise ErroConfiguracaoServico("pix_multiplos_provedores_homologados")
+    return candidatas[0]
+
+
+def criar_cobranca_pix(
+    *,
+    fabrica: FabricaPixRuntime,
+    contexto: ContextoExecucao,
+    configuracao: ConfiguracaoServicoExterno,
+    pagamento_id: str,
+    valor: Decimal,
+    idempotency_key: str,
+    pagador: DadosPagadorPix,
+) -> CobrancaPixRuntime:
+    if valor <= 0:
+        raise ValueError("valor_pix_invalido")
+    if not pagamento_id.strip() or not idempotency_key.strip():
+        raise ValueError("identificador_pix_invalido")
+
+    if configuracao.provedor == "pagbank":
+        adapter = fabrica.pagbank(
+            contexto=contexto,
+            configuracao_id=configuracao.configuracao_id,
+        )
+        cobranca = adapter.criar_pix(
+            pagamento_id=pagamento_id,
+            valor=Dinheiro(valor),
+            idempotency_key=idempotency_key,
+            cliente=ClientePagBank(
+                nome=pagador.nome,
+                email=pagador.email,
+                tax_id=pagador.documento,
+            ),
+        )
+        exibicao = dict(cobranca.payload_exibicao)
+        return CobrancaPixRuntime(
+            provedor="pagbank",
+            id_externo=cobranca.id_externo,
+            status=cobranca.status,
+            pix_copia_cola=exibicao.get("pix_copia_cola"),
+            qr_code_url=exibicao.get("qr_code_png_url"),
+        )
+
+    if configuracao.provedor == "mercado_pago":
+        if not pagador.email.strip():
+            raise ValueError("email_pagador_pix_obrigatorio")
+        adapter = fabrica.mercado_pago(
+            contexto=contexto,
+            configuracao_id=configuracao.configuracao_id,
+        )
+        cobranca = adapter.criar_pix(
+            valor=valor,
+            email_pagador=pagador.email,
+            referencia_externa=pagamento_id,
+            idempotency_key=idempotency_key,
+        )
+        return CobrancaPixRuntime(
+            provedor="mercado_pago",
+            id_externo=cobranca.pagamento_id,
+            status=cobranca.status,
+            pix_copia_cola=cobranca.pix_copia_cola,
+            qr_code_base64=cobranca.qr_code_base64,
+            qr_code_url=cobranca.ticket_url,
+        )
+
+    raise ErroConfiguracaoServico("provedor_pix_nao_suportado")
