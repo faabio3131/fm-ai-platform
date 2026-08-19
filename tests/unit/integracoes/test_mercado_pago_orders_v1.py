@@ -110,16 +110,18 @@ def test_processed_nao_accredited_nao_liquida() -> None:
     assert cobranca.status == "processed"
 
 
+def _assinatura(*, data_id: str, request_id: str, ts: str) -> str:
+    manifesto = f"id:{data_id};request-id:{request_id};ts:{ts};"
+    digest = hmac.new(b"segredo-webhook", manifesto.encode(), hashlib.sha256).hexdigest()
+    return f"ts={ts},v1={digest}"
+
+
 def test_webhook_orders_valida_assinatura_e_recurso_preservando_case_do_data_id() -> None:
     adapter = MercadoPagoAdapter(configuracao=_config(), http=_HTTP([]))
     data_id = "ORD01TEST"
     request_id = "req-123"
     ts = "1755600000"
-    # O SDK/documentacao oficial usa exatamente o data.id recebido no query param.
-    # Orders usa IDs alfanumericos em maiusculas; mudar o case quebra o HMAC real.
-    manifesto = f"id:{data_id};request-id:{request_id};ts:{ts};"
-    digest = hmac.new(b"segredo-webhook", manifesto.encode(), hashlib.sha256).hexdigest()
-    assinatura = f"ts={ts},v1={digest}"
+    assinatura = _assinatura(data_id=data_id, request_id=request_id, ts=ts)
     payload = {
         "type": "order",
         "action": "order.updated",
@@ -145,6 +147,21 @@ def test_webhook_orders_valida_assinatura_e_recurso_preservando_case_do_data_id(
         )
 
 
+def test_webhook_orders_aceita_espacos_estruturais_no_x_signature() -> None:
+    adapter = MercadoPagoAdapter(configuracao=_config(), http=_HTTP([]))
+    data_id = "ORD01TEST"
+    request_id = "req-espacos"
+    ts = "1755600001"
+    assinatura = _assinatura(data_id=data_id, request_id=request_id, ts=ts)
+    ts_part, v1_part = assinatura.split(",", 1)
+
+    assert adapter.validar_webhook(
+        data_id=data_id,
+        request_id=request_id,
+        x_signature=f" {ts_part} ,  {v1_part} ",
+    )
+
+
 def test_patch_orders_e_idempotente() -> None:
     original = "prefix\nclass MercadoPagoAdapter(_ClienteResiliente):\nLEGADO\n\nclass PortaGeminiTenant(Protocol):\nsuffix\n"
     primeiro = apply(original)
@@ -154,3 +171,4 @@ def test_patch_orders_e_idempotente() -> None:
     assert "/v1/payments" not in primeiro
     assert "data_id.lower()" not in primeiro
     assert 'manifesto = f"id:{data_id};request-id:{request_id};ts:{ts};"' in primeiro
+    assert "chave.strip().casefold()" in primeiro
