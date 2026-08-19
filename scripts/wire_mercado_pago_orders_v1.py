@@ -113,9 +113,14 @@ NEW = '''class MercadoPagoAdapter(_ClienteResiliente):
         return self._normalizar(payload)
 
     def validar_webhook(self, *, data_id: str, request_id: str, x_signature: str) -> bool:
-        partes = dict(item.split("=", 1) for item in x_signature.split(",") if "=" in item)
-        ts = partes.get("ts", "").strip()
-        recebido = partes.get("v1", "").strip().casefold()
+        partes: dict[str, str] = {}
+        for item in x_signature.split(","):
+            if "=" not in item:
+                continue
+            chave, valor = item.split("=", 1)
+            partes[chave.strip().casefold()] = valor.strip()
+        ts = partes.get("ts", "")
+        recebido = partes.get("v1", "").casefold()
         if not ts or not recebido or not data_id or not request_id:
             return False
         manifesto = f"id:{data_id};request-id:{request_id};ts:{ts};"
@@ -150,16 +155,25 @@ NEW = '''class MercadoPagoAdapter(_ClienteResiliente):
 
 
 def apply(text: str) -> str:
-    # Corrige branches que ja usam Orders mas ainda normalizam data.id para lower-case,
-    # o que invalida HMAC de IDs alfanumericos reais como ORDTST... .
     if "data_id.lower()" in text:
         text = text.replace(
             'manifesto = f"id:{data_id.lower()};request-id:{request_id};ts:{ts};"',
             'manifesto = f"id:{data_id};request-id:{request_id};ts:{ts};"',
             1,
         )
-    if 'url=f"{self.BASE_URL}/v1/orders"' in text and "order Mercado Pago ausente" in text:
+
+    parser_antigo = '''        partes = dict(\n            item.split("=", 1) for item in x_signature.split(",") if "=" in item\n        )\n        ts = partes.get("ts", "").strip()\n        recebido = partes.get("v1", "").strip().casefold()\n'''
+    parser_novo = '''        partes: dict[str, str] = {}\n        for item in x_signature.split(","):\n            if "=" not in item:\n                continue\n            chave, valor = item.split("=", 1)\n            partes[chave.strip().casefold()] = valor.strip()\n        ts = partes.get("ts", "")\n        recebido = partes.get("v1", "").casefold()\n'''
+    if parser_antigo in text:
+        text = text.replace(parser_antigo, parser_novo, 1)
+
+    if (
+        'url=f"{self.BASE_URL}/v1/orders"' in text
+        and "order Mercado Pago ausente" in text
+        and parser_novo in text
+    ):
         return text
+
     inicio = text.find(START)
     fim = text.find(END, inicio + len(START)) if inicio >= 0 else -1
     if inicio < 0 or fim < 0:
@@ -171,10 +185,10 @@ def main() -> None:
     original = TARGET.read_text(encoding="utf-8")
     atualizado = apply(original)
     if atualizado == original:
-        print("MercadoPagoAdapter ja usa Orders API com assinatura correta; nenhuma alteracao necessaria.")
+        print("MercadoPagoAdapter ja usa Orders API com assinatura robusta; nenhuma alteracao necessaria.")
         return
     TARGET.write_text(atualizado, encoding="utf-8")
-    print("MercadoPagoAdapter atualizado: Orders API e HMAC preservando data.id exato.")
+    print("MercadoPagoAdapter atualizado: HMAC preserva data.id e tolera espacos no x-signature.")
 
 
 if __name__ == "__main__":
