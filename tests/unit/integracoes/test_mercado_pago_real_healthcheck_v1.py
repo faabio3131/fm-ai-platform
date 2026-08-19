@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from infra.integracoes.mercado_pago_healthcheck import _evidencia
+from infra.integracoes.mercado_pago_healthcheck import _evidencia, _pix_ativo
 from scripts.wire_mercado_pago_access_healthcheck_v1 import aplicar
 
 
@@ -22,6 +22,18 @@ def test_evidencia_mercado_pago_e_sanitizada_e_deterministica() -> None:
     )
     assert "token" not in evidencia.casefold()
     assert "secret" not in evidencia.casefold()
+
+
+def test_pix_ativo_reconhece_id_pix() -> None:
+    assert _pix_ativo({"id": "pix", "payment_type_id": "bank_transfer", "status": "active"})
+
+
+def test_pix_ativo_reconhece_bank_transfer_brasil_mesmo_sem_nome_pix() -> None:
+    assert _pix_ativo({"id": "bank_transfer", "payment_type_id": "bank_transfer", "name": "Transferência bancária", "status": "active"})
+
+
+def test_pix_ativo_rejeita_meio_desativado() -> None:
+    assert not _pix_ativo({"id": "pix", "payment_type_id": "bank_transfer", "status": "deactive"})
 
 
 def test_patch_ui_adiciona_healthcheck_mp_sem_criar_pagamento_e_e_idempotente() -> None:
