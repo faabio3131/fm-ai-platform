@@ -13,6 +13,7 @@ import json
 import secrets
 from dataclasses import dataclass
 
+from dotenv import load_dotenv
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -107,6 +108,7 @@ def comparar(*, row: CredencialReferenciaORM, segredo_cofre: str, segredo_painel
 
 
 def main() -> None:
+    load_dotenv()
     settings = load_runtime_settings()
     engine = build_engine(settings)
     session_factory = build_session_factory(engine=engine, commercial=settings.commercial)
