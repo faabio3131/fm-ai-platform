@@ -17,6 +17,7 @@ consultadas autenticadamente antes de qualquer liquidacao financeira.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -45,6 +46,7 @@ from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
 from infra.seguranca.session_guard import build_session_factory
 
 _CONFIG_ID = "pagamentos.pix--mercado_pago"
+_LOGGER = logging.getLogger("kordena.mercado_pago.webhook")
 
 
 def _finalidade(config, papel: str) -> str:
@@ -192,12 +194,19 @@ def create_app(
         request_id = str(request.headers.get("x-request-id") or "").strip()
         assinatura = str(request.headers.get("x-signature") or "").strip()
         if not data_id or not request_id or not assinatura:
+            _LOGGER.warning(
+                "mercado_pago_webhook_incompleto data_id=%s request_id_presente=%s assinatura_presente=%s",
+                bool(data_id),
+                bool(request_id),
+                bool(assinatura),
+            )
             raise HTTPException(status_code=400, detail="notificacao incompleta")
         try:
             payload = _json_mapping(await request.json())
         except HTTPException:
             raise
         except Exception as exc:
+            _LOGGER.warning("mercado_pago_webhook_payload_invalido")
             raise HTTPException(status_code=400, detail="notificacao invalida") from exc
 
         with session_factory() as session:
@@ -219,9 +228,6 @@ def create_app(
                     unidade_id=unidade,
                     order_id=evento.recurso_id,
                 )
-                # O simulador oficial pode usar um Data ID sem Order real. Depois
-                # da assinatura validada, uma Order sem vinculo local nao deve
-                # provocar consulta externa nem erro: ela e aceita e ignorada.
                 if vinculo is None:
                     return {
                         "accepted": True,
@@ -229,8 +235,6 @@ def create_app(
                         "reconciled": False,
                     }
 
-                # Para uma Order vinculada localmente, a notificacao apenas sinaliza
-                # mudanca; a fonte da verdade financeira e a consulta autenticada.
                 order = adapter.consultar_pagamento(evento.recurso_id)
                 contexto = _contexto_sistema(
                     tenant_id=tenant,
@@ -258,12 +262,20 @@ def create_app(
                 }
             except ErroProvedorExterno as exc:
                 session.rollback()
+                _LOGGER.warning(
+                    "mercado_pago_webhook_rejeitado motivo=%s data_id_len=%d request_id_len=%d",
+                    str(exc),
+                    len(data_id),
+                    len(request_id),
+                )
                 raise HTTPException(status_code=400, detail="notificacao rejeitada") from exc
             except RuntimeError as exc:
                 session.rollback()
+                _LOGGER.warning("mercado_pago_webhook_configuracao_incompleta motivo=%s", str(exc))
                 raise HTTPException(status_code=503, detail="webhook ainda nao configurado") from exc
-            except Exception as exc:
+            except Exception:
                 session.rollback()
-                raise HTTPException(status_code=500, detail="falha segura no webhook") from exc
+                _LOGGER.exception("mercado_pago_webhook_falha_segura")
+                raise HTTPException(status_code=500, detail="falha segura no webhook")
 
     return app
