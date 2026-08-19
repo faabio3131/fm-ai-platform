@@ -10,8 +10,9 @@ Em homologacao local, publique a porta 8766 por um tunel HTTPS confiavel e use
 
 O endpoint nunca recebe tenant/unidade pela internet: o escopo vem do runtime do
 servidor. A notificacao so e aceita depois da assinatura HMAC ser validada com a
-secret armazenada no cofre. Depois, a order e consultada autenticadamente antes de
-qualquer liquidacao financeira local.
+secret armazenada no cofre. Uma Order assinada sem vinculo local e reconhecida e
+ignorada com seguranca; somente Orders vinculadas a uma cobranca Pix local sao
+consultadas autenticadamente antes de qualquer liquidacao financeira.
 """
 
 from __future__ import annotations
@@ -212,41 +213,48 @@ def create_app(
                     request_id=request_id,
                     x_signature=assinatura,
                 )
-                # A notificacao sinaliza mudanca; a fonte da verdade financeira e
-                # sempre a consulta autenticada GET /v1/orders/{id}.
-                order = adapter.consultar_pagamento(evento.recurso_id)
                 vinculo = _vinculo_por_order(
                     session,
                     tenant_id=tenant,
                     unidade_id=unidade,
                     order_id=evento.recurso_id,
                 )
-                reconciliado = False
-                if vinculo is not None:
-                    contexto = _contexto_sistema(
-                        tenant_id=tenant,
-                        unidade_id=unidade,
-                        request_id=request_id,
-                    )
-                    resultado = confirmar_cobranca_pix_consultada(
-                        session=session,
-                        contexto=contexto,
-                        pagamento_id=vinculo.pagamento_id,
-                        cobranca=CobrancaPixRuntime(
-                            provedor="mercado_pago",
-                            id_externo=order.pagamento_id,
-                            status=order.status,
-                            valor=order.valor,
-                            pix_copia_cola=order.pix_copia_cola,
-                            qr_code_url=order.ticket_url,
-                            qr_code_base64=order.qr_code_base64,
-                        ),
-                    )
-                    reconciliado = resultado is not None
+                # O simulador oficial pode usar um Data ID sem Order real. Depois
+                # da assinatura validada, uma Order sem vinculo local nao deve
+                # provocar consulta externa nem erro: ela e aceita e ignorada.
+                if vinculo is None:
+                    return {
+                        "accepted": True,
+                        "resource": "order",
+                        "reconciled": False,
+                    }
+
+                # Para uma Order vinculada localmente, a notificacao apenas sinaliza
+                # mudanca; a fonte da verdade financeira e a consulta autenticada.
+                order = adapter.consultar_pagamento(evento.recurso_id)
+                contexto = _contexto_sistema(
+                    tenant_id=tenant,
+                    unidade_id=unidade,
+                    request_id=request_id,
+                )
+                resultado = confirmar_cobranca_pix_consultada(
+                    session=session,
+                    contexto=contexto,
+                    pagamento_id=vinculo.pagamento_id,
+                    cobranca=CobrancaPixRuntime(
+                        provedor="mercado_pago",
+                        id_externo=order.pagamento_id,
+                        status=order.status,
+                        valor=order.valor,
+                        pix_copia_cola=order.pix_copia_cola,
+                        qr_code_url=order.ticket_url,
+                        qr_code_base64=order.qr_code_base64,
+                    ),
+                )
                 return {
                     "accepted": True,
                     "resource": "order",
-                    "reconciled": reconciliado,
+                    "reconciled": resultado is not None,
                 }
             except ErroProvedorExterno as exc:
                 session.rollback()
