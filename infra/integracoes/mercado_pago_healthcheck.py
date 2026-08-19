@@ -87,6 +87,30 @@ def _evidencia(
     return f"healthcheck://mercado-pago-access/{instante}/{digest}"
 
 
+def _pix_ativo(item: dict[str, Any]) -> bool:
+    """Reconhece Pix conforme a taxonomia atual do Mercado Pago no Brasil.
+
+    A API pode identificar Pix diretamente por ``id=pix`` ou pelo tipo
+    ``bank_transfer``. Na documentacao oficial do Mercado Pago, ``bank_transfer``
+    corresponde a Pix para contas brasileiras. Se o campo status vier presente,
+    somente um meio ativo e aceito.
+    """
+
+    status = str(item.get("status") or "").strip().casefold()
+    if status and status != "active":
+        return False
+
+    identificador = str(item.get("id") or "").strip().casefold()
+    tipo = str(item.get("payment_type_id") or "").strip().casefold()
+    nome = str(item.get("name") or "").strip().casefold()
+
+    return (
+        identificador == "pix"
+        or tipo == "bank_transfer"
+        or "pix" in nome
+    )
+
+
 def executar_healthcheck_mercado_pago(
     *,
     session: Session,
@@ -128,6 +152,7 @@ def executar_healthcheck_mercado_pago(
             headers={
                 "Authorization": f"Bearer {access_token}",
                 "Accept": "application/json",
+                "Content-Type": "application/json",
             },
             timeout=8.0,
         )
@@ -137,8 +162,12 @@ def executar_healthcheck_mercado_pago(
         raise ErroConfiguracaoServico("healthcheck_mercado_pago_transporte") from exc
 
     status_code = int(getattr(resposta, "status_code", 0) or 0)
+    if status_code in {401, 403}:
+        raise ErroConfiguracaoServico("healthcheck_mercado_pago_credencial_rejeitada")
     if not 200 <= status_code < 300:
-        raise ErroConfiguracaoServico("healthcheck_mercado_pago_rejeitado")
+        raise ErroConfiguracaoServico(
+            f"healthcheck_mercado_pago_http_{status_code or 'desconhecido'}"
+        )
     try:
         payload = resposta.json()
     except (ValueError, TypeError) as exc:
@@ -147,14 +176,7 @@ def executar_healthcheck_mercado_pago(
         raise ErroConfiguracaoServico("healthcheck_mercado_pago_payload_invalido")
 
     meios = [item for item in payload if isinstance(item, dict)]
-    pix_disponivel = any(
-        str(item.get("id") or "").strip().casefold() == "pix"
-        or (
-            str(item.get("payment_type_id") or "").strip().casefold() == "bank_transfer"
-            and "pix" in str(item.get("name") or "").casefold()
-        )
-        for item in meios
-    )
+    pix_disponivel = any(_pix_ativo(item) for item in meios)
     if not pix_disponivel:
         raise ErroConfiguracaoServico("pix_mercado_pago_indisponivel")
 
