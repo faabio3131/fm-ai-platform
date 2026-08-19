@@ -1,8 +1,9 @@
-"""Healthcheck externo real e somente leitura para Mercado Pago PIX.
+"""Healthcheck externo real e somente leitura para Mercado Pago.
 
-Valida a credencial salva no cofre consultando os meios de pagamento disponiveis
-na API oficial. Nao cria pagamento, nao movimenta dinheiro e nao homologa
-automaticamente.
+Valida o Access Token salvo no cofre por uma chamada autenticada somente leitura.
+Nao cria pagamento, nao movimenta dinheiro, nao infere suporte a Pix e nao homologa
+automaticamente. A capacidade Pix e comprovada depois por uma Order sandbox real,
+conforme o fluxo oficial do Checkout Transparente / Orders API.
 """
 
 from __future__ import annotations
@@ -36,8 +37,7 @@ class PortaHTTPMercadoPagoHealthcheck(Protocol):
 
 @dataclass(frozen=True, kw_only=True)
 class ResultadoHealthcheckMercadoPago:
-    pix_disponivel: bool
-    quantidade_meios: int
+    credencial_valida: bool
     evidencia_ref: str
 
 
@@ -69,7 +69,7 @@ def _evidencia(
     *,
     contexto: ContextoExecucao,
     configuracao_id: str,
-    quantidade_meios: int,
+    usuario_id: str,
     agora: datetime,
 ) -> str:
     instante = agora.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -78,37 +78,13 @@ def _evidencia(
             contexto.tenant_id,
             contexto.unidade_id,
             configuracao_id,
-            str(quantidade_meios),
+            usuario_id,
             instante,
-            "mercado-pago-payment-methods-readonly",
+            "mercado-pago-users-me-readonly",
         )
     )
     digest = hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
     return f"healthcheck://mercado-pago-access/{instante}/{digest}"
-
-
-def _pix_ativo(item: dict[str, Any]) -> bool:
-    """Reconhece Pix conforme a taxonomia atual do Mercado Pago no Brasil.
-
-    A API pode identificar Pix diretamente por ``id=pix`` ou pelo tipo
-    ``bank_transfer``. Na documentacao oficial do Mercado Pago, ``bank_transfer``
-    corresponde a Pix para contas brasileiras. Se o campo status vier presente,
-    somente um meio ativo e aceito.
-    """
-
-    status = str(item.get("status") or "").strip().casefold()
-    if status and status != "active":
-        return False
-
-    identificador = str(item.get("id") or "").strip().casefold()
-    tipo = str(item.get("payment_type_id") or "").strip().casefold()
-    nome = str(item.get("name") or "").strip().casefold()
-
-    return (
-        identificador == "pix"
-        or tipo == "bank_transfer"
-        or "pix" in nome
-    )
 
 
 def executar_healthcheck_mercado_pago(
@@ -120,7 +96,7 @@ def executar_healthcheck_mercado_pago(
     http: PortaHTTPMercadoPagoHealthcheck | None = None,
     agora: datetime | None = None,
 ) -> ResultadoHealthcheckMercadoPago:
-    """Confirma acesso real e disponibilidade de PIX sem criar transacao."""
+    """Confirma autenticacao real do Access Token sem criar transacao."""
 
     config = RepositorioConfiguracoesExternasSQLAlchemy(session).obter(
         tenant_id=contexto.tenant_id,
@@ -148,11 +124,10 @@ def executar_healthcheck_mercado_pago(
     cliente = http or requests.Session()
     try:
         resposta = cliente.get(
-            "https://api.mercadopago.com/v1/payment_methods",
+            "https://api.mercadolibre.com/users/me",
             headers={
                 "Authorization": f"Bearer {access_token}",
                 "Accept": "application/json",
-                "Content-Type": "application/json",
             },
             timeout=8.0,
         )
@@ -172,22 +147,20 @@ def executar_healthcheck_mercado_pago(
         payload = resposta.json()
     except (ValueError, TypeError) as exc:
         raise ErroConfiguracaoServico("healthcheck_mercado_pago_payload_invalido") from exc
-    if not isinstance(payload, list):
+    if not isinstance(payload, dict):
         raise ErroConfiguracaoServico("healthcheck_mercado_pago_payload_invalido")
 
-    meios = [item for item in payload if isinstance(item, dict)]
-    pix_disponivel = any(_pix_ativo(item) for item in meios)
-    if not pix_disponivel:
-        raise ErroConfiguracaoServico("pix_mercado_pago_indisponivel")
+    usuario_id = str(payload.get("id") or "").strip()
+    if not usuario_id:
+        raise ErroConfiguracaoServico("healthcheck_mercado_pago_identidade_ausente")
 
     evidencia = _evidencia(
         contexto=contexto,
         configuracao_id=configuracao_id,
-        quantidade_meios=len(meios),
+        usuario_id=usuario_id,
         agora=agora or datetime.now(timezone.utc),
     )
     return ResultadoHealthcheckMercadoPago(
-        pix_disponivel=True,
-        quantidade_meios=len(meios),
+        credencial_valida=True,
         evidencia_ref=evidencia,
     )
