@@ -119,7 +119,10 @@ def aplicar(texto: str) -> str:
                     )
                     st.info(
 '''
-    if trecho_preparacao in texto and "maps_browser_proof_token\")] = preparacao.token" not in texto:
+    atribuicao_token = (
+        'st.session_state[_key(spec, "maps_browser_proof_token")] = preparacao.token'
+    )
+    if trecho_preparacao in texto and atribuicao_token not in texto:
         texto = texto.replace(trecho_preparacao, trecho_preparacao_novo, 1)
 
     texto = texto.replace(
