@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 
 from infra.seguranca.modelos_orm import CredencialReferenciaORM
 from scripts.mercado_pago_webhook_secret_diagnostico import comparar
@@ -43,3 +44,14 @@ def test_diagnostico_detecta_secret_diferente() -> None:
 
     assert resultado.corresponde is False
     assert resultado.fingerprint_cofre != resultado.fingerprint_painel
+
+
+def test_main_carrega_dotenv_antes_do_runtime_settings() -> None:
+    source = Path("scripts/mercado_pago_webhook_secret_diagnostico.py").read_text(
+        encoding="utf-8"
+    )
+    assert "from dotenv import load_dotenv" in source
+    main_source = source.split("def main() -> None:", 1)[1]
+    assert main_source.index("load_dotenv()") < main_source.index(
+        "settings = load_runtime_settings()"
+    )
