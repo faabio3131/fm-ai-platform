@@ -20,6 +20,7 @@ from infra.integracoes.google_maps_browser_healthcheck import (
     preparar_healthcheck_browser_google_maps,
 )
 from infra.integracoes.google_maps_healthcheck import executar_healthcheck_google_maps
+from infra.integracoes.meta_healthcheck import executar_healthcheck_meta
 from infra.integracoes.repositorio_sqlalchemy import (
     ProntidaoCredenciaisSQLAlchemy,
     RepositorioConfiguracoesExternasSQLAlchemy,
@@ -240,6 +241,17 @@ def _render_one(
             st.caption(
                 "Esta referência comprova somente o caminho servidor. A chave de navegador ainda precisa de prova real no navegador antes da homologação final."
             )
+        ultima_evidencia_meta = st.session_state.get(
+            _key(spec, "last_real_meta_access_evidence")
+        )
+        if spec.provedor == "meta" and ultima_evidencia_meta:
+            st.success(
+                "Acesso externo Meta validado em modo somente leitura para o recurso configurado."
+            )
+            st.code(str(ultima_evidencia_meta), language=None)
+            st.caption(
+                "Esta evidência comprova autenticação e acesso ao ativo Meta. A homologação final ainda exige a prova prática específica do serviço: publicação controlada no Facebook/Instagram ou envio/webhook real no WhatsApp."
+            )
         st.caption(
             "O status Ativo só deve ser registrado após validação real do provedor. "
             "Informe abaixo uma referência verificável da evidência (ticket, log sanitizado, "
@@ -299,6 +311,51 @@ def _render_one(
             max_chars=8,
             key=_key(spec, f"critical_pin_{sensitive_nonce}"),
         )
+
+        if spec.provedor == "meta" and existing is not None:
+            st.caption(
+                "Este healthcheck faz uma chamada real e somente leitura à Graph API usando o Access Token e o App Secret salvos no cofre. Ele valida o ativo configurado sem publicar, enviar mensagem ou alterar dados externos."
+            )
+            if st.button(
+                "Testar acesso real Meta (somente leitura)",
+                key=_key(spec, "real_meta_access_healthcheck"),
+            ):
+                pin_ok = _critical_pin_ok(
+                    identidade=identidade,
+                    pin=critical_pin,
+                    session_factory=session_factory,
+                )
+                _consume_sensitive_inputs(spec)
+                if not pin_ok:
+                    _set_flash(
+                        spec,
+                        "error",
+                        "PIN administrativo inválido. O healthcheck externo Meta não foi executado.",
+                    )
+                    st.rerun()
+                try:
+                    resultado = executar_healthcheck_meta(
+                        session=session,
+                        secret_store=vault,
+                        contexto=contexto,
+                        configuracao_id=config_id,
+                    )
+                    st.session_state[_key(spec, "last_real_meta_access_evidence")] = (
+                        resultado.evidencia_ref
+                    )
+                    _set_flash(
+                        spec,
+                        "success",
+                        "Acesso externo Meta validado com sucesso em modo somente leitura. Nenhuma publicação, mensagem ou alteração foi feita. A prova prática específica do serviço continua pendente antes da homologação final.",
+                    )
+                    st.rerun()
+                except Exception:
+                    _set_flash(
+                        spec,
+                        "error",
+                        "O healthcheck externo Meta falhou. A integração continua não homologada; revise o recurso configurado, permissões, token, App Secret e versão da Graph API. Nenhum segredo foi exposto.",
+                    )
+                    st.rerun()
 
         if spec.provedor == "google_maps" and existing is not None:
             st.caption(
