@@ -15,7 +15,10 @@ from core.integracoes.servicos import ServicoConfiguracoesExternas
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.permissoes import Papel, Permissao
 from infra.integracoes.gemini_healthcheck import executar_healthcheck_gemini
-from infra.integracoes.google_maps_browser_healthcheck import preparar_healthcheck_browser_google_maps
+from infra.integracoes.google_maps_browser_healthcheck import (
+    obter_evidencia_confirmada_google_maps,
+    preparar_healthcheck_browser_google_maps,
+)
 from infra.integracoes.google_maps_healthcheck import executar_healthcheck_google_maps
 from infra.integracoes.repositorio_sqlalchemy import (
     ProntidaoCredenciaisSQLAlchemy,
@@ -243,12 +246,43 @@ def _render_one(
             "execução de healthcheck ou registro de homologação). Não cole tokens, chaves, PINs "
             "ou qualquer outro segredo neste campo."
         )
+        evidence_key = _key(spec, "homolog_evidence_ref")
+        if spec.provedor == "google_maps":
+            prefill_key = _key(spec, "maps_full_evidence_prefill")
+            prefill = st.session_state.pop(prefill_key, None)
+            if prefill and not str(st.session_state.get(evidence_key) or "").strip():
+                st.session_state[evidence_key] = str(prefill)
+
+            token_pendente = str(
+                st.session_state.get(_key(spec, "maps_browser_proof_token")) or ""
+            )
+            evidencia_confirmada = obter_evidencia_confirmada_google_maps(token_pendente)
+            if evidencia_confirmada:
+                st.session_state[_key(spec, "last_real_maps_full_healthcheck_evidence")] = (
+                    evidencia_confirmada
+                )
+                if not str(st.session_state.get(evidence_key) or "").strip():
+                    st.session_state[evidence_key] = evidencia_confirmada
+                st.session_state.pop(_key(spec, "maps_browser_proof_token"), None)
+
+            evidencia_full = st.session_state.get(
+                _key(spec, "last_real_maps_full_healthcheck_evidence")
+            )
+            if evidencia_full:
+                st.success(
+                    "Prova completa do Google Maps confirmada: servidor + Maps JavaScript API no navegador."
+                )
+                st.code(str(evidencia_full), language=None)
+                st.caption(
+                    "A referência foi preenchida automaticamente no campo de homologação abaixo."
+                )
+
         evidence_ref = st.text_input(
             "Referência da evidência de homologação",
             value="",
             max_chars=512,
             placeholder="Ex.: healthcheck://meta/2026-08-17/resultado-123",
-            key=_key(spec, "homolog_evidence_ref"),
+            key=evidence_key,
         )
 
         st.markdown("**Confirmação para ação crítica**")
@@ -349,15 +383,55 @@ def _render_one(
                         configuracao_id=config_id,
                         evidencia_servidor=str(evidencia_servidor or ""),
                     )
-                    st.info(
-                        "O mapa abaixo e a prova real da Browser API Key. Se carregar e ficar verde, copie a evidencia final exibida dentro do proprio teste. "
-                        "Se o Google rejeitar a chave, o painel mostrara falha e a integracao continua nao homologada."
+                    st.session_state[_key(spec, "maps_browser_proof_token")] = preparacao.token
+                    st.session_state.pop(
+                        _key(spec, "last_real_maps_full_healthcheck_evidence"), None
                     )
-                    components.iframe(preparacao.url, height=430, scrolling=False)
+                    st.info(
+                        "O mapa abaixo e a prova real da Browser API Key. Quando ficar verde, a evidencia sera confirmada pelo servidor local. "
+                        "Use o botao Concluir teste logo abaixo; o campo de homologacao sera preenchido sem copiar manualmente."
+                    )
+                    components.iframe(preparacao.url, height=520, scrolling=False)
                 except Exception:
                     st.error(
                         "Nao foi possivel preparar o teste real do navegador. A integracao continua nao homologada; revise a Browser API Key e tente novamente. Nenhum segredo foi exposto."
                     )
+
+        if spec.provedor == "google_maps" and existing is not None:
+            token_pendente = str(
+                st.session_state.get(_key(spec, "maps_browser_proof_token")) or ""
+            )
+            if token_pendente:
+                st.caption(
+                    "Depois que o mapa ficar verde, conclua a prova para trazer a evidência ao painel automaticamente."
+                )
+                if st.button(
+                    "Concluir teste e preencher evidência",
+                    key=_key(spec, "confirm_maps_browser_healthcheck"),
+                ):
+                    evidencia_confirmada = obter_evidencia_confirmada_google_maps(
+                        token_pendente
+                    )
+                    if evidencia_confirmada:
+                        st.session_state[
+                            _key(spec, "last_real_maps_full_healthcheck_evidence")
+                        ] = evidencia_confirmada
+                        st.session_state[
+                            _key(spec, "maps_full_evidence_prefill")
+                        ] = evidencia_confirmada
+                        st.session_state.pop(
+                            _key(spec, "maps_browser_proof_token"), None
+                        )
+                        _set_flash(
+                            spec,
+                            "success",
+                            "Prova completa do Google Maps confirmada. A referência de homologação foi preenchida automaticamente.",
+                        )
+                        st.rerun()
+                    else:
+                        st.warning(
+                            "A prova do navegador ainda não foi confirmada. Aguarde o mapa ficar verde e tente concluir novamente."
+                        )
 
         if spec.provedor == "gemini" and existing is not None:
             st.caption(
