@@ -110,12 +110,14 @@ def test_processed_nao_accredited_nao_liquida() -> None:
     assert cobranca.status == "processed"
 
 
-def test_webhook_orders_valida_assinatura_e_recurso() -> None:
+def test_webhook_orders_valida_assinatura_e_recurso_preservando_case_do_data_id() -> None:
     adapter = MercadoPagoAdapter(configuracao=_config(), http=_HTTP([]))
     data_id = "ORD01TEST"
     request_id = "req-123"
     ts = "1755600000"
-    manifesto = f"id:{data_id.lower()};request-id:{request_id};ts:{ts};"
+    # O SDK/documentacao oficial usa exatamente o data.id recebido no query param.
+    # Orders usa IDs alfanumericos em maiusculas; mudar o case quebra o HMAC real.
+    manifesto = f"id:{data_id};request-id:{request_id};ts:{ts};"
     digest = hmac.new(b"segredo-webhook", manifesto.encode(), hashlib.sha256).hexdigest()
     assinatura = f"ts={ts},v1={digest}"
     payload = {
@@ -150,3 +152,5 @@ def test_patch_orders_e_idempotente() -> None:
     assert primeiro == segundo
     assert '/v1/orders"' in primeiro
     assert "/v1/payments" not in primeiro
+    assert "data_id.lower()" not in primeiro
+    assert 'manifesto = f"id:{data_id};request-id:{request_id};ts:{ts};"' in primeiro
