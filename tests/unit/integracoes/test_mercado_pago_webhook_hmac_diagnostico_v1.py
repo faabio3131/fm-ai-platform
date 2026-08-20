@@ -47,6 +47,40 @@ def test_diagnostico_detecta_manifesto_exato() -> None:
     assert estrutura["v1_hex"] is True
     assert estrutura["ts_so_digitos"] is True
     assert estrutura["v1_recebido_fp"] == estrutura["hmac_exato_fp"]
+    assert estrutura["space_lower_match"] is False
+    assert secret not in str(estrutura)
+    assert data_id not in str(estrutura)
+    assert request_id not in str(estrutura)
+    assert ts not in str(estrutura)
+
+
+def test_diagnostico_detecta_manifesto_lower_com_espacos_sem_ponto_e_virgula() -> None:
+    secret = "segredo-apenas-de-teste"
+    data_id = "ORDTST01ABCDEF"
+    request_id = "0f2e48e3-7be9-4da6-91e4-2f2e2a2a2a2a"
+    ts = "1720000000000"
+    manifesto = f"id:{data_id.lower()} request-id:{request_id} ts:{ts}"
+    recebido = _hmac_hex(secret, manifesto)
+
+    matches = _diagnosticar_variantes(
+        secret=secret,
+        data_id=data_id,
+        request_id=request_id,
+        ts=ts,
+        recebido=recebido,
+    )
+    estrutura = _estrutura_hmac(
+        secret=secret,
+        data_id=data_id,
+        request_id=request_id,
+        ts=ts,
+        recebido=recebido,
+    )
+
+    assert "space_lower_no_semicolon" in matches
+    assert estrutura["space_lower_match"] is True
+    assert estrutura["v1_recebido_fp"] == estrutura["hmac_space_lower_fp"]
+    assert estrutura["manifesto_space_lower_fp"] != "ausente"
     assert secret not in str(estrutura)
     assert data_id not in str(estrutura)
     assert request_id not in str(estrutura)
@@ -62,3 +96,4 @@ def test_diagnostico_fingerprints_divergem_quando_hmac_nao_bate() -> None:
         recebido="0" * 64,
     )
     assert estrutura["v1_recebido_fp"] != estrutura["hmac_exato_fp"]
+    assert estrutura["v1_recebido_fp"] != estrutura["hmac_space_lower_fp"]
