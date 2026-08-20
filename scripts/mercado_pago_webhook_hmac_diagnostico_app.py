@@ -92,6 +92,12 @@ def _variantes_manifesto(*, data_id: str, request_id: str, ts: str) -> Mapping[s
     variantes["request_ts"] = f"request-id:{request_id};ts:{ts};"
     variantes["request_only"] = f"request-id:{request_id};"
     variantes["ts_only"] = f"ts:{ts};"
+    variantes["space_lower_no_semicolon"] = (
+        f"id:{data_id.lower()} request-id:{request_id} ts:{ts}"
+    )
+    variantes["space_exact_no_semicolon"] = (
+        f"id:{data_id} request-id:{request_id} ts:{ts}"
+    )
     return variantes
 
 
@@ -136,8 +142,10 @@ def _estrutura_hmac(
 ) -> dict[str, object]:
     manifesto_exato = f"id:{data_id};request-id:{request_id};ts:{ts};"
     manifesto_lower = f"id:{data_id.lower()};request-id:{request_id};ts:{ts};"
+    manifesto_space_lower = f"id:{data_id.lower()} request-id:{request_id} ts:{ts}"
     esperado_exato = _hmac_hex(secret, manifesto_exato) if all((secret, data_id, request_id, ts)) else ""
     esperado_lower = _hmac_hex(secret, manifesto_lower) if all((secret, data_id, request_id, ts)) else ""
+    esperado_space_lower = _hmac_hex(secret, manifesto_space_lower) if all((secret, data_id, request_id, ts)) else ""
     return {
         "data_id_fp": _fp(data_id),
         "request_id_fp": _fp(request_id),
@@ -145,7 +153,10 @@ def _estrutura_hmac(
         "v1_recebido_fp": _fp(recebido),
         "hmac_exato_fp": _fp(esperado_exato),
         "hmac_lower_fp": _fp(esperado_lower),
+        "hmac_space_lower_fp": _fp(esperado_space_lower),
+        "space_lower_match": bool(recebido) and hmac.compare_digest(esperado_space_lower, recebido),
         "manifesto_exato_fp": _fp(manifesto_exato) if all((data_id, request_id, ts)) else "ausente",
+        "manifesto_space_lower_fp": _fp(manifesto_space_lower) if all((data_id, request_id, ts)) else "ausente",
         "ts_len": len(ts),
         "ts_so_digitos": ts.isdigit(),
         "v1_len": len(recebido),
@@ -189,7 +200,10 @@ def create_app():
             "v1_recebido_fp": _fp(recebido),
             "hmac_exato_fp": "indisponivel",
             "hmac_lower_fp": "indisponivel",
+            "hmac_space_lower_fp": "indisponivel",
+            "space_lower_match": False,
             "manifesto_exato_fp": "indisponivel",
+            "manifesto_space_lower_fp": "indisponivel",
             "ts_len": len(ts),
             "ts_so_digitos": ts.isdigit(),
             "v1_len": len(recebido),
@@ -230,8 +244,8 @@ def create_app():
             "mercado_pago_hmac_diagnostico matches=%s application_id=%s live_mode=%s tipo=%s body_query_match=%s "
             "sig_keys=%s sig_parts=%d ts_count=%d v1_count=%d raw_sig_len=%d raw_sig_fp=%s "
             "data_id_trim=%s request_id_trim=%s data_id_fp=%s request_id_fp=%s ts_fp=%s "
-            "v1_recebido_fp=%s hmac_exato_fp=%s hmac_lower_fp=%s manifesto_exato_fp=%s "
-            "ts_len=%d ts_so_digitos=%s v1_len=%d v1_hex=%s",
+            "v1_recebido_fp=%s hmac_exato_fp=%s hmac_lower_fp=%s hmac_space_lower_fp=%s space_lower_match=%s "
+            "manifesto_exato_fp=%s manifesto_space_lower_fp=%s ts_len=%d ts_so_digitos=%s v1_len=%d v1_hex=%s",
             ",".join(matches) if matches else "nenhuma",
             application_id,
             live_mode,
@@ -251,7 +265,10 @@ def create_app():
             estrutura["v1_recebido_fp"],
             estrutura["hmac_exato_fp"],
             estrutura["hmac_lower_fp"],
+            estrutura["hmac_space_lower_fp"],
+            estrutura["space_lower_match"],
             estrutura["manifesto_exato_fp"],
+            estrutura["manifesto_space_lower_fp"],
             estrutura["ts_len"],
             estrutura["ts_so_digitos"],
             estrutura["v1_len"],
