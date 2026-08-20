@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from infra.seguranca.modelos_orm import CredencialReferenciaORM
-from scripts.mercado_pago_webhook_secret_diagnostico import comparar
+from scripts.mercado_pago_webhook_secret_diagnostico import _host_notificacao, comparar
 
 
 def _row() -> CredencialReferenciaORM:
@@ -55,3 +55,17 @@ def test_main_carrega_dotenv_antes_do_runtime_settings() -> None:
     assert main_source.index("load_dotenv()") < main_source.index(
         "settings = load_runtime_settings()"
     )
+
+
+def test_diagnostico_correlaciona_app_ambiente_e_host_sem_url_completa() -> None:
+    source = Path("scripts/mercado_pago_webhook_secret_diagnostico.py").read_text(
+        encoding="utf-8"
+    )
+    assert "access_token_client_id" in source
+    assert "access_token_formato_reconhecido" in source
+    assert "notification_host" in source
+    assert "ambiente" in source
+    assert "Webhooks > Modo de teste" in source
+    assert _host_notificacao(
+        "https://chemistry-hay-arrived-innovation.trycloudflare.com/webhooks/mercado-pago"
+    ) == "chemistry-hay-arrived-innovation.trycloudflare.com"
