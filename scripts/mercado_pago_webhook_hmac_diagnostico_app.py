@@ -1,8 +1,8 @@
 """App temporario de diagnostico sanitizado do HMAC de webhook Mercado Pago.
 
-Executar somente em homologacao local/sandbox. O middleware compara, sem expor
-secret nem assinatura, duas formas de manifesto: preservando o case de data.id e
-forcando data.id para minusculas. O app real continua processando a requisicao.
+Executar somente em homologacao local/sandbox. O middleware testa variantes
+estruturais do manifesto HMAC sem expor secret, assinatura, HMAC calculado,
+data.id, request-id ou timestamp. O app real continua processando a requisicao.
 """
 
 from __future__ import annotations
@@ -10,9 +10,9 @@ from __future__ import annotations
 import hashlib
 import hmac
 import logging
+from collections.abc import Mapping
 
 from fastapi import Request
-from sqlalchemy import select
 
 from core.runtime import build_engine, load_runtime_settings
 from infra.integracoes.mercado_pago_webhook_app import (
@@ -42,6 +42,44 @@ def _match(secret: str, manifesto: str, recebido: str) -> bool:
     return bool(recebido) and hmac.compare_digest(esperado, recebido)
 
 
+def _variantes_manifesto(*, data_id: str, request_id: str, ts: str) -> Mapping[str, str]:
+    """Variantes somente para diagnostico; nao altera a regra comercial do adapter."""
+    ids = {
+        "exact": data_id,
+        "lower": data_id.lower(),
+    }
+    variantes: dict[str, str] = {}
+    for nome_id, valor_id in ids.items():
+        variantes[f"full_{nome_id}"] = (
+            f"id:{valor_id};request-id:{request_id};ts:{ts};"
+        )
+        variantes[f"id_ts_{nome_id}"] = f"id:{valor_id};ts:{ts};"
+        variantes[f"id_request_{nome_id}"] = (
+            f"id:{valor_id};request-id:{request_id};"
+        )
+        variantes[f"id_only_{nome_id}"] = f"id:{valor_id};"
+    variantes["request_ts"] = f"request-id:{request_id};ts:{ts};"
+    variantes["request_only"] = f"request-id:{request_id};"
+    variantes["ts_only"] = f"ts:{ts};"
+    return variantes
+
+
+def _diagnosticar_variantes(
+    *, secret: str, data_id: str, request_id: str, ts: str, recebido: str
+) -> tuple[str, ...]:
+    if not all((secret, data_id, request_id, ts, recebido)):
+        return ()
+    return tuple(
+        nome
+        for nome, manifesto in _variantes_manifesto(
+            data_id=data_id,
+            request_id=request_id,
+            ts=ts,
+        ).items()
+        if _match(secret, manifesto, recebido)
+    )
+
+
 def create_app():
     settings = load_runtime_settings()
     engine = build_engine(settings)
@@ -63,8 +101,7 @@ def create_app():
         x_signature = str(request.headers.get("x-signature") or "").strip()
         ts, recebido = _parse_x_signature(x_signature)
 
-        exato = False
-        lower = False
+        matches: tuple[str, ...] = ()
         try:
             with session_factory() as session:
                 config = RepositorioConfiguracoesExternasSQLAlchemy(session).obter(
@@ -79,18 +116,19 @@ def create_app():
                         unidade_id=settings.unidade_id,
                         finalidade=_finalidade(config, "webhook_secret"),
                     )
-                    if data_id and request_id and ts and recebido:
-                        manifesto_exato = f"id:{data_id};request-id:{request_id};ts:{ts};"
-                        manifesto_lower = f"id:{data_id.lower()};request-id:{request_id};ts:{ts};"
-                        exato = _match(secret, manifesto_exato, recebido)
-                        lower = _match(secret, manifesto_lower, recebido)
+                    matches = _diagnosticar_variantes(
+                        secret=secret,
+                        data_id=data_id,
+                        request_id=request_id,
+                        ts=ts,
+                        recebido=recebido,
+                    )
         except Exception:
             _LOGGER.exception("mercado_pago_hmac_diagnostico_falhou")
 
         _LOGGER.warning(
-            "mercado_pago_hmac_diagnostico exact_match=%s lower_match=%s ts_presente=%s v1_presente=%s data_id_len=%d request_id_len=%d",
-            exato,
-            lower,
+            "mercado_pago_hmac_diagnostico matches=%s ts_presente=%s v1_presente=%s data_id_len=%d request_id_len=%d",
+            ",".join(matches) if matches else "nenhuma",
             bool(ts),
             bool(recebido),
             len(data_id),
