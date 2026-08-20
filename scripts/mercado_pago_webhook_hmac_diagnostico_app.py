@@ -1,14 +1,16 @@
 """App temporario de diagnostico sanitizado do HMAC de webhook Mercado Pago.
 
 Executar somente em homologacao local/sandbox. O middleware testa variantes
-estruturais do manifesto HMAC sem expor secret, assinatura, HMAC calculado,
-data.id, request-id ou timestamp. O app real continua processando a requisicao.
+estruturais do manifesto HMAC e identifica a origem logica da notificacao sem
+expor secret, assinatura, HMAC calculado, request-id ou timestamp. O app real
+continua processando a requisicao.
 """
 
 from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import logging
 from collections.abc import Mapping
 
@@ -80,6 +82,26 @@ def _diagnosticar_variantes(
     )
 
 
+def _origem_payload(payload_bruto: bytes, data_id_query: str) -> tuple[str, str, bool, str]:
+    """Extrai apenas metadados nao secretos relevantes para identificar a origem."""
+    try:
+        payload = json.loads(payload_bruto.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return "ausente", "desconhecido", False, "desconhecido"
+    if not isinstance(payload, Mapping):
+        return "ausente", "desconhecido", False, "desconhecido"
+
+    application_id = str(payload.get("application_id") or "ausente").strip() or "ausente"
+    live_mode = str(payload.get("live_mode")).lower() if "live_mode" in payload else "desconhecido"
+    tipo = str(payload.get("type") or "desconhecido").strip() or "desconhecido"
+    data = payload.get("data")
+    body_data_id = ""
+    if isinstance(data, Mapping):
+        body_data_id = str(data.get("id") or "").strip()
+    body_query_match = bool(body_data_id) and body_data_id == data_id_query
+    return application_id, live_mode, body_query_match, tipo
+
+
 def create_app():
     settings = load_runtime_settings()
     engine = build_engine(settings)
@@ -100,6 +122,10 @@ def create_app():
         request_id = str(request.headers.get("x-request-id") or "").strip()
         x_signature = str(request.headers.get("x-signature") or "").strip()
         ts, recebido = _parse_x_signature(x_signature)
+        payload_bruto = await request.body()
+        application_id, live_mode, body_query_match, tipo = _origem_payload(
+            payload_bruto, data_id
+        )
 
         matches: tuple[str, ...] = ()
         try:
@@ -127,8 +153,12 @@ def create_app():
             _LOGGER.exception("mercado_pago_hmac_diagnostico_falhou")
 
         _LOGGER.warning(
-            "mercado_pago_hmac_diagnostico matches=%s ts_presente=%s v1_presente=%s data_id_len=%d request_id_len=%d",
+            "mercado_pago_hmac_diagnostico matches=%s application_id=%s live_mode=%s tipo=%s body_query_match=%s ts_presente=%s v1_presente=%s data_id_len=%d request_id_len=%d",
             ",".join(matches) if matches else "nenhuma",
+            application_id,
+            live_mode,
+            tipo,
+            body_query_match,
             bool(ts),
             bool(recebido),
             len(data_id),
