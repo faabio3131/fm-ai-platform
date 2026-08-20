@@ -57,11 +57,15 @@ def _create_minimal_legacy_schema(engine: Engine) -> None:
         "CREATE TABLE usuarios (id INTEGER PRIMARY KEY)",
         "CREATE TABLE clientes (id INTEGER PRIMARY KEY, nome VARCHAR)",
         "CREATE TABLE produtos (id INTEGER PRIMARY KEY, nome VARCHAR)",
-        ("CREATE TABLE insumos (id INTEGER PRIMARY KEY, nome VARCHAR, "
-        "quantidade_atual FLOAT, unidade VARCHAR, alerta_minimo FLOAT)"),
+        (
+            "CREATE TABLE insumos (id INTEGER PRIMARY KEY, nome VARCHAR, "
+            "quantidade_atual FLOAT, unidade VARCHAR, alerta_minimo FLOAT)"
+        ),
         "CREATE TABLE fichas_tecnicas (id INTEGER PRIMARY KEY)",
-        ("CREATE TABLE vendas (id INTEGER PRIMARY KEY, produto_nome VARCHAR, "
-        "cmv_total FLOAT, data_hora DATETIME)"),
+        (
+            "CREATE TABLE vendas (id INTEGER PRIMARY KEY, produto_nome VARCHAR, "
+            "cmv_total FLOAT, data_hora DATETIME)"
+        ),
         "CREATE TABLE gateway_config (id INTEGER PRIMARY KEY)",
         "CREATE TABLE configuracoes_meta (id INTEGER PRIMARY KEY)",
         "CREATE TABLE contatos_gerenciais (id INTEGER PRIMARY KEY)",
@@ -92,8 +96,10 @@ def test_0015_reconcilia_todo_schema_legado_e_preserva_dados() -> None:
         column["name"] for column in inspect(engine).get_columns("produtos")
     }
 
-    assert run_migrations(engine) == ("0015_legacy_schema_reconciliation_v1",)
-    assert run_migrations(engine) == ()
+    assert run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:15]) == (
+        "0015_legacy_schema_reconciliation_v1",
+    )
+    assert run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:15]) == ()
     with engine.begin() as connection:
         reconcile_legacy_schema_v1(connection)
 

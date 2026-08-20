@@ -58,6 +58,7 @@ class ServicoConfiguracoesExternas:
         finalidades_credenciais: Mapping[str, str],
         habilitada: bool,
         versao_esperada: int,
+        forcar_rehomologacao: bool = False,
     ) -> ConfiguracaoServicoExterno:
         self._autorizar(contexto)
         especificacao = self._catalogo.obter(servico, provedor)
@@ -76,6 +77,7 @@ class ServicoConfiguracoesExternas:
         credenciais_normalizadas = normalizar_credenciais(finalidades_credenciais)
         preserva_homologacao = bool(
             existente
+            and not forcar_rehomologacao
             and existente.conta_externa == conta_externa.strip()
             and existente.ambiente is ambiente
             and existente.parametros_publicos == parametros_normalizados
@@ -111,7 +113,11 @@ class ServicoConfiguracoesExternas:
             contexto=contexto,
             configuracao=salvo,
             acao="integracao.configurar",
-            motivo="configuracao externa versionada",
+            motivo=(
+                "configuracao externa versionada; rehomologacao obrigatoria por rotacao de credencial"
+                if forcar_rehomologacao
+                else "configuracao externa versionada"
+            ),
         )
         return salvo
 
@@ -127,6 +133,8 @@ class ServicoConfiguracoesExternas:
         if Papel.ADMINISTRADOR not in contexto.papeis:
             raise PermissaoInsuficiente("administrador obrigatorio para homologacao")
         atual = self.obter(contexto=contexto, configuracao_id=configuracao_id)
+        if not atual.habilitada:
+            raise ErroConfiguracaoServico("homologacao_exige_integracao_habilitada")
         if not evidencia_ref.strip():
             raise ErroConfiguracaoServico("homologacao_sem_evidencia")
         status = self.avaliar(contexto=contexto, configuracao_id=configuracao_id)

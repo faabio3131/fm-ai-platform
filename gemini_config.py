@@ -1,7 +1,9 @@
 """Configuração e gateway centralizados para a API Gemini.
 
-O módulo é deliberadamente lazy: importar a aplicação não consulta a API. A
-primeira geração lista os modelos uma única vez e valida a escolha antes do uso.
+Em desenvolvimento/teste, mantém compatibilidade com ``GEMINI_API_KEY`` para
+fixtures e execução local. Em runtime comercial, a chave global é proibida como
+fonte operacional: o Gemini é resolvido exclusivamente pelo control plane seguro,
+isolado por tenant/unidade e somente após homologação da integração.
 """
 
 from __future__ import annotations
@@ -45,11 +47,30 @@ def normalize_model_name(name: str) -> str:
     return normalized
 
 
+def _runtime_commercial() -> bool:
+    """Detecta runtime comercial sem criar dependência no import da aplicação."""
+
+    try:
+        from core.runtime import load_runtime_settings
+
+        return bool(load_runtime_settings().commercial)
+    except Exception:
+        # Falha fechada apenas para a decisão de usar o caminho comercial. Testes
+        # unitários isolados de gemini_config continuam exercitando o gateway legado.
+        return False
+
+
 def _api_key() -> str:
+    if _runtime_commercial():
+        raise GeminiConfigurationError(
+            "GEMINI_API_KEY global não é fonte válida no runtime comercial; "
+            "configure e homologue o Gemini em Administração / Proprietário > "
+            "Integrações e Credenciais."
+        )
     key = os.getenv("GEMINI_API_KEY", "").strip()
     if not key:
         raise GeminiConfigurationError(
-            "GEMINI_API_KEY não configurada; defina a variável no ambiente."
+            "GEMINI_API_KEY não configurada; defina a variável no ambiente de desenvolvimento/teste."
         )
     return key
 
@@ -61,7 +82,7 @@ def _get_client_for_key(api_key: str) -> Any:
 
 
 def get_client() -> Any:
-    """Retorna o cliente Gemini da chave atualmente configurada."""
+    """Retorna o cliente Gemini da chave de desenvolvimento/teste."""
     return _get_client_for_key(_api_key())
 
 
@@ -90,7 +111,7 @@ def _list_generate_content_models_for_key(api_key: str) -> tuple[str, ...]:
 
 
 def list_generate_content_models() -> tuple[str, ...]:
-    """Lista os modelos compatíveis com geração para a chave atual."""
+    """Lista modelos compatíveis com geração para a chave atual em dev/teste."""
     return _list_generate_content_models_for_key(_api_key())
 
 
@@ -133,7 +154,7 @@ def _get_model_name_for_config(api_key: str, configured: str | None) -> str:
 
 
 def get_model_name() -> str:
-    """Valida GEMINI_MODEL ou escolhe um modelo estável realmente disponível."""
+    """Valida GEMINI_MODEL ou escolhe um modelo estável em dev/teste."""
     return _get_model_name_for_config(_api_key(), os.getenv("GEMINI_MODEL"))
 
 
@@ -157,16 +178,16 @@ def _translate_error(exc: Exception) -> GeminiGatewayError:
     text = str(exc).lower()
     if code == 400:
         return GeminiConfigurationError(
-            "Requisição Gemini inválida; revise GEMINI_MODEL, contents e config enviados."
+            "Requisição Gemini inválida; revise modelo, contents e config enviados."
         )
     if code == 404:
         return GeminiConfigurationError(
-            "Modelo Gemini indisponível para esta conta; revise GEMINI_MODEL."
+            "Modelo Gemini indisponível para esta conta; revise a configuração do provedor."
         )
     if code == 429:
         return GeminiQuotaError("Cota do Gemini atingida; tente novamente mais tarde.")
     if code in (401, 403) or "api key not valid" in text or "invalid api key" in text:
-        return GeminiConfigurationError("GEMINI_API_KEY inválida ou sem permissão.")
+        return GeminiConfigurationError("Credencial Gemini inválida ou sem permissão.")
     if code in (500, 502, 503, 504) or "timeout" in text or "temporar" in text:
         return GeminiTransientError(
             "Serviço Gemini temporariamente indisponível; tente novamente."
@@ -174,8 +195,69 @@ def _translate_error(exc: Exception) -> GeminiGatewayError:
     return GeminiGatewayError("Falha ao comunicar com o serviço Gemini.")
 
 
+def _commercial_generate_content(*, contents: Any, config: Any | None) -> Any:
+    if config is not None:
+        raise GeminiConfigurationError(
+            "Configuração ad hoc do Gemini não é permitida no runtime comercial. "
+            "Use o modelo homologado no control plane."
+        )
+
+    try:
+        import streamlit as st
+
+        from core.integracoes.modelos import ErroConfiguracaoServico
+        from core.runtime import build_engine, load_runtime_settings
+        from core.seguranca.autenticacao import IdentidadeUsuario
+        from infra.integracoes import FabricaAdaptersExternos
+        from infra.seguranca.session_guard import build_session_factory
+        from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
+
+        identity = st.session_state.get("_fm_ai_authenticated_identity_v1")
+        if not isinstance(identity, IdentidadeUsuario) or not identity.ativo:
+            raise GeminiConfigurationError(
+                "Sessão autenticada necessária para usar o Gemini comercial."
+            )
+
+        settings = load_runtime_settings()
+        engine = build_engine(settings)
+        session_factory = build_session_factory(
+            engine=engine,
+            commercial=settings.commercial,
+        )
+        session = session_factory()
+        try:
+            vault = EncryptedSQLAlchemySecretStore(session)
+            adapter = FabricaAdaptersExternos(
+                session=session,
+                secret_store=vault,
+            ).gemini(
+                contexto=identity.contexto(origem="gemini_config.runtime"),
+                configuracao_id="ia.generativa--gemini",
+            )
+            return adapter.gerar(contents)
+        finally:
+            session.close()
+    except GeminiGatewayError:
+        raise
+    except ErroConfiguracaoServico as exc:
+        raise GeminiConfigurationError(
+            "Gemini comercial não está configurado, habilitado e homologado para esta unidade."
+        ) from exc
+    except Exception as exc:
+        raise _translate_error(exc) from exc
+
+
 def generate_content(*, contents: Any, config: Any | None = None) -> Any:
-    """Gateway único de geração de conteúdo."""
+    """Gera conteúdo pelo caminho adequado ao ambiente.
+
+    Produção/staging usam exclusivamente o control plane por tenant/unidade. O
+    gateway baseado em variável de ambiente permanece apenas para desenvolvimento
+    e testes isolados.
+    """
+
+    if _runtime_commercial():
+        return _commercial_generate_content(contents=contents, config=config)
+
     try:
         kwargs = {"model": get_model_name(), "contents": contents}
         if config is not None:
@@ -188,7 +270,16 @@ def generate_content(*, contents: Any, config: Any | None = None) -> Any:
 
 
 def upload_file(*, file: str) -> Any:
-    """Gateway único para uploads exigidos por entradas multimodais."""
+    """Gateway de upload legado, restrito a desenvolvimento/teste.
+
+    O runtime comercial atual envia entradas multimodais diretamente em
+    ``generate_content`` e não pode usar chave global para upload.
+    """
+
+    if _runtime_commercial():
+        raise GeminiConfigurationError(
+            "Upload Gemini por chave global está bloqueado no runtime comercial."
+        )
     try:
         _api_key()
         return get_client().files.upload(file=file)

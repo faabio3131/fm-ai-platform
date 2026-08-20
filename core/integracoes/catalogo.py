@@ -42,6 +42,12 @@ class CatalogoServicosExternos:
         except KeyError as exc:
             raise ErroConfiguracaoServico("servico_provedor_nao_suportado") from exc
 
+    def listar(self) -> tuple[EspecificacaoServico, ...]:
+        return tuple(
+            self._itens[chave]
+            for chave in sorted(self._itens, key=lambda item: (item[0], item[1]))
+        )
+
 
 CATALOGO_V1 = CatalogoServicosExternos(
     (
@@ -72,9 +78,11 @@ CATALOGO_V1 = CatalogoServicosExternos(
         EspecificacaoServico(
             servico="mapas",
             provedor="google_maps",
-            parametros_obrigatorios=frozenset(
-                {"origin_address", "country_code", "language", "currency"}
-            ),
+            # O adapter executável usa apenas idioma e país como parâmetros
+            # públicos. Endereço de origem pertence ao contexto de cada rota e
+            # moeda não participa de geocodificação/Routes API; mantê-los como
+            # obrigatórios criava campos mortos no Control Plane.
+            parametros_obrigatorios=frozenset({"country_code", "language"}),
             credenciais_obrigatorias=frozenset(
                 {"browser_api_key", "server_api_key"}
             ),
@@ -94,7 +102,12 @@ CATALOGO_V1 = CatalogoServicosExternos(
         EspecificacaoServico(
             servico="ia.generativa",
             provedor="gemini",
-            parametros_obrigatorios=frozenset({"model", "region"}),
+            # O runtime Gemini baseado em API key usa somente o modelo como
+            # configuração pública efetivamente consumida. Exigir ``region`` aqui
+            # criava um campo morto: o control plane o marcava como obrigatório,
+            # mas nenhum adapter/gateway o utilizava. Parâmetros obrigatórios devem
+            # corresponder apenas ao contrato executável real.
+            parametros_obrigatorios=frozenset({"model"}),
             credenciais_obrigatorias=frozenset({"api_key"}),
         ),
     )

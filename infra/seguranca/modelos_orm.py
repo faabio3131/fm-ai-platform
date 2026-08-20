@@ -32,6 +32,8 @@ class UsuarioSegurancaORM(SecurityBase):
     usuario_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True, index=True)
     senha_hash: Mapped[str] = mapped_column(String(512), nullable=False)
+    admin_pin_hash: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    acesso_admin_sensivel: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     tenant_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     unidade_padrao_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

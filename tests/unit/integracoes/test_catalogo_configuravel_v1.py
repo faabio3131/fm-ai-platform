@@ -29,7 +29,7 @@ from core.integracoes import CATALOGO_V1, ErroConfiguracaoServico
         (
             "mapas",
             "google_maps",
-            {"origin_address", "country_code", "language", "currency"},
+            {"country_code", "language"},
             {"browser_api_key", "server_api_key"},
         ),
         (
@@ -47,7 +47,7 @@ from core.integracoes import CATALOGO_V1, ErroConfiguracaoServico
         (
             "ia.generativa",
             "gemini",
-            {"model", "region"},
+            {"model"},
             {"api_key"},
         ),
     ),
@@ -61,6 +61,14 @@ def test_catalogo_declara_contrato_minimo_por_servico_e_provedor(
     especificacao = CATALOGO_V1.obter(servico, provedor)
     assert especificacao.parametros_obrigatorios == parametros
     assert especificacao.credenciais_obrigatorias == credenciais
+
+
+def test_google_maps_nao_exige_parametros_publicos_sem_uso_no_runtime() -> None:
+    especificacao = CATALOGO_V1.obter("mapas", "google_maps")
+
+    assert "origin_address" not in especificacao.parametros_obrigatorios
+    assert "currency" not in especificacao.parametros_obrigatorios
+    assert especificacao.parametros_obrigatorios == {"country_code", "language"}
 
 
 def test_catalogo_rejeita_provedor_nao_declarado_sem_fallback_silencioso() -> None:

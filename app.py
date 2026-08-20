@@ -82,7 +82,6 @@ import json
 from dotenv import load_dotenv
 import pandas as pd  # type: ignore[import-untyped]
 from PIL import Image
-import requests
 from sqlalchemy import (
     Column,
     DateTime,
@@ -171,6 +170,8 @@ class Cliente(Base):  # type: ignore[misc, valid-type]
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String, index=True)
     whatsapp = Column(String, unique=True, index=True)
+    email = Column(String, nullable=True)
+    documento_fiscal = Column(String, nullable=True)
     ultima_compra = Column(DateTime, default=datetime.now)
     total_gasto = Column(Float, default=0.0)
     saldo_cashback = Column(Float, default=0.0)
@@ -480,18 +481,23 @@ def render_cadastro_ficha_tecnica(
             elif not st.session_state.itens_ficha_tecnica:
                 st.error("❌ Adicione pelo menos 1 insumo à ficha técnica.")
             else:
-                novo_prod = Produto(
-                    nome=nome_produto,
-                    categoria=categoria,
-                    preco_venda=preco_venda_final,
-                    custo_total_cmv=cmv_total_calculado,
+                from infra.legacy_product_scope import inserir_produto_legado
+
+                novo_prod_id = inserir_produto_legado(
+                    db_session,
+                    unidade_id=CURRENT_IDENTITY.unidade_id,
+                    valores={
+                        "nome": nome_produto,
+                        "categoria": categoria,
+                        "preco_venda": preco_venda_final,
+                        "custo_total_cmv": cmv_total_calculado,
+                    },
                 )
-                db_session.add(novo_prod)
                 db_session.commit()
 
                 for item in st.session_state.itens_ficha_tecnica:
                     nova_ft = FichaTecnica(
-                        produto_id=novo_prod.id,
+                        produto_id=novo_prod_id,
                         insumo_id=item["insumo_id"],
                         quantidade_utilizada=item["quantidade"],
                     )
@@ -598,14 +604,19 @@ def render_cadastro_ficha_tecnica(
                     qtd_cadastrados = 0
                     for prod in produtos_extraidos:
                         cmv_est = round(float(prod.get("preco", 0)) * 0.32, 2)
-                        novo_prod = Produto(
-                            nome=prod.get("nome"),
-                            categoria=prod.get("categoria", "Geral"),
-                            preco_venda=float(prod.get("preco", 0)),
-                            custo_total_cmv=cmv_est,
-                            descricao_bruta=prod.get("ingredientes", ""),
+                        from infra.legacy_product_scope import inserir_produto_legado
+
+                        inserir_produto_legado(
+                            db_session,
+                            unidade_id=CURRENT_IDENTITY.unidade_id,
+                            valores={
+                                "nome": prod.get("nome"),
+                                "categoria": prod.get("categoria", "Geral"),
+                                "preco_venda": float(prod.get("preco", 0)),
+                                "custo_total_cmv": cmv_est,
+                                "descricao_bruta": prod.get("ingredientes", ""),
+                            },
                         )
-                        db_session.add(novo_prod)
                         qtd_cadastrados += 1
 
                     db_session.commit()
@@ -618,23 +629,15 @@ def render_cadastro_ficha_tecnica(
 
 
 def executar_forecasting_e_alertar(db_session):
-    if not is_test_mode():
-        return (
-            "⚠️ Disparo legado bloqueado. Configure e homologue "
-            "mensageria.whatsapp/meta no control plane seguro da V1."
-        )
     insumos = db_session.query(Insumo).all()
     destinatarios = (
         db_session.query(ContatoGerencial)
         .filter(ContatoGerencial.receber_alertas_estoque == 1)
         .all()
     )
-    config_meta = db_session.query(ConfiguracaoMeta).first()
 
     if not destinatarios:
         return "⚠️ Nenhum gerente ou administrador está configurado para receber alertas na Aba 4."
-    if not config_meta or not config_meta.whatsapp_token:
-        return "⚠️ Configure o token de acesso da Meta Cloud API para ativar os disparos reais de WhatsApp."
 
     resumo_estoque = ""
     for i in insumos:
@@ -667,43 +670,44 @@ def executar_forecasting_e_alertar(db_session):
         if not alertas_ia:
             return "✅ Estoque operacional seguro e validades sob controle. Nenhum alerta preditivo gerado."
 
-        url_wa = f"[https://graph.facebook.com/v17.0/](https://graph.facebook.com/v17.0/){config_meta.whatsapp_phone_id}/messages"
-        headers = {
-            "Authorization": f"Bearer {config_meta.whatsapp_token}",
-            "Content-Type": "application/json",
-        }
-
         total_enviados = 0
         for alerta in alertas_ia:
             texto_msg = f"🚨 *ALERTA PREDITIVO DE ESTOQUE (F&M AI FOOD)* 🚨\n\nItem: *{alerta['insumo']}*\nRisco/Previsão: *{alerta['previsao_esgotamento']}*\nStatus: {alerta['mensagem_alerta']}\n\n*Acesse o painel para reposição ou criar promoção de queima.*"
 
             for contato in destinatarios:
-                payload = {
-                    "messaging_product": "whatsapp",
-                    "to": contato.whatsapp,
-                    "type": "text",
-                    "text": {"body": texto_msg},
-                }
                 if is_test_mode():
                     envio_mock = mock_whatsapp_send(contato.whatsapp, texto_msg)
                     if envio_mock["ok"]:
                         total_enviados += 1
                 else:
-                    response = requests.post(
-                        url_wa, headers=headers, json=payload, timeout=15
+                    from infra.integracoes.idempotencia_alertas import (
+                        chave_idempotencia_alerta_estoque,
                     )
-                    if response.status_code == 200:
+
+                    mensagem_id = _enviar_whatsapp_control_plane(
+                        destinatario=contato.whatsapp,
+                        texto=texto_msg,
+                        idempotency_key=chave_idempotencia_alerta_estoque(
+                            contato_id=contato.id,
+                            alerta=alerta,
+                            data_referencia=date.today(),
+                        ),
+                    )
+                    if mensagem_id:
                         total_enviados += 1
 
         return f"🚀 Análise concluída com sucesso! {len(alertas_ia)} alertas preditivos (Estoque/Validade) disparados para {total_enviados} gestores via WhatsApp."
-    except Exception as e:
-        return f"❌ Erro técnico ao processar forecasting inteligente: {e}"
+    except Exception:
+        return (
+            "❌ Não foi possível concluir o forecasting ou enviar os alertas. "
+            "Verifique as integrações Gemini e Meta/WhatsApp desta unidade."
+        )
 
 
 def popular_dados_iniciais():
     db = SessionLocal()
     try:
-        if db.query(ConfiguracaoMeta).count() == 0:
+        if is_test_mode() and db.query(ConfiguracaoMeta).count() == 0:
             db.add(ConfiguracaoMeta(gateway_provider="Mercado Pago"))
             db.commit()
 
@@ -761,7 +765,228 @@ seed_database(
 
 # Verificação da Inteligência Artificial Gemini
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GENAI_DISPONIVEL = is_test_mode() or bool(GEMINI_API_KEY)
+
+
+def _gemini_disponivel_no_runtime() -> bool:
+    if is_test_mode():
+        return True
+
+    if not RUNTIME_SETTINGS.commercial:
+        return bool(GEMINI_API_KEY)
+
+    db = SessionLocal()
+    try:
+        from infra.integracoes import FabricaAdaptersExternos
+        from infra.seguranca.segredos_sqlalchemy import (
+            EncryptedSQLAlchemySecretStore,
+        )
+
+        vault = EncryptedSQLAlchemySecretStore(db)
+        FabricaAdaptersExternos(
+            session=db,
+            secret_store=vault,
+        ).gemini(
+            contexto=CURRENT_IDENTITY.contexto(
+                origem="app.gemini_availability"
+            ),
+            configuracao_id="ia.generativa--gemini",
+        )
+        return True
+    except Exception:
+        return False
+    finally:
+        db.close()
+
+
+GENAI_DISPONIVEL = _gemini_disponivel_no_runtime()
+
+
+def _enviar_whatsapp_control_plane(
+    *,
+    destinatario: str,
+    texto: str,
+    idempotency_key: str,
+) -> str:
+    db = SessionLocal()
+    try:
+        from infra.integracoes import FabricaAdaptersExternos
+        from infra.seguranca.segredos_sqlalchemy import (
+            EncryptedSQLAlchemySecretStore,
+        )
+
+        vault = EncryptedSQLAlchemySecretStore(db)
+        adapter = FabricaAdaptersExternos(
+            session=db,
+            secret_store=vault,
+        ).meta(
+            contexto=CURRENT_IDENTITY.contexto(
+                origem="app.whatsapp_runtime"
+            ),
+            configuracao_id="mensageria.whatsapp--meta",
+        )
+        return adapter.enviar_whatsapp(
+            destinatario=destinatario,
+            texto=texto,
+            idempotency_key=idempotency_key,
+        )
+    finally:
+        db.close()
+
+
+def _provedor_pix_control_plane() -> str:
+    db = SessionLocal()
+    try:
+        from infra.integracoes.pix_runtime import selecionar_integracao_pix
+        from infra.integracoes.repositorio_sqlalchemy import (
+            RepositorioConfiguracoesExternasSQLAlchemy,
+        )
+
+        contexto = CURRENT_IDENTITY.contexto(origem="app.pdv.pix_discovery")
+        repositorio = RepositorioConfiguracoesExternasSQLAlchemy(db)
+        configuracao = selecionar_integracao_pix(
+            repositorio.listar(
+                tenant_id=contexto.tenant_id,
+                unidade_id=contexto.unidade_id,
+            )
+        )
+        return configuracao.provedor
+    finally:
+        db.close()
+
+
+def _criar_pix_control_plane(
+    *,
+    pagamento_id: str,
+    pedido_id: str,
+    valor: float,
+    idempotency_key: str,
+    nome_pagador: str,
+    email_pagador: str,
+    documento_pagador: str,
+    terminal_id: str,
+    assinatura_checkout: str,
+):
+    db = SessionLocal()
+    try:
+        from decimal import Decimal
+
+        from infra.integracoes import FabricaAdaptersExternos
+        from infra.integracoes.pix_runtime import (
+            DadosPagadorPix,
+            criar_cobranca_pix_por_control_plane,
+        )
+        from infra.integracoes.repositorio_sqlalchemy import (
+            RepositorioConfiguracoesExternasSQLAlchemy,
+        )
+        from infra.seguranca.segredos_sqlalchemy import (
+            EncryptedSQLAlchemySecretStore,
+        )
+
+        contexto = CURRENT_IDENTITY.contexto(origem="app.pdv.pix_create")
+        vault = EncryptedSQLAlchemySecretStore(db)
+        fabrica = FabricaAdaptersExternos(session=db, secret_store=vault)
+        repositorio = RepositorioConfiguracoesExternasSQLAlchemy(db)
+
+        valor_decimal = Decimal(str(round(valor, 2)))
+        cobranca = criar_cobranca_pix_por_control_plane(
+            repositorio=repositorio,
+            fabrica=fabrica,
+            contexto=contexto,
+            pagamento_id=pagamento_id,
+            valor=valor_decimal,
+            idempotency_key=idempotency_key,
+            pagador=DadosPagadorPix(
+                nome=nome_pagador,
+                email=email_pagador,
+                documento=documento_pagador,
+            ),
+        )
+
+        from infra.integracoes.pix_durabilidade import registrar_vinculo_cobranca_pix
+
+        registrar_vinculo_cobranca_pix(
+            session=db,
+            contexto=contexto,
+            pagamento_id=pagamento_id,
+            pedido_id=pedido_id,
+            valor=valor_decimal,
+            provedor=cobranca.provedor,
+            id_externo=cobranca.id_externo,
+            idempotency_key=f"{idempotency_key}:vinculo",
+            terminal_id=terminal_id,
+            assinatura_checkout=assinatura_checkout,
+        )
+        return cobranca
+    finally:
+        db.close()
+
+
+def _consultar_pix_control_plane(
+    *, provedor: str, id_externo: str, pagamento_id: str | None = None
+):
+    db = SessionLocal()
+    try:
+        from infra.integracoes import FabricaAdaptersExternos
+        from infra.integracoes.pix_runtime import (
+            consultar_cobranca_pix_por_control_plane,
+        )
+        from infra.integracoes.repositorio_sqlalchemy import (
+            RepositorioConfiguracoesExternasSQLAlchemy,
+        )
+        from infra.seguranca.segredos_sqlalchemy import (
+            EncryptedSQLAlchemySecretStore,
+        )
+
+        contexto = CURRENT_IDENTITY.contexto(origem="app.pdv.pix_status")
+        vault = EncryptedSQLAlchemySecretStore(db)
+        fabrica = FabricaAdaptersExternos(session=db, secret_store=vault)
+        repositorio = RepositorioConfiguracoesExternasSQLAlchemy(db)
+
+        cobranca = consultar_cobranca_pix_por_control_plane(
+            repositorio=repositorio,
+            fabrica=fabrica,
+            contexto=contexto,
+            provedor=provedor,
+            id_externo=id_externo,
+        )
+        if pagamento_id:
+            from infra.integracoes.pix_durabilidade import (
+                confirmar_cobranca_pix_consultada,
+            )
+
+            confirmar_cobranca_pix_consultada(
+                session=db,
+                contexto=contexto,
+                pagamento_id=pagamento_id,
+                cobranca=cobranca,
+            )
+        return cobranca
+    finally:
+        db.close()
+
+
+def _recuperar_pix_control_plane(*, terminal_id: str, assinatura_checkout: str):
+    db = SessionLocal()
+    try:
+        from infra.integracoes.pix_durabilidade import recuperar_pix_aberto_por_terminal
+
+        return recuperar_pix_aberto_por_terminal(
+            session=db,
+            contexto=CURRENT_IDENTITY.contexto(origem="app.pdv.pix_recovery"),
+            terminal_id=terminal_id,
+            assinatura_checkout=assinatura_checkout,
+        )
+    finally:
+        db.close()
+
+
+def _pix_status_confirmado(status: str) -> bool:
+    return status.strip().casefold() in {
+        "pago",
+        "paid",
+        "approved",
+        "aprovado",
+    }
 
 
 # --- 6. BARRA LATERAL (SIDEBAR CORPORATIVA) ---
@@ -937,9 +1162,35 @@ with aba2:
                             key=f"btn_zap_resgate_{cli.id}",
                             type="primary",
                         ):
-                            st.success(
-                                f"✅ Campanha de resgate enviada com sucesso para o número {cli.whatsapp}!"
-                            )
+                            try:
+                                if is_test_mode():
+                                    envio = mock_whatsapp_send(
+                                        cli.whatsapp,
+                                        msg_resgate_padrao,
+                                    )
+                                    if not envio.get("ok"):
+                                        raise RuntimeError("envio_teste_falhou")
+                                else:
+                                    mensagem_id = _enviar_whatsapp_control_plane(
+                                        destinatario=cli.whatsapp,
+                                        texto=msg_resgate_padrao,
+                                        idempotency_key=(
+                                            f"crm-resgate-{cli.id}-"
+                                            f"{date.today().isoformat()}"
+                                        ),
+                                    )
+                                    if not mensagem_id:
+                                        raise RuntimeError("envio_sem_confirmacao")
+
+                                st.success(
+                                    f"✅ Campanha de resgate enviada com sucesso para o número {cli.whatsapp}!"
+                                )
+                            except Exception:
+                                st.error(
+                                    "Não foi possível enviar a campanha pelo WhatsApp. "
+                                    "Verifique se a integração Meta/WhatsApp desta unidade "
+                                    "está configurada, habilitada e homologada."
+                                )
         else:
             st.success(
                 "🎉 Excelente notícia! Nenhum cliente inativo há mais de 15 dias foi identificado no momento. Sua base está altamente engajada!"
@@ -977,9 +1228,35 @@ with aba2:
                 st.markdown("### 🧪 Cadastro seguro de cliente para testes E2E")
                 nome_cliente_e2e = st.text_input("Nome do Cliente E2E")
                 whatsapp_cliente_e2e = st.text_input("WhatsApp do Cliente E2E")
+                email_cliente_e2e = st.text_input(
+                    "E-mail do Cliente E2E (opcional)"
+                )
+                documento_cliente_e2e = st.text_input(
+                    "CPF/CNPJ do Cliente E2E (opcional)"
+                )
                 if st.form_submit_button("💾 Salvar Cliente E2E", type="secondary"):
+                    documento_normalizado = "".join(
+                        caractere
+                        for caractere in documento_cliente_e2e
+                        if caractere.isdigit()
+                    )
+                    documento_valido = (
+                        not documento_normalizado
+                        or len(documento_normalizado) in {11, 14}
+                    )
+                    email_normalizado = email_cliente_e2e.strip()
+
                     if not nome_cliente_e2e.strip() or not whatsapp_cliente_e2e.strip():
                         st.error("Nome e WhatsApp do cliente E2E são obrigatórios.")
+                    elif not documento_valido:
+                        st.error(
+                            "CPF/CNPJ deve conter 11 ou 14 dígitos quando informado."
+                        )
+                    elif email_normalizado and (
+                        "@" not in email_normalizado
+                        or "." not in email_normalizado.rsplit("@", 1)[-1]
+                    ):
+                        st.error("Informe um e-mail válido quando preencher o campo.")
                     else:
                         db_cli_e2e = get_db()
                         try:
@@ -997,6 +1274,10 @@ with aba2:
                                     Cliente(
                                         nome=nome_cliente_e2e.strip(),
                                         whatsapp=whatsapp_cliente_e2e.strip(),
+                                        email=email_normalizado or None,
+                                        documento_fiscal=(
+                                            documento_normalizado or None
+                                        ),
                                         status="Ativo",
                                         saldo_cashback=0.0,
                                     )
@@ -1077,7 +1358,11 @@ with aba3:
     db_pdv = get_db()
     lista_pratos_pdv = db_pdv.query(Produto).all()
     lista_clientes_pdv = db_pdv.query(Cliente).all()
-    config_gtw = db_pdv.query(ConfiguracaoMeta).first()
+    config_gtw = (
+        db_pdv.query(ConfiguracaoMeta).first()
+        if is_test_mode()
+        else None
+    )
 
     # A configuração legada só existe para E2E isolado. Nunca promove o PDV
     # comercial nem autoriza uso das colunas de segredo em texto puro.
@@ -1315,34 +1600,13 @@ with aba3:
                     pass
             st.info(f"🤖 *{sugestao_upsell}*")
 
+        if "pdv_checkout_id" not in st.session_state:
+            st.session_state["pdv_checkout_id"] = str(uuid4())
+
         if forma_pag_pdv.startswith("Pix"):
             st.markdown("---")
-            if modo_producao_ativo:
-                st.subheader(
-                    f"📱 Cobrança Pix Real Gerada via API ({config_gtw.gateway_provider})"
-                )
-                payload_pix = f"00020126580014br.gov.bcb.pix0136{config_gtw.gateway_pix_key}5204000053039865405{float(total_final_pdv):.2f}5802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A"
-                col_pix1, col_pix2 = st.columns([1, 3])
-                with col_pix1:
-                    try:
-                        st.image(
-                            montar_url_qrcode_pix(payload_pix),
-                            width=180,
-                            caption="QR Code Oficial da Conta PJ",
-                        )
-                    except Exception:
-                        st.warning(
-                            "Não foi possível exibir o QR Code Pix agora. Use a chave/código Pix abaixo para concluir o pagamento."
-                        )
-                with col_pix2:
-                    st.success(
-                        f"⚡ **Chave Pix Oficial:** `{config_gtw.gateway_pix_key}`"
-                    )
-                    st.code(payload_pix, language="text")
-                    st.write(
-                        "🟢 **Status:** Aguardando sinal de confirmação do Webhook do banco na conta da Michele..."
-                    )
-            else:
+
+            if is_test_mode():
                 st.subheader("📱 Gateway Pix Automático (Simulador de Treinamento)")
                 payload_pix = montar_payload_pix_simulado(total_final_pdv)
                 col_pix1, col_pix2 = st.columns([1, 3])
@@ -1355,16 +1619,260 @@ with aba3:
                         )
                     except Exception:
                         st.warning(
-                            "Não foi possível exibir o QR Code Pix agora. Use a chave/código Pix abaixo para concluir o pagamento."
+                            "Não foi possível exibir o QR Code Pix agora. "
+                            "Use o código Pix abaixo."
                         )
                 with col_pix2:
                     st.info(
-                        "🟡 **Chave Pix de Treinamento (Simulado):**\n\n`00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-426614174000520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A`"
+                        "🟡 **Pix de treinamento — nenhuma cobrança financeira real.**"
                     )
                     st.code(payload_pix, language="text")
-                    st.write(
-                        "👉 *No modo Sandbox, clique no botão abaixo para simular a aprovação do recebimento:*"
+            else:
+                try:
+                    provedor_pix_pdv = _provedor_pix_control_plane()
+                    erro_provedor_pix_pdv = None
+                except Exception:
+                    provedor_pix_pdv = None
+                    erro_provedor_pix_pdv = (
+                        "Nenhum provedor Pix único, habilitado e homologado está "
+                        "disponível para esta unidade."
                     )
+
+                checkout_id_pix = st.session_state["pdv_checkout_id"]
+                terminal_pix_pdv = os.getenv("FM_AI_TEST_TERMINAL", "pdv-default")
+                assinatura_checkout_duravel = (
+                    f"{getattr(prod_pdv, 'id', '')}:"
+                    f"{qtd_pdv}:{cliente_id_pdv}:{total_final_pdv:.2f}"
+                )
+                assinatura_pix = (
+                    f"{checkout_id_pix}:{assinatura_checkout_duravel}"
+                )
+
+                if st.session_state.get("pdv_pix_assinatura") != assinatura_pix:
+                    for chave in (
+                        "pdv_pix_provedor",
+                        "pdv_pix_id_externo",
+                        "pdv_pix_status",
+                        "pdv_pix_copia_cola",
+                        "pdv_pix_qr_url",
+                        "pdv_pix_qr_base64",
+                        "pdv_pix_confirmado",
+                        "pdv_pix_pagamento_id",
+                    ):
+                        st.session_state.pop(chave, None)
+                    st.session_state["pdv_pix_assinatura"] = assinatura_pix
+
+                st.subheader("📱 Cobrança Pix via Control Plane")
+
+                if erro_provedor_pix_pdv:
+                    st.warning(erro_provedor_pix_pdv)
+                else:
+                    st.caption(
+                        f"Provedor homologado da unidade: {provedor_pix_pdv}."
+                    )
+
+                email_pagador = (
+                    str(getattr(cliente_pdv, "email", "") or "").strip()
+                    if cliente_pdv
+                    else ""
+                )
+                documento_pagador = (
+                    str(getattr(cliente_pdv, "documento_fiscal", "") or "").strip()
+                    if cliente_pdv
+                    else ""
+                )
+                nome_pagador = (
+                    str(getattr(cliente_pdv, "nome", "") or "").strip()
+                    if cliente_pdv
+                    else ""
+                )
+
+                dados_pagador_ok = bool(cliente_pdv and email_pagador)
+                motivo_dados = None
+
+                if not cliente_pdv:
+                    motivo_dados = (
+                        "Identifique um cliente para gerar a cobrança Pix comercial."
+                    )
+                elif not email_pagador:
+                    motivo_dados = (
+                        "O cliente precisa ter e-mail cadastrado para pagamento Pix."
+                    )
+                elif provedor_pix_pdv == "pagbank" and len(documento_pagador) not in {
+                    11,
+                    14,
+                }:
+                    dados_pagador_ok = False
+                    motivo_dados = (
+                        "Para PagBank, cadastre CPF ou CNPJ válido do cliente."
+                    )
+
+                if motivo_dados:
+                    st.info(motivo_dados)
+
+                if not st.session_state.get("pdv_pix_id_externo"):
+                    try:
+                        vinculo_pix = _recuperar_pix_control_plane(
+                            terminal_id=terminal_pix_pdv,
+                            assinatura_checkout=assinatura_checkout_duravel,
+                        )
+                        if vinculo_pix is not None:
+                            st.session_state["pdv_pix_provedor"] = vinculo_pix.provedor
+                            st.session_state["pdv_pix_id_externo"] = vinculo_pix.id_externo
+                            st.session_state["pdv_pix_pagamento_id"] = vinculo_pix.pagamento_id
+                            if vinculo_pix.pagamento_id.startswith("pdv-"):
+                                st.session_state["pdv_checkout_id"] = vinculo_pix.pagamento_id[4:]
+                            consulta_recuperada = _consultar_pix_control_plane(
+                                provedor=vinculo_pix.provedor,
+                                id_externo=vinculo_pix.id_externo,
+                                pagamento_id=vinculo_pix.pagamento_id,
+                            )
+                            st.session_state["pdv_pix_status"] = consulta_recuperada.status
+                            st.session_state["pdv_pix_copia_cola"] = consulta_recuperada.pix_copia_cola
+                            st.session_state["pdv_pix_qr_url"] = consulta_recuperada.qr_code_url
+                            st.session_state["pdv_pix_qr_base64"] = consulta_recuperada.qr_code_base64
+                            st.session_state["pdv_pix_confirmado"] = _pix_status_confirmado(
+                                consulta_recuperada.status
+                            )
+                    except Exception:
+                        # Recuperação é best-effort; uma falha de consulta nunca confirma Pix.
+                        pass
+
+                tem_cobranca_pix = bool(
+                    st.session_state.get("pdv_pix_id_externo")
+                )
+
+                if not tem_cobranca_pix:
+                    if st.button(
+                        "⚡ Gerar cobrança Pix",
+                        key="pdv_gerar_pix_real",
+                        disabled=bool(
+                            erro_provedor_pix_pdv or not dados_pagador_ok
+                        ),
+                    ):
+                        try:
+                            pagamento_id_pix = f"pdv-{checkout_id_pix}"
+                            cobranca_pix = _criar_pix_control_plane(
+                                pagamento_id=pagamento_id_pix,
+                                pedido_id=checkout_id_pix,
+                                valor=float(total_final_pdv),
+                                idempotency_key=f"pdv-pix-{checkout_id_pix}",
+                                nome_pagador=nome_pagador,
+                                email_pagador=email_pagador,
+                                documento_pagador=documento_pagador,
+                                terminal_id=terminal_pix_pdv,
+                                assinatura_checkout=assinatura_checkout_duravel,
+                            )
+                            st.session_state["pdv_pix_pagamento_id"] = pagamento_id_pix
+                            st.session_state["pdv_pix_provedor"] = (
+                                cobranca_pix.provedor
+                            )
+                            st.session_state["pdv_pix_id_externo"] = (
+                                cobranca_pix.id_externo
+                            )
+                            st.session_state["pdv_pix_status"] = cobranca_pix.status
+                            st.session_state["pdv_pix_copia_cola"] = (
+                                cobranca_pix.pix_copia_cola
+                            )
+                            st.session_state["pdv_pix_qr_url"] = (
+                                cobranca_pix.qr_code_url
+                            )
+                            st.session_state["pdv_pix_qr_base64"] = (
+                                cobranca_pix.qr_code_base64
+                            )
+                            st.session_state["pdv_pix_confirmado"] = (
+                                _pix_status_confirmado(cobranca_pix.status)
+                            )
+                            st.rerun()
+                        except Exception:
+                            st.error(
+                                "Não foi possível gerar a cobrança Pix. "
+                                "Verifique a integração e os dados do pagador."
+                            )
+                else:
+                    st.success(
+                        f"Cobrança criada via "
+                        f"{st.session_state.get('pdv_pix_provedor', '')}."
+                    )
+
+                    pix_copia_cola = st.session_state.get("pdv_pix_copia_cola")
+                    pix_qr_url = st.session_state.get("pdv_pix_qr_url")
+                    pix_qr_base64 = st.session_state.get("pdv_pix_qr_base64")
+
+                    col_pix1, col_pix2 = st.columns([1, 3])
+                    with col_pix1:
+                        try:
+                            if pix_qr_base64:
+                                import base64
+
+                                st.image(
+                                    base64.b64decode(pix_qr_base64),
+                                    width=180,
+                                    caption="QR Code Pix",
+                                )
+                            elif pix_qr_url:
+                                st.image(
+                                    pix_qr_url,
+                                    width=180,
+                                    caption="QR Code Pix",
+                                )
+                        except Exception:
+                            st.warning(
+                                "QR Code indisponível para exibição. "
+                                "Use o Pix copia e cola."
+                            )
+
+                    with col_pix2:
+                        if pix_copia_cola:
+                            st.code(pix_copia_cola, language="text")
+
+                        status_pix = str(
+                            st.session_state.get("pdv_pix_status", "pendente")
+                        )
+                        if st.session_state.get("pdv_pix_confirmado", False):
+                            st.success(
+                                f"✅ Pagamento confirmado pelo provedor: {status_pix}"
+                            )
+                        else:
+                            st.warning(
+                                f"⏳ Pagamento ainda não confirmado: {status_pix}"
+                            )
+
+                        if st.button(
+                            "🔄 Consultar status do pagamento",
+                            key="pdv_consultar_pix_real",
+                        ):
+                            try:
+                                consulta_pix = _consultar_pix_control_plane(
+                                    provedor=str(
+                                        st.session_state["pdv_pix_provedor"]
+                                    ),
+                                    id_externo=str(
+                                        st.session_state["pdv_pix_id_externo"]
+                                    ),
+                                    pagamento_id=str(
+                                        st.session_state.get(
+                                            "pdv_pix_pagamento_id",
+                                            f"pdv-{st.session_state['pdv_checkout_id']}",
+                                        )
+                                    ),
+                                )
+                                st.session_state["pdv_pix_status"] = (
+                                    consulta_pix.status
+                                )
+                                st.session_state["pdv_pix_confirmado"] = (
+                                    _pix_status_confirmado(consulta_pix.status)
+                                )
+                                if consulta_pix.pix_copia_cola:
+                                    st.session_state["pdv_pix_copia_cola"] = (
+                                        consulta_pix.pix_copia_cola
+                                    )
+                                st.rerun()
+                            except Exception:
+                                st.error(
+                                    "Não foi possível consultar o pagamento agora. "
+                                    "A venda continua bloqueada até confirmação."
+                                )
 
         st.markdown("---")
         if "pdv_checkout_id" not in st.session_state:
@@ -1404,8 +1912,14 @@ with aba3:
                 cliente_existe=cliente_existe_pdv,
                 usar_cashback=usa_cashback_pdv,
                 desconto_cashback=desconto_cb_pdv,
-                pix_confirmado=not modo_producao_ativo or _canary_pdv,
-                pix_producao=modo_producao_ativo,
+                pix_confirmado=(
+                    True
+                    if is_test_mode()
+                    else bool(st.session_state.get("pdv_pix_confirmado", False))
+                ),
+                pix_producao=(
+                    forma_pag_pdv.startswith("Pix") and not is_test_mode()
+                ),
             )
             if not validacao_pdv.valido:
                 st.session_state["pdv_processando"] = False

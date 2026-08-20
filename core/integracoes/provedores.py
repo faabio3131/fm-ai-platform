@@ -356,6 +356,8 @@ class CobrancaMercadoPago:
 
 
 class MercadoPagoAdapter(_ClienteResiliente):
+    """Pix via Checkout Transparente / Orders API do Mercado Pago."""
+
     BASE_URL = "https://api.mercadopago.com"
 
     def __init__(
@@ -384,38 +386,51 @@ class MercadoPagoAdapter(_ClienteResiliente):
         return headers
 
     @staticmethod
-    def _normalizar(payload: Mapping[str, Any]) -> CobrancaMercadoPago:
+    def _primeiro_pagamento(payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        transacoes = payload.get("transactions")
+        if not isinstance(transacoes, Mapping):
+            return {}
+        pagamentos = transacoes.get("payments")
+        if not isinstance(pagamentos, list) or not pagamentos:
+            return {}
+        primeiro = pagamentos[0]
+        return primeiro if isinstance(primeiro, Mapping) else {}
+
+    @staticmethod
+    def _status_runtime(payload: Mapping[str, Any], pagamento: Mapping[str, Any]) -> str:
+        status = str(payload.get("status", "")).strip().casefold()
+        detalhe = str(payload.get("status_detail", "")).strip().casefold()
+        if not detalhe:
+            detalhe = str(pagamento.get("status_detail", "")).strip().casefold()
+        # Orders considera processed/accredited como pagamento efetivamente creditado.
+        # O runtime financeiro existente reconhece "paid" como estado liquidado.
+        if status == "processed" and detalhe == "accredited":
+            return "paid"
+        return status
+
+    @classmethod
+    def _normalizar(cls, payload: Mapping[str, Any]) -> CobrancaMercadoPago:
         identificador = str(payload.get("id", "")).strip()
         try:
-            valor = Decimal(str(payload["transaction_amount"])).quantize(
-                Decimal("0.01")
-            )
+            valor = Decimal(str(payload["total_amount"])).quantize(Decimal("0.01"))
         except (KeyError, InvalidOperation, ValueError) as exc:
             raise ErroProvedorExterno("Mercado Pago retornou valor invalido") from exc
         if not identificador or valor <= 0:
-            raise ErroProvedorExterno("Mercado Pago retornou cobranca incompleta")
-        transacao: Mapping[str, Any] = {}
-        point = payload.get("point_of_interaction")
-        if isinstance(point, Mapping) and isinstance(
-            point.get("transaction_data"), Mapping
-        ):
-            transacao = point["transaction_data"]  # type: ignore[assignment]
+            raise ErroProvedorExterno("Mercado Pago retornou order incompleta")
+
+        pagamento = cls._primeiro_pagamento(payload)
+        metodo = pagamento.get("payment_method")
+        metodo = metodo if isinstance(metodo, Mapping) else {}
         return CobrancaMercadoPago(
             pagamento_id=identificador,
-            status=str(payload.get("status", "")).strip().casefold(),
+            status=cls._status_runtime(payload, pagamento),
             valor=valor,
             referencia_externa=str(payload.get("external_reference", "")).strip(),
-            pix_copia_cola=(
-                str(transacao["qr_code"]) if transacao.get("qr_code") else None
-            ),
+            pix_copia_cola=(str(metodo["qr_code"]) if metodo.get("qr_code") else None),
             qr_code_base64=(
-                str(transacao["qr_code_base64"])
-                if transacao.get("qr_code_base64")
-                else None
+                str(metodo["qr_code_base64"]) if metodo.get("qr_code_base64") else None
             ),
-            ticket_url=(
-                str(transacao["ticket_url"]) if transacao.get("ticket_url") else None
-            ),
+            ticket_url=(str(metodo["ticket_url"]) if metodo.get("ticket_url") else None),
         )
 
     def criar_pix(
@@ -428,18 +443,27 @@ class MercadoPagoAdapter(_ClienteResiliente):
     ) -> CobrancaMercadoPago:
         if valor <= 0 or not email_pagador.strip() or not referencia_externa.strip():
             raise ErroProvedorExterno("pagamento Mercado Pago incompleto")
+        quantizado = str(valor.quantize(Decimal("0.01")))
         payload = self._request(
+            # Orders exige X-Idempotency-Key e permite repeticao segura da criacao.
             retry_safe=True,
             method="POST",
-            url=f"{self.BASE_URL}/v1/payments",
+            url=f"{self.BASE_URL}/v1/orders",
             headers=self._headers(idempotency_key),
             json_body={
-                "transaction_amount": str(valor.quantize(Decimal("0.01"))),
-                "description": "Pedido Gerente AI",
-                "payment_method_id": "pix",
-                "payer": {"email": email_pagador.strip()},
+                "type": "online",
+                "total_amount": quantizado,
                 "external_reference": referencia_externa.strip(),
-                "notification_url": self._config.notification_url,
+                "processing_mode": "automatic",
+                "transactions": {
+                    "payments": [
+                        {
+                            "amount": quantizado,
+                            "payment_method": {"id": "pix", "type": "bank_transfer"},
+                        }
+                    ]
+                },
+                "payer": {"email": email_pagador.strip()},
             },
         )
         return self._normalizar(payload)
@@ -447,11 +471,11 @@ class MercadoPagoAdapter(_ClienteResiliente):
     def consultar_pagamento(self, pagamento_id: str) -> CobrancaMercadoPago:
         identificador = pagamento_id.strip()
         if not identificador:
-            raise ErroProvedorExterno("pagamento Mercado Pago ausente")
+            raise ErroProvedorExterno("order Mercado Pago ausente")
         payload = self._request(
             retry_safe=True,
             method="GET",
-            url=f"{self.BASE_URL}/v1/payments/{identificador}",
+            url=f"{self.BASE_URL}/v1/orders/{identificador}",
             headers=self._headers(),
             json_body=None,
         )
@@ -473,9 +497,7 @@ class MercadoPagoAdapter(_ClienteResiliente):
             return False
         manifesto = f"id:{data_id.lower()};request-id:{request_id};ts:{ts};"
         esperado = hmac.new(
-            self._config.webhook_secret.encode(),
-            manifesto.encode(),
-            hashlib.sha256,
+            self._config.webhook_secret.encode(), manifesto.encode(), hashlib.sha256
         ).hexdigest()
         return hmac.compare_digest(esperado, recebido)
 
@@ -491,17 +513,28 @@ class MercadoPagoAdapter(_ClienteResiliente):
             data_id=data_id, request_id=request_id, x_signature=x_signature
         ):
             raise ErroProvedorExterno("assinatura Mercado Pago invalida")
-        action = str(payload.get("action") or payload.get("type") or "payment").strip()
+
+        tipo = str(payload.get("type") or "").strip().casefold()
+        if tipo and tipo != "order":
+            raise ErroProvedorExterno("webhook Mercado Pago nao e de order")
+        data = payload.get("data")
+        body_id = ""
+        if isinstance(data, Mapping):
+            body_id = str(data.get("id") or "").strip()
+        if body_id and body_id.casefold() != data_id.strip().casefold():
+            raise ErroProvedorExterno("webhook Mercado Pago com recurso divergente")
+
+        action = str(payload.get("action") or "order.updated").strip()
         evento_id = str(payload.get("id") or request_id).strip()
         if not evento_id or not data_id:
             raise ErroProvedorExterno("webhook Mercado Pago incompleto")
         return EventoWebhookProvedor(
             provedor="mercado_pago",
             evento_id=evento_id,
-            recurso_id=data_id,
+            recurso_id=data_id.strip(),
             tipo=action,
             assinatura_validada=True,
-            idempotency_key=f"mercado_pago:{evento_id}:{data_id}:{action}",
+            idempotency_key=f"mercado_pago:{evento_id}:{data_id.strip()}:{action}",
         )
 
 

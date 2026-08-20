@@ -360,6 +360,24 @@ def aplicar_reset_pendente_pdv(session_state: Any) -> bool:
     for chave, valor in PDV_WIDGET_DEFAULTS.items():
         session_state[chave] = valor
     session_state.pop("pdv_cliente_id", None)
+
+    # Uma venda concluída encerra definitivamente o checkout e qualquer
+    # cobrança Pix associada. Nenhum identificador/status de pagamento
+    # anterior pode ser reutilizado por uma nova venda.
+    for chave in (
+        "pdv_checkout_id",
+        "pdv_pix_assinatura",
+        "pdv_pix_provedor",
+        "pdv_pix_id_externo",
+        "pdv_pix_status",
+        "pdv_pix_copia_cola",
+        "pdv_pix_qr_url",
+        "pdv_pix_qr_base64",
+        "pdv_pix_confirmado",
+    ):
+        session_state.pop(chave, None)
+
+    session_state["pdv_pix_confirmado"] = False
     session_state[PDV_PROCESSANDO] = False
     return True
 
