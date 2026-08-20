@@ -104,7 +104,7 @@ def test_evidencia_sandbox_e_sanitizada() -> None:
     assert "qr_code" not in evidencia
 
 
-def test_probe_usa_payload_oficial_pix_e_notification_url(monkeypatch) -> None:
+def test_probe_usa_payload_oficial_pix_sem_notification_url(monkeypatch) -> None:
     import scripts.mercado_pago_pix_sandbox_homologacao as modulo
 
     monkeypatch.setattr(modulo, "RepositorioConfiguracoesExternasSQLAlchemy", _Repo)
@@ -122,9 +122,7 @@ def test_probe_usa_payload_oficial_pix_e_notification_url(monkeypatch) -> None:
     url, kwargs = http.posts[0]
     assert url.endswith("/v1/orders")
     assert kwargs["json"]["total_amount"] == "50.00"
-    assert kwargs["json"]["notification_url"] == (
-        "https://sandbox.example.invalid/webhooks/mercado-pago"
-    )
+    assert "notification_url" not in kwargs["json"]
     assert kwargs["json"]["payer"]["email"] == "test_user_br@testuser.com"
     assert kwargs["json"]["payer"]["first_name"] == "APRO"
     assert kwargs["json"]["transactions"]["payments"][0]["payment_method"] == {
@@ -138,7 +136,7 @@ def test_probe_usa_payload_oficial_pix_e_notification_url(monkeypatch) -> None:
     assert resultado.evidencia_ref.startswith("healthcheck://mercado-pago-pix-sandbox/")
 
 
-def test_probe_bloqueia_notification_url_ausente(monkeypatch) -> None:
+def test_probe_nao_depende_de_notification_url_local(monkeypatch) -> None:
     import scripts.mercado_pago_pix_sandbox_homologacao as modulo
 
     class _ConfigSemURL(_Config):
@@ -150,17 +148,18 @@ def test_probe_bloqueia_notification_url_ausente(monkeypatch) -> None:
 
     monkeypatch.setattr(modulo, "RepositorioConfiguracoesExternasSQLAlchemy", _RepoSemURL)
     monkeypatch.setattr(modulo, "EncryptedSQLAlchemySecretStore", _Store)
+    http = _HTTP(_order(), _order(status="processed"))
 
-    with pytest.raises(
-        ErroConfiguracaoServico,
-        match="notification_url_mercado_pago_sandbox_invalida",
-    ):
-        executar_teste_pix_sandbox(
-            session=_Session(),
-            tenant_id="tenant-a",
-            unidade_id="unidade-a",
-            http=_HTTP(_order(), _order()),
-        )
+    resultado = executar_teste_pix_sandbox(
+        session=_Session(),
+        tenant_id="tenant-a",
+        unidade_id="unidade-a",
+        http=http,
+    )
+
+    _, kwargs = http.posts[0]
+    assert "notification_url" not in kwargs["json"]
+    assert resultado.order_id == "ORD01SANDBOX"
 
 
 def test_probe_bloqueia_fora_de_sandbox(monkeypatch) -> None:
