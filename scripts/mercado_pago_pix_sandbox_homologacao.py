@@ -9,9 +9,14 @@ Execucao local:
     python -m scripts.mercado_pago_pix_sandbox_homologacao
 
 O processo carrega .env, resolve a credencial salva no cofre do tenant/unidade
-do runtime, cria a Order sandbox com a notification_url configurada para o
-provedor, faz uma consulta GET da mesma Order e imprime somente um resumo
-sanitizado e uma referencia de evidencia.
+do runtime, cria a Order sandbox, faz uma consulta GET da mesma Order e imprime
+somente um resumo sanitizado e uma referencia de evidencia.
+
+Importante: a Orders API nao recebe ``notification_url`` no body desta prova.
+A entrega de notificacoes de Order deve estar configurada na aplicacao do
+Mercado Pago/Webhooks para o topico de Orders. A URL publica mantida no cadastro
+local da Kordena continua sendo usada pelo receptor/integracao, mas nao e enviada
+como campo do POST /v1/orders.
 """
 
 from __future__ import annotations
@@ -121,10 +126,6 @@ def executar_teste_pix_sandbox(
         finalidade=finalidade,
     )
 
-    notification_url = str(config.parametros.get("notification_url") or "").strip()
-    if not notification_url.startswith("https://"):
-        raise ErroConfiguracaoServico("notification_url_mercado_pago_sandbox_invalida")
-
     cliente = http or requests.Session()
     idempotency_key = f"kordena-sandbox-{uuid4().hex}"
     external_reference = f"kordena-sandbox-{uuid4().hex[:16]}"
@@ -137,7 +138,6 @@ def executar_teste_pix_sandbox(
     body = {
         "type": "online",
         "external_reference": external_reference,
-        "notification_url": notification_url,
         "total_amount": "50.00",
         "processing_mode": "automatic",
         "payer": {
