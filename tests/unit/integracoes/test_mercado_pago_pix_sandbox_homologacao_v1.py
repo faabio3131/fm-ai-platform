@@ -37,6 +37,9 @@ class _Config:
     servico = "pagamentos.pix"
     provedor = "mercado_pago"
     credenciais = {"access_token": "pagamentos_pix_access_token"}
+    parametros = {
+        "notification_url": "https://sandbox.example.invalid/webhooks/mercado-pago"
+    }
 
 
 class _Repo:
@@ -101,7 +104,7 @@ def test_evidencia_sandbox_e_sanitizada() -> None:
     assert "qr_code" not in evidencia
 
 
-def test_probe_usa_payload_oficial_pix_e_nao_expoe_segredos(monkeypatch) -> None:
+def test_probe_usa_payload_oficial_pix_e_notification_url(monkeypatch) -> None:
     import scripts.mercado_pago_pix_sandbox_homologacao as modulo
 
     monkeypatch.setattr(modulo, "RepositorioConfiguracoesExternasSQLAlchemy", _Repo)
@@ -119,6 +122,9 @@ def test_probe_usa_payload_oficial_pix_e_nao_expoe_segredos(monkeypatch) -> None
     url, kwargs = http.posts[0]
     assert url.endswith("/v1/orders")
     assert kwargs["json"]["total_amount"] == "50.00"
+    assert kwargs["json"]["notification_url"] == (
+        "https://sandbox.example.invalid/webhooks/mercado-pago"
+    )
     assert kwargs["json"]["payer"]["email"] == "test_user_br@testuser.com"
     assert kwargs["json"]["payer"]["first_name"] == "APRO"
     assert kwargs["json"]["transactions"]["payments"][0]["payment_method"] == {
@@ -130,6 +136,31 @@ def test_probe_usa_payload_oficial_pix_e_nao_expoe_segredos(monkeypatch) -> None
     assert resultado.qr_code_presente is True
     assert resultado.status_consulta == "processed"
     assert resultado.evidencia_ref.startswith("healthcheck://mercado-pago-pix-sandbox/")
+
+
+def test_probe_bloqueia_notification_url_ausente(monkeypatch) -> None:
+    import scripts.mercado_pago_pix_sandbox_homologacao as modulo
+
+    class _ConfigSemURL(_Config):
+        parametros = {}
+
+    class _RepoSemURL(_Repo):
+        def obter(self, **kwargs):
+            return _ConfigSemURL()
+
+    monkeypatch.setattr(modulo, "RepositorioConfiguracoesExternasSQLAlchemy", _RepoSemURL)
+    monkeypatch.setattr(modulo, "EncryptedSQLAlchemySecretStore", _Store)
+
+    with pytest.raises(
+        ErroConfiguracaoServico,
+        match="notification_url_mercado_pago_sandbox_invalida",
+    ):
+        executar_teste_pix_sandbox(
+            session=_Session(),
+            tenant_id="tenant-a",
+            unidade_id="unidade-a",
+            http=_HTTP(_order(), _order()),
+        )
 
 
 def test_probe_bloqueia_fora_de_sandbox(monkeypatch) -> None:
