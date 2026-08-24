@@ -14,6 +14,7 @@ from infra.streamlit_app.auth_ui import (
     require_authentication,
 )
 from infra.seguranca.session_guard import build_session_factory
+from infra.legacy_expiration_alert import status_validade_legado
 from migrations.runner import assert_schema_current, run_migrations
 
 # Patch: ensure compatibility with custom keyword args used across the app
@@ -2231,13 +2232,10 @@ with aba4:
                 valor_total_item = i.saldo_atual * i.custo_unitario
                 valor_total_geral += valor_total_item
 
-                status_validade = "🟢 No Prazo"
-                if i.data_validade:
-                    dias_restantes = (i.data_validade.date() - date.today()).days
-                    if dias_restantes <= 0:
-                        status_validade = "🔴 VENCIDO!"
-                    elif dias_restantes <= i.dias_alerta_vencimento:
-                        status_validade = f"🟡 Vence em {dias_restantes} dias!"
+                status_validade = status_validade_legado(
+                    data_validade=i.data_validade,
+                    dias_alerta_vencimento=i.dias_alerta_vencimento,
+                )
 
                 status_estoque = (
                     "🔴 Reposição" if i.saldo_atual < i.estoque_minimo else "🟢 Ok"

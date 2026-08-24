@@ -38,8 +38,21 @@ def _engine() -> Engine:
 
 
 def _run_to_0026(engine: Engine) -> None:
-    assert DEFAULT_MIGRATIONS[-1].version == _VERSION
-    run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:-1])
+    target = next(
+        index
+        for index, migration in enumerate(DEFAULT_MIGRATIONS)
+        if migration.version == _VERSION
+    )
+    run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:target])
+
+
+def _run_0027(engine: Engine) -> tuple[str, ...]:
+    target = next(
+        index
+        for index, migration in enumerate(DEFAULT_MIGRATIONS)
+        if migration.version == _VERSION
+    )
+    return run_migrations(engine, migrations=DEFAULT_MIGRATIONS[: target + 1])
 
 
 def _seed_lojas(connection, *lojas: int) -> None:
@@ -115,7 +128,7 @@ def _two_store_catalog() -> Engine:
         _seed_insumo(connection, insumo_id=21, nome="Insumo B", saldo=20)
         _seed_ficha(connection, ficha_id=1, produto_id=101, insumo_id=11)
         _seed_ficha(connection, ficha_id=2, produto_id=201, insumo_id=21)
-    assert run_migrations(engine) == (_VERSION,)
+    assert _run_0027(engine) == (_VERSION,)
     return engine
 
 
@@ -155,7 +168,7 @@ def _schema_signature(engine: Engine) -> dict[str, object]:
 
 def test_af31_a_fresh_install_contem_schema_de_escopo_necessario() -> None:
     engine = _engine()
-    assert run_migrations(engine)[-1] == _VERSION
+    assert _VERSION in run_migrations(engine)
 
     inspector = inspect(engine)
     assert "loja_id" in {
@@ -201,7 +214,7 @@ def test_af31_b_upgrade_single_store_faz_backfill_e_preserva_dados() -> None:
         _seed_lojas(connection, 7)
         _seed_insumo(connection, insumo_id=11, nome="Tomate", saldo=12.5)
 
-    assert run_migrations(engine) == (_VERSION,)
+    assert _run_0027(engine) == (_VERSION,)
     with engine.begin() as connection:
         row = connection.execute(
             text(
@@ -220,7 +233,7 @@ def test_af31_c_inferencia_por_ficha_de_uma_loja_e_deterministica() -> None:
         _seed_insumo(connection, insumo_id=11, nome="Queijo")
         _seed_ficha(connection, ficha_id=1, produto_id=101, insumo_id=11)
 
-    assert run_migrations(engine) == (_VERSION,)
+    assert _run_0027(engine) == (_VERSION,)
     with engine.begin() as connection:
         assert connection.execute(
             text("SELECT loja_id FROM insumos WHERE id = 11")
@@ -239,7 +252,7 @@ def test_af31_d_insumo_de_produtos_de_lojas_diferentes_falha_fechado() -> None:
         _seed_ficha(connection, ficha_id=2, produto_id=201, insumo_id=11)
 
     with pytest.raises(RuntimeError, match="lojas diferentes"):
-        run_migrations(engine)
+        _run_0027(engine)
     with engine.begin() as connection:
         assert _VERSION not in applied_versions(connection)
 
@@ -252,7 +265,7 @@ def test_af31_e_insumo_sem_pista_multi_loja_falha_fechado() -> None:
         _seed_insumo(connection, insumo_id=11, nome="Sem pista")
 
     with pytest.raises(RuntimeError, match="sem loja determinística"):
-        run_migrations(engine)
+        _run_0027(engine)
     with engine.begin() as connection:
         assert _VERSION not in applied_versions(connection)
 
@@ -322,16 +335,18 @@ def test_af31_i_fresh_e_upgrade_convergem_no_recorte_relevante() -> None:
 
 
 def test_af31_j_manifest_cobre_0027_e_rejeita_mutacao() -> None:
-    assert DEFAULT_MIGRATIONS[-1].version == _VERSION
+    target = next(
+        index
+        for index, migration in enumerate(DEFAULT_MIGRATIONS)
+        if migration.version == _VERSION
+    )
     assert_migration_manifest(DEFAULT_MIGRATIONS)
 
     def migration_mutada(connection) -> None:
         upgrade_legacy_catalog_unit_scope_v1(connection)
 
-    mutadas = (
-        *DEFAULT_MIGRATIONS[:-1],
-        replace(DEFAULT_MIGRATIONS[-1], apply=migration_mutada),
-    )
+    mutadas = list(DEFAULT_MIGRATIONS)
+    mutadas[target] = replace(mutadas[target], apply=migration_mutada)
     with pytest.raises(
         MigrationManifestError,
         match="migration historica alterada",

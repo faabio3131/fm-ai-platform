@@ -65,6 +65,7 @@ def _engine():
                     unidade_medida VARCHAR NOT NULL,
                     saldo_atual FLOAT,
                     custo_unitario FLOAT,
+                    dias_alerta_vencimento INTEGER DEFAULT 15 NOT NULL,
                     FOREIGN KEY (loja_id) REFERENCES lojas(id)
                 )
                 """
@@ -217,6 +218,69 @@ def test_insercao_de_insumo_recebe_loja_do_mapeamento():
         ).scalar_one()
 
         assert loja_id == 7
+
+
+def test_insercao_de_insumo_materializa_alerta_padrao() -> None:
+    engine = _engine()
+
+    with Session(engine) as session:
+        novo_id = inserir_insumo_legado(
+            session,
+            tenant_id="tenant-a",
+            unidade_id="unidade-a",
+            valores={"nome": "Tomate", "unidade_medida": "kg"},
+        )
+        session.commit()
+        assert session.execute(
+            text(
+                "SELECT dias_alerta_vencimento FROM insumos WHERE id = :id"
+            ),
+            {"id": novo_id},
+        ).scalar_one() == 15
+
+
+def test_insercao_de_insumo_preserva_alerta_explicito() -> None:
+    engine = _engine()
+
+    with Session(engine) as session:
+        novo_id = inserir_insumo_legado(
+            session,
+            tenant_id="tenant-a",
+            unidade_id="unidade-a",
+            valores={
+                "nome": "Queijo alerta",
+                "unidade_medida": "kg",
+                "dias_alerta_vencimento": 7,
+                "loja_id": 8,
+            },
+        )
+        session.commit()
+        row = session.execute(
+            text(
+                "SELECT loja_id, dias_alerta_vencimento FROM insumos WHERE id = :id"
+            ),
+            {"id": novo_id},
+        ).one()
+        assert (row.loja_id, row.dias_alerta_vencimento) == (7, 7)
+
+
+def test_insercao_de_insumo_rejeita_alerta_nulo_explicito() -> None:
+    engine = _engine()
+
+    with Session(engine) as session, pytest.raises(
+        ErroEscopoLojaLegada,
+        match="dias_alerta_vencimento não pode ser nulo",
+    ):
+        inserir_insumo_legado(
+            session,
+            tenant_id="tenant-a",
+            unidade_id="unidade-a",
+            valores={
+                "nome": "Nulo",
+                "unidade_medida": "kg",
+                "dias_alerta_vencimento": None,
+            },
+        )
 
 
 def test_ficha_exige_produto_e_insumo_da_mesma_loja():

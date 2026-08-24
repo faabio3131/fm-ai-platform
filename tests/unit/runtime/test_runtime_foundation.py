@@ -55,6 +55,7 @@ _EXPECTED_MIGRATIONS = (
     "0025_crm_contact_ownership_v1",
     "0026_crm_consentimentos_historico_v1",
     "0027_legacy_catalog_unit_scope_v1",
+    "0028_legacy_expiration_alert_integrity_v1",
 )
 
 

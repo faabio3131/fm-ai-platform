@@ -112,6 +112,10 @@
     {
       "version": "0027_legacy_catalog_unit_scope_v1",
       "sha256": "12a5a3eac5ab5bcc369b116e1c582386817c6ca4a0ad65a4401bc7fd51c31664"
+    },
+    {
+      "version": "0028_legacy_expiration_alert_integrity_v1",
+      "sha256": "820d7ba64b04e3c12119fd6377c940c011615d66d6cb1accbf7af1e153ad2cc6"
     }
   ]
 }

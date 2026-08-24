@@ -60,6 +60,9 @@ from migrations.integration_secret_vault_v1 import upgrade_integration_secret_va
 from migrations.legacy_catalog_unit_scope_v1 import (
     upgrade_legacy_catalog_unit_scope_v1,
 )
+from migrations.legacy_expiration_alert_integrity_v1 import (
+    upgrade_legacy_expiration_alert_integrity_v1,
+)
 from migrations.legacy_schema_reconciliation_v1 import reconcile_legacy_schema_v1
 from migrations.legacy_schema_upgrade_v1 import upgrade_legacy_schema_v1
 from migrations.legacy_store_baseline_v1 import upgrade_legacy_store_baseline_v1
@@ -200,6 +203,10 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
         "0027_legacy_catalog_unit_scope_v1",
         upgrade_legacy_catalog_unit_scope_v1,
     ),
+    Migration(
+        "0028_legacy_expiration_alert_integrity_v1",
+        upgrade_legacy_expiration_alert_integrity_v1,
+    ),
 )
 
 
@@ -246,6 +253,41 @@ def run_migrations(
 
     for migration in ordered:
         if migration.version in already:
+            continue
+        if (
+            migration.version == "0028_legacy_expiration_alert_integrity_v1"
+            and engine.dialect.name == "sqlite"
+        ):
+            applied_sqlite_now = False
+            with engine.connect() as connection:
+                original_foreign_keys = int(
+                    connection.exec_driver_sql("PRAGMA foreign_keys").scalar_one()
+                )
+                connection.commit()
+                try:
+                    connection.exec_driver_sql("PRAGMA foreign_keys = OFF")
+                    connection.commit()
+                    with connection.begin():
+                        current = set(applied_versions(connection))
+                        if migration.version not in current:
+                            migration.apply(connection)
+                            connection.execute(
+                                insert(_schema_migrations).values(
+                                    version=migration.version,
+                                    applied_at=datetime.now(timezone.utc),
+                                )
+                            )
+                            applied_sqlite_now = True
+                finally:
+                    if connection.in_transaction():
+                        connection.rollback()
+                    connection.exec_driver_sql(
+                        f"PRAGMA foreign_keys = {original_foreign_keys}"
+                    )
+                    connection.commit()
+            already.add(migration.version)
+            if applied_sqlite_now:
+                applied_now.append(migration.version)
             continue
         with engine.begin() as connection:
             current = set(applied_versions(connection))

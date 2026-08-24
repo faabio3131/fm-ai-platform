@@ -310,6 +310,14 @@ def inserir_insumo_legado(
         nome_tabela="insumos",
     )
 
+    if "dias_alerta_vencimento" in valores:
+        if valores["dias_alerta_vencimento"] is None:
+            raise ErroEscopoLojaLegada(
+                "dias_alerta_vencimento não pode ser nulo"
+            )
+    else:
+        valores = {**valores, "dias_alerta_vencimento": 15}
+
     payload = {
         chave: valor
         for chave, valor in valores.items()
