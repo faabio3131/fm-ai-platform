@@ -47,10 +47,22 @@ from migrations.admin_access_authorization_v1 import (
 )
 from migrations.admin_pin_v1 import upgrade_admin_pin_v1
 from migrations.client_payment_identity_v1 import upgrade_client_payment_identity_v1
+from migrations.crm_cliente_legado_mapping_v1 import (
+    upgrade_crm_cliente_legado_mapping_v1,
+)
+from migrations.crm_clientes_persistencia_v1 import upgrade_crm_clientes_persistencia_v1
+from migrations.crm_consentimentos_historico_v1 import (
+    upgrade_crm_consentimentos_historico_v1,
+)
+from migrations.crm_contact_ownership_v1 import upgrade_crm_contact_ownership_v1
+from migrations.crm_contact_vault_v1 import upgrade_crm_contact_vault_v1
 from migrations.integration_secret_vault_v1 import upgrade_integration_secret_vault_v1
 from migrations.legacy_schema_reconciliation_v1 import reconcile_legacy_schema_v1
 from migrations.legacy_schema_upgrade_v1 import upgrade_legacy_schema_v1
+from migrations.legacy_store_baseline_v1 import upgrade_legacy_store_baseline_v1
+from migrations.manifest import assert_migration_manifest
 from migrations.product_unit_scope_compat_v1 import upgrade_product_unit_scope_compat_v1
+from migrations.unit_legacy_store_mapping_v1 import upgrade_unit_legacy_store_mapping_v1
 
 _metadata = MetaData()
 _schema_migrations = Table(
@@ -171,6 +183,16 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0018_admin_access_authorization_v1", upgrade_admin_access_authorization_v1),
     Migration("0019_client_payment_identity_v1", upgrade_client_payment_identity_v1),
     Migration("0020_product_unit_scope_compat_v1", upgrade_product_unit_scope_compat_v1),
+    Migration("0020b_legacy_store_baseline_v1", upgrade_legacy_store_baseline_v1),
+    Migration("0021_unit_legacy_store_mapping_v1", upgrade_unit_legacy_store_mapping_v1),
+    Migration("0022_crm_clientes_persistencia_v1", upgrade_crm_clientes_persistencia_v1),
+    Migration("0023_crm_contact_vault_v1", upgrade_crm_contact_vault_v1),
+    Migration("0024_crm_cliente_legado_mapping_v1", upgrade_crm_cliente_legado_mapping_v1),
+    Migration("0025_crm_contact_ownership_v1", upgrade_crm_contact_ownership_v1),
+    Migration(
+        "0026_crm_consentimentos_historico_v1",
+        upgrade_crm_consentimentos_historico_v1,
+    ),
 )
 
 
@@ -208,6 +230,8 @@ def run_migrations(
     versions = [migration.version for migration in ordered]
     if len(versions) != len(set(versions)):
         raise ValueError("versao de migration duplicada")
+    if ordered == DEFAULT_MIGRATIONS:
+        assert_migration_manifest(ordered)
 
     applied_now: list[str] = []
     with engine.begin() as connection:
