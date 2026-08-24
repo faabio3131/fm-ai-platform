@@ -22,6 +22,7 @@ from core.pagamentos.servicos import (
 )
 from core.pedidos.servicos import transicionar_pedido
 from core.seguranca.contexto import ContextoExecucao
+from core.seguranca.permissoes import Permissao
 from infra.transacoes.uow import RecursosTransacionaisV1
 
 from .adaptadores_sqlalchemy import (
@@ -113,7 +114,11 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
         instante = datetime.now(timezone.utc)
         pdv = RepositorioPDVSQLAlchemy(self.session)
         recursos = RecursosTransacionaisV1(self.session)
-        contexto_estoque = contexto_estoque_automatico_pdv(self.contexto, instante)
+        contexto_estoque = contexto_estoque_automatico_pdv(
+            self.contexto,
+            instante,
+            permissao=Permissao.ESTOQUE_BAIXAR,
+        )
         conciliada = pdv.buscar_reconciliacao(
             self.contexto.tenant_id,
             self.contexto.unidade_id,
@@ -143,7 +148,6 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
             comando=comando,
             contexto=self.contexto,
             recursos=recursos,
-            contexto_estoque=contexto_estoque,
         )
         pedido = checkout.aguardando_confirmacao.pedido
         iniciado = checkout.pagamento

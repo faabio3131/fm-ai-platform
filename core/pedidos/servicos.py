@@ -137,7 +137,7 @@ def _auditoria_criacao(
         correlation_id=contexto.correlation_id,
         timestamp=timestamp,
         origem=contexto.origem,
-        politica="rbac_pedido_alterar",
+        politica="rbac_pedido_criar",
         causation_id=contexto.causation_id,
         depois_resumido=(
             ("estado", pedido.status.value),
@@ -198,7 +198,7 @@ def registrar_novo_pedido(
     _validar_contexto(pedido, contexto)
     decisao = (autorizador or AutorizarAcao()).executar(
         contexto=contexto,
-        permissao=Permissao.PEDIDO_ALTERAR,
+        permissao=Permissao.PEDIDO_CRIAR,
         recurso="pedido",
         tenant_recurso=str(pedido.tenant_id),
         unidade_recurso=str(pedido.unidade_id),
