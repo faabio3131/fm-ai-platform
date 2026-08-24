@@ -10,7 +10,6 @@ from migrations.product_unit_scope_compat_v1 import (
 from scripts.wire_product_legacy_store_compat_v1 import aplicar as aplicar_compat
 from scripts.wire_product_unit_scope_v1 import aplicar as aplicar_unit_scope
 
-
 APP_SOURCE = Path("app.py").read_text(encoding="utf-8")
 
 
@@ -27,11 +26,11 @@ def test_patch_mapeia_loja_e_preenche_unidade_nos_dois_fluxos() -> None:
     assert "loja_id=CURRENT_IDENTITY.unidade_id" not in atualizado
     assert atualizado.count("inserir_produto_legado(") == 2
     assert (
-        '''novo_prod_id = inserir_produto_legado(\n                    db_session,\n                    unidade_id=CURRENT_IDENTITY.unidade_id,'''
+        '''novo_prod_id = inserir_produto_legado(\n                    db_session,\n                    tenant_id=CURRENT_IDENTITY.tenant_id,\n                    unidade_id=CURRENT_IDENTITY.unidade_id,'''
         in atualizado
     )
     assert (
-        '''inserir_produto_legado(\n                            db_session,\n                            unidade_id=CURRENT_IDENTITY.unidade_id,'''
+        '''inserir_produto_legado(\n                            db_session,\n                            tenant_id=CURRENT_IDENTITY.tenant_id,\n                            unidade_id=CURRENT_IDENTITY.unidade_id,'''
         in atualizado
     )
     assert "produto_id=novo_prod_id" in atualizado

@@ -57,6 +57,9 @@ from migrations.crm_consentimentos_historico_v1 import (
 from migrations.crm_contact_ownership_v1 import upgrade_crm_contact_ownership_v1
 from migrations.crm_contact_vault_v1 import upgrade_crm_contact_vault_v1
 from migrations.integration_secret_vault_v1 import upgrade_integration_secret_vault_v1
+from migrations.legacy_catalog_unit_scope_v1 import (
+    upgrade_legacy_catalog_unit_scope_v1,
+)
 from migrations.legacy_schema_reconciliation_v1 import reconcile_legacy_schema_v1
 from migrations.legacy_schema_upgrade_v1 import upgrade_legacy_schema_v1
 from migrations.legacy_store_baseline_v1 import upgrade_legacy_store_baseline_v1
@@ -192,6 +195,10 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         "0026_crm_consentimentos_historico_v1",
         upgrade_crm_consentimentos_historico_v1,
+    ),
+    Migration(
+        "0027_legacy_catalog_unit_scope_v1",
+        upgrade_legacy_catalog_unit_scope_v1,
     ),
 )
 

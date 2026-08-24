@@ -223,6 +223,7 @@ class LegacyPDVSQLAlchemyAdapter:
         pedido_id: str,
         rastrear_efeitos: bool,
         repositorio_pdv: RepositorioPDVSQLAlchemy | None = None,
+        resolver_insumo: Callable[[int], Any | None] | None = None,
     ) -> None:
         self.session = session
         self.Venda = venda_cls
@@ -234,12 +235,23 @@ class LegacyPDVSQLAlchemyAdapter:
         self.pedido_id = pedido_id
         self.rastrear = rastrear_efeitos
         self.repo = repositorio_pdv or RepositorioPDVSQLAlchemy(session)
+        self._resolver_insumo = resolver_insumo
 
     def _feito(self, tipo: TipoEfeitoCompat) -> EfeitoCompatPDVORM | None:
         return (
             self.repo.buscar_efeito(self.tenant, self.unidade, self.pedido_id, tipo)
             if self.rastrear
             else None
+        )
+
+    def _obter_insumo_no_escopo(self, insumo_id: int) -> Any | None:
+        if self._resolver_insumo is not None:
+            return self._resolver_insumo(insumo_id)
+        return (
+            self.session.query(self.Insumo)
+            .filter(self.Insumo.id == insumo_id)
+            .with_for_update()
+            .first()
         )
 
     def validar_estoque(self, entrada: EntradaPDV) -> list[tuple[Any, Decimal]]:
@@ -250,12 +262,7 @@ class LegacyPDVSQLAlchemyAdapter:
         )
         consumos: list[tuple[Any, Decimal]] = []
         for ficha in fichas:
-            insumo = (
-                self.session.query(self.Insumo)
-                .filter(self.Insumo.id == ficha.insumo_id)
-                .with_for_update()
-                .first()
-            )
+            insumo = self._obter_insumo_no_escopo(int(ficha.insumo_id))
             necessario = Decimal(str(ficha.quantidade_utilizada)) * entrada.quantidade
             if insumo is None or Decimal(str(insumo.saldo_atual or 0)) < necessario:
                 raise ErroOperacaoLegada("estoque_insuficiente")

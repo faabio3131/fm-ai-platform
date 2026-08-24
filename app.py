@@ -48,6 +48,7 @@ from test_mode import (
     mock_generate_content,
     mock_upload_file,
     mock_whatsapp_send,
+    prepare_legacy_scope,
     reset_database,
     seed_database,
 )
@@ -296,6 +297,13 @@ CURRENT_IDENTITY = require_authentication(
     settings=RUNTIME_SETTINGS,
 )
 
+if is_test_mode():
+    prepare_legacy_scope(
+        engine,
+        tenant_id=CURRENT_IDENTITY.tenant_id,
+        unidade_id=CURRENT_IDENTITY.unidade_id,
+    )
+
 
 def get_db():
     db = SessionLocal()
@@ -305,28 +313,26 @@ def get_db():
         db.close()
 
 
-def recalcular_cmv_geral(db_session):
+def recalcular_cmv_geral(
+    db_session,
+    *,
+    tenant_id: str,
+    unidade_id: str,
+):
     try:
-        produtos = db_session.query(Produto).all()
-        for prod in produtos:
-            fichas = (
-                db_session.query(FichaTecnica)
-                .filter(FichaTecnica.produto_id == prod.id)
-                .all()
-            )
-            novo_cmv = 0.0
-            for f in fichas:
-                ins = db_session.query(Insumo).filter(Insumo.id == f.insumo_id).first()
-                if ins:
-                    novo_cmv += f.quantidade_utilizada * ins.custo_unitario
+        from infra.legacy_product_scope import (
+            recalcular_cmv_produtos_legados,
+        )
 
-            prod.custo_total_cmv = round(novo_cmv, 2)
-            if prod.preco_venda and prod.preco_venda > 0:
-                margem = ((prod.preco_venda - novo_cmv) / prod.preco_venda) * 100
-                prod.margem_exibicao = f"{margem:.1f}%"
+        recalcular_cmv_produtos_legados(
+            db_session,
+            tenant_id=tenant_id,
+            unidade_id=unidade_id,
+        )
         db_session.commit()
     except Exception:
         db_session.rollback()
+        raise
 
 
 def render_cadastro_ficha_tecnica(
@@ -361,7 +367,13 @@ def render_cadastro_ficha_tecnica(
             )
 
         st.write("### 🥗 Composição da Ficha Técnica (Puxando do Almoxarifado)")
-        insumos_disponiveis = db_session.query(Insumo).all()
+        from infra.legacy_product_scope import listar_insumos_legados
+
+        insumos_disponiveis = listar_insumos_legados(
+            db_session,
+            tenant_id=CURRENT_IDENTITY.tenant_id,
+            unidade_id=CURRENT_IDENTITY.unidade_id,
+        )
 
         if not insumos_disponiveis:
             st.warning(
@@ -485,6 +497,7 @@ def render_cadastro_ficha_tecnica(
 
                 novo_prod_id = inserir_produto_legado(
                     db_session,
+                    tenant_id=CURRENT_IDENTITY.tenant_id,
                     unidade_id=CURRENT_IDENTITY.unidade_id,
                     valores={
                         "nome": nome_produto,
@@ -495,13 +508,19 @@ def render_cadastro_ficha_tecnica(
                 )
                 db_session.commit()
 
+                from infra.legacy_product_scope import (
+                    inserir_ficha_tecnica_legada,
+                )
+
                 for item in st.session_state.itens_ficha_tecnica:
-                    nova_ft = FichaTecnica(
+                    inserir_ficha_tecnica_legada(
+                        db_session,
+                        tenant_id=CURRENT_IDENTITY.tenant_id,
+                        unidade_id=CURRENT_IDENTITY.unidade_id,
                         produto_id=novo_prod_id,
                         insumo_id=item["insumo_id"],
-                        quantidade_utilizada=item["quantidade"],
+                        quantidade=item["quantidade"],
                     )
-                    db_session.add(nova_ft)
                 db_session.commit()
 
                 st.success(
@@ -608,6 +627,7 @@ def render_cadastro_ficha_tecnica(
 
                         inserir_produto_legado(
                             db_session,
+                            tenant_id=CURRENT_IDENTITY.tenant_id,
                             unidade_id=CURRENT_IDENTITY.unidade_id,
                             valores={
                                 "nome": prod.get("nome"),
@@ -628,8 +648,19 @@ def render_cadastro_ficha_tecnica(
                     st.error(f"❌ Erro ao processar cardápio com IA: {e}")
 
 
-def executar_forecasting_e_alertar(db_session):
-    insumos = db_session.query(Insumo).all()
+def executar_forecasting_e_alertar(
+    db_session,
+    *,
+    tenant_id: str,
+    unidade_id: str,
+):
+    from infra.legacy_product_scope import listar_insumos_legados
+
+    insumos = listar_insumos_legados(
+        db_session,
+        tenant_id=tenant_id,
+        unidade_id=unidade_id,
+    )
     destinatarios = (
         db_session.query(ContatoGerencial)
         .filter(ContatoGerencial.receber_alertas_estoque == 1)
@@ -711,35 +742,52 @@ def popular_dados_iniciais():
             db.add(ConfiguracaoMeta(gateway_provider="Mercado Pago"))
             db.commit()
 
-        if db.query(Insumo).count() == 0:
+        from infra.legacy_product_scope import (
+            contar_insumos_legados,
+            inserir_insumo_legado,
+        )
+
+        if contar_insumos_legados(
+            db,
+            tenant_id=CURRENT_IDENTITY.tenant_id,
+            unidade_id=CURRENT_IDENTITY.unidade_id,
+        ) == 0:
             insumos_padrao = [
-                Insumo(
-                    nome="Hambúrguer 180g Angus",
-                    unidade_medida="un",
-                    saldo_atual=500.0,
-                    estoque_minimo=50.0,
-                    custo_unitario=6.50,
-                    data_validade=datetime.now() + timedelta(days=90),
-                ),
-                Insumo(
-                    nome="Queijo Provolone / Cheddar",
-                    unidade_medida="fatias",
-                    saldo_atual=400.0,
-                    estoque_minimo=60.0,
-                    custo_unitario=1.20,
-                    data_validade=datetime.now() + timedelta(days=30),
-                ),
-                Insumo(
-                    nome="Pão Brioche Artesanal",
-                    unidade_medida="un",
-                    saldo_atual=120.0,
-                    estoque_minimo=50.0,
-                    custo_unitario=2.00,
-                    data_validade=datetime.now() + timedelta(days=5),
-                    dias_alerta_vencimento=3,
-                ),
+                {
+                    "nome": "Hambúrguer 180g Angus",
+                    "unidade_medida": "un",
+                    "saldo_atual": 500.0,
+                    "estoque_minimo": 50.0,
+                    "custo_unitario": 6.50,
+                    "data_validade": datetime.now() + timedelta(days=90),
+                },
+                {
+                    "nome": "Queijo Provolone / Cheddar",
+                    "unidade_medida": "fatias",
+                    "saldo_atual": 400.0,
+                    "estoque_minimo": 60.0,
+                    "custo_unitario": 1.20,
+                    "data_validade": datetime.now() + timedelta(days=30),
+                },
+                {
+                    "nome": "Pão Brioche Artesanal",
+                    "unidade_medida": "un",
+                    "saldo_atual": 120.0,
+                    "estoque_minimo": 50.0,
+                    "custo_unitario": 2.00,
+                    "data_validade": datetime.now() + timedelta(days=5),
+                    "dias_alerta_vencimento": 3,
+                },
             ]
-            db.add_all(insumos_padrao)
+
+            for valores in insumos_padrao:
+                inserir_insumo_legado(
+                    db,
+                    tenant_id=CURRENT_IDENTITY.tenant_id,
+                    unidade_id=CURRENT_IDENTITY.unidade_id,
+                    valores=valores,
+                )
+
             db.commit()
     except Exception:
         db.rollback()
@@ -761,6 +809,8 @@ seed_database(
         "ConfiguracaoMeta": ConfiguracaoMeta,
         "ContatoGerencial": ContatoGerencial,
     },
+    tenant_id=CURRENT_IDENTITY.tenant_id,
+    unidade_id=CURRENT_IDENTITY.unidade_id,
 )
 
 # Verificação da Inteligência Artificial Gemini
@@ -1356,7 +1406,13 @@ with aba3:
         st.success(flash_sucesso_pdv)
 
     db_pdv = get_db()
-    lista_pratos_pdv = db_pdv.query(Produto).all()
+    from infra.legacy_product_scope import listar_produtos_legados
+
+    lista_pratos_pdv = listar_produtos_legados(
+        db_pdv,
+        tenant_id=CURRENT_IDENTITY.tenant_id,
+        unidade_id=CURRENT_IDENTITY.unidade_id,
+    )
     lista_clientes_pdv = db_pdv.query(Cliente).all()
     config_gtw = (
         db_pdv.query(ConfiguracaoMeta).first()
@@ -1934,10 +1990,16 @@ with aba3:
                 SessionLocal() if _pdv_rollout.modo is ModoPDV.SHADOW else None
             )
             try:
-                produto_db = (
-                    db_exec_venda.query(Produto)
-                    .filter(Produto.id == prod_pdv.id)
-                    .first()
+                from infra.legacy_product_scope import (
+                    obter_insumo_por_id_legado,
+                    obter_produto_por_id_legado,
+                )
+
+                produto_db = obter_produto_por_id_legado(
+                    db_exec_venda,
+                    tenant_id=CURRENT_IDENTITY.tenant_id,
+                    unidade_id=CURRENT_IDENTITY.unidade_id,
+                    produto_id=prod_pdv.id,
                 )
                 cliente_db = (
                     db_exec_venda.query(Cliente)
@@ -2024,6 +2086,24 @@ with aba3:
                 )
                 rastrear = modo_resolvido is not ModoPDV.LEGACY
                 repo_pdv = RepositorioPDVSQLAlchemy(db_exec_venda) if rastrear else None
+
+                def _resolver_insumo_pdv(legacy_insumo_id: int):
+                    comprovado = obter_insumo_por_id_legado(
+                        db_exec_venda,
+                        tenant_id=contexto_pdv.tenant_id,
+                        unidade_id=contexto_pdv.unidade_id,
+                        insumo_id=legacy_insumo_id,
+                        for_update=True,
+                    )
+                    if comprovado is None:
+                        return None
+                    return (
+                        db_exec_venda.query(Insumo)
+                        .filter(Insumo.id == legacy_insumo_id)
+                        .with_for_update()
+                        .first()
+                    )
+
                 legado_pdv = LegacyPDVSQLAlchemyAdapter(
                     session=db_exec_venda,
                     venda_cls=Venda,
@@ -2035,6 +2115,7 @@ with aba3:
                     pedido_id=pedido_id_pdv,
                     rastrear_efeitos=rastrear,
                     repositorio_pdv=repo_pdv,
+                    resolver_insumo=_resolver_insumo_pdv,
                 )
                 uow_legado = SQLAlchemyPDVUnitOfWork(
                     SessionLocal, fechar=False, session=db_exec_venda
@@ -2131,7 +2212,16 @@ with aba4:
     with sub_aba1:
         st.subheader("📋 Status do Almoxarifado em Tempo Real")
 
-        insumos_cadastrados = db_estoque.query(Insumo).all()
+        from infra.legacy_product_scope import (
+            excluir_insumo_legado,
+            listar_insumos_legados,
+        )
+
+        insumos_cadastrados = listar_insumos_legados(
+            db_estoque,
+            tenant_id=CURRENT_IDENTITY.tenant_id,
+            unidade_id=CURRENT_IDENTITY.unidade_id,
+        )
 
         if insumos_cadastrados:
             dados_estoque = []
@@ -2187,13 +2277,26 @@ with aba4:
             )
 
             if st.button("Excluir Insumo Permanentemente", type="primary"):
-                item_obj = (
-                    db_estoque.query(Insumo).filter_by(nome=insumo_para_deletar).first()
+                item_obj = next(
+                    (
+                        item
+                        for item in insumos_cadastrados
+                        if item.nome == insumo_para_deletar
+                    ),
+                    None,
                 )
+
                 if item_obj:
-                    db_estoque.delete(item_obj)
+                    excluir_insumo_legado(
+                        db_estoque,
+                        tenant_id=CURRENT_IDENTITY.tenant_id,
+                        unidade_id=CURRENT_IDENTITY.unidade_id,
+                        insumo_id=item_obj.id,
+                    )
                     db_estoque.commit()
-                    st.success(f"Insumo '{insumo_para_deletar}' excluído com sucesso!")
+                    st.success(
+                        f"Insumo '{insumo_para_deletar}' excluído com sucesso!"
+                    )
                     st.rerun()
 
         st.markdown("---")
@@ -2202,7 +2305,11 @@ with aba4:
             "🔮 Executar Varredura de Estoque e Validades Agora", type="primary"
         ):
             db_fc = get_db()
-            resultado_ia = executar_forecasting_e_alertar(db_fc)
+            resultado_ia = executar_forecasting_e_alertar(
+                db_fc,
+                tenant_id=CURRENT_IDENTITY.tenant_id,
+                unidade_id=CURRENT_IDENTITY.unidade_id,
+            )
             db_fc.close()
             st.info(resultado_ia)
 
@@ -2256,25 +2363,54 @@ with aba4:
                                     pass
 
                             if nome_l and qtd_l > 0:
-                                ins_db = (
-                                    db_cad.query(Insumo)
-                                    .filter(Insumo.nome.ilike(f"%{nome_l}%"))
-                                    .first()
+                                from infra.legacy_product_scope import (
+                                    atualizar_insumo_legado,
+                                    inserir_insumo_legado,
+                                    obter_insumo_por_nome_legado,
                                 )
+
+                                ins_db = obter_insumo_por_nome_legado(
+                                    db_cad,
+                                    tenant_id=CURRENT_IDENTITY.tenant_id,
+                                    unidade_id=CURRENT_IDENTITY.unidade_id,
+                                    nome=nome_l,
+                                )
+
                                 if ins_db:
-                                    ins_db.saldo_atual += qtd_l
+                                    novos_valores = {
+                                        "saldo_atual": (
+                                            float(ins_db.saldo_atual or 0)
+                                            + qtd_l
+                                        ),
+                                    }
+
                                     if val_obj:
-                                        ins_db.data_validade = val_obj
-                                else:
-                                    novo_i = Insumo(
-                                        nome=nome_l,
-                                        unidade_medida=item.get("unidade", "un"),
-                                        saldo_atual=qtd_l,
-                                        estoque_minimo=qtd_l * 0.15,
-                                        data_validade=val_obj,
-                                        dias_alerta_vencimento=15,
+                                        novos_valores["data_validade"] = val_obj
+
+                                    atualizar_insumo_legado(
+                                        db_cad,
+                                        tenant_id=CURRENT_IDENTITY.tenant_id,
+                                        unidade_id=CURRENT_IDENTITY.unidade_id,
+                                        insumo_id=ins_db.id,
+                                        valores=novos_valores,
                                     )
-                                    db_cad.add(novo_i)
+                                else:
+                                    inserir_insumo_legado(
+                                        db_cad,
+                                        tenant_id=CURRENT_IDENTITY.tenant_id,
+                                        unidade_id=CURRENT_IDENTITY.unidade_id,
+                                        valores={
+                                            "nome": nome_l,
+                                            "unidade_medida": item.get(
+                                                "unidade",
+                                                "un",
+                                            ),
+                                            "saldo_atual": qtd_l,
+                                            "estoque_minimo": qtd_l * 0.15,
+                                            "data_validade": val_obj,
+                                            "dias_alerta_vencimento": 15,
+                                        },
+                                    )
 
                         db_cad.commit()
                         st.success(
@@ -2325,17 +2461,25 @@ with aba4:
                 if novo_nome.strip() != "":
                     db_m = get_db()
                     try:
-                        novo_insumo = Insumo(
-                            nome=novo_nome.strip(),
-                            unidade_medida=unidade_medida,
-                            saldo_atual=novo_saldo,
-                            estoque_minimo=estoque_minimo,
-                            custo_unitario=novo_custo,
-                            data_fabricacao=nova_fab,
-                            data_validade=nova_val,
-                            dias_alerta_vencimento=dias_alerta,
+                        from infra.legacy_product_scope import (
+                            inserir_insumo_legado,
                         )
-                        db_m.add(novo_insumo)
+
+                        inserir_insumo_legado(
+                            db_m,
+                            tenant_id=CURRENT_IDENTITY.tenant_id,
+                            unidade_id=CURRENT_IDENTITY.unidade_id,
+                            valores={
+                                "nome": novo_nome.strip(),
+                                "unidade_medida": unidade_medida,
+                                "saldo_atual": novo_saldo,
+                                "estoque_minimo": estoque_minimo,
+                                "custo_unitario": novo_custo,
+                                "data_fabricacao": nova_fab,
+                                "data_validade": nova_val,
+                                "dias_alerta_vencimento": dias_alerta,
+                            },
+                        )
                         db_m.commit()
                         st.success(
                             f"✅ Insumo '{novo_nome}' salvo no Almoxarifado com controle de validade!"

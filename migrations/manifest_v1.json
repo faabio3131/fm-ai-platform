@@ -108,6 +108,10 @@
     {
       "version": "0026_crm_consentimentos_historico_v1",
       "sha256": "26aba38a6c7f81c44370645d2a6a8ce828965e105ede619584aa934add9d61e0"
+    },
+    {
+      "version": "0027_legacy_catalog_unit_scope_v1",
+      "sha256": "12a5a3eac5ab5bcc369b116e1c582386817c6ca4a0ad65a4401bc7fd51c31664"
     }
   ]
 }

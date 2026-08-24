@@ -47,5 +47,10 @@ def test_migration_0019_adiciona_dados_de_pagador_sem_perder_cliente_existente()
         )
 
 
-def test_runner_registra_0020_como_ultima_migration() -> None:
-    assert DEFAULT_MIGRATIONS[-1].version == "0020_product_unit_scope_compat_v1"
+def test_runner_preserva_registro_da_0020() -> None:
+    versoes = {
+        migration.version
+        for migration in DEFAULT_MIGRATIONS
+    }
+
+    assert "0020_product_unit_scope_compat_v1" in versoes

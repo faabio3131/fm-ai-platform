@@ -12,7 +12,11 @@ from sqlalchemy.engine import CursorResult
 from core.estoque.modelos import ReservaEstoque
 from core.pdv.adaptadores_sqlalchemy import RepositorioPDVSQLAlchemy, TipoEfeitoCompat
 from core.pdv.modelos import EntradaPDV
-from infra.legacy_schema import clientes, insumos, vendas
+from infra.legacy_product_scope import (
+    atualizar_insumo_legado,
+    obter_insumo_por_id_legado,
+)
+from infra.legacy_schema import clientes, vendas
 from infra.transacoes.uow import RecursosTransacionaisV1
 
 
@@ -84,20 +88,26 @@ def projetar_legado_em_transacao(
         if reserva is not None:
             for item in reserva.snapshot.itens:
                 insumo_id = _insumo_legado_id(item.insumo_id)
-                saldo = session.scalar(
-                    select(insumos.c.saldo_atual)
-                    .where(insumos.c.id == insumo_id)
-                    .with_for_update()
+                insumo = obter_insumo_por_id_legado(
+                    session,
+                    tenant_id=tenant_id,
+                    unidade_id=unidade_id,
+                    insumo_id=insumo_id,
+                    for_update=True,
                 )
-                if saldo is None:
+                if insumo is None:
                     raise ProjecaoLegadaInvalida("insumo legado não encontrado")
-                atual = Decimal(str(saldo or 0))
+                atual = Decimal(str(insumo.saldo_atual or 0))
                 if atual < item.quantidade_total:
                     raise ProjecaoLegadaInvalida("estoque legado divergente")
-                session.execute(
-                    update(insumos)
-                    .where(insumos.c.id == insumo_id)
-                    .values(saldo_atual=float(atual - item.quantidade_total))
+                atualizar_insumo_legado(
+                    session,
+                    tenant_id=tenant_id,
+                    unidade_id=unidade_id,
+                    insumo_id=insumo_id,
+                    valores={
+                        "saldo_atual": float(atual - item.quantidade_total),
+                    },
                 )
         pdv.registrar_efeito(
             tenant=tenant_id,
