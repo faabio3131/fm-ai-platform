@@ -304,7 +304,19 @@ def require_authentication(
 
     existing = st.session_state.get(_SESSION_KEY)
     if isinstance(existing, IdentidadeUsuario) and existing.ativo:
-        return existing
+        try:
+            active_identity = existing.no_escopo_ativo(
+                tenant_id=settings.tenant_id,
+                unidade_id=settings.unidade_id,
+            )
+        except CredenciaisInvalidas:
+            st.session_state.pop(_SESSION_KEY, None)
+            _clear_sensitive_auth()
+        else:
+            if active_identity is not existing:
+                st.session_state[_SESSION_KEY] = active_identity
+                _clear_sensitive_auth()
+            return active_identity
 
     if not _auth_required(settings):
         identity = _development_identity(settings)
@@ -341,10 +353,10 @@ def require_authentication(
         try:
             auth = ServicoAutenticacao(RepositorioIdentidadesSQLAlchemy(db))
             identity = auth.autenticar(email=email, password=password)
-            if identity.tenant_id != settings.tenant_id:
-                raise CredenciaisInvalidas("credenciais invalidas")
-            if settings.unidade_id not in identity.unidades_permitidas:
-                raise CredenciaisInvalidas("credenciais invalidas")
+            identity = identity.no_escopo_ativo(
+                tenant_id=settings.tenant_id,
+                unidade_id=settings.unidade_id,
+            )
             st.session_state[_SESSION_KEY] = identity
             _clear_failures()
             _clear_sensitive_auth()
@@ -463,7 +475,7 @@ def render_identity_sidebar(
     settings: RuntimeSettings,
 ) -> None:
     st.success(f"Conectado como:\n**{identity.email}**")
-    st.info(f"🏪 **Unidade ativa:**\n{settings.unidade_id}")
+    st.info(f"🏪 **Unidade ativa:**\n{identity.unidade_id}")
     papeis = ", ".join(sorted(papel.value for papel in identity.papeis))
     st.caption(f"Perfil: {papeis}")
     if can_access_sensitive_area(identity):

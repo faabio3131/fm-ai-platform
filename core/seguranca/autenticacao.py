@@ -11,7 +11,7 @@ import base64
 import hashlib
 import hmac
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Protocol
 from uuid import uuid4
@@ -134,6 +134,33 @@ class IdentidadeUsuario:
         if self.acesso_admin_sensivel:
             acumuladas.add(Permissao.ADMIN_ACESSAR)
         return frozenset(acumuladas)
+
+    def no_escopo_ativo(
+        self,
+        *,
+        tenant_id: str,
+        unidade_id: str,
+    ) -> IdentidadeUsuario:
+        """Vincula a identidade ao único escopo ativo já autorizado.
+
+        ``unidade_id`` persistida na identidade representa inicialmente a unidade
+        padrão do usuário. O runtime pode estar configurado para outra unidade
+        permitida; nesse caso a identidade usada por UI, contexto e adapters deve
+        carregar explicitamente essa mesma unidade, sem ampliar o membership.
+        """
+
+        tenant_ativo = tenant_id.strip() if isinstance(tenant_id, str) else ""
+        unidade_ativa = unidade_id.strip() if isinstance(unidade_id, str) else ""
+        if (
+            not tenant_ativo
+            or not unidade_ativa
+            or tenant_ativo != self.tenant_id
+            or unidade_ativa not in self.unidades_permitidas
+        ):
+            raise CredenciaisInvalidas("credenciais invalidas")
+        if unidade_ativa == self.unidade_id:
+            return self
+        return replace(self, unidade_id=unidade_ativa)
 
     def contexto(
         self,
