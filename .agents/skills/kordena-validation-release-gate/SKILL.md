@@ -2,7 +2,7 @@
 name: kordena-validation-release-gate
 description: Define como provar mudanças e decidir gates no Kordena/GERENTE AI. Use ao testar, homologar, revisar regressões, comparar Work e VS Code físico, declarar pronto/aprovado, preparar release ou avaliar falhas conhecidas versus regressões novas.
 metadata:
-  version: "1.0.0"
+  version: "1.0.1"
   project: "kordena-gerente-ai"
 ---
 
@@ -10,13 +10,15 @@ metadata:
 
 ## Objetivo
 
-Separar claramente **implementado**, **tecnicamente aprovado** e **100% pronto/homologado**. Nunca confunda teste isolado verde com jornada comercial pronta.
+Separar claramente **implementado**, **tecnicamente validado** e **100% pronto/homologado**. Nunca confunda teste isolado verde com jornada comercial pronta.
 
 ## Regra principal
 
 `passou no Work Cloud` = evidência técnica intermediária.
 
 Status final exige, quando aplicável, reprodução no **VS Code/PC físico** no mesmo SHA, runtime/jornada real e demais provas exigidas pelo Documento Mestre.
+
+Resultado de gate técnico `APROVADO` não transforma automaticamente a situação funcional em `CONCLUÍDO`, não equivale à aprovação final da V1 e não autoriza merge por si só.
 
 ## Sequência padrão de prova
 
@@ -54,9 +56,11 @@ Não corrija automaticamente falha fora do escopo. Se ela bloqueia a jornada atu
 
 ## Gate técnico versus gate final
 
-### G3 técnico / equivalente
+### Gate técnico do bloco
 
 Pode ser aprovado quando implementação, fitness tests, regressão dirigida e static checks relevantes estão verdes, com limitações registradas.
+
+Quando a autoridade vigente nomear esse gate como `G3` ou outro identificador, registre também o nome completo e a fonte do gate. Não confunda esse identificador com as Etapas 0–17 do Protocolo Mestre nem com o Gate 0 do Plano V1 ou o Gate de Execução E0.
 
 ### Pronto / Aprovado final
 
@@ -77,7 +81,8 @@ Exige as provas práticas relevantes, que podem incluir:
 
 Sempre registre:
 
-- STATUS: `APROVADO`, `PARCIAL` ou `BLOQUEADO`;
+- `RESULTADO DO GATE`: `APROVADO`, `PARCIAL` ou `BLOQUEADO`;
+- `SITUAÇÃO FUNCIONAL`, `ESTADO TÉCNICO/PR` e `ESTADO OPERACIONAL` separadamente, usando os valores oficiais dos protocolos do projeto quando aplicáveis;
 - branch/SHA;
 - ambiente: Work Cloud, CI, VS Code físico, browser, PostgreSQL etc.;
 - testes e contagens;
@@ -90,4 +95,4 @@ Sempre registre:
 
 ## Kill switch de repetição
 
-Se a mesma causa raiz continuar falhando após três tentativas corretivas no mesmo gate, **pare**. Não entre em loop de patches. Entregue evidência, hipóteses restantes e decisão necessária.
+Se a mesma causa raiz continuar falhando após três tentativas corretivas no mesmo gate, **pare de repetir a mesma abordagem**. Classifique o bloqueio, preserve a evidência e entregue hipóteses restantes e decisão necessária. Trabalhos independentes podem continuar somente quando forem seguros, autorizados e não dependerem do gate bloqueado.

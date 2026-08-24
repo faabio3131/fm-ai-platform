@@ -1,18 +1,24 @@
 # Kordena / GERENTE AI — instruções permanentes para agentes
 
-Estas instruções são subordinadas às autoridades oficiais do projeto e não as substituem.
+Estas instruções são subordinadas às autoridades superiores do ambiente, às regras de segurança e às decisões explícitas do proprietário. Elas organizam a execução do projeto, mas não substituem essas autoridades.
 
 ## Hierarquia de autoridade
 
-1. **Documento Mestre** — `GERENTE_AI_V1_PROTOCOLO_MESTRE_DE_EXECUCAO` (Drive ID `1oCZpdvettJxo2udyoWTEE5h0X3clB9BQ`).
-2. **System Design Master** — `GERENTE AI V1.0 — SYSTEM DESIGN MASTER` (Drive ID `1QB-v7P7CchvUMuir3tGtHwnBSeQAo53TDdof6wtH_f0`).
-3. ADRs/decisões arquiteturais vigentes, inclusive ADRs corretivos adotados.
-4. Gate/tarefa atual explicitamente autorizada.
-5. Código, testes e documentação local.
+1. Instruções de sistema/plataforma e regras de segurança aplicáveis.
+2. Instrução, autorização ou decisão mais recente explicitamente aprovada pelo proprietário, inclusive o gate/tarefa atual.
+3. Estado real verificado nas fontes factuais adequadas: repositório local, GitHub, Supabase e demais sistemas oficiais acessíveis.
+4. **Documento Mestre** — `GERENTE_AI_V1_PROTOCOLO_MESTRE_DE_EXECUCAO` (Drive ID `1oCZpdvettJxo2udyoWTEE5h0X3clB9BQ`).
+5. **System Design Master** — `GERENTE AI V1.0 — SYSTEM DESIGN MASTER` (Drive ID `1QB-v7P7CchvUMuir3tGtHwnBSeQAo53TDdof6wtH_f0`).
+6. ADRs/decisões arquiteturais vigentes, inclusive ADRs corretivos adotados.
+7. Código, testes e documentação local.
 
-Se houver conflito entre código/conversa e Documento Mestre/System Design, **pare de forma segura e peça reconciliação**. Não invente uma resolução.
+Uma decisão mais recente explicitamente aprovada pelo proprietário pode atualizar uma decisão anterior do projeto. Quando houver conflito ambíguo, lacuna de evidência ou dúvida sobre a autorização, **pare de forma segura e peça reconciliação**. Não invente uma resolução.
 
-Para fatos de Git (branches, SHA, merge, PR, remoto), o **GitHub remoto** é a autoridade factual.
+Para fatos de Git, use a fonte correspondente ao objeto verificado:
+
+- o **GitHub remoto** é a autoridade factual para branches remotas, PRs, merges, `main` remoto e SHAs efetivamente publicados;
+- o **repositório local verificado** é a autoridade factual para branches locais, worktrees, staged/untracked, estado dirty e commits ainda não publicados;
+- quando local e remoto divergirem, reconcilie por SHA, ancestralidade e proveniência; preserve checkpoints locais legítimos até publicação ou decisão explícita.
 
 ## Skills do projeto
 
@@ -35,9 +41,13 @@ Quando a tarefa corresponder ao escopo, use as Skills em `.agents/skills/`:
 
 ## Regra de execução
 
-Fluxo padrão:
+Fluxo padrão quando o ambiente possui autenticação Git:
 
 `auditar → desenhar → implementar → provar → revisar → publicar checkpoint → reproduzir fisicamente → homologar`
+
+Fluxo de contingência quando o ambiente de origem não pode publicar:
+
+`auditar → desenhar → implementar → provar → revisar → gerar artefato verificável → transferir ao PC físico autenticado → conferir SHA/proveniência → publicar checkpoint → homologar`
 
 Antes de código estrutural, registrar pelo menos:
 
@@ -59,6 +69,7 @@ Se surgir novo bloqueador estrutural fora do gate atual, **pare e reporte**. Nã
 - O mesmo SHA candidato deve ser reproduzido no **VS Code/PC físico** antes de status final de homologação.
 - `passou no Work` significa evidência técnica intermediária; **não significa 100% pronto**.
 - O fluxo preferencial é: `CHAT/System Design → Work ou Codex Local → Gate → GitHub → VS Code físico/Codex Local → testes/runtime → homologação`.
+- Quando o Work não puder autenticar Git, aplique o fluxo de contingência por artefato verificável, sem contornar credenciais.
 
 ## Git e segurança do patrimônio
 

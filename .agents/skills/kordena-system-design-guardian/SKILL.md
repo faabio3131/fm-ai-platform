@@ -2,7 +2,7 @@
 name: kordena-system-design-guardian
 description: Governa decisões arquiteturais do Kordena/GERENTE AI. Use ao criar, alterar, integrar, refatorar ou revisar domínios, boundaries, bancos, migrations, multi-tenant/unidade, RBAC, eventos, integrações, IA, runtime ou qualquer mudança estrutural.
 metadata:
-  version: "1.0.0"
+  version: "1.0.1"
   project: "kordena-gerente-ai"
 ---
 
@@ -14,8 +14,8 @@ Impedir evolução estrutural sem autoridade, impacto e rollback compreendidos. 
 
 ## Antes de implementar
 
-1. Releia `AGENTS.md`.
-2. Identifique a autoridade vigente: Documento Mestre → System Design Master → ADR/decisão atual → gate da tarefa.
+1. Releia `AGENTS.md` e siga integralmente sua hierarquia de autoridade.
+2. Registre a instrução/gate atual e as autoridades documentais consultadas; não trate documento anterior como substituto de decisão mais recente explicitamente aprovada pelo proprietário.
 3. Se uma autoridade externa necessária não estiver acessível, **não adivinhe**; reporte a ausência.
 4. Registre um mapa de impacto curto:
    - domínio/source of truth;
@@ -48,7 +48,7 @@ Impedir evolução estrutural sem autoridade, impacto e rollback compreendidos. 
 
 ## Migrations
 
-- Trate a história de migrations como patrimônio imutável, salvo decisão explícita em contrário.
+- Trate a história de migrations como patrimônio imutável, salvo decisão corretiva explicitamente aprovada pelo proprietário e registrada com impacto, compatibilidade e rollback.
 - Prefira migration forward/additiva a reescrever migrations históricas.
 - Fresh install e upgrade legado devem convergir para o mesmo estado relevante.
 - Backfill deve ser determinístico; ambiguidade relevante deve abortar fail-closed.

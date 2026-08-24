@@ -2,7 +2,7 @@
 name: kordena-git-repository-governance
 description: Governa Git, branches, worktrees, commits, PRs, preservação e sincronização do Kordena/GERENTE AI. Use ao criar ou trocar branch, stagear, commitar, fazer push, reconciliar PRs, trabalhar com Work Cloud, GitHub ou VS Code físico, e sempre que houver worktree dirty.
 metadata:
-  version: "1.0.0"
+  version: "1.0.1"
   project: "kordena-gerente-ai"
 ---
 
@@ -14,9 +14,11 @@ Evitar perda de patrimônio, branches divergentes, merges cegos e código críti
 
 ## Autoridades
 
-- GitHub remoto é a autoridade factual para branches, SHA, PRs, merges e `main`.
-- Documento Mestre/System Design governam **se** uma integração é autorizada.
-- O proprietário mantém decisão final sobre merge em `main`, deploy e migração produtiva.
+- O GitHub remoto é a autoridade factual para branches remotas, PRs, merges, `main` remoto e SHAs efetivamente publicados.
+- O repositório local verificado é a autoridade factual para branches locais, commits não publicados, worktrees, staged/untracked e estado dirty.
+- Quando local e remoto divergirem, reconcilie por SHA, ancestralidade e proveniência; não descarte checkpoint local legítimo apenas porque ainda não existe no remoto.
+- A instrução/gate explicitamente autorizado pelo proprietário e os documentos vigentes governam **se** uma integração pode acontecer; conflito ambíguo exige STOP e reconciliação.
+- O proprietário mantém decisão final sobre integração na linha canônica, merge em `main`, deploy e migração produtiva.
 
 ## Antes de qualquer operação Git mutável
 
@@ -38,8 +40,9 @@ Se o usuário possui worktree dirty não reconciliado, trate-o como patrimônio.
 - Stage somente paths ou hunks explícitos pertencentes ao gate atual.
 - Arquivo misto exige seleção por hunk ou reconstrução mínima comprovada.
 - Não crie commit vazio para simular progresso.
-- Commit deve representar um gate/capacidade coerente e testada.
-- Antes do commit, rode os testes mínimos definidos pela Skill de validação.
+- Commit deve representar um checkpoint/gate coerente e testado na extensão aplicável ao ambiente atual.
+- Um commit necessário para CI ou reprodução física não prova sozinho a aprovação do gate; registre as validações ainda pendentes.
+- Antes do commit, rode os testes mínimos localmente disponíveis definidos pela Skill de validação.
 
 ## Worktrees
 
@@ -52,7 +55,7 @@ Se o usuário possui worktree dirty não reconciliado, trate-o como patrimônio.
 
 Work Cloud não é armazenamento de longo prazo.
 
-Fluxo preferencial:
+Fluxo preferencial quando o ambiente possui autenticação Git:
 
 1. Work/agent executa tarefa isolada e produz evidência.
 2. Gate técnico é revisado.
@@ -62,11 +65,11 @@ Fluxo preferencial:
 6. Testes/runtime físicos são executados.
 7. Somente depois o bloco pode seguir para homologação final.
 
-Se o Work não puder autenticar Git, não contorne credenciais. Transfira por artefato verificável (bundle/patch/snapshot) e publique pelo ambiente físico autenticado.
+Se o Work não puder autenticar Git, não contorne credenciais. Transfira por artefato verificável (bundle/patch/snapshot) ao ambiente físico autenticado, confira SHA/proveniência e publique a partir dele. A ausência temporária do checkpoint no GitHub não invalida a linha local comprovada.
 
 ## Branch canônica
 
-- Deve existir uma única linha canônica de evolução da V1 após estabilização.
+- Deve existir uma única linha canônica de evolução da V1 quando ela tiver sido explicitamente estabelecida.
 - Toda nova frente parte do SHA canônico explicitamente registrado.
 - Não acumule vários gates aprovados somente em detached HEAD.
 - Após gate aprovado, faça checkpoint antes de abrir grande bloco seguinte.
@@ -86,6 +89,7 @@ Nunca faça merge sequencial cego de PRs divergentes. Compare por capacidade e d
 
 ## Push e remotes
 
+- Criar branch, commit ou push não autoriza integração na linha canônica nem merge em `main`.
 - Confirme remote e repositório exatos antes do push.
 - Nunca force push em fluxo normal.
 - Não altere `main` por efeito colateral.
