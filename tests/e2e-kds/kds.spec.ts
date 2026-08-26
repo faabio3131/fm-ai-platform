@@ -1,6 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { selectComboboxOption } from '../e2e/fixtures/ui';
+import {
+  clickAndWaitForStreamlitRerun,
+  selectComboboxOption,
+} from '../e2e/fixtures/ui';
 
 async function abrirKDS(page: Page) {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
@@ -31,7 +34,7 @@ async function aguardarStatus(page: Page, status: string) {
 }
 
 async function clicarEAguardarStatus(page: Page, botao: string, status: string) {
-  await page.getByRole('button', { name: botao, exact: true }).click();
+  await clickAndWaitForStreamlitRerun(page, botao);
   await aguardarStatus(page, status);
 }
 

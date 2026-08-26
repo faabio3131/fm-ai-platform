@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 APP_SOURCE = Path("app.py").read_text(encoding="utf-8")
 
 
@@ -45,3 +44,4 @@ def test_forecasting_comercial_usa_control_plane_e_sanitiza_falhas() -> None:
     assert "except Exception:" in trecho
     assert "except Exception as" not in trecho
     assert "Verifique as integrações Gemini e Meta/WhatsApp desta unidade." in trecho
+

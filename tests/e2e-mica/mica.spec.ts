@@ -6,13 +6,13 @@ import {
 } from '../e2e/fixtures/ui';
 
 
-test('Mica valida carrinho e mantém Pix pendente até fonte financeira', async ({ page }) => {
+test('Assistente valida carrinho e mantém Pix pendente até fonte financeira', async ({ page }) => {
   await waitForAppReady(page);
-  await openTab(page, 'Bot Cliente');
+  await openTab(page, 'Assistente de Atendimento');
 
-  await expect(page.getByText('Mica I.A. — Atendimento seguro V1')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Atendimento seguro V1$/ })).toBeVisible();
   await page.getByRole('textbox', { name: 'Mensagem do cliente' }).fill('Quero um Burger Teste');
-  await clickAndWaitForStreamlitRerun(page, 'Analisar pedido com a Mica');
+  await clickAndWaitForStreamlitRerun(page, 'Analisar pedido com Assistente de Atendimento');
 
   await expect(page.getByText('Conferência do carrinho')).toBeVisible();
   await expect(page.getByText(/1x Burger Teste/)).toBeVisible();
@@ -43,9 +43,9 @@ test('Mica valida carrinho e mantém Pix pendente até fonte financeira', async 
 
 test('erro de interpretação faz handoff sem inventar pedido', async ({ page }) => {
   await waitForAppReady(page);
-  await openTab(page, 'Bot Cliente');
+  await openTab(page, 'Assistente de Atendimento');
   await page.getByRole('textbox', { name: 'Mensagem do cliente' }).fill('FM_AI_MOCK_INVALID');
-  await clickAndWaitForStreamlitRerun(page, 'Analisar pedido com a Mica');
+  await clickAndWaitForStreamlitRerun(page, 'Analisar pedido com Assistente de Atendimento');
 
   await expect(page.getByText(/Atendimento humano solicitado: schema_mica_invalido/)).toBeVisible();
   await expect(page.getByText('Conferência do carrinho')).toHaveCount(0);

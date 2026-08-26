@@ -8,14 +8,14 @@ from datetime import datetime, timedelta, timezone
 
 import streamlit as st
 import streamlit.components.v1 as components
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
-
 from core.runtime.config import RuntimeEnvironment, RuntimeSettings
-from core.seguranca.autenticacao import IdentidadeUsuario, ServicoAutenticacao
 from core.seguranca.erros import CredenciaisInvalidas, UsuarioInativo
 from core.seguranca.permissoes import Papel, Permissao
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+
+from core.seguranca.autenticacao import IdentidadeUsuario, ServicoAutenticacao
 
 _TRUE_VALUES = {"1", "true", "yes", "on"}
 _SESSION_KEY = "_fm_ai_authenticated_identity_v1"
@@ -145,6 +145,8 @@ def _sensitive_auth_valid(identity: IdentidadeUsuario) -> bool:
     if not sensitive_grant_is_valid(grant, identity, now=now):
         if isinstance(grant, dict):
             _clear_sensitive_auth()
+        return False
+    if not isinstance(grant, dict):
         return False
     grant["last_activity_at"] = now
     st.session_state[_SENSITIVE_AUTH_KEY] = grant
@@ -485,14 +487,17 @@ def render_identity_sidebar(
             use_container_width=True,
         )
         grant = st.session_state.get(_SENSITIVE_AUTH_KEY)
-        if isinstance(grant, dict) and grant.get("usuario_id") == identity.usuario_id:
-            if st.button(
+        if (
+            isinstance(grant, dict)
+            and grant.get("usuario_id") == identity.usuario_id
+            and st.button(
                 "🔒 Bloquear área administrativa agora",
                 key="fm_ai_lock_sensitive_area_v1",
                 use_container_width=True,
-            ):
-                lock_sensitive_area()
-                st.rerun()
+            )
+        ):
+            lock_sensitive_area()
+            st.rerun()
     if _auth_required(settings) and st.button("Sair", key="fm_ai_logout_v1"):
         st.session_state.pop(_SESSION_KEY, None)
         _clear_failures()

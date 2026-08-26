@@ -2,21 +2,25 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
-
-from core.integracoes import AmbienteIntegracao, EstadoProntidaoServico, ServicoConfiguracoesExternas
 from core.seguranca.auditoria import RepositorioAuditoriaEmMemoria
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import Papel, Permissao
 from core.seguranca.segredos import ReferenceSecretStore
+from infra.seguranca.credenciais import ServicoCredenciaisReferenciadas
+from infra.seguranca.modelos_orm import SecurityBase
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+
+from core.integracoes import (
+    AmbienteIntegracao,
+    EstadoProntidaoServico,
+    ServicoConfiguracoesExternas,
+)
 from infra.integracoes import (
     IntegrationConfigBase,
     ProntidaoCredenciaisSQLAlchemy,
     RepositorioConfiguracoesExternasSQLAlchemy,
 )
-from infra.seguranca.credenciais import ServicoCredenciaisReferenciadas
-from infra.seguranca.modelos_orm import SecurityBase
 
 
 def _contexto() -> ContextoExecucao:
@@ -127,3 +131,4 @@ def test_rotacao_de_credencial_invalida_homologacao_ate_nova_evidencia() -> None
             contexto=contexto, configuracao_id=apos_rotacao.configuracao_id
         ).estado is EstadoProntidaoServico.CONFIGURADO
         assert "rehomologacao obrigatoria por rotacao de credencial" in auditoria.eventos[-1].motivo
+

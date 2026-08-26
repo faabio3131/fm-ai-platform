@@ -18,32 +18,32 @@ consultadas autenticadamente antes de qualquer liquidacao financeira.
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
 from uuid import uuid4
 
+from core.pagamentos.modelos import MetodoPagamento, TipoTransacao
+from core.pagamentos.modelos_orm import TransacaoPagamentoORM
+from core.runtime import build_engine, load_runtime_settings
+from core.seguranca.contexto import ContextoExecucao
 from fastapi import FastAPI, HTTPException, Request
+from infra.integracoes.pix_durabilidade import confirmar_cobranca_pix_consultada
+from infra.integracoes.repositorio_sqlalchemy import (
+    RepositorioConfiguracoesExternasSQLAlchemy,
+)
+from infra.integracoes.transportes import RequestsProviderTransport
+from infra.seguranca.modelos_orm import CredencialReferenciaORM
+from infra.seguranca.session_guard import build_session_factory
 from sqlalchemy import select
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 
 from core.integracoes.provedores import (
     ConfiguracaoMercadoPago,
     ErroProvedorExterno,
     MercadoPagoAdapter,
 )
-from core.pagamentos.modelos import MetodoPagamento, TipoTransacao
-from core.pagamentos.modelos_orm import TransacaoPagamentoORM
-from core.runtime import build_engine, load_runtime_settings
-from core.seguranca.contexto import ContextoExecucao
-from infra.integracoes.pix_durabilidade import confirmar_cobranca_pix_consultada
 from infra.integracoes.pix_runtime import CobrancaPixRuntime
-from infra.integracoes.repositorio_sqlalchemy import (
-    RepositorioConfiguracoesExternasSQLAlchemy,
-)
-from infra.integracoes.transportes import RequestsProviderTransport
-from infra.seguranca.modelos_orm import CredencialReferenciaORM
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
-from infra.seguranca.session_guard import build_session_factory
 
 _CONFIG_ID = "pagamentos.pix--mercado_pago"
 _LOGGER = logging.getLogger("kordena.mercado_pago.webhook")
@@ -162,21 +162,24 @@ def _json_mapping(value: object) -> Mapping[str, object]:
 
 def create_app(
     *,
-    session_factory: sessionmaker[Session] | None = None,
+    session_factory: Callable[[], Session] | None = None,
     tenant_id: str | None = None,
     unidade_id: str | None = None,
 ) -> FastAPI:
     """Cria app HTTP. Dependencias opcionais permitem testes sem I/O real."""
 
+    resolved_session_factory: Callable[[], Session]
     if session_factory is None:
         settings = load_runtime_settings()
         engine = build_engine(settings)
-        session_factory = build_session_factory(
+        resolved_session_factory = build_session_factory(
             engine=engine,
             commercial=settings.commercial,
         )
         tenant_id = settings.tenant_id
         unidade_id = settings.unidade_id
+    else:
+        resolved_session_factory = session_factory
     tenant = str(tenant_id or "").strip()
     unidade = str(unidade_id or "").strip()
     if not tenant or not unidade:
@@ -209,7 +212,7 @@ def create_app(
             _LOGGER.warning("mercado_pago_webhook_payload_invalido")
             raise HTTPException(status_code=400, detail="notificacao invalida") from exc
 
-        with session_factory() as session:
+        with resolved_session_factory() as session:
             try:
                 adapter = _adapter_pre_homologacao(
                     session,

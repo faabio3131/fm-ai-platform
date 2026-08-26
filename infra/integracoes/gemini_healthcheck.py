@@ -11,13 +11,12 @@ import hashlib
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
 from core.integracoes.modelos import ErroConfiguracaoServico
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.segredos import SecretStore
 from infra.seguranca.modelos_orm import CredencialReferenciaORM
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from .repositorio_sqlalchemy import RepositorioConfiguracoesExternasSQLAlchemy
 from .transportes import GoogleGenAITenantGateway
@@ -36,15 +35,9 @@ def _evidencia(
     *, contexto: ContextoExecucao, configuracao_id: str, model: str, texto: str, agora: datetime
 ) -> str:
     instante = agora.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    material = "|".join(
-        (
-            contexto.tenant_id,
-            contexto.unidade_id,
-            configuracao_id,
-            model,
-            instante,
-            texto,
-        )
+    material = (
+        f"{contexto.tenant_id}|{contexto.unidade_id}|{configuracao_id}|"
+        f"{model}|{instante}|{texto}"
     )
     digest = hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
     return f"healthcheck://gemini/{instante}/{model}/{digest}"

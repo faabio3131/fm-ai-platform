@@ -24,13 +24,12 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import quote, urlparse
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
 from core.integracoes.modelos import ErroConfiguracaoServico
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.segredos import SecretStore
 from infra.seguranca.modelos_orm import CredencialReferenciaORM
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from .repositorio_sqlalchemy import RepositorioConfiguracoesExternasSQLAlchemy
 
@@ -98,7 +97,7 @@ class _HandlerProvaMaps(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
 
-    def do_GET(self) -> None:  # noqa: N802 - contrato BaseHTTPRequestHandler
+    def do_GET(self) -> None:
         path = urlparse(self.path).path
         pagina = self.server.obter(path)
         if pagina is None:
@@ -116,7 +115,7 @@ class _HandlerProvaMaps(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
-    def do_POST(self) -> None:  # noqa: N802 - contrato BaseHTTPRequestHandler
+    def do_POST(self) -> None:
         path = urlparse(self.path).path
         prefixo = "/google-maps-proof/"
         sufixo = "/success"
@@ -135,7 +134,7 @@ class _HandlerProvaMaps(BaseHTTPRequestHandler):
         self._headers_no_store()
         self.end_headers()
 
-    def log_message(self, format: str, *args: object) -> None:  # noqa: A002
+    def log_message(self, format: str, *args: object) -> None:
         return
 
 
@@ -182,15 +181,9 @@ def _evidencia_browser(
     agora: datetime,
 ) -> str:
     instante = agora.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    material = "|".join(
-        (
-            contexto.tenant_id,
-            contexto.unidade_id,
-            configuracao_id,
-            evidencia_servidor,
-            instante,
-            "maps-javascript-tilesloaded",
-        )
+    material = (
+        f"{contexto.tenant_id}|{contexto.unidade_id}|{configuracao_id}|"
+        f"{evidencia_servidor}|{instante}|maps-javascript-tilesloaded"
     )
     digest = hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
     return f"healthcheck://google-maps-full/{instante}/{digest}"

@@ -8,9 +8,10 @@ falsos sem movimentação financeira real.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Protocol, Sequence
+from typing import Protocol
 
 from core.dominio.dinheiro import Dinheiro
 from core.integracoes.modelos import ConfiguracaoServicoExterno, ErroConfiguracaoServico
@@ -251,3 +252,4 @@ def consultar_cobranca_pix_por_control_plane(
         configuracao=configuracao,
         id_externo=id_externo,
     )
+

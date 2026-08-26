@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 APP_SOURCE = Path("app.py").read_text(encoding="utf-8")
 
 
@@ -36,3 +35,4 @@ def test_gemini_comercial_declara_disponibilidade_pelo_control_plane() -> None:
         'GENAI_DISPONIVEL = is_test_mode() or bool(GEMINI_API_KEY)'
         not in APP_SOURCE
     )
+

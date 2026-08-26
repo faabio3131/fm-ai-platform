@@ -13,8 +13,8 @@ process.env.FM_AI_TEST_TMPDIR = testTmpDir;
 process.env.FM_AI_TEST_KEEP_TMP = '1';
 process.env.FM_AI_E2E_PORT = String(e2ePort);
 process.env.FM_AI_PDV_MODE = 'authoritative_canary';
-process.env.FM_AI_TEST_TENANT = 'tenant-e2e';
-process.env.FM_AI_TEST_UNIDADE = 'unidade-e2e';
+process.env.FM_AI_TEST_TENANT = 'tenant-local';
+process.env.FM_AI_TEST_UNIDADE = 'unidade-local';
 process.env.FM_AI_TEST_TERMINAL = 'pdv-e2e';
 
 export default defineConfig({
@@ -46,8 +46,8 @@ export default defineConfig({
       FM_AI_TEST_KEEP_TMP: '1',
       FM_AI_E2E_PORT: String(e2ePort),
       FM_AI_PDV_MODE: 'authoritative_canary',
-      FM_AI_TEST_TENANT: 'tenant-e2e',
-      FM_AI_TEST_UNIDADE: 'unidade-e2e',
+      FM_AI_TEST_TENANT: 'tenant-local',
+      FM_AI_TEST_UNIDADE: 'unidade-local',
       FM_AI_TEST_TERMINAL: 'pdv-e2e',
     },
   },

@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
-from types import SimpleNamespace
+
+from scripts.wire_gemini_real_healthcheck_v1 import aplicar
 
 from infra.integracoes.gemini_healthcheck import _evidencia
-from scripts.wire_gemini_real_healthcheck_v1 import aplicar
 
 
 class _Contexto:
@@ -41,3 +41,4 @@ def test_patch_ui_adiciona_healthcheck_sem_auto_homologar_e_e_idempotente() -> N
     assert "executar_healthcheck_gemini" in primeira
     assert "Testar Gemini real antes de homologar" in primeira
     assert "registrar_homologacao" not in primeira
+

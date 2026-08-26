@@ -12,17 +12,21 @@ import logging
 from importlib import metadata
 from typing import Any
 
-from fastapi import Request
-
 from core.runtime import build_engine, load_runtime_settings
+from fastapi import Request
+from infra.integracoes.repositorio_sqlalchemy import (
+    RepositorioConfiguracoesExternasSQLAlchemy,
+)
+from infra.seguranca.session_guard import build_session_factory
+
 from infra.integracoes.mercado_pago_webhook_app import (
     _CONFIG_ID,
     _finalidade,
     _segredo,
+)
+from infra.integracoes.mercado_pago_webhook_app import (
     create_app as create_real_app,
 )
-from infra.integracoes.repositorio_sqlalchemy import RepositorioConfiguracoesExternasSQLAlchemy
-from infra.seguranca.session_guard import build_session_factory
 from scripts.mercado_pago_webhook_hmac_diagnostico_app import (
     _hmac_hex,
     _origem_payload,
@@ -73,7 +77,7 @@ def _validar_sdk_oficial(
     except invalid_error_cls as exc:
         reason = getattr(getattr(exc, "reason", None), "value", None)
         return False, str(reason or "assinatura_invalida")
-    except Exception as exc:  # diagnostico: reporta somente o tipo, nunca a mensagem
+    except Exception as exc:  # noqa: BLE001 - fronteira diagnostica sanitiza o erro
         return False, f"erro_{type(exc).__name__}"
 
 

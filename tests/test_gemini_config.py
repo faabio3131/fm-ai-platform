@@ -200,7 +200,7 @@ def test_http_400_invalid_argument_is_not_reported_as_invalid_key(monkeypatch):
     [
         (
             RuntimeError("403 PERMISSION_DENIED"),
-            "GEMINI_API_KEY inválida ou sem permissão",
+            "Credencial Gemini inválida ou sem permissão",
         ),
         (RuntimeError("404 NOT_FOUND"), "Modelo Gemini indisponível"),
         (RuntimeError("429 RESOURCE_EXHAUSTED"), "Cota do Gemini atingida"),

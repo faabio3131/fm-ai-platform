@@ -29,16 +29,18 @@ from typing import Any, Protocol
 from uuid import uuid4
 
 import requests
+from core.integracoes.modelos import AmbienteIntegracao, ErroConfiguracaoServico
+from core.runtime import build_engine, load_runtime_settings
 from dotenv import load_dotenv
+from infra.integracoes.repositorio_sqlalchemy import (
+    RepositorioConfiguracoesExternasSQLAlchemy,
+)
+from infra.seguranca.modelos_orm import CredencialReferenciaORM
+from infra.seguranca.session_guard import build_session_factory
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from core.integracoes.modelos import AmbienteIntegracao, ErroConfiguracaoServico
-from core.runtime import build_engine, load_runtime_settings
-from infra.integracoes.repositorio_sqlalchemy import RepositorioConfiguracoesExternasSQLAlchemy
-from infra.seguranca.modelos_orm import CredencialReferenciaORM
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
-from infra.seguranca.session_guard import build_session_factory
 
 _CONFIG_ID = "pagamentos.pix--mercado_pago"
 _BASE_URL = "https://api.mercadopago.com"
@@ -89,7 +91,10 @@ def _primeiro_pagamento(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _evidencia(*, tenant_id: str, unidade_id: str, order_id: str, status: str, agora: datetime) -> str:
     instante = agora.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    material = "|".join((tenant_id, unidade_id, order_id, status, instante, "mercado-pago-pix-orders-sandbox"))
+    material = (
+        f"{tenant_id}|{unidade_id}|{order_id}|{status}|{instante}|"
+        "mercado-pago-pix-orders-sandbox"
+    )
     digest = hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
     return f"healthcheck://mercado-pago-pix-sandbox/{instante}/{digest}"
 

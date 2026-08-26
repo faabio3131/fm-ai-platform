@@ -8,19 +8,20 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Mapping
+from typing import Any
 from urllib.parse import urlencode
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
 from core.integracoes.modelos import ErroConfiguracaoServico
-from core.integracoes.provedores import PortaHTTPProvedor
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.segredos import SecretStore
 from infra.seguranca.modelos_orm import CredencialReferenciaORM
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from core.integracoes.provedores import PortaHTTPProvedor
 
 from .repositorio_sqlalchemy import RepositorioConfiguracoesExternasSQLAlchemy
 from .transportes import RequestsProviderTransport
@@ -66,15 +67,9 @@ def _evidencia(
     agora: datetime,
 ) -> str:
     instante = agora.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    material = "|".join(
-        (
-            contexto.tenant_id,
-            contexto.unidade_id,
-            configuracao_id,
-            recurso_id,
-            instante,
-            "meta-readonly-access",
-        )
+    material = (
+        f"{contexto.tenant_id}|{contexto.unidade_id}|{configuracao_id}|"
+        f"{recurso_id}|{instante}|meta-readonly-access"
     )
     digest = hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
     return f"healthcheck://meta-access/{instante}/{digest}"

@@ -75,7 +75,7 @@ def validate_admin_pin(pin: str) -> str:
     """Valida o PIN administrativo individual sem aceitar formatos fracos/ambíguos."""
 
     if not isinstance(pin, str):
-        raise ValueError("PIN administrativo invalido")
+        raise TypeError("PIN administrativo invalido")
     normalized = pin.strip()
     if not normalized.isdigit() or not 6 <= len(normalized) <= 8:
         raise ValueError("PIN administrativo deve ter de 6 a 8 digitos")

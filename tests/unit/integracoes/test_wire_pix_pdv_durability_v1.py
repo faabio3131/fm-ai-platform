@@ -2,7 +2,6 @@ from pathlib import Path
 
 from scripts.wire_pix_pdv_durability_v1 import aplicar
 
-
 APP_SOURCE = Path("app.py").read_text(encoding="utf-8")
 
 
@@ -22,3 +21,4 @@ def test_patch_e_idempotente() -> None:
     primeira = aplicar(APP_SOURCE)
     segunda = aplicar(primeira)
     assert segunda == primeira
+

@@ -116,13 +116,20 @@ def test_mercado_pago_pix_idempotente_e_webhook_hmac() -> None:
                     payload={
                         "id": 42,
                         "status": "pending",
-                        "transaction_amount": "10.50",
+                        "total_amount": "10.50",
                         "external_reference": "pedido-1",
-                        "point_of_interaction": {
-                            "transaction_data": {
-                                "qr_code": "000201PIX",
-                                "ticket_url": "https://mercadopago.test/ticket/42",
-                            }
+                        "transactions": {
+                            "payments": [
+                                {
+                                    "status_detail": "pending",
+                                    "payment_method": {
+                                        "id": "pix",
+                                        "type": "bank_transfer",
+                                        "qr_code": "000201PIX",
+                                        "ticket_url": "https://mercadopago.test/ticket/42",
+                                    },
+                                }
+                            ]
                         },
                     },
                 )
@@ -153,6 +160,15 @@ def test_mercado_pago_pix_idempotente_e_webhook_hmac() -> None:
     )
     assert not adapter.validar_webhook(
         data_id="42", request_id="req-1", x_signature="ts=1710000000,v1=invalida"
+    )
+    manifesto_case_sensitive = "id:Order-AbC;request-id:req-2;ts:1710000001;"
+    digest_case_sensitive = hmac.new(
+        b"mp-webhook", manifesto_case_sensitive.encode(), hashlib.sha256
+    ).hexdigest()
+    assert adapter.validar_webhook(
+        data_id="Order-AbC",
+        request_id="req-2",
+        x_signature=f" ts = 1710000001 , v1 = {digest_case_sensitive} ",
     )
     evento = adapter.normalizar_webhook(
         payload={"id": "evt-1", "action": "payment.updated"},

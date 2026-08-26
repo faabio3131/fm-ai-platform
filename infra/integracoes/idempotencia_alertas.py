@@ -7,10 +7,10 @@ como duplicadas pelo provedor.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from datetime import date
 from hashlib import sha256
-import json
 from typing import Any
 
 
@@ -34,3 +34,4 @@ def chave_idempotencia_alerta_estoque(
     )
     fingerprint = sha256(payload.encode("utf-8")).hexdigest()[:24]
     return f"estoque-{contato_id}-{data_referencia.isoformat()}-{fingerprint}"
+

@@ -1,9 +1,13 @@
 from datetime import datetime, timezone
+from typing import ClassVar
 
 import pytest
-
 from core.integracoes.modelos import AmbienteIntegracao, ErroConfiguracaoServico
-from scripts.mercado_pago_pix_sandbox_homologacao import _evidencia, executar_teste_pix_sandbox
+
+from scripts.mercado_pago_pix_sandbox_homologacao import (
+    _evidencia,
+    executar_teste_pix_sandbox,
+)
 
 
 class _Resp:
@@ -36,8 +40,10 @@ class _Config:
     ambiente = AmbienteIntegracao.SANDBOX
     servico = "pagamentos.pix"
     provedor = "mercado_pago"
-    credenciais = {"access_token": "pagamentos_pix_access_token"}
-    parametros = {
+    credenciais: ClassVar[dict[str, str]] = {
+        "access_token": "pagamentos_pix_access_token"
+    }
+    parametros: ClassVar[dict[str, str]] = {
         "notification_url": "https://sandbox.example.invalid/webhooks/mercado-pago"
     }
 
@@ -140,7 +146,7 @@ def test_probe_nao_depende_de_notification_url_local(monkeypatch) -> None:
     import scripts.mercado_pago_pix_sandbox_homologacao as modulo
 
     class _ConfigSemURL(_Config):
-        parametros = {}
+        parametros: ClassVar[dict[str, str]] = {}
 
     class _RepoSemURL(_Repo):
         def obter(self, **kwargs):

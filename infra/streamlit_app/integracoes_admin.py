@@ -7,30 +7,29 @@ from typing import Any
 
 import streamlit as st
 import streamlit.components.v1 as components
-from sqlalchemy.orm import Session
-
 from core.integracoes.catalogo import CATALOGO_V1, EspecificacaoServico
 from core.integracoes.modelos import AmbienteIntegracao, ErroConfiguracaoServico
 from core.integracoes.servicos import ServicoConfiguracoesExternas
-from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.permissoes import Papel, Permissao
-from infra.integracoes.gemini_healthcheck import executar_healthcheck_gemini
-from infra.integracoes.google_maps_browser_healthcheck import (
-    obter_evidencia_confirmada_google_maps,
-    preparar_healthcheck_browser_google_maps,
-)
 from infra.integracoes.google_maps_healthcheck import executar_healthcheck_google_maps
-from infra.integracoes.meta_healthcheck import executar_healthcheck_meta
-from infra.integracoes.mercado_pago_healthcheck import executar_healthcheck_mercado_pago
 from infra.integracoes.repositorio_sqlalchemy import (
     ProntidaoCredenciaisSQLAlchemy,
     RepositorioConfiguracoesExternasSQLAlchemy,
 )
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
 from infra.seguranca.credenciais import ServicoCredenciaisReferenciadas
+from sqlalchemy.orm import Session
+
+from core.seguranca.autenticacao import IdentidadeUsuario
+from infra.integracoes.gemini_healthcheck import executar_healthcheck_gemini
+from infra.integracoes.google_maps_browser_healthcheck import (
+    obter_evidencia_confirmada_google_maps,
+    preparar_healthcheck_browser_google_maps,
+)
+from infra.integracoes.mercado_pago_healthcheck import executar_healthcheck_mercado_pago
+from infra.integracoes.meta_healthcheck import executar_healthcheck_meta
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
 from infra.streamlit_app.auth_ui import verify_sensitive_pin
-
 
 _LABELS = {
     ("social.facebook", "meta"): "Meta · Facebook",
@@ -346,7 +345,7 @@ def _render_one(
                     )
                     st.rerun()
                 try:
-                    resultado = executar_healthcheck_mercado_pago(
+                    resultado_mp = executar_healthcheck_mercado_pago(
                         session=session,
                         secret_store=vault,
                         contexto=contexto,
@@ -354,14 +353,14 @@ def _render_one(
                     )
                     st.session_state[
                         _key(spec, "last_real_mercado_pago_access_evidence")
-                    ] = resultado.evidencia_ref
+                    ] = resultado_mp.evidencia_ref
                     _set_flash(
                         spec,
                         "success",
                         "Mercado Pago respondeu com sucesso e o PIX está disponível para a credencial configurada. Nenhum pagamento foi criado. A prova transacional controlada continua pendente.",
                     )
                     st.rerun()
-                except Exception:
+                except Exception:  # noqa: BLE001 - fronteira de UI sanitiza falhas externas
                     _set_flash(
                         spec,
                         "error",
@@ -391,14 +390,14 @@ def _render_one(
                     )
                     st.rerun()
                 try:
-                    resultado = executar_healthcheck_meta(
+                    resultado_meta = executar_healthcheck_meta(
                         session=session,
                         secret_store=vault,
                         contexto=contexto,
                         configuracao_id=config_id,
                     )
                     st.session_state[_key(spec, "last_real_meta_access_evidence")] = (
-                        resultado.evidencia_ref
+                        resultado_meta.evidencia_ref
                     )
                     _set_flash(
                         spec,
@@ -406,7 +405,7 @@ def _render_one(
                         "Acesso externo Meta validado com sucesso em modo somente leitura. Nenhuma publicação, mensagem ou alteração foi feita. A prova prática específica do serviço continua pendente antes da homologação final.",
                     )
                     st.rerun()
-                except Exception:
+                except Exception:  # noqa: BLE001 - fronteira de UI sanitiza falhas externas
                     _set_flash(
                         spec,
                         "error",
@@ -437,25 +436,25 @@ def _render_one(
                     )
                     st.rerun()
                 try:
-                    resultado = executar_healthcheck_google_maps(
+                    resultado_maps = executar_healthcheck_google_maps(
                         session=session,
                         secret_store=vault,
                         contexto=contexto,
                         configuracao_id=config_id,
                     )
                     st.session_state[_key(spec, "last_real_maps_server_healthcheck_evidence")] = (
-                        resultado.evidencia_ref
+                        resultado_maps.evidencia_ref
                     )
                     _set_flash(
                         spec,
                         "success",
                         f"Google Maps servidor validado de ponta a ponta: geocodificação + rota real, "
-                        f"{resultado.distancia_metros / 1000:.1f} km e ETA aproximado de "
-                        f"{max(1, (resultado.duracao_segundos + 59) // 60)} min. "
+                        f"{resultado_maps.distancia_metros / 1000:.1f} km e ETA aproximado de "
+                        f"{max(1, (resultado_maps.duracao_segundos + 59) // 60)} min. "
                         "A chave de navegador ainda precisa de prova real no navegador antes da homologação final.",
                     )
                     st.rerun()
-                except Exception:
+                except Exception:  # noqa: BLE001 - fronteira de UI sanitiza falhas externas
                     _set_flash(
                         spec,
                         "error",
@@ -506,7 +505,7 @@ def _render_one(
                         "Use o botao Concluir teste logo abaixo; o campo de homologacao sera preenchido sem copiar manualmente."
                     )
                     components.iframe(preparacao.url, height=520, scrolling=False)
-                except Exception:
+                except Exception:  # noqa: BLE001 - fronteira de UI sanitiza falhas externas
                     st.error(
                         "Nao foi possivel preparar o teste real do navegador. A integracao continua nao homologada; revise a Browser API Key e tente novamente. Nenhum segredo foi exposto."
                     )
@@ -570,23 +569,23 @@ def _render_one(
                     )
                     st.rerun()
                 try:
-                    resultado = executar_healthcheck_gemini(
+                    resultado_gemini = executar_healthcheck_gemini(
                         session=session,
                         secret_store=vault,
                         contexto=contexto,
                         configuracao_id=config_id,
                     )
                     st.session_state[_key(spec, "last_real_healthcheck_evidence")] = (
-                        resultado.evidencia_ref
+                        resultado_gemini.evidencia_ref
                     )
                     _set_flash(
                         spec,
                         "success",
-                        f"Healthcheck externo real concluído com sucesso usando o modelo {resultado.model}. "
+                        f"Healthcheck externo real concluído com sucesso usando o modelo {resultado_gemini.model}. "
                         "A referência sanitizada foi gerada abaixo para a homologação.",
                     )
                     st.rerun()
-                except Exception:
+                except Exception:  # noqa: BLE001 - fronteira de UI sanitiza falhas externas
                     _set_flash(
                         spec,
                         "error",
@@ -653,7 +652,7 @@ def _render_one(
                 )
                 _set_flash(spec, "success", mensagem)
                 st.rerun()
-            except Exception:
+            except Exception:  # noqa: BLE001 - fronteira transacional faz rollback
                 session.rollback()
                 _set_flash(
                     spec,
@@ -697,7 +696,7 @@ def _render_one(
                         "A configuração salva não pôde ser validada. Revise os dados da "
                         "integração e salve novamente antes de prosseguir."
                     )
-                except Exception:
+                except Exception:  # noqa: BLE001 - fronteira de UI sanitiza falhas externas
                     st.error(
                         "Ocorreu uma falha inesperada durante a validação. Nenhuma informação interna foi exposta; tente novamente ou consulte os logs administrativos sanitizados."
                     )
@@ -726,12 +725,14 @@ def _render_one(
                 )
                 st.rerun()
             try:
-                current = service.obter(contexto=contexto, configuracao_id=config_id)
+                configuracao_atual = service.obter(
+                    contexto=contexto, configuracao_id=config_id
+                )
                 service.registrar_homologacao(
                     contexto=contexto,
                     configuracao_id=config_id,
                     evidencia_ref=evidence_ref.strip(),
-                    versao_esperada=current.versao,
+                    versao_esperada=configuracao_atual.versao,
                 )
                 session.commit()
                 _set_flash(
@@ -740,7 +741,7 @@ def _render_one(
                     "Homologação registrada com evidência e auditoria. O PIN foi consumido e limpo.",
                 )
                 st.rerun()
-            except Exception:
+            except Exception:  # noqa: BLE001 - fronteira transacional faz rollback
                 session.rollback()
                 _set_flash(
                     spec,

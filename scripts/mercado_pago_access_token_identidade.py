@@ -10,16 +10,18 @@ from __future__ import annotations
 
 import json
 
+from core.runtime import build_engine, load_runtime_settings
 from dotenv import load_dotenv
+from infra.integracoes.repositorio_sqlalchemy import (
+    RepositorioConfiguracoesExternasSQLAlchemy,
+)
+from infra.seguranca.modelos_orm import CredencialReferenciaORM
+from infra.seguranca.session_guard import build_session_factory
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from core.runtime import build_engine, load_runtime_settings
 from infra.integracoes.mercado_pago_webhook_app import _CONFIG_ID, _finalidade
-from infra.integracoes.repositorio_sqlalchemy import RepositorioConfiguracoesExternasSQLAlchemy
-from infra.seguranca.modelos_orm import CredencialReferenciaORM
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
-from infra.seguranca.session_guard import build_session_factory
 
 
 def _segredo_access_token(
@@ -89,3 +91,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

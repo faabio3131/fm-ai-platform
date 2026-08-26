@@ -10,13 +10,12 @@ from __future__ import annotations
 import os
 from uuid import uuid4
 
-from cryptography.fernet import Fernet, InvalidToken
-from sqlalchemy.orm import Session
-
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.erros import ReferenciaSegredoInvalida, SegredoAusente
 from core.seguranca.permissoes import Permissao
 from core.seguranca.segredos import SecretValue
+from cryptography.fernet import Fernet, InvalidToken
+from sqlalchemy.orm import Session
 
 from .segredos_orm import SegredoIntegracaoORM
 
@@ -25,7 +24,12 @@ class EncryptedSQLAlchemySecretStore:
     """Armazena valores cifrados e resolve referências `vault:*`."""
 
     def __init__(self, session: Session, *, master_key: str | None = None) -> None:
-        raw = (master_key or os.getenv("FM_AI_SECRET_MASTER_KEY", "")).strip()
+        raw_value = (
+            master_key
+            if master_key is not None
+            else os.getenv("FM_AI_SECRET_MASTER_KEY", "")
+        )
+        raw = (raw_value or "").strip()
         if not raw:
             raise RuntimeError(
                 "FM_AI_SECRET_MASTER_KEY ausente; configure a chave mestra da infraestrutura"

@@ -10,8 +10,8 @@ da barra lateral. Isso limpa o grant no servidor e rerenderiza a página protegi
 
 from __future__ import annotations
 
-from datetime import datetime
 import json
+from datetime import datetime
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -114,3 +114,4 @@ def render_sensitive_idle_watchdog(identity: IdentidadeUsuario) -> None:
     """Mantém a área aberta enquanto há uso real e a fecha após 3 min ociosa."""
 
     _render_browser_idle_watchdog(identity)
+

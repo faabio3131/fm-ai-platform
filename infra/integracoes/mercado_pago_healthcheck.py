@@ -14,13 +14,12 @@ from datetime import datetime, timezone
 from typing import Any, Protocol
 
 import requests
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
 from core.integracoes.modelos import ErroConfiguracaoServico
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.segredos import SecretStore
 from infra.seguranca.modelos_orm import CredencialReferenciaORM
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from .repositorio_sqlalchemy import RepositorioConfiguracoesExternasSQLAlchemy
 
@@ -73,15 +72,9 @@ def _evidencia(
     agora: datetime,
 ) -> str:
     instante = agora.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    material = "|".join(
-        (
-            contexto.tenant_id,
-            contexto.unidade_id,
-            configuracao_id,
-            usuario_id,
-            instante,
-            "mercado-pago-users-me-readonly",
-        )
+    material = (
+        f"{contexto.tenant_id}|{contexto.unidade_id}|{configuracao_id}|"
+        f"{usuario_id}|{instante}|mercado-pago-users-me-readonly"
     )
     digest = hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
     return f"healthcheck://mercado-pago-access/{instante}/{digest}"

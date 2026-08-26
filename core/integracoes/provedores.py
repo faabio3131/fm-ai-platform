@@ -488,14 +488,17 @@ class MercadoPagoAdapter(_ClienteResiliente):
         request_id: str,
         x_signature: str,
     ) -> bool:
-        partes = dict(
-            item.split("=", 1) for item in x_signature.split(",") if "=" in item
-        )
+        partes = {
+            chave.strip(): valor.strip()
+            for item in x_signature.split(",")
+            if "=" in item
+            for chave, valor in (item.split("=", 1),)
+        }
         ts = partes.get("ts", "").strip()
         recebido = partes.get("v1", "").strip().casefold()
         if not ts or not recebido or not data_id or not request_id:
             return False
-        manifesto = f"id:{data_id.lower()};request-id:{request_id};ts:{ts};"
+        manifesto = f"id:{data_id.strip()};request-id:{request_id};ts:{ts};"
         esperado = hmac.new(
             self._config.webhook_secret.encode(), manifesto.encode(), hashlib.sha256
         ).hexdigest()
