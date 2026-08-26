@@ -12,13 +12,9 @@ import logging
 from importlib import metadata
 from typing import Any
 
-from core.runtime import build_engine, load_runtime_settings
 from fastapi import Request
-from infra.integracoes.repositorio_sqlalchemy import (
-    RepositorioConfiguracoesExternasSQLAlchemy,
-)
-from infra.seguranca.session_guard import build_session_factory
 
+from core.runtime import build_engine, load_runtime_settings
 from infra.integracoes.mercado_pago_webhook_app import (
     _CONFIG_ID,
     _finalidade,
@@ -27,6 +23,10 @@ from infra.integracoes.mercado_pago_webhook_app import (
 from infra.integracoes.mercado_pago_webhook_app import (
     create_app as create_real_app,
 )
+from infra.integracoes.repositorio_sqlalchemy import (
+    RepositorioConfiguracoesExternasSQLAlchemy,
+)
+from infra.seguranca.session_guard import build_session_factory
 from scripts.mercado_pago_webhook_hmac_diagnostico_app import (
     _hmac_hex,
     _origem_payload,

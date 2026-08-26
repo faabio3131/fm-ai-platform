@@ -1,8 +1,7 @@
 from datetime import datetime, timezone
 
-from scripts.wire_gemini_real_healthcheck_v1 import aplicar
-
 from infra.integracoes.gemini_healthcheck import _evidencia
+from scripts.wire_gemini_real_healthcheck_v1 import aplicar
 
 
 class _Contexto:

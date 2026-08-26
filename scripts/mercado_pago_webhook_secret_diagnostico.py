@@ -16,17 +16,17 @@ import secrets
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
-from core.runtime import build_engine, load_runtime_settings
 from dotenv import load_dotenv
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from core.runtime import build_engine, load_runtime_settings
 from infra.integracoes.repositorio_sqlalchemy import (
     RepositorioConfiguracoesExternasSQLAlchemy,
 )
 from infra.seguranca.modelos_orm import CredencialReferenciaORM
-from infra.seguranca.session_guard import build_session_factory
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
+from infra.seguranca.session_guard import build_session_factory
 from scripts.mercado_pago_access_token_identidade import identificar_token
 
 _CONFIG_ID = "pagamentos.pix--mercado_pago"

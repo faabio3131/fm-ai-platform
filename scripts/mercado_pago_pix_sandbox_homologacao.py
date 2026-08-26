@@ -29,18 +29,18 @@ from typing import Any, Protocol
 from uuid import uuid4
 
 import requests
+from dotenv import load_dotenv
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from core.integracoes.modelos import AmbienteIntegracao, ErroConfiguracaoServico
 from core.runtime import build_engine, load_runtime_settings
-from dotenv import load_dotenv
 from infra.integracoes.repositorio_sqlalchemy import (
     RepositorioConfiguracoesExternasSQLAlchemy,
 )
 from infra.seguranca.modelos_orm import CredencialReferenciaORM
-from infra.seguranca.session_guard import build_session_factory
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
+from infra.seguranca.session_guard import build_session_factory
 
 _CONFIG_ID = "pagamentos.pix--mercado_pago"
 _BASE_URL = "https://api.mercadopago.com"

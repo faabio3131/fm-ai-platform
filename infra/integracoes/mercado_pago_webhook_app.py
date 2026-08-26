@@ -22,18 +22,7 @@ from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from core.pagamentos.modelos import MetodoPagamento, TipoTransacao
-from core.pagamentos.modelos_orm import TransacaoPagamentoORM
-from core.runtime import build_engine, load_runtime_settings
-from core.seguranca.contexto import ContextoExecucao
 from fastapi import FastAPI, HTTPException, Request
-from infra.integracoes.pix_durabilidade import confirmar_cobranca_pix_consultada
-from infra.integracoes.repositorio_sqlalchemy import (
-    RepositorioConfiguracoesExternasSQLAlchemy,
-)
-from infra.integracoes.transportes import RequestsProviderTransport
-from infra.seguranca.modelos_orm import CredencialReferenciaORM
-from infra.seguranca.session_guard import build_session_factory
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -42,8 +31,19 @@ from core.integracoes.provedores import (
     ErroProvedorExterno,
     MercadoPagoAdapter,
 )
+from core.pagamentos.modelos import MetodoPagamento, TipoTransacao
+from core.pagamentos.modelos_orm import TransacaoPagamentoORM
+from core.runtime import build_engine, load_runtime_settings
+from core.seguranca.contexto import ContextoExecucao
+from infra.integracoes.pix_durabilidade import confirmar_cobranca_pix_consultada
 from infra.integracoes.pix_runtime import CobrancaPixRuntime
+from infra.integracoes.repositorio_sqlalchemy import (
+    RepositorioConfiguracoesExternasSQLAlchemy,
+)
+from infra.integracoes.transportes import RequestsProviderTransport
+from infra.seguranca.modelos_orm import CredencialReferenciaORM
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
+from infra.seguranca.session_guard import build_session_factory
 
 _CONFIG_ID = "pagamentos.pix--mercado_pago"
 _LOGGER = logging.getLogger("kordena.mercado_pago.webhook")

@@ -7,27 +7,27 @@ from typing import Any
 
 import streamlit as st
 import streamlit.components.v1 as components
+from sqlalchemy.orm import Session
+
 from core.integracoes.catalogo import CATALOGO_V1, EspecificacaoServico
 from core.integracoes.modelos import AmbienteIntegracao, ErroConfiguracaoServico
 from core.integracoes.servicos import ServicoConfiguracoesExternas
+from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.permissoes import Papel, Permissao
+from infra.integracoes.gemini_healthcheck import executar_healthcheck_gemini
+from infra.integracoes.google_maps_browser_healthcheck import (
+    obter_evidencia_confirmada_google_maps,
+    preparar_healthcheck_browser_google_maps,
+)
 from infra.integracoes.google_maps_healthcheck import executar_healthcheck_google_maps
+from infra.integracoes.mercado_pago_healthcheck import executar_healthcheck_mercado_pago
+from infra.integracoes.meta_healthcheck import executar_healthcheck_meta
 from infra.integracoes.repositorio_sqlalchemy import (
     ProntidaoCredenciaisSQLAlchemy,
     RepositorioConfiguracoesExternasSQLAlchemy,
 )
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
 from infra.seguranca.credenciais import ServicoCredenciaisReferenciadas
-from sqlalchemy.orm import Session
-
-from core.seguranca.autenticacao import IdentidadeUsuario
-from infra.integracoes.gemini_healthcheck import executar_healthcheck_gemini
-from infra.integracoes.google_maps_browser_healthcheck import (
-    obter_evidencia_confirmada_google_maps,
-    preparar_healthcheck_browser_google_maps,
-)
-from infra.integracoes.mercado_pago_healthcheck import executar_healthcheck_mercado_pago
-from infra.integracoes.meta_healthcheck import executar_healthcheck_meta
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
 from infra.streamlit_app.auth_ui import verify_sensitive_pin
 

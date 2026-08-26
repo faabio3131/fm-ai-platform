@@ -14,13 +14,9 @@ import json
 import logging
 from collections.abc import Mapping
 
-from core.runtime import build_engine, load_runtime_settings
 from fastapi import Request
-from infra.integracoes.repositorio_sqlalchemy import (
-    RepositorioConfiguracoesExternasSQLAlchemy,
-)
-from infra.seguranca.session_guard import build_session_factory
 
+from core.runtime import build_engine, load_runtime_settings
 from infra.integracoes.mercado_pago_webhook_app import (
     _CONFIG_ID,
     _finalidade,
@@ -29,6 +25,10 @@ from infra.integracoes.mercado_pago_webhook_app import (
 from infra.integracoes.mercado_pago_webhook_app import (
     create_app as create_real_app,
 )
+from infra.integracoes.repositorio_sqlalchemy import (
+    RepositorioConfiguracoesExternasSQLAlchemy,
+)
+from infra.seguranca.session_guard import build_session_factory
 
 _LOGGER = logging.getLogger("kordena.mercado_pago.webhook.hmac_diagnostico")
 

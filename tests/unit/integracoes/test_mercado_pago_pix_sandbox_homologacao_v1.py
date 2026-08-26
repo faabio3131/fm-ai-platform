@@ -2,8 +2,8 @@ from datetime import datetime, timezone
 from typing import ClassVar
 
 import pytest
-from core.integracoes.modelos import AmbienteIntegracao, ErroConfiguracaoServico
 
+from core.integracoes.modelos import AmbienteIntegracao, ErroConfiguracaoServico
 from scripts.mercado_pago_pix_sandbox_homologacao import (
     _evidencia,
     executar_teste_pix_sandbox,

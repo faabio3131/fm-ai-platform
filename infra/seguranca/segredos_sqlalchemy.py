@@ -10,12 +10,13 @@ from __future__ import annotations
 import os
 from uuid import uuid4
 
+from cryptography.fernet import Fernet, InvalidToken
+from sqlalchemy.orm import Session
+
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.erros import ReferenciaSegredoInvalida, SegredoAusente
 from core.seguranca.permissoes import Permissao
 from core.seguranca.segredos import SecretValue
-from cryptography.fernet import Fernet, InvalidToken
-from sqlalchemy.orm import Session
 
 from .segredos_orm import SegredoIntegracaoORM
 

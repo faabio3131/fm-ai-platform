@@ -8,14 +8,14 @@ from datetime import datetime, timedelta, timezone
 
 import streamlit as st
 import streamlit.components.v1 as components
-from core.runtime.config import RuntimeEnvironment, RuntimeSettings
-from core.seguranca.erros import CredenciaisInvalidas, UsuarioInativo
-from core.seguranca.permissoes import Papel, Permissao
-from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from core.runtime.config import RuntimeEnvironment, RuntimeSettings
 from core.seguranca.autenticacao import IdentidadeUsuario, ServicoAutenticacao
+from core.seguranca.erros import CredenciaisInvalidas, UsuarioInativo
+from core.seguranca.permissoes import Papel, Permissao
+from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 
 _TRUE_VALUES = {"1", "true", "yes", "on"}
 _SESSION_KEY = "_fm_ai_authenticated_identity_v1"

@@ -11,12 +11,13 @@ import hashlib
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from core.integracoes.modelos import ErroConfiguracaoServico
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.segredos import SecretStore
 from infra.seguranca.modelos_orm import CredencialReferenciaORM
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from .repositorio_sqlalchemy import RepositorioConfiguracoesExternasSQLAlchemy
 from .transportes import GoogleGenAITenantGateway
