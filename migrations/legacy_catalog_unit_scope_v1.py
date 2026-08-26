@@ -229,6 +229,11 @@ def _backfill_deterministico(connection: Connection) -> None:
             loja_id = candidatas[0]
         elif len(lojas) == 1:
             loja_id = next(iter(lojas))
+        elif not lojas:
+            raise RuntimeError(
+                "insumo sem loja determinística: nenhuma loja histórica cadastrada; "
+                "execute a reconciliação explícita antes da migration 0027"
+            )
         else:
             raise RuntimeError(
                 "insumo sem loja determinística em ambiente multi-loja"

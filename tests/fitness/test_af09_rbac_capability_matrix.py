@@ -589,3 +589,13 @@ def test_af09_l_assistant_real_caller_reaches_governed_checkout() -> None:
     assert resultado.pedido_status == PedidoStatus.AGUARDANDO_CONFIRMACAO.value
     assert resultado.pagamento_status is not None
     assert recursos.pedidos.quantidade == 1
+
+
+def test_af09_m_legacy_store_reconciliation_capability_is_admin_only() -> None:
+    capability = Permissao.LOJA_LEGADA_RECONCILIAR
+    assert capability in MATRIZ_PADRAO[Papel.ADMINISTRADOR]
+    assert all(
+        capability not in permissoes
+        for papel, permissoes in MATRIZ_PADRAO.items()
+        if papel is not Papel.ADMINISTRADOR
+    )

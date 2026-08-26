@@ -11,7 +11,7 @@ import os
 import shutil
 import tempfile
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -87,7 +87,6 @@ def prepare_legacy_scope(
         upgrade_legacy_store_baseline_v1(connection)
         upgrade_unit_legacy_store_mapping_v1(connection)
         upgrade_product_unit_scope_compat_v1(connection)
-        upgrade_legacy_catalog_unit_scope_v1(connection)
 
         existente = connection.execute(
             text(
@@ -97,31 +96,40 @@ def prepare_legacy_scope(
             ),
             {"tenant_id": tenant_id, "unidade_id": unidade_id},
         ).scalar_one_or_none()
-        if existente is not None:
-            return
+        if existente is None:
+            loja_id = connection.execute(
+                text("SELECT COALESCE(MAX(id), 0) + 1 FROM lojas")
+            ).scalar_one()
+            connection.execute(
+                text(
+                    "INSERT INTO lojas (id, nome_fantasia) "
+                    "VALUES (:loja_id, 'Loja Sandbox')"
+                ),
+                {"loja_id": loja_id},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO fm_unidade_loja_legacy_v1 "
+                    "(tenant_id, unidade_id, loja_id, ativo) "
+                    "VALUES (:tenant_id, :unidade_id, :loja_id, TRUE)"
+                ),
+                {
+                    "tenant_id": tenant_id,
+                    "unidade_id": unidade_id,
+                    "loja_id": loja_id,
+                },
+            )
+        else:
+            loja_id = existente
 
-        loja_id = connection.execute(
-            text("SELECT COALESCE(MAX(id), 0) + 1 FROM lojas")
-        ).scalar_one()
         connection.execute(
             text(
-                "INSERT INTO lojas (id, nome_fantasia) "
-                "VALUES (:loja_id, 'Loja Sandbox')"
+                "UPDATE produtos SET loja_id = :loja_id "
+                "WHERE loja_id IS NULL"
             ),
             {"loja_id": loja_id},
         )
-        connection.execute(
-            text(
-                "INSERT INTO fm_unidade_loja_legacy_v1 "
-                "(tenant_id, unidade_id, loja_id, ativo) "
-                "VALUES (:tenant_id, :unidade_id, :loja_id, TRUE)"
-            ),
-            {
-                "tenant_id": tenant_id,
-                "unidade_id": unidade_id,
-                "loja_id": loja_id,
-            },
-        )
+        upgrade_legacy_catalog_unit_scope_v1(connection)
 
 
 def mock_generate_content(*, contents: Any, **_: Any) -> Any:
@@ -228,7 +236,7 @@ def seed_database(
                 "saldo_atual": 50,
                 "estoque_minimo": 5,
                 "custo_unitario": 7,
-                "data_validade": datetime.now() + timedelta(days=20),
+                "data_validade": datetime.now(timezone.utc) + timedelta(days=20),
             },
         )
         pao_id = inserir_insumo_legado(
@@ -241,14 +249,14 @@ def seed_database(
                 "saldo_atual": 50,
                 "estoque_minimo": 5,
                 "custo_unitario": 2,
-                "data_validade": datetime.now() + timedelta(days=5),
+                "data_validade": datetime.now(timezone.utc) + timedelta(days=5),
                 "dias_alerta_vencimento": 7,
             },
         )
         cliente = Cliente(
             nome="Cliente Teste",
             whatsapp="5511999990001",
-            ultima_compra=datetime.now() - timedelta(days=30),
+            ultima_compra=datetime.now(timezone.utc) - timedelta(days=30),
             total_gasto=100,
             saldo_cashback=10,
             status="Inativo",

@@ -47,6 +47,7 @@ class Permissao(StrEnum):
     INTEGRACAO_GERENCIAR = "integracao.gerenciar"
     AUDITORIA_VISUALIZAR = "auditoria.visualizar"
     CONFIGURACAO_ALTERAR = "configuracao.alterar"
+    LOJA_LEGADA_RECONCILIAR = "loja_legada.reconciliar"
     GERENTE_IA_CONSULTAR = "gerente_ia.consultar"
     GERENTE_IA_PREPARAR_ACAO = "gerente_ia.preparar_acao"
     GERENTE_IA_EXECUTAR_ACAO = "gerente_ia.executar_acao"
@@ -75,7 +76,12 @@ MATRIZ_PADRAO: dict[Papel, frozenset[Permissao]] = {
     Papel.GERENTE: frozenset(
         p
         for p in Permissao
-        if p not in {Permissao.ADMIN_ACESSAR, Permissao.PERMISSAO_GERENCIAR}
+        if p
+        not in {
+            Permissao.ADMIN_ACESSAR,
+            Permissao.PERMISSAO_GERENCIAR,
+            Permissao.LOJA_LEGADA_RECONCILIAR,
+        }
     ),
     Papel.CAIXA: frozenset(
         {

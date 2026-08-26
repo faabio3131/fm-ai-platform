@@ -104,7 +104,7 @@ from core.pdv.adaptadores_sqlalchemy import (
     SQLAlchemyPDVUnitOfWork,
 )
 from core.pdv.configuracao import carregar_rollout_ambiente
-from core.pdv.contexto import contexto_caixa_pdv
+from core.pdv.contexto import contexto_caixa_pdv_autenticado
 from core.pdv.executores import (
     ExecutorAutoritativoSQLAlchemy,
     EscritorShadowSQLAlchemy,
@@ -2044,9 +2044,8 @@ with aba3:
                     )
                     st.stop()
 
-                contexto_pdv = contexto_caixa_pdv(
-                    tenant_id=_pdv_rollout.tenant_id,
-                    unidade_id=_pdv_rollout.unidade_id,
+                contexto_pdv = contexto_caixa_pdv_autenticado(
+                    identidade=CURRENT_IDENTITY,
                     usuario_id="caixa-e2e" if is_test_mode() else "caixa-local",
                     correlation_id=str(uuid4()),
                     instante=datetime.now().astimezone(),

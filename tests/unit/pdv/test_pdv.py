@@ -6,6 +6,7 @@ import pytest
 from core.dominio.dinheiro import Dinheiro
 from core.pagamentos.flags import FlagsPagamentosV1
 from core.pdv.configuracao import carregar_rollout_ambiente
+from core.pdv.contexto import contexto_caixa_pdv_autenticado
 from core.pdv.modelos import (
     dinheiro_legado,
     id_cliente_legado,
@@ -20,7 +21,9 @@ from core.pdv.roteamento import (
     decidir_modo,
 )
 from core.pedidos.flags import OrdersFeatureFlags
+from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.contexto import ContextoExecucao
+from core.seguranca.erros import CredenciaisInvalidas
 from core.seguranca.permissoes import MATRIZ_PADRAO, Papel, Permissao
 
 
@@ -36,6 +39,66 @@ def contexto(tenant: str = "t", unidade: str = "u") -> ContextoExecucao:
         "teste",
         unidades_permitidas=frozenset({unidade}),
     )
+
+
+def identidade_ativa(
+    *,
+    tenant: str = "tenant-ativo",
+    unidade_padrao: str = "unidade-a",
+    unidade_ativa: str = "unidade-b",
+    ativo: bool = True,
+) -> IdentidadeUsuario:
+    return IdentidadeUsuario(
+        usuario_id="operador",
+        email="operador@example.com",
+        senha_hash="hash-de-teste",
+        tenant_id=tenant,
+        unidade_id=unidade_padrao,
+        papeis=frozenset({Papel.CAIXA}),
+        unidades_permitidas=frozenset({unidade_padrao, unidade_ativa}),
+        ativo=ativo,
+    ).no_escopo_ativo(tenant_id=tenant, unidade_id=unidade_ativa)
+
+
+def test_contexto_caixa_usa_active_execution_scope_e_ignora_escopo_do_rollout(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("FM_AI_TEST_MODE", "1")
+    monkeypatch.setenv("FM_AI_TEST_TENANT", "tenant-divergente")
+    monkeypatch.setenv("FM_AI_TEST_UNIDADE", "unidade-divergente")
+    rollout = carregar_rollout_ambiente()
+    identidade = identidade_ativa()
+
+    contexto_ativo = contexto_caixa_pdv_autenticado(
+        identidade=identidade,
+        usuario_id="caixa",
+        correlation_id="corr-active-scope",
+        instante=datetime.now(timezone.utc),
+        origem="teste-active-scope",
+    )
+
+    assert (rollout.tenant_id, rollout.unidade_id) == (
+        "tenant-divergente",
+        "unidade-divergente",
+    )
+    assert (contexto_ativo.tenant_id, contexto_ativo.unidade_id) == (
+        "tenant-ativo",
+        "unidade-b",
+    )
+    assert contexto_ativo.unidades_permitidas == frozenset({"unidade-b"})
+
+
+def test_contexto_caixa_falha_fechado_para_identidade_inativa() -> None:
+    identidade = identidade_ativa(ativo=False)
+
+    with pytest.raises(CredenciaisInvalidas, match="credenciais invalidas"):
+        contexto_caixa_pdv_autenticado(
+            identidade=identidade,
+            usuario_id="caixa",
+            correlation_id="corr-inativa",
+            instante=datetime.now(timezone.utc),
+            origem="teste-inativa",
+        )
 
 
 def test_decimal_ids_e_metodos() -> None:
