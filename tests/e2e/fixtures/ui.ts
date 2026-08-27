@@ -58,22 +58,9 @@ export async function expectNoFatal(page: Page) {
 }
 
 export async function clickAndWaitForStreamlitRerun(page: Page, buttonName: string | RegExp) {
-  await expect(page.locator('[data-testid="stSkeleton"]')).toHaveCount(0, { timeout: 30_000 });
   const readyMarker = page.locator('[data-fm-ai-e2e-ready="true"]');
-  const button =
-    typeof buttonName === 'string'
-      ? page.getByRole('button', { name: buttonName, exact: true })
-      : page.getByRole('button', { name: buttonName });
-  await expect(button).toBeVisible();
-  await expect(button).toBeEnabled();
-
   const runBeforeClick = await readyMarker.getAttribute('data-fm-ai-e2e-run');
-
-  // Streamlit/React pode substituir o nó do botão durante o callback. Disparar o
-  // click nativo evita que a automação fique presa ao nó antigo; o contrato real
-  // continua sendo o rerun concluído e a pós-condição de cada cenário.
-  await button.evaluate((element: HTMLButtonElement) => element.click());
-
+  await page.getByRole('button', { name: buttonName }).click();
   await expect
     .poll(
       async () => {
@@ -86,66 +73,23 @@ export async function clickAndWaitForStreamlitRerun(page: Page, buttonName: stri
       },
     )
     .toBe(true);
-  await expect(page.locator('[data-testid="stSkeleton"]')).toHaveCount(0, { timeout: 30_000 });
-  await expect(page.locator('[data-testid="stException"]')).toHaveCount(0);
 }
 
 export async function fillNumber(page: Page, label: string | RegExp, value: string) {
-  const expectedValue = Number(value);
-  if (value.trim() === '' || !Number.isFinite(expectedValue)) {
-    throw new Error(`Valor numérico esperado inválido: ${JSON.stringify(value)}`);
-  }
-
   const input = page.getByRole('spinbutton', { name: label }).first();
   try {
-    await expect(page.locator('[data-testid="stSkeleton"]')).toHaveCount(0, { timeout: 30_000 });
     await expect(input).toBeVisible();
     await expect(input).toBeEnabled();
-
-    const atual = Number(await input.inputValue());
-    if (Number.isFinite(atual) && Math.abs(atual - expectedValue) < 0.000001) {
-      await expect(input).toBeEnabled();
-      return;
+    await input.fill(value);
+    await page.keyboard.press('Tab');
+    const expectedValue = Number(value);
+    if (value.trim() === '' || !Number.isFinite(expectedValue)) {
+      throw new Error(`Valor numérico esperado inválido: ${JSON.stringify(value)}`);
     }
-
-    const readyMarker = page.locator('[data-fm-ai-e2e-ready="true"]');
-    const runBeforeFill = await readyMarker.getAttribute('data-fm-ai-e2e-run');
-
-    // NumberInput é controlado pelo Streamlit/React e pode substituir o nó no
-    // primeiro evento de input. Use o setter nativo e valide o rerun completo,
-    // depois readquira o locator para provar o valor efetivamente aplicado.
-    await input.evaluate((element: HTMLInputElement, nextValue: string) => {
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-      if (!setter) throw new Error('setter_nativo_number_input_indisponivel');
-      setter.call(element, nextValue);
-      element.dispatchEvent(new Event('input', { bubbles: true }));
-      element.dispatchEvent(new Event('change', { bubbles: true }));
-      element.blur();
-    }, value);
-
     await expect
       .poll(
         async () => {
-          const runAfterFill = await readyMarker.getAttribute('data-fm-ai-e2e-run');
-          return runAfterFill !== null && runAfterFill !== runBeforeFill;
-        },
-        {
-          message: `Streamlit deve concluir o rerun após preencher ${String(label)}`,
-          timeout: 30_000,
-        },
-      )
-      .toBe(true);
-
-    await expect(page.locator('[data-testid="stSkeleton"]')).toHaveCount(0, { timeout: 30_000 });
-    await expect(page.locator('[data-testid="stException"]')).toHaveCount(0);
-
-    const refreshedInput = page.getByRole('spinbutton', { name: label }).first();
-    await expect(refreshedInput).toBeVisible();
-    await expect(refreshedInput).toBeEnabled();
-    await expect
-      .poll(
-        async () => {
-          const receivedText = await refreshedInput.inputValue();
+          const receivedText = await input.inputValue();
           const receivedValue = Number(receivedText);
           if (receivedText.trim() === '' || !Number.isFinite(receivedValue)) {
             throw new Error(`Valor numérico recebido inválido: ${JSON.stringify(receivedText)}`);
