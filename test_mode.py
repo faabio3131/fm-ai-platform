@@ -144,7 +144,7 @@ def mock_generate_content(*, contents: Any, **_: Any) -> Any:
         raise RuntimeError("Gemini mock: erro 429")
     if "fm_ai_mock_invalid" in text:
         return SimpleNamespace(text="{resposta inválida")
-    if "mica" in text or "assistente virtual" in text:
+    if ("assistente de atendimento" in text or "assistente virtual" in text or "mica" in text):
         return SimpleNamespace(
             text=json.dumps(
                 {
