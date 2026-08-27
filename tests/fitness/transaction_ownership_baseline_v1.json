@@ -1,0 +1,355 @@
+{
+  "schema": "sd1e-transaction-ownership-baseline-v1",
+  "source_head": "e2523e89fd196dc327fa0dd7a4ee4d6e1a239c0f",
+  "policy": {
+    "transaction_owner_target": "application/use-case boundary via UnitOfWorkV1",
+    "line_numbers_are_not_identity": true,
+    "budget_may_only_decrease": true,
+    "automatic_baseline_growth_forbidden": true
+  },
+  "categories": {
+    "presentation_debt": [
+      {
+        "path": "app.py",
+        "function": "<module>",
+        "receiver": "db_cad",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "app.py",
+        "function": "<module>",
+        "receiver": "db_cb",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "app.py",
+        "function": "<module>",
+        "receiver": "db_cb",
+        "operation": "rollback",
+        "count": 1
+      },
+      {
+        "path": "app.py",
+        "function": "<module>",
+        "receiver": "db_cli_e2e",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "app.py",
+        "function": "<module>",
+        "receiver": "db_cli_e2e",
+        "operation": "rollback",
+        "count": 1
+      },
+      {
+        "path": "app.py",
+        "function": "<module>",
+        "receiver": "db_estoque",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "app.py",
+        "function": "<module>",
+        "receiver": "db_exec_venda",
+        "operation": "rollback",
+        "count": 1
+      },
+      {
+        "path": "app.py",
+        "function": "<module>",
+        "receiver": "db_g_save",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "app.py",
+        "function": "<module>",
+        "receiver": "db_g_save",
+        "operation": "rollback",
+        "count": 1
+      },
+      {
+        "path": "app.py",
+        "function": "<module>",
+        "receiver": "db_m",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "app.py",
+        "function": "<module>",
+        "receiver": "db_m",
+        "operation": "rollback",
+        "count": 1
+      },
+      {
+        "path": "app.py",
+        "function": "popular_dados_iniciais",
+        "receiver": "db",
+        "operation": "commit",
+        "count": 2
+      },
+      {
+        "path": "app.py",
+        "function": "popular_dados_iniciais",
+        "receiver": "db",
+        "operation": "rollback",
+        "count": 1
+      },
+      {
+        "path": "app.py",
+        "function": "recalcular_cmv_geral",
+        "receiver": "db_session",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "app.py",
+        "function": "recalcular_cmv_geral",
+        "receiver": "db_session",
+        "operation": "rollback",
+        "count": 1
+      },
+      {
+        "path": "app.py",
+        "function": "render_cadastro_ficha_tecnica",
+        "receiver": "db_session",
+        "operation": "commit",
+        "count": 3
+      },
+      {
+        "path": "core/central_pedidos/ui_streamlit.py",
+        "function": "_executar_transicao",
+        "receiver": "session",
+        "operation": "commit",
+        "count": 2
+      },
+      {
+        "path": "core/central_pedidos/ui_streamlit.py",
+        "function": "_executar_transicao",
+        "receiver": "session",
+        "operation": "rollback",
+        "count": 1
+      },
+      {
+        "path": "core/entrega/ui_streamlit.py",
+        "function": "_executar",
+        "receiver": "session",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "core/entrega/ui_streamlit.py",
+        "function": "_executar",
+        "receiver": "session",
+        "operation": "rollback",
+        "count": 1
+      },
+      {
+        "path": "core/garcom/ui_streamlit.py",
+        "function": "_painel",
+        "receiver": "sessao",
+        "operation": "commit",
+        "count": 5
+      },
+      {
+        "path": "core/garcom/ui_streamlit.py",
+        "function": "_painel",
+        "receiver": "sessao",
+        "operation": "rollback",
+        "count": 2
+      },
+      {
+        "path": "core/kds/ui_roteamento.py",
+        "function": "render_roteamento_kds",
+        "receiver": "session",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "core/kds/ui_roteamento.py",
+        "function": "render_roteamento_kds",
+        "receiver": "session",
+        "operation": "rollback",
+        "count": 2
+      },
+      {
+        "path": "core/kds/ui_runtime.py",
+        "function": "executar",
+        "receiver": "sessao",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "core/kds/ui_runtime.py",
+        "function": "executar",
+        "receiver": "sessao",
+        "operation": "rollback",
+        "count": 1
+      },
+      {
+        "path": "core/kds/ui_runtime.py",
+        "function": "render_kds",
+        "receiver": "sessao",
+        "operation": "rollback",
+        "count": 3
+      },
+      {
+        "path": "core/salao/ui_streamlit.py",
+        "function": "concluir",
+        "receiver": "sessao",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "core/salao/ui_streamlit.py",
+        "function": "render_salao",
+        "receiver": "sessao",
+        "operation": "rollback",
+        "count": 2
+      },
+      {
+        "path": "http_api/app.py",
+        "function": "configurar_identidade_assistente",
+        "receiver": "session",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "http_api/app.py",
+        "function": "configurar_identidade_assistente",
+        "receiver": "session",
+        "operation": "rollback",
+        "count": 1
+      },
+      {
+        "path": "http_api/app.py",
+        "function": "core_confirmar",
+        "receiver": "session",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "http_api/app.py",
+        "function": "core_confirmar",
+        "receiver": "session",
+        "operation": "rollback",
+        "count": 1
+      },
+      {
+        "path": "http_api/app.py",
+        "function": "core_tools",
+        "receiver": "session",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "http_api/app.py",
+        "function": "core_tools",
+        "receiver": "session",
+        "operation": "rollback",
+        "count": 1
+      },
+      {
+        "path": "http_api/app.py",
+        "function": "perguntar_core",
+        "receiver": "session",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "http_api/app.py",
+        "function": "perguntar_core",
+        "receiver": "session",
+        "operation": "rollback",
+        "count": 1
+      },
+      {
+        "path": "http_api/app.py",
+        "function": "webhook_pagbank",
+        "receiver": "uow",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "infra/streamlit_app/integracoes_admin.py",
+        "function": "_render_one",
+        "receiver": "session",
+        "operation": "commit",
+        "count": 2
+      },
+      {
+        "path": "infra/streamlit_app/integracoes_admin.py",
+        "function": "_render_one",
+        "receiver": "session",
+        "operation": "rollback",
+        "count": 2
+      }
+    ],
+    "pdv_compatibility": [
+      {
+        "path": "core/pdv/adaptadores_sqlalchemy.py",
+        "function": "__exit__",
+        "receiver": "self",
+        "operation": "rollback",
+        "count": 1
+      },
+      {
+        "path": "core/pdv/adaptadores_sqlalchemy.py",
+        "function": "commit",
+        "receiver": "self.session",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "core/pdv/adaptadores_sqlalchemy.py",
+        "function": "registrar_falha_shadow",
+        "receiver": "session",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "core/pdv/adaptadores_sqlalchemy.py",
+        "function": "rollback",
+        "receiver": "self.session",
+        "operation": "rollback",
+        "count": 1
+      },
+      {
+        "path": "core/pdv/servicos.py",
+        "function": "finalizar_venda_pdv",
+        "receiver": "uow_autoritativo",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "core/pdv/servicos.py",
+        "function": "finalizar_venda_pdv",
+        "receiver": "uow_legado",
+        "operation": "commit",
+        "count": 2
+      },
+      {
+        "path": "core/pdv/servicos.py",
+        "function": "finalizar_venda_pdv",
+        "receiver": "uow_shadow",
+        "operation": "commit",
+        "count": 1
+      }
+    ],
+    "infra_pix_hidden": [],
+    "integration_boundary_debt": [
+      {
+        "path": "infra/integracoes/mercado_pago_webhook_app.py",
+        "function": "webhook",
+        "receiver": "session",
+        "operation": "rollback",
+        "count": 3
+      }
+    ]
+  }
+}

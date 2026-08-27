@@ -50,6 +50,7 @@ def test_vinculo_pix_sobrevive_a_nova_sessao_de_banco() -> None:
         )
         assert salva.id_externo == "charge-123"
         assert salva.provedor == "pagbank"
+        session.commit()
 
     with Session(engine) as nova_session:
         recuperada = recuperar_vinculo_cobranca_pix(
@@ -124,6 +125,7 @@ def test_pix_aberto_e_recuperado_apos_perda_total_do_session_state() -> None:
             terminal_id="caixa-01",
             assinatura_checkout="produto-7:qtd-2:cliente-3:79.90",
         )
+        session.commit()
 
     # Nova sessão não conhece checkout_id nem qualquer estado do navegador.
     with Session(engine) as nova_session:

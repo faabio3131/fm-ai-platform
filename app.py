@@ -1068,10 +1068,14 @@ def _criar_pix_control_plane(
             ),
         )
 
-        from infra.integracoes.pix_durabilidade import registrar_vinculo_cobranca_pix
+        from application.pix_durabilidade import registrar_vinculo_cobranca_pix
+
+        # A Session usada para resolver configuração/credenciais é somente leitura
+        # neste ponto. Libera-a antes da transação de persistência do vínculo.
+        db.close()
 
         registrar_vinculo_cobranca_pix(
-            session=db,
+            session_factory=SessionLocal,
             contexto=contexto,
             pagamento_id=pagamento_id,
             pedido_id=pedido_id,
@@ -1116,12 +1120,16 @@ def _consultar_pix_control_plane(
             id_externo=id_externo,
         )
         if pagamento_id:
-            from infra.integracoes.pix_durabilidade import (
+            from application.pix_durabilidade import (
                 confirmar_cobranca_pix_consultada,
             )
 
+            # A consulta externa terminou; o write financeiro passa para
+            # a fronteira Application/UoW.
+            db.close()
+
             confirmar_cobranca_pix_consultada(
-                session=db,
+                session_factory=SessionLocal,
                 contexto=contexto,
                 pagamento_id=pagamento_id,
                 cobranca=cobranca,

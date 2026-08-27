@@ -68,6 +68,7 @@ def test_consulta_mercado_pago_approved_liquida_pagamento_de_forma_duravel() -> 
         assert resultado is not None
         assert resultado.pagamento.status is PagamentoStatus.PAGO
         assert resultado.pagamento.saldo.valor == Decimal("0.00")
+        session.commit()
 
     with Session(engine) as nova_session:
         persistido = RepositorioPagamentosSQLAlchemy(nova_session).buscar_pagamento(

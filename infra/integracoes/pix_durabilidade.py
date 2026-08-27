@@ -175,7 +175,6 @@ def registrar_vinculo_cobranca_pix(
         assinatura_norm,
     )
     salva = repo.append_transacao(transacao, fingerprint)
-    session.commit()
     return salva
 
 
@@ -305,6 +304,4 @@ def confirmar_cobranca_pix_consultada(
         expected_version=pagamento.versao,
         timestamp=timestamp or _agora_utc(),
     )
-    if resultado is not None:
-        session.commit()
     return resultado
