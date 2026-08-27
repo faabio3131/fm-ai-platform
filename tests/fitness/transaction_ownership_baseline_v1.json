@@ -164,41 +164,6 @@
         "count": 2
       },
       {
-        "path": "core/kds/ui_roteamento.py",
-        "function": "render_roteamento_kds",
-        "receiver": "session",
-        "operation": "commit",
-        "count": 1
-      },
-      {
-        "path": "core/kds/ui_roteamento.py",
-        "function": "render_roteamento_kds",
-        "receiver": "session",
-        "operation": "rollback",
-        "count": 2
-      },
-      {
-        "path": "core/kds/ui_runtime.py",
-        "function": "executar",
-        "receiver": "sessao",
-        "operation": "commit",
-        "count": 1
-      },
-      {
-        "path": "core/kds/ui_runtime.py",
-        "function": "executar",
-        "receiver": "sessao",
-        "operation": "rollback",
-        "count": 1
-      },
-      {
-        "path": "core/kds/ui_runtime.py",
-        "function": "render_kds",
-        "receiver": "sessao",
-        "operation": "rollback",
-        "count": 3
-      },
-      {
         "path": "core/salao/ui_streamlit.py",
         "function": "concluir",
         "receiver": "sessao",

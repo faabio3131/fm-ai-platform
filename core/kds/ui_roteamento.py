@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from application.kds_roteamento import listar_itens_pendentes
 from application.kds_runtime import ServicoKDSCanonico
+from application.kds_transacoes import rotear_item_kds_v1
 from core.kds.erros import ErroKDS
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.contexto import ContextoExecucao
@@ -87,27 +88,26 @@ def render_roteamento_kds(
                 chave = (
                     f"ui:rotear:{item.pedido_id}:{item.pedido_item_id}:{setor.setor_id}"
                 )
-                try:
-                    resultado = canonico.rotear_item(
-                        contexto_kds,
-                        pedido_id=item.pedido_id,
-                        pedido_item_id=item.pedido_item_id,
-                        setor_id=setor.setor_id,
-                        quantidade=item.quantidade,
-                        idempotency_key=chave,
-                        prioridade=prioridade,
-                    )
-                    session.commit()
-                except Exception:
-                    session.rollback()
-                    raise
+                # A sessão desta tela é somente leitura. Libera o snapshot
+                # antes de abrir a transação autoritativa da Application.
+                session.close()
+
+                resultado = rotear_item_kds_v1(
+                    session_factory=session_factory,
+                    contexto=contexto_kds,
+                    pedido_id=item.pedido_id,
+                    pedido_item_id=item.pedido_item_id,
+                    setor_id=setor.setor_id,
+                    quantidade=item.quantidade,
+                    idempotency_key=chave,
+                    prioridade=prioridade,
+                )
                 st.success(
                     "Item enviado ao KDS; "
                     f"pedido={resultado.pedido_status.value}, setor={setor.nome}."
                 )
                 st.rerun()
         except ErroKDS as exc:
-            session.rollback()
             st.error(f"Roteamento recusado pelo Core: {exc.codigo}")
         finally:
             session.close()

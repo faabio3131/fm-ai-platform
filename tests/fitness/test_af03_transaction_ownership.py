@@ -445,3 +445,18 @@ def test_af03_j_http_core_has_no_raw_session_transaction_owner() -> None:
     ]
 
     assert raw_session == []
+
+
+def test_af03_k_kds_ui_has_no_transaction_owner() -> None:
+    kds_ui_paths = {
+        "core/kds/ui_roteamento.py",
+        "core/kds/ui_runtime.py",
+    }
+
+    offenders = [
+        record
+        for record in _scan_transaction_calls()
+        if record["path"] in kds_ui_paths
+    ]
+
+    assert offenders == []

@@ -7,15 +7,32 @@ import {
 
 async function abrirKDS(page: Page) {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+  const readyMarker = page.locator('[data-fm-ai-e2e-ready="true"]');
+
+  try {
+    await expect(readyMarker).toHaveCount(1, {
+      timeout: 30_000,
+    });
+  } catch {
+    // O primeiro cold start do Streamlit pode aceitar HTTP antes de concluir
+    // a sessão WebSocket/renderização. Uma única recarga é permitida para
+    // restabelecer a sessão; as pós-condições funcionais continuam obrigatórias.
+    await page.reload({ waitUntil: 'domcontentloaded' });
+
+    await expect(readyMarker).toHaveCount(1, {
+      timeout: 60_000,
+    });
+  }
+
   await expect(page.getByText('KDS E2E pronto', { exact: true })).toBeVisible({
-    timeout: 20_000,
+    timeout: 15_000,
   });
+
   await expect(page.getByRole('heading', { name: /KDS por Setor/ })).toBeVisible({
     timeout: 15_000,
   });
-  await expect(page.locator('[data-fm-ai-e2e-ready="true"]')).toHaveCount(1, {
-    timeout: 30_000,
-  });
+
   await expect(page.locator('[data-testid="stSkeleton"]')).toHaveCount(0, {
     timeout: 30_000,
   });
