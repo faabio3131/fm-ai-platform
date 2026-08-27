@@ -21,6 +21,7 @@ from sqlalchemy import (
     Table,
     delete,
     insert,
+    inspect,
     select,
 )
 from sqlalchemy.engine import Connection
@@ -56,6 +57,7 @@ from migrations.crm_consentimentos_historico_v1 import (
 )
 from migrations.crm_contact_ownership_v1 import upgrade_crm_contact_ownership_v1
 from migrations.crm_contact_vault_v1 import upgrade_crm_contact_vault_v1
+from migrations.history_guard import MigrationHistoryError, assert_applied_history
 from migrations.integration_secret_vault_v1 import upgrade_integration_secret_vault_v1
 from migrations.internal_notification_recipients_v1 import (
     upgrade_internal_notification_recipients_v1,
@@ -69,7 +71,10 @@ from migrations.legacy_expiration_alert_integrity_v1 import (
 from migrations.legacy_schema_reconciliation_v1 import reconcile_legacy_schema_v1
 from migrations.legacy_schema_upgrade_v1 import upgrade_legacy_schema_v1
 from migrations.legacy_store_baseline_v1 import upgrade_legacy_store_baseline_v1
-from migrations.manifest import assert_migration_manifest
+from migrations.manifest import assert_migration_manifest, migration_fingerprint
+from migrations.migration_history_integrity_v1 import (
+    upgrade_migration_history_integrity_v1,
+)
 from migrations.product_unit_scope_compat_v1 import upgrade_product_unit_scope_compat_v1
 from migrations.unit_legacy_store_mapping_v1 import upgrade_unit_legacy_store_mapping_v1
 
@@ -79,6 +84,7 @@ _schema_migrations = Table(
     _metadata,
     Column("version", String(128), primary_key=True),
     Column("applied_at", DateTime(timezone=True), nullable=False),
+    Column("migration_sha256", String(64), nullable=True),
 )
 
 
@@ -214,7 +220,54 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
         "0029_internal_notification_recipients_v1",
         upgrade_internal_notification_recipients_v1,
     ),
+    Migration(
+        "0030_migration_history_integrity_v1",
+        upgrade_migration_history_integrity_v1,
+    ),
 )
+
+
+def _official_versions() -> tuple[str, ...]:
+    return tuple(migration.version for migration in DEFAULT_MIGRATIONS)
+
+
+def _assert_requested_sequence(
+    already: set[str],
+    ordered: tuple[Migration, ...],
+) -> None:
+    official = _official_versions()
+    requested = tuple(
+        migration.version
+        for migration in ordered
+        if migration.version not in already
+    )
+    unknown = sorted(set(requested) - set(official))
+    if unknown:
+        raise MigrationHistoryError(
+            "execucao solicitou migration fora do registry oficial: "
+            + ", ".join(unknown)
+        )
+
+    expected = official[len(already) : len(already) + len(requested)]
+    if requested != expected:
+        raise MigrationHistoryError(
+            "execucao de migrations fora da ordem oficial; "
+            f"esperado={expected}; solicitado={requested}"
+        )
+
+
+def _record_applied(connection: Connection, migration: Migration) -> None:
+    values: dict[str, object] = {
+        "version": migration.version,
+        "applied_at": datetime.now(timezone.utc),
+    }
+    columns = {
+        str(column["name"])
+        for column in inspect(connection).get_columns("fm_schema_migrations")
+    }
+    if "migration_sha256" in columns:
+        values["migration_sha256"] = migration_fingerprint(migration).sha256
+    connection.execute(insert(_schema_migrations).values(**values))
 
 
 def applied_versions(connection: Connection) -> frozenset[str]:
@@ -225,6 +278,7 @@ def applied_versions(connection: Connection) -> frozenset[str]:
 def pending_versions(engine: Engine) -> tuple[str, ...]:
     with engine.begin() as connection:
         applied = applied_versions(connection)
+        assert_applied_history(connection, _official_versions())
     return tuple(
         migration.version
         for migration in DEFAULT_MIGRATIONS
@@ -257,6 +311,8 @@ def run_migrations(
     applied_now: list[str] = []
     with engine.begin() as connection:
         already = set(applied_versions(connection))
+        assert_applied_history(connection, _official_versions())
+    _assert_requested_sequence(already, ordered)
 
     for migration in ordered:
         if migration.version in already:
@@ -278,12 +334,7 @@ def run_migrations(
                         current = set(applied_versions(connection))
                         if migration.version not in current:
                             migration.apply(connection)
-                            connection.execute(
-                                insert(_schema_migrations).values(
-                                    version=migration.version,
-                                    applied_at=datetime.now(timezone.utc),
-                                )
-                            )
+                            _record_applied(connection, migration)
                             applied_sqlite_now = True
                 finally:
                     if connection.in_transaction():
@@ -301,15 +352,12 @@ def run_migrations(
             if migration.version in current:
                 continue
             migration.apply(connection)
-            connection.execute(
-                insert(_schema_migrations).values(
-                    version=migration.version,
-                    applied_at=datetime.now(timezone.utc),
-                )
-            )
+            _record_applied(connection, migration)
         already.add(migration.version)
         applied_now.append(migration.version)
 
+    with engine.begin() as connection:
+        assert_applied_history(connection, _official_versions())
     return tuple(applied_now)
 
 
@@ -330,6 +378,7 @@ def rollback_migration(engine: Engine, version: str) -> str:
 
     with engine.begin() as connection:
         applied = applied_versions(connection)
+        assert_applied_history(connection, _official_versions())
         if version not in applied:
             raise RuntimeError("migration nao aplicada")
         latest = next(
