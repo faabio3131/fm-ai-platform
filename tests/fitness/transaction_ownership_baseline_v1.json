@@ -136,20 +136,6 @@
         "count": 1
       },
       {
-        "path": "core/entrega/ui_streamlit.py",
-        "function": "_executar",
-        "receiver": "session",
-        "operation": "commit",
-        "count": 1
-      },
-      {
-        "path": "core/entrega/ui_streamlit.py",
-        "function": "_executar",
-        "receiver": "session",
-        "operation": "rollback",
-        "count": 1
-      },
-      {
         "path": "core/garcom/ui_streamlit.py",
         "function": "_painel",
         "receiver": "sessao",
