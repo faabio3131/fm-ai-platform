@@ -33,11 +33,11 @@ jobs:
           pip install -r requirements.txt
           pip install pytest ruff==0.16.1 mypy==1.20.2
       - name: Ruff PR11
-        run: ruff check core/salao migrations/salao_v1.py tests/unit/salao tests/integration/salao
+        run: ruff check application/salao_transacoes.py core/salao migrations/salao_v1.py tests/unit/salao tests/integration/salao tests/fitness/test_af03_transaction_ownership.py
       - name: mypy PR11
-        run: mypy core/salao migrations/salao_v1.py tests/unit/salao tests/integration/salao
+        run: mypy application/salao_transacoes.py core/salao migrations/salao_v1.py tests/unit/salao tests/integration/salao
       - name: Testes focados PR11
-        run: pytest -q tests/unit/salao tests/integration/salao
+        run: pytest -q tests/unit/salao tests/integration/salao tests/fitness/test_af03_transaction_ownership.py
       - name: Suite Python completa
         run: pytest -q
 

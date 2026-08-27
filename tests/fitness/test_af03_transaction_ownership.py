@@ -460,3 +460,13 @@ def test_af03_k_kds_ui_has_no_transaction_owner() -> None:
     ]
 
     assert offenders == []
+
+
+def test_af03_l_salao_ui_has_no_transaction_owner() -> None:
+    offenders = [
+        record
+        for record in _scan_transaction_calls()
+        if record["path"] == "core/salao/ui_streamlit.py"
+    ]
+
+    assert offenders == []
