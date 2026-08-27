@@ -136,20 +136,6 @@
         "count": 1
       },
       {
-        "path": "core/garcom/ui_streamlit.py",
-        "function": "_painel",
-        "receiver": "sessao",
-        "operation": "commit",
-        "count": 5
-      },
-      {
-        "path": "core/garcom/ui_streamlit.py",
-        "function": "_painel",
-        "receiver": "sessao",
-        "operation": "rollback",
-        "count": 2
-      },
-      {
         "path": "infra/streamlit_app/integracoes_admin.py",
         "function": "_render_one",
         "receiver": "session",

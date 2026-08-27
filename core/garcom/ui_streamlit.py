@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime, timezone
+from functools import partial
 from typing import Any
 from uuid import uuid4
 
@@ -11,6 +12,7 @@ import streamlit as st
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from application.garcom_transacoes import AplicacaoGarcomV1
 from core.kds import RepositorioKDSSQLAlchemy
 from core.pedidos.modelos_orm import PedidoORM
 from core.salao import ErroSalao, RepositorioSalaoSQLAlchemy, StatusComanda
@@ -59,6 +61,17 @@ def _rotulo_mesa(codigo: str | None) -> str:
     return f"Mesa {codigo}" if codigo else "Sem mesa"
 
 
+def _executar_write(
+    sessao: Session,
+    acao: Callable[[], Any],
+) -> None:
+    # A Session do painel pertence somente às leituras. Fechamos antes
+    # de abrir a UoW autoritativa para evitar concorrência/lock SQLite.
+    sessao.close()
+    acao()
+    st.rerun()
+
+
 def render_garcom(
     *,
     engine: Any,
@@ -96,6 +109,7 @@ def render_garcom(
                 RepositorioKDSSQLAlchemy(sessao),
                 agora=lambda: datetime.now(timezone.utc),
             )
+            aplicacao = AplicacaoGarcomV1(session_factory)
             painel = servico.listar_painel(contexto)
             st.caption(
                 "Atualizado em "
@@ -138,13 +152,15 @@ def render_garcom(
                             f"Abrir comanda na Mesa {mesa.codigo}",
                             key=f"garcom-abrir-{mesa.mesa_id}",
                         ):
-                            servico.abrir_comanda(
-                                contexto,
-                                mesa_id=mesa.mesa_id,
-                                expected_mesa_version=mesa.versao,
+                            _executar_write(
+                                sessao,
+                                partial(
+                                    aplicacao.abrir_comanda,
+                                    contexto,
+                                    mesa_id=mesa.mesa_id,
+                                    expected_mesa_version=mesa.versao,
+                                ),
                             )
-                            sessao.commit()
-                            st.rerun()
                         continue
 
                     for comanda in ativas:
@@ -196,14 +212,16 @@ def render_garcom(
                             ):
                                 if not apelido.strip():
                                     raise ErroGarcom("participante_sem_apelido")
-                                servico.adicionar_participante(
-                                    contexto,
-                                    comanda_id=comanda.comanda_id,
-                                    apelido=apelido,
-                                    expected_version=comanda.versao,
+                                _executar_write(
+                                    sessao,
+                                    partial(
+                                        aplicacao.adicionar_participante,
+                                        contexto,
+                                        comanda_id=comanda.comanda_id,
+                                        apelido=apelido,
+                                        expected_version=comanda.versao,
+                                    ),
                                 )
-                                sessao.commit()
-                                st.rerun()
 
                             vinculados = select(PedidoComandaORM.pedido_id).where(
                                 PedidoComandaORM.tenant_id == contexto.tenant_id,
@@ -234,39 +252,46 @@ def render_garcom(
                                     "Vincular pedido à comanda",
                                     key=f"garcom-vincular-{comanda.comanda_id}",
                                 ):
-                                    servico.vincular_pedido(
-                                        contexto,
-                                        comanda_id=comanda.comanda_id,
-                                        pedido_id=opcoes[selecionado].id,
-                                        expected_version=comanda.versao,
+                                    pedido_id = opcoes[selecionado].id
+                                    _executar_write(
+                                        sessao,
+                                        partial(
+                                            aplicacao.vincular_pedido,
+                                            contexto,
+                                            comanda_id=comanda.comanda_id,
+                                            pedido_id=pedido_id,
+                                            expected_version=comanda.versao,
+                                        ),
                                     )
-                                    sessao.commit()
-                                    st.rerun()
 
                             if st.button(
                                 "Solicitar conta",
                                 key=f"garcom-conta-{comanda.comanda_id}",
                             ):
-                                servico.solicitar_conta(
-                                    contexto,
-                                    comanda_id=comanda.comanda_id,
-                                    expected_version=comanda.versao,
+                                _executar_write(
+                                    sessao,
+                                    partial(
+                                        aplicacao.solicitar_conta,
+                                        contexto,
+                                        comanda_id=comanda.comanda_id,
+                                        expected_version=comanda.versao,
+                                    ),
                                 )
-                                sessao.commit()
-                                st.rerun()
 
                         elif comanda.status == StatusComanda.CONTA_SOLICITADA.value:
                             if st.button(
                                 "Retomar consumo",
                                 key=f"garcom-retomar-{comanda.comanda_id}",
                             ):
-                                servico.retomar_consumo(
-                                    contexto,
-                                    comanda_id=comanda.comanda_id,
-                                    expected_version=comanda.versao,
+                                _executar_write(
+                                    sessao,
+                                    partial(
+                                        aplicacao.retomar_consumo,
+                                        contexto,
+                                        comanda_id=comanda.comanda_id,
+                                        expected_version=comanda.versao,
+                                    ),
                                 )
-                                sessao.commit()
-                                st.rerun()
                             st.info(
                                 "Pagamento e fechamento exigem alçada financeira/gerencial."
                             )
@@ -289,13 +314,9 @@ def render_garcom(
 
             _ = mesas_por_id
         except (ErroGarcom, ErroSalao) as exc:
-            if sessao is not None:
-                sessao.rollback()
             codigo = getattr(exc, "codigo", type(exc).__name__)
             st.error(f"Operação recusada: {codigo}")
         except Exception as exc:  # noqa: BLE001
-            if sessao is not None:
-                sessao.rollback()
             st.error(f"Não foi possível atualizar o atendimento: {type(exc).__name__}")
         finally:
             if sessao is not None:

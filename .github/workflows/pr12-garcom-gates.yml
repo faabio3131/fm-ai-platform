@@ -22,12 +22,18 @@ jobs:
           pip install pytest ruff==0.16.1 mypy==1.20.2
       - name: Ruff PR12
         run: >-
-          ruff check core/garcom tests/unit/garcom tests/integration/garcom
+          ruff check application/garcom_transacoes.py core/garcom
+          tests/unit/garcom tests/integration/garcom
+          tests/fitness/test_af03_transaction_ownership.py
           tests/e2e-garcom/app_garcom.py tests/e2e-garcom/seed_garcom.py
       - name: mypy PR12
-        run: mypy core/garcom tests/unit/garcom tests/integration/garcom
+        run: >-
+          mypy application/garcom_transacoes.py core/garcom
+          tests/unit/garcom tests/integration/garcom
       - name: Testes focados PR12
-        run: pytest -q tests/unit/garcom tests/integration/garcom
+        run: >-
+          pytest -q tests/unit/garcom tests/integration/garcom
+          tests/fitness/test_af03_transaction_ownership.py
       - name: Suite Python completa
         run: pytest -q
 

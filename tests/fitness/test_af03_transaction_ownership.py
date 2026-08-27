@@ -480,3 +480,13 @@ def test_af03_m_entrega_ui_has_no_transaction_owner() -> None:
     ]
 
     assert offenders == []
+
+
+def test_af03_n_garcom_ui_has_no_transaction_owner() -> None:
+    offenders = [
+        record
+        for record in _scan_transaction_calls()
+        if record["path"] == "core/garcom/ui_streamlit.py"
+    ]
+
+    assert offenders == []
