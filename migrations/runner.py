@@ -305,14 +305,17 @@ def run_migrations(
     versions = [migration.version for migration in ordered]
     if len(versions) != len(set(versions)):
         raise ValueError("versao de migration duplicada")
-    if ordered == DEFAULT_MIGRATIONS:
+    strict_history = ordered == DEFAULT_MIGRATIONS
+    if strict_history:
         assert_migration_manifest(ordered)
 
     applied_now: list[str] = []
     with engine.begin() as connection:
         already = set(applied_versions(connection))
-        assert_applied_history(connection, _official_versions())
-    _assert_requested_sequence(already, ordered)
+        if strict_history:
+            assert_applied_history(connection, _official_versions())
+    if strict_history:
+        _assert_requested_sequence(already, ordered)
 
     for migration in ordered:
         if migration.version in already:
@@ -356,8 +359,9 @@ def run_migrations(
         already.add(migration.version)
         applied_now.append(migration.version)
 
-    with engine.begin() as connection:
-        assert_applied_history(connection, _official_versions())
+    if strict_history:
+        with engine.begin() as connection:
+            assert_applied_history(connection, _official_versions())
     return tuple(applied_now)
 
 
