@@ -359,7 +359,7 @@ def render_cadastro_ficha_tecnica(
         col_nome, col_cat = st.columns([2, 1])
         with col_nome:
             nome_produto = st.text_input(
-                "Nome do Prato / Lanche", placeholder="Ex: Mica Royal Truffle Bacon"
+                "Nome do Prato / Lanche", placeholder="Ex: Burger Artesanal da Casa"
             )
         with col_cat:
             categoria = st.selectbox(
@@ -1194,11 +1194,11 @@ with aba2:
                             f"💳 Cashback disponível: **R$ {cli.saldo_cashback:.2f}**"
                         )
 
-                    msg_resgate_padrao = f"Olá {cli.nome}! Sentimos muito a sua falta aqui no Mica Burguer. Preparamos um cupom exclusivo de 15% de desconto para você pedir seu hambúrguer favorito hoje!"
+                    msg_resgate_padrao = f"Olá {cli.nome}! Sentimos muito a sua falta aqui no nosso estabelecimento. Preparamos um cupom exclusivo de 15% de desconto para você pedir seu hambúrguer favorito hoje!"
 
                     if GENAI_DISPONIVEL:
                         try:
-                            prompt_resg = f"Escreva uma mensagem curta, carinhosa e muito persuasiva de WhatsApp para resgatar o cliente '{cli.nome}', que não faz pedidos em nossa hamburgueria gourmet há semanas. Ofereça um cupom especial de 15% de desconto (CUPOM: VOLTAMICA15). Sem clichês em excesso."
+                            prompt_resg = f"Escreva uma mensagem curta, carinhosa e muito persuasiva de WhatsApp para resgatar o cliente '{cli.nome}', que não faz pedidos em nossa hamburgueria gourmet há semanas. Ofereça um cupom especial de 15% de desconto (CUPOM: VOLTA15). Sem clichês em excesso."
                             resp_resg = generate_content(contents=prompt_resg)
                             if resp_resg and resp_resg.text:
                                 msg_resgate_padrao = resp_resg.text.strip()
