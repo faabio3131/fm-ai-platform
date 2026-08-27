@@ -280,7 +280,7 @@ def test_af10_h_diretorio_vazio_nao_faz_fallback_legado() -> None:
             data_referencia=date(2026, 8, 26),
         )
         assert resultados == ()
-        assert entrega.chamadas == ()
+        assert not entrega.chamadas
     source = Path("application/notificacoes_internas.py").read_text(
         encoding="utf-8"
     )
