@@ -1,4 +1,7 @@
-name: PR15 Mica Gates
+name: PR15 Atendente Gates
+
+# core/mica e os testes associados permanecem como compatibilidade controlada
+# até o cutover autorizado para core/assistente_atendimento.
 
 on:
   pull_request:
@@ -7,7 +10,7 @@ on:
 
 jobs:
   python:
-    name: Python, Ruff, mypy e contratos Mica
+    name: Python, Ruff, mypy e contratos Atendente
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -51,5 +54,5 @@ jobs:
         run: npm ci
       - name: Instalar Chromium
         run: npx playwright install --with-deps chromium
-      - name: Rodar E2E Mica
+      - name: Rodar E2E Atendente
         run: npx playwright test -c playwright.mica.config.ts --reporter=list
