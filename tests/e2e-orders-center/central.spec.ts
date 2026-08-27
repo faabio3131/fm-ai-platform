@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { clickAndWaitForStreamlitRerun } from '../e2e/fixtures/ui';
+
 async function abrirCentral(page) {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect(page.getByText('Central E2E pronta', { exact: true })).toBeVisible({
@@ -46,7 +48,7 @@ test('Central usa Pedido canonico, mostra financeiro e executa transicao real', 
   await expect(page.getByText(/Venda financeira: venda-financeira-canary/)).toBeVisible();
   await expect(page.getByText(/Reconciliação: reconciliacao-canary/)).toBeVisible();
 
-  await page.getByRole('button', { name: 'Enviar para confirmação' }).click();
+  await clickAndWaitForStreamlitRerun(page, 'Enviar para confirmação');
   await expect(page.getByText(/aguardando_confirmacao/).first()).toBeVisible({
     timeout: 15_000,
   });
