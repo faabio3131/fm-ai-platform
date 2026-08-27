@@ -1,5 +1,7 @@
 # Mica V1 — conversa, carrinho, pedido e pagamento seguros
 
+> **Compatibilidade transitória:** este documento descreve o módulo histórico `core/mica`, mantido temporariamente durante o cutover controlado. A identidade oficial da funcionalidade é **Assistente de Atendimento**, com nome público configurável por tenant/unidade. O módulo legado não deve ser apresentado como nome de produto ou identidade pública.
+
 ## Objetivo
 
 A PR15 substitui o fluxo legado da Mica por uma orquestração explícita e segura entre **Conversa → Carrinho → confirmação do cliente → Pedido → Pagamento → resposta/pós-venda ou handoff humano**.
