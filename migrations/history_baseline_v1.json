@@ -1,6 +1,9 @@
 {
-  "algorithm": "sha256:migration-callable-source-v1",
-  "migrations": [
+  "format_version": 1,
+  "approved_head": "f3bd8b3db69be541d2938fbb7b52482d279313ef",
+  "frozen_through": "0029_internal_notification_recipients_v1",
+  "manifest_algorithm": "sha256:migration-callable-source-v1",
+  "manifest_entries": [
     {
       "version": "0001_security_identity_v1",
       "sha256": "3b85e73805e3224165e0f73823d8027a7ff6e5b2ded48d6357c629b6885eb4b3"
@@ -120,10 +123,93 @@
     {
       "version": "0029_internal_notification_recipients_v1",
       "sha256": "9bc1464136a47c22195c0f60a5c327388bd3decd1c6ebced4a9d7d07c62414ca"
+    }
+  ],
+  "module_blobs": [
+    {
+      "version": "0014_legacy_schema_upgrade_v1",
+      "path": "migrations/legacy_schema_upgrade_v1.py",
+      "git_blob_sha": "31e5d89656f19c28a2423c147f7ffc45c223614c"
     },
     {
-      "version": "0030_migration_history_integrity_v1",
-      "sha256": "eacd585a95082131642a35b75d1d37625524ff66737b996b8797b48e61831ce6"
+      "version": "0015_legacy_schema_reconciliation_v1",
+      "path": "migrations/legacy_schema_reconciliation_v1.py",
+      "git_blob_sha": "2c5048019c859ed4140d486c300017bee3d6dae8"
+    },
+    {
+      "version": "0016_integration_secret_vault_v1",
+      "path": "migrations/integration_secret_vault_v1.py",
+      "git_blob_sha": "5622a6ab8229d3e6dfdfefa1690dab6c476341cb"
+    },
+    {
+      "version": "0017_admin_pin_v1",
+      "path": "migrations/admin_pin_v1.py",
+      "git_blob_sha": "9d8c003dbe5bcfff3593bd72d95e95c7bb619c31"
+    },
+    {
+      "version": "0018_admin_access_authorization_v1",
+      "path": "migrations/admin_access_authorization_v1.py",
+      "git_blob_sha": "21dd70e3f4508112db8d1451f4658530bf14ce99"
+    },
+    {
+      "version": "0019_client_payment_identity_v1",
+      "path": "migrations/client_payment_identity_v1.py",
+      "git_blob_sha": "6129d5e7e26254ccffe7f5df8890316e37e928e3"
+    },
+    {
+      "version": "0020_product_unit_scope_compat_v1",
+      "path": "migrations/product_unit_scope_compat_v1.py",
+      "git_blob_sha": "bf35bef9f90125a6aab9e64f6c3853278ae6edce"
+    },
+    {
+      "version": "0020b_legacy_store_baseline_v1",
+      "path": "migrations/legacy_store_baseline_v1.py",
+      "git_blob_sha": "456cd3e0a7cfb23565eea66c41e8118ee394304b"
+    },
+    {
+      "version": "0021_unit_legacy_store_mapping_v1",
+      "path": "migrations/unit_legacy_store_mapping_v1.py",
+      "git_blob_sha": "d56b6c7586ef88986fdf53edd36d9c84eb608800"
+    },
+    {
+      "version": "0022_crm_clientes_persistencia_v1",
+      "path": "migrations/crm_clientes_persistencia_v1.py",
+      "git_blob_sha": "e7f0c40d221860512efd8545130987311c2a066a"
+    },
+    {
+      "version": "0023_crm_contact_vault_v1",
+      "path": "migrations/crm_contact_vault_v1.py",
+      "git_blob_sha": "42097c2c2387deb90914ed5f8d55f7c374aaf21f"
+    },
+    {
+      "version": "0024_crm_cliente_legado_mapping_v1",
+      "path": "migrations/crm_cliente_legado_mapping_v1.py",
+      "git_blob_sha": "e5fede5cf4588849027aff587f4bc98bbc92e2a6"
+    },
+    {
+      "version": "0025_crm_contact_ownership_v1",
+      "path": "migrations/crm_contact_ownership_v1.py",
+      "git_blob_sha": "8a6ee98f006feb11282e6c44b58b1e0618c4acb6"
+    },
+    {
+      "version": "0026_crm_consentimentos_historico_v1",
+      "path": "migrations/crm_consentimentos_historico_v1.py",
+      "git_blob_sha": "39677e68283bcc9a4a69c2266a004ebea07b8035"
+    },
+    {
+      "version": "0027_legacy_catalog_unit_scope_v1",
+      "path": "migrations/legacy_catalog_unit_scope_v1.py",
+      "git_blob_sha": "6b8b5fec9cb0535a439d565d799a1a48e53c7026"
+    },
+    {
+      "version": "0028_legacy_expiration_alert_integrity_v1",
+      "path": "migrations/legacy_expiration_alert_integrity_v1.py",
+      "git_blob_sha": "80883ebb5c17c707f0a7c7a329863a580c1b0484"
+    },
+    {
+      "version": "0029_internal_notification_recipients_v1",
+      "path": "migrations/internal_notification_recipients_v1.py",
+      "git_blob_sha": "b9df177eaa71939ce9d919ad552c63d723b5c005"
     }
   ]
-}\n
+}
