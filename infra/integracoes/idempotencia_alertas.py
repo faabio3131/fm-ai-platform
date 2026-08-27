@@ -67,7 +67,7 @@ def chave_idempotencia_alerta_estoque_scoped(
     )
     occurrence = sha256(payload.encode("utf-8")).hexdigest()[:24]
     scope = sha256(
-        f"{tenant}\x1f{unidade}\x1f{destinatario}".encode("utf-8")
+        f"{tenant}\x1f{unidade}\x1f{destinatario}".encode()
     ).hexdigest()[:20]
     return (
         f"estoque-v2-{scope}-{data_referencia.isoformat()}-{occurrence}"
