@@ -15,12 +15,14 @@ def preparar_schema_teste(engine) -> None:
     from core.pdv.modelos_orm import PDVBase
     from core.pedidos.modelos_orm import OrdersBase
     from infra.eventos.modelos_orm import EventBusBase
+    from infra.gerente_ia.modelos_orm import EventoCoreORM
     from infra.seguranca.modelos_orm import SecurityBase
 
     OrdersBase.metadata.create_all(engine, checkfirst=True)
     PaymentsBase.metadata.create_all(engine, checkfirst=True)
     PDVBase.metadata.create_all(engine, checkfirst=True)
     EventBusBase.metadata.create_all(engine, checkfirst=True)
+    EventoCoreORM.__table__.create(engine, checkfirst=True)
     SecurityBase.metadata.create_all(engine, checkfirst=True)
 
 
