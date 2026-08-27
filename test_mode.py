@@ -154,6 +154,22 @@ def mock_generate_content(*, contents: Any, **_: Any) -> Any:
                 }
             )
         )
+    if (
+        "risco iminente de esgotamento" in text
+        and "previsao_esgotamento" in text
+        and "mensagem_alerta" in text
+    ):
+        return SimpleNamespace(
+            text=json.dumps(
+                [
+                    {
+                        "insumo": "Pão Teste",
+                        "previsao_esgotamento": "Vence em 5 dias",
+                        "mensagem_alerta": "Estoque crítico no sandbox.",
+                    }
+                ]
+            )
+        )
     return SimpleNamespace(
         text=json.dumps(
             [

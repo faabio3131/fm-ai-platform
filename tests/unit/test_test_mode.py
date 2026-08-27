@@ -21,6 +21,15 @@ def test_test_mode_uses_temp_sqlite_and_mocks(monkeypatch, tmp_path):
     assert runtime.database_url.startswith("sqlite:///")
     assert "banco_erp_local.db" not in runtime.database_url
     assert test_mode.mock_generate_content(contents="cardapio").text.startswith("[")
+    forecast = test_mode.mock_generate_content(
+        contents=(
+            "Analise o estoque com risco iminente de esgotamento e retorne "
+            "previsao_esgotamento e mensagem_alerta."
+        )
+    )
+    assert '"insumo": "P\\u00e3o Teste"' in forecast.text
+    assert '"previsao_esgotamento": "Vence em 5 dias"' in forecast.text
+    assert '"mensagem_alerta": "Estoque cr\\u00edtico no sandbox."' in forecast.text
     assert "erro 429" in str(
         _raises(lambda: test_mode.mock_generate_content(contents="FM_AI_MOCK_429"))
     )
