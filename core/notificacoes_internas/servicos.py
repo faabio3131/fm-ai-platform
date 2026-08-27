@@ -20,7 +20,7 @@ from .modelos import CanalNotificacaoInterna, DestinatarioNotificacaoInterna
 
 def _audit_id(acao: str, recurso_id: str, correlation_id: str) -> str:
     digest = hashlib.sha256(
-        f"{acao}:{recurso_id}:{correlation_id}".encode("utf-8")
+        f"{acao}:{recurso_id}:{correlation_id}".encode()
     ).hexdigest()[:24]
     return f"audit_notif_{digest}"
 

@@ -85,7 +85,7 @@ class RepositorioNotificacoesInternasSQLAlchemy:
     ) -> str:
         payload = (
             f"{tenant_id}:{unidade_id}:{canal.value}:{contato}"
-        ).encode("utf-8")
+        ).encode()
         return hmac.new(
             self._fingerprint_key,
             payload,
@@ -140,7 +140,7 @@ class RepositorioNotificacoesInternasSQLAlchemy:
         )
         agora = datetime.now(timezone.utc)
         ciphertext = self._fernet.encrypt(
-            normalizado.encode("utf-8")
+            normalizado.encode()
         ).decode("ascii")
         if row is None:
             row = DestinatarioNotificacaoInternaORM(
@@ -279,7 +279,7 @@ class RepositorioNotificacoesInternasSQLAlchemy:
         try:
             valor = self._fernet.decrypt(
                 row.contato_ciphertext.encode("ascii")
-            ).decode("utf-8")
+            ).decode()
         except (
             InvalidToken,
             UnicodeDecodeError,

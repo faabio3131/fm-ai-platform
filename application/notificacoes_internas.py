@@ -41,7 +41,7 @@ def _audit_id(
         (
             f"{contexto.tenant_id}:{contexto.unidade_id}:"
             f"{destinatario_id}:{idempotency_key}"
-        ).encode("utf-8")
+        ).encode()
     ).hexdigest()[:24]
     return f"audit_notif_envio_{digest}"
 
@@ -113,30 +113,12 @@ def despachar_alerta_estoque(
             alerta=alerta,
             data_referencia=data_referencia,
         )
-        try:
-            mensagem_id = entrega.enviar(
-                contexto=contexto,
-                referencia_contato=destinatario.referencia_contato,
-                texto=texto,
-                idempotency_key=idempotency_key,
-            )
-        except Exception:
-            _auditar(
-                auditoria=auditoria,
-                contexto=contexto,
-                destinatario_id=destinatario.destinatario_id,
-                idempotency_key=idempotency_key,
-                enviado=False,
-            )
-            resultados.append(
-                ResultadoDespachoNotificacaoInterna(
-                    destinatario_id=destinatario.destinatario_id,
-                    enviado=False,
-                    mensagem_id=None,
-                    motivo="falha_provedor",
-                )
-            )
-            continue
+        mensagem_id = entrega.enviar(
+            contexto=contexto,
+            referencia_contato=destinatario.referencia_contato,
+            texto=texto,
+            idempotency_key=idempotency_key,
+        )
 
         _auditar(
             auditoria=auditoria,
