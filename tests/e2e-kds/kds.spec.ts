@@ -30,36 +30,7 @@ async function aguardarProducao(page: Page, producaoId: string) {
 async function aguardarStatus(page: Page, status: string) {
   try {
     await expect(
-      page.getByText(new RegExp(`^Status:\\s*${status}import { expect, test, type Page } from '@playwright/test';
-
-import {
-  clickAndWaitForStreamlitRerun,
-  selectComboboxOption,
-} from '../e2e/fixtures/ui';
-
-async function abrirKDS(page: Page) {
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
-  await expect(page.getByText('KDS E2E pronto', { exact: true })).toBeVisible({
-    timeout: 20_000,
-  });
-  await expect(page.getByRole('heading', { name: /KDS por Setor/ })).toBeVisible({
-    timeout: 15_000,
-  });
-  await expect(page.locator('[data-fm-ai-e2e-ready="true"]')).toHaveCount(1, {
-    timeout: 30_000,
-  });
-  await expect(page.locator('[data-testid="stSkeleton"]')).toHaveCount(0, {
-    timeout: 30_000,
-  });
-}
-
-async function aguardarProducao(page: Page, producaoId: string) {
-  await expect(
-    page.getByRole('heading', { name: `Produção ${producaoId}`, exact: true }),
-  ).toBeVisible({ timeout: 15_000 });
-}
-
-)).last(),
+      page.getByText(new RegExp(`^Status:\\s*${status}$`)).last(),
     ).toBeVisible({ timeout: 15_000 });
   } catch (error) {
     const body = await page.locator('body').innerText();
