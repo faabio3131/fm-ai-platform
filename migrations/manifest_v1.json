@@ -116,6 +116,10 @@
     {
       "version": "0028_legacy_expiration_alert_integrity_v1",
       "sha256": "820d7ba64b04e3c12119fd6377c940c011615d66d6cb1accbf7af1e153ad2cc6"
+    },
+    {
+      "version": "0029_internal_notification_recipients_v1",
+      "sha256": "9bc1464136a47c22195c0f60a5c327388bd3decd1c6ebced4a9d7d07c62414ca"
     }
   ]
 }

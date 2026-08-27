@@ -47,6 +47,7 @@ class Permissao(StrEnum):
     INTEGRACAO_GERENCIAR = "integracao.gerenciar"
     AUDITORIA_VISUALIZAR = "auditoria.visualizar"
     CONFIGURACAO_ALTERAR = "configuracao.alterar"
+    NOTIFICACAO_INTERNA_GERENCIAR = "notificacao_interna.gerenciar"
     LOJA_LEGADA_RECONCILIAR = "loja_legada.reconciliar"
     GERENTE_IA_CONSULTAR = "gerente_ia.consultar"
     GERENTE_IA_PREPARAR_ACAO = "gerente_ia.preparar_acao"

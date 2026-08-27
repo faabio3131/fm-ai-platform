@@ -57,6 +57,9 @@ from migrations.crm_consentimentos_historico_v1 import (
 from migrations.crm_contact_ownership_v1 import upgrade_crm_contact_ownership_v1
 from migrations.crm_contact_vault_v1 import upgrade_crm_contact_vault_v1
 from migrations.integration_secret_vault_v1 import upgrade_integration_secret_vault_v1
+from migrations.internal_notification_recipients_v1 import (
+    upgrade_internal_notification_recipients_v1,
+)
 from migrations.legacy_catalog_unit_scope_v1 import (
     upgrade_legacy_catalog_unit_scope_v1,
 )
@@ -206,6 +209,10 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         "0028_legacy_expiration_alert_integrity_v1",
         upgrade_legacy_expiration_alert_integrity_v1,
+    ),
+    Migration(
+        "0029_internal_notification_recipients_v1",
+        upgrade_internal_notification_recipients_v1,
     ),
 )
 

@@ -15,6 +15,8 @@ _POSTERIOR_VERSIONS = (
     "0025_crm_contact_ownership_v1",
     "0026_crm_consentimentos_historico_v1",
     "0027_legacy_catalog_unit_scope_v1",
+    "0028_legacy_expiration_alert_integrity_v1",
+    "0029_internal_notification_recipients_v1",
 )
 _RELEVANT_TABLES = (
     "lojas",
@@ -27,6 +29,7 @@ _RELEVANT_TABLES = (
     "crm_contatos_seguros_v1",
     "crm_cliente_legado_v1",
     "crm_consentimentos_v1",
+    "notificacao_interna_destinatarios_v1",
     "fm_schema_migrations",
 )
 
@@ -245,7 +248,7 @@ def test_af04_e_dependencias_de_0021_existem_antes_da_execucao() -> None:
     )
 
 
-def test_af04_f_0022_ate_0027_executam_apos_correcao_do_bootstrap() -> None:
+def test_af04_f_0022_ate_0029_executam_apos_correcao_do_bootstrap() -> None:
     engine = _engine()
 
     run_migrations(engine)
@@ -259,4 +262,5 @@ def test_af04_f_0022_ate_0027_executam_apos_correcao_do_bootstrap() -> None:
         "crm_contatos_seguros_v1",
         "crm_cliente_legado_v1",
         "crm_consentimentos_v1",
+        "notificacao_interna_destinatarios_v1",
     } <= set(inspect(engine).get_table_names())
