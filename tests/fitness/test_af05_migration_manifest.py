@@ -4,6 +4,7 @@ from dataclasses import replace
 
 import pytest
 
+from migrations.history_guard import assert_frozen_history
 from migrations.manifest import (
     ALGORITHM,
     MANIFEST_PATH,
@@ -42,3 +43,8 @@ def test_af05_alteracao_acidental_de_migration_falha_fechado() -> None:
         match="migration historica alterada",
     ):
         assert_migration_manifest(changed)
+
+
+
+def test_af05_baseline_de_source_historico_permanece_congelado() -> None:
+    assert_frozen_history()

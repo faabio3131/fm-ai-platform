@@ -57,6 +57,7 @@ _EXPECTED_MIGRATIONS = (
     "0027_legacy_catalog_unit_scope_v1",
     "0028_legacy_expiration_alert_integrity_v1",
     "0029_internal_notification_recipients_v1",
+    "0030_migration_history_integrity_v1",
 )
 
 

@@ -2,9 +2,21 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 
+import pytest
 from sqlalchemy import Engine, create_engine, event, inspect, text
 
-from migrations.runner import DEFAULT_MIGRATIONS, applied_versions, run_migrations
+from migrations.history_guard import (
+    MigrationHistoryError,
+    assert_schema_baseline,
+)
+from migrations.manifest import load_manifest
+from migrations.runner import (
+    DEFAULT_MIGRATIONS,
+    applied_versions,
+    assert_schema_current,
+    pending_versions,
+    run_migrations,
+)
 
 _BASELINE_VERSION = "0020b_legacy_store_baseline_v1"
 _MAPPING_VERSION = "0021_unit_legacy_store_mapping_v1"
@@ -17,6 +29,7 @@ _POSTERIOR_VERSIONS = (
     "0027_legacy_catalog_unit_scope_v1",
     "0028_legacy_expiration_alert_integrity_v1",
     "0029_internal_notification_recipients_v1",
+    "0030_migration_history_integrity_v1",
 )
 _RELEVANT_TABLES = (
     "lojas",
@@ -77,12 +90,6 @@ def _legacy_upgrade_engine() -> Engine:
             )
         )
 
-    historical_sequence = tuple(
-        migration
-        for migration in DEFAULT_MIGRATIONS
-        if migration.version != _BASELINE_VERSION
-    )
-    run_migrations(engine, migrations=historical_sequence)
     return engine
 
 
@@ -164,7 +171,7 @@ def _schema_signature(engine: Engine) -> dict[str, dict[str, object]]:
     return signature
 
 
-def test_af04_a_fresh_install_aplica_sequencia_oficial_ate_0027() -> None:
+def test_af04_a_fresh_install_aplica_sequencia_oficial_ate_0030() -> None:
     engine = _engine()
 
     applied = run_migrations(engine)
@@ -173,6 +180,7 @@ def test_af04_a_fresh_install_aplica_sequencia_oficial_ate_0027() -> None:
     with engine.begin() as connection:
         assert applied_versions(connection) == frozenset(_versions())
     assert set(_RELEVANT_TABLES) <= set(inspect(engine).get_table_names())
+    assert_schema_baseline(engine)
 
 
 def test_af04_b_upgrade_legado_preserva_loja_e_chega_ao_schema_final() -> None:
@@ -180,7 +188,7 @@ def test_af04_b_upgrade_legado_preserva_loja_e_chega_ao_schema_final() -> None:
 
     applied = run_migrations(engine)
 
-    assert applied == (_BASELINE_VERSION,)
+    assert applied == _versions()
     with engine.begin() as connection:
         store = connection.execute(
             text("SELECT id, nome_fantasia FROM lojas WHERE id = 7")
@@ -248,7 +256,7 @@ def test_af04_e_dependencias_de_0021_existem_antes_da_execucao() -> None:
     )
 
 
-def test_af04_f_0022_ate_0029_executam_apos_correcao_do_bootstrap() -> None:
+def test_af04_f_0022_ate_0030_executam_apos_correcao_do_bootstrap() -> None:
     engine = _engine()
 
     run_migrations(engine)
@@ -264,3 +272,101 @@ def test_af04_f_0022_ate_0029_executam_apos_correcao_do_bootstrap() -> None:
         "crm_consentimentos_v1",
         "notificacao_interna_destinatarios_v1",
     } <= set(inspect(engine).get_table_names())
+
+
+def test_af04_g_versao_aplicada_desconhecida_falha_fechado() -> None:
+    engine = _engine()
+    run_migrations(engine)
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO fm_schema_migrations "
+                "(version, applied_at, migration_sha256) "
+                "VALUES ('9999_desconhecida', CURRENT_TIMESTAMP, :checksum)"
+            ),
+            {"checksum": "0" * 64},
+        )
+
+    with pytest.raises(MigrationHistoryError, match="desconhecida"):
+        pending_versions(engine)
+
+
+def test_af04_h_gap_no_historico_aplicado_falha_fechado() -> None:
+    engine = _engine()
+    run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:2])
+    fourth = load_manifest()[3]
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO fm_schema_migrations "
+                "(version, applied_at, migration_sha256) "
+                "VALUES (:version, CURRENT_TIMESTAMP, :checksum)"
+            ),
+            {"version": fourth.version, "checksum": fourth.sha256},
+        )
+
+    with pytest.raises(MigrationHistoryError, match="prefixo oficial"):
+        assert_schema_current(engine)
+
+
+def test_af04_i_checksum_aplicado_divergente_falha_fechado() -> None:
+    engine = _engine()
+    run_migrations(engine)
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE fm_schema_migrations "
+                "SET migration_sha256 = :checksum "
+                "WHERE version = '0001_security_identity_v1'"
+            ),
+            {"checksum": "f" * 64},
+        )
+
+    with pytest.raises(MigrationHistoryError, match="checksum historico divergente"):
+        assert_schema_current(engine)
+
+
+def test_af04_j_0030_endurece_ledger_legado_sem_coluna_checksum() -> None:
+    engine = _engine()
+    manifest = load_manifest()
+
+    with engine.begin() as connection:
+        connection.execute(text("DROP TABLE IF EXISTS fm_schema_migrations"))
+        connection.execute(
+            text(
+                "CREATE TABLE fm_schema_migrations ("
+                "version VARCHAR(128) PRIMARY KEY, "
+                "applied_at DATETIME NOT NULL)"
+            )
+        )
+        for item in manifest[:3]:
+            connection.execute(
+                text(
+                    "INSERT INTO fm_schema_migrations (version, applied_at) "
+                    "VALUES (:version, CURRENT_TIMESTAMP)"
+                ),
+                {"version": item.version},
+            )
+
+    from migrations.migration_history_integrity_v1 import (
+        upgrade_migration_history_integrity_v1,
+    )
+
+    with engine.begin() as connection:
+        upgrade_migration_history_integrity_v1(connection)
+        rows = connection.execute(
+            text(
+                "SELECT version, migration_sha256 "
+                "FROM fm_schema_migrations ORDER BY version"
+            )
+        ).all()
+
+    assert [row.version for row in rows] == [
+        item.version for item in manifest[:3]
+    ]
+    assert [row.migration_sha256 for row in rows] == [
+        item.sha256 for item in manifest[:3]
+    ]
