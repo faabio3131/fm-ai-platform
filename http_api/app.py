@@ -17,6 +17,12 @@ from sqlalchemy.orm import Session
 
 from application.finalizacao_pagamento import FinalizacaoPagamentoInvalida
 from application.gerente_ia_runtime import PlanejadorLLM, compor_runtime_gerente_ia
+from application.gerente_ia_transacoes import (
+    configurar_identidade_assistente_v1,
+    confirmar_acao_gerente_ia_v1,
+    executar_tool_gerente_ia_v1,
+    perguntar_gerente_ia_v1,
+)
 from application.pagbank import (
     PagBankAplicacaoInvalida,
     processar_webhook_pagbank_em_transacao,
@@ -216,48 +222,50 @@ def build_http_app(
 
     @app.post("/v1/core/tools")
     async def core_tools(request: Request) -> JSONResponse:
-        with session_factory() as session:
-            try:
-                contexto = _contexto_autenticado(request, session)
-                payload = await _payload_json(request)
-                argumentos = payload.get("argumentos", {})
-                if not isinstance(argumentos, dict):
-                    raise TypeError("argumentos_invalidos")
-                chamada = ChamadaTool.de_dict(
-                    str(payload.get("tool", "")),
-                    argumentos,
-                    request_id=str(payload["request_id"]) if payload.get("request_id") else None,
-                )
-                runtime = compor_runtime_gerente_ia(
-                    session=session,
-                    secret_store=secret_store,
-                    planejador_llm=planejador_llm_factory(session) if planejador_llm_factory else None,
-                )
-                resultado = runtime.executar_tool(contexto=contexto, chamada=chamada)
-                session.commit()
-                return JSONResponse(content=_json_seguro(resultado))
-            except Exception as exc:  # noqa: BLE001 - fronteira HTTP fail-closed
-                session.rollback()
-                return _erro_core(exc)
+        try:
+            email, password = _credenciais_basic(request)
+            payload = await _payload_json(request)
+            argumentos = payload.get("argumentos", {})
+            if not isinstance(argumentos, dict):
+                raise TypeError("argumentos_invalidos")
+            chamada = ChamadaTool.de_dict(
+                str(payload.get("tool", "")),
+                argumentos,
+                request_id=str(payload["request_id"]) if payload.get("request_id") else None,
+            )
+            resultado = executar_tool_gerente_ia_v1(
+                session_factory=session_factory,
+                secret_store=secret_store,
+                email=email,
+                password=password,
+                origem="core_http_v1",
+                correlation_id=request.headers.get("x-correlation-id") or None,
+                chamada=chamada,
+                planejador_llm_factory=planejador_llm_factory,
+            )
+            return JSONResponse(content=_json_seguro(resultado))
+        except Exception as exc:  # noqa: BLE001 - fronteira HTTP fail-closed
+            return _erro_core(exc)
 
     @app.post("/v1/core/actions/{preview_id}/confirm")
     async def core_confirmar(preview_id: str, request: Request) -> JSONResponse:
-        with session_factory() as session:
-            try:
-                contexto = _contexto_autenticado(request, session)
-                payload = await _payload_json(request)
-                runtime = compor_runtime_gerente_ia(session=session, secret_store=secret_store)
-                resultado = runtime.confirmar_acao(
-                    contexto=contexto,
-                    preview_id=preview_id,
-                    fingerprint=str(payload.get("fingerprint", "")),
-                    idempotency_key=str(payload.get("idempotency_key", "")),
-                )
-                session.commit()
-                return JSONResponse(content=_json_seguro(resultado))
-            except Exception as exc:  # noqa: BLE001
-                session.rollback()
-                return _erro_core(exc)
+        try:
+            email, password = _credenciais_basic(request)
+            payload = await _payload_json(request)
+            resultado = confirmar_acao_gerente_ia_v1(
+                session_factory=session_factory,
+                secret_store=secret_store,
+                email=email,
+                password=password,
+                origem="core_http_v1",
+                correlation_id=request.headers.get("x-correlation-id") or None,
+                preview_id=preview_id,
+                fingerprint=str(payload.get("fingerprint", "")),
+                idempotency_key=str(payload.get("idempotency_key", "")),
+            )
+            return JSONResponse(content=_json_seguro(resultado))
+        except Exception as exc:  # noqa: BLE001
+            return _erro_core(exc)
 
     @app.get("/v1/core/assistente-atendimento/identidade")
     def obter_identidade_assistente(request: Request) -> JSONResponse:
@@ -272,50 +280,54 @@ def build_http_app(
 
     @app.put("/v1/core/assistente-atendimento/identidade")
     async def configurar_identidade_assistente(request: Request) -> JSONResponse:
-        with session_factory() as session:
-            try:
-                contexto = _contexto_autenticado(request, session)
-                payload = await _payload_json(request)
-                atributos = payload.get("atributos", {})
-                if not isinstance(atributos, dict):
-                    raise TypeError("atributos_assistente_invalidos")
-                runtime = compor_runtime_gerente_ia(session=session, secret_store=secret_store)
-                identidade = runtime.identidade_assistente.configurar(
-                    contexto=contexto,
-                    nome_publico=str(payload.get("nome_publico", "")),
-                    atributos=atributos,
-                    versao_esperada=(int(payload["versao_esperada"]) if payload.get("versao_esperada") is not None else None),
-                )
-                session.commit()
-                return JSONResponse(content=_json_seguro(identidade))
-            except Exception as exc:  # noqa: BLE001
-                session.rollback()
-                return _erro_core(exc)
+        try:
+            email, password = _credenciais_basic(request)
+            payload = await _payload_json(request)
+            atributos = payload.get("atributos", {})
+            if not isinstance(atributos, dict):
+                raise TypeError("atributos_assistente_invalidos")
+            identidade = configurar_identidade_assistente_v1(
+                session_factory=session_factory,
+                secret_store=secret_store,
+                email=email,
+                password=password,
+                origem="core_http_v1",
+                correlation_id=request.headers.get("x-correlation-id") or None,
+                nome_publico=str(payload.get("nome_publico", "")),
+                atributos=atributos,
+                versao_esperada=(
+                    int(payload["versao_esperada"])
+                    if payload.get("versao_esperada") is not None
+                    else None
+                ),
+            )
+            return JSONResponse(content=_json_seguro(identidade))
+        except Exception as exc:  # noqa: BLE001
+            return _erro_core(exc)
 
     @app.post("/v1/core/perguntar")
     async def perguntar_core(request: Request) -> JSONResponse:
-        with session_factory() as session:
-            try:
-                contexto = _contexto_autenticado(request, session)
-                payload = await _payload_json(request)
-                runtime = compor_runtime_gerente_ia(
-                    session=session,
-                    secret_store=secret_store,
-                    planejador_llm=planejador_llm_factory(session) if planejador_llm_factory else None,
-                )
-                identidade, chamada, resultado = runtime.perguntar(
-                    contexto=contexto, pergunta=str(payload.get("pergunta", ""))
-                )
-                session.commit()
-                return JSONResponse(
-                    content={
-                        "assistente": identidade.nome_publico,
-                        "tool": chamada.tool.value,
-                        "resultado": _json_seguro(resultado),
-                    }
-                )
-            except Exception as exc:  # noqa: BLE001
-                session.rollback()
-                return _erro_core(exc)
+        try:
+            email, password = _credenciais_basic(request)
+            payload = await _payload_json(request)
+            identidade, chamada, resultado = perguntar_gerente_ia_v1(
+                session_factory=session_factory,
+                secret_store=secret_store,
+                email=email,
+                password=password,
+                origem="core_http_v1",
+                correlation_id=request.headers.get("x-correlation-id") or None,
+                pergunta=str(payload.get("pergunta", "")),
+                planejador_llm_factory=planejador_llm_factory,
+            )
+            return JSONResponse(
+                content={
+                    "assistente": identidade.nome_publico,
+                    "tool": chamada.tool.value,
+                    "resultado": _json_seguro(resultado),
+                }
+            )
+        except Exception as exc:  # noqa: BLE001
+            return _erro_core(exc)
 
     return app

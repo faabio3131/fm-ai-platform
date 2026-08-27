@@ -429,3 +429,19 @@ def test_af03_detects_artificial_new_transaction_owner() -> None:
     assert not _is_canonical_owner(artificial)
     assert not _is_operational_exemption(artificial)
     assert not _matches_any_transitional_budget(artificial)
+
+def test_af03_j_http_core_has_no_raw_session_transaction_owner() -> None:
+    current = [
+        record
+        for record in _scan_transaction_calls()
+        if record["path"] == "http_api/app.py"
+    ]
+
+    raw_session = [
+        record
+        for record in current
+        if "session"
+        in str(record["receiver"]).casefold()
+    ]
+
+    assert raw_session == []

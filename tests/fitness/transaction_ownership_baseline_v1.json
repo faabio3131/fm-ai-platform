@@ -213,60 +213,18 @@
         "count": 2
       },
       {
-        "path": "http_api/app.py",
-        "function": "configurar_identidade_assistente",
+        "path": "infra/streamlit_app/integracoes_admin.py",
+        "function": "_render_one",
         "receiver": "session",
         "operation": "commit",
-        "count": 1
+        "count": 2
       },
       {
-        "path": "http_api/app.py",
-        "function": "configurar_identidade_assistente",
+        "path": "infra/streamlit_app/integracoes_admin.py",
+        "function": "_render_one",
         "receiver": "session",
         "operation": "rollback",
-        "count": 1
-      },
-      {
-        "path": "http_api/app.py",
-        "function": "core_confirmar",
-        "receiver": "session",
-        "operation": "commit",
-        "count": 1
-      },
-      {
-        "path": "http_api/app.py",
-        "function": "core_confirmar",
-        "receiver": "session",
-        "operation": "rollback",
-        "count": 1
-      },
-      {
-        "path": "http_api/app.py",
-        "function": "core_tools",
-        "receiver": "session",
-        "operation": "commit",
-        "count": 1
-      },
-      {
-        "path": "http_api/app.py",
-        "function": "core_tools",
-        "receiver": "session",
-        "operation": "rollback",
-        "count": 1
-      },
-      {
-        "path": "http_api/app.py",
-        "function": "perguntar_core",
-        "receiver": "session",
-        "operation": "commit",
-        "count": 1
-      },
-      {
-        "path": "http_api/app.py",
-        "function": "perguntar_core",
-        "receiver": "session",
-        "operation": "rollback",
-        "count": 1
+        "count": 2
       },
       {
         "path": "http_api/app.py",
@@ -274,20 +232,6 @@
         "receiver": "uow",
         "operation": "commit",
         "count": 1
-      },
-      {
-        "path": "infra/streamlit_app/integracoes_admin.py",
-        "function": "_render_one",
-        "receiver": "session",
-        "operation": "commit",
-        "count": 2
-      },
-      {
-        "path": "infra/streamlit_app/integracoes_admin.py",
-        "function": "_render_one",
-        "receiver": "session",
-        "operation": "rollback",
-        "count": 2
       }
     ],
     "pdv_compatibility": [
