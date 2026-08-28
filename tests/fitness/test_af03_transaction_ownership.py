@@ -490,3 +490,14 @@ def test_af03_n_garcom_ui_has_no_transaction_owner() -> None:
     ]
 
     assert offenders == []
+
+
+def test_af03_o_integracoes_admin_ui_has_no_transaction_owner() -> None:
+    offenders = [
+        record
+        for record in _scan_transaction_calls()
+        if record["path"]
+        == "infra/streamlit_app/integracoes_admin.py"
+    ]
+
+    assert offenders == []

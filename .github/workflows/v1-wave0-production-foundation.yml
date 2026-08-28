@@ -10,6 +10,9 @@ on:
       - 'core/seguranca/**'
       - 'core/*/flags.py'
       - 'infra/**'
+      - 'application/integracoes_admin_transacoes.py'
+      - 'tests/fitness/test_af03_transaction_ownership.py'
+      - 'tests/fitness/transaction_ownership_baseline_v1.json'
       - 'migrations/**'
       - 'scripts/**'
       - 'tests/unit/runtime/**'
@@ -44,13 +47,17 @@ jobs:
         run: python scripts/check_migration_history_v1.py --base-ref "$BASE_REF"
       - name: Compilar fundação
         run: >-
-          python -m compileall -q core/integracoes core/runtime core/seguranca infra
-          migrations scripts
+          python -m compileall -q application/integracoes_admin_transacoes.py
+          core/integracoes core/runtime core/seguranca infra migrations scripts
+          tests/fitness/test_af03_transaction_ownership.py
+          tests/integration/integracoes/test_integracoes_admin_transaction_ownership.py
       - name: Ruff Wave0
         run: >-
-          ruff check core/integracoes core/runtime core/seguranca infra
+          ruff check application/integracoes_admin_transacoes.py
+          core/integracoes core/runtime core/seguranca infra
           migrations/runner.py migrations/history_guard.py
           migrations/migration_history_integrity_v1.py scripts
+          tests/fitness/test_af03_transaction_ownership.py
           tests/fitness/test_af04_schema_convergence.py
           tests/fitness/test_af05_migration_manifest.py
           tests/integration/integracoes
@@ -60,13 +67,15 @@ jobs:
           tests/unit/security/test_authentication_v1.py
       - name: Mypy Wave0
         run: >-
-          mypy core/integracoes core/runtime core/seguranca infra/integracoes
+          mypy application/integracoes_admin_transacoes.py
+          core/integracoes core/runtime core/seguranca infra/integracoes
           infra/seguranca infra/streamlit_app migrations/runner.py
           migrations/history_guard.py migrations/migration_history_integrity_v1.py
       - name: Testes focados Wave0
         run: >-
           pytest -q tests/integration/integracoes tests/unit/integracoes
           tests/unit/runtime tests/unit/security
+          tests/fitness/test_af03_transaction_ownership.py
       - name: Suite Python completa
         run: pytest -q
 

@@ -136,20 +136,6 @@
         "count": 1
       },
       {
-        "path": "infra/streamlit_app/integracoes_admin.py",
-        "function": "_render_one",
-        "receiver": "session",
-        "operation": "commit",
-        "count": 2
-      },
-      {
-        "path": "infra/streamlit_app/integracoes_admin.py",
-        "function": "_render_one",
-        "receiver": "session",
-        "operation": "rollback",
-        "count": 2
-      },
-      {
         "path": "http_api/app.py",
         "function": "webhook_pagbank",
         "receiver": "uow",

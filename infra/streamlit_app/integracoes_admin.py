@@ -9,6 +9,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 from sqlalchemy.orm import Session
 
+from application.integracoes_admin_transacoes import AplicacaoIntegracoesAdminV1
 from core.integracoes.catalogo import CATALOGO_V1, EspecificacaoServico
 from core.integracoes.modelos import AmbienteIntegracao, ErroConfiguracaoServico
 from core.integracoes.servicos import ServicoConfiguracoesExternas
@@ -151,6 +152,7 @@ def _render_one(
     service: ServicoConfiguracoesExternas,
     credentials: ServicoCredenciaisReferenciadas,
     vault: EncryptedSQLAlchemySecretStore,
+    application: AplicacaoIntegracoesAdminV1,
 ) -> None:
     contexto = identidade.contexto(origem="streamlit.integracoes_admin")
     config_id = _config_id(spec)
@@ -609,41 +611,27 @@ def _render_one(
                 )
                 st.rerun()
             try:
-                finalidades = dict(current_purposes)
-                credencial_rotacionada = False
-                for role, value in new_secrets.items():
-                    if not value.strip():
-                        continue
-                    credencial_rotacionada = True
-                    purpose = _purpose(spec, role)
-                    reference = vault.armazenar(
-                        contexto=contexto,
-                        provedor=spec.provedor,
-                        finalidade=purpose,
-                        valor=value,
-                    )
-                    credentials.rotacionar(
-                        contexto=contexto,
-                        provedor=spec.provedor,
-                        finalidade=purpose,
-                        nova_referencia=reference,
-                    )
-                    finalidades[role] = purpose
+                # A Session deste painel é exclusivamente de leitura/healthcheck.
+                # Libera a conexão antes da UoW autoritativa do write.
+                session.close()
 
-                service.configurar(
-                    contexto=contexto,
+                (
+                    _configuracao_salva,
+                    credencial_rotacionada,
+                ) = application.salvar_configuracao(
+                    contexto,
                     configuracao_id=config_id,
                     servico=spec.servico,
                     provedor=spec.provedor,
                     conta_externa=conta_externa or "principal",
                     ambiente=ambiente,
                     parametros_publicos=public_values,
-                    finalidades_credenciais=finalidades,
+                    finalidades_atuais=current_purposes,
+                    novos_segredos=new_secrets,
                     habilitada=habilitada,
                     versao_esperada=existing.versao if existing else 0,
-                    forcar_rehomologacao=credencial_rotacionada,
                 )
-                session.commit()
+
                 mensagem = (
                     "Configuração salva com segurança. Como uma credencial foi alterada, "
                     "a homologação anterior foi invalidada e deve ser refeita com nova evidência."
@@ -652,8 +640,7 @@ def _render_one(
                 )
                 _set_flash(spec, "success", mensagem)
                 st.rerun()
-            except Exception:  # noqa: BLE001 - fronteira transacional faz rollback
-                session.rollback()
+            except Exception:  # noqa: BLE001 - UoW faz rollback; UI sanitiza
                 _set_flash(
                     spec,
                     "error",
@@ -725,24 +712,23 @@ def _render_one(
                 )
                 st.rerun()
             try:
-                configuracao_atual = service.obter(
-                    contexto=contexto, configuracao_id=config_id
-                )
-                service.registrar_homologacao(
-                    contexto=contexto,
+                # A versão é relida dentro da mesma UoW que registra
+                # homologação + auditoria.
+                session.close()
+
+                application.homologar(
+                    contexto,
                     configuracao_id=config_id,
                     evidencia_ref=evidence_ref.strip(),
-                    versao_esperada=configuracao_atual.versao,
                 )
-                session.commit()
+
                 _set_flash(
                     spec,
                     "success",
                     "Homologação registrada com evidência e auditoria. O PIN foi consumido e limpo.",
                 )
                 st.rerun()
-            except Exception:  # noqa: BLE001 - fronteira transacional faz rollback
-                session.rollback()
+            except Exception:  # noqa: BLE001 - UoW faz rollback; UI sanitiza
                 _set_flash(
                     spec,
                     "error",
@@ -788,6 +774,7 @@ def render_integracoes_admin(
             auditoria=audit,
         )
         credentials = ServicoCredenciaisReferenciadas(session, vault)
+        application = AplicacaoIntegracoesAdminV1(session_factory)
 
         for spec in CATALOGO_V1.listar():
             _render_one(
@@ -798,6 +785,7 @@ def render_integracoes_admin(
                 service=service,
                 credentials=credentials,
                 vault=vault,
+                application=application,
             )
     finally:
         session.close()
