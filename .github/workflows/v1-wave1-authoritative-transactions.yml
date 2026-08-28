@@ -95,7 +95,6 @@ jobs:
           mypy application http_api core/runtime core/seguranca core/pedidos
           core/pagamentos core/estoque core/eventos core/pdv core/central_pedidos
           core/kds infra migrations/runner.py
-          application/pix_durabilidade.py infra/integracoes/pix_durabilidade.py
       - name: Testes focados Onda 1
         run: >-
           pytest -q tests/integration/wave1 tests/integration/pdv tests/unit/events
