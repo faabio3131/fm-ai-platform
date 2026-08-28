@@ -529,3 +529,23 @@ def test_af03_q_legacy_cmv_has_no_transaction_owner() -> None:
     ]
 
     assert offenders == []
+
+
+def test_af03_r_legacy_estoque_ui_has_no_transaction_owner() -> None:
+    receivers = {
+        "db_estoque",
+        "db_cad",
+        "db_m",
+    }
+
+    offenders = [
+        record
+        for record in _scan_transaction_calls()
+        if (
+            record["path"] == "app.py"
+            and record["receiver"]
+            in receivers
+        )
+    ]
+
+    assert offenders == []

@@ -12,13 +12,6 @@
       {
         "path": "app.py",
         "function": "<module>",
-        "receiver": "db_cad",
-        "operation": "commit",
-        "count": 1
-      },
-      {
-        "path": "app.py",
-        "function": "<module>",
         "receiver": "db_cb",
         "operation": "commit",
         "count": 1
@@ -42,13 +35,6 @@
         "function": "<module>",
         "receiver": "db_cli_e2e",
         "operation": "rollback",
-        "count": 1
-      },
-      {
-        "path": "app.py",
-        "function": "<module>",
-        "receiver": "db_estoque",
-        "operation": "commit",
         "count": 1
       },
       {
@@ -69,20 +55,6 @@
         "path": "app.py",
         "function": "<module>",
         "receiver": "db_g_save",
-        "operation": "rollback",
-        "count": 1
-      },
-      {
-        "path": "app.py",
-        "function": "<module>",
-        "receiver": "db_m",
-        "operation": "commit",
-        "count": 1
-      },
-      {
-        "path": "app.py",
-        "function": "<module>",
-        "receiver": "db_m",
         "operation": "rollback",
         "count": 1
       },

@@ -98,6 +98,7 @@ from sqlalchemy.exc import SQLAlchemyError
 import io
 
 from application.legacy_cardapio_transacoes import AplicacaoLegacyCardapioV1
+from application.legacy_estoque_transacoes import AplicacaoLegacyEstoqueV1
 
 from core.pdv.adaptadores_sqlalchemy import (
     LegacyPDVSQLAlchemyAdapter,
@@ -2327,21 +2328,30 @@ with aba4:
         ]
     )
 
+    application_estoque = AplicacaoLegacyEstoqueV1(
+        SessionLocal
+    )
+    contexto_estoque = CURRENT_IDENTITY.contexto(
+        origem="app.legacy_estoque"
+    )
+
     db_estoque = get_db()
 
     with sub_aba1:
         st.subheader("📋 Status do Almoxarifado em Tempo Real")
 
         from infra.legacy_product_scope import (
-            excluir_insumo_legado,
             listar_insumos_legados,
         )
 
-        insumos_cadastrados = listar_insumos_legados(
-            db_estoque,
-            tenant_id=CURRENT_IDENTITY.tenant_id,
-            unidade_id=CURRENT_IDENTITY.unidade_id,
-        )
+        try:
+            insumos_cadastrados = listar_insumos_legados(
+                db_estoque,
+                tenant_id=CURRENT_IDENTITY.tenant_id,
+                unidade_id=CURRENT_IDENTITY.unidade_id,
+            )
+        finally:
+            db_estoque.close()
 
         if insumos_cadastrados:
             dados_estoque = []
@@ -2404,13 +2414,10 @@ with aba4:
                 )
 
                 if item_obj:
-                    excluir_insumo_legado(
-                        db_estoque,
-                        tenant_id=CURRENT_IDENTITY.tenant_id,
-                        unidade_id=CURRENT_IDENTITY.unidade_id,
-                        insumo_id=item_obj.id,
+                    application_estoque.excluir_insumo(
+                        contexto_estoque,
+                        insumo_id=int(item_obj.id),
                     )
-                    db_estoque.commit()
                     st.success(
                         f"Insumo '{insumo_para_deletar}' excluído com sucesso!"
                     )
@@ -2466,70 +2473,58 @@ with aba4:
                         )
                         itens_lidos = json.loads(texto_ocr)
 
-                        db_cad = get_db()
+                        itens_para_aplicar = []
+
                         for item in itens_lidos:
-                            nome_l = str(item.get("nome", "")).strip()
-                            qtd_l = float(item.get("quantidade", 0.0))
-                            val_str = item.get("data_validade")
+                            nome_l = str(
+                                item.get(
+                                    "nome",
+                                    "",
+                                )
+                            ).strip()
+                            qtd_l = float(
+                                item.get(
+                                    "quantidade",
+                                    0.0,
+                                )
+                            )
+                            val_str = item.get(
+                                "data_validade"
+                            )
 
                             val_obj = None
+
                             if val_str:
                                 try:
-                                    val_obj = datetime.strptime(val_str, "%Y-%m-%d")
+                                    val_obj = datetime.strptime(
+                                        val_str,
+                                        "%Y-%m-%d",
+                                    )
                                 except ValueError:
                                     pass
 
                             if nome_l and qtd_l > 0:
-                                from infra.legacy_product_scope import (
-                                    atualizar_insumo_legado,
-                                    inserir_insumo_legado,
-                                    obter_insumo_por_nome_legado,
-                                )
-
-                                ins_db = obter_insumo_por_nome_legado(
-                                    db_cad,
-                                    tenant_id=CURRENT_IDENTITY.tenant_id,
-                                    unidade_id=CURRENT_IDENTITY.unidade_id,
-                                    nome=nome_l,
-                                )
-
-                                if ins_db:
-                                    novos_valores = {
-                                        "saldo_atual": (
-                                            float(ins_db.saldo_atual or 0)
-                                            + qtd_l
-                                        ),
-                                    }
-
-                                    if val_obj:
-                                        novos_valores["data_validade"] = val_obj
-
-                                    atualizar_insumo_legado(
-                                        db_cad,
-                                        tenant_id=CURRENT_IDENTITY.tenant_id,
-                                        unidade_id=CURRENT_IDENTITY.unidade_id,
-                                        insumo_id=ins_db.id,
-                                        valores=novos_valores,
-                                    )
-                                else:
-                                    inserir_insumo_legado(
-                                        db_cad,
-                                        tenant_id=CURRENT_IDENTITY.tenant_id,
-                                        unidade_id=CURRENT_IDENTITY.unidade_id,
-                                        valores={
-                                            "nome": nome_l,
-                                            "unidade_medida": item.get(
+                                itens_para_aplicar.append(
+                                    {
+                                        "nome":
+                                            nome_l,
+                                        "quantidade":
+                                            qtd_l,
+                                        "unidade":
+                                            item.get(
                                                 "unidade",
                                                 "un",
                                             ),
-                                            "saldo_atual": qtd_l,
-                                            "estoque_minimo": qtd_l * 0.15,
-                                            "data_validade": val_obj,
-                                            "dias_alerta_vencimento": 15,
-                                        },
-                                    )
+                                        "data_validade":
+                                            val_obj,
+                                    }
+                                )
 
-                        db_cad.commit()
+                        if itens_para_aplicar:
+                            application_estoque.aplicar_lote_leitura(
+                                contexto_estoque,
+                                itens=itens_para_aplicar,
+                            )
                         st.success(
                             "🎉 Leitura concluída! Validades salvas no banco de dados."
                         )
@@ -2576,16 +2571,9 @@ with aba4:
                 "💾 Salvar Insumo no Almoxarifado", type="primary"
             ):
                 if novo_nome.strip() != "":
-                    db_m = get_db()
                     try:
-                        from infra.legacy_product_scope import (
-                            inserir_insumo_legado,
-                        )
-
-                        inserir_insumo_legado(
-                            db_m,
-                            tenant_id=CURRENT_IDENTITY.tenant_id,
-                            unidade_id=CURRENT_IDENTITY.unidade_id,
+                        application_estoque.salvar_insumo(
+                            contexto_estoque,
                             valores={
                                 "nome": novo_nome.strip(),
                                 "unidade_medida": unidade_medida,
@@ -2597,18 +2585,14 @@ with aba4:
                                 "dias_alerta_vencimento": dias_alerta,
                             },
                         )
-                        db_m.commit()
                         st.success(
                             f"✅ Insumo '{novo_nome}' salvo no Almoxarifado com controle de validade!"
                         )
                         st.rerun()
                     except Exception:
-                        db_m.rollback()
                         st.error(
                             f"❌ Erro ao salvar: Já existe um insumo cadastrado com o nome '{novo_nome}' ou ocorreu um conflito."
                         )
-                    finally:
-                        db_m.close()
                 else:
                     st.warning("⚠️ O nome do insumo não pode estar vazio.")
 
