@@ -6,10 +6,12 @@ SDK, credenciais e adapters concretos permanecem na borda de infraestrutura.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy.orm import Session
+from sqlalchemy import Engine
+from sqlalchemy.orm import Session, sessionmaker
 
 from core.ai_router import (
     AIModelRouter,
@@ -31,6 +33,7 @@ from core.integracoes.provedores import (
 from core.seguranca.auditoria import EventoAuditoria, sanitizar_metadata
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.segredos import ReferenceSecretStore, SecretStore
+from infra.ai_metering import AIUsageDurableMetering
 from infra.integracoes.fabrica_adapters import FabricaAdaptersExternos
 from infra.integracoes.repositorio_sqlalchemy import (
     RepositorioConfiguracoesExternasSQLAlchemy,
@@ -311,6 +314,23 @@ def _rotas_homologadas(
     return tuple(rotas)
 
 
+
+def _metering_session_factory(session: Session) -> Callable[[], Session]:
+    """Cria UoW exclusiva do metering; nunca reutiliza a transação de negócio."""
+
+    bind = session.get_bind()
+    if not isinstance(bind, Engine):
+        raise RuntimeError("ai_metering.engine_independente_obrigatorio")
+
+    factory = sessionmaker(
+        bind=bind,
+        autocommit=False,
+        autoflush=False,
+        expire_on_commit=False,
+    )
+    return factory
+
+
 def construir_ai_model_router(
     *,
     session: Session,
@@ -334,9 +354,8 @@ def construir_ai_model_router(
         ),
         metering=(
             metering
-            or AIUsageAuditMetering(
-                session=session,
-                contexto=contexto,
+            or AIUsageDurableMetering(
+                _metering_session_factory(session)
             )
         ),
     )
