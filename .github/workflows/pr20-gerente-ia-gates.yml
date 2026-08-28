@@ -25,16 +25,20 @@ jobs:
           pip install pytest ruff==0.16.1 mypy==1.20.2
       - name: Ruff PR20
         run: >-
-          ruff check core/gerente_ai.py core/gerente_ia core/assistente_atendimento
-          application/gerente_ia_runtime.py infra/gerente_ia http_api/app.py
-          tests/unit/gerente_ia tests/integration/gerente_ia tests/contract/gerente_ia
+          ruff check core/ai_router.py core/gerente_ai.py core/gerente_ia core/assistente_atendimento
+          application/ai_router_runtime.py application/gerente_ia_runtime.py
+          infra/gerente_ia http_api/app.py tests/unit/ai_router tests/unit/gerente_ia
+          tests/integration/gerente_ia tests/contract/gerente_ia
+          tests/fitness/test_af15_ai_model_router.py
       - name: mypy PR20
         run: >-
-          mypy core/gerente_ai.py core/gerente_ia core/assistente_atendimento
-          application/gerente_ia_runtime.py infra/gerente_ia http_api/app.py
+          mypy core/ai_router.py core/gerente_ai.py core/gerente_ia core/assistente_atendimento
+          application/ai_router_runtime.py application/gerente_ia_runtime.py
+          infra/gerente_ia http_api/app.py
       - name: Testes focados PR20
         run: >-
-          pytest -q tests/unit/gerente_ia tests/integration/gerente_ia
-          tests/contract/gerente_ia
+          pytest -q tests/unit/ai_router tests/unit/gerente_ia
+          tests/integration/gerente_ia tests/contract/gerente_ia
+          tests/fitness/test_af15_ai_model_router.py
       - name: Suite Python completa
         run: pytest -q
