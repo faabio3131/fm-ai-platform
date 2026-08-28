@@ -46,20 +46,6 @@
       },
       {
         "path": "app.py",
-        "function": "<module>",
-        "receiver": "db_g_save",
-        "operation": "commit",
-        "count": 1
-      },
-      {
-        "path": "app.py",
-        "function": "<module>",
-        "receiver": "db_g_save",
-        "operation": "rollback",
-        "count": 1
-      },
-      {
-        "path": "app.py",
         "function": "popular_dados_iniciais",
         "receiver": "db",
         "operation": "commit",

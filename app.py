@@ -99,6 +99,7 @@ import io
 
 from application.legacy_cardapio_transacoes import AplicacaoLegacyCardapioV1
 from application.legacy_estoque_transacoes import AplicacaoLegacyEstoqueV1
+from application.legacy_gateway_teste_transacoes import AplicacaoLegacyGatewayTesteV1
 
 from core.pdv.adaptadores_sqlalchemy import (
     LegacyPDVSQLAlchemyAdapter,
@@ -1614,25 +1615,21 @@ with aba3:
                 if not is_test_mode():
                     st.error("Configuração legada bloqueada fora do ambiente de teste.")
                     st.stop()
-                db_g_save = get_db()
                 try:
-                    conf_db = db_g_save.query(ConfiguracaoMeta).first()
-                    if not conf_db:
-                        conf_db = ConfiguracaoMeta()
-                        db_g_save.add(conf_db)
-                    conf_db.gateway_provider = g_provider
-                    conf_db.gateway_pix_key = g_pix_key
-                    conf_db.gateway_api_key = g_api_key
-                    db_g_save.commit()
+                    AplicacaoLegacyGatewayTesteV1(
+                        SessionLocal,
+                        ConfiguracaoMeta,
+                    ).salvar(
+                        provider=g_provider,
+                        pix_key=g_pix_key,
+                        api_key=g_api_key,
+                    )
                     st.success(
                         "✅ Configuração simulada salva no banco temporário de teste."
                     )
                     st.rerun()
                 except Exception as e_gtw:
-                    db_g_save.rollback()
                     st.error(f"Erro ao salvar configurações bancárias: {e_gtw}")
-                finally:
-                    db_g_save.close()
 
     st.markdown("---")
 
