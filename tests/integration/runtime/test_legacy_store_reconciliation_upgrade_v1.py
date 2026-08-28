@@ -28,6 +28,7 @@ _V0027 = "0027_legacy_catalog_unit_scope_v1"
 _V0028 = "0028_legacy_expiration_alert_integrity_v1"
 _V0029 = "0029_internal_notification_recipients_v1"
 _V0030 = "0030_migration_history_integrity_v1"
+_V0031 = "0031_ai_usage_metering_v1"
 _TENANT = "tenant-reconciliado"
 _UNIDADE = "unidade-reconciliada"
 _LOJA = 71
@@ -211,7 +212,13 @@ def test_reconciliacao_cria_loja_mapping_atomicamente_e_retomada_chega_a_0028(
             )
         ).scalar_one() == 1
 
-    assert run_migrations(engine) == (_V0027, _V0028, _V0029, _V0030)
+    assert run_migrations(engine) == (
+        _V0027,
+        _V0028,
+        _V0029,
+        _V0030,
+        _V0031,
+    )
     assert run_migrations(engine) == ()
 
     with engine.begin() as connection:
