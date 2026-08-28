@@ -124,6 +124,10 @@
     {
       "version": "0030_migration_history_integrity_v1",
       "sha256": "eacd585a95082131642a35b75d1d37625524ff66737b996b8797b48e61831ce6"
+    },
+    {
+      "version": "0031_ai_usage_metering_v1",
+      "sha256": "9e8d46b7b19a2b82348acf66b4e81c544c946a2540c42c51a97b379af1898aa4"
     }
   ]
 }
