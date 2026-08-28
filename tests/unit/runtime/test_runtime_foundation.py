@@ -58,6 +58,7 @@ _EXPECTED_MIGRATIONS = (
     "0028_legacy_expiration_alert_integrity_v1",
     "0029_internal_notification_recipients_v1",
     "0030_migration_history_integrity_v1",
+    "0031_ai_usage_metering_v1",
 )
 
 
