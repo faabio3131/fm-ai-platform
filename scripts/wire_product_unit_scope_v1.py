@@ -22,6 +22,16 @@ def _replace_once(texto: str, antigo: str, novo: str, rotulo: str) -> str:
 
 
 def aplicar(texto: str) -> str:
+    # Estado canônico mais novo: os writes de Cardápio/Ficha Técnica
+    # pertencem à camada Application + UnitOfWorkV1. Scripts históricos
+    # de wiring não devem rebaixar nem tentar reescrever esse estado.
+    if (
+        "AplicacaoLegacyCardapioV1" in texto
+        and "application_cardapio.salvar_prato_com_ficha(" in texto
+        and "application_cardapio.importar_produtos(" in texto
+    ):
+        return texto
+
     # Estado canônico mais novo: a persistência não mapeia loja_id estaticamente no
     # ORM legado; ``inserir_produto_legado`` reflete o tipo real da coluna em runtime.
     # Reaplicar este patch antigo sobre esse estado seria uma regressão.

@@ -115,13 +115,6 @@
         "count": 1
       },
       {
-        "path": "app.py",
-        "function": "render_cadastro_ficha_tecnica",
-        "receiver": "db_session",
-        "operation": "commit",
-        "count": 3
-      },
-      {
         "path": "core/central_pedidos/ui_streamlit.py",
         "function": "_executar_transicao",
         "receiver": "session",

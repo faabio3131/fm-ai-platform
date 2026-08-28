@@ -49,7 +49,7 @@ def resolver_loja_id_legada(
     if not unidade:
         raise ErroEscopoLojaLegada("unidade_id vazio")
 
-    bind = session.get_bind()
+    bind = session.connection()
     metadata = MetaData()
 
     try:
@@ -95,7 +95,7 @@ def inserir_produto_legado(
 ) -> int:
     """Insere produto legado usando somente mapeamento canônico explícito."""
 
-    bind = session.get_bind()
+    bind = session.connection()
     table = Table("produtos", MetaData(), autoload_with=bind)
 
     if "id" not in table.c:
@@ -134,7 +134,7 @@ def _refletir_tabela_scoped(
     session: Session,
     nome_tabela: str,
 ) -> Table:
-    bind = session.get_bind()
+    bind = session.connection()
 
     try:
         table = Table(

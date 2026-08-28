@@ -97,6 +97,8 @@ from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.exc import SQLAlchemyError
 import io
 
+from application.legacy_cardapio_transacoes import AplicacaoLegacyCardapioV1
+
 from core.pdv.adaptadores_sqlalchemy import (
     LegacyPDVSQLAlchemyAdapter,
     RegistroFalhaShadowSQLAlchemy,
@@ -339,6 +341,11 @@ def recalcular_cmv_geral(
 def render_cadastro_ficha_tecnica(
     db_session, Insumo, Produto, FichaTecnica, client=None, GENAI_DISPONIVEL=False
 ):
+    application_cardapio = AplicacaoLegacyCardapioV1(SessionLocal)
+    contexto_cardapio = CURRENT_IDENTITY.contexto(
+        origem="app.legacy_cardapio"
+    )
+
     st.subheader("👨‍🍳 Engenharia de Cardápio & Ficha Técnica (Pratos do Menu)")
     st.caption(
         "Cadastre os pratos do cardápio utilizando exclusivamente os insumos já cadastrados e validados no Almoxarifado (Aba 4)."
@@ -494,35 +501,22 @@ def render_cadastro_ficha_tecnica(
             elif not st.session_state.itens_ficha_tecnica:
                 st.error("❌ Adicione pelo menos 1 insumo à ficha técnica.")
             else:
-                from infra.legacy_product_scope import inserir_produto_legado
+                # A sessão desta tela fica somente para leituras.
+                # O write completo passa a pertencer à Application + UoW.
+                db_session.close()
 
-                novo_prod_id = inserir_produto_legado(
-                    db_session,
-                    tenant_id=CURRENT_IDENTITY.tenant_id,
-                    unidade_id=CURRENT_IDENTITY.unidade_id,
-                    valores={
+                application_cardapio.salvar_prato_com_ficha(
+                    contexto_cardapio,
+                    valores_produto={
                         "nome": nome_produto,
                         "categoria": categoria,
                         "preco_venda": preco_venda_final,
                         "custo_total_cmv": cmv_total_calculado,
                     },
+                    itens_ficha=tuple(
+                        st.session_state.itens_ficha_tecnica
+                    ),
                 )
-                db_session.commit()
-
-                from infra.legacy_product_scope import (
-                    inserir_ficha_tecnica_legada,
-                )
-
-                for item in st.session_state.itens_ficha_tecnica:
-                    inserir_ficha_tecnica_legada(
-                        db_session,
-                        tenant_id=CURRENT_IDENTITY.tenant_id,
-                        unidade_id=CURRENT_IDENTITY.unidade_id,
-                        produto_id=novo_prod_id,
-                        insumo_id=item["insumo_id"],
-                        quantidade=item["quantidade"],
-                    )
-                db_session.commit()
 
                 st.success(
                     f"✅ Prato **{nome_produto}** cadastrado com sucesso no Cardápio!"
@@ -621,26 +615,51 @@ def render_cadastro_ficha_tecnica(
                     )
                     produtos_extraidos = json.loads(texto_limpo)
 
-                    qtd_cadastrados = 0
+                    produtos_para_salvar = []
+
                     for prod in produtos_extraidos:
-                        cmv_est = round(float(prod.get("preco", 0)) * 0.32, 2)
-                        from infra.legacy_product_scope import inserir_produto_legado
-
-                        inserir_produto_legado(
-                            db_session,
-                            tenant_id=CURRENT_IDENTITY.tenant_id,
-                            unidade_id=CURRENT_IDENTITY.unidade_id,
-                            valores={
-                                "nome": prod.get("nome"),
-                                "categoria": prod.get("categoria", "Geral"),
-                                "preco_venda": float(prod.get("preco", 0)),
-                                "custo_total_cmv": cmv_est,
-                                "descricao_bruta": prod.get("ingredientes", ""),
-                            },
+                        cmv_est = round(
+                            float(
+                                prod.get(
+                                    "preco",
+                                    0,
+                                )
+                            )
+                            * 0.32,
+                            2,
                         )
-                        qtd_cadastrados += 1
 
-                    db_session.commit()
+                        produtos_para_salvar.append(
+                            {
+                                "nome": prod.get("nome"),
+                                "categoria": prod.get(
+                                    "categoria",
+                                    "Geral",
+                                ),
+                                "preco_venda": float(
+                                    prod.get(
+                                        "preco",
+                                        0,
+                                    )
+                                ),
+                                "custo_total_cmv": cmv_est,
+                                "descricao_bruta": prod.get(
+                                    "ingredientes",
+                                    "",
+                                ),
+                            }
+                        )
+
+                    db_session.close()
+
+                    qtd_cadastrados = (
+                        application_cardapio.importar_produtos(
+                            contexto_cardapio,
+                            produtos=tuple(
+                                produtos_para_salvar
+                            ),
+                        )
+                    )
                     st.success(
                         f"🎉 Sucesso! **{qtd_cadastrados} pratos** foram extraídos pelo Gemini e salvos diretamente no cardápio!"
                     )
