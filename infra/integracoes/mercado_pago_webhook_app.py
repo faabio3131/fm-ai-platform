@@ -26,6 +26,7 @@ from fastapi import FastAPI, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from application.pix_durabilidade import confirmar_cobranca_pix_consultada
 from core.integracoes.provedores import (
     ConfiguracaoMercadoPago,
     ErroProvedorExterno,
@@ -35,7 +36,6 @@ from core.pagamentos.modelos import MetodoPagamento, TipoTransacao
 from core.pagamentos.modelos_orm import TransacaoPagamentoORM
 from core.runtime import build_engine, load_runtime_settings
 from core.seguranca.contexto import ContextoExecucao
-from infra.integracoes.pix_durabilidade import confirmar_cobranca_pix_consultada
 from infra.integracoes.pix_runtime import CobrancaPixRuntime
 from infra.integracoes.repositorio_sqlalchemy import (
     RepositorioConfiguracoesExternasSQLAlchemy,
@@ -212,8 +212,10 @@ def create_app(
             _LOGGER.warning("mercado_pago_webhook_payload_invalido")
             raise HTTPException(status_code=400, detail="notificacao invalida") from exc
 
-        with resolved_session_factory() as session:
-            try:
+        try:
+            # A sessão desta fronteira é somente de leitura/configuração.
+            # O write financeiro usa a Application + UnitOfWorkV1 canônica.
+            with resolved_session_factory() as session:
                 adapter = _adapter_pre_homologacao(
                     session,
                     tenant_id=tenant,
@@ -238,47 +240,72 @@ def create_app(
                         "reconciled": False,
                     }
 
-                order = adapter.consultar_pagamento(evento.recurso_id)
-                contexto = _contexto_sistema(
-                    tenant_id=tenant,
-                    unidade_id=unidade,
-                    request_id=request_id,
+                pagamento_id = str(
+                    vinculo.pagamento_id
                 )
-                resultado = confirmar_cobranca_pix_consultada(
-                    session=session,
-                    contexto=contexto,
-                    pagamento_id=vinculo.pagamento_id,
-                    cobranca=CobrancaPixRuntime(
-                        provedor="mercado_pago",
-                        id_externo=order.pagamento_id,
-                        status=order.status,
-                        valor=order.valor,
-                        pix_copia_cola=order.pix_copia_cola,
-                        qr_code_url=order.ticket_url,
-                        qr_code_base64=order.qr_code_base64,
-                    ),
+                order = adapter.consultar_pagamento(
+                    evento.recurso_id
                 )
-                return {
-                    "accepted": True,
-                    "resource": "order",
-                    "reconciled": resultado is not None,
-                }
-            except ErroProvedorExterno as exc:
-                session.rollback()
-                _LOGGER.warning(
-                    "mercado_pago_webhook_rejeitado motivo=%s data_id_len=%d request_id_len=%d",
-                    str(exc),
-                    len(data_id),
-                    len(request_id),
-                )
-                raise HTTPException(status_code=400, detail="notificacao rejeitada") from exc
-            except RuntimeError as exc:
-                session.rollback()
-                _LOGGER.warning("mercado_pago_webhook_configuracao_incompleta motivo=%s", str(exc))
-                raise HTTPException(status_code=503, detail="webhook ainda nao configurado") from exc
-            except Exception:
-                session.rollback()
-                _LOGGER.exception("mercado_pago_webhook_falha_segura")
-                raise HTTPException(status_code=500, detail="falha segura no webhook")
+
+            contexto = _contexto_sistema(
+                tenant_id=tenant,
+                unidade_id=unidade,
+                request_id=request_id,
+            )
+
+            resultado = confirmar_cobranca_pix_consultada(
+                session_factory=resolved_session_factory,
+                contexto=contexto,
+                pagamento_id=pagamento_id,
+                cobranca=CobrancaPixRuntime(
+                    provedor="mercado_pago",
+                    id_externo=order.pagamento_id,
+                    status=order.status,
+                    valor=order.valor,
+                    pix_copia_cola=order.pix_copia_cola,
+                    qr_code_url=order.ticket_url,
+                    qr_code_base64=order.qr_code_base64,
+                ),
+            )
+
+            return {
+                "accepted": True,
+                "resource": "order",
+                "reconciled": resultado is not None,
+            }
+
+        except ErroProvedorExterno as exc:
+            _LOGGER.warning(
+                "mercado_pago_webhook_rejeitado "
+                "motivo=%s data_id_len=%d "
+                "request_id_len=%d",
+                str(exc),
+                len(data_id),
+                len(request_id),
+            )
+            raise HTTPException(
+                status_code=400,
+                detail="notificacao rejeitada",
+            ) from exc
+
+        except RuntimeError as exc:
+            _LOGGER.warning(
+                "mercado_pago_webhook_configuracao_"
+                "incompleta motivo=%s",
+                str(exc),
+            )
+            raise HTTPException(
+                status_code=503,
+                detail="webhook ainda nao configurado",
+            ) from exc
+
+        except Exception:
+            _LOGGER.exception(
+                "mercado_pago_webhook_falha_segura"
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="falha segura no webhook",
+            )
 
     return app

@@ -620,3 +620,21 @@ def test_af03_w_legacy_pdv_ui_has_no_transaction_owner() -> None:
     ]
 
     assert offenders == []
+
+
+def test_af03_x_mercado_pago_webhook_has_no_transaction_owner() -> None:
+    offenders = [
+        record
+        for record in _scan_transaction_calls()
+        if (
+            record["path"]
+            == (
+                "infra/integracoes/"
+                "mercado_pago_webhook_app.py"
+            )
+            and record["function"]
+            == "webhook"
+        )
+    ]
+
+    assert offenders == []

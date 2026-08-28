@@ -83,14 +83,6 @@
       }
     ],
     "infra_pix_hidden": [],
-    "integration_boundary_debt": [
-      {
-        "path": "infra/integracoes/mercado_pago_webhook_app.py",
-        "function": "webhook",
-        "receiver": "session",
-        "operation": "rollback",
-        "count": 3
-      }
-    ]
+    "integration_boundary_debt": []
   }
 }
