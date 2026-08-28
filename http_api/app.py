@@ -25,13 +25,12 @@ from application.gerente_ia_transacoes import (
 )
 from application.pagbank import (
     PagBankAplicacaoInvalida,
-    processar_webhook_pagbank_em_transacao,
+    processar_webhook_pagbank,
 )
 from application.pdv_legacy_projection import ProjecaoLegadaInvalida
 from core.gerente_ia.erros import ErroGerenteIA
 from core.gerente_ia.modelos import ChamadaTool
 from core.pagamentos.erros import ConflitoIdempotenciaPagamento
-from core.pagamentos.modelos import TipoTransacao
 from core.pagamentos.pagbank import ErroPagBank
 from core.runtime import build_engine, check_database_health, load_runtime_settings
 from core.runtime.config import RuntimeSettings
@@ -48,7 +47,6 @@ from infra.pagamentos.pagbank_runtime import (
 )
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 from infra.seguranca.session_guard import build_session_factory
-from infra.transacoes.uow import UnitOfWorkV1
 
 _MAX_WEBHOOK_BYTES = 1024 * 1024
 
@@ -140,51 +138,47 @@ def build_http_app(
         if order_id is None:
             return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-        with UnitOfWorkV1(session_factory) as uow:
-            try:
-                vinculo = uow.pagamentos.buscar_transacao_externa(
-                    "pagbank", order_id, TipoTransacao.INICIACAO
-                )
-            except ConflitoIdempotenciaPagamento:
-                return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+        try:
+            resultado = processar_webhook_pagbank(
+                session_factory=session_factory,
+                adapter_factory=pagbank_factory.construir,
+                order_id=order_id,
+                payload_bruto=payload_bruto,
+                assinatura=assinatura,
+            )
+        except ConflitoIdempotenciaPagamento:
+            return Response(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+        except (
+            CredencialPagBankNaoConfigurada,
+            ReferenciaSegredoInvalida,
+            SegredoAusente,
+        ):
+            return Response(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+        except ErroPagBank:
+            return Response(
+                status_code=status.HTTP_204_NO_CONTENT
+            )
+        except (
+            PagBankAplicacaoInvalida,
+            FinalizacaoPagamentoInvalida,
+            ProjecaoLegadaInvalida,
+        ):
+            return Response(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
 
-            if vinculo is None:
-                return Response(status_code=status.HTTP_204_NO_CONTENT)
+        if resultado is None:
+            return Response(
+                status_code=status.HTTP_204_NO_CONTENT
+            )
 
-            try:
-                adapter = pagbank_factory.construir(
-                    session=uow.recursos.session,
-                    tenant_id=vinculo.tenant_id,
-                    unidade_id=vinculo.unidade_id,
-                )
-            except (
-                CredencialPagBankNaoConfigurada,
-                ReferenciaSegredoInvalida,
-                SegredoAusente,
-            ):
-                return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
-
-            try:
-                resultado = processar_webhook_pagbank_em_transacao(
-                    recursos=uow.recursos,
-                    adapter=adapter,
-                    payload_bruto=payload_bruto,
-                    assinatura=assinatura,
-                )
-            except ErroPagBank:
-                return Response(status_code=status.HTTP_204_NO_CONTENT)
-            except (
-                PagBankAplicacaoInvalida,
-                FinalizacaoPagamentoInvalida,
-                ProjecaoLegadaInvalida,
-            ):
-                return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
-
-            if resultado is None:
-                return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-            uow.commit()
-            return Response(status_code=status.HTTP_204_NO_CONTENT)
+        return Response(
+            status_code=status.HTTP_204_NO_CONTENT
+        )
 
     def _contexto_autenticado(request: Request, session: Session):
         email, password = _credenciais_basic(request)

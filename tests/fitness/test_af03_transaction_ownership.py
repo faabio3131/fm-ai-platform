@@ -638,3 +638,16 @@ def test_af03_x_mercado_pago_webhook_has_no_transaction_owner() -> None:
     ]
 
     assert offenders == []
+
+def test_af03_y_pagbank_webhook_http_has_no_transaction_owner() -> None:
+    offenders = [
+        record
+        for record in _scan_transaction_calls()
+        if (
+            record["path"] == "http_api/app.py"
+            and record["function"]
+            == "webhook_pagbank"
+        )
+    ]
+
+    assert offenders == []

@@ -22,13 +22,6 @@
         "receiver": "db_cb",
         "operation": "rollback",
         "count": 1
-      },
-      {
-        "path": "http_api/app.py",
-        "function": "webhook_pagbank",
-        "receiver": "uow",
-        "operation": "commit",
-        "count": 1
       }
     ],
     "pdv_compatibility": [
