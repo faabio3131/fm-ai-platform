@@ -26,20 +26,6 @@
       {
         "path": "app.py",
         "function": "<module>",
-        "receiver": "db_cli_e2e",
-        "operation": "commit",
-        "count": 1
-      },
-      {
-        "path": "app.py",
-        "function": "<module>",
-        "receiver": "db_cli_e2e",
-        "operation": "rollback",
-        "count": 1
-      },
-      {
-        "path": "app.py",
-        "function": "<module>",
         "receiver": "db_exec_venda",
         "operation": "rollback",
         "count": 1

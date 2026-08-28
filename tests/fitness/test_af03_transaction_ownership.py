@@ -563,3 +563,17 @@ def test_af03_s_legacy_gateway_e2e_ui_has_no_transaction_owner() -> None:
     ]
 
     assert offenders == []
+
+
+def test_af03_t_legacy_cliente_e2e_ui_has_no_transaction_owner() -> None:
+    offenders = [
+        record
+        for record in _scan_transaction_calls()
+        if (
+            record["path"] == "app.py"
+            and record["receiver"]
+            == "db_cli_e2e"
+        )
+    ]
+
+    assert offenders == []

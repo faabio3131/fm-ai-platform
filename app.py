@@ -100,6 +100,7 @@ import io
 from application.legacy_cardapio_transacoes import AplicacaoLegacyCardapioV1
 from application.legacy_estoque_transacoes import AplicacaoLegacyEstoqueV1
 from application.legacy_gateway_teste_transacoes import AplicacaoLegacyGatewayTesteV1
+from application.legacy_cliente_e2e_transacoes import AplicacaoLegacyClienteE2EV1
 
 from core.pdv.adaptadores_sqlalchemy import (
     LegacyPDVSQLAlchemyAdapter,
@@ -1431,38 +1432,28 @@ with aba2:
                     ):
                         st.error("Informe um e-mail válido quando preencher o campo.")
                     else:
-                        db_cli_e2e = get_db()
                         try:
-                            existente = (
-                                db_cli_e2e.query(Cliente)
-                                .filter(
-                                    Cliente.whatsapp == whatsapp_cliente_e2e.strip()
-                                )
-                                .first()
+                            criado = AplicacaoLegacyClienteE2EV1(
+                                SessionLocal,
+                                Cliente,
+                            ).cadastrar(
+                                nome=nome_cliente_e2e,
+                                whatsapp=whatsapp_cliente_e2e,
+                                email=email_normalizado or None,
+                                documento_fiscal=(
+                                    documento_normalizado or None
+                                ),
                             )
-                            if existente:
-                                st.error("Cliente E2E já cadastrado com este WhatsApp.")
-                            else:
-                                db_cli_e2e.add(
-                                    Cliente(
-                                        nome=nome_cliente_e2e.strip(),
-                                        whatsapp=whatsapp_cliente_e2e.strip(),
-                                        email=email_normalizado or None,
-                                        documento_fiscal=(
-                                            documento_normalizado or None
-                                        ),
-                                        status="Ativo",
-                                        saldo_cashback=0.0,
-                                    )
+
+                            if not criado:
+                                st.error(
+                                    "Cliente E2E já cadastrado com este WhatsApp."
                                 )
-                                db_cli_e2e.commit()
+                            else:
                                 st.success("Cliente E2E salvo com sucesso.")
                                 st.rerun()
                         except Exception as exc:
-                            db_cli_e2e.rollback()
                             st.error(f"Erro ao salvar cliente E2E: {exc}")
-                        finally:
-                            db_cli_e2e.close()
 
         st.markdown("---")
         with st.form("form_ajustar_cashback"):
