@@ -86,12 +86,13 @@ class AIUsageDurableMetering:
 
     def registrar(self, evento: AIUsageEvent) -> None:
         with self._session_factory() as session:
-            event_id = _event_id(evento)
-            if session.get(AIUsageEventORM, event_id) is not None:
-                return
+            with session.begin():
+                event_id = _event_id(evento)
+                if session.get(AIUsageEventORM, event_id) is not None:
+                    return
 
-            session.add(
-                AIUsageEventORM(
+                session.add(
+                    AIUsageEventORM(
                     usage_event_id=event_id,
                     tenant_id=evento.tenant_id,
                     unidade_id=evento.unidade_id,
@@ -111,7 +112,6 @@ class AIUsageDurableMetering:
                     custo_real_calculado=evento.custo_real_calculado,
                     moeda=evento.moeda,
                     price_snapshot_id=evento.price_snapshot_id,
-                    timestamp=evento.timestamp,
+                        timestamp=evento.timestamp,
+                    )
                 )
-            )
-            session.commit()
