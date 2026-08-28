@@ -577,3 +577,17 @@ def test_af03_t_legacy_cliente_e2e_ui_has_no_transaction_owner() -> None:
     ]
 
     assert offenders == []
+
+
+def test_af03_u_legacy_bootstrap_has_no_transaction_owner() -> None:
+    offenders = [
+        record
+        for record in _scan_transaction_calls()
+        if (
+            record["path"] == "app.py"
+            and record["function"]
+            == "popular_dados_iniciais"
+        )
+    ]
+
+    assert offenders == []

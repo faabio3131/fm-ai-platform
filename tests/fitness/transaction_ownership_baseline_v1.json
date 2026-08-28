@@ -31,20 +31,6 @@
         "count": 1
       },
       {
-        "path": "app.py",
-        "function": "popular_dados_iniciais",
-        "receiver": "db",
-        "operation": "commit",
-        "count": 2
-      },
-      {
-        "path": "app.py",
-        "function": "popular_dados_iniciais",
-        "receiver": "db",
-        "operation": "rollback",
-        "count": 1
-      },
-      {
         "path": "core/central_pedidos/ui_streamlit.py",
         "function": "_executar_transicao",
         "receiver": "session",

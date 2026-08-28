@@ -34,8 +34,18 @@ def test_crm_so_declara_sucesso_apos_confirmacao_do_envio() -> None:
 
 
 def test_forecasting_comercial_usa_control_plane_e_sanitiza_falhas() -> None:
-    trecho = APP_SOURCE.split("def executar_forecasting_e_alertar", 1)[1].split(
-        "def popular_dados_iniciais", 1
+    inicio = "def executar_forecasting_e_alertar"
+    fim = "# Inicialização legada governada pela camada Application."
+
+    assert inicio in APP_SOURCE
+    assert fim in APP_SOURCE
+
+    trecho = APP_SOURCE.split(
+        inicio,
+        1,
+    )[1].split(
+        fim,
+        1,
     )[0]
 
     assert "_enviar_whatsapp_control_plane(" in trecho

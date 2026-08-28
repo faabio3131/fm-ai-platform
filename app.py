@@ -101,6 +101,7 @@ from application.legacy_cardapio_transacoes import AplicacaoLegacyCardapioV1
 from application.legacy_estoque_transacoes import AplicacaoLegacyEstoqueV1
 from application.legacy_gateway_teste_transacoes import AplicacaoLegacyGatewayTesteV1
 from application.legacy_cliente_e2e_transacoes import AplicacaoLegacyClienteE2EV1
+from application.legacy_bootstrap_transacoes import AplicacaoLegacyBootstrapV1
 
 from core.pdv.adaptadores_sqlalchemy import (
     LegacyPDVSQLAlchemyAdapter,
@@ -851,68 +852,21 @@ def executar_forecasting_e_alertar(
         )
 
 
-def popular_dados_iniciais():
-    db = SessionLocal()
-    try:
-        if is_test_mode() and db.query(ConfiguracaoMeta).count() == 0:
-            db.add(ConfiguracaoMeta(gateway_provider="Mercado Pago"))
-            db.commit()
-
-        from infra.legacy_product_scope import (
-            contar_insumos_legados,
-            inserir_insumo_legado,
-        )
-
-        if contar_insumos_legados(
-            db,
-            tenant_id=CURRENT_IDENTITY.tenant_id,
-            unidade_id=CURRENT_IDENTITY.unidade_id,
-        ) == 0:
-            insumos_padrao = [
-                {
-                    "nome": "Hambúrguer 180g Angus",
-                    "unidade_medida": "un",
-                    "saldo_atual": 500.0,
-                    "estoque_minimo": 50.0,
-                    "custo_unitario": 6.50,
-                    "data_validade": datetime.now() + timedelta(days=90),
-                },
-                {
-                    "nome": "Queijo Provolone / Cheddar",
-                    "unidade_medida": "fatias",
-                    "saldo_atual": 400.0,
-                    "estoque_minimo": 60.0,
-                    "custo_unitario": 1.20,
-                    "data_validade": datetime.now() + timedelta(days=30),
-                },
-                {
-                    "nome": "Pão Brioche Artesanal",
-                    "unidade_medida": "un",
-                    "saldo_atual": 120.0,
-                    "estoque_minimo": 50.0,
-                    "custo_unitario": 2.00,
-                    "data_validade": datetime.now() + timedelta(days=5),
-                    "dias_alerta_vencimento": 3,
-                },
-            ]
-
-            for valores in insumos_padrao:
-                inserir_insumo_legado(
-                    db,
-                    tenant_id=CURRENT_IDENTITY.tenant_id,
-                    unidade_id=CURRENT_IDENTITY.unidade_id,
-                    valores=valores,
-                )
-
-            db.commit()
-    except Exception:
-        db.rollback()
-    finally:
-        db.close()
-
-
-# Inicialização
-popular_dados_iniciais()
+# Inicialização legada governada pela camada Application.
+try:
+    AplicacaoLegacyBootstrapV1(
+        SessionLocal,
+        ConfiguracaoMeta,
+    ).executar(
+        CURRENT_IDENTITY.contexto(
+            origem="app.legacy_bootstrap"
+        ),
+        habilitar_gateway_teste=is_test_mode(),
+        agora=datetime.now(),
+    )
+except Exception:
+    # Preserva a semântica histórica de startup não fatal.
+    pass
 seed_database(
     SessionLocal,
     {
