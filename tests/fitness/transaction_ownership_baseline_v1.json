@@ -24,13 +24,6 @@
         "count": 1
       },
       {
-        "path": "app.py",
-        "function": "<module>",
-        "receiver": "db_exec_venda",
-        "operation": "rollback",
-        "count": 1
-      },
-      {
         "path": "http_api/app.py",
         "function": "webhook_pagbank",
         "receiver": "uow",

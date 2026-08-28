@@ -2243,7 +2243,6 @@ with aba3:
                 st.rerun()
             except Exception as e:
                 st.session_state["pdv_processando"] = False
-                db_exec_venda.rollback()
                 st.error(f"❌ Erro ao registrar a venda no sistema: {e}")
             finally:
                 db_exec_venda.close()

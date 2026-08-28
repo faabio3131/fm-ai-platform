@@ -606,3 +606,17 @@ def test_af03_v_central_pedidos_ui_has_no_transaction_owner() -> None:
     ]
 
     assert offenders == []
+
+
+def test_af03_w_legacy_pdv_ui_has_no_transaction_owner() -> None:
+    offenders = [
+        record
+        for record in _scan_transaction_calls()
+        if (
+            record["path"] == "app.py"
+            and record["receiver"]
+            == "db_exec_venda"
+        )
+    ]
+
+    assert offenders == []
