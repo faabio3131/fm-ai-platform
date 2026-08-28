@@ -56,20 +56,27 @@ def test_ai_usage_sucesso_e_falha_sobrevivem_rollback_da_uow_de_negocio(
     factory = sessionmaker(bind=engine, expire_on_commit=False)
     metering = AIUsageDurableMetering(factory)
 
-    metering.registrar(
-        _evento(outcome=OutcomeIA.SUCESSO, request_id="req-success")
-    )
-    metering.registrar(
-        _evento(
-            outcome=OutcomeIA.FALHA_DEFINITIVA,
-            request_id="req-failure",
-        )
-    )
-
     with factory() as business_session:
+        transaction = business_session.begin()
+        assert business_session.in_transaction()
+
         business_session.add(BusinessRow(id=1, value="rollback"))
+
+        metering.registrar(
+            _evento(
+                outcome=OutcomeIA.SUCESSO,
+                request_id="req-success",
+            )
+        )
+        metering.registrar(
+            _evento(
+                outcome=OutcomeIA.FALHA_DEFINITIVA,
+                request_id="req-failure",
+            )
+        )
+
         business_session.flush()
-        business_session.rollback()
+        transaction.rollback()
 
     with factory() as verification:
         assert verification.scalar(
