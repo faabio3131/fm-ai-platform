@@ -34,6 +34,7 @@ from core.pagamentos.modelos_orm import PaymentsBase
 from core.pdv.modelos_orm import PDVBase
 from core.pedidos.modelos_orm import OrdersBase
 from core.salao.modelos_orm import SalaoBase
+from infra.ai_metering import AIMeteringBase
 from infra.eventos.modelos_orm import EventBusBase
 from infra.gerente_ia.modelos_orm import CoreRuntimeBase
 from infra.integracoes.modelos_orm import IntegrationConfigBase
@@ -169,6 +170,14 @@ def _revert_core_runtime_v1(connection: Connection) -> None:
     CoreRuntimeBase.metadata.drop_all(bind=connection, checkfirst=True)
 
 
+def _ai_usage_metering_v1(connection: Connection) -> None:
+    AIMeteringBase.metadata.create_all(bind=connection, checkfirst=True)
+
+
+def _revert_ai_usage_metering_v1(connection: Connection) -> None:
+    AIMeteringBase.metadata.drop_all(bind=connection, checkfirst=True)
+
+
 DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001_security_identity_v1", _security_identity_v1),
     Migration("0002_credential_references_v1", _credential_references_v1),
@@ -223,6 +232,11 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         "0030_migration_history_integrity_v1",
         upgrade_migration_history_integrity_v1,
+    ),
+    Migration(
+        "0031_ai_usage_metering_v1",
+        _ai_usage_metering_v1,
+        _revert_ai_usage_metering_v1,
     ),
 )
 
