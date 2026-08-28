@@ -100,7 +100,7 @@ class CalculadoraCustoIA:
         if cached > 0 and tarifas["cached_tokens"] is None:
             return self._indisponivel(snapshot)
 
-        total = Decimal("0")
+        total = Decimal(0)
 
         with localcontext() as contexto:
             contexto.prec = 28
