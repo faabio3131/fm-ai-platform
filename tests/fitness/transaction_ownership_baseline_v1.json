@@ -101,20 +101,6 @@
         "count": 1
       },
       {
-        "path": "app.py",
-        "function": "recalcular_cmv_geral",
-        "receiver": "db_session",
-        "operation": "commit",
-        "count": 1
-      },
-      {
-        "path": "app.py",
-        "function": "recalcular_cmv_geral",
-        "receiver": "db_session",
-        "operation": "rollback",
-        "count": 1
-      },
-      {
         "path": "core/central_pedidos/ui_streamlit.py",
         "function": "_executar_transicao",
         "receiver": "session",

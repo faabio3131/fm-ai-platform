@@ -316,28 +316,6 @@ def get_db():
         db.close()
 
 
-def recalcular_cmv_geral(
-    db_session,
-    *,
-    tenant_id: str,
-    unidade_id: str,
-):
-    try:
-        from infra.legacy_product_scope import (
-            recalcular_cmv_produtos_legados,
-        )
-
-        recalcular_cmv_produtos_legados(
-            db_session,
-            tenant_id=tenant_id,
-            unidade_id=unidade_id,
-        )
-        db_session.commit()
-    except Exception:
-        db_session.rollback()
-        raise
-
-
 def render_cadastro_ficha_tecnica(
     db_session, Insumo, Produto, FichaTecnica, client=None, GENAI_DISPONIVEL=False
 ):

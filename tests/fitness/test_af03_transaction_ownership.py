@@ -515,3 +515,17 @@ def test_af03_p_legacy_cardapio_ui_has_no_transaction_owner() -> None:
     ]
 
     assert offenders == []
+
+
+def test_af03_q_legacy_cmv_has_no_transaction_owner() -> None:
+    offenders = [
+        record
+        for record in _scan_transaction_calls()
+        if (
+            record["path"] == "app.py"
+            and record["function"]
+            == "recalcular_cmv_geral"
+        )
+    ]
+
+    assert offenders == []
