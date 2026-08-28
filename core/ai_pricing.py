@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
+from itertools import pairwise
 from typing import Protocol
 
 
@@ -235,7 +236,7 @@ def _utc(valor: datetime, campo: str) -> datetime:
 def _validar_sem_sobreposicao(
     snapshots: tuple[PriceSnapshotIA, ...],
 ) -> None:
-    for anterior, atual in zip(snapshots, snapshots[1:]):
+    for anterior, atual in pairwise(snapshots):
         fim_anterior = anterior.vigencia_fim
 
         if fim_anterior is None or atual.vigencia_inicio < fim_anterior:
