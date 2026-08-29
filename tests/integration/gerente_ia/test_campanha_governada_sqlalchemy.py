@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy import create_engine, select
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 
 from application.campanhas_governadas import (
     aprovar_campanha_v1,
