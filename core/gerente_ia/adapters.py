@@ -100,6 +100,7 @@ class PortaAcoesGerenciais(Protocol):
     ) -> str: ...
 
 
+@runtime_checkable
 class PortaCampanhasGerenciais(Protocol):
     def preparar_rascunho(
         self,
@@ -114,6 +115,7 @@ class PortaCampanhasGerenciais(Protocol):
         correlation_id: str,
         idempotency_key: str,
     ) -> RascunhoCampanha: ...
+
 
 @runtime_checkable
 class PortaCampanhasGovernadas(PortaCampanhasGerenciais, Protocol):
