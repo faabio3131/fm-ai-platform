@@ -25,6 +25,7 @@ from core.seguranca.permissoes import Papel, Permissao
 from .adapters import (
     PortaAcoesGerenciais,
     PortaCampanhasGerenciais,
+    PortaCampanhasGovernadas,
     PortaConsultasGerenciais,
     RepositorioPreviewsGerenteIA,
 )
@@ -207,6 +208,8 @@ class ServicoGerenteIA:
             acao="gerente_ia.aprovar_campanha",
             instante=instante,
         )
+        if not isinstance(self.campanhas, PortaCampanhasGovernadas):
+            raise ErroGerenteIA("campanha_governanca_indisponivel")
         resultado = self.campanhas.aprovar(
             tenant_id=contexto_humano.tenant_id,
             unidade_id=contexto_humano.unidade_id,
@@ -257,6 +260,8 @@ class ServicoGerenteIA:
             acao="gerente_ia.publicar_campanha",
             instante=instante,
         )
+        if not isinstance(self.campanhas, PortaCampanhasGovernadas):
+            raise ErroGerenteIA("campanha_governanca_indisponivel")
         resultado = self.campanhas.publicar(
             tenant_id=contexto_humano.tenant_id,
             unidade_id=contexto_humano.unidade_id,
