@@ -27,9 +27,10 @@ jobs:
         run: >-
           ruff check core/ai_cost.py core/ai_finops.py core/ai_pricing.py core/ai_router.py
           core/gerente_ai.py core/gerente_ia core/assistente_atendimento
-          application/ai_router_runtime.py application/gerente_ia_runtime.py
-          infra/ai_metering.py infra/ai_finops_models.py infra/ai_finops_projector.py
-          infra/ai_finops_read_model.py infra/gerente_ia
+          application/ai_finops_dashboard.py application/ai_router_runtime.py
+          application/gerente_ia_runtime.py infra/ai_metering.py infra/ai_finops_models.py
+          infra/ai_finops_projector.py infra/ai_finops_read_model.py
+          infra/streamlit_app/ai_finops.py infra/gerente_ia
           migrations/ai_finops_read_model_v1.py migrations/runner.py http_api/app.py
           tests/unit/ai_router tests/unit/gerente_ia tests/integration/gerente_ia
           tests/contract/gerente_ia tests/fitness/test_af15_ai_model_router.py
@@ -45,9 +46,10 @@ jobs:
         run: >-
           mypy core/ai_cost.py core/ai_finops.py core/ai_pricing.py core/ai_router.py
           core/gerente_ai.py core/gerente_ia core/assistente_atendimento
-          application/ai_router_runtime.py application/gerente_ia_runtime.py
-          infra/ai_metering.py infra/ai_finops_models.py infra/ai_finops_projector.py
-          infra/ai_finops_read_model.py infra/gerente_ia http_api/app.py
+          application/ai_finops_dashboard.py application/ai_router_runtime.py
+          application/gerente_ia_runtime.py infra/ai_metering.py infra/ai_finops_models.py
+          infra/ai_finops_projector.py infra/ai_finops_read_model.py
+          infra/streamlit_app/ai_finops.py infra/gerente_ia http_api/app.py
       - name: Testes focados PR20
         run: >-
           pytest -q tests/unit/ai_router tests/unit/gerente_ia

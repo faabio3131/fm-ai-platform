@@ -127,9 +127,11 @@ from core.salao.flags import salao_v1_enabled
 from core.salao.ui_streamlit import render_salao
 from core.assistente_atendimento.modelos import ConfiguracaoIdentidadeAssistente
 from core.assistente_atendimento.ui_streamlit import render_assistente_atendimento_v1
+from infra.ai_finops_read_model import AIFinOpsSQLAlchemyReadModel
 from infra.gerente_ia.persistencia_sqlalchemy import (
     RepositorioIdentidadeAssistenteSQLAlchemy,
 )
+from infra.streamlit_app.ai_finops import render_ai_finops_dashboard
 
 try:
     import pypdf
@@ -1155,6 +1157,7 @@ _nomes_abas = [
     "📦 Estoque & Validades (Novo!)",
     "📊 Dashboard Financeiro",
     "💬 Assistente de Atendimento",
+    "💡 AI FinOps",
 ]
 if order_center_v1_enabled():
     _nomes_abas.append("\U0001F4CB Central de Pedidos")
@@ -1164,9 +1167,9 @@ if salao_v1_enabled():
     _nomes_abas.append("🪑 Mesas e Comandas")
 
 _abas = st.tabs(_nomes_abas)
-aba1, aba2, aba3, aba4, aba5, aba6 = _abas[:6]
+aba1, aba2, aba3, aba4, aba5, aba6, aba7 = _abas[:7]
 
-_indice_extra = 6
+_indice_extra = 7
 
 aba_central = None
 if order_center_v1_enabled():
@@ -1202,6 +1205,13 @@ if aba_salao is not None:
             engine=engine,
             session_factory=SessionLocal,
         )
+
+with aba7:
+    render_ai_finops_dashboard(
+        read_model=AIFinOpsSQLAlchemyReadModel(SessionLocal),
+        tenant_id=CURRENT_IDENTITY.tenant_id,
+        unidade_id=CURRENT_IDENTITY.unidade_id,
+    )
 
 # ==============================================================================
 # ABA 1: ENGENHARIA DE CARD?PIO
