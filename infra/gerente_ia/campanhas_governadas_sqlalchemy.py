@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -18,6 +18,12 @@ from core.gerente_ia.modelos import (
 )
 from infra.gerente_ia.modelos_orm import EventoCoreORM, RascunhoCampanhaORM
 from infra.gerente_ia.persistencia_sqlalchemy import CampanhasGerenciaisSQLAlchemy
+
+
+def _utc(valor: datetime) -> datetime:
+    if valor.tzinfo is None or valor.utcoffset() is None:
+        return valor.replace(tzinfo=timezone.utc)
+    return valor.astimezone(timezone.utc)
 
 
 class CampanhasGovernadasSQLAlchemy(CampanhasGerenciaisSQLAlchemy):
@@ -124,7 +130,7 @@ class CampanhasGovernadasSQLAlchemy(CampanhasGerenciaisSQLAlchemy):
                 unidade_id=unidade_id,
                 fingerprint=str(payload["fingerprint"]),
                 aprovado_por=str(payload["aprovado_por"]),
-                aprovado_em=evento.ocorrido_em,
+                aprovado_em=_utc(evento.ocorrido_em),
                 idempotency_key=idempotency_key,
                 idempotente=True,
             )
@@ -194,7 +200,7 @@ class CampanhasGovernadasSQLAlchemy(CampanhasGerenciaisSQLAlchemy):
                 fingerprint=str(payload["fingerprint"]),
                 campanha_ref=CampanhaRef(str(payload["campanha_ref"])),
                 publicado_por=str(payload["publicado_por"]),
-                publicado_em=evento.ocorrido_em,
+                publicado_em=_utc(evento.ocorrido_em),
                 idempotency_key=idempotency_key,
                 idempotente=True,
             )
