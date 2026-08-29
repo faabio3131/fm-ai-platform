@@ -31,6 +31,6 @@ def test_af29_router_nao_controla_transacao_de_metering() -> None:
 def test_af29_commit_do_metering_fica_na_borda_de_infraestrutura() -> None:
     texto = Path("infra/ai_metering.py").read_text(encoding="utf-8")
 
-    assert "with session.begin():" in texto
+    assert "with self._session_factory() as session, session.begin():" in texto
     assert "session.commit()" not in texto
     assert "class AIUsageDurableMetering" in texto

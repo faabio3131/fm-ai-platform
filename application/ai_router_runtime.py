@@ -320,7 +320,7 @@ def _metering_session_factory(session: Session) -> Callable[[], Session]:
 
     bind = session.get_bind()
     if not isinstance(bind, Engine):
-        raise RuntimeError("ai_metering.engine_independente_obrigatorio")
+        raise TypeError("ai_metering.engine_independente_obrigatorio")
 
     factory = sessionmaker(
         bind=bind,

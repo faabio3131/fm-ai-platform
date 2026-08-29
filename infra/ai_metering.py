@@ -63,17 +63,10 @@ class AIUsageEventORM(AIMeteringBase):
 
 
 def _event_id(evento: AIUsageEvent) -> str:
-    material = "|".join(
-        (
-            evento.tenant_id,
-            evento.unidade_id,
-            evento.request_id,
-            evento.correlation_id,
-            evento.provider,
-            evento.model,
-            evento.outcome.value,
-            evento.timestamp.isoformat(),
-        )
+    material = (
+        f"{evento.tenant_id}|{evento.unidade_id}|{evento.request_id}|"
+        f"{evento.correlation_id}|{evento.provider}|{evento.model}|"
+        f"{evento.outcome.value}|{evento.timestamp.isoformat()}"
     )
     return str(uuid5(NAMESPACE_URL, material))
 
@@ -85,33 +78,32 @@ class AIUsageDurableMetering:
         self._session_factory = session_factory
 
     def registrar(self, evento: AIUsageEvent) -> None:
-        with self._session_factory() as session:
-            with session.begin():
-                event_id = _event_id(evento)
-                if session.get(AIUsageEventORM, event_id) is not None:
-                    return
+        with self._session_factory() as session, session.begin():
+            event_id = _event_id(evento)
+            if session.get(AIUsageEventORM, event_id) is not None:
+                return
 
-                session.add(
-                    AIUsageEventORM(
-                        usage_event_id=event_id,
-                        tenant_id=evento.tenant_id,
-                        unidade_id=evento.unidade_id,
-                        request_id=evento.request_id,
-                        correlation_id=evento.correlation_id,
-                        capability=evento.capability.value,
-                        provider=evento.provider,
-                        model=evento.model,
-                        route_reason=evento.route_reason,
-                        fallback_used=evento.fallback_used,
-                        fallback_reason=evento.fallback_reason,
-                        input_tokens=evento.input_tokens,
-                        output_tokens=evento.output_tokens,
-                        cached_tokens=evento.cached_tokens,
-                        latency_ms=evento.latency_ms,
-                        outcome=evento.outcome.value,
-                        custo_real_calculado=evento.custo_real_calculado,
-                        moeda=evento.moeda,
-                        price_snapshot_id=evento.price_snapshot_id,
-                        timestamp=evento.timestamp,
-                    )
+            session.add(
+                AIUsageEventORM(
+                    usage_event_id=event_id,
+                    tenant_id=evento.tenant_id,
+                    unidade_id=evento.unidade_id,
+                    request_id=evento.request_id,
+                    correlation_id=evento.correlation_id,
+                    capability=evento.capability.value,
+                    provider=evento.provider,
+                    model=evento.model,
+                    route_reason=evento.route_reason,
+                    fallback_used=evento.fallback_used,
+                    fallback_reason=evento.fallback_reason,
+                    input_tokens=evento.input_tokens,
+                    output_tokens=evento.output_tokens,
+                    cached_tokens=evento.cached_tokens,
+                    latency_ms=evento.latency_ms,
+                    outcome=evento.outcome.value,
+                    custo_real_calculado=evento.custo_real_calculado,
+                    moeda=evento.moeda,
+                    price_snapshot_id=evento.price_snapshot_id,
+                    timestamp=evento.timestamp,
                 )
+            )
