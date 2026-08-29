@@ -48,6 +48,10 @@ from migrations.admin_access_authorization_v1 import (
     upgrade_admin_access_authorization_v1,
 )
 from migrations.admin_pin_v1 import upgrade_admin_pin_v1
+from migrations.ai_finops_read_model_v1 import (
+    revert_ai_finops_read_model_v1,
+    upgrade_ai_finops_read_model_v1,
+)
 from migrations.client_payment_identity_v1 import upgrade_client_payment_identity_v1
 from migrations.crm_cliente_legado_mapping_v1 import (
     upgrade_crm_cliente_legado_mapping_v1,
@@ -237,6 +241,11 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
         "0031_ai_usage_metering_v1",
         _ai_usage_metering_v1,
         _revert_ai_usage_metering_v1,
+    ),
+    Migration(
+        "0032_ai_finops_read_model_v1",
+        upgrade_ai_finops_read_model_v1,
+        revert_ai_finops_read_model_v1,
     ),
 )
 

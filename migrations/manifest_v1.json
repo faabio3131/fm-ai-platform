@@ -128,6 +128,10 @@
     {
       "version": "0031_ai_usage_metering_v1",
       "sha256": "9e8d46b7b19a2b82348acf66b4e81c544c946a2540c42c51a97b379af1898aa4"
+    },
+    {
+      "version": "0032_ai_finops_read_model_v1",
+      "sha256": "582e0a9eeaea3092c4a369620f68c245b282a944c13858d84cb652225b20e90e"
     }
   ]
 }

@@ -20,7 +20,7 @@ def _calls(path: Path) -> tuple[str, ...]:
     return tuple(found)
 
 
-def test_af29_router_nao_controla_transacao_de_metering() -> None:
+def test_af26_router_nao_controla_transacao_de_metering() -> None:
     calls = _calls(Path("core/ai_router.py"))
 
     assert "commit" not in calls
@@ -28,7 +28,7 @@ def test_af29_router_nao_controla_transacao_de_metering() -> None:
     assert "begin" not in calls
 
 
-def test_af29_commit_do_metering_fica_na_borda_de_infraestrutura() -> None:
+def test_af26_commit_do_metering_fica_na_borda_de_infraestrutura() -> None:
     texto = Path("infra/ai_metering.py").read_text(encoding="utf-8")
 
     assert "with self._session_factory() as session, session.begin():" in texto

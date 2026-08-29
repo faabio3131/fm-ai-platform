@@ -25,26 +25,41 @@ jobs:
           pip install pytest ruff==0.16.1 mypy==1.20.2
       - name: Ruff PR20
         run: >-
-          ruff check core/ai_cost.py core/ai_pricing.py core/ai_router.py core/gerente_ai.py
-          core/gerente_ia core/assistente_atendimento application/ai_router_runtime.py
-          application/gerente_ia_runtime.py infra/ai_metering.py infra/gerente_ia
-          migrations/runner.py http_api/app.py
+          ruff check core/ai_cost.py core/ai_finops.py core/ai_pricing.py core/ai_router.py
+          core/gerente_ai.py core/gerente_ia core/assistente_atendimento
+          application/ai_router_runtime.py application/gerente_ia_runtime.py
+          infra/ai_metering.py infra/ai_finops_models.py infra/ai_finops_projector.py
+          infra/ai_finops_read_model.py infra/gerente_ia
+          migrations/ai_finops_read_model_v1.py migrations/runner.py http_api/app.py
           tests/unit/ai_router tests/unit/gerente_ia tests/integration/gerente_ia
           tests/contract/gerente_ia tests/fitness/test_af15_ai_model_router.py
           tests/fitness/test_af21_ai_pricing_snapshot.py
+          tests/fitness/test_af23_ai_finops_projection.py
+          tests/fitness/test_af25_ai_finops_read_model_boundary.py
+          tests/fitness/test_af26_ai_metering_transaction_boundary.py
+          tests/fitness/test_af27_ai_finops_currency_integrity.py
           tests/fitness/test_af28_ai_cost_no_monitoring_calls.py
-          tests/fitness/test_af29_ai_metering_transaction_boundary.py
+          tests/fitness/test_af29_ai_finops_query_budget.py
+          tests/fitness/test_af30_ai_finops_batch_budget.py
       - name: mypy PR20
         run: >-
-          mypy core/ai_cost.py core/ai_pricing.py core/ai_router.py core/gerente_ai.py core/gerente_ia
-          core/assistente_atendimento application/ai_router_runtime.py
-          application/gerente_ia_runtime.py infra/ai_metering.py infra/gerente_ia http_api/app.py
+          mypy core/ai_cost.py core/ai_finops.py core/ai_pricing.py core/ai_router.py
+          core/gerente_ai.py core/gerente_ia core/assistente_atendimento
+          application/ai_router_runtime.py application/gerente_ia_runtime.py
+          infra/ai_metering.py infra/ai_finops_models.py infra/ai_finops_projector.py
+          infra/ai_finops_read_model.py infra/gerente_ia http_api/app.py
       - name: Testes focados PR20
         run: >-
           pytest -q tests/unit/ai_router tests/unit/gerente_ia
           tests/integration/gerente_ia tests/contract/gerente_ia
           tests/fitness/test_af15_ai_model_router.py
           tests/fitness/test_af21_ai_pricing_snapshot.py
+          tests/fitness/test_af23_ai_finops_projection.py
+          tests/fitness/test_af25_ai_finops_read_model_boundary.py
+          tests/fitness/test_af26_ai_metering_transaction_boundary.py
+          tests/fitness/test_af27_ai_finops_currency_integrity.py
           tests/fitness/test_af28_ai_cost_no_monitoring_calls.py
+          tests/fitness/test_af29_ai_finops_query_budget.py
+          tests/fitness/test_af30_ai_finops_batch_budget.py
       - name: Suite Python completa
         run: pytest -q
