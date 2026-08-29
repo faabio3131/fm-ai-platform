@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 import streamlit as st
@@ -29,7 +29,7 @@ def render_ai_finops_dashboard(
 ) -> None:
     """Renderiza somente dados já agregados; nunca executa o projector."""
 
-    referencia = hoje or date.today()
+    referencia = hoje or datetime.now(timezone.utc).date()
     inicio_padrao = referencia - timedelta(days=29)
 
     st.header("💡 AI FinOps — Uso, Custo & Eficiência")
