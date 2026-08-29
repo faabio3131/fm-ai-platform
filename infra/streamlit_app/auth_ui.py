@@ -18,6 +18,9 @@ from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchem
 
 _TRUE_VALUES = {"1", "true", "yes", "on"}
 _SESSION_KEY = "_fm_ai_authenticated_identity_v1"
+_LOGIN_EMAIL_WIDGET_KEY = "_fm_ai_login_email_widget_v1"
+_LOGIN_PASSWORD_WIDGET_KEY = "_fm_ai_login_password_widget_v1"
+_LOGIN_SUBMISSION_KEY = "_fm_ai_login_submission_v1"
 _FAILED_KEY = "_fm_ai_auth_failed_attempts_v1"
 _BLOCKED_UNTIL_KEY = "_fm_ai_auth_blocked_until_v1"
 _SENSITIVE_AUTH_KEY = "_fm_ai_sensitive_auth_v1"
@@ -191,6 +194,20 @@ def verify_sensitive_pin(
         db.close()
 
 
+def _capture_login_submission() -> None:
+    """Captura os valores enviados pelo formulário antes do clear_on_submit.
+
+    O Streamlit limpa widgets do formulário após o submit. A cópia efêmera abaixo
+    existe apenas durante o rerun de autenticação e é removida imediatamente antes
+    de validar as credenciais.
+    """
+
+    st.session_state[_LOGIN_SUBMISSION_KEY] = (
+        str(st.session_state.get(_LOGIN_EMAIL_WIDGET_KEY, "")),
+        str(st.session_state.get(_LOGIN_PASSWORD_WIDGET_KEY, "")),
+    )
+
+
 def require_authentication(
     *,
     session_factory: Callable[[], Session],
@@ -234,15 +251,27 @@ def require_authentication(
         _clear_failures()
 
     with st.form("fm_ai_login_v1", clear_on_submit=True):
-        email = st.text_input("E-mail", autocomplete="email")
-        password = st.text_input(
+        st.text_input(
+            "E-mail",
+            autocomplete="email",
+            key=_LOGIN_EMAIL_WIDGET_KEY,
+        )
+        st.text_input(
             "Senha",
             type="password",
             autocomplete="current-password",
+            key=_LOGIN_PASSWORD_WIDGET_KEY,
         )
-        submit = st.form_submit_button("Entrar", type="primary", use_container_width=True)
+        submit = st.form_submit_button(
+            "Entrar",
+            type="primary",
+            use_container_width=True,
+            on_click=_capture_login_submission,
+        )
 
     if submit:
+        submitted = st.session_state.pop(_LOGIN_SUBMISSION_KEY, ("", ""))
+        email, password = submitted if isinstance(submitted, tuple) else ("", "")
         db = session_factory()
         try:
             auth = ServicoAutenticacao(RepositorioIdentidadesSQLAlchemy(db))
