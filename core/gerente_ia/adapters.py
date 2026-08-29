@@ -7,7 +7,7 @@ orquestra serviços/projeções previamente autorizados pelo domínio.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from .modelos import (
     CampanhaAprovada,
@@ -115,6 +115,8 @@ class PortaCampanhasGerenciais(Protocol):
         idempotency_key: str,
     ) -> RascunhoCampanha: ...
 
+@runtime_checkable
+class PortaCampanhasGovernadas(PortaCampanhasGerenciais, Protocol):
     def aprovar(
         self,
         *,
