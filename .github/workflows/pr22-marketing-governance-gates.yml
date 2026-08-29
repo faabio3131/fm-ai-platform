@@ -1,0 +1,49 @@
+name: PR22 Marketing Governance Gates
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  marketing-governance:
+    name: F4-G Marketing Governado
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Ruff F4-G
+        run: >-
+          ruff check core/gerente_ia
+          application/campanhas_governadas.py
+          application/gerente_ia_runtime.py
+          infra/gerente_ia/campanhas_governadas_sqlalchemy.py
+          tests/unit/gerente_ia/test_campanha_governada.py
+          tests/integration/gerente_ia/test_campanha_governada_sqlalchemy.py
+          tests/fitness/test_f4g_campaign_governance.py
+      - name: mypy F4-G
+        run: >-
+          mypy core/gerente_ia
+          application/campanhas_governadas.py
+          application/gerente_ia_runtime.py
+          infra/gerente_ia/campanhas_governadas_sqlalchemy.py
+      - name: Testes focados F4-G
+        run: >-
+          pytest -q
+          tests/unit/gerente_ia
+          tests/integration/gerente_ia/test_campanha_governada_sqlalchemy.py
+          tests/contract/gerente_ia
+          tests/fitness/test_f4g_campaign_governance.py
+      - name: Suite Python completa
+        run: pytest -q
