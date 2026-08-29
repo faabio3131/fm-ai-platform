@@ -17,10 +17,12 @@ from core.gerente_ia.modelos import ChamadaTool, ToolGerenteIA
 from core.gerente_ia.servicos import ServicoGerenteIA
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.segredos import SecretStore
+from infra.gerente_ia.campanhas_governadas_sqlalchemy import (
+    CampanhasGovernadasSQLAlchemy,
+)
 from infra.gerente_ia.consultas_sqlalchemy import ConsultasGerenciaisSQLAlchemy
 from infra.gerente_ia.persistencia_sqlalchemy import (
     AcoesGerenciaisSQLAlchemy,
-    CampanhasGerenciaisSQLAlchemy,
     ConsumidorEventosCoreSQLAlchemy,
     RepositorioIdentidadeAssistenteSQLAlchemy,
     RepositorioPreviewsSQLAlchemy,
@@ -144,7 +146,7 @@ class RuntimeGerenteIAV1:
         self.core = ServicoGerenteIA(
             consultas=ConsultasGerenciaisSQLAlchemy(self.session),
             acoes=AcoesGerenciaisSQLAlchemy(self.session),
-            campanhas=CampanhasGerenciaisSQLAlchemy(self.session),
+            campanhas=CampanhasGovernadasSQLAlchemy(self.session),
             previews=RepositorioPreviewsSQLAlchemy(self.session),
             auditoria=auditoria,
         )
