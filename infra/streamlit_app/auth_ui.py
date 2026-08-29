@@ -192,10 +192,9 @@ def verify_sensitive_pin(
 
 
 def _auth_diagnostics_enabled(settings: RuntimeSettings) -> bool:
-    return bool(
-        settings.environment is RuntimeEnvironment.DEVELOPMENT
-        and os.getenv("FM_AI_AUTH_DIAGNOSTICS", "0").strip().lower() in _TRUE_VALUES
-    )
+    # Diagnóstico temporário e explícito: só ativa quando o operador define a flag
+    # no processo atual. Não revela senha, hash, URL de banco ou qualquer segredo.
+    return os.getenv("FM_AI_AUTH_DIAGNOSTICS", "0").strip().lower() in _TRUE_VALUES
 
 
 def require_authentication(
@@ -278,6 +277,7 @@ def require_authentication(
                     st.code(
                         "\n".join(
                             (
+                                f"DIAG_ENVIRONMENT={settings.environment.value}",
                                 f"DIAG_EMAIL_RECEBIDO={bool(email.strip())}",
                                 f"DIAG_EMAIL_TAMANHO={len(email)}",
                                 f"DIAG_SENHA_RECEBIDA={bool(password)}",
