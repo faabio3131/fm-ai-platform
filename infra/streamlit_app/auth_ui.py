@@ -7,7 +7,6 @@ from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 
 import streamlit as st
-import streamlit.components.v1 as components
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -192,111 +191,6 @@ def verify_sensitive_pin(
         db.close()
 
 
-def _render_login_autofill_guard() -> None:
-    """Tenta impedir autofill silencioso em terminais compartilhados.
-
-    Navegadores podem ignorar ``autocomplete=off`` em formulários de login. Por isso,
-    além do atributo HTML, este guard endurece o input de senha no documento pai,
-    renomeia-o para reduzir associação com credenciais salvas e limpa preenchimento
-    automático enquanto o usuário ainda não interagiu manualmente com o campo.
-    """
-
-    components.html(
-        """
-        <script>
-        (() => {
-            const parentWindow = window.parent;
-            const parentDocument = parentWindow.document;
-            const stateKey = '__fmAiLoginAutofillGuardV1';
-
-            const previous = parentWindow[stateKey];
-            if (previous && previous.cleanup) {
-                try { previous.cleanup(); } catch (_) {}
-            }
-
-            const state = {
-                userStarted: false,
-                intervalId: null,
-                observer: null,
-                cleanup: null,
-            };
-            parentWindow[stateKey] = state;
-
-            const passwordInputs = () => Array.from(
-                parentDocument.querySelectorAll('input[type="password"]')
-            );
-
-            const harden = (input) => {
-                input.setAttribute('autocomplete', 'new-password');
-                input.setAttribute('data-lpignore', 'true');
-                input.setAttribute('data-1p-ignore', 'true');
-                input.setAttribute('data-bwignore', 'true');
-                input.setAttribute('aria-autocomplete', 'none');
-                input.setAttribute('name', 'fm_ai_login_secret_manual_entry');
-                const form = input.closest('form');
-                if (form) form.setAttribute('autocomplete', 'off');
-            };
-
-            const clearAutofill = (input) => {
-                if (state.userStarted || parentDocument.activeElement === input) return;
-                if (!input.value) return;
-                const descriptor = Object.getOwnPropertyDescriptor(
-                    parentWindow.HTMLInputElement.prototype,
-                    'value'
-                );
-                if (descriptor && descriptor.set) {
-                    descriptor.set.call(input, '');
-                } else {
-                    input.value = '';
-                }
-                input.dispatchEvent(new Event('input', {bubbles: true}));
-                input.dispatchEvent(new Event('change', {bubbles: true}));
-            };
-
-            const protect = () => {
-                for (const input of passwordInputs()) {
-                    harden(input);
-                    clearAutofill(input);
-                }
-            };
-
-            const startManualEntry = (event) => {
-                if (event.target && event.target.matches('input[type="password"]')) {
-                    state.userStarted = true;
-                }
-            };
-
-            parentDocument.addEventListener('pointerdown', startManualEntry, true);
-            parentDocument.addEventListener('keydown', startManualEntry, true);
-            parentDocument.addEventListener('paste', startManualEntry, true);
-
-            protect();
-            state.intervalId = parentWindow.setInterval(protect, 100);
-            parentWindow.setTimeout(() => {
-                if (state.intervalId) {
-                    parentWindow.clearInterval(state.intervalId);
-                    state.intervalId = null;
-                }
-            }, 5000);
-
-            state.observer = new MutationObserver(protect);
-            state.observer.observe(parentDocument.body, {childList: true, subtree: true});
-
-            state.cleanup = () => {
-                if (state.intervalId) parentWindow.clearInterval(state.intervalId);
-                if (state.observer) state.observer.disconnect();
-                parentDocument.removeEventListener('pointerdown', startManualEntry, true);
-                parentDocument.removeEventListener('keydown', startManualEntry, true);
-                parentDocument.removeEventListener('paste', startManualEntry, true);
-            };
-        })();
-        </script>
-        """,
-        height=0,
-        width=0,
-    )
-
-
 def require_authentication(
     *,
     session_factory: Callable[[], Session],
@@ -339,14 +233,12 @@ def require_authentication(
     if blocked is not None:
         _clear_failures()
 
-    _render_login_autofill_guard()
-
     with st.form("fm_ai_login_v1", clear_on_submit=True):
-        email = st.text_input("E-mail", autocomplete="off")
+        email = st.text_input("E-mail", autocomplete="email")
         password = st.text_input(
             "Senha",
             type="password",
-            autocomplete="new-password",
+            autocomplete="current-password",
         )
         submit = st.form_submit_button("Entrar", type="primary", use_container_width=True)
 
