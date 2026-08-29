@@ -11,16 +11,13 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from core.runtime.config import RuntimeEnvironment, RuntimeSettings
-from core.seguranca.autenticacao import IdentidadeUsuario, ServicoAutenticacao
+from core.seguranca.autenticacao import IdentidadeUsuario, ServicoAutenticacao, verify_password
 from core.seguranca.erros import CredenciaisInvalidas, UsuarioInativo
 from core.seguranca.permissoes import Papel, Permissao
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 
 _TRUE_VALUES = {"1", "true", "yes", "on"}
 _SESSION_KEY = "_fm_ai_authenticated_identity_v1"
-_LOGIN_EMAIL_WIDGET_KEY = "_fm_ai_login_email_widget_v1"
-_LOGIN_PASSWORD_WIDGET_KEY = "_fm_ai_login_password_widget_v1"
-_LOGIN_SUBMISSION_KEY = "_fm_ai_login_submission_v1"
 _FAILED_KEY = "_fm_ai_auth_failed_attempts_v1"
 _BLOCKED_UNTIL_KEY = "_fm_ai_auth_blocked_until_v1"
 _SENSITIVE_AUTH_KEY = "_fm_ai_sensitive_auth_v1"
@@ -194,17 +191,10 @@ def verify_sensitive_pin(
         db.close()
 
 
-def _capture_login_submission() -> None:
-    """Captura os valores enviados pelo formulário antes do clear_on_submit.
-
-    O Streamlit limpa widgets do formulário após o submit. A cópia efêmera abaixo
-    existe apenas durante o rerun de autenticação e é removida imediatamente antes
-    de validar as credenciais.
-    """
-
-    st.session_state[_LOGIN_SUBMISSION_KEY] = (
-        str(st.session_state.get(_LOGIN_EMAIL_WIDGET_KEY, "")),
-        str(st.session_state.get(_LOGIN_PASSWORD_WIDGET_KEY, "")),
+def _auth_diagnostics_enabled(settings: RuntimeSettings) -> bool:
+    return bool(
+        settings.environment is RuntimeEnvironment.DEVELOPMENT
+        and os.getenv("FM_AI_AUTH_DIAGNOSTICS", "0").strip().lower() in _TRUE_VALUES
     )
 
 
@@ -250,28 +240,20 @@ def require_authentication(
     if blocked is not None:
         _clear_failures()
 
-    with st.form("fm_ai_login_v1", clear_on_submit=True):
-        st.text_input(
-            "E-mail",
-            autocomplete="email",
-            key=_LOGIN_EMAIL_WIDGET_KEY,
-        )
-        st.text_input(
+    with st.form("fm_ai_login_v1", clear_on_submit=False):
+        email = st.text_input("E-mail", autocomplete="email")
+        password = st.text_input(
             "Senha",
             type="password",
             autocomplete="current-password",
-            key=_LOGIN_PASSWORD_WIDGET_KEY,
         )
         submit = st.form_submit_button(
             "Entrar",
             type="primary",
             use_container_width=True,
-            on_click=_capture_login_submission,
         )
 
     if submit:
-        submitted = st.session_state.pop(_LOGIN_SUBMISSION_KEY, ("", ""))
-        email, password = submitted if isinstance(submitted, tuple) else ("", "")
         db = session_factory()
         try:
             auth = ServicoAutenticacao(RepositorioIdentidadesSQLAlchemy(db))
@@ -287,6 +269,30 @@ def require_authentication(
         except (CredenciaisInvalidas, UsuarioInativo):
             _register_failure()
             st.error("E-mail ou senha inválidos, ou usuário sem acesso a esta unidade.")
+            if _auth_diagnostics_enabled(settings):
+                try:
+                    repo = RepositorioIdentidadesSQLAlchemy(db)
+                    candidate = repo.obter_por_email(
+                        ServicoAutenticacao.normalizar_email(email)
+                    )
+                    st.code(
+                        "\n".join(
+                            (
+                                f"DIAG_EMAIL_RECEBIDO={bool(email.strip())}",
+                                f"DIAG_EMAIL_TAMANHO={len(email)}",
+                                f"DIAG_SENHA_RECEBIDA={bool(password)}",
+                                f"DIAG_SENHA_TAMANHO={len(password)}",
+                                f"DIAG_USUARIO_EXISTE={candidate is not None}",
+                                f"DIAG_SENHA_CONFERE={bool(candidate and verify_password(password, candidate.senha_hash))}",
+                                f"DIAG_ATIVO={bool(candidate and candidate.ativo)}",
+                                f"DIAG_TENANT_CONFERE={bool(candidate and candidate.tenant_id == settings.tenant_id)}",
+                                f"DIAG_UNIDADE_CONFERE={bool(candidate and settings.unidade_id in candidate.unidades_permitidas)}",
+                            )
+                        ),
+                        language="text",
+                    )
+                except Exception:
+                    st.caption("Diagnóstico seguro indisponível nesta tentativa.")
         except SQLAlchemyError:
             st.error(
                 "A autenticação comercial ainda não foi inicializada neste banco. "
