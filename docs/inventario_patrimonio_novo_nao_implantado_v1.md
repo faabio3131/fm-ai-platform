@@ -545,7 +545,8 @@ Um item entra aqui quando:
 - PIN administrativo;
 - proteção de áreas sensíveis;
 - session guard;
-- falta apenas concluir gates negativos/físicos e remover diagnóstico temporário.
+- diagnóstico temporário removido no SHA `8ee98a4ed06e8d3034e83b3cc99c5bc9ce68a5ec`;
+- permanece pendente somente o fechamento físico: bloquear área sensível e comprovar novo PIN; perfil sem autorização deve falhar fechado inclusive por URL direta.
 
 ### Control Plane de Integrações e Credenciais
 - UI comercial;
