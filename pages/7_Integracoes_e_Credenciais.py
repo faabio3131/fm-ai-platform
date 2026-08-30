@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dotenv import load_dotenv
 import streamlit as st
+from dotenv import load_dotenv
 
 from core.runtime import build_engine, load_runtime_settings
 from core.seguranca.permissoes import Permissao
@@ -18,7 +18,6 @@ from infra.streamlit_app.sensitive_idle_watchdog import (
     render_sensitive_idle_watchdog,
 )
 from migrations.runner import assert_schema_current
-
 
 load_dotenv()
 st.set_page_config(
