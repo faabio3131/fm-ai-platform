@@ -139,6 +139,20 @@ def lock_sensitive_area() -> None:
 
 
 def _sensitive_auth_valid(identity: IdentidadeUsuario) -> bool:
+    """Valida o grant sem transformar reruns automáticos em atividade do usuário."""
+
+    grant = st.session_state.get(_SENSITIVE_AUTH_KEY)
+    now = datetime.now(timezone.utc)
+    if not sensitive_grant_is_valid(grant, identity, now=now):
+        if isinstance(grant, dict):
+            _clear_sensitive_auth()
+        return False
+    return isinstance(grant, dict)
+
+
+def record_sensitive_activity(identity: IdentidadeUsuario) -> bool:
+    """Renova o grant somente após atividade real reportada pelo navegador."""
+
     grant = st.session_state.get(_SENSITIVE_AUTH_KEY)
     now = datetime.now(timezone.utc)
     if not sensitive_grant_is_valid(grant, identity, now=now):
