@@ -99,3 +99,20 @@ Um bloco só pode receber status final quando, conforme aplicável:
 ## Autoridade humana
 
 O proprietário mantém a autorização final para gates críticos, integração Git, merge em `main`, migration produtiva, deploy e encerramento comercial da V1.
+
+
+## Gate executável de runtime comercial
+
+Para impedir que regra documental vire apenas orientação textual, o projeto mantém
+`docs/commercial_runtime_readiness_v1.json` e
+`scripts/check_commercial_runtime_readiness_v1.py`.
+
+Antes de marcar qualquer módulo como pronto/aprovado/concluído comercialmente, o
+responsável técnico deve executar o gate específico do módulo. Um status final é
+inválido se houver Fake/Mock/runtime_teste, autoridade legada não cortada, blocker
+externo obrigatório, migration pendente ou ausência de evidência física/commercial
+runtime no mesmo SHA.
+
+O inventário é evidência controlada, não um mecanismo para maquiar prontidão. Alterar
+status ou remover blocker sem mudança correspondente no código/evidência viola este
+arquivo e o Documento Mestre.
