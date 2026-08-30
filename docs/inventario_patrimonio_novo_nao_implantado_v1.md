@@ -590,6 +590,20 @@ Durante a recuperação:
 - Fake/Mock/runtime_teste permanecem somente em testes.
 - Todo cutover deve registrar **Current → Target → evidência → rollback**.
 
+## 11.1 Ritual obrigatório após CADA etapa
+
+Antes de iniciar a etapa seguinte, sem exceção:
+1. confrontar o código/runtime recém-validado com este inventário;
+2. atualizar `docs/commercial_runtime_readiness_v1.json`;
+3. remover somente blockers que tenham evidência objetiva;
+4. registrar SHA, teste automatizado, Commercial Runtime E2E e teste físico quando aplicáveis;
+5. verificar se a etapa revelou patrimônio novo já existente que evite reescrita;
+6. verificar se algum Fake/Mock/runtime_teste/Legacy voltou ao caminho comercial;
+7. registrar o checkpoint na Issue de recuperação;
+8. somente então liberar a próxima etapa do Documento Mestre.
+
+Se inventário, código e evidência divergirem, a execução deve **STOP** até reconciliação. Nenhum agente pode avançar usando apenas memória de conversa.
+
 ## 12. Conclusão
 
 O patrimônio novo é substancial. A maior parte do custo de domínio e arquitetura **já foi investida**. O problema central é que vários desses blocos ficaram em estado **BACKEND/TEST RUNTIME READY** sem chegar a **COMMERCIAL CUTOVER**.
