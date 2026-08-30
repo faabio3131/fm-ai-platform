@@ -1,0 +1,28 @@
+name: Commercial Runtime Readiness V1
+
+on:
+  pull_request:
+    paths:
+      - "app.py"
+      - "core/**"
+      - "application/**"
+      - "infra/**"
+      - "pages/**"
+      - "scripts/check_commercial_runtime_readiness_v1.py"
+      - "docs/commercial_runtime_readiness_v1.json"
+      - "tests/fitness/test_commercial_runtime_readiness_v1.py"
+      - ".github/workflows/commercial-runtime-readiness-v1.yml"
+  workflow_dispatch:
+
+jobs:
+  readiness-inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify commercial runtime inventory
+        run: python scripts/check_commercial_runtime_readiness_v1.py --verify-inventory
+      - name: Run readiness fitness gate
+        run: python -m pytest -q tests/fitness/test_commercial_runtime_readiness_v1.py
