@@ -23,10 +23,11 @@
       ],
       "code_blockers": [],
       "external_blockers": [
+        "sensitive_relock_browser_gate_pending",
         "negative_rbac_browser_gate_pending"
       ],
       "evidence": {
-        "sha": "8ee98a4ed06e8d3034e83b3cc99c5bc9ce68a5ec",
+        "sha": "f778797409a2adca928674e4058291e62988eb34",
         "commercial_runtime_e2e": null,
         "physical_test": null
       }
