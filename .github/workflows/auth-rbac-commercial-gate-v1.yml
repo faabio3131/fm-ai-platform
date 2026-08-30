@@ -15,6 +15,20 @@ on:
       - "tests/integration/security/**"
       - "tests/fitness/test_auth_sensitive_entrypoints_v1.py"
       - ".github/workflows/auth-rbac-commercial-gate-v1.yml"
+  pull_request:
+    branches:
+      - "integration/kordena-v1-canonical-stab03"
+    paths:
+      - "infra/streamlit_app/auth_ui.py"
+      - "infra/streamlit_app/sensitive_idle_watchdog.py"
+      - "pages/6_Administracao_Proprietario.py"
+      - "pages/7_Integracoes_e_Credenciais.py"
+      - "core/seguranca/**"
+      - "infra/seguranca/**"
+      - "tests/unit/security/**"
+      - "tests/integration/security/**"
+      - "tests/fitness/test_auth_sensitive_entrypoints_v1.py"
+      - ".github/workflows/auth-rbac-commercial-gate-v1.yml"
   workflow_dispatch:
 
 permissions:
