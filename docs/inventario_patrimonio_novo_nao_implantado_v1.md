@@ -545,8 +545,12 @@ Um item entra aqui quando:
 - PIN administrativo;
 - proteção de áreas sensíveis;
 - session guard;
-- diagnóstico temporário removido no SHA `8ee98a4ed06e8d3034e83b3cc99c5bc9ce68a5ec`;
-- permanece pendente somente o fechamento físico: bloquear área sensível e comprovar novo PIN; perfil sem autorização deve falhar fechado inclusive por URL direta.
+- diagnóstico temporário removido;
+- gate automatizado reconciliado no SHA `f778797409a2adca928674e4058291e62988eb34`;
+- suíte física Windows direcionada: **23 passed** em autenticação, área sensível, PIN e fitness guard;
+- workflows `Auth RBAC Commercial Gate V1` de push e pull request: **success** no mesmo SHA;
+- nenhum blocker de código conhecido permanece neste checkpoint;
+- continuam pendentes os gates físicos no navegador: re-bloqueio da área sensível deve exigir novo PIN e perfil sem autorização deve falhar fechado inclusive por URL direta.
 
 ### Control Plane de Integrações e Credenciais
 - UI comercial;
