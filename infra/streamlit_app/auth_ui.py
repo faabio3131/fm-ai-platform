@@ -11,7 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from core.runtime.config import RuntimeEnvironment, RuntimeSettings
-from core.seguranca.autenticacao import IdentidadeUsuario, ServicoAutenticacao, verify_password
+from core.seguranca.autenticacao import IdentidadeUsuario, ServicoAutenticacao
 from core.seguranca.erros import CredenciaisInvalidas, UsuarioInativo
 from core.seguranca.permissoes import Papel, Permissao
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
@@ -191,12 +191,6 @@ def verify_sensitive_pin(
         db.close()
 
 
-def _auth_diagnostics_enabled(settings: RuntimeSettings) -> bool:
-    # Diagnóstico temporário e explícito: só ativa quando o operador define a flag
-    # no processo atual. Não revela senha, hash, URL de banco ou qualquer segredo.
-    return os.getenv("FM_AI_AUTH_DIAGNOSTICS", "0").strip().lower() in _TRUE_VALUES
-
-
 def require_authentication(
     *,
     session_factory: Callable[[], Session],
@@ -268,31 +262,6 @@ def require_authentication(
         except (CredenciaisInvalidas, UsuarioInativo):
             _register_failure()
             st.error("E-mail ou senha inválidos, ou usuário sem acesso a esta unidade.")
-            if _auth_diagnostics_enabled(settings):
-                try:
-                    repo = RepositorioIdentidadesSQLAlchemy(db)
-                    candidate = repo.obter_por_email(
-                        ServicoAutenticacao.normalizar_email(email)
-                    )
-                    st.code(
-                        "\n".join(
-                            (
-                                f"DIAG_ENVIRONMENT={settings.environment.value}",
-                                f"DIAG_EMAIL_RECEBIDO={bool(email.strip())}",
-                                f"DIAG_EMAIL_TAMANHO={len(email)}",
-                                f"DIAG_SENHA_RECEBIDA={bool(password)}",
-                                f"DIAG_SENHA_TAMANHO={len(password)}",
-                                f"DIAG_USUARIO_EXISTE={candidate is not None}",
-                                f"DIAG_SENHA_CONFERE={bool(candidate and verify_password(password, candidate.senha_hash))}",
-                                f"DIAG_ATIVO={bool(candidate and candidate.ativo)}",
-                                f"DIAG_TENANT_CONFERE={bool(candidate and candidate.tenant_id == settings.tenant_id)}",
-                                f"DIAG_UNIDADE_CONFERE={bool(candidate and settings.unidade_id in candidate.unidades_permitidas)}",
-                            )
-                        ),
-                        language="text",
-                    )
-                except Exception:
-                    st.caption("Diagnóstico seguro indisponível nesta tentativa.")
         except SQLAlchemyError:
             st.error(
                 "A autenticação comercial ainda não foi inicializada neste banco. "
