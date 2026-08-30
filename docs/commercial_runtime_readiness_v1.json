@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "authority": "GERENTE_AI_V1_PROTOCOLO_MESTRE_DE_EXECUCAO",
+  "rule": "No module may be marked COMMERCIAL_HOMOLOGATED while code/external blockers or missing commercial/physical evidence remain.",
+  "statuses": [
+    "PHYSICAL_GATE_PENDING",
+    "PARTIAL_HOMOLOGATION",
+    "CUTOVER_PENDING",
+    "LEGACY_AUTHORITY",
+    "TEST_RUNTIME",
+    "EXTERNAL_HOMOLOGATION_PENDING",
+    "MIGRATION_PENDING",
+    "COMMERCIAL_CANDIDATE",
+    "COMMERCIAL_HOMOLOGATED"
+  ],
+  "modules": {
+    "auth_rbac_admin": {
+      "status": "PHYSICAL_GATE_PENDING",
+      "commercial_paths": ["infra/streamlit_app/auth_ui.py", "pages/6_Administracao_Proprietario.py", "pages/7_Integracoes_e_Credenciais.py"],
+      "code_blockers": ["auth_temporary_diagnostics"],
+      "external_blockers": ["negative_rbac_browser_gate_pending"],
+      "evidence": {"sha": null, "commercial_runtime_e2e": null, "physical_test": null}
+    },
+    "integrations_control_plane": {
+      "status": "PARTIAL_HOMOLOGATION",
+      "commercial_paths": ["infra/streamlit_app/integracoes_admin.py", "application/integracoes_admin_transacoes.py"],
+      "code_blockers": [],
+      "external_blockers": ["providers_not_all_homologated"],
+      "evidence": {"sha": null, "commercial_runtime_e2e": null, "physical_test": null}
+    },
+    "assistente_atendimento": {
+      "status": "CUTOVER_PENDING",
+      "commercial_paths": ["core/assistente_atendimento/ui_streamlit.py", "core/mica/ui_streamlit.py"],
+      "code_blockers": ["assistant_delegates_to_mica", "assistant_operacao_mica_fake"],
+      "external_blockers": [],
+      "evidence": {"sha": null, "commercial_runtime_e2e": null, "physical_test": null}
+    },
+    "cardapio_ficha_tecnica": {
+      "status": "LEGACY_AUTHORITY",
+      "commercial_paths": ["app.py", "application/legacy_cardapio_transacoes.py"],
+      "code_blockers": ["cardapio_legacy_application_in_app"],
+      "external_blockers": [],
+      "evidence": {"sha": null, "commercial_runtime_e2e": null, "physical_test": null}
+    },
+    "pdv_pagamentos": {
+      "status": "LEGACY_AUTHORITY",
+      "commercial_paths": ["app.py", "core/pdv/configuracao.py"],
+      "code_blockers": ["pdv_forced_legacy_outside_test", "pdv_legacy_adapter_in_app"],
+      "external_blockers": ["pix_provider_homologation_incomplete"],
+      "evidence": {"sha": null, "commercial_runtime_e2e": null, "physical_test": null}
+    },
+    "estoque": {
+      "status": "LEGACY_AUTHORITY",
+      "commercial_paths": ["app.py", "application/legacy_estoque_transacoes.py", "core/estoque/servicos.py"],
+      "code_blockers": ["estoque_legacy_application_in_app"],
+      "external_blockers": [],
+      "evidence": {"sha": null, "commercial_runtime_e2e": null, "physical_test": null}
+    },
+    "crm_cashback": {
+      "status": "CUTOVER_PENDING",
+      "commercial_paths": ["app.py", "core/crm/runtime_teste.py"],
+      "code_blockers": ["crm_direct_legacy_cashback_write", "crm_marketing_fake_runtime"],
+      "external_blockers": [],
+      "evidence": {"sha": null, "commercial_runtime_e2e": null, "physical_test": null}
+    },
+    "dashboard_financeiro": {
+      "status": "LEGACY_AUTHORITY",
+      "commercial_paths": ["app.py"],
+      "code_blockers": ["financial_dashboard_reads_legacy_venda"],
+      "external_blockers": [],
+      "evidence": {"sha": null, "commercial_runtime_e2e": null, "physical_test": null}
+    },
+    "central_pedidos": {
+      "status": "COMMERCIAL_CANDIDATE",
+      "commercial_paths": ["core/central_pedidos/ui_streamlit.py"],
+      "code_blockers": [],
+      "external_blockers": ["commercial_runtime_physical_gate_pending"],
+      "evidence": {"sha": null, "commercial_runtime_e2e": null, "physical_test": null}
+    },
+    "kds": {
+      "status": "COMMERCIAL_CANDIDATE",
+      "commercial_paths": ["core/kds/ui_comercial.py", "core/kds/ui_runtime.py", "core/kds/ui_roteamento.py"],
+      "code_blockers": [],
+      "external_blockers": ["commercial_runtime_physical_gate_pending"],
+      "evidence": {"sha": null, "commercial_runtime_e2e": null, "physical_test": null}
+    },
+    "salao": {
+      "status": "TEST_RUNTIME",
+      "commercial_paths": ["core/salao/ui_streamlit.py"],
+      "code_blockers": ["salao_prepares_test_schema", "salao_uses_test_context", "salao_confirms_payment_with_test_helper"],
+      "external_blockers": [],
+      "evidence": {"sha": null, "commercial_runtime_e2e": null, "physical_test": null}
+    },
+    "garcom": {
+      "status": "TEST_RUNTIME",
+      "commercial_paths": ["core/garcom/ui_streamlit.py"],
+      "code_blockers": ["garcom_prepares_test_schema", "garcom_uses_test_context"],
+      "external_blockers": [],
+      "evidence": {"sha": null, "commercial_runtime_e2e": null, "physical_test": null}
+    },
+    "entrega": {
+      "status": "TEST_RUNTIME",
+      "commercial_paths": ["core/entrega/ui_streamlit.py"],
+      "code_blockers": ["entrega_uses_test_context"],
+      "external_blockers": [],
+      "evidence": {"sha": null, "commercial_runtime_e2e": null, "physical_test": null}
+    },
+    "delivery_proprio": {
+      "status": "TEST_RUNTIME",
+      "commercial_paths": ["core/delivery/ui_streamlit.py", "core/delivery/runtime_teste.py"],
+      "code_blockers": ["delivery_runtime_teste", "delivery_demo_scope"],
+      "external_blockers": [],
+      "evidence": {"sha": null, "commercial_runtime_e2e": null, "physical_test": null}
+    },
+    "marketplaces": {
+      "status": "EXTERNAL_HOMOLOGATION_PENDING",
+      "commercial_paths": ["core/marketplaces/ifood_http.py", "core/marketplaces/food99_partner.py", "core/marketplaces/keeta_partner.py"],
+      "code_blockers": ["ifood_transport_not_composed_for_real_network"],
+      "external_blockers": ["ifood_99food_keeta_partner_homologation_pending"],
+      "evidence": {"sha": null, "commercial_runtime_e2e": null, "physical_test": null}
+    },
+    "ai_finops": {
+      "status": "MIGRATION_PENDING",
+      "commercial_paths": ["infra/streamlit_app/ai_finops.py", "infra/ai_finops_read_model.py"],
+      "code_blockers": [],
+      "external_blockers": ["migration_0032_not_applied_in_current_homologation_db"],
+      "evidence": {"sha": null, "commercial_runtime_e2e": null, "physical_test": null}
+    },
+    "gerente_ia_core": {
+      "status": "COMMERCIAL_CANDIDATE",
+      "commercial_paths": ["application/gerente_ia_runtime.py", "http_api/app.py"],
+      "code_blockers": [],
+      "external_blockers": ["transversal_module_cutovers_pending", "commercial_runtime_physical_gate_pending"],
+      "evidence": {"sha": null, "commercial_runtime_e2e": null, "physical_test": null}
+    }
+  }
+}
