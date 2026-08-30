@@ -1,11 +1,9 @@
-"""Watchdog visual do timeout das áreas administrativas sensíveis.
+"""Watchdog comercial do timeout das áreas administrativas sensíveis.
 
-O relógio de 3 minutos roda no navegador e é renovado somente por atividade real
-do usuário: digitação, alteração de campos, clique/toque e rolagem. Reruns automáticos
-do Streamlit não contam como atividade.
-
-Quando o limite ocioso é atingido, o watchdog aciona o mesmo botão de bloqueio manual
-da barra lateral. Isso limpa o grant no servidor e rerenderiza a página protegida.
+O relógio de 3 minutos roda no DOM principal por um Streamlit Component V2.
+Somente atividade real do usuário renova o grant no servidor. Reruns automáticos
+não contam como atividade. Ao expirar, o componente emite um trigger para Python,
+que limpa o grant sensível antes do rerun da página protegida.
 """
 
 from __future__ import annotations
@@ -14,104 +12,150 @@ import json
 from datetime import datetime
 
 import streamlit as st
-import streamlit.components.v1 as components
 
 from core.seguranca.autenticacao import IdentidadeUsuario
+from infra.streamlit_app.auth_ui import (
+    lock_sensitive_area,
+    record_sensitive_activity,
+)
 
 _SENSITIVE_AUTH_KEY = "_fm_ai_sensitive_auth_v1"
 _BROWSER_IDLE_TIMEOUT_MS = 180_000
-_BROWSER_CHECK_INTERVAL_MS = 1_000
+_ACTIVITY_REPORT_INTERVAL_MS = 30_000
+
+_SENSITIVE_IDLE_WATCHDOG_COMPONENT = st.components.v2.component(
+    name="fm_ai_sensitive_idle_watchdog_v4",
+    html='<span id="fm-ai-sensitive-idle-watchdog" hidden></span>',
+    js="""
+    export default function({ data, setTriggerValue }) {
+        const marker = String(data.marker);
+        const timeoutMs = Number(data.timeoutMs);
+        const activityReportEveryMs = Number(data.activityReportEveryMs);
+        const stateKey = "__fmAiSensitiveIdleV4";
+
+        let state = window[stateKey];
+        if (!state || state.marker !== marker) {
+            if (state && state.cleanup) {
+                try { state.cleanup(); } catch (_) {}
+            }
+            state = {
+                marker,
+                lastRealActivityAt: Date.now(),
+                lastReportedActivityAt: Date.now(),
+                expired: false,
+                timeoutId: null,
+                cleanup: null,
+            };
+            window[stateKey] = state;
+        } else if (state.cleanup) {
+            try { state.cleanup(); } catch (_) {}
+            state.cleanup = null;
+        }
+
+        const clearTimer = () => {
+            if (state.timeoutId !== null) {
+                window.clearTimeout(state.timeoutId);
+                state.timeoutId = null;
+            }
+        };
+
+        const expireIfIdle = () => {
+            if (state.expired) return;
+            const idleForMs = Date.now() - state.lastRealActivityAt;
+            const remainingMs = timeoutMs - idleForMs;
+            if (remainingMs <= 0) {
+                state.expired = true;
+                clearTimer();
+                setTriggerValue("expired", Date.now());
+                return;
+            }
+            clearTimer();
+            state.timeoutId = window.setTimeout(expireIfIdle, remainingMs);
+        };
+
+        const markRealActivity = () => {
+            if (state.expired) return;
+            const now = Date.now();
+            state.lastRealActivityAt = now;
+
+            if ((now - state.lastReportedActivityAt) >= activityReportEveryMs) {
+                state.lastReportedActivityAt = now;
+                setTriggerValue("activity", now);
+            }
+            expireIfIdle();
+        };
+
+        const events = [
+            "keydown",
+            "input",
+            "change",
+            "pointerdown",
+            "touchstart",
+            "wheel",
+        ];
+        for (const eventName of events) {
+            document.addEventListener(eventName, markRealActivity, {
+                capture: true,
+                passive: true,
+            });
+        }
+
+        expireIfIdle();
+
+        const cleanup = () => {
+            clearTimer();
+            for (const eventName of events) {
+                document.removeEventListener(eventName, markRealActivity, {
+                    capture: true,
+                });
+            }
+        };
+        state.cleanup = cleanup;
+        return cleanup;
+    }
+    """,
+)
 
 
 def _grant_marker(identity: IdentidadeUsuario) -> str:
-    """Identifica a geração/atividade conhecida do grant sem expor qualquer segredo."""
+    """Identifica a geração de atividade do grant sem expor segredo."""
 
     grant = st.session_state.get(_SENSITIVE_AUTH_KEY)
     if not isinstance(grant, dict) or grant.get("usuario_id") != identity.usuario_id:
         return "locked"
     last_activity_at = grant.get("last_activity_at")
     if isinstance(last_activity_at, datetime):
-        return f"{identity.usuario_id}:{last_activity_at.isoformat()}"
-    return f"{identity.usuario_id}:unknown"
+        return json.dumps(
+            {
+                "usuario_id": identity.usuario_id,
+                "last_activity_at": last_activity_at.isoformat(),
+            },
+            sort_keys=True,
+        )
+    return "locked"
 
 
-def _render_browser_idle_watchdog(identity: IdentidadeUsuario) -> None:
-    """Bloqueia após 3 minutos sem atividade REAL no documento principal."""
+def _record_browser_activity(identity: IdentidadeUsuario) -> None:
+    """Callback do browser: renova o grant somente se ainda for válido."""
 
-    marker = json.dumps(_grant_marker(identity))
-    components.html(
-        f"""
-        <script>
-        (() => {{
-            const parentWindow = window.parent;
-            const parentDocument = parentWindow.document;
-            const marker = {marker};
-            const timeoutMs = {_BROWSER_IDLE_TIMEOUT_MS};
-            const checkEveryMs = {_BROWSER_CHECK_INTERVAL_MS};
-            const stateKey = '__fmAiSensitiveIdleV3';
-
-            let state = parentWindow[stateKey];
-            if (!state || state.marker !== marker) {{
-                if (state && state.cleanup) {{
-                    try {{ state.cleanup(); }} catch (_) {{}}
-                }}
-                state = {{
-                    marker,
-                    lastRealActivityAt: Date.now(),
-                    expired: false,
-                    cleanup: null,
-                }};
-                parentWindow[stateKey] = state;
-            }}
-
-            const markRealActivity = () => {{
-                if (state.expired) return;
-                state.lastRealActivityAt = Date.now();
-            }};
-
-            const events = ['keydown', 'input', 'change', 'pointerdown', 'touchstart', 'wheel', 'scroll'];
-            for (const eventName of events) {{
-                parentDocument.addEventListener(eventName, markRealActivity, {{capture: true, passive: true}});
-            }}
-
-            const lockSensitiveArea = () => {{
-                const buttons = Array.from(parentDocument.querySelectorAll('button'));
-                const lockButton = buttons.find((button) =>
-                    (button.innerText || button.textContent || '').includes('Bloquear área administrativa agora')
-                );
-                if (lockButton) {{
-                    lockButton.click();
-                    return;
-                }}
-                // Fallback fail-closed: força rerun completo; o gate do servidor
-                // revalida o grant antes de renderizar novamente a área sensível.
-                parentWindow.location.reload();
-            }};
-
-            const intervalId = parentWindow.setInterval(() => {{
-                if (state.expired) return;
-                if ((Date.now() - state.lastRealActivityAt) >= timeoutMs) {{
-                    state.expired = true;
-                    lockSensitiveArea();
-                }}
-            }}, checkEveryMs);
-
-            state.cleanup = () => {{
-                parentWindow.clearInterval(intervalId);
-                for (const eventName of events) {{
-                    parentDocument.removeEventListener(eventName, markRealActivity, {{capture: true}});
-                }}
-            }};
-        }})();
-        </script>
-        """,
-        height=0,
-        width=0,
-    )
+    record_sensitive_activity(identity)
 
 
 def render_sensitive_idle_watchdog(identity: IdentidadeUsuario) -> None:
-    """Mantém a área aberta enquanto há uso real e a fecha após 3 min ociosa."""
+    """Fecha a área após 3 min sem atividade real, inclusive sob reruns automáticos."""
 
-    _render_browser_idle_watchdog(identity)
+    marker = _grant_marker(identity)
+    if marker == "locked":
+        lock_sensitive_area()
+        st.rerun()
 
+    _SENSITIVE_IDLE_WATCHDOG_COMPONENT(
+        key=f"fm-ai-sensitive-idle-watchdog:{identity.usuario_id}",
+        data={
+            "marker": marker,
+            "timeoutMs": _BROWSER_IDLE_TIMEOUT_MS,
+            "activityReportEveryMs": _ACTIVITY_REPORT_INTERVAL_MS,
+        },
+        on_activity_change=lambda: _record_browser_activity(identity),
+        on_expired_change=lock_sensitive_area,
+    )
