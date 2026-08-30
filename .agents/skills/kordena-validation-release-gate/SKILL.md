@@ -96,3 +96,25 @@ Sempre registre:
 ## Kill switch de repetição
 
 Se a mesma causa raiz continuar falhando após três tentativas corretivas no mesmo gate, **pare de repetir a mesma abordagem**. Classifique o bloqueio, preserve a evidência e entregue hipóteses restantes e decisão necessária. Trabalhos independentes podem continuar somente quando forem seguros, autorizados e não dependerem do gate bloqueado.
+
+
+## Commercial Runtime Readiness Gate obrigatório
+
+Antes de declarar qualquer módulo funcional como `PRONTO`, `APROVADO`,
+`CONCLUÍDO` ou equivalente comercial, execute também o gate versionado:
+
+```bash
+python scripts/check_commercial_runtime_readiness_v1.py --module <nome_do_modulo> --require-homologated
+```
+
+Regras:
+- o inventário `docs/commercial_runtime_readiness_v1.json` deve refletir o código real;
+- `Fake`, `runtime_teste`, contexto/schema de teste ou blocker conhecido no caminho comercial impedem homologação;
+- blockers externos/migrations pendentes também impedem o status final quando forem requisito da fase;
+- `COMMERCIAL_HOMOLOGATED` exige SHA, evidência de Commercial Runtime E2E e teste físico/manual;
+- remover um blocker do código exige atualizar inventário/evidência no mesmo checkpoint;
+- nunca altere o inventário apenas para fazer o gate passar: o código e a evidência devem justificar a mudança.
+
+O fitness test `tests/fitness/test_commercial_runtime_readiness_v1.py`
+mantém o inventário sincronizado com os blockers detectáveis. O workflow
+`Commercial Runtime Readiness V1` deve permanecer ativo.
