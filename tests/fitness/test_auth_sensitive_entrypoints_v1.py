@@ -34,3 +34,22 @@ def test_sensitive_gate_blocks_runtime_local_identity() -> None:
     assert 'identity.usuario_id == "runtime-local"' in source
     assert "not _auth_required(settings)" in source
     assert "Acesso administrativo sensível bloqueado" in source
+
+
+def test_sensitive_idle_watchdog_is_frameless_and_reports_real_activity() -> None:
+    source = _text("infra/streamlit_app/sensitive_idle_watchdog.py")
+    assert "st.components.v2.component(" in source
+    assert "streamlit.components.v1" not in source
+    assert "components.html(" not in source
+    assert 'setTriggerValue("activity"' in source
+    assert 'setTriggerValue("expired"' in source
+    assert "document.addEventListener" in source
+
+
+def test_sensitive_grant_is_not_renewed_by_automatic_reruns() -> None:
+    source = _text("infra/streamlit_app/auth_ui.py")
+    start = source.index("def _sensitive_auth_valid")
+    end = source.index("def record_sensitive_activity")
+    validation_block = source[start:end]
+    assert 'grant["last_activity_at"] = now' not in validation_block
+    assert "def record_sensitive_activity" in source
