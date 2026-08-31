@@ -11,7 +11,7 @@
     },
     {
       "version": "0003_legacy_app_schema_v1",
-      "sha256": "84a4e901513caa79a6f5bc79deebc5821b5eb1c8d030985d17900b6d5cc7b77a"
+      "sha256": "84a4e901513caa79a6f5eb1c8d030985d17900b6d5cc7b77a"
     },
     {
       "version": "0004_orders_authoritative_v1",
@@ -39,7 +39,7 @@
     },
     {
       "version": "0010_kds_authoritative_runtime_v1",
-      "sha256": "b9a631dc85334b17cb7afbe3b5bb341d4f9137f56019b2f2f1b8f2cbf1829685"
+      "sha256": "b9a631dc8534b17cb7afbe3b5bb341d4f9137f56019b2f2f1b8f2cbf1829685"
     },
     {
       "version": "0011_external_services_config_v1",
@@ -132,6 +132,10 @@
     {
       "version": "0032_ai_finops_read_model_v1",
       "sha256": "582e0a9eeaea3092c4a369620f68c245b282a944c13858d84cb652225b20e90e"
+    },
+    {
+      "version": "0033_delivery_policy_v1",
+      "sha256": "0568c9a1aa8dfd4e63c9d307727fb7a8dddadda14e534870e3c1ef0d3d0bf141"
     }
   ]
 }
