@@ -15,6 +15,7 @@ from core.assistente_atendimento.customer_context import (
 )
 from core.pedidos.modelos_orm import PedidoORM
 from core.seguranca.contexto import ContextoExecucao
+from core.seguranca.permissoes import Permissao
 from infra.crm.consentimentos_sqlalchemy import (
     RepositorioConsentimentosContextoSQLAlchemy,
 )
@@ -52,6 +53,8 @@ class ContextoClienteAtendimentoSQLAlchemy:
         cliente_ref: str,
         limite_historico: int = 5,
     ) -> ContextoClienteAutorizado:
+        if Permissao.CLIENTE_VISUALIZAR not in contexto.permissoes:
+            raise PermissionError("cliente.visualizar obrigatoria")
         if not cliente_ref.strip():
             raise ValueError("cliente_contexto_obrigatorio")
         cliente = self._clientes.obter(
@@ -69,7 +72,19 @@ class ContextoClienteAtendimentoSQLAlchemy:
                 PedidoORM.tenant_id == contexto.tenant_id,
                 PedidoORM.unidade_id == contexto.unidade_id,
                 PedidoORM.cliente_id == cliente_ref,
-                PedidoORM.status.notin_(("rascunho", "cancelado")),
+                PedidoORM.status.in_(
+                    (
+                        "confirmado",
+                        "enviado_producao",
+                        "em_preparo",
+                        "pronto",
+                        "em_expedicao",
+                        "saiu_entrega",
+                        "servido",
+                        "entregue",
+                        "concluido",
+                    )
+                ),
             )
             .order_by(PedidoORM.criado_em.desc(), PedidoORM.id)
             .limit(max(1, min(limite_historico, 20)))
