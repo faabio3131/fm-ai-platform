@@ -142,11 +142,30 @@ class ServicoAssistenteAtendimento:
         *,
         contexto: ContextoAtendimento,
         motivo: str,
+        snapshot_seguro: dict[str, str | int | bool] | None = None,
     ) -> ResultadoAtendimento:
+        metadata: dict[str, str | int | bool] = {
+            "cliente_tipo": contexto.cliente.tipo.value,
+            "cliente_ref": contexto.cliente.cliente_ref or "novo",
+        }
+        customer_context = contexto.customer_context
+        if customer_context is not None:
+            metadata.update(
+                {
+                    "historico_count": len(customer_context.historico),
+                    "possui_endereco_salvo": customer_context.possui_endereco_salvo,
+                    "consentimentos_count": len(customer_context.consentimentos),
+                }
+            )
+            if customer_context.historico:
+                metadata["ultimo_pedido_id"] = customer_context.historico[0].pedido_id
+        if snapshot_seguro:
+            metadata.update(snapshot_seguro)
         self.handoff.registrar(
             contexto=contexto.contexto_execucao,
             conversa_id=contexto.conversa_id,
             motivo=motivo,
+            metadata_segura=metadata,
         )
         return ResultadoAtendimento(
             estado=EstadoAtendimento.HANDOFF_HUMANO,
@@ -194,6 +213,11 @@ class ServicoAssistenteAtendimento:
                 return self._handoff(
                     contexto=contexto,
                     motivo="produto_nao_resolvido_exatamente",
+                    snapshot_seguro={
+                        "modalidade": intencao.modalidade.value,
+                        "itens_solicitados": len(intencao.itens),
+                        "itens_resolvidos": len(itens),
+                    },
                 )
             produto = candidatos[0]
             itens.append(
