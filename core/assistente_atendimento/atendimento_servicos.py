@@ -21,6 +21,7 @@ from .atendimento_modelos import (
     IntencaoAtendimento,
     ItemCarrinhoAtendimento,
     ModalidadePedidoAtendimento,
+    PreferenciaPagamentoAtendimento,
     ProdutoCatalogoAtendimento,
     ResultadoAtendimento,
 )
@@ -43,6 +44,7 @@ def _fingerprint(
     itens: tuple[ItemCarrinhoAtendimento, ...],
     modalidade: ModalidadePedidoAtendimento,
     entrega: CotacaoEntregaAtendimento | None = None,
+    pagamento: PreferenciaPagamentoAtendimento | None = None,
 ) -> str:
     entrega_payload = None
     if entrega is not None:
@@ -57,6 +59,16 @@ def _fingerprint(
             entrega.sla_maxutos,
             entrega.versao_area,
         )
+    pagamento_payload = None
+    if pagamento is not None:
+        pagamento_payload = (
+            pagamento.metodo.value,
+            (
+                str(pagamento.valor_para_troco)
+                if pagamento.valor_para_troco is not None
+                else None
+            ),
+        )
     payload = [
         tenant_id,
         unidade_id,
@@ -68,6 +80,7 @@ def _fingerprint(
             for item in itens
         ],
         entrega_payload,
+        pagamento_payload,
     ]
     return hashlib.sha256(
         json.dumps(
@@ -86,6 +99,8 @@ def _estado_operacional(carrinho: CarrinhoAtendimento) -> EstadoAtendimento:
         and carrinho.entrega is None
     ):
         return EstadoAtendimento.AGUARDANDO_ENDERECO_ENTREGA
+    if carrinho.pagamento is None:
+        return EstadoAtendimento.AGUARDANDO_FORMA_PAGAMENTO
     return EstadoAtendimento.AGUARDANDO_CONFIRMACAO_CLIENTE
 
 
@@ -98,9 +113,16 @@ def _mensagem_operacional(carrinho: CarrinhoAtendimento) -> str:
             "O pedido é para entrega. Informe/confirme o endereço e CEP para "
             "validar área, taxa, rota e ETA antes do checkout."
         )
+    if estado is EstadoAtendimento.AGUARDANDO_FORMA_PAGAMENTO:
+        return (
+            f"Pedido validado, total R$ {carrinho.total:.2f}. "
+            "Defina a forma de pagamento e, se for dinheiro, informe se precisa "
+            "de troco antes da confirmação final."
+        )
     return (
         f"Pedido validado, total R$ {carrinho.total:.2f}. "
-        "Confirme explicitamente o carrinho final antes do checkout."
+        "Confirme explicitamente o carrinho final e a forma de pagamento antes "
+        "do checkout."
     )
 
 
@@ -356,6 +378,94 @@ class ServicoAssistenteAtendimento:
             ),
         )
 
+    def definir_pagamento(
+        self,
+        *,
+        resultado: ResultadoAtendimento,
+        metodo: MetodoPagamento,
+        valor_para_troco: str | int | float | None = None,
+    ) -> ResultadoAtendimento:
+        carrinho = resultado.carrinho
+        if carrinho is None:
+            raise ErroAssistenteAtendimento("carrinho_ausente")
+        if resultado.estado not in {
+            EstadoAtendimento.AGUARDANDO_FORMA_PAGAMENTO,
+            EstadoAtendimento.AGUARDANDO_CONFIRMACAO_CLIENTE,
+        }:
+            raise ErroAssistenteAtendimento("forma_pagamento_fora_de_estado")
+        if carrinho.modalidade is ModalidadePedidoAtendimento.INDEFINIDA:
+            raise ErroAssistenteAtendimento("modalidade_atendimento_invalida")
+        if (
+            carrinho.modalidade is ModalidadePedidoAtendimento.ENTREGA
+            and carrinho.entrega is None
+        ):
+            raise ErroAssistenteAtendimento("entrega_nao_cotada")
+
+        troco = None
+        if valor_para_troco is not None:
+            try:
+                troco = Decimal(str(valor_para_troco)).quantize(Decimal("0.01"))
+            except Exception as exc:
+                raise ErroAssistenteAtendimento("valor_para_troco_invalido") from exc
+            if metodo is not MetodoPagamento.DINHEIRO:
+                raise ErroAssistenteAtendimento("troco_somente_para_dinheiro")
+            if troco < carrinho.total:
+                raise ErroAssistenteAtendimento("valor_para_troco_inferior_total")
+
+        try:
+            preferencia = PreferenciaPagamentoAtendimento(
+                metodo=metodo,
+                valor_para_troco=troco,
+            )
+        except ValueError as exc:
+            raise ErroAssistenteAtendimento(str(exc)) from exc
+
+        atualizado = replace(
+            carrinho,
+            pagamento=preferencia,
+            fingerprint=_fingerprint(
+                tenant_id=carrinho.tenant_id,
+                unidade_id=carrinho.unidade_id,
+                conversa_id=carrinho.conversa_id,
+                mensagem_id=carrinho.mensagem_id,
+                itens=carrinho.itens,
+                modalidade=carrinho.modalidade,
+                entrega=carrinho.entrega,
+                pagamento=preferencia,
+            ),
+        )
+
+        detalhe = f"Forma de pagamento solicitada: {metodo.value}."
+        if preferencia.valor_para_troco is not None:
+            estimado = preferencia.troco_estimado(atualizado.total)
+            detalhe = (
+                f"Pagamento em dinheiro; troco solicitado para "
+                f"R$ {preferencia.valor_para_troco:.2f} "
+                f"(estimativa de troco R$ {estimado:.2f})."
+            )
+
+        return ResultadoAtendimento(
+            estado=EstadoAtendimento.AGUARDANDO_CONFIRMACAO_CLIENTE,
+            mensagem=(
+                f"{detalhe} Pagamento ainda não confirmado. "
+                f"Total final R$ {atualizado.total:.2f}. "
+                "Confirme explicitamente o carrinho e a forma de pagamento."
+            ),
+            carrinho=atualizado,
+            auditoria=(
+                *resultado.auditoria,
+                ("metodo_pagamento_solicitado", metodo.value),
+                (
+                    "troco_para",
+                    (
+                        str(preferencia.valor_para_troco)
+                        if preferencia.valor_para_troco is not None
+                        else "nao_solicitado"
+                    ),
+                ),
+            ),
+        )
+
     def confirmar(
         self,
         *,
@@ -393,6 +503,12 @@ class ServicoAssistenteAtendimento:
             and carrinho.entrega is None
         ):
             raise ErroAssistenteAtendimento("entrega_nao_cotada")
+        if carrinho.pagamento is None:
+            raise ErroAssistenteAtendimento("forma_pagamento_nao_definida")
+        if metodo is not carrinho.pagamento.metodo:
+            raise ErroAssistenteAtendimento(
+                "forma_pagamento_alterada_reconfirmacao_obrigatoria"
+            )
 
         cliente_ref = contexto.cliente.cliente_ref
         if cliente_ref is None or not cliente_ref.strip():
@@ -414,7 +530,7 @@ class ServicoAssistenteAtendimento:
             carrinho=carrinho,
             cliente_ref=cliente_ref,
             canal=contexto.canal,
-            metodo=metodo,
+            metodo=carrinho.pagamento.metodo,
             idempotency_key=idempotency_key,
         )
 
@@ -430,6 +546,7 @@ class ServicoAssistenteAtendimento:
             auditoria=(
                 ("confirmacao_cliente", "explicita"),
                 ("checkout", "autoritativo"),
+                ("metodo_pagamento", carrinho.pagamento.metodo.value),
                 ("pedido", checkout.pedido_status),
             ),
         )
