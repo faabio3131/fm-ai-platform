@@ -1,42 +1,215 @@
-"""Entrada canônica do Assistente de Atendimento no Streamlit.
-
-O módulo histórico ``core.mica`` permanece apenas como compatibilidade do fluxo
-isolado de teste, até a remoção contratual de seus nomes Python antigos.
-"""
+"""Interface comercial canônica do Agente Inteligente de Atendimento V1."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from typing import Any
+from uuid import uuid4
 
 import streamlit as st
 
-from .flags import assistente_atendimento_v1_enabled
+from application.assistente_atendimento_runtime import (
+    ResultadoRuntimeAssistente,
+    RuntimeAssistenteAtendimentoV1,
+)
+from core.assistente_atendimento.atendimento_modelos import EstadoAtendimento
+from core.assistente_atendimento.flags import assistente_atendimento_v1_enabled
+from core.pagamentos.modelos import MetodoPagamento
+from core.seguranca.autenticacao import IdentidadeUsuario
+
+_RESULTADO_KEY = "_assistente_atendimento_runtime_resultado_v1"
+_IDEMPOTENCIA_KEY = "_assistente_atendimento_idempotencia_v1"
+_CONVERSA_KEY = "_assistente_atendimento_conversa_v1"
+
+
+def _metodos_pagamento() -> dict[str, MetodoPagamento]:
+    return {
+        "Pix": MetodoPagamento.PIX,
+        "Dinheiro": MetodoPagamento.DINHEIRO,
+        "Cartão de crédito": MetodoPagamento.CARTAO_CREDITO,
+        "Cartão de débito": MetodoPagamento.CARTAO_DEBITO,
+        "Pagamento na entrega": MetodoPagamento.PAGAMENTO_NA_ENTREGA,
+    }
+
+
+def _limpar_jornada() -> None:
+    for key in (_RESULTADO_KEY, _IDEMPOTENCIA_KEY, _CONVERSA_KEY):
+        st.session_state.pop(key, None)
 
 
 def render_assistente_atendimento_v1(
     *,
     session_factory: Callable[[], Any],
-    produto_cls: Any,
-    generate_content: Callable[..., Any],
+    identidade: IdentidadeUsuario,
     nome_publico: str,
 ) -> None:
+    """Renderiza somente a composição canônica; nenhum fluxo Mica/Fake é chamado."""
+
     nome = " ".join(nome_publico.split()) or "Assistente de Atendimento"
+    st.header(f"💬 {nome} — Funcionário Digital V1")
+    st.caption(
+        "A IA interpreta a conversa. Cliente, catálogo, confirmação, pedido e "
+        "pagamento são validados por serviços determinísticos do Kordena."
+    )
+
     if not assistente_atendimento_v1_enabled():
-        st.header(f"💬 {nome} — Atendimento seguro V1")
         st.info(
-            "O Assistente de Atendimento está desativado neste ambiente. "
-            "O fluxo legado de venda automática foi removido por segurança."
+            "O Assistente de Atendimento está em rollout controlado neste ambiente. "
+            "Nenhum fluxo legado/fake é executado quando a função está desativada."
         )
         return
 
-    # Import tardio e exclusivo do harness E2E mantém componentes históricos
-    # fora do caminho de produção.
-    from core.mica.ui_streamlit import render_mica_v1
-
-    render_mica_v1(
-        session_factory=session_factory,
-        produto_cls=produto_cls,
-        generate_content=generate_content,
-        nome_publico=nome,
+    runtime = RuntimeAssistenteAtendimentoV1(session_factory)
+    telefone = st.text_input(
+        "WhatsApp do cliente",
+        value="",
+        placeholder="Ex.: 5511999999999",
+        key="assistente_v1_cliente",
     )
+    mensagem = st.text_area(
+        "Mensagem do cliente",
+        value="",
+        placeholder="Ex.: Quero 2 X-Bacon para entrega.",
+        key="assistente_v1_mensagem",
+    )
+
+    c_analisar, c_nova = st.columns(2)
+    if c_analisar.button(
+        f"Analisar com {nome}",
+        type="primary",
+        use_container_width=True,
+    ):
+        if not telefone.strip() or not mensagem.strip():
+            st.error("WhatsApp e mensagem são obrigatórios.")
+        else:
+            conversa_id = str(st.session_state.get(_CONVERSA_KEY) or uuid4())
+            st.session_state[_CONVERSA_KEY] = conversa_id
+            mensagem_id = str(uuid4())
+            try:
+                resultado = runtime.interpretar_texto(
+                    contexto_solicitante=identidade.contexto(
+                        origem="streamlit.assistente_atendimento"
+                    ),
+                    conversa_id=conversa_id,
+                    mensagem_id=mensagem_id,
+                    identificador_cliente=telefone,
+                    mensagem=mensagem,
+                    nome_publico=nome,
+                )
+                st.session_state[_RESULTADO_KEY] = resultado
+                st.session_state[_IDEMPOTENCIA_KEY] = str(uuid4())
+                st.rerun()
+            except Exception:
+                st.error(
+                    "Não foi possível interpretar o atendimento com segurança. "
+                    "A integração permanece fail-closed; revise catálogo, CRM e "
+                    "configuração de IA antes de tentar novamente."
+                )
+
+    if c_nova.button(
+        "Nova conversa",
+        use_container_width=True,
+    ):
+        _limpar_jornada()
+        st.rerun()
+
+    runtime_resultado = st.session_state.get(_RESULTADO_KEY)
+    if not isinstance(runtime_resultado, ResultadoRuntimeAssistente):
+        return
+
+    resultado = runtime_resultado.resultado
+
+    if resultado.estado is EstadoAtendimento.HANDOFF_HUMANO:
+        st.warning(
+            "Atendimento encaminhado para humano. "
+            f"Motivo técnico: {resultado.handoff_motivo or 'fluxo não resolvido'}."
+        )
+        return
+
+    carrinho = resultado.carrinho
+    if carrinho is None:
+        st.info(resultado.mensagem)
+        return
+
+    st.subheader("Conferência do carrinho")
+    for item in carrinho.itens:
+        st.write(
+            f"{item.quantidade}x {item.nome_produto} — "
+            f"R$ {item.subtotal:.2f}"
+        )
+    st.write(f"**Total: R$ {carrinho.total:.2f}**")
+    st.caption(f"Fingerprint: {carrinho.fingerprint[:16]}…")
+
+    if resultado.estado is EstadoAtendimento.AGUARDANDO_DADOS_CLIENTE:
+        st.info(
+            "Cliente novo identificado. O carrinho não será confirmado antes "
+            "do registro mínimo no CRM canônico."
+        )
+        if st.button(
+            "Registrar cliente mínimo no CRM e continuar",
+            type="primary",
+        ):
+            try:
+                atualizado = runtime.registrar_cliente_minimo(
+                    runtime_anterior=runtime_resultado,
+                    identificador_cliente=telefone,
+                )
+                st.session_state[_RESULTADO_KEY] = atualizado
+                st.rerun()
+            except Exception:
+                st.error(
+                    "Não foi possível registrar o cliente com segurança. "
+                    "Nenhum checkout foi executado."
+                )
+        return
+
+    if resultado.estado is EstadoAtendimento.CHECKOUT_REGISTRADO:
+        st.success(resultado.mensagem)
+        if resultado.checkout is not None:
+            st.write(f"Pedido: {resultado.checkout.pedido_id}")
+            if resultado.checkout.pagamento_id is not None:
+                status = (
+                    resultado.checkout.pagamento_status.value
+                    if resultado.checkout.pagamento_status is not None
+                    else "pendente"
+                )
+                st.write(
+                    f"Pagamento: {resultado.checkout.pagamento_id} — **{status}**"
+                )
+        return
+
+    st.warning(
+        "Nenhum efeito comercial definitivo ocorreu ainda. "
+        "Confirme o carrinho exato abaixo."
+    )
+    metodo_label = st.selectbox(
+        "Forma de pagamento solicitada",
+        list(_metodos_pagamento()),
+        key="assistente_v1_metodo",
+    )
+    confirmado = st.checkbox(
+        "Confirmo que o cliente revisou e aprovou exatamente este carrinho",
+        key="assistente_v1_confirmacao",
+    )
+
+    if st.button("Confirmar pedido no checkout canônico", type="primary"):
+        try:
+            final = runtime.confirmar(
+                runtime_anterior=runtime_resultado,
+                confirmacao_cliente=confirmado,
+                fingerprint_confirmado=carrinho.fingerprint,
+                metodo=_metodos_pagamento()[metodo_label],
+                idempotency_key=str(
+                    st.session_state.get(_IDEMPOTENCIA_KEY) or uuid4()
+                ),
+            )
+            st.session_state[_RESULTADO_KEY] = ResultadoRuntimeAssistente(
+                contexto=runtime_resultado.contexto,
+                resultado=final,
+            )
+            st.rerun()
+        except Exception:
+            st.error(
+                "O checkout foi recusado ou falhou de forma segura. "
+                "Não assuma pagamento, estoque ou produção confirmados."
+            )
