@@ -418,6 +418,23 @@ class RuntimeAssistenteAtendimentoV1:
         )
         return self._tentar_cotacao_do_texto(runtime)
 
+    def definir_pagamento(
+        self,
+        *,
+        runtime_anterior: ResultadoRuntimeAssistente,
+        metodo: MetodoPagamento,
+        valor_para_troco: Decimal | None = None,
+    ) -> ResultadoRuntimeAssistente:
+        atualizado = self._servico().definir_pagamento(
+            resultado=runtime_anterior.resultado,
+            metodo=metodo,
+            valor_para_troco=valor_para_troco,
+        )
+        return ResultadoRuntimeAssistente(
+            contexto=runtime_anterior.contexto,
+            resultado=atualizado,
+        )
+
     def cotar_entrega(
         self,
         *,
