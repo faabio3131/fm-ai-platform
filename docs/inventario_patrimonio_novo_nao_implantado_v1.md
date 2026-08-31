@@ -784,6 +784,45 @@ Os componentes centrais de cutover PDV e `application/checkout.py` já existem n
 **Próxima tarefa F4**
 - dinheiro/troco e integração completa dos meios de pagamento no Assistente, reutilizando Pedido/Pagamento/Checkout autoritativos e mantendo PIX dependente apenas da homologação externa real quando aplicável.
 
+## 10.5 Checkpoint Fase 4 — forma de pagamento + dinheiro/troco governados — 31/08/2026
+
+**SHA técnico validado:** `a3873086cb5a2af2d60459415d8e2cc95335937a`
+
+**Implementado**
+- a forma de pagamento passou a ser parte imutável do carrinho do Assistente antes da confirmação final;
+- o método escolhido e, quando aplicável, o valor informado para troco entram no fingerprint, impedindo troca silenciosa do meio de pagamento depois da aprovação do cliente;
+- o novo estado `AGUARDANDO_FORMA_PAGAMENTO` separa escolha financeira de confirmação definitiva do carrinho;
+- dinheiro aceita pedido explícito de troco, valida que o valor recebido pretendido não seja inferior ao total e calcula apenas uma estimativa de troco;
+- a solicitação de troco é persistida como `ObservacaoPedido` no Pedido canônico, com ID determinístico, mantendo o pedido como autoridade;
+- o Assistente **não** chama `confirmar_pagamento` e não marca dinheiro, PIX ou cartão como pagos por declaração do cliente;
+- liquidação manual continua permitida apenas pelo serviço financeiro autoritativo onde já previsto; pagamentos eletrônicos continuam dependentes da fonte financeira oficial;
+- a UI exige aplicar a forma de pagamento antes da confirmação final, mostra claramente que a escolha não equivale a liquidação e exige nova confirmação se a forma mudar;
+- o checkout continua criando somente a obrigação financeira canônica e preserva idempotência;
+- não foi criado domínio paralelo de pagamentos nem integração fake.
+
+**Provas**
+- Commercial Runtime Readiness V1 — run 91: **PASS**;
+- Assistente Fase 4 Gate V1 — run 76: **PASS**;
+- compile do recorte F4: **PASS**;
+- Ruff do recorte F4: **PASS**;
+- testes direcionados: **51 passed**;
+- fitness guard confirma que UI/runtime/serviço/checkout do Assistente não chamam `confirmar_pagamento` diretamente.
+
+**Limite externo preservado**
+- PIX real continua dependente de provider homologado por tenant/unidade e dos dados exigidos pelo provider;
+- nenhum e-mail, CPF/CNPJ, confirmação de cartão ou retorno de gateway é inventado para contornar essa dependência;
+- readiness registra `pix_provider_homologation_incomplete` como blocker externo, não como motivo para criar caminho alternativo inseguro.
+
+**Readiness**
+- `assistente_atendimento` continua `CUTOVER_PENDING`;
+- blockers de código conhecidos neste checkpoint: **0**;
+- `commercial_runtime_e2e`: ainda não executado no SHA candidato final;
+- `physical_test`: ainda não executado no SHA candidato final;
+- este checkpoint fecha a parte **interna** de forma de pagamento/dinheiro/troco e preserva o PIX real para homologação externa.
+
+**Próxima tarefa F4**
+- snapshot/reserva de estoque pela ficha técnica autoritativa no checkout, sem antecipar o cutover comercial completo do PDV/Estoque da Fase 6.
+
 ## 11. Regra de preservação
 
 Durante a recuperação:
