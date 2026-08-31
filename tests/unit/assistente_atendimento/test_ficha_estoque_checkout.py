@@ -205,8 +205,8 @@ def test_checkout_assistente_captura_ficha_e_reserva_ledger_canonico() -> None:
             },
         )
         assert saldo is not None
-        assert Decimal(str(saldo.saldo_fisico)) == Decimal("10")
-        assert Decimal(str(saldo.saldo_reservado)) == Decimal("3")
+        assert Decimal(str(saldo.saldo_fisico)) == Decimal(10)
+        assert Decimal(str(saldo.saldo_reservado)) == Decimal(3)
         assert _contagem(session, ReservaEstoqueORM) == 1
 
 
