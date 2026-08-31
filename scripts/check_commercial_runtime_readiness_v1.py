@@ -33,10 +33,6 @@ BLOCKER_RULES: dict[str, tuple[str, tuple[str, ...]]] = {
         "core/assistente_atendimento/ui_streamlit.py",
         ("core.mica.ui_streamlit", "render_mica_v1"),
     ),
-    "assistant_operacao_mica_fake": (
-        "core/mica/ui_streamlit.py",
-        ("OperacaoMicaFake",),
-    ),
     "cardapio_legacy_application_in_app": (
         "app.py",
         ("AplicacaoLegacyCardapioV1",),
