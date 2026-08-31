@@ -8,13 +8,18 @@ from core.assistente_atendimento.atendimento_modelos import (
     ProdutoCatalogoAtendimento,
     ResultadoCheckoutAssistente,
 )
-from core.assistente_atendimento.atendimento_servicos import ServicoAssistenteAtendimento
+from core.assistente_atendimento.atendimento_servicos import (
+    ServicoAssistenteAtendimento,
+)
 from core.assistente_atendimento.contexto import (
     ClienteAtendimento,
     ContextoAtendimento,
     TipoClienteAtendimento,
 )
-from core.assistente_atendimento.entradas import EntradaAtendimento, ModalidadeEntrada
+from core.assistente_atendimento.entradas import (
+    EntradaAtendimento,
+    ModalidadeEntrada,
+)
 from core.assistente_atendimento.erros import ErroAssistenteAtendimento
 from core.pagamentos.modelos import MetodoPagamento
 from core.seguranca.contexto import ContextoExecucao
