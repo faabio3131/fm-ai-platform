@@ -549,5 +549,11 @@ class ServicoAssistenteAtendimento:
                 ("checkout", "autoritativo"),
                 ("metodo_pagamento", carrinho.pagamento.metodo.value),
                 ("pedido", checkout.pedido_status),
+                (
+                    "estoque",
+                    "reservado"
+                    if checkout.estoque_reservado
+                    else "sem_ficha_aplicavel",
+                ),
             ),
         )
