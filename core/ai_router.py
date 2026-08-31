@@ -13,6 +13,7 @@ from typing import Any, Protocol
 
 class CapabilityIA(StrEnum):
     TOOL_PLANNING = "tool_planning"
+    ATENDIMENTO_INTERPRETACAO = "atendimento_interpretacao"
 
 
 class OutcomeIA(StrEnum):
