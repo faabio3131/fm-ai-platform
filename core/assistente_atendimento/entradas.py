@@ -22,13 +22,17 @@ class EntradaAtendimento:
         if not self.mensagem_id.strip():
             raise ValueError("mensagem_id_obrigatorio")
 
-        if self.modalidade is ModalidadeEntrada.TEXTO:
-            if self.texto_original is None or not self.texto_original.strip():
-                raise ValueError("texto_obrigatorio")
+        if (
+            self.modalidade is ModalidadeEntrada.TEXTO
+            and (self.texto_original is None or not self.texto_original.strip())
+        ):
+            raise ValueError("texto_obrigatorio")
 
-        if self.modalidade is ModalidadeEntrada.AUDIO:
-            if self.transcricao is None or not self.transcricao.strip():
-                raise ValueError("audio_exige_transcricao")
+        if (
+            self.modalidade is ModalidadeEntrada.AUDIO
+            and (self.transcricao is None or not self.transcricao.strip())
+        ):
+            raise ValueError("audio_exige_transcricao")
 
     @property
     def texto_para_interpretacao(self) -> str:
