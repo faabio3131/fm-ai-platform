@@ -9,6 +9,7 @@ from core.assistente_atendimento.atendimento_modelos import (
     CotacaoEntregaAtendimento,
     ItemCarrinhoAtendimento,
     ModalidadePedidoAtendimento,
+    PreferenciaPagamentoAtendimento,
 )
 from core.assistente_atendimento.checkout_adapter import CheckoutAssistenteV1
 from core.assistente_atendimento.erros import ErroAssistenteAtendimento
@@ -55,6 +56,7 @@ def carrinho(
     *,
     modalidade=ModalidadePedidoAtendimento.RETIRADA,
     entrega=None,
+    pagamento=None,
 ):
     return CarrinhoAtendimento(
         tenant_id=tenant,
@@ -72,6 +74,7 @@ def carrinho(
         fingerprint="fp-1",
         modalidade=modalidade,
         entrega=entrega,
+        pagamento=pagamento,
     )
 
 
@@ -164,6 +167,64 @@ def test_entrega_persiste_taxa_no_pedido_autoritativo():
     assert pedido.subtotal.valor == Decimal("50.00")
     assert pedido.taxas.valor == Decimal("8.00")
     assert pedido.total.valor == Decimal("58.00")
+
+
+def test_dinheiro_com_troco_vira_observacao_do_pedido_canonico():
+    capturado = {}
+
+    def executor(**kwargs):
+        capturado.update(kwargs)
+        return resultado_checkout_do_comando(kwargs["comando"])
+
+    adapter = CheckoutAssistenteV1(
+        session_factory=lambda: None,
+        executor=executor,
+    )
+    adapter.executar(
+        contexto=contexto(),
+        carrinho=carrinho(
+            pagamento=PreferenciaPagamentoAtendimento(
+                metodo=MetodoPagamento.DINHEIRO,
+                valor_para_troco=Decimal("100.00"),
+            )
+        ),
+        cliente_ref="cliente-1",
+        canal="whatsapp",
+        metodo=MetodoPagamento.DINHEIRO,
+        idempotency_key="confirmacao-dinheiro-1",
+    )
+
+    comando = capturado["comando"]
+    pedido = comando.pedido
+    assert comando.metodo_pagamento is MetodoPagamento.DINHEIRO
+    assert comando.recebimento_posterior is False
+    assert len(pedido.observacoes) == 1
+    assert "Troco solicitado para R$ 100.00" in pedido.observacoes[0].texto
+    assert "estimativa R$ 50.00" in pedido.observacoes[0].texto
+    assert "Pagamento ainda não confirmado" in pedido.observacoes[0].texto
+
+
+def test_adapter_rejeita_metodo_divergente_da_preferencia_confirmada():
+    adapter = CheckoutAssistenteV1(
+        session_factory=lambda: None,
+        executor=lambda **kwargs: pytest.fail("executor não deveria ser chamado"),
+    )
+    with pytest.raises(
+        ErroAssistenteAtendimento,
+        match="forma_pagamento_divergente_do_carrinho",
+    ):
+        adapter.executar(
+            contexto=contexto(),
+            carrinho=carrinho(
+                pagamento=PreferenciaPagamentoAtendimento(
+                    metodo=MetodoPagamento.PIX,
+                )
+            ),
+            cliente_ref="cliente-1",
+            canal="whatsapp",
+            metodo=MetodoPagamento.DINHEIRO,
+            idempotency_key="confirmacao-divergente",
+        )
 
 
 def test_adapter_rejeita_entrega_sem_cotacao():
