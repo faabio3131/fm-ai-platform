@@ -52,12 +52,15 @@
         "application/assistente_atendimento_runtime.py",
         "core/assistente_atendimento/atendimento_servicos.py",
         "core/assistente_atendimento/checkout_adapter.py",
-        "infra/assistente_atendimento/clientes_sqlalchemy.py"
+        "infra/assistente_atendimento/clientes_sqlalchemy.py",
+        "infra/assistente_atendimento/entrega_maps.py",
+        "infra/delivery/politica_sqlalchemy.py",
+        "core/integracoes/google_maps.py"
       ],
       "code_blockers": [],
       "external_blockers": [],
       "evidence": {
-        "sha": "b1830d1d7dc9cf0a9537b5d2a2d8720de9bee03d",
+        "sha": "0827fb21810e727fe76eae0aaf122800737c2f36",
         "commercial_runtime_e2e": null,
         "physical_test": null
       }
