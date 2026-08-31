@@ -165,7 +165,7 @@ def test_cliente_conhecido_retirada_vai_para_confirmacao():
         raw_ia=raw_intencao(),
         catalogo=catalogo(),
     )
-    assert resultado.estado is EstadoAtendimento.AGUARDANDO_CONFIRMACAO_CLIENTE
+    assert resultado.estado is EstadoAtendimento.AGUARDANDO_FORMA_PAGAMENTO
     assert resultado.carrinho is not None
     assert resultado.carrinho.total == Decimal("50.00")
     assert resultado.carrinho.modalidade is ModalidadePedidoAtendimento.RETIRADA
@@ -181,7 +181,7 @@ def test_audio_transcrito_passa_pelo_mesmo_servico_deterministico():
         raw_ia=raw_intencao(),
         catalogo=catalogo(),
     )
-    assert resultado.estado is EstadoAtendimento.AGUARDANDO_CONFIRMACAO_CLIENTE
+    assert resultado.estado is EstadoAtendimento.AGUARDANDO_FORMA_PAGAMENTO
     assert resultado.carrinho is not None
     assert resultado.carrinho.total == Decimal("50.00")
     assert checkout.chamadas == []
@@ -254,11 +254,19 @@ def test_cotacao_entrega_altera_fingerprint_taxa_total_e_exige_reconfirmacao():
         cotacao=cotacao(),
     )
 
-    assert atualizado.estado is EstadoAtendimento.AGUARDANDO_CONFIRMACAO_CLIENTE
+    assert atualizado.estado is EstadoAtendimento.AGUARDANDO_FORMA_PAGAMENTO
     assert atualizado.carrinho is not None
     assert atualizado.carrinho.fingerprint != fingerprint_inicial
     assert atualizado.carrinho.taxa_entrega == Decimal("8.00")
     assert atualizado.carrinho.total == Decimal("58.00")
+
+    com_pagamento = srv.definir_pagamento(
+        resultado=atualizado,
+        metodo=MetodoPagamento.PIX,
+    )
+    assert com_pagamento.estado is EstadoAtendimento.AGUARDANDO_CONFIRMACAO_CLIENTE
+    assert com_pagamento.carrinho is not None
+    assert com_pagamento.carrinho.fingerprint != atualizado.carrinho.fingerprint
 
     with pytest.raises(
         ErroAssistenteAtendimento,
@@ -266,11 +274,74 @@ def test_cotacao_entrega_altera_fingerprint_taxa_total_e_exige_reconfirmacao():
     ):
         srv.confirmar(
             contexto=contexto,
-            resultado=atualizado,
+            resultado=com_pagamento,
             confirmacao_cliente=True,
             fingerprint_confirmado=fingerprint_inicial,
             metodo=MetodoPagamento.PIX,
             idempotency_key="confirmacao-1",
+        )
+    assert checkout.chamadas == []
+
+
+def test_dinheiro_com_troco_entra_no_fingerprint_e_na_confirmacao():
+    srv, checkout, _ = servico()
+    contexto = contexto_atendimento()
+    interpretado = srv.interpretar(
+        contexto=contexto,
+        entrada=entrada_texto(),
+        raw_ia=raw_intencao(),
+        catalogo=catalogo(),
+    )
+    assert interpretado.carrinho is not None
+    fingerprint_sem_pagamento = interpretado.carrinho.fingerprint
+
+    atualizado = srv.definir_pagamento(
+        resultado=interpretado,
+        metodo=MetodoPagamento.DINHEIRO,
+        valor_para_troco=Decimal("100.00"),
+    )
+
+    assert atualizado.estado is EstadoAtendimento.AGUARDANDO_CONFIRMACAO_CLIENTE
+    assert atualizado.carrinho is not None
+    assert atualizado.carrinho.fingerprint != fingerprint_sem_pagamento
+    assert atualizado.carrinho.pagamento is not None
+    assert atualizado.carrinho.pagamento.metodo is MetodoPagamento.DINHEIRO
+    assert atualizado.carrinho.pagamento.troco_estimado(
+        atualizado.carrinho.total
+    ) == Decimal("50.00")
+
+    with pytest.raises(
+        ErroAssistenteAtendimento,
+        match="forma_pagamento_alterada_reconfirmacao_obrigatoria",
+    ):
+        srv.confirmar(
+            contexto=contexto,
+            resultado=atualizado,
+            confirmacao_cliente=True,
+            fingerprint_confirmado=atualizado.carrinho.fingerprint,
+            metodo=MetodoPagamento.PIX,
+            idempotency_key="confirmacao-1",
+        )
+    assert checkout.chamadas == []
+
+
+def test_troco_inferior_ao_total_falha_fechado_sem_checkout():
+    srv, checkout, _ = servico()
+    interpretado = srv.interpretar(
+        contexto=contexto_atendimento(),
+        entrada=entrada_texto(),
+        raw_ia=raw_intencao(),
+        catalogo=catalogo(),
+    )
+
+    with pytest.raises(
+        ErroAssistenteAtendimento,
+        match="valor_para_troco_inferior_total",
+    ):
+        srv.definir_pagamento(
+            resultado=interpretado,
+            metodo=MetodoPagamento.DINHEIRO,
+            valor_para_troco=Decimal("40.00"),
         )
     assert checkout.chamadas == []
 
@@ -334,6 +405,11 @@ def test_confirmacao_explicita_e_fingerprint_sao_obrigatorios():
         catalogo=catalogo(),
     )
     assert interpretado.carrinho is not None
+    interpretado = srv.definir_pagamento(
+        resultado=interpretado,
+        metodo=MetodoPagamento.PIX,
+    )
+    assert interpretado.carrinho is not None
 
     with pytest.raises(ErroAssistenteAtendimento, match="confirmacao_cliente_obrigatoria"):
         srv.confirmar(
@@ -368,6 +444,11 @@ def test_confirmacao_valida_chama_checkout_uma_vez():
         entrada=entrada_texto(),
         raw_ia=raw_intencao(),
         catalogo=catalogo(),
+    )
+    assert interpretado.carrinho is not None
+    interpretado = srv.definir_pagamento(
+        resultado=interpretado,
+        metodo=MetodoPagamento.PIX,
     )
     assert interpretado.carrinho is not None
 
