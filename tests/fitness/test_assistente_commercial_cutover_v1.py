@@ -26,12 +26,14 @@ def test_commercial_app_passes_authenticated_identity_to_assistant() -> None:
 def test_commercial_runtime_uses_canonical_checkout_and_real_scope() -> None:
     runtime = _text("application/assistente_atendimento_runtime.py")
     checkout = _text("core/assistente_atendimento/checkout_adapter.py")
+    stock_bridge = _text("application/catalogo_estoque_cutover.py")
 
     assert "CheckoutAssistenteV1" in runtime
     assert "listar_produtos_legados(" in runtime
     assert "tenant_id=contexto.tenant_id" in runtime
     assert "unidade_id=contexto.unidade_id" in runtime
-    assert "executar_checkout_v1" in checkout
+    assert "executar_checkout_com_ficha_estoque_v1" in checkout
+    assert "executar_checkout_em_transacao" in stock_bridge
     assert "FM_AI_TEST_TENANT" not in runtime
     assert "FM_AI_TEST_UNIDADE" not in runtime
     assert "tenant-demo" not in runtime
