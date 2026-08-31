@@ -196,6 +196,8 @@ class ResultadoCheckoutAssistente:
     pagamento_id: str | None = None
     pagamento_status: PagamentoStatus | None = None
     metodo_pagamento: MetodoPagamento | None = None
+    estoque_reservado: bool = False
+    estoque_idempotente: bool | None = None
     idempotente: bool = False
 
 
