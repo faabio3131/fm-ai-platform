@@ -20,9 +20,11 @@ class ClienteAtendimento:
     nome: str | None = None
 
     def __post_init__(self) -> None:
-        if self.tipo is TipoClienteAtendimento.CONHECIDO:
-            if self.cliente_ref is None or not self.cliente_ref.strip():
-                raise ValueError("cliente_conhecido_exige_referencia")
+        if (
+            self.tipo is TipoClienteAtendimento.CONHECIDO
+            and (self.cliente_ref is None or not self.cliente_ref.strip())
+        ):
+            raise ValueError("cliente_conhecido_exige_referencia")
 
 
 @dataclass(frozen=True, kw_only=True)
