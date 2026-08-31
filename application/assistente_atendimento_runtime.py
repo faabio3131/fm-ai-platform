@@ -240,21 +240,37 @@ class RuntimeAssistenteAtendimentoV1:
     def registrar_cliente_minimo(
         self,
         *,
-        contexto_solicitante: ContextoExecucao,
+        runtime_anterior: ResultadoRuntimeAssistente,
         identificador_cliente: str,
-    ):
-        contexto = _contexto_agente(contexto_solicitante)
+    ) -> ResultadoRuntimeAssistente:
+        contexto = runtime_anterior.contexto.contexto_execucao
         db = self._session_factory()
         try:
             with db.begin():
                 cliente = ClientesAtendimentoSQLAlchemy(db).registrar_novo(
                     contexto=contexto,
-                    canal="whatsapp",
+                    canal=runtime_anterior.contexto.canal,
                     identificador_externo=identificador_cliente,
                 )
-            return cliente
         finally:
             db.close()
+
+        if cliente.cliente_ref is None:
+            raise RuntimeError("cliente CRM registrado sem referencia")
+
+        servico = ServicoAssistenteAtendimento(
+            checkout=self._checkout,
+            handoff=self._handoff,
+        )
+        novo_contexto, novo_resultado = servico.concluir_cadastro_cliente(
+            contexto_anterior=runtime_anterior.contexto,
+            resultado=runtime_anterior.resultado,
+            cliente_ref=cliente.cliente_ref,
+        )
+        return ResultadoRuntimeAssistente(
+            contexto=novo_contexto,
+            resultado=novo_resultado,
+        )
 
     def confirmar(
         self,
