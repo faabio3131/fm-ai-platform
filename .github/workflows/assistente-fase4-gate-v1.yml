@@ -1,0 +1,63 @@
+name: Assistente Fase 4 Gate V1
+
+on:
+  pull_request:
+    paths:
+      - "core/assistente_atendimento/**"
+      - "infra/assistente_atendimento/**"
+      - "infra/crm/**"
+      - "infra/gerente_ia/modelos_orm.py"
+      - "infra/gerente_ia/persistencia_sqlalchemy.py"
+      - "application/crm_regularizacao_legado.py"
+      - "infra/legacy_customer_scope.py"
+      - "app.py"
+      - "tests/unit/assistente_atendimento/**"
+      - "tests/fitness/test_assistente_commercial_cutover_v1.py"
+      - ".github/workflows/assistente-fase4-gate-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  assistente-fase4:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Compile recovered attendance core
+        run: |
+          python -m py_compile \
+            core/assistente_atendimento/atendimento_adapters.py \
+            core/assistente_atendimento/atendimento_schemas.py \
+            core/assistente_atendimento/atendimento_servicos.py \
+            core/assistente_atendimento/cliente_adapters.py \
+            core/assistente_atendimento/contexto.py \
+            core/assistente_atendimento/entradas.py \
+            core/assistente_atendimento/checkout_adapter.py
+      - name: Ruff recovered attendance core
+        run: |
+          ruff check \
+            core/assistente_atendimento/atendimento_adapters.py \
+            core/assistente_atendimento/atendimento_schemas.py \
+            core/assistente_atendimento/atendimento_servicos.py \
+            core/assistente_atendimento/cliente_adapters.py \
+            core/assistente_atendimento/contexto.py \
+            core/assistente_atendimento/entradas.py \
+            core/assistente_atendimento/checkout_adapter.py \
+            tests/unit/assistente_atendimento/test_servico_atendimento.py \
+            tests/unit/assistente_atendimento/test_checkout_adapter.py
+      - name: Targeted attendance tests
+        run: |
+          pytest -q \
+            tests/unit/assistente_atendimento/test_servico_atendimento.py \
+            tests/unit/assistente_atendimento/test_checkout_adapter.py
