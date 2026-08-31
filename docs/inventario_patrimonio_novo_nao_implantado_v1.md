@@ -752,6 +752,38 @@ Os componentes centrais de cutover PDV e `application/checkout.py` já existem n
 **Próxima tarefa F4**
 - endereço/localização + Google Maps + área/taxa/ETA, reutilizando o Control Plane existente e sem duplicar domínio de Delivery.
 
+## 10.4 Checkpoint Fase 4 — endereço/localização + Google Maps + área/taxa/ETA — 31/08/2026
+
+**SHA técnico validado:** `0827fb21810e727fe76eae0aaf122800737c2f36`
+
+**Implementado**
+- o Assistente passou a cotar entrega no runtime comercial por `CotadorEntregaAssistenteGoogleMaps`, sem criar domínio paralelo de Delivery;
+- a origem da unidade e as áreas de entrega passaram a ter persistência canônica tenant/unidade scoped em `delivery_origem_unidade_v1` e `delivery_areas_v1`;
+- foi adicionada a migration comercial `0033_delivery_policy_v1`, aditiva, sem defaults silenciosos e com falha fechada quando origem/áreas não estiverem configuradas;
+- o Google Maps existente passou a expor componentes do endereço geocodificado necessários à entrega: CEP, logradouro, número, bairro, cidade e UF;
+- o runtime valida que o CEP informado é confirmado pela geocodificação e rejeita endereço incompleto;
+- a política de área/taxa/SLA reutiliza a regra determinística já existente em Delivery, preservando isolamento por tenant/unidade;
+- o cálculo de rota retorna distância e ETA pelo adapter Google Maps já governado pelo Control Plane;
+- a cotação passa a compor o fingerprint do carrinho, exigindo nova confirmação se a entrega mudar;
+- não foram introduzidos Fake/Mock/runtime_teste ou defaults comerciais para Maps/Delivery.
+
+**Provas**
+- Commercial Runtime Readiness V1 — run 78: **PASS**;
+- Assistente Fase 4 Gate V1 — run 63: **PASS**;
+- compile do recorte F4/Maps/Delivery: **PASS**;
+- Ruff do recorte F4/Maps/Delivery: **PASS**;
+- testes de geocodificação de endereço, política SQLAlchemy, migration 0033, serviço/checkout/AI Router e fitness comercial: **PASS**.
+
+**Readiness**
+- `assistente_atendimento` continua `CUTOVER_PENDING`;
+- blockers de código conhecidos neste checkpoint: **0**;
+- `commercial_runtime_e2e`: ainda não executado no SHA candidato final;
+- `physical_test`: ainda não executado no SHA candidato final;
+- portanto este checkpoint fecha a dependência interna de endereço/Maps/área/taxa/ETA, mas **não** homologa a Fase 4.
+
+**Próxima tarefa F4**
+- dinheiro/troco e integração completa dos meios de pagamento no Assistente, reutilizando Pedido/Pagamento/Checkout autoritativos e mantendo PIX dependente apenas da homologação externa real quando aplicável.
+
 ## 11. Regra de preservação
 
 Durante a recuperação:
