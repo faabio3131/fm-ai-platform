@@ -13,6 +13,7 @@ import requests
 from google import genai
 from google.genai import types
 
+from core.ai_router import ConteudoAudioIA
 from core.integracoes.google_maps import RespostaHTTPMaps
 from core.integracoes.provedores import RespostaProvedor
 
@@ -126,7 +127,19 @@ class GoogleGenAITenantGateway:
                     retry_options=types.HttpRetryOptions(attempts=1),
                 ),
             )
-            return client.models.generate_content(model=model, contents=contents)
+            provider_contents = contents
+            if isinstance(contents, ConteudoAudioIA):
+                provider_contents = [
+                    contents.instrucao,
+                    types.Part.from_bytes(
+                        data=contents.audio,
+                        mime_type=contents.mime_type,
+                    ),
+                ]
+            return client.models.generate_content(
+                model=model,
+                contents=provider_contents,
+            )
         except TimeoutError:
             raise
         except Exception as exc:
