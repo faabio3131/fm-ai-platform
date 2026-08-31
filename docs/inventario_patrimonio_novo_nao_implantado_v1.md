@@ -665,7 +665,7 @@ Os componentes centrais de cutover PDV e `application/checkout.py` já existem n
 |---|---|---|---|
 | Auth/RBAC | novo/comercial | homologado | preservar |
 | Integrações | Control Plane novo | aprovado internamente; externos pendentes | preservar |
-| Assistente | UI delega para `core.mica` + `OperacaoMicaFake` | serviço novo + Core/IA + CRM + checkout autoritativo | cutover Fase 4 |
+| Assistente | UI comercial já usa `RuntimeAssistenteAtendimentoV1`; `core.mica/OperacaoMicaFake` saiu do caminho comercial | serviço novo + Core/IA + CRM + checkout autoritativo + escopo restante da F4 | continuar Fase 4; não homologado ainda |
 | Cardápio/Ficha | `AplicacaoLegacyCardapioV1` | fonte canônica/ponte governada | não criar autoridade paralela |
 | PDV | `LegacyPDVSQLAlchemyAdapter` no runtime normal | checkout/Pedido/Pagamento/Estoque autoritativos | cutover Fase 6 |
 | Estoque | `AplicacaoLegacyEstoqueV1` | `core.estoque` ledger/reserva/consumo | cutover Fase 6 |
@@ -681,6 +681,48 @@ Os componentes centrais de cutover PDV e `application/checkout.py` já existem n
 | Marketplaces | framework sem composição real completa | providers oficiais | F12 |
 | Gerente IA/Core | backend/composition root existe, experiência final não exposta | cérebro transversal | F14 após cutovers |
 | AI FinOps | dashboard existe, migration física pendente | read model aplicado | gate de migration |
+
+## 10.2 Checkpoint Fase 4 — corte inicial do Assistente no runtime comercial — 31/08/2026
+
+**Branch:** `recovery/v1-fase4-assistente-cutover`  
+**SHA técnico deste checkpoint:** `0b19b8a2a25e412254022d46a614e3814cc7c604`
+
+**Recuperado e integrado neste checkpoint**
+- seis peças do patrimônio STAB-01 do domínio/orquestração do Assistente foram recuperadas seletivamente e adaptadas às interfaces atuais;
+- `ClienteCRMORM`, `ContatoCRMORM` e `RepositorioClientesCRMSQLAlchemy` foram recompostos sobre os schemas/migrations atuais;
+- Contact Vault SQLAlchemy cifrado `contact://` foi restaurado como boundary de PII;
+- foi criado `application/assistente_atendimento_runtime.py` como composition root comercial;
+- o AI Model Router recebeu capability `ATENDIMENTO_INTERPRETACAO`, reutilizando o Control Plane homologado em vez de chamada direta a provider;
+- a UI comercial do Assistente deixou de importar/chamar `core.mica` e agora recebe `CURRENT_IDENTITY` do `app.py`;
+- cliente, catálogo, IA, confirmação, fingerprint, idempotência, handoff e checkout passam pelo novo runtime;
+- `core.mica/OperacaoMicaFake` permanece apenas como histórico/teste isolado e não é mais caminho comercial.
+
+**Provas automáticas**
+- Commercial Runtime Readiness V1: **PASS**;
+- Assistente Fase 4 Gate V1: **PASS**;
+- compile dos componentes recuperados/comerciais: **PASS**;
+- Ruff do recorte F4: **PASS**;
+- testes direcionados do serviço/checkout + fitness de cutover: **PASS**.
+
+**Status**
+- `assistente_atendimento = CUTOVER_PENDING`;
+- code blockers de dependência comercial de Mica: **0**;
+- Commercial Runtime E2E: ainda não executado neste checkpoint;
+- teste físico/browser: ainda não executado neste checkpoint;
+- portanto este checkpoint **não** é homologação comercial da Fase 4.
+
+**Escopo F4 ainda pendente antes do gate comercial**
+- áudio/transcrição pela mesma validação autoritativa do texto;
+- endereço/localização + Maps/área/taxa/ETA;
+- dinheiro/troco e integração completa dos meios de pagamento; PIX permanece pendente de provider real conforme disponibilidade externa;
+- snapshot/reserva de estoque pela ficha técnica autoritativa no checkout;
+- handoff com contexto suficiente e retomada segura;
+- consentimento/memória/CRM conforme finalidade;
+- alteração/cancelamento/acompanhamento/reclamação sobre estados reais;
+- integração e prova com KDS/expedição/delivery quando aplicável;
+- Commercial Runtime E2E + navegador físico no mesmo SHA candidato.
+
+**Ritual do inventário:** concluído para este checkpoint. Nenhum módulo posterior está liberado; a próxima tarefa permanece dentro da própria Fase 4.
 
 ## 11. Regra de preservação
 
