@@ -873,6 +873,64 @@ Os componentes centrais de cutover PDV e `application/checkout.py` já existem n
 **Próxima tarefa F4**
 - iniciar o **F4-C — Customer Context / CRM do Assistente**: reconciliar histórico/endereço/consentimento/memória por finalidade, handoff com contexto suficiente e retomada segura, sempre reutilizando ClienteCRM + Contact Vault existentes e sem antecipar o cutover completo da UI de CRM da Fase 13.
 
+## 10.7 Checkpoint Fase 4 / F4-C — Customer Context / CRM governado — 31/08/2026
+
+**SHA técnico validado:** `baeae30daf3733ee5653bde6d7ad924d7a95d40f`
+
+**Current → Target**
+- Current antes deste bloco: o Assistente já identificava ClienteCRM por canal usando Contact Vault, porém não possuía uma projeção governada única para histórico real de pedidos, consentimentos vigentes, endereço validado reutilizável e contexto seguro de handoff.
+- Target aplicado: Customer Context passa a ser uma **projeção minimizada de leitura**, finalidade `atendimento`, composta exclusivamente a partir das autoridades já existentes — ClienteCRM, Contact Vault, histórico canônico de Pedido, histórico append-only de consentimentos e vault cifrado de endereços autorizados.
+- O bloco **não** cria um segundo CRM, não transforma memória livre em verdade operacional e não antecipa o cutover completo da UI de CRM/Cashback previsto para fase posterior.
+
+**Implementado**
+- criado `ContextoClienteAutorizado` como contrato minimizado do Assistente, contendo somente referência canônica do cliente, histórico operacional autorizado, consentimentos atuais derivados do histórico, referência opaca do último endereço e finalidade fixa `atendimento`;
+- `ContextoAtendimento` passa a carregar opcionalmente essa projeção e rejeita contexto pertencente a outro cliente;
+- `ContextoClienteAtendimentoSQLAlchemy` exige `CLIENTE_VISUALIZAR`, confirma o ClienteCRM no mesmo tenant/unidade e lê somente pedidos canônicos do próprio cliente em estados operacionais reais;
+- pedidos `rascunho`, `aguardando_confirmacao` e `cancelado` não alimentam memória de repetição;
+- consentimentos são lidos da autoridade append-only `crm_consentimentos_v1`; a projeção escolhe somente o registro vigente por canal/finalidade e não promove `crm_consentimentos_atuais_v1` a autoridade;
+- criada migration aditiva `0034_crm_customer_context_v1` para `crm_enderecos_seguros_v1`, com FK composta para ClienteCRM, escopo tenant/unidade/cliente/finalidade e unicidade por HMAC;
+- endereço validado por Google Maps passa a ser armazenado cifrado com Fernet; no domínio e no contexto circula apenas referência `address://...`;
+- o valor de endereço é HMAC-scoped por tenant/unidade/cliente/finalidade e não aparece em texto puro na tabela do vault;
+- reutilização de endereço antigo exige ação explícita na UI, resolve a referência somente no mesmo tenant/unidade/cliente e passa novamente por Google Maps + área + taxa + ETA; endereço salvo nunca é aceito como cotação atual por confiança histórica;
+- a expressão `o de sempre` e variantes usa o último Pedido canônico real, mas resolve cada produto pelo ID histórico contra o **catálogo atual**; nome/preço/disponibilidade atuais continuam sendo revalidados e modalidade/endereço/pagamento precisam ser novamente confirmados;
+- produto histórico indisponível não é substituído ou inventado: o serviço determinístico falha fechado e faz handoff;
+- a leitura de Customer Context no runtime comercial passa a gerar auditoria minimizada com finalidade, quantidade de históricos/consentimentos, existência de endereço salvo e último pedido, sem telefone/endereço bruto;
+- handoff humano passou a carregar somente metadata allowlisted: referência canônica do cliente, tipo, contagens, último pedido, modalidade e quantidade de itens resolvidos/pendentes;
+- o adapter de handoff remove campos fora da allowlist, reutiliza a trilha append-only de auditoria e permite recuperar o último contexto pela conversa **somente** no mesmo tenant/unidade;
+- não foram introduzidos Fake/Mock/runtime_teste no caminho comercial do Assistente.
+
+**Provas**
+- Commercial Runtime Readiness V1 — run 136: **PASS**;
+- Assistente Fase 4 Gate V1 — run 121: **PASS**;
+- compile do recorte F4-C: **PASS**;
+- Ruff do recorte F4-C: **PASS**;
+- suíte direcionada ampliada: **73 passed**;
+- migration manifest da 0034 validado pelo mesmo mecanismo de fingerprint imutável das migrations comerciais;
+- testes cobrem: migration/vault, criptografia em repouso, isolamento tenant/unidade/cliente, último consentimento append-only, histórico canônico, `o de sempre`, catálogo atual, endereço salvo, escopo de resolução e handoff persistido PII-minimized.
+
+**Privacidade e governança**
+- Contact Vault continua sendo a autoridade de telefone/e-mail; o novo Address Vault é separado por responsabilidade de domínio e usa a mesma disciplina criptográfica, sem misturar contatos com endereços;
+- Customer Context não entrega telefone bruto, endereço bruto ou prova de consentimento para o modelo de IA;
+- consentimento de marketing não é inferido a partir de atendimento, compra, endereço ou histórico;
+- memória do Assistente neste checkpoint é derivada de fatos operacionais autoritativos e finalidade explícita; não existe memória livre/promocional silenciosa;
+- cross-tenant, cross-unit e cross-client falham fechados.
+
+**Readiness**
+- `assistente_atendimento` continua `CUTOVER_PENDING`;
+- blockers de código conhecidos neste checkpoint: **0**;
+- blockers externos/de implantação: `pix_provider_homologation_incomplete` e aplicação física da migration `0034_crm_customer_context_v1` no banco de homologação;
+- `commercial_runtime_e2e`: ainda não executado no SHA candidato final;
+- `physical_test`: ainda não executado no SHA candidato final;
+- `crm_cashback` não é promovido por este checkpoint; seu cutover de UI/operação permanece na fase própria.
+
+**Rollback**
+- antes de merge/deploy, rollback é reverter os commits F4-C na branch;
+- depois de uma implantação futura, registros de `crm_enderecos_seguros_v1`, auditoria e referências `address://` já emitidas devem ser preservados; rollback deve desativar a composição do Customer Context, não apagar histórico/PII cifrada;
+- nenhuma migration histórica anterior foi alterada; a 0034 foi anexada após a 0033 e o teste antigo da 0033 foi corrigido para ser append-safe.
+
+**Próxima tarefa F4**
+- iniciar o **F4-D — Order Result Orchestrator**: extrair/usar uma orquestração pós-resultado independente do canal para Pedido → resultado financeiro real → confirmação → efeitos autorizados, preservando estoque/KDS/entrega/financeiro e evitando que o Assistente replique lógica do PDV.
+
 ## 11. Regra de preservação
 
 Durante a recuperação:
