@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import uuid4
@@ -25,6 +26,7 @@ from core.assistente_atendimento.atendimento_servicos import (
 )
 from core.assistente_atendimento.checkout_adapter import CheckoutAssistenteV1
 from core.assistente_atendimento.contexto import ContextoAtendimento
+from core.assistente_atendimento.customer_context import ContextoClienteAutorizado
 from core.assistente_atendimento.entradas import (
     EntradaAtendimento,
     ModalidadeEntrada,
@@ -36,6 +38,9 @@ from core.seguranca.permissoes import MATRIZ_PADRAO, Papel, Permissao
 from infra.assistente_atendimento.clientes_sqlalchemy import (
     ClientesAtendimentoSQLAlchemy,
 )
+from infra.assistente_atendimento.contexto_cliente_sqlalchemy import (
+    ContextoClienteAtendimentoSQLAlchemy,
+)
 from infra.assistente_atendimento.entrega_maps import (
     CotadorEntregaAssistenteGoogleMaps,
 )
@@ -44,6 +49,7 @@ from infra.assistente_atendimento.handoff_sqlalchemy import (
 )
 from infra.gerente_ia.modelos_orm import DisponibilidadeProdutoORM
 from infra.legacy_product_scope import listar_produtos_legados
+from infra.crm.enderecos_sqlalchemy import EncryptedSQLAlchemyAddressStore
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
 
 SessionFactory = Callable[[], Session]
@@ -163,6 +169,80 @@ def _prompt_interpretacao(
     )
 
 
+_FRASES_HISTORICO = (
+    "o de sempre",
+    "meu pedido de sempre",
+    "pedido de sempre",
+    "o mesmo de sempre",
+    "repete meu ultimo pedido",
+    "repete meu último pedido",
+    "meu ultimo pedido",
+    "meu último pedido",
+)
+
+
+def _texto_pede_historico(texto: str) -> bool:
+    normalizado = " ".join(texto.casefold().strip().split())
+    return any(frase in normalizado for frase in _FRASES_HISTORICO)
+
+
+def _raw_historico_autorizado(
+    *,
+    mensagem: str,
+    contexto_cliente: ContextoClienteAutorizado | None,
+    catalogo: tuple[ProdutoCatalogoAtendimento, ...],
+) -> str | None:
+    if not _texto_pede_historico(mensagem):
+        return None
+    if contexto_cliente is None or not contexto_cliente.historico:
+        return None
+
+    ultimo = contexto_cliente.historico[0]
+    atuais = {produto.produto_id: produto for produto in catalogo if produto.ativo}
+    itens: list[dict[str, object]] = []
+    for item_historico in ultimo.itens:
+        atual = atuais.get(item_historico.produto_id)
+        if atual is None:
+            return json.dumps(
+                {
+                    "cliente_nome": "Cliente",
+                    "itens": [
+                        {
+                            "nome_produto": item_historico.nome_produto,
+                            "quantidade": item_historico.quantidade,
+                        }
+                    ],
+                    "resposta_cliente": (
+                        "O pedido anterior precisa ser revisto porque um item "
+                        "não está disponível no catálogo atual."
+                    ),
+                    "modalidade": "indefinida",
+                    "endereco_texto": None,
+                },
+                ensure_ascii=False,
+            )
+        itens.append(
+            {
+                "nome_produto": atual.nome,
+                "quantidade": item_historico.quantidade,
+            }
+        )
+
+    return json.dumps(
+        {
+            "cliente_nome": "Cliente",
+            "itens": itens,
+            "resposta_cliente": (
+                "Recuperei o último pedido real. Vou revalidar preços, "
+                "disponibilidade, modalidade, endereço e pagamento antes de confirmar."
+            ),
+            "modalidade": "indefinida",
+            "endereco_texto": None,
+        },
+        ensure_ascii=False,
+    )
+
+
 def _cep_no_texto(texto: str | None) -> str | None:
     if not texto:
         return None
@@ -235,27 +315,40 @@ class RuntimeAssistenteAtendimentoV1:
             if not catalogo:
                 raise ErroGerenteIA("catalogo_indisponivel")
 
-            secret_store = EncryptedSQLAlchemySecretStore(db)
-            router = construir_ai_model_router(
-                session=db,
-                contexto=contexto,
-                secret_store=secret_store,
-            )
-            roteado = router.executar(
-                SolicitacaoIA(
-                    tenant_id=contexto.tenant_id,
-                    unidade_id=contexto.unidade_id,
-                    request_id=mensagem_id,
-                    correlation_id=contexto.correlation_id,
-                    capability=CapabilityIA.ATENDIMENTO_INTERPRETACAO,
-                    conteudo=_prompt_interpretacao(
-                        nome_publico=nome_publico,
-                        mensagem=texto_interpretacao,
-                        catalogo=catalogo,
-                    ),
+            customer_context = None
+            if cliente.cliente_ref is not None:
+                customer_context = ContextoClienteAtendimentoSQLAlchemy(db).resolver(
+                    contexto=contexto,
+                    cliente_ref=cliente.cliente_ref,
                 )
+
+            raw = _raw_historico_autorizado(
+                mensagem=texto_interpretacao,
+                contexto_cliente=customer_context,
+                catalogo=catalogo,
             )
-            raw = str(roteado.conteudo)
+            if raw is None:
+                secret_store = EncryptedSQLAlchemySecretStore(db)
+                router = construir_ai_model_router(
+                    session=db,
+                    contexto=contexto,
+                    secret_store=secret_store,
+                )
+                roteado = router.executar(
+                    SolicitacaoIA(
+                        tenant_id=contexto.tenant_id,
+                        unidade_id=contexto.unidade_id,
+                        request_id=mensagem_id,
+                        correlation_id=contexto.correlation_id,
+                        capability=CapabilityIA.ATENDIMENTO_INTERPRETACAO,
+                        conteudo=_prompt_interpretacao(
+                            nome_publico=nome_publico,
+                            mensagem=texto_interpretacao,
+                            catalogo=catalogo,
+                        ),
+                    )
+                )
+                raw = str(roteado.conteudo)
         finally:
             db.close()
 
@@ -264,6 +357,7 @@ class RuntimeAssistenteAtendimentoV1:
             conversa_id=conversa_id,
             canal="whatsapp",
             cliente=cliente,
+            customer_context=customer_context,
         )
         runtime = ResultadoRuntimeAssistente(
             contexto=contexto_atendimento,
@@ -390,10 +484,23 @@ class RuntimeAssistenteAtendimentoV1:
         if cliente.cliente_ref is None:
             raise RuntimeError("cliente CRM registrado sem referencia")
 
+        db = self._session_factory()
+        try:
+            customer_context = ContextoClienteAtendimentoSQLAlchemy(db).resolver(
+                contexto=contexto,
+                cliente_ref=cliente.cliente_ref,
+            )
+        finally:
+            db.close()
+
         novo_contexto, novo_resultado = self._servico().concluir_cadastro_cliente(
             contexto_anterior=runtime_anterior.contexto,
             resultado=runtime_anterior.resultado,
             cliente_ref=cliente.cliente_ref,
+        )
+        novo_contexto = replace(
+            novo_contexto,
+            customer_context=customer_context,
         )
         return self._tentar_cotacao_do_texto(
             ResultadoRuntimeAssistente(
@@ -458,17 +565,77 @@ class RuntimeAssistenteAtendimentoV1:
                 endereco_texto=endereco_texto,
                 cep_informado=cep,
             )
+            EncryptedSQLAlchemyAddressStore(db).armazenar_validado(
+                contexto=contexto,
+                cliente_id=cliente_ref,
+                endereco_formatado=cotacao.endereco_formatado,
+                cep=cotacao.cep,
+                place_id=cotacao.place_id,
+                latitude=Decimal(str(cotacao.latitude)),
+                longitude=Decimal(str(cotacao.longitude)),
+            )
+            db.commit()
+            customer_context = ContextoClienteAtendimentoSQLAlchemy(db).resolver(
+                contexto=contexto,
+                cliente_ref=cliente_ref,
+            )
+        except Exception:
+            db.rollback()
+            raise
         finally:
             db.close()
 
+        contexto_atualizado = replace(
+            runtime_anterior.contexto,
+            customer_context=customer_context,
+        )
         atualizado = self._servico().aplicar_cotacao_entrega(
-            contexto=runtime_anterior.contexto,
+            contexto=contexto_atualizado,
             resultado=runtime_anterior.resultado,
             cotacao=cotacao,
         )
         return ResultadoRuntimeAssistente(
-            contexto=runtime_anterior.contexto,
+            contexto=contexto_atualizado,
             resultado=atualizado,
+        )
+
+    def usar_ultimo_endereco_salvo(
+        self,
+        *,
+        runtime_anterior: ResultadoRuntimeAssistente,
+    ) -> ResultadoRuntimeAssistente:
+        cliente_ref = runtime_anterior.contexto.cliente.cliente_ref
+        if cliente_ref is None:
+            raise ValueError("cliente canônico obrigatório para endereço salvo")
+        contexto = runtime_anterior.contexto.contexto_execucao
+        db = self._session_factory()
+        try:
+            customer_context = runtime_anterior.contexto.customer_context
+            if customer_context is None:
+                customer_context = ContextoClienteAtendimentoSQLAlchemy(db).resolver(
+                    contexto=contexto,
+                    cliente_ref=cliente_ref,
+                )
+            referencia = customer_context.ultimo_endereco_ref
+            if referencia is None:
+                raise LookupError("cliente_sem_endereco_salvo")
+            endereco = EncryptedSQLAlchemyAddressStore(db).resolver(
+                contexto=contexto,
+                cliente_id=cliente_ref,
+                referencia=referencia,
+            )
+        finally:
+            db.close()
+        return self.cotar_entrega(
+            runtime_anterior=ResultadoRuntimeAssistente(
+                contexto=replace(
+                    runtime_anterior.contexto,
+                    customer_context=customer_context,
+                ),
+                resultado=runtime_anterior.resultado,
+            ),
+            endereco_texto=endereco.endereco_formatado,
+            cep=endereco.cep,
         )
 
     def confirmar(
