@@ -570,8 +570,8 @@ Um item entra aqui quando:
 
 A ordem deve continuar sendo a do Documento Mestre. O inventário determina **o que reutilizar** em cada fase:
 
-1. **Fechar Fase 2** — Auth/RBAC.
-2. **Fase 3** — consolidar/homologar Control Plane existente.
+1. **Fase 2 — FECHADA / COMMERCIAL_HOMOLOGATED** — Auth/RBAC homologado no runtime físico.
+2. **Fase 3 — APROVADA INTERNAMENTE / avanço liberado** — Control Plane existente preservado; Mercado Pago/PagBank e demais dependências exclusivamente externas permanecem como homologação externa pendente e não reabrem desenvolvimento interno.
 3. **Fase 4** — cortar Assistente para Core + Checkout + Pedido + Pagamento + Estoque + CRM + Maps/Delivery; eliminar `OperacaoMicaFake`.
 4. **Fase 5** — Painel Proprietário, reutilizando RBAC, Integrações, Notificações e configurações existentes.
 5. **Fase 6** — cortar PDV para Checkout/Pedido/Pagamento/Estoque autoritativos; migrar dashboard financeiro.
@@ -585,6 +585,102 @@ A ordem deve continuar sendo a do Documento Mestre. O inventário determina **o 
 13. **Fase 14+** — Gerente IA/Core e inteligência transversal sobre módulos já homologados.
 
 ---
+
+## 10.1 Reconciliação forense Work × Drive × GitHub — 30/08/2026
+
+Antes de qualquer novo código da Fase 4, foi reconciliado o patrimônio preservado do Work.
+
+**Fonte preservada**
+- pasta Drive: `KORDENA — STAB-01 — EVIDÊNCIAS E INVENTÁRIO — 2026-08-23`;
+- HEAD forense original: `2fdb3824c96bfeeef0c1722b6b37609f77074553`;
+- snapshot restaurável: 660 entradas = 609 tracked + 51 untracked;
+- estado dirty preservado: 25 modified + 51 untracked = 76 arquivos;
+- restauração descartável e SHA-256 dos 76 arquivos: PASS.
+
+**Cópia física**
+- worktree: `C:\\fm-ai-platform-fase4`;
+- branch: `feat/v1-assistente-atendimento`;
+- HEAD físico verificado: `2fdb3824c96bfeeef0c1722b6b37609f77074553`;
+- portanto a cópia física parte exatamente do mesmo commit-base do snapshot forense STAB-01.
+
+**Comparação exata do conteúdo dirty preservado contra a branch comercial atual**
+- branch atual usada no navegador: `fix/v1-auth-streamlit-login-input`;
+- SHA atual: `e56a2724d00bd3f27fcf3ae292310632e26045d8`;
+- 76 arquivos do snapshot comparados por Git blob SHA;
+- **4** permanecem byte-a-byte idênticos;
+- **47** existem hoje, mas evoluíram;
+- **25** continuam ausentes da branch atual;
+- dos 25 ausentes, **11 são código produtivo** e **14 são testes**.
+
+**Regra de recuperação**
+- NÃO copiar o worktree físico inteiro sobre o canonical;
+- NÃO reaplicar patch/snapshot em bloco;
+- para os 47 arquivos evoluídos, a branch atual é a base e qualquer capacidade antiga deve ser portada seletivamente;
+- para os 25 ausentes, recuperar somente o que ainda é válido perante Documento Mestre, System Design e interfaces atuais;
+- preservar os snapshots Drive/PC como fonte forense e rollback patrimonial.
+
+### 10.1.1 Patrimônio ausente prioritário — Assistente
+
+Ainda ausentes da branch atual:
+- `core/assistente_atendimento/atendimento_adapters.py`;
+- `core/assistente_atendimento/atendimento_schemas.py`;
+- `core/assistente_atendimento/atendimento_servicos.py`;
+- `core/assistente_atendimento/cliente_adapters.py`;
+- `core/assistente_atendimento/contexto.py`;
+- `core/assistente_atendimento/entradas.py`.
+
+Já existem e evoluíram na branch atual:
+- `atendimento_modelos.py`;
+- `checkout_adapter.py`;
+- `erros.py`.
+
+O serviço preservado implementa parsing estrito, resolução exata de catálogo, contexto tenant/unidade, cliente conhecido/novo, fingerprint de carrinho, confirmação explícita, reconfirmação em alteração, idempotência, handoff fail-closed e delegação ao checkout autoritativo.
+
+**Decisão de cutover Fase 4:** recuperar/adaptar essas seis peças sobre as interfaces atuais e substituir a delegação comercial `core.mica/OperacaoMicaFake`; nunca sobrescrever os três arquivos que já evoluíram sem revisão de diff.
+
+### 10.1.2 Patrimônio ausente prioritário — CRM dependência da Fase 4
+
+Ainda ausentes:
+- `application/crm_regularizacao_legado.py`;
+- `infra/crm/cliente_legado_sqlalchemy.py`;
+- `infra/crm/consentimentos_sqlalchemy.py`;
+- `infra/crm/contatos_sqlalchemy.py`;
+- `infra/legacy_customer_scope.py`.
+
+Schemas/migrations correlatos já existem e evoluíram na branch atual.
+
+O patrimônio preservado implementa ponte explícita legado→ClienteCRM, Contact Store cifrado `contact://`, isolamento tenant/unidade e persistência append-only de consentimentos.
+
+**Decisão:** recuperar apenas as implementações que continuam compatíveis com os schemas/migrations atuais; usar CRM como dependência canônica do Assistente sem antecipar o cutover completo da UI de CRM da Fase 13.
+
+### 10.1.3 Patrimônio PDV/Checkout
+
+Os componentes centrais de cutover PDV e `application/checkout.py` já existem na branch atual e evoluíram em relação ao snapshot.
+
+**Decisão:** não restaurar versões antigas. O snapshot serve apenas para conferir capacidades eventualmente perdidas. O cutover comercial do PDV permanece na Fase 6.
+
+### 10.1.4 Mapa Current → Target do runtime comercial
+
+| Área | Current no `app.py` | Target | Ação |
+|---|---|---|---|
+| Auth/RBAC | novo/comercial | homologado | preservar |
+| Integrações | Control Plane novo | aprovado internamente; externos pendentes | preservar |
+| Assistente | UI delega para `core.mica` + `OperacaoMicaFake` | serviço novo + Core/IA + CRM + checkout autoritativo | cutover Fase 4 |
+| Cardápio/Ficha | `AplicacaoLegacyCardapioV1` | fonte canônica/ponte governada | não criar autoridade paralela |
+| PDV | `LegacyPDVSQLAlchemyAdapter` no runtime normal | checkout/Pedido/Pagamento/Estoque autoritativos | cutover Fase 6 |
+| Estoque | `AplicacaoLegacyEstoqueV1` | `core.estoque` ledger/reserva/consumo | cutover Fase 6 |
+| CRM UI | Cliente/cashback legado | ClienteCRM/consentimento/contact store | dependência F4 + cutover UI F13 |
+| Financeiro | leitura de `Venda` legada | VendaFinanceira/Pagamentos | F6/F5 conforme Mestre |
+| Central Pedidos | código novo atrás de readiness/flags | comercial integrado | provar na fase correspondente |
+| KDS | código novo atrás de readiness/flags | comercial integrado | provar F8 |
+| Salão | composição ainda contém test helpers | composition root comercial | F7 |
+| Garçom | não composto no `app.py` | comercial | F7 |
+| Impressão | não composta | spool + adapter físico | F9 |
+| Expedição/Entrega | não composta / contexto de teste | comercial | F10 |
+| Delivery próprio | runtime teste/demo | adapters canônicos | F11 |
+| Marketplaces | framework sem composição real completa | providers oficiais | F12 |
+| Gerente IA/Core | backend/composition root existe, experiência final não exposta | cérebro transversal | F14 após cutovers |
+| AI FinOps | dashboard existe, migration física pendente | read model aplicado | gate de migration |
 
 ## 11. Regra de preservação
 
