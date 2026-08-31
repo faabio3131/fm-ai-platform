@@ -6,11 +6,13 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from uuid import uuid4
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from core.seguranca.auditoria import EventoAuditoria
+from core.seguranca.auditoria import EventoAuditoria, sanitizar_metadata
 from core.seguranca.contexto import ContextoExecucao
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
+from infra.seguranca.modelos_orm import EventoAuditoriaORM
 
 
 class HandoffAssistenteAuditSQLAlchemy:
@@ -25,6 +27,7 @@ class HandoffAssistenteAuditSQLAlchemy:
         contexto: ContextoExecucao,
         conversa_id: str,
         motivo: str,
+        metadata_segura: dict[str, str | int | bool] | None = None,
     ) -> None:
         db = self._session_factory()
         try:
@@ -50,12 +53,50 @@ class HandoffAssistenteAuditSQLAlchemy:
                     origem="assistente_atendimento_v1",
                     politica="handoff_fail_closed_v1",
                     causation_id=contexto.causation_id,
-                    metadata=(("motivo", motivo),),
+                    metadata=sanitizar_metadata(
+                        {
+                            "motivo": motivo,
+                            **(metadata_segura or {}),
+                        }
+                    ),
                 )
             )
             db.commit()
         except Exception:
             db.rollback()
             raise
+        finally:
+            db.close()
+
+    def ultimo_contexto(
+        self,
+        *,
+        contexto: ContextoExecucao,
+        conversa_id: str,
+    ) -> dict[str, str | int | bool] | None:
+        db = self._session_factory()
+        try:
+            row = db.scalar(
+                select(EventoAuditoriaORM)
+                .where(
+                    EventoAuditoriaORM.tenant_id == contexto.tenant_id,
+                    EventoAuditoriaORM.unidade_id == contexto.unidade_id,
+                    EventoAuditoriaORM.acao == "assistente_atendimento.handoff",
+                    EventoAuditoriaORM.recurso_tipo == "conversa_atendimento",
+                    EventoAuditoriaORM.recurso_id == conversa_id,
+                )
+                .order_by(
+                    EventoAuditoriaORM.timestamp.desc(),
+                    EventoAuditoriaORM.audit_id,
+                )
+                .limit(1)
+            )
+            if row is None:
+                return None
+            return {
+                str(chave): valor
+                for chave, valor in dict(row.metadata_segura).items()
+                if isinstance(valor, (str, int, bool))
+            }
         finally:
             db.close()
