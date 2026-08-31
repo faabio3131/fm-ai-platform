@@ -217,19 +217,24 @@ class AIUsageAuditMetering:
         )
 
 
-def _capability(
+def _capabilities(
     *,
     provider: str,
     parametros: dict[str, Any],
-) -> CapabilityIA:
+) -> tuple[CapabilityIA, ...]:
     raw = parametros.get("capability")
 
     if raw is None and provider == "gemini":
-        # Compatibilidade explícita do primeiro cutover.
-        return CapabilityIA.TOOL_PLANNING
+        # Uma configuração Gemini homologada existente continua servindo o Core
+        # e também a interpretação do Atendimento. Isso evita duplicar credencial
+        # ou criar um segundo Control Plane apenas para a nova capability.
+        return (
+            CapabilityIA.TOOL_PLANNING,
+            CapabilityIA.ATENDIMENTO_INTERPRETACAO,
+        )
 
     try:
-        return CapabilityIA(str(raw))
+        return (CapabilityIA(str(raw)),)
     except ValueError as exc:
         raise ErroConfiguracaoServico(
             "ai_route_capability_invalida"
@@ -297,19 +302,20 @@ def _rotas_homologadas(
             or LEGACY_UNPRICED_SNAPSHOT
         ).strip()
 
-        rotas.append(
-            RotaIA(
-                configuracao_id=config.configuracao_id,
-                provider=config.provedor,
-                model=model,
-                capability=_capability(
+        for capability in _capabilities(
+            provider=config.provedor,
+            parametros=parametros,
+        ):
+            rotas.append(
+                RotaIA(
+                    configuracao_id=config.configuracao_id,
                     provider=config.provedor,
-                    parametros=parametros,
-                ),
-                prioridade=_prioridade(parametros),
-                price_snapshot_id=snapshot,
+                    model=model,
+                    capability=capability,
+                    prioridade=_prioridade(parametros),
+                    price_snapshot_id=snapshot,
+                )
             )
-        )
 
     return tuple(rotas)
 
