@@ -14,6 +14,21 @@ from core.seguranca.contexto import ContextoExecucao
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
 from infra.seguranca.modelos_orm import EventoAuditoriaORM
 
+_HANDOFF_METADATA_PERMITIDA = frozenset(
+    {
+        "motivo",
+        "cliente_tipo",
+        "cliente_ref",
+        "historico_count",
+        "possui_endereco_salvo",
+        "consentimentos_count",
+        "ultimo_pedido_id",
+        "modalidade",
+        "itens_solicitados",
+        "itens_resolvidos",
+    }
+)
+
 
 class HandoffAssistenteAuditSQLAlchemy:
     """Registra a transferência sem persistir texto/telefone/PII da conversa."""
@@ -55,8 +70,12 @@ class HandoffAssistenteAuditSQLAlchemy:
                     causation_id=contexto.causation_id,
                     metadata=sanitizar_metadata(
                         {
-                            "motivo": motivo,
-                            **(metadata_segura or {}),
+                            chave: valor
+                            for chave, valor in {
+                                "motivo": motivo,
+                                **(metadata_segura or {}),
+                            }.items()
+                            if chave in _HANDOFF_METADATA_PERMITIDA
                         }
                     ),
                 )
