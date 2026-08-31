@@ -10,6 +10,13 @@ from application.catalogo_estoque_cutover import (
     executar_checkout_com_ficha_estoque_v1,
 )
 from application.checkout import ComandoCheckoutV1
+from core.assistente_atendimento.atendimento_modelos import (
+    CarrinhoAtendimento,
+    ItemCarrinhoAtendimento,
+    ModalidadePedidoAtendimento,
+    PreferenciaPagamentoAtendimento,
+)
+from core.assistente_atendimento.checkout_adapter import CheckoutAssistenteV1
 from core.dominio.dinheiro import Dinheiro
 from core.dominio.enums import CanalAtendimento, OrigemPedido, PedidoStatus
 from core.dominio.ids import (
@@ -168,6 +175,50 @@ def _comando(pedido: Pedido) -> ComandoCheckoutV1:
 
 def _contagem(session: Session, model) -> int:
     return session.scalar(select(func.count()).select_from(model)) or 0
+
+
+def test_adapter_comercial_do_assistente_usa_snapshot_e_reporta_reserva() -> None:
+    engine, factory = _factory()
+    _seed_catalogo(engine, saldo="10", quantidade_ficha="1.5")
+    carrinho = CarrinhoAtendimento(
+        tenant_id="tenant-a",
+        unidade_id="unidade-a",
+        conversa_id="conv-estoque",
+        mensagem_id="msg-estoque",
+        itens=(
+            ItemCarrinhoAtendimento(
+                produto_id="101",
+                nome_produto="Produto A",
+                quantidade=2,
+                preco_unitario=Decimal("25.00"),
+            ),
+        ),
+        fingerprint="fp-estoque",
+        modalidade=ModalidadePedidoAtendimento.RETIRADA,
+        pagamento=PreferenciaPagamentoAtendimento(
+            metodo=MetodoPagamento.DINHEIRO,
+        ),
+    )
+    adapter = CheckoutAssistenteV1(
+        session_factory=factory,
+        agora=lambda: AGORA,
+    )
+
+    resultado = adapter.executar(
+        contexto=_contexto(),
+        carrinho=carrinho,
+        cliente_ref="cliente-teste",
+        canal="whatsapp",
+        metodo=MetodoPagamento.DINHEIRO,
+        idempotency_key="checkout-estoque-1",
+    )
+
+    assert resultado.pedido_status == PedidoStatus.AGUARDANDO_CONFIRMACAO.value
+    assert resultado.estoque_reservado is True
+    assert resultado.estoque_idempotente is False
+    with Session(engine) as session:
+        assert _contagem(session, PedidoORM) == 1
+        assert _contagem(session, ReservaEstoqueORM) == 1
 
 
 def test_checkout_assistente_captura_ficha_e_reserva_ledger_canonico() -> None:
