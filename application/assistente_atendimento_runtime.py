@@ -33,6 +33,7 @@ from core.assistente_atendimento.entradas import (
 )
 from core.gerente_ia.erros import ErroGerenteIA
 from core.pagamentos.modelos import MetodoPagamento
+from core.seguranca.auditoria import EventoAuditoria
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import MATRIZ_PADRAO, Papel, Permissao
 from infra.assistente_atendimento.clientes_sqlalchemy import (
@@ -50,6 +51,7 @@ from infra.assistente_atendimento.handoff_sqlalchemy import (
 from infra.crm.enderecos_sqlalchemy import EncryptedSQLAlchemyAddressStore
 from infra.gerente_ia.modelos_orm import DisponibilidadeProdutoORM
 from infra.legacy_product_scope import listar_produtos_legados
+from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
 
 SessionFactory = Callable[[], Session]
@@ -243,6 +245,46 @@ def _raw_historico_autorizado(
     )
 
 
+def _auditar_customer_context(
+    *,
+    session: Session,
+    contexto: ContextoExecucao,
+    customer_context: ContextoClienteAutorizado,
+) -> None:
+    metadata: dict[str, str | int | bool] = {
+        "finalidade": customer_context.finalidade,
+        "historico_count": len(customer_context.historico),
+        "consentimentos_count": len(customer_context.consentimentos),
+        "possui_endereco_salvo": customer_context.possui_endereco_salvo,
+    }
+    if customer_context.historico:
+        metadata["ultimo_pedido_id"] = customer_context.historico[0].pedido_id
+    RepositorioAuditoriaSQLAlchemy(session).adicionar(
+        EventoAuditoria(
+            audit_id=f"audit-{uuid4().hex}",
+            tenant_id=contexto.tenant_id,
+            unidade_id=contexto.unidade_id,
+            usuario_id=contexto.usuario_id,
+            papel_efetivo=(
+                min(contexto.papeis, key=lambda item: item.value)
+                if contexto.papeis
+                else None
+            ),
+            acao="assistente_atendimento.customer_context",
+            recurso_tipo="ClienteCRM",
+            recurso_id=customer_context.cliente_ref,
+            resultado="resolvido",
+            motivo="contexto minimizado autorizado para finalidade atendimento",
+            correlation_id=contexto.correlation_id,
+            timestamp=datetime.now(timezone.utc),
+            origem="assistente_atendimento_v1",
+            politica="customer_context_minimization_v1",
+            causation_id=contexto.causation_id,
+            metadata=tuple(sorted(metadata.items())),
+        )
+    )
+
+
 def _cep_no_texto(texto: str | None) -> str | None:
     if not texto:
         return None
@@ -321,6 +363,12 @@ class RuntimeAssistenteAtendimentoV1:
                     contexto=contexto,
                     cliente_ref=cliente.cliente_ref,
                 )
+                _auditar_customer_context(
+                    session=db,
+                    contexto=contexto,
+                    customer_context=customer_context,
+                )
+                db.commit()
 
             raw = _raw_historico_autorizado(
                 mensagem=texto_interpretacao,
@@ -490,6 +538,12 @@ class RuntimeAssistenteAtendimentoV1:
                 contexto=contexto,
                 cliente_ref=cliente.cliente_ref,
             )
+            _auditar_customer_context(
+                session=db,
+                contexto=contexto,
+                customer_context=customer_context,
+            )
+            db.commit()
         finally:
             db.close()
 
