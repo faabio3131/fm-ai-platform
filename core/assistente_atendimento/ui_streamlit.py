@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
@@ -316,19 +317,142 @@ def render_assistente_atendimento_v1(
                 )
         return
 
+    if resultado.estado is EstadoAtendimento.AGUARDANDO_FORMA_PAGAMENTO:
+        st.info(
+            "Defina a forma de pagamento antes da confirmação final. "
+            "A escolha cria apenas a obrigação financeira no checkout; não marca "
+            "PIX, cartão ou dinheiro como pagos."
+        )
+        metodo_label = st.selectbox(
+            "Forma de pagamento solicitada",
+            list(_metodos_pagamento()),
+            key="assistente_v1_metodo",
+        )
+        metodo = _metodos_pagamento()[metodo_label]
+        valor_para_troco = None
+        if metodo is MetodoPagamento.DINHEIRO:
+            precisa_troco = st.checkbox(
+                "Cliente precisa de troco",
+                key="assistente_v1_precisa_troco",
+            )
+            if precisa_troco:
+                valor_para_troco = st.number_input(
+                    "Troco para",
+                    min_value=float(carrinho.total),
+                    value=float(carrinho.total),
+                    step=1.0,
+                    format="%.2f",
+                    key="assistente_v1_troco_para",
+                )
+
+        if st.button("Aplicar forma de pagamento", type="primary"):
+            try:
+                atualizado = runtime.definir_pagamento(
+                    runtime_anterior=runtime_resultado,
+                    metodo=metodo,
+                    valor_para_troco=(
+                        Decimal(str(valor_para_troco))
+                        if valor_para_troco is not None
+                        else None
+                    ),
+                )
+                st.session_state[_RESULTADO_KEY] = atualizado
+                st.rerun()
+            except _ERROS_RUNTIME_SEGURO:
+                st.error(
+                    "A forma de pagamento ou o troco solicitado são inválidos. "
+                    "Nenhum checkout ou pagamento foi confirmado."
+                )
+        return
+
+    if carrinho.pagamento is None:
+        st.error(
+            "A forma de pagamento não está vinculada ao carrinho. "
+            "O checkout foi bloqueado por segurança."
+        )
+        return
+
+    st.subheader("Pagamento solicitado")
+    st.write(f"Forma: **{carrinho.pagamento.metodo.value}**")
+    if carrinho.pagamento.valor_para_troco is not None:
+        troco_estimado = carrinho.pagamento.troco_estimado(carrinho.total)
+        st.write(
+            f"Troco para: **R$ {carrinho.pagamento.valor_para_troco:.2f}** · "
+            f"Estimativa de troco: **R$ {troco_estimado:.2f}**"
+        )
+    st.caption(
+        "Esta é uma preferência confirmada pelo cliente, não uma liquidação. "
+        "Dinheiro só será confirmado no recebimento; pagamentos eletrônicos "
+        "dependem da fonte financeira oficial/homologada."
+    )
+
     st.warning(
         "Nenhum efeito comercial definitivo ocorreu ainda. "
-        "Confirme o carrinho exato abaixo."
-    )
-    metodo_label = st.selectbox(
-        "Forma de pagamento solicitada",
-        list(_metodos_pagamento()),
-        key="assistente_v1_metodo",
+        "Confirme o carrinho e a forma de pagamento exatos abaixo."
     )
     confirmado = st.checkbox(
-        "Confirmo que o cliente revisou e aprovou exatamente este carrinho",
+        "Confirmo que o cliente revisou e aprovou este carrinho e esta forma de pagamento",
         key="assistente_v1_confirmacao",
     )
+
+    with st.expander("Alterar forma de pagamento antes de confirmar"):
+        metodos = _metodos_pagamento()
+        rotulos = list(metodos)
+        atual = next(
+            (
+                indice
+                for indice, rotulo in enumerate(rotulos)
+                if metodos[rotulo] is carrinho.pagamento.metodo
+            ),
+            0,
+        )
+        novo_label = st.selectbox(
+            "Nova forma de pagamento",
+            rotulos,
+            index=atual,
+            key="assistente_v1_metodo_alteracao",
+        )
+        novo_metodo = metodos[novo_label]
+        novo_troco = None
+        if novo_metodo is MetodoPagamento.DINHEIRO:
+            solicitar_troco = st.checkbox(
+                "Solicitar troco nesta forma",
+                value=carrinho.pagamento.valor_para_troco is not None,
+                key="assistente_v1_precisa_troco_alteracao",
+            )
+            if solicitar_troco:
+                valor_atual = (
+                    carrinho.pagamento.valor_para_troco
+                    if carrinho.pagamento.valor_para_troco is not None
+                    else carrinho.total
+                )
+                novo_troco = st.number_input(
+                    "Novo troco para",
+                    min_value=float(carrinho.total),
+                    value=float(valor_atual),
+                    step=1.0,
+                    format="%.2f",
+                    key="assistente_v1_troco_para_alteracao",
+                )
+        if st.button("Atualizar forma e exigir nova confirmação"):
+            try:
+                atualizado = runtime.definir_pagamento(
+                    runtime_anterior=runtime_resultado,
+                    metodo=novo_metodo,
+                    valor_para_troco=(
+                        Decimal(str(novo_troco))
+                        if novo_troco is not None
+                        else None
+                    ),
+                )
+                st.session_state[_RESULTADO_KEY] = atualizado
+                st.session_state["assistente_v1_confirmacao"] = False
+                st.rerun()
+            except _ERROS_RUNTIME_SEGURO:
+                st.error(
+                    "A alteração foi recusada. O carrinho anterior permanece sem "
+                    "efeito financeiro confirmado."
+                )
 
     if st.button("Confirmar pedido no checkout canônico", type="primary"):
         try:
@@ -336,7 +460,7 @@ def render_assistente_atendimento_v1(
                 runtime_anterior=runtime_resultado,
                 confirmacao_cliente=confirmado,
                 fingerprint_confirmado=carrinho.fingerprint,
-                metodo=_metodos_pagamento()[metodo_label],
+                metodo=carrinho.pagamento.metodo,
                 idempotency_key=str(
                     st.session_state.get(_IDEMPOTENCIA_KEY) or uuid4()
                 ),
