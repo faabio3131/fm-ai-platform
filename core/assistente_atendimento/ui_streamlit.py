@@ -7,19 +7,39 @@ from typing import Any
 from uuid import uuid4
 
 import streamlit as st
+from sqlalchemy.exc import SQLAlchemyError
 
 from application.assistente_atendimento_runtime import (
     ResultadoRuntimeAssistente,
     RuntimeAssistenteAtendimentoV1,
 )
+from application.checkout import CheckoutInvalido
+from core.ai_router import ErroAIRouter
 from core.assistente_atendimento.atendimento_modelos import EstadoAtendimento
+from core.assistente_atendimento.erros import ErroAssistenteAtendimento
 from core.assistente_atendimento.flags import assistente_atendimento_v1_enabled
+from core.crm.erros import ErroCRM
+from core.gerente_ia.erros import ErroGerenteIA
+from core.integracoes.modelos import ErroConfiguracaoServico
 from core.pagamentos.modelos import MetodoPagamento
 from core.seguranca.autenticacao import IdentidadeUsuario
 
 _RESULTADO_KEY = "_assistente_atendimento_runtime_resultado_v1"
 _IDEMPOTENCIA_KEY = "_assistente_atendimento_idempotencia_v1"
 _CONVERSA_KEY = "_assistente_atendimento_conversa_v1"
+_ERROS_RUNTIME_SEGURO = (
+    CheckoutInvalido,
+    ErroAIRouter,
+    ErroAssistenteAtendimento,
+    ErroCRM,
+    ErroConfiguracaoServico,
+    ErroGerenteIA,
+    LookupError,
+    PermissionError,
+    RuntimeError,
+    SQLAlchemyError,
+    ValueError,
+)
 
 
 def _metodos_pagamento() -> dict[str, MetodoPagamento]:
@@ -99,7 +119,7 @@ def render_assistente_atendimento_v1(
                 st.session_state[_RESULTADO_KEY] = resultado
                 st.session_state[_IDEMPOTENCIA_KEY] = str(uuid4())
                 st.rerun()
-            except Exception:
+            except _ERROS_RUNTIME_SEGURO:
                 st.error(
                     "Não foi possível interpretar o atendimento com segurança. "
                     "A integração permanece fail-closed; revise catálogo, CRM e "
@@ -156,7 +176,7 @@ def render_assistente_atendimento_v1(
                 )
                 st.session_state[_RESULTADO_KEY] = atualizado
                 st.rerun()
-            except Exception:
+            except _ERROS_RUNTIME_SEGURO:
                 st.error(
                     "Não foi possível registrar o cliente com segurança. "
                     "Nenhum checkout foi executado."
@@ -208,7 +228,7 @@ def render_assistente_atendimento_v1(
                 resultado=final,
             )
             st.rerun()
-        except Exception:
+        except _ERROS_RUNTIME_SEGURO:
             st.error(
                 "O checkout foi recusado ou falhou de forma segura. "
                 "Não assuma pagamento, estoque ou produção confirmados."
