@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from application.ai_router_runtime import construir_ai_model_router
-from core.ai_router import CapabilityIA, SolicitacaoIA
+from core.ai_router import CapabilityIA, ConteudoAudioIA, SolicitacaoIA
 from core.assistente_atendimento.atendimento_modelos import (
     ProdutoCatalogoAtendimento,
     ResultadoAtendimento,
@@ -169,20 +169,17 @@ class RuntimeAssistenteAtendimentoV1:
         self._handoff = HandoffAssistenteAuditSQLAlchemy(session_factory)
         self._checkout = CheckoutAssistenteV1(session_factory=session_factory)
 
-    def interpretar_texto(
+    def _interpretar_entrada(
         self,
         *,
-        contexto_solicitante: ContextoExecucao,
+        contexto: ContextoExecucao,
         conversa_id: str,
         mensagem_id: str,
         identificador_cliente: str,
-        mensagem: str,
+        texto_interpretacao: str,
         nome_publico: str,
+        entrada: EntradaAtendimento,
     ) -> ResultadoRuntimeAssistente:
-        if not identificador_cliente.strip() or not mensagem.strip():
-            raise ValueError("cliente e mensagem são obrigatórios")
-
-        contexto = _contexto_agente(contexto_solicitante)
         db = self._session_factory()
         try:
             clientes = ClientesAtendimentoSQLAlchemy(db)
@@ -210,7 +207,7 @@ class RuntimeAssistenteAtendimentoV1:
                     capability=CapabilityIA.ATENDIMENTO_INTERPRETACAO,
                     conteudo=_prompt_interpretacao(
                         nome_publico=nome_publico,
-                        mensagem=mensagem,
+                        mensagem=texto_interpretacao,
                         catalogo=catalogo,
                     ),
                 )
@@ -225,11 +222,6 @@ class RuntimeAssistenteAtendimentoV1:
             canal="whatsapp",
             cliente=cliente,
         )
-        entrada = EntradaAtendimento(
-            mensagem_id=mensagem_id,
-            modalidade=ModalidadeEntrada.TEXTO,
-            texto_original=mensagem,
-        )
         servico = ServicoAssistenteAtendimento(
             checkout=self._checkout,
             handoff=self._handoff,
@@ -242,6 +234,97 @@ class RuntimeAssistenteAtendimentoV1:
                 raw_ia=raw,
                 catalogo=catalogo,
             ),
+        )
+
+    def interpretar_texto(
+        self,
+        *,
+        contexto_solicitante: ContextoExecucao,
+        conversa_id: str,
+        mensagem_id: str,
+        identificador_cliente: str,
+        mensagem: str,
+        nome_publico: str,
+    ) -> ResultadoRuntimeAssistente:
+        if not identificador_cliente.strip() or not mensagem.strip():
+            raise ValueError("cliente e mensagem são obrigatórios")
+
+        contexto = _contexto_agente(contexto_solicitante)
+        entrada = EntradaAtendimento(
+            mensagem_id=mensagem_id,
+            modalidade=ModalidadeEntrada.TEXTO,
+            texto_original=mensagem,
+        )
+        return self._interpretar_entrada(
+            contexto=contexto,
+            conversa_id=conversa_id,
+            mensagem_id=mensagem_id,
+            identificador_cliente=identificador_cliente,
+            texto_interpretacao=entrada.texto_para_interpretacao,
+            nome_publico=nome_publico,
+            entrada=entrada,
+        )
+
+    def interpretar_audio(
+        self,
+        *,
+        contexto_solicitante: ContextoExecucao,
+        conversa_id: str,
+        mensagem_id: str,
+        identificador_cliente: str,
+        audio: bytes,
+        mime_type: str,
+        nome_publico: str,
+    ) -> ResultadoRuntimeAssistente:
+        if not identificador_cliente.strip():
+            raise ValueError("cliente é obrigatório")
+
+        contexto = _contexto_agente(contexto_solicitante)
+        db = self._session_factory()
+        try:
+            secret_store = EncryptedSQLAlchemySecretStore(db)
+            router = construir_ai_model_router(
+                session=db,
+                contexto=contexto,
+                secret_store=secret_store,
+            )
+            transcricao = router.executar(
+                SolicitacaoIA(
+                    tenant_id=contexto.tenant_id,
+                    unidade_id=contexto.unidade_id,
+                    request_id=f"{mensagem_id}:transcricao",
+                    correlation_id=contexto.correlation_id,
+                    capability=CapabilityIA.ATENDIMENTO_TRANSCRICAO,
+                    conteudo=ConteudoAudioIA(
+                        audio=audio,
+                        mime_type=mime_type,
+                        instrucao=(
+                            "Transcreva fielmente este áudio de atendimento em "
+                            "português. Retorne somente a transcrição, sem resumo, "
+                            "sem interpretação e sem adicionar informações."
+                        ),
+                    ),
+                )
+            )
+            texto = str(transcricao.conteudo).strip()
+            if not texto:
+                raise ErroGerenteIA("transcricao_audio_vazia")
+        finally:
+            db.close()
+
+        entrada = EntradaAtendimento(
+            mensagem_id=mensagem_id,
+            modalidade=ModalidadeEntrada.AUDIO,
+            transcricao=texto,
+        )
+        return self._interpretar_entrada(
+            contexto=contexto,
+            conversa_id=conversa_id,
+            mensagem_id=mensagem_id,
+            identificador_cliente=identificador_cliente,
+            texto_interpretacao=entrada.texto_para_interpretacao,
+            nome_publico=nome_publico,
+            entrada=entrada,
         )
 
     def registrar_cliente_minimo(
