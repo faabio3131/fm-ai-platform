@@ -114,7 +114,6 @@ def test_commercial_payment_preference_is_fingerprinted_without_auto_settlement(
     assert "confirmar_pagamento(" not in checkout
 
 
-
 def test_commercial_assistant_reserves_canonical_stock_from_authoritative_ficha() -> None:
     adapter = _text("core/assistente_atendimento/checkout_adapter.py")
     bridge = _text("application/catalogo_estoque_cutover.py")
