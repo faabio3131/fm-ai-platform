@@ -4,7 +4,9 @@ from decimal import Decimal
 import pytest
 
 from core.assistente_atendimento.atendimento_modelos import (
+    CotacaoEntregaAtendimento,
     EstadoAtendimento,
+    ModalidadePedidoAtendimento,
     ProdutoCatalogoAtendimento,
     ResultadoCheckoutAssistente,
 )
@@ -119,45 +121,66 @@ def catalogo():
     )
 
 
-def raw_intencao():
+def raw_intencao(modalidade="retirada", endereco=None):
+    endereco_json = "null" if endereco is None else f'"{endereco}"'
     return (
         '{"cliente_nome":"João",'
         '"itens":[{"nome_produto":"X-Bacon","quantidade":2}],'
-        '"resposta_cliente":"Dois X-Bacon"}'
+        '"resposta_cliente":"Dois X-Bacon",'
+        f'"modalidade":"{modalidade}",'
+        f'"endereco_texto":{endereco_json}'
+        "}"
     )
 
 
-def test_cliente_conhecido_vai_para_confirmacao():
+def cotacao():
+    return CotacaoEntregaAtendimento(
+        endereco_formatado="Rua A, 10 - Centro, Cidade - SP, 01000-000",
+        cep="01000000",
+        place_id="place-1",
+        latitude=-23.5,
+        longitude=-46.6,
+        distancia_metros=4200,
+        eta_rota_minutos=15,
+        area_id="centro",
+        nome_area="Centro",
+        taxa=Decimal("8.00"),
+        sla_minutos=35,
+        sla_maxutos=55,
+        versao_area=3,
+    )
+
+
+def servico():
     checkout = CheckoutFake()
     handoff = HandoffFake()
-    servico = ServicoAssistenteAtendimento(checkout=checkout, handoff=handoff)
+    return ServicoAssistenteAtendimento(checkout=checkout, handoff=handoff), checkout, handoff
 
-    resultado = servico.interpretar(
+
+def test_cliente_conhecido_retirada_vai_para_confirmacao():
+    srv, checkout, handoff = servico()
+    resultado = srv.interpretar(
         contexto=contexto_atendimento(),
         entrada=entrada_texto(),
         raw_ia=raw_intencao(),
         catalogo=catalogo(),
     )
-
     assert resultado.estado is EstadoAtendimento.AGUARDANDO_CONFIRMACAO_CLIENTE
     assert resultado.carrinho is not None
     assert resultado.carrinho.total == Decimal("50.00")
+    assert resultado.carrinho.modalidade is ModalidadePedidoAtendimento.RETIRADA
     assert checkout.chamadas == []
     assert handoff.chamadas == []
 
 
 def test_audio_transcrito_passa_pelo_mesmo_servico_deterministico():
-    checkout = CheckoutFake()
-    handoff = HandoffFake()
-    servico = ServicoAssistenteAtendimento(checkout=checkout, handoff=handoff)
-
-    resultado = servico.interpretar(
+    srv, checkout, handoff = servico()
+    resultado = srv.interpretar(
         contexto=contexto_atendimento(),
         entrada=entrada_audio(),
         raw_ia=raw_intencao(),
         catalogo=catalogo(),
     )
-
     assert resultado.estado is EstadoAtendimento.AGUARDANDO_CONFIRMACAO_CLIENTE
     assert resultado.carrinho is not None
     assert resultado.carrinho.total == Decimal("50.00")
@@ -165,28 +188,108 @@ def test_audio_transcrito_passa_pelo_mesmo_servico_deterministico():
     assert handoff.chamadas == []
 
 
-def test_cliente_novo_nao_faz_checkout_antes_de_cadastro():
-    checkout = CheckoutFake()
-    handoff = HandoffFake()
-    servico = ServicoAssistenteAtendimento(checkout=checkout, handoff=handoff)
+def test_modalidade_indefinida_bloqueia_confirmacao():
+    srv, checkout, _ = servico()
+    resultado = srv.interpretar(
+        contexto=contexto_atendimento(),
+        entrada=entrada_texto(),
+        raw_ia=raw_intencao(modalidade="indefinida"),
+        catalogo=catalogo(),
+    )
+    assert resultado.estado is EstadoAtendimento.AGUARDANDO_MODALIDADE_ENTREGA
+    with pytest.raises(ErroAssistenteAtendimento, match="atendimento_nao_confirmavel"):
+        srv.confirmar(
+            contexto=contexto_atendimento(),
+            resultado=resultado,
+            confirmacao_cliente=True,
+            fingerprint_confirmado=resultado.carrinho.fingerprint,
+            metodo=MetodoPagamento.PIX,
+            idempotency_key="confirmacao-1",
+        )
+    assert checkout.chamadas == []
 
-    resultado = servico.interpretar(
+
+def test_entrega_sem_cotacao_bloqueia_checkout():
+    srv, checkout, _ = servico()
+    resultado = srv.interpretar(
+        contexto=contexto_atendimento(),
+        entrada=entrada_texto(),
+        raw_ia=raw_intencao(
+            modalidade="entrega",
+            endereco="Rua A, 10, CEP 01000-000",
+        ),
+        catalogo=catalogo(),
+    )
+    assert resultado.estado is EstadoAtendimento.AGUARDANDO_ENDERECO_ENTREGA
+    with pytest.raises(ErroAssistenteAtendimento, match="atendimento_nao_confirmavel"):
+        srv.confirmar(
+            contexto=contexto_atendimento(),
+            resultado=resultado,
+            confirmacao_cliente=True,
+            fingerprint_confirmado=resultado.carrinho.fingerprint,
+            metodo=MetodoPagamento.PIX,
+            idempotency_key="confirmacao-1",
+        )
+    assert checkout.chamadas == []
+
+
+def test_cotacao_entrega_altera_fingerprint_taxa_total_e_exige_reconfirmacao():
+    srv, checkout, _ = servico()
+    contexto = contexto_atendimento()
+    inicial = srv.interpretar(
+        contexto=contexto,
+        entrada=entrada_texto(),
+        raw_ia=raw_intencao(
+            modalidade="entrega",
+            endereco="Rua A, 10, CEP 01000-000",
+        ),
+        catalogo=catalogo(),
+    )
+    assert inicial.carrinho is not None
+    fingerprint_inicial = inicial.carrinho.fingerprint
+
+    atualizado = srv.aplicar_cotacao_entrega(
+        contexto=contexto,
+        resultado=inicial,
+        cotacao=cotacao(),
+    )
+
+    assert atualizado.estado is EstadoAtendimento.AGUARDANDO_CONFIRMACAO_CLIENTE
+    assert atualizado.carrinho is not None
+    assert atualizado.carrinho.fingerprint != fingerprint_inicial
+    assert atualizado.carrinho.taxa_entrega == Decimal("8.00")
+    assert atualizado.carrinho.total == Decimal("58.00")
+
+    with pytest.raises(
+        ErroAssistenteAtendimento,
+        match="carrinho_alterado_reconfirmacao_obrigatoria",
+    ):
+        srv.confirmar(
+            contexto=contexto,
+            resultado=atualizado,
+            confirmacao_cliente=True,
+            fingerprint_confirmado=fingerprint_inicial,
+            metodo=MetodoPagamento.PIX,
+            idempotency_key="confirmacao-1",
+        )
+    assert checkout.chamadas == []
+
+
+def test_cliente_novo_nao_faz_checkout_antes_de_cadastro():
+    srv, checkout, _ = servico()
+    resultado = srv.interpretar(
         contexto=contexto_atendimento(tipo=TipoClienteAtendimento.NOVO),
         entrada=entrada_texto(),
         raw_ia=raw_intencao(),
         catalogo=catalogo(),
     )
-
     assert resultado.estado is EstadoAtendimento.AGUARDANDO_DADOS_CLIENTE
     assert resultado.carrinho is not None
     assert checkout.chamadas == []
 
 
 def test_produto_de_outro_tenant_nao_pode_ser_resolvido():
-    checkout = CheckoutFake()
-    handoff = HandoffFake()
-    servico = ServicoAssistenteAtendimento(checkout=checkout, handoff=handoff)
-
+    srv, checkout, handoff = servico()
     catalogo_outro_tenant = (
         ProdutoCatalogoAtendimento(
             produto_id="prod-x",
@@ -196,14 +299,12 @@ def test_produto_de_outro_tenant_nao_pode_ser_resolvido():
             preco=Decimal("1.00"),
         ),
     )
-
-    resultado = servico.interpretar(
+    resultado = srv.interpretar(
         contexto=contexto_atendimento(),
         entrada=entrada_texto(),
         raw_ia=raw_intencao(),
         catalogo=catalogo_outro_tenant,
     )
-
     assert resultado.estado is EstadoAtendimento.HANDOFF_HUMANO
     assert resultado.handoff_motivo == "produto_nao_resolvido_exatamente"
     assert checkout.chamadas == []
@@ -211,29 +312,22 @@ def test_produto_de_outro_tenant_nao_pode_ser_resolvido():
 
 
 def test_schema_invalido_falha_fechado_sem_checkout():
-    checkout = CheckoutFake()
-    handoff = HandoffFake()
-    servico = ServicoAssistenteAtendimento(checkout=checkout, handoff=handoff)
-
-    resultado = servico.interpretar(
+    srv, checkout, handoff = servico()
+    resultado = srv.interpretar(
         contexto=contexto_atendimento(),
         entrada=entrada_texto(),
         raw_ia="texto que não é json",
         catalogo=catalogo(),
     )
-
     assert resultado.estado is EstadoAtendimento.HANDOFF_HUMANO
     assert checkout.chamadas == []
     assert len(handoff.chamadas) == 1
 
 
 def test_confirmacao_explicita_e_fingerprint_sao_obrigatorios():
-    checkout = CheckoutFake()
-    handoff = HandoffFake()
-    servico = ServicoAssistenteAtendimento(checkout=checkout, handoff=handoff)
+    srv, checkout, _ = servico()
     contexto = contexto_atendimento()
-
-    interpretado = servico.interpretar(
+    interpretado = srv.interpretar(
         contexto=contexto,
         entrada=entrada_texto(),
         raw_ia=raw_intencao(),
@@ -241,11 +335,8 @@ def test_confirmacao_explicita_e_fingerprint_sao_obrigatorios():
     )
     assert interpretado.carrinho is not None
 
-    with pytest.raises(
-        ErroAssistenteAtendimento,
-        match="confirmacao_cliente_obrigatoria",
-    ):
-        servico.confirmar(
+    with pytest.raises(ErroAssistenteAtendimento, match="confirmacao_cliente_obrigatoria"):
+        srv.confirmar(
             contexto=contexto,
             resultado=interpretado,
             confirmacao_cliente=False,
@@ -258,7 +349,7 @@ def test_confirmacao_explicita_e_fingerprint_sao_obrigatorios():
         ErroAssistenteAtendimento,
         match="carrinho_alterado_reconfirmacao_obrigatoria",
     ):
-        servico.confirmar(
+        srv.confirmar(
             contexto=contexto,
             resultado=interpretado,
             confirmacao_cliente=True,
@@ -266,17 +357,13 @@ def test_confirmacao_explicita_e_fingerprint_sao_obrigatorios():
             metodo=MetodoPagamento.PIX,
             idempotency_key="confirmacao-1",
         )
-
     assert checkout.chamadas == []
 
 
 def test_confirmacao_valida_chama_checkout_uma_vez():
-    checkout = CheckoutFake()
-    handoff = HandoffFake()
-    servico = ServicoAssistenteAtendimento(checkout=checkout, handoff=handoff)
+    srv, checkout, handoff = servico()
     contexto = contexto_atendimento()
-
-    interpretado = servico.interpretar(
+    interpretado = srv.interpretar(
         contexto=contexto,
         entrada=entrada_texto(),
         raw_ia=raw_intencao(),
@@ -284,7 +371,7 @@ def test_confirmacao_valida_chama_checkout_uma_vez():
     )
     assert interpretado.carrinho is not None
 
-    resultado = servico.confirmar(
+    resultado = srv.confirmar(
         contexto=contexto,
         resultado=interpretado,
         confirmacao_cliente=True,
