@@ -19,6 +19,7 @@ on:
       - "application/crm_regularizacao_legado.py"
       - "infra/legacy_customer_scope.py"
       - "migrations/delivery_policy_v1.py"
+      - "migrations/crm_customer_context_v1.py"
       - "migrations/runner.py"
       - "migrations/manifest_v1.json"
       - "app.py"
@@ -59,6 +60,7 @@ jobs:
             core/assistente_atendimento/atendimento_servicos.py \
             core/assistente_atendimento/cliente_adapters.py \
             core/assistente_atendimento/contexto.py \
+            core/assistente_atendimento/customer_context.py \
             core/assistente_atendimento/entradas.py \
             core/assistente_atendimento/checkout_adapter.py \
             core/assistente_atendimento/ui_streamlit.py \
@@ -71,12 +73,17 @@ jobs:
             application/ai_router_runtime.py \
             infra/integracoes/transportes.py \
             infra/assistente_atendimento/clientes_sqlalchemy.py \
+            infra/assistente_atendimento/contexto_cliente_sqlalchemy.py \
             infra/assistente_atendimento/entrega_maps.py \
             infra/assistente_atendimento/handoff_sqlalchemy.py \
             infra/delivery/politica_sqlalchemy.py \
+            infra/crm/consentimentos_sqlalchemy.py \
             infra/crm/contatos_sqlalchemy.py \
+            infra/crm/enderecos_schema.py \
+            infra/crm/enderecos_sqlalchemy.py \
             infra/gerente_ia/modelos_orm.py \
             infra/gerente_ia/persistencia_sqlalchemy.py \
+            migrations/crm_customer_context_v1.py \
             migrations/delivery_policy_v1.py \
             migrations/runner.py
       - name: Ruff attendance commercial runtime
@@ -87,6 +94,7 @@ jobs:
             core/assistente_atendimento/atendimento_servicos.py \
             core/assistente_atendimento/cliente_adapters.py \
             core/assistente_atendimento/contexto.py \
+            core/assistente_atendimento/customer_context.py \
             core/assistente_atendimento/entradas.py \
             core/assistente_atendimento/checkout_adapter.py \
             core/assistente_atendimento/ui_streamlit.py \
@@ -99,16 +107,22 @@ jobs:
             application/ai_router_runtime.py \
             infra/integracoes/transportes.py \
             infra/assistente_atendimento/clientes_sqlalchemy.py \
+            infra/assistente_atendimento/contexto_cliente_sqlalchemy.py \
             infra/assistente_atendimento/entrega_maps.py \
             infra/assistente_atendimento/handoff_sqlalchemy.py \
             infra/delivery/politica_sqlalchemy.py \
+            infra/crm/consentimentos_sqlalchemy.py \
             infra/crm/contatos_sqlalchemy.py \
+            infra/crm/enderecos_schema.py \
+            infra/crm/enderecos_sqlalchemy.py \
             infra/gerente_ia/modelos_orm.py \
             infra/gerente_ia/persistencia_sqlalchemy.py \
+            migrations/crm_customer_context_v1.py \
             migrations/delivery_policy_v1.py \
             migrations/runner.py \
             tests/unit/assistente_atendimento/test_servico_atendimento.py \
             tests/unit/assistente_atendimento/test_checkout_adapter.py \
+            tests/unit/assistente_atendimento/test_customer_context_f4c.py \
             tests/unit/assistente_atendimento/test_ficha_estoque_checkout.py \
             tests/unit/delivery/test_politica_sqlalchemy.py \
             tests/unit/ai_router/test_router.py \
@@ -121,6 +135,7 @@ jobs:
           pytest -q \
             tests/unit/assistente_atendimento/test_servico_atendimento.py \
             tests/unit/assistente_atendimento/test_checkout_adapter.py \
+            tests/unit/assistente_atendimento/test_customer_context_f4c.py \
             tests/unit/assistente_atendimento/test_ficha_estoque_checkout.py \
             tests/unit/stock/test_ledger_servicos.py \
             tests/unit/delivery/test_modelos.py \
