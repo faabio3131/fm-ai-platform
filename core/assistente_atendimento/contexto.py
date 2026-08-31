@@ -7,6 +7,8 @@ from enum import StrEnum
 
 from core.seguranca.contexto import ContextoExecucao
 
+from .customer_context import ContextoClienteAutorizado
+
 
 class TipoClienteAtendimento(StrEnum):
     CONHECIDO = "conhecido"
@@ -33,12 +35,18 @@ class ContextoAtendimento:
     conversa_id: str
     canal: str
     cliente: ClienteAtendimento
+    customer_context: ContextoClienteAutorizado | None = None
 
     def __post_init__(self) -> None:
         if not self.conversa_id.strip():
             raise ValueError("conversa_id_obrigatorio")
         if not self.canal.strip():
             raise ValueError("canal_obrigatorio")
+        if (
+            self.customer_context is not None
+            and self.customer_context.cliente_ref != self.cliente.cliente_ref
+        ):
+            raise ValueError("customer_context_de_outro_cliente")
 
     @property
     def tenant_id(self) -> str:
