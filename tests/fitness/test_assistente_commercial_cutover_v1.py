@@ -112,3 +112,22 @@ def test_commercial_payment_preference_is_fingerprinted_without_auto_settlement(
     assert "confirmar_pagamento(" not in runtime
     assert "confirmar_pagamento(" not in service
     assert "confirmar_pagamento(" not in checkout
+
+
+
+def test_commercial_assistant_reserves_canonical_stock_from_authoritative_ficha() -> None:
+    adapter = _text("core/assistente_atendimento/checkout_adapter.py")
+    bridge = _text("application/catalogo_estoque_cutover.py")
+    checkout = _text("application/checkout.py")
+
+    assert "executar_checkout_com_ficha_estoque_v1" in adapter
+    assert "preparar_snapshot_ficha_estoque_v1" in bridge
+    assert "listar_fichas_produto_legadas" in bridge
+    assert "obter_insumo_por_id_legado" in bridge
+    assert "for_update=True" in bridge
+    assert "estoque_legado_divergente_do_ledger" in bridge
+    assert "SnapshotFichaEstoque" in bridge
+    assert "snapshot_estoque=snapshot" in bridge
+    assert "reservar_estoque(" in checkout
+    assert "baixar_estoque" not in adapter
+    assert "baixar_estoque" not in bridge
