@@ -724,6 +724,34 @@ Os componentes centrais de cutover PDV e `application/checkout.py` já existem n
 
 **Ritual do inventário:** concluído para este checkpoint. Nenhum módulo posterior está liberado; a próxima tarefa permanece dentro da própria Fase 4.
 
+## 10.3 Checkpoint Fase 4 — áudio/transcrição no mesmo runtime autoritativo — 31/08/2026
+
+**SHA técnico validado:** `b1830d1d7dc9cf0a9537b5d2a2d8720de9bee03d`
+
+**Implementado**
+- `CapabilityIA.ATENDIMENTO_TRANSCRICAO` adicionada ao AI Model Router;
+- `ConteudoAudioIA` provider-neutral com bytes ocultos de `repr`;
+- Gemini recebe bytes somente no boundary `GoogleGenAITenantGateway`, via `types.Part.from_bytes`;
+- `RuntimeAssistenteAtendimentoV1.interpretar_audio` transcreve pelo Control Plane e entrega a transcrição à mesma `EntradaAtendimento(AUDIO)` e ao mesmo `ServicoAssistenteAtendimento` usados pelo texto;
+- UI comercial aceita upload de OGG/MP3/WAV/M4A/WebM e não cria caminho paralelo de pedido/checkout;
+- falha de áudio/IA permanece fail-closed.
+
+**Provas**
+- Commercial Runtime Readiness V1: **PASS**;
+- Assistente Fase 4 Gate V1: **PASS**;
+- compile: **PASS**;
+- Ruff: **PASS**;
+- testes de serviço, checkout, AI Router, gateway Gemini e fitness comercial: **PASS**.
+
+**Readiness**
+- status continua `CUTOVER_PENDING`;
+- SHA técnico registrado;
+- Commercial Runtime E2E e teste físico continuam pendentes;
+- áudio deixou de ser pendência de implementação interna, mas ainda precisa de prova física com provider/arquivo real no mesmo SHA candidato.
+
+**Próxima tarefa F4**
+- endereço/localização + Google Maps + área/taxa/ETA, reutilizando o Control Plane existente e sem duplicar domínio de Delivery.
+
 ## 11. Regra de preservação
 
 Durante a recuperação:
