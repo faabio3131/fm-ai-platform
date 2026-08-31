@@ -17,15 +17,22 @@ from core.assistente_atendimento.atendimento_modelos import (
     ProdutoCatalogoAtendimento,
     ResultadoAtendimento,
 )
-from core.assistente_atendimento.atendimento_servicos import ServicoAssistenteAtendimento
+from core.assistente_atendimento.atendimento_servicos import (
+    ServicoAssistenteAtendimento,
+)
 from core.assistente_atendimento.checkout_adapter import CheckoutAssistenteV1
 from core.assistente_atendimento.contexto import ContextoAtendimento
-from core.assistente_atendimento.entradas import EntradaAtendimento, ModalidadeEntrada
+from core.assistente_atendimento.entradas import (
+    EntradaAtendimento,
+    ModalidadeEntrada,
+)
 from core.gerente_ia.erros import ErroGerenteIA
 from core.pagamentos.modelos import MetodoPagamento
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import MATRIZ_PADRAO, Papel, Permissao
-from infra.assistente_atendimento.clientes_sqlalchemy import ClientesAtendimentoSQLAlchemy
+from infra.assistente_atendimento.clientes_sqlalchemy import (
+    ClientesAtendimentoSQLAlchemy,
+)
 from infra.assistente_atendimento.handoff_sqlalchemy import (
     HandoffAssistenteAuditSQLAlchemy,
 )
