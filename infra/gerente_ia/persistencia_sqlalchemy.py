@@ -34,8 +34,8 @@ from core.pedidos.modelos_orm import ItemPedidoORM
 
 from .modelos_orm import (
     ClienteCRMORM,
-    ContatoCRMORM,
     ConsentimentoCRMAtualORM,
+    ContatoCRMORM,
     DisponibilidadeProdutoORM,
     EventoCoreORM,
     IdentidadeAssistenteORM,
