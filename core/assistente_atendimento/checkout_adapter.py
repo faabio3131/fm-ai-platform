@@ -33,6 +33,7 @@ from core.seguranca.contexto import ContextoExecucao
 
 from .atendimento_modelos import (
     CarrinhoAtendimento,
+    ModalidadePedidoAtendimento,
     ResultadoCheckoutAssistente,
 )
 from .erros import ErroAssistenteAtendimento
@@ -95,6 +96,13 @@ class CheckoutAssistenteV1:
 
         if not cliente_ref.strip() or not idempotency_key.strip():
             raise ErroAssistenteAtendimento("identificador_checkout_obrigatorio")
+        if carrinho.modalidade is ModalidadePedidoAtendimento.INDEFINIDA:
+            raise ErroAssistenteAtendimento("modalidade_atendimento_invalida")
+        if (
+            carrinho.modalidade is ModalidadePedidoAtendimento.ENTREGA
+            and carrinho.entrega is None
+        ):
+            raise ErroAssistenteAtendimento("entrega_nao_cotada")
 
         origem, canal_dominio = _mapear_origem_canal(canal)
         instante = self._agora()
@@ -135,7 +143,9 @@ class CheckoutAssistenteV1:
                 )
             )
 
-        subtotal_pedido = Dinheiro(carrinho.total)
+        subtotal_pedido = Dinheiro(carrinho.subtotal)
+        taxas_pedido = Dinheiro(carrinho.taxa_entrega)
+        total_pedido = Dinheiro(carrinho.total)
 
         pedido = Pedido.novo(
             id=PedidoId(pedido_id),
@@ -152,8 +162,8 @@ class CheckoutAssistenteV1:
             idempotency_key=IdempotencyKey(f"{chave_raiz}:pedido"),
             subtotal=subtotal_pedido,
             descontos=Dinheiro(Decimal(0)),
-            taxas=Dinheiro(Decimal(0)),
-            total=subtotal_pedido,
+            taxas=taxas_pedido,
+            total=total_pedido,
             itens=tuple(itens),
         )
 
