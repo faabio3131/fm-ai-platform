@@ -47,9 +47,9 @@ from infra.assistente_atendimento.entrega_maps import (
 from infra.assistente_atendimento.handoff_sqlalchemy import (
     HandoffAssistenteAuditSQLAlchemy,
 )
+from infra.crm.enderecos_sqlalchemy import EncryptedSQLAlchemyAddressStore
 from infra.gerente_ia.modelos_orm import DisponibilidadeProdutoORM
 from infra.legacy_product_scope import listar_produtos_legados
-from infra.crm.enderecos_sqlalchemy import EncryptedSQLAlchemyAddressStore
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
 
 SessionFactory = Callable[[], Session]
