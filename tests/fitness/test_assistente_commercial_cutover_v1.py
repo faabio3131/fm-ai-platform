@@ -62,3 +62,35 @@ def test_commercial_audio_uses_same_runtime_and_ai_router() -> None:
     assert "ModalidadeEntrada.AUDIO" in runtime
     assert "types.Part.from_bytes(" in gateway
     assert "core.mica" not in runtime
+
+
+def test_commercial_delivery_uses_maps_and_canonical_delivery_policy() -> None:
+    ui = _text("core/assistente_atendimento/ui_streamlit.py")
+    runtime = _text("application/assistente_atendimento_runtime.py")
+    maps_quote = _text("infra/assistente_atendimento/entrega_maps.py")
+    checkout = _text("core/assistente_atendimento/checkout_adapter.py")
+
+    assert "runtime.cotar_entrega(" in ui
+    assert "CotadorEntregaAssistenteGoogleMaps" in runtime
+    assert "FabricaAdaptersExternos" in maps_quote
+    assert ".google_maps(" in maps_quote
+    assert "RepositorioPoliticaEntregaSQLAlchemy" in maps_quote
+    assert "_area_para_cep(" in maps_quote
+    assert "taxas=taxas_pedido" in checkout
+    assert "core.delivery.runtime_teste" not in runtime
+    assert "RuntimeDeliveryTeste" not in runtime
+    assert "tenant-demo" not in maps_quote
+    assert "unidade-demo" not in maps_quote
+
+
+def test_delivery_policy_has_no_default_or_silent_backfill() -> None:
+    migration = _text("migrations/delivery_policy_v1.py")
+    repository = _text("infra/delivery/politica_sqlalchemy.py")
+
+    assert "0033" in migration
+    assert "create_all" in migration
+    assert "backfill" in migration.casefold()
+    assert "tenant_id" in repository
+    assert "unidade_id" in repository
+    assert "tenant-local" not in repository
+    assert "unidade-local" not in repository
