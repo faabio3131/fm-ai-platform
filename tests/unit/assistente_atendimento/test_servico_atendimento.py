@@ -99,6 +99,14 @@ def entrada_texto():
     )
 
 
+def entrada_audio():
+    return EntradaAtendimento(
+        mensagem_id="msg-audio-1",
+        modalidade=ModalidadeEntrada.AUDIO,
+        transcricao="Quero dois X-Bacon",
+    )
+
+
 def catalogo():
     return (
         ProdutoCatalogoAtendimento(
@@ -127,6 +135,25 @@ def test_cliente_conhecido_vai_para_confirmacao():
     resultado = servico.interpretar(
         contexto=contexto_atendimento(),
         entrada=entrada_texto(),
+        raw_ia=raw_intencao(),
+        catalogo=catalogo(),
+    )
+
+    assert resultado.estado is EstadoAtendimento.AGUARDANDO_CONFIRMACAO_CLIENTE
+    assert resultado.carrinho is not None
+    assert resultado.carrinho.total == Decimal("50.00")
+    assert checkout.chamadas == []
+    assert handoff.chamadas == []
+
+
+def test_audio_transcrito_passa_pelo_mesmo_servico_deterministico():
+    checkout = CheckoutFake()
+    handoff = HandoffFake()
+    servico = ServicoAssistenteAtendimento(checkout=checkout, handoff=handoff)
+
+    resultado = servico.interpretar(
+        contexto=contexto_atendimento(),
+        entrada=entrada_audio(),
         raw_ia=raw_intencao(),
         catalogo=catalogo(),
     )
