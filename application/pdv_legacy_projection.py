@@ -43,6 +43,7 @@ def projetar_legado_em_transacao(
     entrada: EntradaPDV,
     reserva: ReservaEstoque | None,
     timestamp: datetime,
+    projetar_estoque: bool = True,
 ) -> str:
     session = recursos.session
     pdv = RepositorioPDVSQLAlchemy(session)
@@ -82,7 +83,7 @@ def projetar_legado_em_transacao(
             instante=timestamp,
         )
 
-    if pdv.buscar_efeito(
+    if projetar_estoque and pdv.buscar_efeito(
         tenant_id, unidade_id, pedido_id, TipoEfeitoCompat.ESTOQUE_LEGADO
     ) is None:
         if reserva is not None:
