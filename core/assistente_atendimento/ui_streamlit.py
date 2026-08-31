@@ -390,10 +390,6 @@ def render_assistente_atendimento_v1(
         "Nenhum efeito comercial definitivo ocorreu ainda. "
         "Confirme o carrinho e a forma de pagamento exatos abaixo."
     )
-    confirmado = st.checkbox(
-        "Confirmo que o cliente revisou e aprovou este carrinho e esta forma de pagamento",
-        key="assistente_v1_confirmacao",
-    )
 
     with st.expander("Alterar forma de pagamento antes de confirmar"):
         metodos = _metodos_pagamento()
@@ -453,6 +449,11 @@ def render_assistente_atendimento_v1(
                     "A alteração foi recusada. O carrinho anterior permanece sem "
                     "efeito financeiro confirmado."
                 )
+
+    confirmado = st.checkbox(
+        "Confirmo que o cliente revisou e aprovou este carrinho e esta forma de pagamento",
+        key="assistente_v1_confirmacao",
+    )
 
     if st.button("Confirmar pedido no checkout canônico", type="primary"):
         try:
