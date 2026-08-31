@@ -9,11 +9,10 @@ from uuid import NAMESPACE_URL, uuid5
 
 from sqlalchemy.orm import Session
 
-from application.checkout import (
-    ComandoCheckoutV1,
-    ResultadoCheckoutV1,
-    executar_checkout_v1,
+from application.catalogo_estoque_cutover import (
+    executar_checkout_com_ficha_estoque_v1,
 )
+from application.checkout import ComandoCheckoutV1, ResultadoCheckoutV1
 from core.dominio.dinheiro import Dinheiro
 from core.dominio.enums import CanalAtendimento, OrigemPedido, PedidoStatus
 from core.dominio.ids import (
@@ -71,7 +70,7 @@ class CheckoutAssistenteV1:
         self,
         *,
         session_factory: Callable[[], Session],
-        executor: ExecutorCheckout = executar_checkout_v1,
+        executor: ExecutorCheckout | None = None,
         agora: Callable[[], datetime] | None = None,
     ) -> None:
         self._session_factory = session_factory
@@ -221,7 +220,8 @@ class CheckoutAssistenteV1:
             recebimento_posterior=_recebimento_posterior(metodo),
         )
 
-        resultado = self._executor(
+        executor = self._executor or executar_checkout_com_ficha_estoque_v1
+        resultado = executor(
             comando=comando,
             contexto=contexto,
             session_factory=self._session_factory,
