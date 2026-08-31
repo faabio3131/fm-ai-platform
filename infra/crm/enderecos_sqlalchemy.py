@@ -96,7 +96,7 @@ class EncryptedSQLAlchemyAddressStore:
         )
         material = (
             f"{tenant_id}:{unidade_id}:{cliente_id}:entrega:{serializado}"
-        ).encode("utf-8")
+        ).encode()
         return hmac.new(self._hmac_key, material, hashlib.sha256).hexdigest()
 
     def armazenar_validado(
