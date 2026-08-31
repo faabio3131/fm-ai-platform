@@ -9,15 +9,18 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Iterable
+from dataclasses import replace
 
 from core.pagamentos.modelos import MetodoPagamento
 
 from .atendimento_adapters import PortaCheckoutAssistente, PortaHandoffAssistente
 from .atendimento_modelos import (
     CarrinhoAtendimento,
+    CotacaoEntregaAtendimento,
     EstadoAtendimento,
     IntencaoAtendimento,
     ItemCarrinhoAtendimento,
+    ModalidadePedidoAtendimento,
     ProdutoCatalogoAtendimento,
     ResultadoAtendimento,
 )
@@ -38,16 +41,33 @@ def _fingerprint(
     conversa_id: str,
     mensagem_id: str,
     itens: tuple[ItemCarrinhoAtendimento, ...],
+    modalidade: ModalidadePedidoAtendimento,
+    entrega: CotacaoEntregaAtendimento | None = None,
 ) -> str:
+    entrega_payload = None
+    if entrega is not None:
+        entrega_payload = (
+            entrega.place_id,
+            entrega.cep,
+            entrega.distancia_metros,
+            entrega.eta_rota_minutos,
+            entrega.area_id,
+            str(entrega.taxa),
+            entrega.sla_minutos,
+            entrega.sla_maxutos,
+            entrega.versao_area,
+        )
     payload = [
         tenant_id,
         unidade_id,
         conversa_id,
         mensagem_id,
+        modalidade.value,
         [
             (item.produto_id, item.quantidade, str(item.preco_unitario))
             for item in itens
         ],
+        entrega_payload,
     ]
     return hashlib.sha256(
         json.dumps(
@@ -56,6 +76,32 @@ def _fingerprint(
             separators=(",", ":"),
         ).encode("utf-8")
     ).hexdigest()
+
+
+def _estado_operacional(carrinho: CarrinhoAtendimento) -> EstadoAtendimento:
+    if carrinho.modalidade is ModalidadePedidoAtendimento.INDEFINIDA:
+        return EstadoAtendimento.AGUARDANDO_MODALIDADE_ENTREGA
+    if (
+        carrinho.modalidade is ModalidadePedidoAtendimento.ENTREGA
+        and carrinho.entrega is None
+    ):
+        return EstadoAtendimento.AGUARDANDO_ENDERECO_ENTREGA
+    return EstadoAtendimento.AGUARDANDO_CONFIRMACAO_CLIENTE
+
+
+def _mensagem_operacional(carrinho: CarrinhoAtendimento) -> str:
+    estado = _estado_operacional(carrinho)
+    if estado is EstadoAtendimento.AGUARDANDO_MODALIDADE_ENTREGA:
+        return "Confirme se o pedido será para retirada ou entrega antes do checkout."
+    if estado is EstadoAtendimento.AGUARDANDO_ENDERECO_ENTREGA:
+        return (
+            "O pedido é para entrega. Informe/confirme o endereço e CEP para "
+            "validar área, taxa, rota e ETA antes do checkout."
+        )
+    return (
+        f"Pedido validado, total R$ {carrinho.total:.2f}. "
+        "Confirme explicitamente o carrinho final antes do checkout."
+    )
 
 
 class ServicoAssistenteAtendimento:
@@ -149,14 +195,17 @@ class ServicoAssistenteAtendimento:
                 conversa_id=contexto.conversa_id,
                 mensagem_id=entrada.mensagem_id,
                 itens=itens_t,
+                modalidade=intencao.modalidade,
             ),
+            modalidade=intencao.modalidade,
+            endereco_solicitado=intencao.endereco_texto,
         )
 
         if contexto.cliente.tipo is TipoClienteAtendimento.NOVO:
             return ResultadoAtendimento(
                 estado=EstadoAtendimento.AGUARDANDO_DADOS_CLIENTE,
                 mensagem=(
-                    f"Entendi o pedido, total R$ {carrinho.total:.2f}. "
+                    f"Entendi o pedido, subtotal R$ {carrinho.subtotal:.2f}. "
                     "Antes de confirmar, preciso concluir os dados necessários "
                     "do novo cliente."
                 ),
@@ -165,21 +214,20 @@ class ServicoAssistenteAtendimento:
                     ("schema", "valido"),
                     ("catalogo", "resolucao_exata"),
                     ("cliente", "novo"),
+                    ("modalidade", carrinho.modalidade.value),
                 ),
             )
 
+        estado = _estado_operacional(carrinho)
         return ResultadoAtendimento(
-            estado=EstadoAtendimento.AGUARDANDO_CONFIRMACAO_CLIENTE,
-            mensagem=(
-                f"Pedido interpretado e validado com {len(itens_t)} item(ns), "
-                f"total R$ {carrinho.total:.2f}. "
-                "Confirme explicitamente antes de concluir o checkout."
-            ),
+            estado=estado,
+            mensagem=_mensagem_operacional(carrinho),
             carrinho=carrinho,
             auditoria=(
                 ("schema", "valido"),
                 ("catalogo", "resolucao_exata"),
                 ("cliente", "conhecido"),
+                ("modalidade", carrinho.modalidade.value),
             ),
         )
 
@@ -211,11 +259,12 @@ class ServicoAssistenteAtendimento:
                 cliente_ref=cliente_ref.strip(),
             ),
         )
+        estado = _estado_operacional(resultado.carrinho)
         atualizado = ResultadoAtendimento(
-            estado=EstadoAtendimento.AGUARDANDO_CONFIRMACAO_CLIENTE,
+            estado=estado,
             mensagem=(
                 "Cliente registrado no CRM canônico. "
-                "Revise o carrinho e confirme explicitamente antes do checkout."
+                + _mensagem_operacional(resultado.carrinho)
             ),
             carrinho=resultado.carrinho,
             auditoria=(
@@ -224,6 +273,88 @@ class ServicoAssistenteAtendimento:
             ),
         )
         return novo_contexto, atualizado
+
+    def definir_modalidade(
+        self,
+        *,
+        resultado: ResultadoAtendimento,
+        modalidade: ModalidadePedidoAtendimento,
+    ) -> ResultadoAtendimento:
+        carrinho = resultado.carrinho
+        if carrinho is None:
+            raise ErroAssistenteAtendimento("carrinho_ausente")
+        if modalidade is ModalidadePedidoAtendimento.INDEFINIDA:
+            raise ErroAssistenteAtendimento("modalidade_atendimento_invalida")
+        if carrinho.modalidade is not ModalidadePedidoAtendimento.INDEFINIDA:
+            if carrinho.modalidade is modalidade:
+                return resultado
+            raise ErroAssistenteAtendimento("modalidade_alterada_reconfirmacao")
+
+        atualizado = replace(
+            carrinho,
+            modalidade=modalidade,
+            fingerprint=_fingerprint(
+                tenant_id=carrinho.tenant_id,
+                unidade_id=carrinho.unidade_id,
+                conversa_id=carrinho.conversa_id,
+                mensagem_id=carrinho.mensagem_id,
+                itens=carrinho.itens,
+                modalidade=modalidade,
+            ),
+        )
+        estado = _estado_operacional(atualizado)
+        return ResultadoAtendimento(
+            estado=estado,
+            mensagem=_mensagem_operacional(atualizado),
+            carrinho=atualizado,
+            auditoria=(*resultado.auditoria, ("modalidade", modalidade.value)),
+        )
+
+    def aplicar_cotacao_entrega(
+        self,
+        *,
+        contexto: ContextoAtendimento,
+        resultado: ResultadoAtendimento,
+        cotacao: CotacaoEntregaAtendimento,
+    ) -> ResultadoAtendimento:
+        carrinho = resultado.carrinho
+        if carrinho is None:
+            raise ErroAssistenteAtendimento("carrinho_ausente")
+        if carrinho.modalidade is not ModalidadePedidoAtendimento.ENTREGA:
+            raise ErroAssistenteAtendimento("cotacao_sem_modalidade_entrega")
+        if contexto.cliente.tipo is not TipoClienteAtendimento.CONHECIDO:
+            raise ErroAssistenteAtendimento("cliente_novo_exige_cadastro_antes_da_cotacao")
+
+        atualizado = replace(
+            carrinho,
+            entrega=cotacao,
+            fingerprint=_fingerprint(
+                tenant_id=carrinho.tenant_id,
+                unidade_id=carrinho.unidade_id,
+                conversa_id=carrinho.conversa_id,
+                mensagem_id=carrinho.mensagem_id,
+                itens=carrinho.itens,
+                modalidade=carrinho.modalidade,
+                entrega=cotacao,
+            ),
+        )
+        return ResultadoAtendimento(
+            estado=EstadoAtendimento.AGUARDANDO_CONFIRMACAO_CLIENTE,
+            mensagem=(
+                f"Entrega validada para {cotacao.nome_area}: taxa R$ {cotacao.taxa:.2f}, "
+                f"rota {cotacao.distancia_metros / 1000:.1f} km, "
+                f"ETA de trajeto {cotacao.eta_rota_minutos} min e prazo operacional "
+                f"{cotacao.sla_minutos}-{cotacao.sla_maxutos} min. "
+                f"Total final R$ {atualizado.total:.2f}. Confirme o carrinho final."
+            ),
+            carrinho=atualizado,
+            auditoria=(
+                *resultado.auditoria,
+                ("endereco", "google_maps_validado"),
+                ("area_entrega", cotacao.area_id),
+                ("taxa_entrega", str(cotacao.taxa)),
+            ),
+        )
 
     def confirmar(
         self,
@@ -254,6 +385,14 @@ class ServicoAssistenteAtendimento:
             raise ErroAssistenteAtendimento(
                 "cliente_novo_exige_cadastro_antes_do_checkout"
             )
+
+        if carrinho.modalidade is ModalidadePedidoAtendimento.INDEFINIDA:
+            raise ErroAssistenteAtendimento("modalidade_atendimento_invalida")
+        if (
+            carrinho.modalidade is ModalidadePedidoAtendimento.ENTREGA
+            and carrinho.entrega is None
+        ):
+            raise ErroAssistenteAtendimento("entrega_nao_cotada")
 
         cliente_ref = contexto.cliente.cliente_ref
         if cliente_ref is None or not cliente_ref.strip():
