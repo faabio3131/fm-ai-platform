@@ -546,11 +546,12 @@ Um item entra aqui quando:
 - proteção de áreas sensíveis;
 - session guard;
 - diagnóstico temporário removido;
-- gate automatizado reconciliado no SHA `f778797409a2adca928674e4058291e62988eb34`;
-- suíte física Windows direcionada: **23 passed** em autenticação, área sensível, PIN e fitness guard;
+- watchdog de inatividade corrigido para renovar o grant somente com atividade real do usuário;
+- gate automatizado atual no SHA `e56a2724d00bd3f27fcf3ae292310632e26045d8`;
 - workflows `Auth RBAC Commercial Gate V1` de push e pull request: **success** no mesmo SHA;
+- teste físico no navegador: **PASS** — após 3 minutos sem atividade real, a área administrativa sensível bloqueou automaticamente e voltou a exigir autenticação sensível;
 - nenhum blocker de código conhecido permanece neste checkpoint;
-- continuam pendentes os gates físicos no navegador: re-bloqueio da área sensível deve exigir novo PIN e perfil sem autorização deve falhar fechado inclusive por URL direta.
+- permanece pendente somente o gate físico negativo de RBAC: perfil sem autorização deve falhar fechado inclusive por URL direta.
 
 ### Control Plane de Integrações e Credenciais
 - UI comercial;
