@@ -80,6 +80,12 @@ class ResultadoGeocodificacao:
     endereco_formatado: str
     coordenada: Coordenada
     place_id: str
+    cep: str | None = None
+    logradouro: str | None = None
+    numero: str | None = None
+    bairro: str | None = None
+    cidade: str | None = None
+    uf: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -144,6 +150,37 @@ class GoogleMapsAdapter:
             return resposta.payload
         raise AssertionError("retry Google Maps terminou sem resultado")
 
+    @staticmethod
+    def _componentes_endereco(primeiro: Mapping[str, Any]) -> dict[str, str]:
+        componentes = primeiro.get("address_components")
+        if not isinstance(componentes, list):
+            return {}
+
+        resultado: dict[str, str] = {}
+        for componente in componentes:
+            if not isinstance(componente, Mapping):
+                continue
+            tipos = componente.get("types")
+            if not isinstance(tipos, list):
+                continue
+            long_name = str(componente.get("long_name") or "").strip()
+            short_name = str(componente.get("short_name") or "").strip()
+            if not long_name:
+                continue
+            if "postal_code" in tipos:
+                resultado["cep"] = long_name
+            if "route" in tipos:
+                resultado["logradouro"] = long_name
+            if "street_number" in tipos:
+                resultado["numero"] = long_name
+            if "sublocality_level_1" in tipos or "neighborhood" in tipos:
+                resultado.setdefault("bairro", long_name)
+            if "locality" in tipos or "administrative_area_level_2" in tipos:
+                resultado.setdefault("cidade", long_name)
+            if "administrative_area_level_1" in tipos:
+                resultado["uf"] = short_name or long_name
+        return resultado
+
     def geocodificar(self, endereco: str) -> ResultadoGeocodificacao:
         texto = endereco.strip()
         if not texto:
@@ -164,13 +201,22 @@ class GoogleMapsAdapter:
         resultados = payload.get("results")
         try:
             primeiro = resultados[0]  # type: ignore[index]
+            if not isinstance(primeiro, Mapping):
+                raise TypeError("resultado invalido")
             local = primeiro["geometry"]["location"]
+            componentes = self._componentes_endereco(primeiro)
             return ResultadoGeocodificacao(
                 endereco_formatado=str(primeiro["formatted_address"]),
                 coordenada=Coordenada(
                     latitude=float(local["lat"]), longitude=float(local["lng"])
                 ),
                 place_id=str(primeiro["place_id"]),
+                cep=componentes.get("cep"),
+                logradouro=componentes.get("logradouro"),
+                numero=componentes.get("numero"),
+                bairro=componentes.get("bairro"),
+                cidade=componentes.get("cidade"),
+                uf=componentes.get("uf"),
             )
         except (IndexError, KeyError, TypeError, ValueError) as exc:
             raise ErroGoogleMaps("resposta de geocodificacao incompleta") from exc
