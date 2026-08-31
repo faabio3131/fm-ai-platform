@@ -86,12 +86,30 @@ def render_assistente_atendimento_v1(
         placeholder="Ex.: 5511999999999",
         key="assistente_v1_cliente",
     )
-    mensagem = st.text_area(
-        "Mensagem do cliente",
-        value="",
-        placeholder="Ex.: Quero 2 X-Bacon para entrega.",
-        key="assistente_v1_mensagem",
+    modalidade = st.radio(
+        "Entrada do cliente",
+        ("Texto", "Áudio"),
+        horizontal=True,
+        key="assistente_v1_modalidade",
     )
+    mensagem = ""
+    audio_upload = None
+    if modalidade == "Texto":
+        mensagem = st.text_area(
+            "Mensagem do cliente",
+            value="",
+            placeholder="Ex.: Quero 2 X-Bacon para entrega.",
+            key="assistente_v1_mensagem",
+        )
+    else:
+        audio_upload = st.file_uploader(
+            "Áudio do cliente",
+            type=("ogg", "oga", "mp3", "wav", "m4a", "webm"),
+            accept_multiple_files=False,
+            key="assistente_v1_audio",
+        )
+        if audio_upload is not None:
+            st.audio(audio_upload.getvalue())
 
     c_analisar, c_nova = st.columns(2)
     if c_analisar.button(
@@ -99,23 +117,46 @@ def render_assistente_atendimento_v1(
         type="primary",
         use_container_width=True,
     ):
-        if not telefone.strip() or not mensagem.strip():
-            st.error("WhatsApp e mensagem são obrigatórios.")
+        entrada_invalida = (
+            not telefone.strip()
+            or (modalidade == "Texto" and not mensagem.strip())
+            or (modalidade == "Áudio" and audio_upload is None)
+        )
+        if entrada_invalida:
+            st.error("WhatsApp e conteúdo de atendimento são obrigatórios.")
         else:
             conversa_id = str(st.session_state.get(_CONVERSA_KEY) or uuid4())
             st.session_state[_CONVERSA_KEY] = conversa_id
             mensagem_id = str(uuid4())
             try:
-                resultado = runtime.interpretar_texto(
-                    contexto_solicitante=identidade.contexto(
-                        origem="streamlit.assistente_atendimento"
-                    ),
-                    conversa_id=conversa_id,
-                    mensagem_id=mensagem_id,
-                    identificador_cliente=telefone,
-                    mensagem=mensagem,
-                    nome_publico=nome,
+                contexto_solicitante = identidade.contexto(
+                    origem="streamlit.assistente_atendimento"
                 )
+                if modalidade == "Texto":
+                    resultado = runtime.interpretar_texto(
+                        contexto_solicitante=contexto_solicitante,
+                        conversa_id=conversa_id,
+                        mensagem_id=mensagem_id,
+                        identificador_cliente=telefone,
+                        mensagem=mensagem,
+                        nome_publico=nome,
+                    )
+                else:
+                    assert audio_upload is not None
+                    mime_type = (
+                        audio_upload.type
+                        if str(audio_upload.type or "").startswith("audio/")
+                        else "audio/ogg"
+                    )
+                    resultado = runtime.interpretar_audio(
+                        contexto_solicitante=contexto_solicitante,
+                        conversa_id=conversa_id,
+                        mensagem_id=mensagem_id,
+                        identificador_cliente=telefone,
+                        audio=audio_upload.getvalue(),
+                        mime_type=mime_type,
+                        nome_publico=nome,
+                    )
                 st.session_state[_RESULTADO_KEY] = resultado
                 st.session_state[_IDEMPOTENCIA_KEY] = str(uuid4())
                 st.rerun()
