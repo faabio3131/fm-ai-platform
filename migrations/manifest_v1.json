@@ -136,6 +136,10 @@
     {
       "version": "0033_delivery_policy_v1",
       "sha256": "0568c9a1aa8dfd4e63c9d307727fb7a8dddadda14e534870e3c1ef0d3d0bf141"
+    },
+    {
+      "version": "0034_crm_customer_context_v1",
+      "sha256": "58a83aa342df355afae3f0d7539efadb50712f110d79c575937dc230442ea519"
     }
   ]
 }
