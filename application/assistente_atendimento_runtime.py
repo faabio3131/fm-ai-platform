@@ -638,6 +638,20 @@ class RuntimeAssistenteAtendimentoV1:
             cep=endereco.cep,
         )
 
+    def recuperar_contexto_handoff(
+        self,
+        *,
+        contexto_solicitante: ContextoExecucao,
+        conversa_id: str,
+    ) -> dict[str, str | int | bool] | None:
+        if not conversa_id.strip():
+            raise ValueError("conversa_id_obrigatorio")
+        contexto = _contexto_agente(contexto_solicitante)
+        return self._handoff.ultimo_contexto(
+            contexto=contexto,
+            conversa_id=conversa_id,
+        )
+
     def confirmar(
         self,
         *,
