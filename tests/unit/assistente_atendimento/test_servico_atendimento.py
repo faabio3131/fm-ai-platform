@@ -56,8 +56,17 @@ class HandoffFake:
     def __init__(self) -> None:
         self.chamadas = []
 
-    def registrar(self, *, contexto, conversa_id, motivo) -> None:
-        self.chamadas.append((contexto, conversa_id, motivo))
+    def registrar(
+        self,
+        *,
+        contexto,
+        conversa_id,
+        motivo,
+        metadata_segura=None,
+    ) -> None:
+        self.chamadas.append(
+            (contexto, conversa_id, motivo, metadata_segura or {})
+        )
 
 
 def contexto_execucao(tenant="tenant-a", unidade="unidade-a"):
@@ -380,6 +389,27 @@ def test_produto_de_outro_tenant_nao_pode_ser_resolvido():
     assert resultado.handoff_motivo == "produto_nao_resolvido_exatamente"
     assert checkout.chamadas == []
     assert len(handoff.chamadas) == 1
+
+
+def test_handoff_carrega_contexto_minimizado_sem_pii():
+    srv, checkout, handoff = servico()
+    resultado = srv.interpretar(
+        contexto=contexto_atendimento(),
+        entrada=entrada_texto(),
+        raw_ia=raw_intencao(produto="Produto inexistente"),
+        catalogo=catalogo(),
+    )
+
+    assert resultado.estado is EstadoAtendimento.HANDOFF_HUMANO
+    assert checkout.chamadas == []
+    assert len(handoff.chamadas) == 1
+    metadata = handoff.chamadas[0][3]
+    assert metadata["cliente_ref"] == "cliente-1"
+    assert metadata["cliente_tipo"] == "conhecido"
+    assert metadata["itens_solicitados"] == 1
+    assert metadata["itens_resolvidos"] == 0
+    assert "telefone" not in metadata
+    assert "endereco" not in metadata
 
 
 def test_schema_invalido_falha_fechado_sem_checkout():
