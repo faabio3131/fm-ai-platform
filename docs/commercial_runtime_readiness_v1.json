@@ -53,17 +53,24 @@
         "application/catalogo_estoque_cutover.py",
         "core/assistente_atendimento/atendimento_servicos.py",
         "core/assistente_atendimento/checkout_adapter.py",
+        "core/assistente_atendimento/customer_context.py",
         "infra/assistente_atendimento/clientes_sqlalchemy.py",
+        "infra/assistente_atendimento/contexto_cliente_sqlalchemy.py",
         "infra/assistente_atendimento/entrega_maps.py",
+        "infra/assistente_atendimento/handoff_sqlalchemy.py",
+        "infra/crm/contatos_sqlalchemy.py",
+        "infra/crm/consentimentos_sqlalchemy.py",
+        "infra/crm/enderecos_sqlalchemy.py",
         "infra/delivery/politica_sqlalchemy.py",
         "core/integracoes/google_maps.py"
       ],
       "code_blockers": [],
       "external_blockers": [
-        "pix_provider_homologation_incomplete"
+        "pix_provider_homologation_incomplete",
+        "migration_0034_not_applied_in_current_homologation_db"
       ],
       "evidence": {
-        "sha": "fbfd89a223887d68f4775a1c6cb6774d6e3ba347",
+        "sha": "baeae30daf3733ee5653bde6d7ad924d7a95d40f",
         "commercial_runtime_e2e": null,
         "physical_test": null
       }
