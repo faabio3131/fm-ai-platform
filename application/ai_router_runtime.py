@@ -231,6 +231,7 @@ def _capabilities(
         return (
             CapabilityIA.TOOL_PLANNING,
             CapabilityIA.ATENDIMENTO_INTERPRETACAO,
+            CapabilityIA.ATENDIMENTO_TRANSCRICAO,
         )
 
     try:
