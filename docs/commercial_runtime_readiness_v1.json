@@ -50,6 +50,7 @@
       "commercial_paths": [
         "core/assistente_atendimento/ui_streamlit.py",
         "application/assistente_atendimento_runtime.py",
+        "application/catalogo_estoque_cutover.py",
         "core/assistente_atendimento/atendimento_servicos.py",
         "core/assistente_atendimento/checkout_adapter.py",
         "infra/assistente_atendimento/clientes_sqlalchemy.py",
@@ -62,7 +63,7 @@
         "pix_provider_homologation_incomplete"
       ],
       "evidence": {
-        "sha": "a3873086cb5a2af2d60459415d8e2cc95335937a",
+        "sha": "fbfd89a223887d68f4775a1c6cb6774d6e3ba347",
         "commercial_runtime_e2e": null,
         "physical_test": null
       }
