@@ -10,8 +10,16 @@ from core.dominio.enums import PagamentoStatus
 from core.pagamentos.modelos import MetodoPagamento
 
 
+class ModalidadePedidoAtendimento(StrEnum):
+    INDEFINIDA = "indefinida"
+    RETIRADA = "retirada"
+    ENTREGA = "entrega"
+
+
 class EstadoAtendimento(StrEnum):
     AGUARDANDO_DADOS_CLIENTE = "aguardando_dados_cliente"
+    AGUARDANDO_MODALIDADE_ENTREGA = "aguardando_modalidade_entrega"
+    AGUARDANDO_ENDERECO_ENTREGA = "aguardando_endereco_entrega"
     AGUARDANDO_CONFIRMACAO_CLIENTE = "aguardando_confirmacao_cliente"
     CHECKOUT_REGISTRADO = "checkout_registrado"
     HANDOFF_HUMANO = "handoff_humano"
@@ -56,10 +64,20 @@ class IntencaoAtendimento:
     cliente_nome: str
     itens: tuple[ItemIntencaoAtendimento, ...]
     resposta_cliente: str
+    modalidade: ModalidadePedidoAtendimento = ModalidadePedidoAtendimento.INDEFINIDA
+    endereco_texto: str | None = None
 
     def __post_init__(self) -> None:
         if not self.cliente_nome.strip() or not self.resposta_cliente.strip():
             raise ValueError("intencao_atendimento_invalida")
+        if self.endereco_texto is not None:
+            endereco = " ".join(self.endereco_texto.split())
+            object.__setattr__(self, "endereco_texto", endereco or None)
+        if (
+            self.modalidade is not ModalidadePedidoAtendimento.ENTREGA
+            and self.endereco_texto is not None
+        ):
+            raise ValueError("endereco_sem_modalidade_entrega")
 
 
 @dataclass(frozen=True)
@@ -75,6 +93,46 @@ class ItemCarrinhoAtendimento:
 
 
 @dataclass(frozen=True)
+class CotacaoEntregaAtendimento:
+    endereco_formatado: str
+    cep: str
+    place_id: str
+    latitude: float
+    longitude: float
+    distancia_metros: int
+    eta_rota_minutos: int
+    area_id: str
+    nome_area: str
+    taxa: Decimal
+    sla_minutos: int
+    sla_maxutos: int
+    versao_area: int
+
+    def __post_init__(self) -> None:
+        if any(
+            not valor.strip()
+            for valor in (
+                self.endereco_formatado,
+                self.cep,
+                self.place_id,
+                self.area_id,
+                self.nome_area,
+            )
+        ):
+            raise ValueError("cotacao_entrega_atendimento_invalida")
+        cep = "".join(ch for ch in self.cep if ch.isdigit())
+        if len(cep) != 8:
+            raise ValueError("cep_entrega_atendimento_invalido")
+        if self.distancia_metros < 0 or self.eta_rota_minutos < 1:
+            raise ValueError("rota_entrega_atendimento_invalida")
+        if self.sla_minutos < 1 or self.sla_maxutos < self.sla_minutos:
+            raise ValueError("sla_entrega_atendimento_invalido")
+        if self.versao_area < 1 or self.taxa < 0:
+            raise ValueError("politica_entrega_atendimento_invalida")
+        object.__setattr__(self, "cep", cep)
+
+
+@dataclass(frozen=True)
 class CarrinhoAtendimento:
     tenant_id: str
     unidade_id: str
@@ -82,10 +140,27 @@ class CarrinhoAtendimento:
     mensagem_id: str
     itens: tuple[ItemCarrinhoAtendimento, ...]
     fingerprint: str
+    modalidade: ModalidadePedidoAtendimento = ModalidadePedidoAtendimento.INDEFINIDA
+    endereco_solicitado: str | None = None
+    entrega: CotacaoEntregaAtendimento | None = None
+
+    def __post_init__(self) -> None:
+        if self.modalidade is ModalidadePedidoAtendimento.ENTREGA:
+            return
+        if self.entrega is not None:
+            raise ValueError("cotacao_sem_modalidade_entrega")
+
+    @property
+    def subtotal(self) -> Decimal:
+        return sum((item.subtotal for item in self.itens), start=Decimal(0))
+
+    @property
+    def taxa_entrega(self) -> Decimal:
+        return self.entrega.taxa if self.entrega is not None else Decimal(0)
 
     @property
     def total(self) -> Decimal:
-        return sum((item.subtotal for item in self.itens), start=Decimal(0))
+        return self.subtotal + self.taxa_entrega
 
 
 @dataclass(frozen=True)
