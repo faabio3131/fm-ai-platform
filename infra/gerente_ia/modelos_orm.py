@@ -7,7 +7,9 @@ from datetime import datetime, timezone
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     DateTime,
+    ForeignKeyConstraint,
     Index,
     Integer,
     String,
@@ -114,6 +116,69 @@ class DisponibilidadeProdutoORM(CoreRuntimeBase):
     atualizado_por: Mapped[str] = mapped_column(String(64), nullable=False)
     correlation_id: Mapped[str] = mapped_column(String(128), nullable=False)
     atualizado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_agora)
+
+
+class ClienteCRMORM(CoreRuntimeBase):
+    __tablename__ = "crm_clientes_v1"
+    __table_args__ = (
+        CheckConstraint(
+            "versao >= 1",
+            name="ck_crm_clientes_versao_v1",
+        ),
+        Index(
+            "ix_crm_clientes_scope_v1",
+            "tenant_id",
+            "unidade_id",
+            "criado_em",
+        ),
+    )
+
+    tenant_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    unidade_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    cliente_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    origem: Mapped[str] = mapped_column(String(32), nullable=False)
+    marketplace_origem: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    versao: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+
+class ContatoCRMORM(CoreRuntimeBase):
+    __tablename__ = "crm_cliente_contatos_v1"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ("tenant_id", "unidade_id", "cliente_id"),
+            (
+                "crm_clientes_v1.tenant_id",
+                "crm_clientes_v1.unidade_id",
+                "crm_clientes_v1.cliente_id",
+            ),
+            name="fk_crm_cliente_contatos_cliente_v1",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint(
+            "referencia LIKE 'contact://%' OR referencia LIKE 'vault://%'",
+            name="ck_crm_cliente_contato_referencia_v1",
+        ),
+        Index(
+            "ix_crm_cliente_contatos_scope_v1",
+            "tenant_id",
+            "unidade_id",
+            "cliente_id",
+        ),
+        Index(
+            "uq_crm_cliente_contato_scope_ref_owner_v1",
+            "tenant_id",
+            "unidade_id",
+            "referencia",
+            unique=True,
+        ),
+    )
+
+    tenant_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    unidade_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    cliente_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    canal: Mapped[str] = mapped_column(String(32), primary_key=True)
+    referencia: Mapped[str] = mapped_column(String(512), nullable=False)
 
 
 class ConsentimentoCRMAtualORM(CoreRuntimeBase):
