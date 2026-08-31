@@ -228,6 +228,7 @@ class CheckoutAssistenteV1:
         )
 
         pagamento = resultado.pagamento
+        reserva = resultado.reserva
 
         return ResultadoCheckoutAssistente(
             pedido_id=str(resultado.aguardando_confirmacao.pedido.id),
@@ -247,11 +248,24 @@ class CheckoutAssistenteV1:
                 if pagamento is not None
                 else None
             ),
+            estoque_reservado=(
+                reserva is not None
+                and reserva.reserva is not None
+            ),
+            estoque_idempotente=(
+                reserva.idempotente
+                if reserva is not None
+                else None
+            ),
             idempotente=(
                 resultado.pedido.idempotente
                 and (
                     pagamento is None
                     or pagamento.idempotente
+                )
+                and (
+                    reserva is None
+                    or reserva.idempotente
                 )
             ),
         )
