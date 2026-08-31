@@ -18,6 +18,9 @@ from core.seguranca.permissoes import Permissao
 from infra.assistente_atendimento.contexto_cliente_sqlalchemy import (
     ContextoClienteAtendimentoSQLAlchemy,
 )
+from infra.assistente_atendimento.handoff_sqlalchemy import (
+    HandoffAssistenteAuditSQLAlchemy,
+)
 from infra.crm.consentimentos_schema import crm_consentimentos_v1
 from infra.crm.enderecos_schema import crm_enderecos_seguros_v1
 from infra.crm.enderecos_sqlalchemy import EncryptedSQLAlchemyAddressStore
@@ -300,3 +303,45 @@ def test_endereco_salvo_exige_mesmo_cliente_tenant_e_unidade() -> None:
                 cliente_id=CLIENTE,
                 referencia=referencia,
             )
+
+
+def test_handoff_persistido_recupera_so_contexto_allowlisted_no_mesmo_escopo() -> None:
+    _engine, factory = _factory()
+    handoff = HandoffAssistenteAuditSQLAlchemy(factory)
+    contexto = _contexto()
+
+    handoff.registrar(
+        contexto=contexto,
+        conversa_id="conv-handoff-1",
+        motivo="produto_nao_resolvido_exatamente",
+        metadata_segura={
+            "cliente_ref": CLIENTE,
+            "cliente_tipo": "conhecido",
+            "historico_count": 2,
+            "itens_solicitados": 1,
+            "itens_resolvidos": 0,
+            "telefone": "+5511999999999",
+            "endereco_texto": "Rua secreta, 10",
+        },
+    )
+
+    recuperado = handoff.ultimo_contexto(
+        contexto=contexto,
+        conversa_id="conv-handoff-1",
+    )
+    assert recuperado is not None
+    assert recuperado["cliente_ref"] == CLIENTE
+    assert recuperado["historico_count"] == 2
+    assert recuperado["itens_solicitados"] == 1
+    assert "telefone" not in recuperado
+    assert "endereco_texto" not in recuperado
+    assert "+5511999999999" not in repr(recuperado)
+    assert "Rua secreta" not in repr(recuperado)
+
+    assert (
+        handoff.ultimo_contexto(
+            contexto=_contexto(tenant="tenant-b", unidade="unidade-b"),
+            conversa_id="conv-handoff-1",
+        )
+        is None
+    )
