@@ -271,6 +271,30 @@ def render_assistente_atendimento_v1(
             placeholder="00000-000",
             key="assistente_v1_cep_entrega",
         )
+        customer_context = runtime_resultado.contexto.customer_context
+        if (
+            customer_context is not None
+            and customer_context.possui_endereco_salvo
+        ):
+            st.caption(
+                "Existe um endereço anteriormente validado para este cliente "
+                "nesta unidade. Ele só será reutilizado após confirmação explícita."
+            )
+            if st.button(
+                "Usar último endereço validado",
+                key="assistente_v1_usar_endereco_salvo",
+            ):
+                try:
+                    atualizado = runtime.usar_ultimo_endereco_salvo(
+                        runtime_anterior=runtime_resultado,
+                    )
+                    st.session_state[_RESULTADO_KEY] = atualizado
+                    st.rerun()
+                except _ERROS_RUNTIME_SEGURO:
+                    st.error(
+                        "O endereço salvo não pôde ser reutilizado com segurança. "
+                        "Informe e valide o endereço novamente."
+                    )
         if st.button("Validar endereço, área, taxa e ETA", type="primary"):
             try:
                 atualizado = runtime.cotar_entrega(
