@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -14,6 +15,8 @@ from sqlalchemy.orm import Session
 from application.ai_router_runtime import construir_ai_model_router
 from core.ai_router import CapabilityIA, ConteudoAudioIA, SolicitacaoIA
 from core.assistente_atendimento.atendimento_modelos import (
+    EstadoAtendimento,
+    ModalidadePedidoAtendimento,
     ProdutoCatalogoAtendimento,
     ResultadoAtendimento,
 )
@@ -33,6 +36,9 @@ from core.seguranca.permissoes import MATRIZ_PADRAO, Papel, Permissao
 from infra.assistente_atendimento.clientes_sqlalchemy import (
     ClientesAtendimentoSQLAlchemy,
 )
+from infra.assistente_atendimento.entrega_maps import (
+    CotadorEntregaAssistenteGoogleMaps,
+)
 from infra.assistente_atendimento.handoff_sqlalchemy import (
     HandoffAssistenteAuditSQLAlchemy,
 )
@@ -47,8 +53,6 @@ def _contexto_agente(contexto_solicitante: ContextoExecucao) -> ContextoExecucao
     """Cria principal técnico estreito preservando escopo e causalidade humana."""
 
     permissoes = set(MATRIZ_PADRAO[Papel.ATENDIMENTO])
-    # Cliente novo é um efeito explícito do próprio atendimento. A capacidade é
-    # estreita e não herda as permissões administrativas do operador da UI.
     permissoes.add(Permissao.CLIENTE_EDITAR)
 
     return ContextoExecucao(
@@ -65,9 +69,7 @@ def _contexto_agente(contexto_solicitante: ContextoExecucao) -> ContextoExecucao
             or contexto_solicitante.correlation_id
         ),
         request_id=contexto_solicitante.request_id,
-        metadata=(
-            ("solicitante_usuario_id", contexto_solicitante.usuario_id),
-        ),
+        metadata=(("solicitante_usuario_id", contexto_solicitante.usuario_id),),
         unidades_permitidas=frozenset({contexto_solicitante.unidade_id}),
         identidade_sistema=True,
         motivo_sistema="atendimento digital governado solicitado no runtime comercial",
@@ -148,13 +150,26 @@ def _prompt_interpretacao(
         "Use exclusivamente nomes EXATOS do catálogo abaixo. Se o pedido for "
         "ambíguo ou não estiver no catálogo, mantenha o nome pedido pelo cliente; "
         "o serviço determinístico fará handoff fail-closed.\n"
+        "Para modalidade, use somente retirada, entrega ou indefinida. "
+        "Só copie endereco_texto quando o próprio cliente informou endereço.\n"
         "Retorne SOMENTE JSON puro, sem markdown, com exatamente este schema:\n"
         '{"cliente_nome":"nome informado ou Cliente",'
         '"itens":[{"nome_produto":"nome EXATO","quantidade":1}],'
-        '"resposta_cliente":"resumo para conferência, sem afirmar pagamento"}\n'
+        '"resposta_cliente":"resumo para conferência, sem afirmar pagamento",'
+        '"modalidade":"retirada|entrega|indefinida",'
+        '"endereco_texto":null}\n'
         f"CATÁLOGO AUTORIZADO:\n{menu}\n"
         f"MENSAGEM DO CLIENTE:\n{mensagem.strip()}"
     )
+
+
+def _cep_no_texto(texto: str | None) -> str | None:
+    if not texto:
+        return None
+    candidatos = re.findall(r"(?<!\d)(\d{5})[-\s]?(\d{3})(?!\d)", texto)
+    if len(candidatos) != 1:
+        return None
+    return "".join(candidatos[0])
 
 
 @dataclass(frozen=True)
@@ -168,6 +183,34 @@ class RuntimeAssistenteAtendimentoV1:
         self._session_factory = session_factory
         self._handoff = HandoffAssistenteAuditSQLAlchemy(session_factory)
         self._checkout = CheckoutAssistenteV1(session_factory=session_factory)
+
+    def _servico(self) -> ServicoAssistenteAtendimento:
+        return ServicoAssistenteAtendimento(
+            checkout=self._checkout,
+            handoff=self._handoff,
+        )
+
+    def _tentar_cotacao_do_texto(
+        self,
+        runtime: ResultadoRuntimeAssistente,
+    ) -> ResultadoRuntimeAssistente:
+        carrinho = runtime.resultado.carrinho
+        if (
+            carrinho is None
+            or carrinho.modalidade is not ModalidadePedidoAtendimento.ENTREGA
+            or runtime.resultado.estado
+            is not EstadoAtendimento.AGUARDANDO_ENDERECO_ENTREGA
+            or not carrinho.endereco_solicitado
+        ):
+            return runtime
+        cep = _cep_no_texto(carrinho.endereco_solicitado)
+        if cep is None:
+            return runtime
+        return self.cotar_entrega(
+            runtime_anterior=runtime,
+            endereco_texto=carrinho.endereco_solicitado,
+            cep=cep,
+        )
 
     def _interpretar_entrada(
         self,
@@ -222,19 +265,18 @@ class RuntimeAssistenteAtendimentoV1:
             canal="whatsapp",
             cliente=cliente,
         )
-        servico = ServicoAssistenteAtendimento(
-            checkout=self._checkout,
-            handoff=self._handoff,
-        )
-        return ResultadoRuntimeAssistente(
+        runtime = ResultadoRuntimeAssistente(
             contexto=contexto_atendimento,
-            resultado=servico.interpretar(
+            resultado=self._servico().interpretar(
                 contexto=contexto_atendimento,
                 entrada=entrada,
                 raw_ia=raw,
                 catalogo=catalogo,
             ),
         )
+        if cliente.cliente_ref is not None:
+            return self._tentar_cotacao_do_texto(runtime)
+        return runtime
 
     def interpretar_texto(
         self,
@@ -348,18 +390,68 @@ class RuntimeAssistenteAtendimentoV1:
         if cliente.cliente_ref is None:
             raise RuntimeError("cliente CRM registrado sem referencia")
 
-        servico = ServicoAssistenteAtendimento(
-            checkout=self._checkout,
-            handoff=self._handoff,
-        )
-        novo_contexto, novo_resultado = servico.concluir_cadastro_cliente(
+        novo_contexto, novo_resultado = self._servico().concluir_cadastro_cliente(
             contexto_anterior=runtime_anterior.contexto,
             resultado=runtime_anterior.resultado,
             cliente_ref=cliente.cliente_ref,
         )
+        return self._tentar_cotacao_do_texto(
+            ResultadoRuntimeAssistente(
+                contexto=novo_contexto,
+                resultado=novo_resultado,
+            )
+        )
+
+    def definir_modalidade(
+        self,
+        *,
+        runtime_anterior: ResultadoRuntimeAssistente,
+        modalidade: ModalidadePedidoAtendimento,
+    ) -> ResultadoRuntimeAssistente:
+        atualizado = self._servico().definir_modalidade(
+            resultado=runtime_anterior.resultado,
+            modalidade=modalidade,
+        )
+        runtime = ResultadoRuntimeAssistente(
+            contexto=runtime_anterior.contexto,
+            resultado=atualizado,
+        )
+        return self._tentar_cotacao_do_texto(runtime)
+
+    def cotar_entrega(
+        self,
+        *,
+        runtime_anterior: ResultadoRuntimeAssistente,
+        endereco_texto: str,
+        cep: str,
+    ) -> ResultadoRuntimeAssistente:
+        cliente_ref = runtime_anterior.contexto.cliente.cliente_ref
+        if cliente_ref is None:
+            raise ValueError("cliente canônico obrigatório antes da cotação")
+        contexto = runtime_anterior.contexto.contexto_execucao
+        db = self._session_factory()
+        try:
+            secret_store = EncryptedSQLAlchemySecretStore(db)
+            cotacao = CotadorEntregaAssistenteGoogleMaps(
+                db,
+                secret_store=secret_store,
+            ).cotar(
+                contexto=contexto,
+                cliente_ref=cliente_ref,
+                endereco_texto=endereco_texto,
+                cep_informado=cep,
+            )
+        finally:
+            db.close()
+
+        atualizado = self._servico().aplicar_cotacao_entrega(
+            contexto=runtime_anterior.contexto,
+            resultado=runtime_anterior.resultado,
+            cotacao=cotacao,
+        )
         return ResultadoRuntimeAssistente(
-            contexto=novo_contexto,
-            resultado=novo_resultado,
+            contexto=runtime_anterior.contexto,
+            resultado=atualizado,
         )
 
     def confirmar(
@@ -371,11 +463,7 @@ class RuntimeAssistenteAtendimentoV1:
         metodo: MetodoPagamento,
         idempotency_key: str,
     ) -> ResultadoAtendimento:
-        servico = ServicoAssistenteAtendimento(
-            checkout=self._checkout,
-            handoff=self._handoff,
-        )
-        return servico.confirmar(
+        return self._servico().confirmar(
             contexto=runtime_anterior.contexto,
             resultado=runtime_anterior.resultado,
             confirmacao_cliente=confirmacao_cliente,
