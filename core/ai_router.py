@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import StrEnum
@@ -14,6 +14,7 @@ from typing import Any, Protocol
 class CapabilityIA(StrEnum):
     TOOL_PLANNING = "tool_planning"
     ATENDIMENTO_INTERPRETACAO = "atendimento_interpretacao"
+    ATENDIMENTO_TRANSCRICAO = "atendimento_transcricao"
 
 
 class OutcomeIA(StrEnum):
@@ -42,6 +43,27 @@ class FalhaRotaTransitoria(ErroAIRouter):
 
 class FalhaRotaDefinitiva(ErroAIRouter):
     pass
+
+
+@dataclass(frozen=True, kw_only=True)
+class ConteudoAudioIA:
+    """Conteúdo multimodal provider-neutral sem expor bytes em repr/telemetria."""
+
+    audio: bytes = field(repr=False)
+    mime_type: str
+    instrucao: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.audio, bytes) or not self.audio:
+            raise ValueError("audio_obrigatorio")
+        mime = self.mime_type.strip().casefold()
+        if not mime.startswith("audio/"):
+            raise ValueError("mime_type_audio_invalido")
+        instrucao = self.instrucao.strip()
+        if not instrucao:
+            raise ValueError("instrucao_audio_obrigatoria")
+        object.__setattr__(self, "mime_type", mime)
+        object.__setattr__(self, "instrucao", instrucao)
 
 
 @dataclass(frozen=True, kw_only=True)
