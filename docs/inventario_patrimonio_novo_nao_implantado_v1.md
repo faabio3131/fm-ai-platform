@@ -823,6 +823,56 @@ Os componentes centrais de cutover PDV e `application/checkout.py` já existem n
 **Próxima tarefa F4**
 - snapshot/reserva de estoque pela ficha técnica autoritativa no checkout, sem antecipar o cutover comercial completo do PDV/Estoque da Fase 6.
 
+## 10.6 Checkpoint Fase 4 / F4-B — ficha técnica + snapshot + reserva de estoque autoritativa — 31/08/2026
+
+**SHA técnico validado:** `fbfd89a223887d68f4775a1c6cb6774d6e3ba347`
+
+**Current → Target**
+- Current antes deste bloco: o Assistente construía Pedido/Pagamento pelo checkout canônico, porém enviava `snapshot_estoque=None`; a ficha e o saldo físico continuavam no modelo legado durante o cutover.
+- Target aplicado ao caminho do Assistente: a ficha técnica **existente** permanece a única fonte funcional da receita durante o cutover; sua leitura é tenant/unidade scoped, um snapshot imutável e versionado é capturado e a reserva ocorre exclusivamente no ledger canônico de Estoque dentro da mesma Unit of Work do checkout.
+- O cutover completo das telas/comandos de Cardápio/Ficha, PDV e Estoque **não** foi antecipado; esses módulos continuam com seus status próprios até as fases previstas no Mestre.
+
+**Implementado**
+- criado `application/catalogo_estoque_cutover.py` como ponte governada, sem criar segunda ficha técnica ou segundo saldo;
+- cada produto do Pedido é resolvido contra a ficha histórica pelo vínculo explícito tenant/unidade → loja legado;
+- produto, ficha e insumo fora do escopo falham fechados;
+- `quantidade_utilizada` da ficha existente é convertida para `ItemSnapshotFicha` com quantidade unitária e total por item do Pedido;
+- a versão da ficha é um SHA-256 determinístico do conjunto ordenado de definições da receita, permitindo detectar alteração da ficha em replay;
+- o insumo legado é ancorado uma única vez no ledger canônico com referência `legacy:insumo:<id>`;
+- bootstrap de saldo, captura do snapshot, criação de Pedido/Pagamento e reserva de estoque ocorrem na **mesma UoW**;
+- se o ledger já tiver sido inicializado, qualquer divergência entre saldo físico canônico e saldo legado bloqueia o checkout, sem sincronização silenciosa;
+- ausência de unidade de medida, saldo inválido, quantidade de ficha inválida, cross-tenant/cross-unit ou saldo insuficiente falham fechados;
+- saldo insuficiente reverte bootstrap, Pedido, Pagamento e Reserva na mesma transação;
+- o Assistente não faz baixa direta no estoque legado; usa `reservar_estoque` do checkout canônico;
+- o resultado do Assistente agora expõe se houve reserva de estoque e incorpora a evidência na auditoria operacional;
+- replay idempotente não duplica bootstrap, Pedido, Pagamento nem Reserva;
+- mudança de ficha em replay com a mesma idempotency key produz conflito e preserva o snapshot originalmente registrado.
+
+**Provas**
+- Commercial Runtime Readiness V1 — run 107: **PASS**;
+- Assistente Fase 4 Gate V1 — run 92: **PASS**;
+- compile do recorte F4: **PASS**;
+- Ruff do recorte F4: **PASS**;
+- suíte direcionada ampliada: **67 passed**;
+- testes cobrem adapter comercial real do Assistente, snapshot/versionamento, tenant/unidade, bootstrap controlado, reserva, replay idempotente, alteração de ficha, divergência legado↔ledger e rollback por saldo insuficiente;
+- fitness guard prova que o caminho comercial do Assistente usa a ponte de ficha → checkout canônico e não chama baixa de estoque legado.
+
+**Readiness**
+- `assistente_atendimento` continua `CUTOVER_PENDING`;
+- blockers de código conhecidos no Assistente neste checkpoint: **0**;
+- blocker externo de PIX real permanece `pix_provider_homologation_incomplete`;
+- `commercial_runtime_e2e`: ainda não executado no SHA candidato final;
+- `physical_test`: ainda não executado no SHA candidato final;
+- `cardapio_ficha_tecnica` e `estoque` não são promovidos por este checkpoint: a UI/comandos completos desses módulos continuam sob autoridade legada até seus cutovers previstos.
+
+**Rollback**
+- nenhuma migration nova foi necessária neste bloco; o ledger canônico já pertence ao schema comercial V1;
+- antes de merge/deploy, rollback é simplesmente reverter os commits deste bloco na branch;
+- após implantação futura, qualquer rollback deve preservar os registros canônicos já gravados e desativar somente o caminho de composição do Assistente; jamais apagar ledger, snapshots ou reservas para “voltar” ao legado.
+
+**Próxima tarefa F4**
+- iniciar o **F4-C — Customer Context / CRM do Assistente**: reconciliar histórico/endereço/consentimento/memória por finalidade, handoff com contexto suficiente e retomada segura, sempre reutilizando ClienteCRM + Contact Vault existentes e sem antecipar o cutover completo da UI de CRM da Fase 13.
+
 ## 11. Regra de preservação
 
 Durante a recuperação:
