@@ -1,4 +1,8 @@
-from core.integracoes.google_maps import ConfiguracaoGoogleMaps, GoogleMapsAdapter, RespostaHTTPMaps
+from core.integracoes.google_maps import (
+    ConfiguracaoGoogleMaps,
+    GoogleMapsAdapter,
+    RespostaHTTPMaps,
+)
 
 
 class HTTPMapsFake:
