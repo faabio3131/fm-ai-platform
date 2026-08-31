@@ -30,4 +30,5 @@ class PortaHandoffAssistente(Protocol):
         contexto: ContextoExecucao,
         conversa_id: str,
         motivo: str,
+        metadata_segura: dict[str, str | int | bool] | None = None,
     ) -> None: ...
