@@ -43,7 +43,13 @@ jobs:
             core/assistente_atendimento/cliente_adapters.py \
             core/assistente_atendimento/contexto.py \
             core/assistente_atendimento/entradas.py \
-            core/assistente_atendimento/checkout_adapter.py
+            core/assistente_atendimento/checkout_adapter.py \
+            application/assistente_atendimento_runtime.py \
+            infra/assistente_atendimento/clientes_sqlalchemy.py \
+            infra/assistente_atendimento/handoff_sqlalchemy.py \
+            infra/crm/contatos_sqlalchemy.py \
+            infra/gerente_ia/modelos_orm.py \
+            infra/gerente_ia/persistencia_sqlalchemy.py
       - name: Ruff recovered attendance core
         run: |
           ruff check \
@@ -54,8 +60,17 @@ jobs:
             core/assistente_atendimento/contexto.py \
             core/assistente_atendimento/entradas.py \
             core/assistente_atendimento/checkout_adapter.py \
+            application/assistente_atendimento_runtime.py \
+            infra/assistente_atendimento/clientes_sqlalchemy.py \
+            infra/assistente_atendimento/handoff_sqlalchemy.py \
+            infra/crm/contatos_sqlalchemy.py \
+            infra/gerente_ia/modelos_orm.py \
+            infra/gerente_ia/persistencia_sqlalchemy.py \
+            core/assistente_atendimento/ui_streamlit.py \
             tests/unit/assistente_atendimento/test_servico_atendimento.py \
-            tests/unit/assistente_atendimento/test_checkout_adapter.py
+            tests/unit/assistente_atendimento/test_checkout_adapter.py \
+            tests/fitness/test_assistente_commercial_cutover_v1.py \
+            tests/fitness/test_assistente_commercial_cutover_v1.py
       - name: Targeted attendance tests
         run: |
           pytest -q \
