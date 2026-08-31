@@ -5,19 +5,28 @@ on:
     paths:
       - "core/assistente_atendimento/**"
       - "core/ai_router.py"
+      - "core/delivery/**"
+      - "core/integracoes/google_maps.py"
       - "application/assistente_atendimento_runtime.py"
       - "application/ai_router_runtime.py"
-      - "infra/integracoes/transportes.py"
+      - "infra/integracoes/**"
       - "infra/assistente_atendimento/**"
+      - "infra/delivery/**"
       - "infra/crm/**"
       - "infra/gerente_ia/modelos_orm.py"
       - "infra/gerente_ia/persistencia_sqlalchemy.py"
       - "application/crm_regularizacao_legado.py"
       - "infra/legacy_customer_scope.py"
+      - "migrations/delivery_policy_v1.py"
+      - "migrations/runner.py"
+      - "migrations/manifest_v1.json"
       - "app.py"
       - "tests/unit/assistente_atendimento/**"
+      - "tests/unit/delivery/**"
       - "tests/unit/ai_router/test_router.py"
       - "tests/unit/integracoes/test_gemini_audio_transport_v1.py"
+      - "tests/unit/integracoes/test_google_maps_delivery_address_v1.py"
+      - "tests/unit/integracoes/test_delivery_policy_migration_v1.py"
       - "tests/fitness/test_assistente_commercial_cutover_v1.py"
       - ".github/workflows/assistente-fase4-gate-v1.yml"
   workflow_dispatch:
@@ -52,14 +61,21 @@ jobs:
             core/assistente_atendimento/checkout_adapter.py \
             core/assistente_atendimento/ui_streamlit.py \
             core/ai_router.py \
+            core/delivery/modelos.py \
+            core/delivery/modelos_orm.py \
+            core/integracoes/google_maps.py \
             application/assistente_atendimento_runtime.py \
             application/ai_router_runtime.py \
             infra/integracoes/transportes.py \
             infra/assistente_atendimento/clientes_sqlalchemy.py \
+            infra/assistente_atendimento/entrega_maps.py \
             infra/assistente_atendimento/handoff_sqlalchemy.py \
+            infra/delivery/politica_sqlalchemy.py \
             infra/crm/contatos_sqlalchemy.py \
             infra/gerente_ia/modelos_orm.py \
-            infra/gerente_ia/persistencia_sqlalchemy.py
+            infra/gerente_ia/persistencia_sqlalchemy.py \
+            migrations/delivery_policy_v1.py \
+            migrations/runner.py
       - name: Ruff attendance commercial runtime
         run: |
           ruff check \
@@ -72,24 +88,38 @@ jobs:
             core/assistente_atendimento/checkout_adapter.py \
             core/assistente_atendimento/ui_streamlit.py \
             core/ai_router.py \
+            core/delivery/modelos.py \
+            core/delivery/modelos_orm.py \
+            core/integracoes/google_maps.py \
             application/assistente_atendimento_runtime.py \
             application/ai_router_runtime.py \
             infra/integracoes/transportes.py \
             infra/assistente_atendimento/clientes_sqlalchemy.py \
+            infra/assistente_atendimento/entrega_maps.py \
             infra/assistente_atendimento/handoff_sqlalchemy.py \
+            infra/delivery/politica_sqlalchemy.py \
             infra/crm/contatos_sqlalchemy.py \
             infra/gerente_ia/modelos_orm.py \
             infra/gerente_ia/persistencia_sqlalchemy.py \
+            migrations/delivery_policy_v1.py \
+            migrations/runner.py \
             tests/unit/assistente_atendimento/test_servico_atendimento.py \
             tests/unit/assistente_atendimento/test_checkout_adapter.py \
+            tests/unit/delivery/test_politica_sqlalchemy.py \
             tests/unit/ai_router/test_router.py \
             tests/unit/integracoes/test_gemini_audio_transport_v1.py \
+            tests/unit/integracoes/test_google_maps_delivery_address_v1.py \
+            tests/unit/integracoes/test_delivery_policy_migration_v1.py \
             tests/fitness/test_assistente_commercial_cutover_v1.py
       - name: Targeted attendance tests
         run: |
           pytest -q \
             tests/unit/assistente_atendimento/test_servico_atendimento.py \
             tests/unit/assistente_atendimento/test_checkout_adapter.py \
+            tests/unit/delivery/test_modelos.py \
+            tests/unit/delivery/test_politica_sqlalchemy.py \
             tests/unit/ai_router/test_router.py \
             tests/unit/integracoes/test_gemini_audio_transport_v1.py \
+            tests/unit/integracoes/test_google_maps_delivery_address_v1.py \
+            tests/unit/integracoes/test_delivery_policy_migration_v1.py \
             tests/fitness/test_assistente_commercial_cutover_v1.py
