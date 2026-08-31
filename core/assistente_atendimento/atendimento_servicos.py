@@ -384,7 +384,7 @@ class ServicoAssistenteAtendimento:
         *,
         resultado: ResultadoAtendimento,
         metodo: MetodoPagamento,
-        valor_para_troco: Decimal | str | int | float | None = None,
+        valor_para_troco: Decimal | str | float | None = None,
     ) -> ResultadoAtendimento:
         carrinho = resultado.carrinho
         if carrinho is None:
