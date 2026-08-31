@@ -62,6 +62,7 @@ from migrations.crm_consentimentos_historico_v1 import (
 )
 from migrations.crm_contact_ownership_v1 import upgrade_crm_contact_ownership_v1
 from migrations.crm_contact_vault_v1 import upgrade_crm_contact_vault_v1
+from migrations.delivery_policy_v1 import upgrade_delivery_policy_v1
 from migrations.history_guard import MigrationHistoryError, assert_applied_history
 from migrations.integration_secret_vault_v1 import upgrade_integration_secret_vault_v1
 from migrations.internal_notification_recipients_v1 import (
@@ -247,6 +248,7 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
         upgrade_ai_finops_read_model_v1,
         revert_ai_finops_read_model_v1,
     ),
+    Migration("0033_delivery_policy_v1", upgrade_delivery_policy_v1),
 )
 
 
