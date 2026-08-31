@@ -550,8 +550,10 @@ Um item entra aqui quando:
 - gate automatizado atual no SHA `e56a2724d00bd3f27fcf3ae292310632e26045d8`;
 - workflows `Auth RBAC Commercial Gate V1` de push e pull request: **success** no mesmo SHA;
 - teste físico no navegador: **PASS** — após 3 minutos sem atividade real, a área administrativa sensível bloqueou automaticamente e voltou a exigir autenticação sensível;
-- nenhum blocker de código conhecido permanece neste checkpoint;
-- permanece pendente somente o gate físico negativo de RBAC: perfil sem autorização deve falhar fechado inclusive por URL direta.
+- gate físico negativo de RBAC: **PASS** — usuário `caixa` autenticado no mesmo tenant/unidade recebeu acesso negado em `/Integracoes_e_Credenciais` por URL direta, sem exposição do conteúdo administrativo;
+- jornada comercial do runtime real `app.py`: **PASS** para login → PIN → área sensível → timeout/relock → logout → login caixa → URL administrativa negada;
+- nenhum blocker de código ou gate físico conhecido permanece para Auth/RBAC neste checkpoint;
+- status de readiness: **COMMERCIAL_HOMOLOGATED** no SHA acima.
 
 ### Control Plane de Integrações e Credenciais
 - UI comercial;
