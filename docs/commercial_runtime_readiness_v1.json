@@ -58,9 +58,11 @@
         "core/integracoes/google_maps.py"
       ],
       "code_blockers": [],
-      "external_blockers": [],
+      "external_blockers": [
+        "pix_provider_homologation_incomplete"
+      ],
       "evidence": {
-        "sha": "0827fb21810e727fe76eae0aaf122800737c2f36",
+        "sha": "a3873086cb5a2af2d60459415d8e2cc95335937a",
         "commercial_runtime_e2e": null,
         "physical_test": null
       }
