@@ -396,7 +396,10 @@ def test_handoff_carrega_contexto_minimizado_sem_pii():
     resultado = srv.interpretar(
         contexto=contexto_atendimento(),
         entrada=entrada_texto(),
-        raw_ia=raw_intencao(produto="Produto inexistente"),
+        raw_ia=raw_intencao().replace(
+            '"nome_produto":"X-Bacon"',
+            '"nome_produto":"Produto inexistente"',
+        ),
         catalogo=catalogo(),
     )
 
