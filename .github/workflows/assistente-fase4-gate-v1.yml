@@ -5,6 +5,7 @@ on:
     paths:
       - "core/assistente_atendimento/**"
       - "core/ai_router.py"
+      - "application/assistente_atendimento_runtime.py"
       - "application/ai_router_runtime.py"
       - "infra/integracoes/transportes.py"
       - "infra/assistente_atendimento/**"
@@ -39,7 +40,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest ruff==0.16.1 mypy==1.20.2
-      - name: Compile recovered attendance core
+      - name: Compile attendance commercial runtime
         run: |
           python -m py_compile \
             core/assistente_atendimento/atendimento_adapters.py \
@@ -49,16 +50,17 @@ jobs:
             core/assistente_atendimento/contexto.py \
             core/assistente_atendimento/entradas.py \
             core/assistente_atendimento/checkout_adapter.py \
+            core/assistente_atendimento/ui_streamlit.py \
+            core/ai_router.py \
             application/assistente_atendimento_runtime.py \
+            application/ai_router_runtime.py \
+            infra/integracoes/transportes.py \
             infra/assistente_atendimento/clientes_sqlalchemy.py \
             infra/assistente_atendimento/handoff_sqlalchemy.py \
             infra/crm/contatos_sqlalchemy.py \
             infra/gerente_ia/modelos_orm.py \
-            infra/gerente_ia/persistencia_sqlalchemy.py \
-            core/ai_router.py \
-            application/ai_router_runtime.py \
-            infra/integracoes/transportes.py
-      - name: Ruff recovered attendance core
+            infra/gerente_ia/persistencia_sqlalchemy.py
+      - name: Ruff attendance commercial runtime
         run: |
           ruff check \
             core/assistente_atendimento/atendimento_adapters.py \
@@ -68,18 +70,18 @@ jobs:
             core/assistente_atendimento/contexto.py \
             core/assistente_atendimento/entradas.py \
             core/assistente_atendimento/checkout_adapter.py \
+            core/assistente_atendimento/ui_streamlit.py \
+            core/ai_router.py \
             application/assistente_atendimento_runtime.py \
+            application/ai_router_runtime.py \
+            infra/integracoes/transportes.py \
             infra/assistente_atendimento/clientes_sqlalchemy.py \
             infra/assistente_atendimento/handoff_sqlalchemy.py \
             infra/crm/contatos_sqlalchemy.py \
             infra/gerente_ia/modelos_orm.py \
             infra/gerente_ia/persistencia_sqlalchemy.py \
-            core/assistente_atendimento/ui_streamlit.py \
             tests/unit/assistente_atendimento/test_servico_atendimento.py \
             tests/unit/assistente_atendimento/test_checkout_adapter.py \
-            tests/unit/ai_router/test_router.py \
-            tests/unit/integracoes/test_gemini_audio_transport_v1.py \
-            tests/fitness/test_assistente_commercial_cutover_v1.py \
             tests/unit/ai_router/test_router.py \
             tests/unit/integracoes/test_gemini_audio_transport_v1.py \
             tests/fitness/test_assistente_commercial_cutover_v1.py
@@ -87,4 +89,7 @@ jobs:
         run: |
           pytest -q \
             tests/unit/assistente_atendimento/test_servico_atendimento.py \
-            tests/unit/assistente_atendimento/test_checkout_adapter.py
+            tests/unit/assistente_atendimento/test_checkout_adapter.py \
+            tests/unit/ai_router/test_router.py \
+            tests/unit/integracoes/test_gemini_audio_transport_v1.py \
+            tests/fitness/test_assistente_commercial_cutover_v1.py
