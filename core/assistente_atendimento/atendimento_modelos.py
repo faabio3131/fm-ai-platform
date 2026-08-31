@@ -20,6 +20,7 @@ class EstadoAtendimento(StrEnum):
     AGUARDANDO_DADOS_CLIENTE = "aguardando_dados_cliente"
     AGUARDANDO_MODALIDADE_ENTREGA = "aguardando_modalidade_entrega"
     AGUARDANDO_ENDERECO_ENTREGA = "aguardando_endereco_entrega"
+    AGUARDANDO_FORMA_PAGAMENTO = "aguardando_forma_pagamento"
     AGUARDANDO_CONFIRMACAO_CLIENTE = "aguardando_confirmacao_cliente"
     CHECKOUT_REGISTRADO = "checkout_registrado"
     HANDOFF_HUMANO = "handoff_humano"
@@ -133,6 +134,30 @@ class CotacaoEntregaAtendimento:
 
 
 @dataclass(frozen=True)
+class PreferenciaPagamentoAtendimento:
+    metodo: MetodoPagamento
+    valor_para_troco: Decimal | None = None
+
+    def __post_init__(self) -> None:
+        if self.valor_para_troco is None:
+            return
+        valor = Decimal(str(self.valor_para_troco)).quantize(Decimal("0.01"))
+        if self.metodo is not MetodoPagamento.DINHEIRO:
+            raise ValueError("troco_somente_para_dinheiro")
+        if valor <= 0:
+            raise ValueError("valor_para_troco_invalido")
+        object.__setattr__(self, "valor_para_troco", valor)
+
+    def troco_estimado(self, total: Decimal) -> Decimal:
+        if self.valor_para_troco is None:
+            return Decimal("0.00")
+        total_q = Decimal(str(total)).quantize(Decimal("0.01"))
+        if self.valor_para_troco < total_q:
+            raise ValueError("valor_para_troco_inferior_total")
+        return (self.valor_para_troco - total_q).quantize(Decimal("0.01"))
+
+
+@dataclass(frozen=True)
 class CarrinhoAtendimento:
     tenant_id: str
     unidade_id: str
@@ -143,6 +168,7 @@ class CarrinhoAtendimento:
     modalidade: ModalidadePedidoAtendimento = ModalidadePedidoAtendimento.INDEFINIDA
     endereco_solicitado: str | None = None
     entrega: CotacaoEntregaAtendimento | None = None
+    pagamento: PreferenciaPagamentoAtendimento | None = None
 
     def __post_init__(self) -> None:
         if self.modalidade is ModalidadePedidoAtendimento.ENTREGA:
