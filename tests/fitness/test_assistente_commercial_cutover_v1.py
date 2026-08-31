@@ -47,3 +47,18 @@ def test_commercial_runtime_uses_crm_contact_vault_and_ai_router() -> None:
     assert "CapabilityIA.ATENDIMENTO_INTERPRETACAO" in runtime
     assert "EncryptedSQLAlchemyContactStore" in clientes
     assert "RepositorioClientesCRMSQLAlchemy" in clientes
+
+
+def test_commercial_audio_uses_same_runtime_and_ai_router() -> None:
+    ui = _text("core/assistente_atendimento/ui_streamlit.py")
+    runtime = _text("application/assistente_atendimento_runtime.py")
+    gateway = _text("infra/integracoes/transportes.py")
+
+    assert "st.file_uploader(" in ui
+    assert "runtime.interpretar_audio(" in ui
+    assert "def interpretar_audio(" in runtime
+    assert "CapabilityIA.ATENDIMENTO_TRANSCRICAO" in runtime
+    assert "ConteudoAudioIA(" in runtime
+    assert "ModalidadeEntrada.AUDIO" in runtime
+    assert "types.Part.from_bytes(" in gateway
+    assert "core.mica" not in runtime
