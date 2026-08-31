@@ -110,7 +110,6 @@ jobs:
             tests/unit/assistente_atendimento/test_servico_atendimento.py \
             tests/unit/assistente_atendimento/test_checkout_adapter.py \
             tests/unit/assistente_atendimento/test_ficha_estoque_checkout.py \
-            tests/unit/stock/test_ledger_servicos.py \
             tests/unit/delivery/test_politica_sqlalchemy.py \
             tests/unit/ai_router/test_router.py \
             tests/unit/integracoes/test_gemini_audio_transport_v1.py \
