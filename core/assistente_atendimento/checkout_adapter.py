@@ -26,7 +26,7 @@ from core.dominio.ids import (
     TenantId,
     UnidadeId,
 )
-from core.dominio.pedidos import ItemPedido, Pedido
+from core.dominio.pedidos import ItemPedido, ObservacaoPedido, Pedido
 from core.dominio.tipos import QuantidadeItem
 from core.pagamentos.modelos import MetodoPagamento
 from core.seguranca.contexto import ContextoExecucao
@@ -118,6 +118,14 @@ class CheckoutAssistenteV1:
         tenant_id = TenantId(contexto.tenant_id)
         unidade_id = UnidadeId(contexto.unidade_id)
 
+        if (
+            carrinho.pagamento is not None
+            and carrinho.pagamento.metodo is not metodo
+        ):
+            raise ErroAssistenteAtendimento(
+                "forma_pagamento_divergente_do_carrinho"
+            )
+
         itens: list[ItemPedido] = []
 
         for indice, item in enumerate(carrinho.itens, start=1):
@@ -147,6 +155,33 @@ class CheckoutAssistenteV1:
         taxas_pedido = Dinheiro(carrinho.taxa_entrega)
         total_pedido = Dinheiro(carrinho.total)
 
+        observacoes: tuple[ObservacaoPedido, ...] = ()
+        if (
+            carrinho.pagamento is not None
+            and carrinho.pagamento.metodo is MetodoPagamento.DINHEIRO
+            and carrinho.pagamento.valor_para_troco is not None
+        ):
+            try:
+                troco_estimado = carrinho.pagamento.troco_estimado(carrinho.total)
+            except ValueError as exc:
+                raise ErroAssistenteAtendimento(
+                    "valor_para_troco_invalido"
+                ) from exc
+            observacoes = (
+                ObservacaoPedido(
+                    id=_id_deterministico(f"{pedido_id}:observacao:troco"),
+                    tenant_id=tenant_id,
+                    unidade_id=unidade_id,
+                    texto=(
+                        "Troco solicitado para "
+                        f"R$ {carrinho.pagamento.valor_para_troco:.2f}; "
+                        f"estimativa R$ {troco_estimado:.2f}. "
+                        "Pagamento ainda não confirmado."
+                    ),
+                    criado_em=instante,
+                ),
+            )
+
         pedido = Pedido.novo(
             id=PedidoId(pedido_id),
             tenant_id=tenant_id,
@@ -165,6 +200,7 @@ class CheckoutAssistenteV1:
             taxas=taxas_pedido,
             total=total_pedido,
             itens=tuple(itens),
+            observacoes=observacoes,
         )
 
         pagamento_id = (
