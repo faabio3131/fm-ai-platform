@@ -2625,8 +2625,7 @@ with aba6:
         db_identidade_assistente.close()
     render_assistente_atendimento_v1(
         session_factory=SessionLocal,
-        produto_cls=Produto,
-        generate_content=generate_content,
+        identidade=CURRENT_IDENTITY,
         nome_publico=identidade_assistente.nome_publico,
     )
 
