@@ -15,20 +15,18 @@
   ],
   "modules": {
     "auth_rbac_admin": {
-      "status": "PHYSICAL_GATE_PENDING",
+      "status": "COMMERCIAL_HOMOLOGATED",
       "commercial_paths": [
         "infra/streamlit_app/auth_ui.py",
         "pages/6_Administracao_Proprietario.py",
         "pages/7_Integracoes_e_Credenciais.py"
       ],
       "code_blockers": [],
-      "external_blockers": [
-        "negative_rbac_browser_gate_pending"
-      ],
+      "external_blockers": [],
       "evidence": {
         "sha": "e56a2724d00bd3f27fcf3ae292310632e26045d8",
-        "commercial_runtime_e2e": null,
-        "physical_test": "sensitive_idle_relock_passed_after_3_minutes_in_browser"
+        "commercial_runtime_e2e": "browser_journey_admin_pin_sensitive_relock_logout_caixa_direct_url_denied_on_app_py",
+        "physical_test": "same_sha_physical_browser_pass_admin_relock_and_negative_rbac_direct_url"
       }
     },
     "integrations_control_plane": {
