@@ -148,6 +148,24 @@ class EnderecoDelivery:
 
 
 @dataclass(frozen=True)
+class OrigemEntrega:
+    tenant_id: str
+    unidade_id: str
+    endereco_texto: str
+    versao: int = 1
+    ativa: bool = True
+
+    def __post_init__(self) -> None:
+        if any(
+            not valor.strip()
+            for valor in (self.tenant_id, self.unidade_id, self.endereco_texto)
+        ):
+            raise ErroDelivery("origem_entrega_invalida")
+        if self.versao < 1:
+            raise ErroDelivery("versao_origem_entrega_invalida")
+
+
+@dataclass(frozen=True)
 class AreaEntrega:
     area_id: str
     tenant_id: str
