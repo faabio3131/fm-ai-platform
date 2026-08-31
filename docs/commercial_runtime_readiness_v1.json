@@ -49,12 +49,12 @@
       "status": "CUTOVER_PENDING",
       "commercial_paths": [
         "core/assistente_atendimento/ui_streamlit.py",
-        "core/mica/ui_streamlit.py"
+        "application/assistente_atendimento_runtime.py",
+        "core/assistente_atendimento/atendimento_servicos.py",
+        "core/assistente_atendimento/checkout_adapter.py",
+        "infra/assistente_atendimento/clientes_sqlalchemy.py"
       ],
-      "code_blockers": [
-        "assistant_delegates_to_mica",
-        "assistant_operacao_mica_fake"
-      ],
+      "code_blockers": [],
       "external_blockers": [],
       "evidence": {
         "sha": null,
