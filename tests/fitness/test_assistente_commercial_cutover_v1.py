@@ -94,3 +94,21 @@ def test_delivery_policy_has_no_default_or_silent_backfill() -> None:
     assert "unidade_id" in repository
     assert "tenant-local" not in repository
     assert "unidade-local" not in repository
+
+
+def test_commercial_payment_preference_is_fingerprinted_without_auto_settlement() -> None:
+    ui = _text("core/assistente_atendimento/ui_streamlit.py")
+    runtime = _text("application/assistente_atendimento_runtime.py")
+    service = _text("core/assistente_atendimento/atendimento_servicos.py")
+    checkout = _text("core/assistente_atendimento/checkout_adapter.py")
+
+    assert "def definir_pagamento(" in runtime
+    assert "pagamento_payload" in service
+    assert "forma_pagamento_alterada_reconfirmacao_obrigatoria" in service
+    assert "carrinho.pagamento.metodo" in checkout
+    assert "ObservacaoPedido" in checkout
+    assert "Pagamento ainda não confirmado" in checkout
+    assert "confirmar_pagamento(" not in ui
+    assert "confirmar_pagamento(" not in runtime
+    assert "confirmar_pagamento(" not in service
+    assert "confirmar_pagamento(" not in checkout
