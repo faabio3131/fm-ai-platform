@@ -7,6 +7,7 @@ import pytest
 from core.ai_router import (
     AIModelRouter,
     CapabilityIA,
+    ConteudoAudioIA,
     FalhaRotaDefinitiva,
     FalhaRotaTransitoria,
     MedidorUsoIAEmMemoria,
@@ -213,3 +214,65 @@ def test_af19_af20_telemetria_nao_contem_payload() -> None:
     assert "response" not in campos
     assert "api_key" not in campos
     assert "resposta-secreta" not in repr(evento)
+
+
+def test_audio_contract_hides_bytes_and_validates_mime() -> None:
+    conteudo = ConteudoAudioIA(
+        audio=b"segredo-audio-binario",
+        mime_type="audio/ogg",
+        instrucao="Transcreva fielmente.",
+    )
+
+    assert "segredo-audio-binario" not in repr(conteudo)
+    assert conteudo.mime_type == "audio/ogg"
+
+    with pytest.raises(ValueError, match="mime_type_audio_invalido"):
+        ConteudoAudioIA(
+            audio=b"x",
+            mime_type="application/octet-stream",
+            instrucao="Transcreva.",
+        )
+
+
+def test_audio_transcription_is_routed_as_own_capability() -> None:
+    meter = MedidorUsoIAEmMemoria()
+    executor = ExecutorFake(
+        {
+            "a": RespostaModeloIA(conteudo="quero dois x-bacon"),
+        }
+    )
+    rota_audio = RotaIA(
+        configuracao_id="config-audio",
+        provider="a",
+        model="model-audio",
+        capability=CapabilityIA.ATENDIMENTO_TRANSCRICAO,
+        prioridade=100,
+        price_snapshot_id="price-audio-v1",
+    )
+    router = AIModelRouter(
+        rotas=(rota_audio,),
+        executor=executor,
+        metering=meter,
+        monotonic=relogio(),
+        now=lambda: AGORA,
+    )
+    solicitacao_audio = SolicitacaoIA(
+        tenant_id="tenant-a",
+        unidade_id="loja-1",
+        request_id="req-audio",
+        correlation_id="corr-audio",
+        capability=CapabilityIA.ATENDIMENTO_TRANSCRICAO,
+        conteudo=ConteudoAudioIA(
+            audio=b"audio-binario",
+            mime_type="audio/ogg",
+            instrucao="Transcreva.",
+        ),
+    )
+
+    resultado = router.executar(solicitacao_audio)
+
+    assert resultado.conteudo == "quero dois x-bacon"
+    assert resultado.capability is CapabilityIA.ATENDIMENTO_TRANSCRICAO
+    assert executor.chamadas == ["a"]
+    assert meter.eventos[0].capability is CapabilityIA.ATENDIMENTO_TRANSCRICAO
+    assert "audio-binario" not in repr(meter.eventos[0])
