@@ -23,13 +23,12 @@
       ],
       "code_blockers": [],
       "external_blockers": [
-        "sensitive_relock_browser_gate_pending",
         "negative_rbac_browser_gate_pending"
       ],
       "evidence": {
-        "sha": "f778797409a2adca928674e4058291e62988eb34",
+        "sha": "e56a2724d00bd3f27fcf3ae292310632e26045d8",
         "commercial_runtime_e2e": null,
-        "physical_test": null
+        "physical_test": "sensitive_idle_relock_passed_after_3_minutes_in_browser"
       }
     },
     "integrations_control_plane": {
