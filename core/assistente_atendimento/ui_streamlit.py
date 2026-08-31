@@ -15,11 +15,16 @@ from application.assistente_atendimento_runtime import (
 )
 from application.checkout import CheckoutInvalido
 from core.ai_router import ErroAIRouter
-from core.assistente_atendimento.atendimento_modelos import EstadoAtendimento
+from core.assistente_atendimento.atendimento_modelos import (
+    EstadoAtendimento,
+    ModalidadePedidoAtendimento,
+)
 from core.assistente_atendimento.erros import ErroAssistenteAtendimento
 from core.assistente_atendimento.flags import assistente_atendimento_v1_enabled
 from core.crm.erros import ErroCRM
+from core.delivery.erros import ErroDelivery
 from core.gerente_ia.erros import ErroGerenteIA
+from core.integracoes.google_maps import ErroGoogleMaps
 from core.integracoes.modelos import ErroConfiguracaoServico
 from core.pagamentos.modelos import MetodoPagamento
 from core.seguranca.autenticacao import IdentidadeUsuario
@@ -32,6 +37,8 @@ _ERROS_RUNTIME_SEGURO = (
     ErroAIRouter,
     ErroAssistenteAtendimento,
     ErroCRM,
+    ErroDelivery,
+    ErroGoogleMaps,
     ErroConfiguracaoServico,
     ErroGerenteIA,
     LookupError,
@@ -68,8 +75,8 @@ def render_assistente_atendimento_v1(
     nome = " ".join(nome_publico.split()) or "Assistente de Atendimento"
     st.header(f"💬 {nome} — Funcionário Digital V1")
     st.caption(
-        "A IA interpreta a conversa. Cliente, catálogo, confirmação, pedido e "
-        "pagamento são validados por serviços determinísticos do Kordena."
+        "A IA interpreta a conversa. Cliente, catálogo, endereço, confirmação, "
+        "pedido e pagamento são validados por serviços determinísticos do Kordena."
     )
 
     if not assistente_atendimento_v1_enabled():
@@ -86,19 +93,22 @@ def render_assistente_atendimento_v1(
         placeholder="Ex.: 5511999999999",
         key="assistente_v1_cliente",
     )
-    modalidade = st.radio(
+    modalidade_entrada = st.radio(
         "Entrada do cliente",
         ("Texto", "Áudio"),
         horizontal=True,
-        key="assistente_v1_modalidade",
+        key="assistente_v1_modalidade_entrada",
     )
     mensagem = ""
     audio_upload = None
-    if modalidade == "Texto":
+    if modalidade_entrada == "Texto":
         mensagem = st.text_area(
             "Mensagem do cliente",
             value="",
-            placeholder="Ex.: Quero 2 X-Bacon para entrega.",
+            placeholder=(
+                "Ex.: Quero 2 X-Bacon para entrega na Rua X, 123, "
+                "CEP 00000-000."
+            ),
             key="assistente_v1_mensagem",
         )
     else:
@@ -119,8 +129,8 @@ def render_assistente_atendimento_v1(
     ):
         entrada_invalida = (
             not telefone.strip()
-            or (modalidade == "Texto" and not mensagem.strip())
-            or (modalidade == "Áudio" and audio_upload is None)
+            or (modalidade_entrada == "Texto" and not mensagem.strip())
+            or (modalidade_entrada == "Áudio" and audio_upload is None)
         )
         if entrada_invalida:
             st.error("WhatsApp e conteúdo de atendimento são obrigatórios.")
@@ -132,7 +142,7 @@ def render_assistente_atendimento_v1(
                 contexto_solicitante = identidade.contexto(
                     origem="streamlit.assistente_atendimento"
                 )
-                if modalidade == "Texto":
+                if modalidade_entrada == "Texto":
                     resultado = runtime.interpretar_texto(
                         contexto_solicitante=contexto_solicitante,
                         conversa_id=conversa_id,
@@ -163,14 +173,11 @@ def render_assistente_atendimento_v1(
             except _ERROS_RUNTIME_SEGURO:
                 st.error(
                     "Não foi possível interpretar o atendimento com segurança. "
-                    "A integração permanece fail-closed; revise catálogo, CRM e "
-                    "configuração de IA antes de tentar novamente."
+                    "A integração permanece fail-closed; revise catálogo, CRM, "
+                    "IA e, para entrega, Google Maps/política da unidade."
                 )
 
-    if c_nova.button(
-        "Nova conversa",
-        use_container_width=True,
-    ):
+    if c_nova.button("Nova conversa", use_container_width=True):
         _limpar_jornada()
         st.rerun()
 
@@ -194,11 +201,11 @@ def render_assistente_atendimento_v1(
 
     st.subheader("Conferência do carrinho")
     for item in carrinho.itens:
-        st.write(
-            f"{item.quantidade}x {item.nome_produto} — "
-            f"R$ {item.subtotal:.2f}"
-        )
-    st.write(f"**Total: R$ {carrinho.total:.2f}**")
+        st.write(f"{item.quantidade}x {item.nome_produto} — R$ {item.subtotal:.2f}")
+    st.write(f"Subtotal: **R$ {carrinho.subtotal:.2f}**")
+    if carrinho.entrega is not None:
+        st.write(f"Taxa de entrega: **R$ {carrinho.taxa_entrega:.2f}**")
+    st.write(f"Total atual: **R$ {carrinho.total:.2f}**")
     st.caption(f"Fingerprint: {carrinho.fingerprint[:16]}…")
 
     if resultado.estado is EstadoAtendimento.AGUARDANDO_DADOS_CLIENTE:
@@ -206,10 +213,7 @@ def render_assistente_atendimento_v1(
             "Cliente novo identificado. O carrinho não será confirmado antes "
             "do registro mínimo no CRM canônico."
         )
-        if st.button(
-            "Registrar cliente mínimo no CRM e continuar",
-            type="primary",
-        ):
+        if st.button("Registrar cliente mínimo no CRM e continuar", type="primary"):
             try:
                 atualizado = runtime.registrar_cliente_minimo(
                     runtime_anterior=runtime_resultado,
@@ -223,6 +227,79 @@ def render_assistente_atendimento_v1(
                     "Nenhum checkout foi executado."
                 )
         return
+
+    if resultado.estado is EstadoAtendimento.AGUARDANDO_MODALIDADE_ENTREGA:
+        st.info("O cliente ainda não definiu retirada ou entrega.")
+        modalidade_label = st.radio(
+            "Modalidade do pedido",
+            ("Retirada", "Entrega"),
+            horizontal=True,
+            key="assistente_v1_modalidade_pedido",
+        )
+        if st.button("Confirmar modalidade", type="primary"):
+            modalidade = (
+                ModalidadePedidoAtendimento.RETIRADA
+                if modalidade_label == "Retirada"
+                else ModalidadePedidoAtendimento.ENTREGA
+            )
+            try:
+                atualizado = runtime.definir_modalidade(
+                    runtime_anterior=runtime_resultado,
+                    modalidade=modalidade,
+                )
+                st.session_state[_RESULTADO_KEY] = atualizado
+                st.rerun()
+            except _ERROS_RUNTIME_SEGURO:
+                st.error("A modalidade não pôde ser alterada com segurança.")
+        return
+
+    if resultado.estado is EstadoAtendimento.AGUARDANDO_ENDERECO_ENTREGA:
+        st.info(
+            "Entrega exige endereço validado pelo Google Maps e política de área "
+            "da unidade antes da confirmação do pedido."
+        )
+        endereco = st.text_input(
+            "Endereço completo de entrega",
+            value=carrinho.endereco_solicitado or "",
+            placeholder="Rua, número, bairro, cidade - UF, CEP",
+            key="assistente_v1_endereco_entrega",
+        )
+        cep = st.text_input(
+            "CEP",
+            value="",
+            placeholder="00000-000",
+            key="assistente_v1_cep_entrega",
+        )
+        if st.button("Validar endereço, área, taxa e ETA", type="primary"):
+            try:
+                atualizado = runtime.cotar_entrega(
+                    runtime_anterior=runtime_resultado,
+                    endereco_texto=endereco,
+                    cep=cep,
+                )
+                st.session_state[_RESULTADO_KEY] = atualizado
+                st.rerun()
+            except _ERROS_RUNTIME_SEGURO:
+                st.error(
+                    "Não foi possível validar esta entrega. Nenhuma taxa, ETA ou "
+                    "pedido foi presumido. Confira endereço/CEP e a configuração "
+                    "Google Maps/áreas da unidade."
+                )
+        return
+
+    if carrinho.entrega is not None:
+        entrega = carrinho.entrega
+        st.subheader("Entrega validada")
+        st.write(entrega.endereco_formatado)
+        st.write(
+            f"Área: **{entrega.nome_area}** · "
+            f"Distância: **{entrega.distancia_metros / 1000:.1f} km** · "
+            f"ETA de trajeto: **{entrega.eta_rota_minutos} min**"
+        )
+        st.write(
+            f"Prazo operacional: **{entrega.sla_minutos}-{entrega.sla_maxutos} min** · "
+            f"Taxa: **R$ {entrega.taxa:.2f}**"
+        )
 
     if resultado.estado is EstadoAtendimento.CHECKOUT_REGISTRADO:
         st.success(resultado.mensagem)
