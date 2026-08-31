@@ -79,7 +79,7 @@ class EncryptedSQLAlchemyContactStore:
     ) -> str:
         material = (
             f"{tenant_id}:{unidade_id}:{canal.value}:{valor_normalizado}"
-        ).encode("utf-8")
+        ).encode()
         return hmac.new(self._hmac_key, material, hashlib.sha256).hexdigest()
 
     def armazenar(
