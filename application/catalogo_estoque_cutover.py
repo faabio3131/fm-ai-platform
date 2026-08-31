@@ -38,8 +38,7 @@ class ErroCatalogoEstoqueCutover(RuntimeError):
 def _produto_id_legado(valor: str) -> int:
     bruto = str(valor).strip()
     prefixo = "legacy:produto:"
-    if bruto.startswith(prefixo):
-        bruto = bruto[len(prefixo) :]
+    bruto = bruto.removeprefix(prefixo)
     try:
         produto_id = int(bruto)
     except (TypeError, ValueError) as exc:
@@ -102,7 +101,7 @@ def _ancorar_saldo_legado(
     recursos: RecursosTransacionaisV1,
     insumo: object,
 ) -> tuple[str, str]:
-    insumo_legado_id = int(getattr(insumo, "id"))
+    insumo_legado_id = int(insumo.id)
     insumo_id = f"legacy:insumo:{insumo_legado_id}"
     unidade = _unidade_medida(insumo)
     esperado = _saldo_legado(getattr(insumo, "saldo_atual", None))
@@ -177,8 +176,8 @@ def preparar_snapshot_ficha_estoque_v1(
         )
 
         for ficha in fichas:
-            ficha_id = int(getattr(ficha, "id"))
-            insumo_legado_id = int(getattr(ficha, "insumo_id"))
+            ficha_id = int(ficha.id)
+            insumo_legado_id = int(ficha.insumo_id)
             quantidade_unidade = _decimal_positivo(
                 getattr(ficha, "quantidade_utilizada", None),
                 codigo="quantidade_ficha_invalida",
