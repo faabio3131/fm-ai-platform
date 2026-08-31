@@ -6,7 +6,7 @@ from decimal import Decimal
 
 import pytest
 from cryptography.fernet import Fernet
-from sqlalchemy import create_engine, insert, select
+from sqlalchemy import create_engine, insert, inspect, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from application.assistente_atendimento_runtime import _raw_historico_autorizado
@@ -166,9 +166,7 @@ def test_0034_customer_context_esta_no_manifest_e_cria_vault() -> None:
     engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
     aplicadas = run_migrations(engine)
     assert aplicadas[-1] == "0034_crm_customer_context_v1"
-    assert "crm_enderecos_seguros_v1" in {
-        tabela for tabela in __import__("sqlalchemy").inspect(engine).get_table_names()
-    }
+    assert "crm_enderecos_seguros_v1" in set(inspect(engine).get_table_names())
 
 
 def test_contexto_combina_historico_consentimento_e_endereco_sem_vazar_escopo() -> None:
