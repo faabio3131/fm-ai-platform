@@ -10,6 +10,7 @@ import hashlib
 import json
 from collections.abc import Iterable
 from dataclasses import replace
+from decimal import Decimal
 
 from core.pagamentos.modelos import MetodoPagamento
 
@@ -361,13 +362,13 @@ class ServicoAssistenteAtendimento:
             ),
         )
         return ResultadoAtendimento(
-            estado=EstadoAtendimento.AGUARDANDO_CONFIRMACAO_CLIENTE,
+            estado=_estado_operacional(atualizado),
             mensagem=(
                 f"Entrega validada para {cotacao.nome_area}: taxa R$ {cotacao.taxa:.2f}, "
                 f"rota {cotacao.distancia_metros / 1000:.1f} km, "
                 f"ETA de trajeto {cotacao.eta_rota_minutos} min e prazo operacional "
                 f"{cotacao.sla_minutos}-{cotacao.sla_maxutos} min. "
-                f"Total final R$ {atualizado.total:.2f}. Confirme o carrinho final."
+                + _mensagem_operacional(atualizado)
             ),
             carrinho=atualizado,
             auditoria=(
@@ -383,7 +384,7 @@ class ServicoAssistenteAtendimento:
         *,
         resultado: ResultadoAtendimento,
         metodo: MetodoPagamento,
-        valor_para_troco: str | int | float | None = None,
+        valor_para_troco: Decimal | str | int | float | None = None,
     ) -> ResultadoAtendimento:
         carrinho = resultado.carrinho
         if carrinho is None:
