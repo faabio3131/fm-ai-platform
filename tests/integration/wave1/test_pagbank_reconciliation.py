@@ -4,9 +4,26 @@ from uuid import uuid4
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from application.checkout import ComandoCheckoutV1, executar_checkout_em_transacao
 from application.pagbank_reconciliacao import reconciliar_order_pagbank_em_transacao
 from core.dominio.dinheiro import Dinheiro
-from core.dominio.enums import PagamentoStatus
+from core.dominio.enums import (
+    CanalAtendimento,
+    OrigemPedido,
+    PagamentoStatus,
+    PedidoStatus,
+)
+from core.dominio.ids import (
+    CorrelationId,
+    IdempotencyKey,
+    PedidoId,
+    PedidoItemId,
+    ProdutoId,
+    TenantId,
+    UnidadeId,
+)
+from core.dominio.pedidos import ItemPedido, Pedido
+from core.dominio.tipos import QuantidadeItem
 from core.pagamentos.adapters import CobrancaProvedor
 from core.pagamentos.modelos import (
     MetodoPagamento,
@@ -14,7 +31,6 @@ from core.pagamentos.modelos import (
     TipoTransacao,
     TransacaoPagamento,
 )
-from core.pagamentos.servicos import criar_obrigacao_pagamento
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import MATRIZ_PADRAO, Papel
 from infra.transacoes.uow import UnitOfWorkV1
@@ -59,19 +75,52 @@ def _contexto() -> ContextoExecucao:
 
 def _seed(factory) -> None:
     contexto = _contexto()
+    tenant = TenantId(TENANT)
+    unidade = UnidadeId(UNIDADE)
+    pedido = Pedido(
+        id=PedidoId("pedido-reconciliacao"),
+        tenant_id=tenant,
+        unidade_id=unidade,
+        origem=OrigemPedido.WHATSAPP,
+        canal=CanalAtendimento.WHATSAPP,
+        status=PedidoStatus.RASCUNHO,
+        cliente_id=None,
+        criado_em=AGORA,
+        atualizado_em=AGORA,
+        versao=1,
+        correlation_id=CorrelationId(contexto.correlation_id),
+        idempotency_key=IdempotencyKey("checkout-reconciliacao"),
+        subtotal=Dinheiro("38.90"),
+        descontos=Dinheiro(0),
+        taxas=Dinheiro(0),
+        total=Dinheiro("38.90"),
+        itens=(
+            ItemPedido(
+                id=PedidoItemId("item-reconciliacao"),
+                tenant_id=tenant,
+                unidade_id=unidade,
+                produto_id=ProdutoId("produto-reconciliacao"),
+                nome_produto="Produto reconciliação",
+                quantidade=QuantidadeItem(1),
+                preco_unitario=Dinheiro("38.90"),
+                subtotal=Dinheiro("38.90"),
+            ),
+        ),
+        observacoes=(),
+    )
     with UnitOfWorkV1(factory) as uow:
-        inicio = criar_obrigacao_pagamento(
+        checkout = executar_checkout_em_transacao(
+            comando=ComandoCheckoutV1(
+                pedido=pedido,
+                timestamp=AGORA,
+                pagamento_id=PAGAMENTO,
+                metodo_pagamento=MetodoPagamento.PIX,
+                provedor_pagamento="pagbank",
+            ),
             contexto=contexto,
-            repositorio=uow.pagamentos,
-            pagamento_id=PAGAMENTO,
-            pedido_id="pedido-reconciliacao",
-            valor_previsto=Dinheiro("38.90"),
-            metodo=MetodoPagamento.PIX,
-            idempotency_key="obrigacao-reconciliacao",
-            timestamp=AGORA,
-            provedor="pagbank",
+            recursos=uow.recursos,
         )
-        uow.registrar_efeitos(eventos=inicio.eventos, auditorias=inicio.auditorias)
+        assert checkout.pagamento is not None
         uow.pagamentos.append_transacao(
             TransacaoPagamento(
                 str(uuid4()),
