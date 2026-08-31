@@ -183,6 +183,48 @@ class ServicoAssistenteAtendimento:
             ),
         )
 
+    def concluir_cadastro_cliente(
+        self,
+        *,
+        contexto_anterior: ContextoAtendimento,
+        resultado: ResultadoAtendimento,
+        cliente_ref: str,
+    ) -> tuple[ContextoAtendimento, ResultadoAtendimento]:
+        """Promove cliente novo já persistido sem repetir a interpretação da IA."""
+
+        if (
+            resultado.estado is not EstadoAtendimento.AGUARDANDO_DADOS_CLIENTE
+            or resultado.carrinho is None
+        ):
+            raise ErroAssistenteAtendimento("cadastro_cliente_fora_de_estado")
+        if not cliente_ref.strip():
+            raise ErroAssistenteAtendimento("cliente_ref_obrigatorio")
+
+        from .contexto import ClienteAtendimento
+
+        novo_contexto = ContextoAtendimento(
+            contexto_execucao=contexto_anterior.contexto_execucao,
+            conversa_id=contexto_anterior.conversa_id,
+            canal=contexto_anterior.canal,
+            cliente=ClienteAtendimento(
+                tipo=TipoClienteAtendimento.CONHECIDO,
+                cliente_ref=cliente_ref.strip(),
+            ),
+        )
+        atualizado = ResultadoAtendimento(
+            estado=EstadoAtendimento.AGUARDANDO_CONFIRMACAO_CLIENTE,
+            mensagem=(
+                "Cliente registrado no CRM canônico. "
+                "Revise o carrinho e confirme explicitamente antes do checkout."
+            ),
+            carrinho=resultado.carrinho,
+            auditoria=(
+                *resultado.auditoria,
+                ("cliente", "registrado_crm_canonico"),
+            ),
+        )
+        return novo_contexto, atualizado
+
     def confirmar(
         self,
         *,
