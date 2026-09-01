@@ -26,13 +26,13 @@ from infra.eventos.adaptador_sqlalchemy import RepositorioOutboxSQLAlchemy
 from infra.gerente_ia.persistencia_sqlalchemy import ConsumidorEventosCoreSQLAlchemy
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
 
-from .legacy_stock_projection import (
-    projetar_consumo_estoque_legado_em_transacao,
-)
 from .kds_runtime_support import (
     auditar_roteamento_kds,
     publicar_evento_kds,
     transicionar_pedido_por_kds,
+)
+from .legacy_stock_projection import (
+    projetar_consumo_estoque_legado_em_transacao,
 )
 
 
