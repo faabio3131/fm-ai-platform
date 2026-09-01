@@ -156,6 +156,38 @@ export async function fillNumber(page: Page, label: string | RegExp, value: stri
   }
 }
 
+async function comboboxStringValueIsStable(
+  page: Page,
+  combobox: ReturnType<Page['getByRole']>,
+  expected: string,
+): Promise<boolean> {
+  let consecutiveMatches = 0;
+  try {
+    await expect
+      .poll(
+        async () => {
+          const skeletons = await page.locator('[data-testid="stSkeleton"]').count();
+          const value = await combobox.inputValue();
+          if (skeletons === 0 && value === expected) {
+            consecutiveMatches += 1;
+          } else {
+            consecutiveMatches = 0;
+          }
+          return consecutiveMatches;
+        },
+        {
+          message: `Combobox deve permanecer estável em ${expected}`,
+          timeout: 2_000,
+          intervals: [150, 200, 250, 300],
+        },
+      )
+      .toBeGreaterThanOrEqual(3);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function selectComboboxOption(
   page: Page,
   label: string | RegExp,
@@ -164,9 +196,12 @@ export async function selectComboboxOption(
   const combobox = page.getByRole('combobox', { name: label }).first();
   await expect(combobox).toBeVisible();
   await expect(combobox).toBeEnabled();
-  if (typeof option === 'string' && (await combobox.inputValue()) === option) {
-    await expect(combobox).toHaveValue(option);
-    await expect(page.locator('[data-testid="stSkeleton"]')).toHaveCount(0, { timeout: 30_000 });
+  if (
+    typeof option === 'string' &&
+    (await combobox.inputValue()) === option &&
+    (await comboboxStringValueIsStable(page, combobox, option))
+  ) {
+    await expect(page.locator('[data-testid="stException"]')).toHaveCount(0);
     return;
   }
 
