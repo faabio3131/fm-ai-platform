@@ -38,6 +38,7 @@ from core.pagamentos.pagbank import ErroPagBank
 from core.runtime import build_engine, check_database_health, load_runtime_settings
 from core.runtime.config import RuntimeSettings
 from core.seguranca.autenticacao import ServicoAutenticacao
+from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.erros import (
     ErroSeguranca,
     ReferenciaSegredoInvalida,
@@ -105,6 +106,7 @@ def build_http_app(
     secret_store: SecretStore | None = None,
     planejador_llm_factory: Callable[[Session], PlanejadorLLM] | None = None,
     whatsapp_secret_store_factory: Callable[[Session], SecretStore] | None = None,
+    whatsapp_runtime: RuntimeCanalWhatsAppV1 | None = None,
 ) -> FastAPI:
     settings = settings or load_runtime_settings()
     engine = engine or build_engine(settings)
@@ -117,7 +119,7 @@ def build_http_app(
         whatsapp_secret_store_factory
         or (lambda session: EncryptedSQLAlchemySecretStore(session))
     )
-    canal_whatsapp = RuntimeCanalWhatsAppV1(session_factory)
+    canal_whatsapp = whatsapp_runtime or RuntimeCanalWhatsAppV1(session_factory)
 
     app = FastAPI(
         title="F&M Gerente AI — Integration API",
@@ -137,11 +139,9 @@ def build_http_app(
 
     def _contexto_whatsapp(
         *, tenant_id: str, unidade_id: str, correlation_id: str
-    ) -> object:
+    ) -> ContextoExecucao:
         if not tenant_id.strip() or not unidade_id.strip():
             raise ValueError("escopo_whatsapp_invalido")
-        from core.seguranca.contexto import ContextoExecucao
-
         return ContextoExecucao.sistema(
             identidade="meta-whatsapp-webhook-v1",
             motivo="webhook Meta/WhatsApp escopado por tenant e unidade",
