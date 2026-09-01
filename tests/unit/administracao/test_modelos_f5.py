@@ -30,7 +30,7 @@ def test_modelos_administrativos_validam_campos_e_nao_exigem_segredos() -> None:
         tenant_id="tenant-1",
         unidade_id="loja-centro",
         formas_pagamento=("PIX", "dinheiro", "pix"),
-        taxa_servico_percentual=Decimal("10"),
+        taxa_servico_percentual=Decimal(10),
         parametros_operacionais={"aceita_pagamento_na_entrega": True},
         politica_financeira={"taxa_embalagem": "2.50"},
     )
@@ -38,7 +38,7 @@ def test_modelos_administrativos_validam_campos_e_nao_exigem_segredos() -> None:
     assert empresa.moeda == "BRL"
     assert unidade.tipo == "filial"
     assert config.formas_pagamento == ("pix", "dinheiro")
-    assert config.taxa_servico_percentual == Decimal("10")
+    assert config.taxa_servico_percentual == Decimal(10)
 
 
 @pytest.mark.parametrize("taxa", [Decimal("-0.01"), Decimal("100.01")])
