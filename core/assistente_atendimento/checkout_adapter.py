@@ -9,8 +9,8 @@ from uuid import NAMESPACE_URL, uuid5
 
 from sqlalchemy.orm import Session
 
-from application.catalogo_estoque_cutover import (
-    executar_checkout_com_ficha_estoque_v1,
+from application.assistente_delivery_convergence import (
+    executar_checkout_assistente_convergente_v1,
 )
 from application.checkout import ComandoCheckoutV1, ResultadoCheckoutV1
 from core.dominio.dinheiro import Dinheiro
@@ -86,6 +86,7 @@ class CheckoutAssistenteV1:
         canal: str,
         metodo: MetodoPagamento,
         idempotency_key: str,
+        endereco_ref: str | None = None,
     ) -> ResultadoCheckoutAssistente:
         if (
             carrinho.tenant_id != contexto.tenant_id
@@ -220,12 +221,24 @@ class CheckoutAssistenteV1:
             recebimento_posterior=_recebimento_posterior(metodo),
         )
 
-        executor = self._executor or executar_checkout_com_ficha_estoque_v1
-        resultado = executor(
-            comando=comando,
-            contexto=contexto,
-            session_factory=self._session_factory,
-        )
+        entrega = None
+        if self._executor is not None:
+            resultado = self._executor(
+                comando=comando,
+                contexto=contexto,
+                session_factory=self._session_factory,
+            )
+        else:
+            convergencia = executar_checkout_assistente_convergente_v1(
+                comando=comando,
+                contexto=contexto,
+                modalidade=carrinho.modalidade,
+                endereco_ref=endereco_ref,
+                idempotency_key=idempotency_key,
+                session_factory=self._session_factory,
+            )
+            resultado = convergencia.checkout
+            entrega = convergencia.entrega
 
         pagamento = resultado.pagamento
         reserva = resultado.reserva
@@ -256,6 +269,10 @@ class CheckoutAssistenteV1:
                 reserva.idempotente
                 if reserva is not None
                 else None
+            ),
+            entrega_id=entrega.entrega_id if entrega is not None else None,
+            entrega_status=(
+                entrega.status.value if entrega is not None else None
             ),
             idempotente=(
                 resultado.pedido.idempotente
