@@ -525,3 +525,121 @@ def test_status_operacional_combina_pedido_pagamento_kds_e_entrega_reais(
     assert snapshot.producao_status == ("em_preparo",)
     assert snapshot.entrega_status == "aguardando_producao"
     assert snapshot.entrega_evento == "entrega.criada"
+
+
+def test_notificador_envia_apenas_quando_snapshot_operacional_muda(
+    monkeypatch,
+) -> None:
+    _engine, factory = _infra(monkeypatch)
+    contexto = _contexto(correlation_id="corr-monitor-f4f")
+    with factory() as session:
+        session.add(
+            PedidoORM(
+                id="pedido-monitor-f4f",
+                tenant_id=TENANT,
+                unidade_id=UNIDADE,
+                origem="whatsapp",
+                canal="whatsapp",
+                status="confirmado",
+                cliente_id=None,
+                criado_em=AGORA,
+                atualizado_em=AGORA,
+                versao=2,
+                correlation_id="corr-monitor-f4f",
+                idempotency_key="pedido-monitor-f4f",
+                request_hash="hash-monitor-pedido",
+                subtotal=Decimal(25),
+                descontos=Decimal(0),
+                taxas=Decimal(0),
+                total=Decimal(25),
+            )
+        )
+        session.add(
+            ObrigacaoPagamentoORM(
+                id="pag-monitor-f4f",
+                tenant_id=TENANT,
+                unidade_id=UNIDADE,
+                pedido_id="pedido-monitor-f4f",
+                comanda_id=None,
+                valor_previsto=Decimal(25),
+                moeda="BRL",
+                criado_em=AGORA,
+                versao=1,
+                correlation_id="corr-monitor-f4f",
+                idempotency_key="obrigacao-monitor-f4f",
+                request_hash="hash-monitor-obrigacao",
+            )
+        )
+        session.flush()
+        session.add(
+            PagamentoORM(
+                id="pag-monitor-f4f",
+                tenant_id=TENANT,
+                unidade_id=UNIDADE,
+                pedido_id="pedido-monitor-f4f",
+                comanda_id=None,
+                status="pendente",
+                metodo="pix",
+                valor_previsto=Decimal(25),
+                valor_pago=Decimal(0),
+                valor_estornado=Decimal(0),
+                saldo=Decimal(25),
+                moeda="BRL",
+                recebimento_posterior=False,
+                provedor="pagbank",
+                criado_em=AGORA,
+                atualizado_em=AGORA,
+                versao=1,
+                correlation_id="corr-monitor-f4f",
+                idempotency_key="pag-monitor-f4f",
+                request_hash="hash-monitor-pagamento",
+            )
+        )
+        EncryptedSQLAlchemyChannelStateStore(session).salvar(
+            contexto=contexto,
+            canal="whatsapp",
+            recipient=TELEFONE,
+            conversa_id="conv-monitor-f4f",
+            estado=EstadoAtendimento.CHECKOUT_REGISTRADO.value,
+            state=None,
+            pedido_id="pedido-monitor-f4f",
+            pagamento_id="pag-monitor-f4f",
+            versao_esperada=0,
+            agora=AGORA,
+        )
+        session.commit()
+
+    meta = MetaFake()
+    canal = RuntimeCanalWhatsAppV1(factory, runtime=RuntimeFake())
+
+    assert canal.notificar_status_pedido(
+        contexto=contexto,
+        pedido_id="pedido-monitor-f4f",
+        adapter=meta,
+    ) == 1
+    assert canal.notificar_status_pedido(
+        contexto=contexto,
+        pedido_id="pedido-monitor-f4f",
+        adapter=meta,
+    ) == 0
+    assert len(meta.envios) == 1
+
+    with factory() as session:
+        pagamento = session.get(
+            PagamentoORM,
+            ("pag-monitor-f4f", TENANT, UNIDADE),
+        )
+        assert pagamento is not None
+        pagamento.status = "pago"
+        pagamento.valor_pago = Decimal(25)
+        pagamento.saldo = Decimal(0)
+        pagamento.versao = 2
+        session.commit()
+
+    assert canal.notificar_status_pedido(
+        contexto=contexto,
+        pedido_id="pedido-monitor-f4f",
+        adapter=meta,
+    ) == 1
+    assert len(meta.envios) == 2
+    assert "Pagamento: pago." in meta.envios[-1]["texto"]
