@@ -395,12 +395,19 @@ def _render_financeiro(
         "Gateways, tokens, contas PIX e credenciais continuam no Control Plane protegido. "
         "Esta seção armazena somente parâmetros não secretos."
     )
-    st.page_link(
-        "pages/7_Integracoes_e_Credenciais.py",
-        label="Abrir Integrações e Credenciais protegidas",
-        icon="🔑",
-        use_container_width=True,
-    )
+    try:
+        st.page_link(
+            "pages/7_Integracoes_e_Credenciais.py",
+            label="Abrir Integrações e Credenciais protegidas",
+            icon="🔑",
+            width="stretch",
+        )
+    except KeyError:
+        # Compatibilidade com execução direta da página em gates/browser.
+        # Nesse modo algumas versões do Streamlit não preenchem url_pathname.
+        st.markdown(
+            "🔑 [Abrir Integrações e Credenciais protegidas](./Integracoes_e_Credenciais)"
+        )
 
     with st.form("f5_fin_config_form", clear_on_submit=False):
         formas = st.multiselect(

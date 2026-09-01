@@ -1150,7 +1150,7 @@ class RuntimeCanalWhatsAppV1:
                 motivo="falha_envio_whatsapp_reconciliacao_obrigatoria",
             )
             db = self._session_factory()
-        uow = UnitOfWorkV1.adotar_session(db)
+            uow = UnitOfWorkV1.adotar_session(db)
             try:
                 store = EncryptedSQLAlchemyChannelStateStore(db)
                 atual = store.obter(
