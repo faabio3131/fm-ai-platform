@@ -9,6 +9,10 @@ on:
       - "core/integracoes/google_maps.py"
       - "application/assistente_atendimento_runtime.py"
       - "application/catalogo_estoque_cutover.py"
+      - "application/order_result_orchestrator.py"
+      - "application/finalizacao_pagamento.py"
+      - "application/pdv_legacy_projection.py"
+      - "application/pagbank_reconciliacao.py"
       - "application/ai_router_runtime.py"
       - "infra/integracoes/**"
       - "infra/assistente_atendimento/**"
@@ -24,6 +28,7 @@ on:
       - "migrations/manifest_v1.json"
       - "app.py"
       - "tests/unit/assistente_atendimento/**"
+      - "tests/integration/wave1/test_pagbank_reconciliation.py"
       - "tests/unit/stock/**"
       - "tests/unit/delivery/**"
       - "tests/unit/ai_router/test_router.py"
@@ -70,6 +75,10 @@ jobs:
             core/integracoes/google_maps.py \
             application/assistente_atendimento_runtime.py \
             application/catalogo_estoque_cutover.py \
+            application/order_result_orchestrator.py \
+            application/finalizacao_pagamento.py \
+            application/pdv_legacy_projection.py \
+            application/pagbank_reconciliacao.py \
             application/ai_router_runtime.py \
             infra/integracoes/transportes.py \
             infra/assistente_atendimento/clientes_sqlalchemy.py \
@@ -124,6 +133,8 @@ jobs:
             tests/unit/assistente_atendimento/test_checkout_adapter.py \
             tests/unit/assistente_atendimento/test_customer_context_f4c.py \
             tests/unit/assistente_atendimento/test_ficha_estoque_checkout.py \
+            tests/unit/assistente_atendimento/test_order_result_orchestrator_f4d.py \
+            tests/integration/wave1/test_pagbank_reconciliation.py \
             tests/unit/delivery/test_politica_sqlalchemy.py \
             tests/unit/ai_router/test_router.py \
             tests/unit/integracoes/test_gemini_audio_transport_v1.py \
@@ -137,6 +148,8 @@ jobs:
             tests/unit/assistente_atendimento/test_checkout_adapter.py \
             tests/unit/assistente_atendimento/test_customer_context_f4c.py \
             tests/unit/assistente_atendimento/test_ficha_estoque_checkout.py \
+            tests/unit/assistente_atendimento/test_order_result_orchestrator_f4d.py \
+            tests/integration/wave1/test_pagbank_reconciliation.py \
             tests/unit/stock/test_ledger_servicos.py \
             tests/unit/delivery/test_modelos.py \
             tests/unit/delivery/test_politica_sqlalchemy.py \
