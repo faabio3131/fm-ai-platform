@@ -46,7 +46,7 @@
       }
     },
     "assistente_atendimento": {
-      "status": "CUTOVER_PENDING",
+      "status": "COMMERCIAL_CANDIDATE",
       "commercial_paths": [
         "core/assistente_atendimento/ui_streamlit.py",
         "application/assistente_atendimento_runtime.py",
@@ -71,15 +71,27 @@
         "application/assistente_delivery_convergence.py",
         "core/entrega/adaptador_sqlalchemy.py",
         "core/entrega/integracoes_sqlalchemy.py",
-        "core/entrega/servicos.py"
+        "core/entrega/servicos.py",
+        "application/assistente_channel_runtime.py",
+        "application/assistente_operational_notifications.py",
+        "http_api/app.py",
+        "core/integracoes/provedores.py",
+        "infra/integracoes/fabrica_adapters.py",
+        "infra/integracoes/transportes.py",
+        "infra/assistente_atendimento/canal_schema.py",
+        "infra/assistente_atendimento/canal_estado_sqlalchemy.py",
+        "application/kds_transacoes.py",
+        "application/entrega_transacoes.py"
       ],
       "code_blockers": [],
       "external_blockers": [
         "pix_provider_homologation_incomplete",
-        "migration_0034_not_applied_in_current_homologation_db"
+        "migration_0034_not_applied_in_current_homologation_db",
+        "whatsapp_cloud_api_homologation_pending",
+        "migration_0035_not_applied_in_current_homologation_db"
       ],
       "evidence": {
-        "sha": "4884a2948d554ce69b849721b2ad706b09dc2872",
+        "sha": "0509500388317824a22e90918915a8d7f1c08b3c",
         "commercial_runtime_e2e": null,
         "physical_test": null
       }
