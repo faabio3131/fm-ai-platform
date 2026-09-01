@@ -2098,8 +2098,14 @@ with aba3:
                     or cliente_db is not None,
                     usar_cashback=usa_cashback_pdv,
                     desconto_cashback=desconto_cb_pdv,
-                    pix_confirmado=not modo_producao_ativo or _canary_pdv,
-                    pix_producao=modo_producao_ativo,
+                    pix_confirmado=(
+                        True
+                        if is_test_mode()
+                        else bool(st.session_state.get("pdv_pix_confirmado", False))
+                    ),
+                    pix_producao=(
+                        forma_pag_pdv.startswith("Pix") and not is_test_mode()
+                    ),
                 )
                 if not validacao_banco.valido:
                     st.session_state["pdv_processando"] = False
