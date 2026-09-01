@@ -140,6 +140,10 @@
     {
       "version": "0034_crm_customer_context_v1",
       "sha256": "58a83aa342df355afae3f0d7539efadb50712f110d79c575937dc230442ea519"
+    },
+    {
+      "version": "0035_assistente_channel_runtime_v1",
+      "sha256": "d0cf021ccee080ae3870234ba6030569a68fd96bc3a4082de8a32e51254f2bc3"
     }
   ]
 }
