@@ -92,8 +92,8 @@ def _producao_status(
     unidade_id: str,
     pedido_id: str,
 ) -> tuple[str, ...]:
-    bind = recursos.session.get_bind()
-    if not inspect(bind).has_table(ProducaoItemORM.__tablename__):
+    connection = recursos.session.connection()
+    if not inspect(connection).has_table(ProducaoItemORM.__tablename__):
         # Produção é estado observado, não pré-requisito da finalização financeira.
         # O runtime KDS continua responsável por falhar fechado em seus próprios writes.
         return ()
