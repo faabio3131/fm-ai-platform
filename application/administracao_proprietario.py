@@ -118,7 +118,7 @@ def _exigir(contexto: ContextoExecucao, permissao: Permissao) -> None:
 
 def _decimal(valor: object | None) -> Decimal:
     if valor is None:
-        return Decimal("0")
+        return Decimal(0)
     return Decimal(valor)
 
 
@@ -690,7 +690,7 @@ class AplicacaoAdministracaoProprietarioV1:
     ) -> tuple[Decimal | None, Decimal]:
         total_itens = 0
         itens_cobertos = 0
-        custo = Decimal("0")
+        custo = Decimal(0)
         for unidade_id in unidades:
             vendas = session.execute(
                 select(VendaFinanceiraORM.pedido_id).where(
@@ -721,7 +721,7 @@ class AplicacaoAdministracaoProprietarioV1:
                 )
                 if "custo_total_cmv" not in produtos.c or "loja_id" not in produtos.c:
                     continue
-            except Exception:  # noqa: BLE001 - estimativa não bloqueia o painel
+            except Exception:  # noqa: BLE001, S112 - estimativa não bloqueia o painel
                 continue
             for item in itens:
                 bruto = str(item.produto_id or "").removeprefix("legacy:produto:")
@@ -741,9 +741,9 @@ class AplicacaoAdministracaoProprietarioV1:
                 itens_cobertos += 1
 
         if total_itens == 0:
-            return None, Decimal("0")
+            return None, Decimal(0)
         cobertura = (
-            Decimal(itens_cobertos) * Decimal("100") / Decimal(total_itens)
+            Decimal(itens_cobertos) * Decimal(100) / Decimal(total_itens)
         )
         return (custo if itens_cobertos else None), cobertura
 
@@ -792,9 +792,9 @@ class AplicacaoAdministracaoProprietarioV1:
                 )
                 .group_by(PagamentoORM.status)
             ).all()
-            pagos = Decimal("0")
-            pendentes = Decimal("0")
-            estornados = Decimal("0")
+            pagos = Decimal(0)
+            pendentes = Decimal(0)
+            estornados = Decimal(0)
             for status, valor_pago, valor_estornado, saldo in pagamentos:
                 status_normalizado = str(status).casefold()
                 pagos += _decimal(valor_pago)
@@ -868,7 +868,7 @@ class AplicacaoAdministracaoProprietarioV1:
                     ticket_medio=(
                         vendas_total_dec / Decimal(vendas_qtd_int)
                         if vendas_qtd_int
-                        else Decimal("0")
+                        else Decimal(0)
                     ),
                     pagamentos_pagos=pagos,
                     pagamentos_pendentes=pendentes,
