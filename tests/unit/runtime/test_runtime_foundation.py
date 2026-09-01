@@ -60,6 +60,10 @@ _EXPECTED_MIGRATIONS = (
     "0030_migration_history_integrity_v1",
     "0031_ai_usage_metering_v1",
     "0032_ai_finops_read_model_v1",
+    "0033_delivery_policy_v1",
+    "0034_crm_customer_context_v1",
+    "0035_assistente_channel_runtime_v1",
+    "0036_administracao_proprietario_v1",
 )
 
 
