@@ -137,7 +137,14 @@ class AplicacaoAdministracaoProprietarioV1:
         contexto: ContextoExecucao,
         incluir_inativas: bool = True,
     ) -> tuple[UnidadeAdministrativa, ...]:
-        todas = RepositorioAdministracaoSQLAlchemy(session).listar_unidades(
+        repo = RepositorioAdministracaoSQLAlchemy(session)
+        conhecidas = set(contexto.unidades_permitidas) or {contexto.unidade_id}
+        for unidade_id in sorted(conhecidas):
+            repo.garantir_escopo(
+                tenant_id=contexto.tenant_id,
+                unidade_id=unidade_id,
+            )
+        todas = repo.listar_unidades(
             tenant_id=contexto.tenant_id,
             incluir_inativas=incluir_inativas,
         )
@@ -203,6 +210,10 @@ class AplicacaoAdministracaoProprietarioV1:
     def registrar_acesso(self, *, contexto: ContextoExecucao) -> None:
         _exigir(contexto, Permissao.ADMIN_ACESSAR)
         with self._session_factory() as session:
+            RepositorioAdministracaoSQLAlchemy(session).garantir_escopo(
+                tenant_id=contexto.tenant_id,
+                unidade_id=contexto.unidade_id,
+            )
             self._auditar(
                 session=session,
                 contexto=contexto,
