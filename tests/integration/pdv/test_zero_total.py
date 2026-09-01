@@ -57,7 +57,7 @@ def test_saldo_zero_fica_canonico_sem_pagamento_ficticio(
     assert resultado.venda_financeira_id is None
     assert resultado.pedido_id is not None
     assert resultado.venda_legada_id is not None
-    assert resultado.troco.valor == Decimal("0")
+    assert resultado.troco.valor == Decimal(0)
 
     with fabrica() as session:
         pedido = session.scalar(select(PedidoORM))
@@ -80,8 +80,8 @@ def test_saldo_zero_fica_canonico_sem_pagamento_ficticio(
             ("tenant-teste", "unidade-teste", "legacy:insumo:1"),
         )
         assert saldo is not None
-        assert Decimal(str(saldo.saldo_fisico)) == Decimal("10")
-        assert Decimal(str(saldo.saldo_reservado)) == Decimal("1")
+        assert Decimal(str(saldo.saldo_fisico)) == Decimal(10)
+        assert Decimal(str(saldo.saldo_reservado)) == Decimal(1)
 
         venda = session.get(VendaTeste, int(resultado.venda_legada_id))
         assert venda is not None
