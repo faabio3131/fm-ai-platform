@@ -20,6 +20,7 @@ from core.integracoes.provedores import (
     GeminiTenantAdapter,
     MercadoPagoAdapter,
     MetaAdapter,
+    PortaDownloadBinario,
     PortaGeminiTenant,
     PortaHTTPProvedor,
 )
@@ -35,6 +36,7 @@ from infra.seguranca.modelos_orm import CredencialReferenciaORM
 from .repositorio_sqlalchemy import RepositorioConfiguracoesExternasSQLAlchemy
 from .transportes import (
     GoogleGenAITenantGateway,
+    RequestsBinaryTransport,
     RequestsGoogleMapsTransport,
     RequestsProviderTransport,
 )
@@ -129,6 +131,7 @@ class FabricaAdaptersExternos:
         contexto: ContextoExecucao,
         configuracao_id: str,
         http: PortaHTTPProvedor | None = None,
+        media_http: PortaDownloadBinario | None = None,
         sleep: Callable[[float], None] = lambda _: None,
     ) -> MetaAdapter:
         config = self._config(contexto, configuracao_id)
@@ -167,6 +170,7 @@ class FabricaAdaptersExternos:
                 graph_api_version=str(parametros.get("graph_api_version", "v23.0")),
             ),
             http=http or RequestsProviderTransport(),
+            media_http=media_http or RequestsBinaryTransport(),
             sleep=sleep,
         )
 
