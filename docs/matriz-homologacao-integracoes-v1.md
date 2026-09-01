@@ -52,6 +52,14 @@ Esta seção registra somente o que foi provado internamente para o Assistente. 
 **Classificação atual do Assistente:** `COMMERCIAL_CANDIDATE`, não
 `COMMERCIAL_HOMOLOGATED`.
 
+**Decisão de progressão:** PagBank, Meta/WhatsApp e Mercado Pago podem permanecer
+como pendências externas explícitas quando o provedor/conta/suporte estiver
+indisponível. Mercado Pago permanece como pendência externa herdada do Control
+Plane/Fase 3 e não constitui code blocker interno específico do F4-F. A promoção
+de fase, porém, continua separada do gate físico/local: migrations 0034/0035 no
+banco de homologação e Commercial Runtime E2E/teste físico ainda precisam de
+evidência própria antes de liberar a Fase 5 sob a regra condicional registrada.
+
 A promoção final exige que `docs/commercial_runtime_readiness_v1.json` tenha
 evidência real para `commercial_runtime_e2e` e `physical_test`, e que nenhum
 blocker externo permaneça. Fixture, mock, sandbox sem conta oficial ou teste
