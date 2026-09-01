@@ -8,6 +8,10 @@ from typing import TypeVar
 
 from sqlalchemy.orm import Session
 
+from application.assistente_operational_notifications import (
+    notificar_status_assistente_best_effort,
+)
+
 from core.entrega import (
     ChecklistExpedicao,
     Entrega,
@@ -80,6 +84,8 @@ class AplicacaoEntregaV1:
     def _executar(
         self,
         acao: Callable[[ServicoEntrega], T],
+        *,
+        contexto: ContextoExecucao,
     ) -> T:
         with UnitOfWorkV1(self._session_factory) as uow:
             session = _session_ativa(uow)
@@ -93,7 +99,13 @@ class AplicacaoEntregaV1:
 
             uow.commit()
 
-            return resultado
+        if isinstance(resultado, Entrega):
+            notificar_status_assistente_best_effort(
+                session_factory=self._session_factory,
+                contexto=contexto,
+                pedido_id=resultado.pedido_id,
+            )
+        return resultado
 
     def concluir_checklist(
         self,
@@ -111,7 +123,8 @@ class AplicacaoEntregaV1:
                 versao_esperada=versao_esperada,
                 contexto=contexto,
                 idempotency_key=idempotency_key,
-            )
+            ),
+            contexto=contexto,
         )
 
     def atribuir(
@@ -130,7 +143,8 @@ class AplicacaoEntregaV1:
                 versao_esperada=versao_esperada,
                 contexto=contexto,
                 idempotency_key=idempotency_key,
-            )
+            ),
+            contexto=contexto,
         )
 
     def coletar(
@@ -147,7 +161,8 @@ class AplicacaoEntregaV1:
                 versao_esperada=versao_esperada,
                 contexto=contexto,
                 idempotency_key=idempotency_key,
-            )
+            ),
+            contexto=contexto,
         )
 
     def sair_em_rota(
@@ -164,7 +179,8 @@ class AplicacaoEntregaV1:
                 versao_esperada=versao_esperada,
                 contexto=contexto,
                 idempotency_key=idempotency_key,
-            )
+            ),
+            contexto=contexto,
         )
 
     def confirmar_entrega(
@@ -183,7 +199,8 @@ class AplicacaoEntregaV1:
                 versao_esperada=versao_esperada,
                 contexto=contexto,
                 idempotency_key=idempotency_key,
-            )
+            ),
+            contexto=contexto,
         )
 
     def registrar_tentativa_falha(
@@ -202,5 +219,6 @@ class AplicacaoEntregaV1:
                 versao_esperada=versao_esperada,
                 contexto=contexto,
                 idempotency_key=idempotency_key,
-            )
+            ),
+            contexto=contexto,
         )
