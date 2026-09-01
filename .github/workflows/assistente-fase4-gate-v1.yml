@@ -13,6 +13,10 @@ on:
       - "tests/unit/integracoes/test_whatsapp_control_plane_runtime_v1.py"
       - "tests/integration/integracoes/test_whatsapp_control_plane_integration_v1.py"
       - "application/assistente_atendimento_runtime.py"
+      - "application/assistente_channel_runtime.py"
+      - "infra/assistente_atendimento/canal_schema.py"
+      - "infra/assistente_atendimento/canal_estado_sqlalchemy.py"
+      - "migrations/assistente_channel_runtime_v1.py"
       - "application/catalogo_estoque_cutover.py"
       - "application/assistente_delivery_convergence.py"
       - "core/entrega/**"
@@ -95,6 +99,10 @@ jobs:
             infra/integracoes/fabrica_adapters.py \
             http_api/app.py \
             application/assistente_atendimento_runtime.py \
+            application/assistente_channel_runtime.py \
+            infra/assistente_atendimento/canal_schema.py \
+            infra/assistente_atendimento/canal_estado_sqlalchemy.py \
+            migrations/assistente_channel_runtime_v1.py \
             application/catalogo_estoque_cutover.py \
             application/assistente_delivery_convergence.py \
             core/entrega/adaptador_sqlalchemy.py \
@@ -146,6 +154,10 @@ jobs:
             infra/integracoes/fabrica_adapters.py \
             http_api/app.py \
             application/assistente_atendimento_runtime.py \
+            application/assistente_channel_runtime.py \
+            infra/assistente_atendimento/canal_schema.py \
+            infra/assistente_atendimento/canal_estado_sqlalchemy.py \
+            migrations/assistente_channel_runtime_v1.py \
             application/catalogo_estoque_cutover.py \
             application/assistente_delivery_convergence.py \
             core/entrega/adaptador_sqlalchemy.py \
@@ -181,6 +193,7 @@ jobs:
             tests/unit/assistente_atendimento/test_checkout_adapter.py \
             tests/unit/assistente_atendimento/test_customer_context_f4c.py \
             tests/unit/assistente_atendimento/test_delivery_convergence_f4e.py \
+            tests/unit/assistente_atendimento/test_channel_runtime_f4f.py \
             tests/unit/assistente_atendimento/test_ficha_estoque_checkout.py \
             tests/unit/assistente_atendimento/test_order_result_orchestrator_f4d.py \
             tests/integration/wave1/test_pagbank_reconciliation.py \
@@ -206,6 +219,7 @@ jobs:
             tests/unit/assistente_atendimento/test_checkout_adapter.py \
             tests/unit/assistente_atendimento/test_customer_context_f4c.py \
             tests/unit/assistente_atendimento/test_delivery_convergence_f4e.py \
+            tests/unit/assistente_atendimento/test_channel_runtime_f4f.py \
             tests/unit/assistente_atendimento/test_ficha_estoque_checkout.py \
             tests/unit/assistente_atendimento/test_order_result_orchestrator_f4d.py \
             tests/integration/wave1/test_pagbank_reconciliation.py \
