@@ -89,12 +89,15 @@ A prova operacional do F6-D foi concluída em runtime comercial de staging, Post
 - evidência pós-browser no mesmo PostgreSQL: `pedidos_v1 = 2` e `pagamentos_v1 = 2`;
 - gate de Administração Fase 5 e demais regressões transversais também verdes no SHA de fechamento.
 
-### F6-E — Canary Readiness / Reconciliation / Rollback
-- métricas por modo/terminal;
-- reconciliação sem autocorreção destrutiva;
-- rollback por configuração para LEGACY;
+### F6-E — Canary Readiness / Reconciliation / Rollback — EM VALIDAÇÃO
+- métricas por modo/terminal: telemetria estruturada para todos os modos + read model persistente de shadow/canary;
+- reconciliação sem autocorreção destrutiva: read model estritamente somente leitura;
+- rollback por configuração para LEGACY, preservando dados canônicos;
 - runbook de ampliação/redução de coorte;
-- evidência de concorrência e retry.
+- CLI operacional somente leitura com recomendação conservadora;
+- evidência de concorrência e retry;
+- nenhuma migration nova e nenhuma nova autoridade operacional;
+- implementação candidata parte de main@9e80138cb398ec69d7ee67e3687b801cc394594d; fechamento depende do gate dedicado, F6-D e matriz transversal no mesmo SHA.
 
 ### F6-F — Fechamento
 - matriz transversal verde;

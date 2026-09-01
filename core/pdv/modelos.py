@@ -68,6 +68,12 @@ class EntradaPDV:
     def __post_init__(self) -> None:
         if self.quantidade <= 0 or not self.checkout_id.strip():
             raise ValueError("entrada_pdv_invalida")
+        if (
+            not self.terminal_id.strip()
+            or self.terminal_id != self.terminal_id.strip()
+            or ":" in self.terminal_id
+        ):
+            raise ValueError("terminal_pdv_invalido")
         if self.desconto_cashback.valor < 0:
             raise ValueError("cashback_invalido")
 
