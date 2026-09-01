@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from application.ai_router_runtime import construir_ai_model_router
+from application.assistente_handoff_transacoes import HandoffAssistenteTransacionalV1
 from core.ai_router import CapabilityIA, ConteudoAudioIA, SolicitacaoIA
 from core.assistente_atendimento.atendimento_modelos import (
     EstadoAtendimento,
@@ -45,14 +46,12 @@ from infra.assistente_atendimento.contexto_cliente_sqlalchemy import (
 from infra.assistente_atendimento.entrega_maps import (
     CotadorEntregaAssistenteGoogleMaps,
 )
-from infra.assistente_atendimento.handoff_sqlalchemy import (
-    HandoffAssistenteAuditSQLAlchemy,
-)
 from infra.crm.enderecos_sqlalchemy import EncryptedSQLAlchemyAddressStore
 from infra.gerente_ia.modelos_orm import DisponibilidadeProdutoORM
 from infra.legacy_product_scope import listar_produtos_legados
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
+from infra.transacoes.uow import UnitOfWorkV1
 
 SessionFactory = Callable[[], Session]
 
@@ -303,7 +302,7 @@ class ResultadoRuntimeAssistente:
 class RuntimeAssistenteAtendimentoV1:
     def __init__(self, session_factory: SessionFactory) -> None:
         self._session_factory = session_factory
-        self._handoff = HandoffAssistenteAuditSQLAlchemy(session_factory)
+        self._handoff = HandoffAssistenteTransacionalV1(session_factory)
         self._checkout = CheckoutAssistenteV1(session_factory=session_factory)
 
     def _servico(self) -> ServicoAssistenteAtendimento:
@@ -346,6 +345,7 @@ class RuntimeAssistenteAtendimentoV1:
         entrada: EntradaAtendimento,
     ) -> ResultadoRuntimeAssistente:
         db = self._session_factory()
+        uow = UnitOfWorkV1.adotar_session(db)
         try:
             clientes = ClientesAtendimentoSQLAlchemy(db)
             cliente = clientes.identificar_por_canal(
@@ -368,7 +368,7 @@ class RuntimeAssistenteAtendimentoV1:
                     contexto=contexto,
                     customer_context=customer_context,
                 )
-                db.commit()
+                uow.commit()
 
             raw = _raw_historico_autorizado(
                 mensagem=texto_interpretacao,
@@ -548,6 +548,7 @@ class RuntimeAssistenteAtendimentoV1:
             raise RuntimeError("cliente CRM registrado sem referencia")
 
         db = self._session_factory()
+        uow = UnitOfWorkV1.adotar_session(db)
         try:
             customer_context = ContextoClienteAtendimentoSQLAlchemy(db).resolver(
                 contexto=contexto,
@@ -558,7 +559,7 @@ class RuntimeAssistenteAtendimentoV1:
                 contexto=contexto,
                 customer_context=customer_context,
             )
-            db.commit()
+            uow.commit()
         finally:
             db.close()
 
@@ -623,6 +624,7 @@ class RuntimeAssistenteAtendimentoV1:
             raise ValueError("cliente canônico obrigatório antes da cotação")
         contexto = runtime_anterior.contexto.contexto_execucao
         db = self._session_factory()
+        uow = UnitOfWorkV1.adotar_session(db)
         try:
             secret_store = EncryptedSQLAlchemySecretStore(db)
             cotacao = CotadorEntregaAssistenteGoogleMaps(
@@ -643,13 +645,13 @@ class RuntimeAssistenteAtendimentoV1:
                 latitude=Decimal(str(cotacao.latitude)),
                 longitude=Decimal(str(cotacao.longitude)),
             )
-            db.commit()
+            uow.commit()
             customer_context = ContextoClienteAtendimentoSQLAlchemy(db).resolver(
                 contexto=contexto,
                 cliente_ref=cliente_ref,
             )
         except Exception:
-            db.rollback()
+            uow.rollback()
             raise
         finally:
             db.close()
