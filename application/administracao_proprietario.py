@@ -489,7 +489,6 @@ class AplicacaoAdministracaoProprietarioV1:
             _exigir(contexto, Permissao.PERMISSAO_GERENCIAR)
         unidades = frozenset(str(item).strip() for item in unidades_permitidas)
         with self._session_factory() as session:
-            admin_repo = RepositorioAdministracaoSQLAlchemy(session)
             validas = {
                 unidade.unidade_id
                 for unidade in self._unidades_administraveis(
@@ -546,11 +545,11 @@ class AplicacaoAdministracaoProprietarioV1:
         papeis_set = frozenset(papeis)
         unidades = frozenset(str(item).strip() for item in unidades_permitidas)
         with self._session_factory() as session:
-            admin_repo = RepositorioAdministracaoSQLAlchemy(session)
             validas = {
                 unidade.unidade_id
-                for unidade in admin_repo.listar_unidades(
-                    tenant_id=contexto.tenant_id,
+                for unidade in self._unidades_administraveis(
+                    session=session,
+                    contexto=contexto,
                     incluir_inativas=True,
                 )
             }
