@@ -11,6 +11,7 @@ import hashlib
 import json
 from dataclasses import replace
 from decimal import Decimal, InvalidOperation
+from typing import Any, cast
 
 from sqlalchemy.orm import Session
 
@@ -101,7 +102,7 @@ def _ancorar_saldo_legado(
     recursos: RecursosTransacionaisV1,
     insumo: object,
 ) -> tuple[str, str]:
-    insumo_legado_id = int(getattr(insumo, "id"))
+    insumo_legado_id = int(cast(Any, insumo).id)
     insumo_id = f"legacy:insumo:{insumo_legado_id}"
     unidade = _unidade_medida(insumo)
     esperado = _saldo_legado(getattr(insumo, "saldo_atual", None))
