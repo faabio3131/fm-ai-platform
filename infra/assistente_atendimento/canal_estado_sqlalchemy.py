@@ -96,7 +96,7 @@ class EncryptedSQLAlchemyChannelStateStore:
         except json.JSONDecodeError as exc:
             raise LookupError("estado_canal_invalido") from exc
         if not isinstance(payload, dict):
-            raise LookupError("estado_canal_invalido")
+            raise TypeError("estado_canal_invalido")
         return payload
 
     def obter(
