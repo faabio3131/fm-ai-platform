@@ -306,7 +306,7 @@ def test_projecao_legada_so_replica_consumo_canonico_no_mesmo_escopo() -> None:
         unidade_id=UNIDADE,
         insumo_id="legacy:insumo:11",
         tipo_movimento=TipoMovimento.CONSUMO,
-        quantidade=Decimal("2"),
+        quantidade=Decimal(2),
         unidade_medida="un",
         origem_tipo="pedido",
         origem_id=PEDIDO,
@@ -331,4 +331,4 @@ def test_projecao_legada_so_replica_consumo_canonico_no_mesmo_escopo() -> None:
         saldo = connection.scalar(
             text("SELECT saldo_atual FROM insumos WHERE id = 11")
         )
-        assert Decimal(str(saldo)) == Decimal("8")
+        assert Decimal(str(saldo)) == Decimal(8)
