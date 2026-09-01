@@ -13,7 +13,7 @@ from core.integracoes import (
     ErroConfiguracaoServico,
     ServicoConfiguracoesExternas,
 )
-from core.integracoes.provedores import RespostaProvedor
+from core.integracoes.provedores import RespostaBinariaProvedor, RespostaProvedor
 from core.seguranca.auditoria import RepositorioAuditoriaEmMemoria
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import Papel, Permissao
@@ -100,6 +100,20 @@ def _configurar_whatsapp(
         )
 
 
+class HTTPMidiaWhatsAppCaptura:
+    def __init__(self, *, conteudo: bytes = b"ogg-audio") -> None:
+        self.conteudo = conteudo
+        self.chamadas: list[dict] = []
+
+    def get(self, **kwargs):
+        self.chamadas.append(kwargs)
+        return RespostaBinariaProvedor(
+            status_code=200,
+            content=self.conteudo,
+            content_type="audio/ogg",
+        )
+
+
 class HTTPWhatsAppCaptura:
     def __init__(self) -> None:
         self.chamadas: list[dict] = []
@@ -173,6 +187,88 @@ def test_whatsapp_control_plane_envia_e_valida_webhook_com_credenciais_do_escopo
             verify_token="verify-loja-1",
             challenge="challenge-123",
         ) == "challenge-123"
+
+
+def test_whatsapp_control_plane_extrai_texto_e_audio_e_baixa_midia_autenticada() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    SecurityBase.metadata.create_all(engine)
+    IntegrationConfigBase.metadata.create_all(engine)
+    store = ReferenceSecretStore(
+        mapping={
+            "wa-token": "token-loja-1",
+            "wa-secret": "app-secret-loja-1",
+            "wa-verify": "verify-loja-1",
+        }
+    )
+    contexto = _contexto()
+
+    with Session(engine) as session:
+        _configurar_whatsapp(
+            session=session,
+            store=store,
+            contexto=contexto,
+            homologar=True,
+        )
+        http = HTTPWhatsAppCaptura()
+        midia = HTTPMidiaWhatsAppCaptura()
+        adapter = FabricaAdaptersExternos(
+            session=session,
+            secret_store=store,
+        ).meta(
+            contexto=contexto,
+            configuracao_id="mensageria.whatsapp--meta",
+            http=http,
+            media_http=midia,
+        )
+
+        payload = (
+            b'{"object":"whatsapp_business_account","entry":[{"id":"waba-1",'
+            b'"changes":[{"field":"messages","value":{"messages":['
+            b'{"from":"5511999999999","id":"wamid-text-1","timestamp":"1",'
+            b'"type":"text","text":{"body":"Quero um produto"}},'
+            b'{"from":"5511999999999","id":"wamid-audio-1","timestamp":"2",'
+            b'"type":"audio","audio":{"id":"media-1","mime_type":"audio/ogg"}}'
+            b']}}]}]}'
+        )
+        assinatura = "sha256=" + hmac.new(
+            b"app-secret-loja-1", payload, hashlib.sha256
+        ).hexdigest()
+
+        mensagens = adapter.extrair_mensagens_whatsapp(
+            payload_bruto=payload,
+            assinatura=assinatura,
+        )
+        assert [mensagem.mensagem_id for mensagem in mensagens] == [
+            "wamid-text-1",
+            "wamid-audio-1",
+        ]
+        assert mensagens[0].texto == "Quero um produto"
+        assert mensagens[1].media_id == "media-1"
+
+        http.chamadas.clear()
+        http.chamadas.append({})
+        original_request = http.request
+
+        def request_metadata(**kwargs):
+            if kwargs["method"] == "GET":
+                return RespostaProvedor(
+                    status_code=200,
+                    payload={
+                        "url": "https://lookaside.example/media-1",
+                        "mime_type": "audio/ogg",
+                        "file_size": 9,
+                    },
+                )
+            return original_request(**kwargs)
+
+        http.request = request_metadata
+        audio, mime_type = adapter.baixar_audio_whatsapp(
+            media_id="media-1",
+            mime_type_declarado="audio/ogg",
+        )
+        assert audio == b"ogg-audio"
+        assert mime_type == "audio/ogg"
+        assert midia.chamadas[0]["headers"]["Authorization"] == "Bearer token-loja-1"
 
 
 def test_whatsapp_control_plane_falha_fechado_sem_homologacao() -> None:
