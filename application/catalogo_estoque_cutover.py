@@ -235,6 +235,33 @@ def preparar_snapshot_ficha_estoque_v1(
     )
 
 
+def executar_checkout_com_ficha_estoque_em_transacao(
+    *,
+    comando: ComandoCheckoutV1,
+    contexto: ContextoExecucao,
+    recursos: RecursosTransacionaisV1,
+) -> ResultadoCheckoutV1:
+    """Captura ficha + reserva usando a UoW já pertencente ao chamador."""
+
+    if comando.snapshot_estoque is not None:
+        raise ErroCatalogoEstoqueCutover(
+            "snapshot_estoque_preexistente_nao_permitido_no_cutover"
+        )
+
+    snapshot = preparar_snapshot_ficha_estoque_v1(
+        session=recursos.session,
+        contexto=contexto,
+        pedido=comando.pedido,
+        recursos=recursos,
+    )
+    efetivo = replace(comando, snapshot_estoque=snapshot)
+    return executar_checkout_em_transacao(
+        comando=efetivo,
+        contexto=contexto,
+        recursos=recursos,
+    )
+
+
 def executar_checkout_com_ficha_estoque_v1(
     *,
     comando: ComandoCheckoutV1,
@@ -243,23 +270,9 @@ def executar_checkout_com_ficha_estoque_v1(
 ) -> ResultadoCheckoutV1:
     """Executa captura da ficha, bootstrap controlado e checkout em uma UoW."""
 
-    if comando.snapshot_estoque is not None:
-        raise ErroCatalogoEstoqueCutover(
-            "snapshot_estoque_preexistente_nao_permitido_no_cutover"
-        )
-
     with UnitOfWorkV1(session_factory) as uow:
-        if uow.session is None:
-            raise RuntimeError("uow_sem_session")
-        snapshot = preparar_snapshot_ficha_estoque_v1(
-            session=uow.session,
-            contexto=contexto,
-            pedido=comando.pedido,
-            recursos=uow.recursos,
-        )
-        efetivo = replace(comando, snapshot_estoque=snapshot)
-        resultado = executar_checkout_em_transacao(
-            comando=efetivo,
+        resultado = executar_checkout_com_ficha_estoque_em_transacao(
+            comando=comando,
             contexto=contexto,
             recursos=uow.recursos,
         )
