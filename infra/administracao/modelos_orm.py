@@ -94,7 +94,7 @@ class ConfiguracaoEstabelecimentoORM(AdminBase):
     unidade_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     formas_pagamento: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     taxa_servico_percentual: Mapped[Decimal] = mapped_column(
-        Numeric(7, 4), nullable=False, default=Decimal("0")
+        Numeric(7, 4), nullable=False, default=Decimal(0)
     )
     parametros_operacionais: Mapped[dict] = mapped_column(
         JSON, nullable=False, default=dict
