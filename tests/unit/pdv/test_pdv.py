@@ -9,11 +9,13 @@ from core.pagamentos.flags import FlagsPagamentosV1
 from core.pdv.configuracao import carregar_rollout_ambiente
 from core.pdv.contexto import contexto_caixa_pdv_autenticado
 from core.pdv.modelos import (
+    EntradaPDV,
     dinheiro_legado,
     id_cliente_legado,
     id_produto_legado,
     mapear_metodo,
 )
+from core.pdv.executor_canonico import ExecutorAutoritativoCanonicoSQLAlchemy
 from core.pdv.roteamento import (
     ConfiguracaoRolloutInvalida,
     ModoPDV,
@@ -266,6 +268,28 @@ def test_loader_canary_comercial_usa_escopo_do_runtime_e_flags_canonicas(
     assert config.flags.payments.sales_from_orders_enabled
     assert config.flags.payments.legacy_sale_adapter_enabled
     assert config.flags.stock_ledger_authoritative
+
+
+def test_executor_canonico_bloqueia_pix_sandbox_sem_autorizacao_explicita() -> None:
+    entrada = EntradaPDV(
+        produto_id=1,
+        produto_nome="Produto",
+        quantidade=1,
+        preco_unitario=Dinheiro(Decimal("10.00")),
+        custo_total=Dinheiro(Decimal("4.00")),
+        forma_pagamento="Pix (Gerar QR Code Instantâneo)",
+        terminal_id="cx",
+        checkout_id="checkout-pix-sandbox",
+        pix_sandbox=True,
+    )
+    executor = ExecutorAutoritativoCanonicoSQLAlchemy(
+        session=object(),
+        contexto=contexto(),
+        legado=object(),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(RuntimeError, match="pix_sandbox_nao_autorizado"):
+        executor.executar(entrada)
 
 
 def test_loader_canary_exige_ambiente_explicito(monkeypatch) -> None:

@@ -11,7 +11,6 @@ from application.order_result_orchestrator import (
 )
 from core.dominio.dinheiro import Dinheiro
 from core.dominio.enums import PagamentoStatus
-from core.pagamentos.adapters import ProvedorPagamentoFake
 from core.pagamentos.modelos import MetodoPagamento
 from core.pagamentos.servicos import confirmar_pagamento, processar_webhook
 from core.seguranca.contexto import ContextoExecucao
@@ -44,11 +43,13 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
         contexto: ContextoExecucao,
         legado: LegacyPDVSQLAlchemyAdapter,
         fault: FaultInjector | None = None,
+        permitir_pix_sandbox: bool = False,
     ) -> None:
         self.session = session
         self.contexto = contexto
         self.legado = legado
         self.fault = fault or (lambda _ponto: None)
+        self.permitir_pix_sandbox = permitir_pix_sandbox
 
     def _registrar_pendente(
         self,
@@ -97,6 +98,8 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
         )
 
     def executar(self, entrada: EntradaPDV) -> ResultadoPDV:
+        if entrada.pix_sandbox and not self.permitir_pix_sandbox:
+            raise RuntimeError("pix_sandbox_nao_autorizado")
         instante = datetime.now(timezone.utc)
         pdv = RepositorioPDVSQLAlchemy(self.session)
         recursos = RecursosTransacionaisV1(self.session)
@@ -153,6 +156,8 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
                 referencia_externa=f"operacional:{self.contexto.usuario_id}",
             )
         elif metodo is MetodoPagamento.PIX and entrada.pix_sandbox:
+            from core.pagamentos.adapters import ProvedorPagamentoFake
+
             webhook = ProvedorPagamentoFake().normalizar_webhook(
                 {
                     "evento_externo": f"sandbox:{entrada.checkout_id}",

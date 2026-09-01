@@ -2218,6 +2218,7 @@ with aba3:
                         session=db_exec_venda,
                         contexto=contexto_pdv,
                         legado=legado_pdv,
+                        permitir_pix_sandbox=is_test_mode(),
                     )
                     if modo_resolvido is ModoPDV.AUTHORITATIVE_CANARY
                     else None
