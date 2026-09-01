@@ -62,7 +62,12 @@
         "infra/crm/consentimentos_sqlalchemy.py",
         "infra/crm/enderecos_sqlalchemy.py",
         "infra/delivery/politica_sqlalchemy.py",
-        "core/integracoes/google_maps.py"
+        "core/integracoes/google_maps.py",
+        "application/order_result_orchestrator.py",
+        "application/finalizacao_pagamento.py",
+        "application/pagbank_reconciliacao.py",
+        "application/kds_runtime_core.py",
+        "application/legacy_stock_projection.py"
       ],
       "code_blockers": [],
       "external_blockers": [
@@ -70,7 +75,7 @@
         "migration_0034_not_applied_in_current_homologation_db"
       ],
       "evidence": {
-        "sha": "baeae30daf3733ee5653bde6d7ad924d7a95d40f",
+        "sha": "1f3277d699e8f000e9d1922d519d7745b8b49560",
         "commercial_runtime_e2e": null,
         "physical_test": null
       }
