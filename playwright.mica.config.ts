@@ -9,7 +9,7 @@ process.env.FM_AI_TEST_RESET_ON_START = '1';
 process.env.FM_AI_TEST_TMPDIR = testTmpDir;
 process.env.FM_AI_TEST_KEEP_TMP = '1';
 process.env.FM_AI_E2E_PORT = String(e2ePort);
-process.env.FM_AI_MICA_V1 = '1';
+process.env.FM_AI_ASSISTENTE_ATENDIMENTO_V1 = '1';
 
 export default defineConfig({
   testDir: './tests/e2e-mica',

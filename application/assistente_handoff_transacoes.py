@@ -7,7 +7,9 @@ from collections.abc import Callable
 from sqlalchemy.orm import Session
 
 from core.seguranca.contexto import ContextoExecucao
-from infra.assistente_atendimento.handoff_sqlalchemy import HandoffAssistenteAuditSQLAlchemy
+from infra.assistente_atendimento.handoff_sqlalchemy import (
+    HandoffAssistenteAuditSQLAlchemy,
+)
 from infra.transacoes.uow import UnitOfWorkV1
 
 

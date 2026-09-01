@@ -11,6 +11,7 @@ from application.checkout import CheckoutInvalido, ComandoCheckoutV1
 from core.assistente_atendimento.atendimento_modelos import (
     CarrinhoAtendimento,
     ItemCarrinhoAtendimento,
+    ModalidadePedidoAtendimento,
 )
 from core.assistente_atendimento.checkout_adapter import CheckoutAssistenteV1
 from core.dominio.dinheiro import Dinheiro
@@ -575,6 +576,7 @@ def test_af09_l_assistant_real_caller_reaches_governed_checkout() -> None:
             ),
         ),
         fingerprint="fingerprint-af09",
+        modalidade=ModalidadePedidoAtendimento.RETIRADA,
     )
 
     resultado = adapter.executar(

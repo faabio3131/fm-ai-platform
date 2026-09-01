@@ -80,10 +80,10 @@ test('Dashboard usa total da venda e Assistente de Atendimento permanece fail-cl
   expect(afterRevenue - beforeRevenue).toBeLessThan(100);
 
   await openTab(page, 'Assistente de Atendimento');
-  await expect(page.getByRole('heading', { name: /Atendimento seguro V1$/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Funcionário Digital V1$/ })).toBeVisible();
   await expect(
     page.getByText(
-      /O Assistente de Atendimento está desativado neste ambiente.*fluxo legado de venda automática foi removido por segurança/,
+      /Assistente de Atendimento está em rollout controlado.*Nenhum fluxo legado\/fake é executado/,
     ),
   ).toBeVisible();
   await expect(page.getByRole('button', { name: /Processar Pedido/ })).toHaveCount(0);

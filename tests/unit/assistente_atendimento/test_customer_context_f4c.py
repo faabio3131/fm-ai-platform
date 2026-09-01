@@ -314,28 +314,32 @@ def test_endereco_salvo_exige_mesmo_cliente_tenant_e_unidade() -> None:
 
 def test_handoff_persistido_recupera_so_contexto_allowlisted_no_mesmo_escopo() -> None:
     _engine, factory = _factory()
-    handoff = HandoffAssistenteAuditSQLAlchemy(factory)
     contexto = _contexto()
 
-    handoff.registrar(
-        contexto=contexto,
-        conversa_id="conv-handoff-1",
-        motivo="produto_nao_resolvido_exatamente",
-        metadata_segura={
-            "cliente_ref": CLIENTE,
-            "cliente_tipo": "conhecido",
-            "historico_count": 2,
-            "itens_solicitados": 1,
-            "itens_resolvidos": 0,
-            "telefone": "+5511999999999",
-            "endereco_texto": "Rua secreta, 10",
-        },
-    )
+    with factory() as session:
+        handoff = HandoffAssistenteAuditSQLAlchemy(session)
+        handoff.registrar(
+            contexto=contexto,
+            conversa_id="conv-handoff-1",
+            motivo="produto_nao_resolvido_exatamente",
+            metadata_segura={
+                "cliente_ref": CLIENTE,
+                "cliente_tipo": "conhecido",
+                "historico_count": 2,
+                "itens_solicitados": 1,
+                "itens_resolvidos": 0,
+                "telefone": "+5511999999999",
+                "endereco_texto": "Rua secreta, 10",
+            },
+        )
+        session.commit()
 
-    recuperado = handoff.ultimo_contexto(
-        contexto=contexto,
-        conversa_id="conv-handoff-1",
-    )
+    with factory() as session:
+        handoff = HandoffAssistenteAuditSQLAlchemy(session)
+        recuperado = handoff.ultimo_contexto(
+            contexto=contexto,
+            conversa_id="conv-handoff-1",
+        )
     assert recuperado is not None
     assert recuperado["cliente_ref"] == CLIENTE
     assert recuperado["historico_count"] == 2
@@ -345,10 +349,10 @@ def test_handoff_persistido_recupera_so_contexto_allowlisted_no_mesmo_escopo() -
     assert "+5511999999999" not in repr(recuperado)
     assert "Rua secreta" not in repr(recuperado)
 
-    assert (
-        handoff.ultimo_contexto(
-            contexto=_contexto(tenant="tenant-b", unidade="unidade-b"),
-            conversa_id="conv-handoff-1",
+        assert (
+            handoff.ultimo_contexto(
+                contexto=_contexto(tenant="tenant-b", unidade="unidade-b"),
+                conversa_id="conv-handoff-1",
+            )
+            is None
         )
-        is None
-    )

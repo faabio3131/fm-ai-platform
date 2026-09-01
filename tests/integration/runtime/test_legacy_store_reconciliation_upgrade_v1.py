@@ -30,6 +30,10 @@ _V0029 = "0029_internal_notification_recipients_v1"
 _V0030 = "0030_migration_history_integrity_v1"
 _V0031 = "0031_ai_usage_metering_v1"
 _V0032 = "0032_ai_finops_read_model_v1"
+_V0033 = "0033_delivery_policy_v1"
+_V0034 = "0034_crm_customer_context_v1"
+_V0035 = "0035_assistente_channel_runtime_v1"
+_V0036 = "0036_administracao_proprietario_v1"
 _TENANT = "tenant-reconciliado"
 _UNIDADE = "unidade-reconciliada"
 _LOJA = 71
@@ -220,6 +224,10 @@ def test_reconciliacao_cria_loja_mapping_atomicamente_e_retomada_chega_a_0028(
         _V0030,
         _V0031,
         _V0032,
+        _V0033,
+        _V0034,
+        _V0035,
+        _V0036,
     )
     assert run_migrations(engine) == ()
 

@@ -326,7 +326,6 @@ def test_af01_h_tampered_ui_scope_is_rejected_and_session_is_discarded(
         lambda *args, **kwargs: False,
     )
     monkeypatch.setattr(auth_ui.st, "stop", stop)
-    monkeypatch.setattr(auth_ui, "_render_login_autofill_guard", lambda: None)
 
     with pytest.raises(CredenciaisInvalidas, match="credenciais invalidas"):
         identity.no_escopo_ativo(

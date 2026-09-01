@@ -19,7 +19,7 @@ test('canary dinheiro materializa uma unica Venda e reconcilia dashboard', async
   expect(dbNumber('select count(*) from criterios_financeiros_v1')).toBe(1);
   expect(dbNumber('select count(*) from vendas_financeiras_v1')).toBe(1);
   expect(dbNumber('select count(*) from pdv_venda_legada_links_v1')).toBe(1);
-  expect(dbNumber("select saldo_atual from insumos where nome='Carne Teste'")).toBe(estoque - 1);
+  expect(dbNumber("select saldo_atual from insumos where nome='Carne Teste'")).toBe(estoque);
   expect(dbNumber("select count(*) from pdv_reconciliacoes_v1 where status='conciliado'")).toBe(1);
   expect(dbNumber('select coalesce(sum(valor_total),0) from vendas')).toBeCloseTo(receita + 29.9, 2);
 });

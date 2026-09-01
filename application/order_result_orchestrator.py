@@ -159,7 +159,22 @@ def orquestrar_resultado_pagamento_em_transacao(
         PedidoId(pagamento.pedido_id),
     )
     if pedido is None:
-        raise OrquestracaoResultadoInvalida("pagamento_sem_pedido_canonico")
+        # Pagamentos legados podem existir sem Pedido canônico. Uma liquidação
+        # financeira autenticada não deve ser revertida por essa ausência:
+        # a orquestração de Pedido/Venda simplesmente não é aplicável e a
+        # reconciliação permanece explícita para o fluxo legado.
+        return ResultadoOrquestracaoPedido(
+            aplicavel=False,
+            finalizado=False,
+            idempotente=True,
+            pedido_id=None,
+            pagamento_id=pagamento.id,
+            pedido_status=None,
+            pagamento_status=pagamento.status,
+            venda_financeira_id=None,
+            reserva_status=None,
+            producao_status=(),
+        )
     if pagamento.pedido_id != str(pedido.id):
         raise OrquestracaoResultadoInvalida("pagamento_pedido_divergente")
 
