@@ -71,11 +71,18 @@ jobs:
           node-version: '22'
           cache: npm
 
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+          npm ci
+
       - name: Provar ausência do harness de teste
         run: |
           test -z "${FM_AI_TEST_MODE:-}"
           python - <<'PY'
-          from core.runtime.config import load_runtime_settings, RuntimeEnvironment
+          from core.runtime.config import RuntimeEnvironment, load_runtime_settings
           from core.pdv.configuracao import carregar_rollout_ambiente
           from core.pdv.roteamento import ModoPDV
 
@@ -88,23 +95,16 @@ jobs:
           print("runtime staging/canary governado OK")
           PY
 
-      - name: Instalar dependências
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest ruff==0.16.1 mypy==1.20.2
-          npm ci
-
       - name: Compile e lint F6-D
         run: |
-          python -m compileall -q             core/pdv core/runtime core/seguranca infra/seguranca             infra/streamlit_app/auth_ui.py             scripts/seed_f6d_commercial_runtime.py
+          python -m compileall -q             core/pdv             core/runtime             core/seguranca             infra/seguranca             infra/streamlit_app/auth_ui.py             scripts/seed_f6d_commercial_runtime.py
           ruff check             scripts/seed_f6d_commercial_runtime.py             core/pdv/configuracao.py             core/pdv/contexto.py             infra/streamlit_app/auth_ui.py
 
       - name: Preparar PostgreSQL comercial efêmero
         run: |
           test -z "${FM_AI_TEST_MODE:-}"
           python scripts/seed_f6d_commercial_runtime.py
-          python -m scripts.migrate_v1 --check
+          python -m scripts.migrate_v1
 
       - name: Regressões de rollout, auth e PDV
         run: |
@@ -128,10 +128,16 @@ jobs:
           engine = create_engine(os.environ["DATABASE_URL"], future=True)
           with engine.connect() as connection:
               pedidos = connection.execute(
-                  text("select count(*) from pedidos where tenant_id='tenant-f6d' and unidade_id='unidade-f6d'")
+                  text(
+                      "select count(*) from pedidos_v1 "
+                      "where tenant_id='tenant-f6d' and unidade_id='unidade-f6d'"
+                  )
               ).scalar_one()
               pagamentos = connection.execute(
-                  text("select count(*) from pagamentos where tenant_id='tenant-f6d' and unidade_id='unidade-f6d'")
+                  text(
+                      "select count(*) from pagamentos_v1 "
+                      "where tenant_id='tenant-f6d' and unidade_id='unidade-f6d'"
+                  )
               ).scalar_one()
               print({"pedidos": int(pedidos), "pagamentos": int(pagamentos)})
           PY
