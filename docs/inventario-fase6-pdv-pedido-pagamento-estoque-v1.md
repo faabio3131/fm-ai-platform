@@ -9,13 +9,16 @@
 
 - F6-A fechada em `8ce3eba882d65af78822a35dae23c97e0e8ad628`: matriz 20/20 verde e reexecução extra do PR11 E2E principal verde.
 - F6-B fechada em `c9a2a06fa68bb2404e0fd7b9dbbc058cd334af68`: gate dedicado + matriz 21/21 verdes.
-- F6-C aberta após o checkpoint F6-B, sem merge/deploy.
+- F6-C fechada em `f635495049657230391adc452d4571239b5b85b2`: gate dedicado + matriz transversal 22/22 verdes, sem falhas ou pendências.
+- F6-D aberta após o checkpoint F6-C, sem merge/deploy.
 
 ## 1. Resultado executivo
 
-A Fase 6 não começa do zero. Pedido, checkout, Pagamento/VendaFinanceira, ledger/reserva de Estoque, UoW, eventos/outbox/auditoria, reconciliação e o executor canônico do PDV já existem e possuem gates verdes na `main`.
+A Fase 6 não começa do zero. Pedido, checkout, Pagamento/VendaFinanceira, ledger/reserva de Estoque, UoW, eventos/outbox/auditoria, reconciliação e o executor canônico do PDV já existem e possuem gates verdes.
 
-O gap principal é operacional: o loader atual do PDV força `LEGACY` fora de `FM_AI_TEST_MODE=1`. Portanto o caminho canônico existe, está ligado à UI pelo alias `ExecutorAutoritativoSQLAlchemy -> ExecutorAutoritativoCanonicoSQLAlchemy`, mas não pode ser promovido por configuração normal de staging/produção.
+F6-A removeu o bloqueio estrutural que impedia promoção governada fora do harness de teste. O canary comercial agora depende de autorização server-side, Active Execution Scope e terminal allowlisted. F6-B removeu o fallback econômico legado de total zero. F6-C conteve o adapter legado como projeção/ponte de catálogo, sem autoridade de baixa de estoque no caminho canônico.
+
+O gap atual é operacional: provar o caminho completo em runtime comercial de staging, PostgreSQL e navegador real, sem `FM_AI_TEST_MODE`.
 
 ## 2. Current → Target
 
@@ -26,14 +29,14 @@ O gap principal é operacional: o loader atual do PDV força `LEGACY` fora de `F
 | Pagamento | obrigação, confirmação, webhook, reconciliação e VendaFinanceira | autoridade financeira do PDV | preservar/compor |
 | Estoque | ledger + reserva canônicos; consumo pertence ao início da produção | retirar autoridade econômica do checkout legado | preservar/completar cutover |
 | PDV | executor canônico já é o executor público do canary | permitir canary comercial governado | F6-A |
-| Rollout | canary somente em `FM_AI_TEST_MODE=1` | staging/produção explicitamente allowlisted e fail-closed | F6-A |
-| Terminal | `app.py` ainda deriva terminal de `FM_AI_TEST_TERMINAL`/default | identidade de terminal server-side comercial | F6-A |
-| Venda legada | projeção de compatibilidade ainda necessária para telas/relatórios antigos | borda de compatibilidade, nunca autoridade do novo domínio | F6-B/F6-C |
-| Total zero | `finalizar_venda_pdv` ainda faz fallback explícito para legado | eliminar fallback econômico legado | F6-B |
-| Pix | Control Plane seguro já cria/consulta cobrança; provedores externos dependem de homologação | manter fail-closed por provider sem bloquear dinheiro/cartão | F6-D/F6-E |
-| UI | `app.py` já instancia o executor canônico quando o modo resolve canary | mesma UI, sem toggle de autoridade pelo operador | preservar |
-| Banco | runtime comercial exige migrations e `assert_schema_current`; não cria schema silencioso | mesma regra | preservar |
-| E2E | canary browser em modo de teste já verde | provar staging/commercial runtime sem harness de autoridade | F6-D |
+| Rollout | canary comercial server-side allowlisted | prova E2E sem harness de teste | F6-D |
+| Terminal | identidade server-side por `FM_AI_PDV_TERMINAL_ID` + allowlist | manter fail-closed | preservar |
+| Venda legada | projeção compatível sem execução/baixa de estoque no caminho canônico | borda de compatibilidade, nunca autoridade | F6-C |
+| Total zero | contrato canônico sem fallback econômico legado | manter idempotência/rollback | preservar |
+| Pix | Control Plane seguro; provider externo depende de homologação | manter fail-closed por provider sem bloquear dinheiro/cartão | F6-D/F6-E |
+| UI | `app.py` instancia executor canônico quando o modo resolve canary | mesma UI, sem toggle de autoridade pelo operador | preservar |
+| Banco | runtime comercial exige migrations e `assert_schema_current`; não cria schema silencioso | prova PostgreSQL real | F6-D |
+| E2E | canary browser em modo de teste já verde | staging/commercial runtime sem harness de autoridade | F6-D |
 
 ## 3. Fatos que não devem ser reabertos
 
@@ -61,19 +64,24 @@ O gap principal é operacional: o loader atual do PDV força `LEGACY` fora de `F
 - fechar contrato canônico para pedido de valor zero;
 - provar idempotência/rollback sem criar obrigação fictícia.
 
-### F6-C — Legacy Projection Containment — CANDIDATA EM VALIDAÇÃO
+### F6-C — Legacy Projection Containment — FECHADA
 - classificar `LegacyPDVSQLAlchemyAdapter` somente como projeção/ponte de catálogo;
 - eliminar qualquer baixa de estoque legada do caminho canônico;
-- garantir que cashback/projeções compatíveis sejam efeitos idempotentes e não autoridade financeira.
+- garantir que cashback/projeções compatíveis sejam efeitos idempotentes e não autoridade financeira;
+- matriz transversal 22/22 verde no SHA de fechamento.
 
-### F6-D — Commercial Runtime E2E
-- PostgreSQL;
-- `FM_AI_ENV=staging` ou produção controlada, sem `FM_AI_TEST_MODE`;
-- autenticação/RBAC reais;
-- caixa allowlisted;
-- jornada dinheiro/cartão;
-- Pix sem provider homologado permanece bloqueado/fail-closed;
-- navegador físico automatizado no mesmo SHA.
+### F6-D — Commercial Runtime E2E — EM VALIDAÇÃO
+- PostgreSQL 16 efêmero no gate;
+- `FM_AI_ENV=staging`, sem `FM_AI_TEST_MODE`;
+- migrations oficiais + `assert_schema_current`;
+- autenticação/RBAC reais com usuário CAIXA persistido;
+- terminal `caixa-f6d` allowlisted server-side;
+- jornada dinheiro;
+- jornada cartão presencial;
+- Pix sem provider homologado bloqueado/fail-closed;
+- Playwright comercial separado do harness E2E de teste;
+- evidência pós-browser nas tabelas canônicas do mesmo PostgreSQL;
+- workflow dedicado `Fase 6D Commercial Runtime E2E Gate`.
 
 ### F6-E — Canary Readiness / Reconciliation / Rollback
 - métricas por modo/terminal;
