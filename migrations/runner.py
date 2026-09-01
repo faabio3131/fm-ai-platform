@@ -48,6 +48,9 @@ from migrations.admin_access_authorization_v1 import (
     upgrade_admin_access_authorization_v1,
 )
 from migrations.admin_pin_v1 import upgrade_admin_pin_v1
+from migrations.assistente_channel_runtime_v1 import (
+    upgrade_assistente_channel_runtime_v1,
+)
 from migrations.ai_finops_read_model_v1 import (
     revert_ai_finops_read_model_v1,
     upgrade_ai_finops_read_model_v1,
@@ -251,6 +254,10 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     ),
     Migration("0033_delivery_policy_v1", upgrade_delivery_policy_v1),
     Migration("0034_crm_customer_context_v1", upgrade_crm_customer_context_v1),
+    Migration(
+        "0035_assistente_channel_runtime_v1",
+        upgrade_assistente_channel_runtime_v1,
+    ),
 )
 
 
