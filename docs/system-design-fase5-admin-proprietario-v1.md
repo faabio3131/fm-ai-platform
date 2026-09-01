@@ -1,6 +1,6 @@
 # Fase 5 — System Design — Administração / Proprietário V1
 
-Status: APROVADO PARA IMPLEMENTAÇÃO na branch de trabalho da Fase 5.
+Status: IMPLEMENTADO E VALIDADO INTERNAMENTE no SHA `b97c1681feecfbce8823a6ac414729e048ac6fba` — Administracao Fase 5 Gate V1 run 25 verde. Merge/deploy não executados.
 
 ## 1. Objetivo
 
@@ -122,3 +122,33 @@ Aprovação exige:
 - administração comercial normal sem código/`.env`.
 
 Merge/deploy continuam fora do escopo deste gate.
+
+
+## 9. Resultado de implementação e gate
+
+O desenho acima foi implementado sem criar autoridades paralelas. O candidato
+técnico `b97c1681feecfbce8823a6ac414729e048ac6fba` foi validado pelo workflow
+`Administracao Fase 5 Gate V1`, run 25 (`33466768101`).
+
+Evidência final:
+- compile: PASS;
+- Ruff: PASS;
+- migration 0036 em PostgreSQL 16 real: PASS;
+- CRUD, isolamento tenant/unidade, concorrência, auditoria, usuários e RBAC: PASS;
+- regressão do Control Plane de integrações: PASS;
+- Chromium/Playwright sem `FM_AI_TEST_MODE`, com login real, PIN individual,
+  alteração da empresa pela UI e negativa de acesso para Caixa: PASS;
+- nenhum blocker interno conhecido permanece aberto.
+
+O defeito residual do primeiro gate físico era a tentativa da própria página
+administrativa de renderizar um `st.page_link` para si mesma quando o Streamlit
+era iniciado diretamente nessa entrada. A correção tornou o link administrativo
+opcional no sidebar e o desativou somente nessa página, preservando o comportamento
+das demais telas e sem mascarar a falha por `try/except`.
+
+PagBank, Meta/WhatsApp e Mercado Pago permanecem como dependências externas dos
+respectivos provedores/Control Plane. A Administração apenas exibe e administra o
+estado canônico dessas integrações; não transforma configuração em homologação.
+
+Classificação final interna da Fase 5: **COMMERCIAL_CANDIDATE**. Merge e deploy
+continuam fora do escopo e exigem autorização separada.
