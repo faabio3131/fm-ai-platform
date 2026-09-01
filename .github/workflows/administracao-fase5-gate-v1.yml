@@ -1,0 +1,94 @@
+name: Administracao Fase 5 Gate V1
+
+on:
+  push:
+    branches:
+      - "recovery/v1-fase5-admin-proprietario"
+  pull_request:
+    branches:
+      - "main"
+    paths:
+      - "application/administracao_proprietario.py"
+      - "core/administracao/**"
+      - "infra/administracao/**"
+      - "infra/seguranca/adaptador_sqlalchemy.py"
+      - "infra/streamlit_app/admin_proprietario.py"
+      - "pages/6_Administracao_Proprietario.py"
+      - "migrations/administracao_proprietario_v1.py"
+      - "migrations/runner.py"
+      - "migrations/manifest_v1.json"
+      - "tests/unit/administracao/**"
+      - "tests/integration/administracao/**"
+      - "tests/integration/runtime/test_f5_admin_postgres_homologation.py"
+      - ".github/workflows/administracao-fase5-gate-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: administracao-fase5-gate-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fase5-gate:
+    name: Fase 5 backend + PostgreSQL + regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fm_ai_fase5
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d fm_ai_fase5"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      FM_AI_SD1D_POSTGRES_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/fm_ai_fase5
+      PYTHONPATH: .
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1
+
+      - name: Compile Phase 5 administration
+        run: |
+          python -m py_compile             application/administracao_proprietario.py             core/administracao/modelos.py             infra/administracao/modelos_orm.py             infra/administracao/repositorio_sqlalchemy.py             infra/seguranca/adaptador_sqlalchemy.py             infra/streamlit_app/admin_proprietario.py             migrations/administracao_proprietario_v1.py             pages/6_Administracao_Proprietario.py             tests/unit/administracao/test_modelos_f5.py             tests/integration/administracao/test_admin_proprietario_f5.py             tests/integration/runtime/test_f5_admin_postgres_homologation.py
+
+      - name: Ruff Phase 5 administration
+        run: |
+          ruff check             application/administracao_proprietario.py             core/administracao             infra/administracao             infra/seguranca/adaptador_sqlalchemy.py             infra/streamlit_app/admin_proprietario.py             migrations/administracao_proprietario_v1.py             migrations/runner.py             pages/6_Administracao_Proprietario.py             tests/unit/administracao             tests/integration/administracao             tests/integration/runtime/test_f5_admin_postgres_homologation.py
+
+      - name: PostgreSQL migration 0036
+        run: |
+          pytest -q tests/integration/runtime/test_f5_admin_postgres_homologation.py
+
+      - name: Phase 5 administration tests
+        run: |
+          pytest -q             tests/unit/administracao/test_modelos_f5.py             tests/integration/administracao/test_admin_proprietario_f5.py
+
+      - name: Auth RBAC regression
+        run: |
+          pytest -q             tests/unit/security/test_sensitive_admin_access_v1.py             tests/integration/security/test_admin_pin_v1.py             tests/fitness/test_auth_sensitive_entrypoints_v1.py
+
+      - name: Integration scope regression
+        run: |
+          pytest -q             tests/integration/integracoes/test_unit_isolation_control_plane_v1.py
