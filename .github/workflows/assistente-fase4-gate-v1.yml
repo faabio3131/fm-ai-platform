@@ -35,6 +35,8 @@ on:
       - "tests/integration/wave1/test_pagbank_reconciliation.py"
       - "tests/integration/wave2/test_kds_authoritative_runtime.py"
       - "tests/integration/pdv/test_canary_integrado.py"
+      - "tests/integration/pdv/test_concorrencia.py"
+      - "tests/integration/pdv/test_cutover_divergencia.py"
       - "tests/integration/pdv/test_pix_async_finalizer.py"
       - "tests/integration/pdv/test_pix_async_race.py"
       - "tests/integration/pdv/test_rollback.py"
@@ -158,6 +160,8 @@ jobs:
             tests/integration/wave1/test_pagbank_reconciliation.py \
             tests/integration/wave2/test_kds_authoritative_runtime.py \
             tests/integration/pdv/test_canary_integrado.py \
+            tests/integration/pdv/test_concorrencia.py \
+            tests/integration/pdv/test_cutover_divergencia.py \
             tests/integration/pdv/test_pix_async_finalizer.py \
             tests/integration/pdv/test_pix_async_race.py \
             tests/integration/pdv/test_rollback.py \
@@ -178,6 +182,8 @@ jobs:
             tests/integration/wave1/test_pagbank_reconciliation.py \
             tests/integration/wave2/test_kds_authoritative_runtime.py \
             tests/integration/pdv/test_canary_integrado.py \
+            tests/integration/pdv/test_concorrencia.py \
+            tests/integration/pdv/test_cutover_divergencia.py \
             tests/integration/pdv/test_pix_async_finalizer.py \
             tests/integration/pdv/test_pix_async_race.py \
             tests/integration/pdv/test_rollback.py \
