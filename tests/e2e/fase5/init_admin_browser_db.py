@@ -7,11 +7,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import Session
 
+from core.seguranca.permissoes import Papel
 from infra.administracao.repositorio_sqlalchemy import (
     RepositorioAdministracaoSQLAlchemy,
 )
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
-from core.seguranca.permissoes import Papel
 from migrations.runner import run_migrations
 
 db_path = Path(os.environ["FM_AI_F5_E2E_DB_PATH"]).resolve()
