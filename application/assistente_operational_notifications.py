@@ -12,8 +12,6 @@ from collections.abc import Callable
 from sqlalchemy.orm import Session
 
 from application.assistente_channel_runtime import RuntimeCanalWhatsAppV1
-from core.integracoes.modelos import ErroConfiguracaoServico
-from core.integracoes.provedores import ErroProvedorExterno
 from core.seguranca.contexto import ContextoExecucao
 from infra.integracoes.fabrica_adapters import FabricaAdaptersExternos
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
@@ -45,10 +43,5 @@ def notificar_status_assistente_best_effort(
             pedido_id=pedido_id,
             adapter=adapter,
         )
-    except (
-        ErroConfiguracaoServico,
-        ErroProvedorExterno,
-        LookupError,
-        RuntimeError,
-    ):
+    except Exception:  # noqa: BLE001 - notificação nunca invalida a operação canônica
         return 0
