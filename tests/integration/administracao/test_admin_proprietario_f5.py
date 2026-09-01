@@ -147,7 +147,7 @@ def test_crud_unidade_configuracao_concorrencia_e_isolamento_de_gerente() -> Non
             tenant_id="tenant-f5",
             unidade_id="filial-f5",
             formas_pagamento=("pix", "dinheiro"),
-            taxa_servico_percentual=Decimal("8"),
+            taxa_servico_percentual=Decimal(8),
             parametros_operacionais={"aceita_pagamento_na_entrega": True},
             politica_financeira={"taxa_embalagem": "3.00"},
             versao=config.versao,
@@ -252,10 +252,10 @@ def test_dashboard_consolida_apenas_fontes_canonicas_do_tenant() -> None:
                 correlation_id="corr-f5",
                 idempotency_key="pedido-f5",
                 request_hash="hash-pedido-f5",
-                subtotal=Decimal("50"),
-                descontos=Decimal("0"),
-                taxas=Decimal("0"),
-                total=Decimal("50"),
+                subtotal=Decimal(50),
+                descontos=Decimal(0),
+                taxas=Decimal(0),
+                total=Decimal(50),
             )
         )
         session.add(
@@ -265,7 +265,7 @@ def test_dashboard_consolida_apenas_fontes_canonicas_do_tenant() -> None:
                 unidade_id="matriz-f5",
                 pedido_id="pedido-f5",
                 comanda_id=None,
-                valor_previsto=Decimal("50"),
+                valor_previsto=Decimal(50),
                 moeda="BRL",
                 criado_em=AGORA,
                 versao=1,
@@ -284,10 +284,10 @@ def test_dashboard_consolida_apenas_fontes_canonicas_do_tenant() -> None:
                 comanda_id=None,
                 status="pago",
                 metodo="dinheiro",
-                valor_previsto=Decimal("50"),
-                valor_pago=Decimal("50"),
-                valor_estornado=Decimal("0"),
-                saldo=Decimal("0"),
+                valor_previsto=Decimal(50),
+                valor_pago=Decimal(50),
+                valor_estornado=Decimal(0),
+                saldo=Decimal(0),
                 moeda="BRL",
                 recebimento_posterior=False,
                 provedor=None,
@@ -309,7 +309,7 @@ def test_dashboard_consolida_apenas_fontes_canonicas_do_tenant() -> None:
                 comanda_id=None,
                 criterio_codigo="pagamento_liquidado",
                 criterio_versao=1,
-                valor=Decimal("50"),
+                valor=Decimal(50),
                 moeda="BRL",
                 metodo="dinheiro",
                 reconhecida_em=AGORA,
@@ -323,8 +323,8 @@ def test_dashboard_consolida_apenas_fontes_canonicas_do_tenant() -> None:
                 tenant_id="tenant-f5",
                 unidade_id="matriz-f5",
                 insumo_id="insumo-f5",
-                saldo_fisico=Decimal("20"),
-                saldo_reservado=Decimal("3"),
+                saldo_fisico=Decimal(20),
+                saldo_reservado=Decimal(3),
                 versao=1,
             )
         )
@@ -356,12 +356,12 @@ def test_dashboard_consolida_apenas_fontes_canonicas_do_tenant() -> None:
         contexto=ctx,
         unidades=("matriz-f5",),
     )
-    assert painel.financeiro.vendas_reconhecidas == Decimal("50")
+    assert painel.financeiro.vendas_reconhecidas == Decimal(50)
     assert painel.financeiro.quantidade_vendas == 1
-    assert painel.financeiro.ticket_medio == Decimal("50")
-    assert painel.financeiro.pagamentos_pagos == Decimal("50")
-    assert painel.financeiro.recebido_dinheiro == Decimal("50")
+    assert painel.financeiro.ticket_medio == Decimal(50)
+    assert painel.financeiro.pagamentos_pagos == Decimal(50)
+    assert painel.financeiro.recebido_dinheiro == Decimal(50)
     assert painel.operacional.pedidos == 1
-    assert painel.operacional.estoque_fisico_total == Decimal("20")
-    assert painel.operacional.estoque_reservado_total == Decimal("3")
+    assert painel.operacional.estoque_fisico_total == Decimal(20)
+    assert painel.operacional.estoque_reservado_total == Decimal(3)
     assert painel.operacional.entregas_por_status == (("aguardando_producao", 1),)
