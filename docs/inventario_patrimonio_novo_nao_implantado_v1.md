@@ -1126,6 +1126,53 @@ Os componentes centrais de cutover PDV e `application/checkout.py` já existem n
 - quando PagBank, Meta/WhatsApp ou Mercado Pago disponibilizarem conta/configuração/suporte, retomar suas homologações reais e anexar evidências ao readiness/matriz sem interromper artificialmente o trabalho interno;
 - sem merge final ou deploy definitivo sem autorização específica.
 
+## 10.11 Checkpoint Fase 5 — Administração / Proprietário — 01/09/2026
+
+**SHA técnico validado:** `b97c1681feecfbce8823a6ac414729e048ac6fba`
+
+**Current → Target**
+- Current antes da Fase 5: a página `Administração / Proprietário` era uma entrada protegida sem painel operacional administrativo completo.
+- Target aplicado: consolidar o Painel Proprietário / Administrador sobre autoridades canônicas existentes, adicionando somente cadastro administrativo de empresa/unidades e configurações não secretas.
+
+**Implementado**
+- empresa, matriz/filiais e configurações não secretas por unidade;
+- migration `0036_administracao_proprietario_v1` com backfill determinístico e bootstrap sem inventar filiais;
+- CRUD tenant-scoped com versão otimista, auditoria e regras explícitas de administrador/gerente;
+- administração de usuários reutilizando o repositório canônico de identidades;
+- proteção contra autodesativação do administrador;
+- dashboard executivo sobre Pedido, VendaFinanceira, Pagamento, Estoque e Entrega canônicos;
+- CMV/margem rotulados como estimativa quando não existe custo histórico verificável;
+- rejeição explícita de segredos nas configurações administrativas;
+- integrações/credenciais preservadas no Control Plane + Vault, com seleção correta de unidade;
+- seis áreas reais na UI e PIN individual em operações sensíveis;
+- correção do gate físico: a própria página administrativa não renderiza mais `st.page_link` para si mesma, eliminando o `KeyError: 'url_pathname'` sem esconder a falha;
+- workflow ampliado para compilar e lintear também `auth_ui.py`.
+
+**Provas — Administracao Fase 5 Gate V1 / run 25**
+- compile: **PASS**;
+- Ruff: **PASS**;
+- migration 0036 em PostgreSQL 16 real: **PASS — 1 teste**;
+- domínio/administração: **PASS — 9 testes**;
+- regressão Auth/RBAC/PIN: **PASS — 19 testes**;
+- isolamento do Control Plane: **PASS — 2 testes**;
+- Chromium/Playwright sem `FM_AI_TEST_MODE`: **PASS — 1 jornada física automatizada**;
+- blockers internos conhecidos da Fase 5: **0**.
+
+**Readiness**
+- `administracao_proprietario = COMMERCIAL_CANDIDATE`;
+- `code_blockers = []`;
+- PagBank, Meta/WhatsApp e Mercado Pago continuam como pendências externas dos respectivos provedores/Control Plane e não são marcados como homologados;
+- merge e deploy não foram executados.
+
+**Rollback**
+- antes de merge/deploy, rollback é reverter os commits da Fase 5;
+- após implantação futura da migration 0036, preservar dados administrativos já gravados e nunca apagar identidades, auditoria ou autoridades canônicas de negócio.
+
+**Decisão**
+- Fase 5 fica **APROVADA INTERNAMENTE / COMMERCIAL_CANDIDATE** no SHA técnico validado;
+- nenhuma dependência interna conhecida permanece aberta;
+- a próxima fase do Documento Mestre só deve começar mediante autorização expressa, mantendo **sem merge e sem deploy**.
+
 ## 11. Regra de preservação
 
 Durante a recuperação:
