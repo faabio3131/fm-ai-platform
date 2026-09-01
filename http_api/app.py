@@ -151,6 +151,7 @@ def build_http_app(
             tenant_id=tenant_id,
             unidade_id=unidade_id,
             correlation_id=correlation_id,
+            solicitado_em=datetime.now(timezone.utc),
         )
 
     @app.get(
