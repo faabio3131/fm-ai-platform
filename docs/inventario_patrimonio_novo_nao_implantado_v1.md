@@ -931,6 +931,67 @@ Os componentes centrais de cutover PDV e `application/checkout.py` já existem n
 **Próxima tarefa F4**
 - iniciar o **F4-D — Order Result Orchestrator**: extrair/usar uma orquestração pós-resultado independente do canal para Pedido → resultado financeiro real → confirmação → efeitos autorizados, preservando estoque/KDS/entrega/financeiro e evitando que o Assistente replique lógica do PDV.
 
+## 10.8 Checkpoint Fase 4 / F4-D — Order Result Orchestrator independente do canal — 31/08/2026
+
+**SHA técnico validado:** `1f3277d699e8f000e9d1922d519d7745b8b49560`
+
+**Current → Target**
+- Current antes deste bloco: a finalização após pagamento confiável existia, porém sua semântica principal permanecia concentrada no fluxo do PDV, incluindo confirmação do Pedido, reconhecimento financeiro, consumo de estoque e projeções legadas.
+- Target aplicado: a regra geral passa a ser **independente do canal** e executa somente sobre autoridades canônicas: Pagamento real → Pedido canônico → confirmação autorizada → VendaFinanceira. PDV/legado tornam-se compatibilidade posterior e não pré-requisito.
+- O consumo de reserva foi retirado do simples marco de liquidação financeira e associado ao **início real da produção no KDS**, em conformidade com o Documento Mestre.
+
+**Implementado**
+- criado `application/order_result_orchestrator.py` como orquestrador canônico de resultado, sem dependência de `core.pdv`, `app.py`, Streamlit ou projeção legada;
+- Pagamento diferente de `PAGO` não confirma Pedido, não cria VendaFinanceira e não consome reserva;
+- Pagamento `PAGO` só opera quando existe Pedido canônico compatível no mesmo tenant/unidade; ausência ou divergência falham fechadas;
+- Pedido em `aguardando_confirmacao` é promovido para `confirmado` pela máquina normativa existente, com idempotência e auditoria/outbox;
+- estados posteriores já válidos são aceitos em replay sem regredir Pedido;
+- reconhecimento de VendaFinanceira usa `avaliar_criterio_financeiro` + `reconhecer_venda` existentes; não foi criado segundo domínio financeiro;
+- replay do mesmo resultado não duplica Pedido, transição, critério ou VendaFinanceira;
+- o snapshot de resultado observa reserva e produção sem transformar KDS em pré-requisito da liquidação; quando a tabela de produção ainda não existe em um runtime parcial, a observação retorna vazia sem abrir nova conexão nem reverter a UoW financeira;
+- `application/finalizacao_pagamento.py` foi reduzido a compatibilidade do PDV: primeiro executa a regra genérica e somente depois materializa projeções/reconciliação legadas quando existir pendência própria do PDV;
+- `application/pdv_legacy_projection.py` passou a permitir explicitamente postergar a projeção de estoque; pagamento não reduz mais estoque físico legado;
+- o executor canônico do PDV síncrono também passou a usar o mesmo Order Result Orchestrator, removendo a duplicação da sequência Pedido/Pagamento/VendaFinanceira;
+- reconciliação PDV reconhece `canonico_reservado_aguardando_producao` como estado válido e não exige baixa de estoque no pagamento;
+- criado `application/legacy_stock_projection.py` somente como compatibilidade transitória: ele replica para `insumos` legados um **consumo canônico já ocorrido**, nunca decide consumo e nunca se torna autoridade;
+- `ServicoKDSCanonico` consome a reserva quando a produção entra efetivamente em `em_preparo`; se a reserva já foi consumida, o replay é idempotente; se foi liberada, falha fechado;
+- a baixa canônica e a projeção transitória do saldo legado acontecem na mesma transação do marco real de produção;
+- o caminho de produção que chega a pronto sem etapa explícita de início primeiro promove o Pedido para `em_preparo` e aplica o mesmo marco de consumo;
+- a reconciliação PagBank por consulta autenticada passou a exigir Pedido canônico real antes da finalização; um Pagamento isolado não é suficiente para produzir efeitos de negócio;
+- nenhum Fake/Mock foi introduzido em runtime comercial. O adapter fake de PagBank permanece restrito aos testes de contrato e não é evidência de homologação real.
+
+**Provas**
+- Assistente Fase 4 Gate V1 — run 155: **PASS**;
+- Commercial Runtime Readiness V1 — run 170: **PASS**;
+- compile do recorte F4-D: **PASS**;
+- Ruff do recorte F4-D: **PASS**;
+- suíte ampliada com regressão completa do PDV: **104 passed**;
+- a suíte cobre pagamento pendente, liquidação real, Pedido canônico, VendaFinanceira, replay idempotente, PagBank por consulta simulada, PDV síncrono/assíncrono, corrida concorrente, rollback, divergência de cutover, KDS e marco de consumo de reserva;
+- fitness guard comprova que o Order Result Orchestrator não importa PDV/legado, não chama `consumir_reserva` e reutiliza serviços canônicos de Pedido e VendaFinanceira.
+
+**Limite externo PagBank / PIX**
+- a conta real do PagBank **ainda não foi criada pelo proprietário**;
+- portanto nenhuma credencial real, cobrança real, webhook real ou consulta real ao PagBank foi homologada neste checkpoint;
+- o código interno de reconciliação e o contrato de consulta autenticada foram testados sem fingir homologação externa;
+- permanece o blocker `pix_provider_homologation_incomplete`; a ausência da conta real é tratada como pendência externa, não como justificativa para sandbox/fake no caminho comercial.
+
+**Readiness**
+- `assistente_atendimento` continua `CUTOVER_PENDING`;
+- blockers de código conhecidos no recorte F4-D: **0**;
+- blockers externos/de implantação preservados: `pix_provider_homologation_incomplete` e aplicação física da migration `0034_crm_customer_context_v1` no banco de homologação;
+- `commercial_runtime_e2e`: ainda não executado no SHA candidato final;
+- `physical_test`: ainda não executado no SHA candidato final;
+- `pdv_pagamentos`, `estoque` e `kds` **não** são promovidos por este trabalho transversal: seus cutovers/gates próprios permanecem nas fases previstas.
+
+**Rollback**
+- nenhuma migration nova foi criada no F4-D;
+- antes de merge/deploy, rollback é reverter os commits deste bloco;
+- após implantação futura, rollback deve preservar Pedido, Pagamento, VendaFinanceira, reservas, movimentos e auditoria já persistidos;
+- a compatibilidade legada pode ser desativada/revertida sem restaurar o PDV legado como pré-requisito da regra geral e sem apagar registros canônicos.
+
+**Próxima tarefa F4**
+- iniciar o **F4-E — Convergência mínima do Delivery**: fazer somente o caminho necessário ao Assistente convergir para Pedido/Checkout/Order Result canônicos, preservando capacidades específicas de Delivery e mantendo sua homologação completa para a Fase 11.
+
 ## 11. Regra de preservação
 
 Durante a recuperação:
