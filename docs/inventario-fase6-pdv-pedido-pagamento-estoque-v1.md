@@ -55,7 +55,7 @@ O gap principal é operacional: o loader atual do PDV força `LEGACY` fora de `F
 - falhar fechado em configuração parcial/inconsistente;
 - criar fitness + CI dedicado.
 
-### F6-B — Economic Edge Cleanup — EM IMPLEMENTAÇÃO
+### F6-B — Economic Edge Cleanup — CANDIDATA EM VALIDAÇÃO
 - remover fallback de total zero para Venda legada;
 - fechar contrato canônico para pedido de valor zero;
 - provar idempotência/rollback sem criar obrigação fictícia.
