@@ -8,6 +8,7 @@ from core.dominio.erros import ValorMonetarioInvalido
 from core.pagamentos.flags import FlagsPagamentosV1
 from core.pdv.configuracao import carregar_rollout_ambiente
 from core.pdv.contexto import contexto_caixa_pdv_autenticado
+from core.pdv.executor_canonico import ExecutorAutoritativoCanonicoSQLAlchemy
 from core.pdv.modelos import (
     EntradaPDV,
     dinheiro_legado,
@@ -15,7 +16,6 @@ from core.pdv.modelos import (
     id_produto_legado,
     mapear_metodo,
 )
-from core.pdv.executor_canonico import ExecutorAutoritativoCanonicoSQLAlchemy
 from core.pdv.roteamento import (
     ConfiguracaoRolloutInvalida,
     ModoPDV,
