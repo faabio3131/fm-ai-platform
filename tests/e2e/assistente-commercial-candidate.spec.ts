@@ -31,7 +31,7 @@ test('candidato Fase 4 abre Assistente real no navegador sem fallback legado', a
     painel.getByText(/WhatsApp e conteúdo de atendimento são obrigatórios/),
   ).toBeVisible();
 
-  await painel.getByRole('radio', { name: 'Áudio' }).check();
+  await painel.getByText('Áudio', { exact: true }).click();
   await expect(
     painel.getByText('Áudio do cliente', { exact: true }),
   ).toBeVisible();
