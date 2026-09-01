@@ -40,6 +40,7 @@ from infra.legacy_product_scope import resolver_loja_id_legada
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
 from infra.seguranca.modelos_orm import UsuarioSegurancaORM
+from infra.transacoes.uow import UnitOfWorkV1
 
 SessionFactory = Callable[[], Session]
 
@@ -216,6 +217,7 @@ class AplicacaoAdministracaoProprietarioV1:
     def registrar_acesso(self, *, contexto: ContextoExecucao) -> None:
         _exigir(contexto, Permissao.ADMIN_ACESSAR)
         with self._session_factory() as session:
+            uow = UnitOfWorkV1.adotar_session(session)
             RepositorioAdministracaoSQLAlchemy(session).garantir_escopo(
                 tenant_id=contexto.tenant_id,
                 unidade_id=contexto.unidade_id,
@@ -228,7 +230,7 @@ class AplicacaoAdministracaoProprietarioV1:
                 recurso_id=contexto.tenant_id,
                 metadata={"unidade_ativa": contexto.unidade_id},
             )
-            session.commit()
+            uow.commit()
 
     def obter_empresa(
         self, *, contexto: ContextoExecucao
@@ -289,6 +291,7 @@ class AplicacaoAdministracaoProprietarioV1:
         if empresa.tenant_id != contexto.tenant_id:
             raise PermissionError("tenant_admin_divergente")
         with self._session_factory() as session:
+            uow = UnitOfWorkV1.adotar_session(session)
             repo = RepositorioAdministracaoSQLAlchemy(session)
             anterior = repo.obter_empresa(tenant_id=contexto.tenant_id)
             if anterior is None:
@@ -314,7 +317,7 @@ class AplicacaoAdministracaoProprietarioV1:
                     "versao": atual.versao,
                 },
             )
-            session.commit()
+            uow.commit()
             return atual
 
     def criar_unidade(
@@ -328,6 +331,7 @@ class AplicacaoAdministracaoProprietarioV1:
         if unidade.tenant_id != contexto.tenant_id:
             raise PermissionError("tenant_admin_divergente")
         with self._session_factory() as session:
+            uow = UnitOfWorkV1.adotar_session(session)
             repo = RepositorioAdministracaoSQLAlchemy(session)
             criada = repo.criar_unidade(unidade)
 
@@ -358,7 +362,7 @@ class AplicacaoAdministracaoProprietarioV1:
                     "versao": criada.versao,
                 },
             )
-            session.commit()
+            uow.commit()
             return criada
 
     def atualizar_unidade(
@@ -372,6 +376,7 @@ class AplicacaoAdministracaoProprietarioV1:
         if unidade.tenant_id != contexto.tenant_id:
             raise PermissionError("tenant_admin_divergente")
         with self._session_factory() as session:
+            uow = UnitOfWorkV1.adotar_session(session)
             self._exigir_unidade_administravel(
                 session=session,
                 contexto=contexto,
@@ -407,7 +412,7 @@ class AplicacaoAdministracaoProprietarioV1:
                     "versao": atual.versao,
                 },
             )
-            session.commit()
+            uow.commit()
             return atual
 
     def salvar_configuracao(
@@ -421,6 +426,7 @@ class AplicacaoAdministracaoProprietarioV1:
         if configuracao.tenant_id != contexto.tenant_id:
             raise PermissionError("tenant_admin_divergente")
         with self._session_factory() as session:
+            uow = UnitOfWorkV1.adotar_session(session)
             unidade = self._exigir_unidade_administravel(
                 session=session,
                 contexto=contexto,
@@ -456,7 +462,7 @@ class AplicacaoAdministracaoProprietarioV1:
                     "versao": atual.versao,
                 },
             )
-            session.commit()
+            uow.commit()
             return atual
 
     def listar_usuarios(
@@ -508,6 +514,7 @@ class AplicacaoAdministracaoProprietarioV1:
             _exigir(contexto, Permissao.PERMISSAO_GERENCIAR)
         unidades = frozenset(str(item).strip() for item in unidades_permitidas)
         with self._session_factory() as session:
+            uow = UnitOfWorkV1.adotar_session(session)
             validas = {
                 unidade.unidade_id
                 for unidade in self._unidades_administraveis(
@@ -541,7 +548,7 @@ class AplicacaoAdministracaoProprietarioV1:
                     "admin_sensivel": identidade.acesso_admin_sensivel,
                 },
             )
-            session.commit()
+            uow.commit()
             return identidade
 
     def atualizar_usuario(
@@ -564,6 +571,7 @@ class AplicacaoAdministracaoProprietarioV1:
         papeis_set = frozenset(papeis)
         unidades = frozenset(str(item).strip() for item in unidades_permitidas)
         with self._session_factory() as session:
+            uow = UnitOfWorkV1.adotar_session(session)
             validas = {
                 unidade.unidade_id
                 for unidade in self._unidades_administraveis(
@@ -615,7 +623,7 @@ class AplicacaoAdministracaoProprietarioV1:
                     "admin_sensivel": atual.acesso_admin_sensivel,
                 },
             )
-            session.commit()
+            uow.commit()
             return atual
 
     def listar_integracoes(
