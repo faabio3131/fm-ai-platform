@@ -194,7 +194,7 @@ def _seed_reserva_estoque(factory, pedido_id="pedido-kds") -> None:
             repositorio=repo,
             insumo_id="insumo-kds",
             tipo=TipoMovimento.ENTRADA,
-            quantidade_movimento=Decimal("10"),
+            quantidade_movimento=Decimal(10),
             unidade_medida="un",
             origem_tipo="compra",
             origem_id=f"seed:{pedido_id}",
@@ -221,8 +221,8 @@ def _seed_reserva_estoque(factory, pedido_id="pedido-kds") -> None:
                     produto_id="produto-1",
                     item_pedido_id=f"item-{pedido_id}-1",
                     insumo_id="insumo-kds",
-                    quantidade_por_unidade=Decimal("2"),
-                    quantidade_total=Decimal("2"),
+                    quantidade_por_unidade=Decimal(2),
+                    quantidade_total=Decimal(2),
                     unidade_medida="un",
                 ),
             ),
@@ -410,8 +410,8 @@ def test_inicio_real_de_producao_consume_reserva_uma_vez() -> None:
             (TENANT, UNIDADE, "insumo-kds"),
         )
         assert saldo is not None
-        assert Decimal(str(saldo.saldo_fisico)) == Decimal("8")
-        assert Decimal(str(saldo.saldo_reservado)) == Decimal("0")
+        assert Decimal(str(saldo.saldo_fisico)) == Decimal(8)
+        assert Decimal(str(saldo.saldo_reservado)) == Decimal(0)
 
 
 def test_kds_roteamento_e_idempotente_e_nao_duplica_evento_core():
