@@ -26,7 +26,7 @@ def test_duas_sessoes_mesmo_checkout_constraints_impedem_duplicidade(
         barreira.wait()
         try:
             return executar(fabrica, contexto, entrada, ModoPDV.AUTHORITATIVE_CANARY)
-        except Exception as exc:  # SQLite pode recusar um writer concorrente.
+        except Exception as exc:  # noqa: BLE001 - SQLite pode recusar writer concorrente.
             return exc
 
     with ThreadPoolExecutor(max_workers=2) as pool:
