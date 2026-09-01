@@ -1,6 +1,6 @@
 # F6-E — System Design — Canary Readiness / Reconciliation / Rollback
 
-Status: IMPLEMENTAÇÃO CANDIDATA — CI pendente
+Status: GATE TÉCNICO APROVADO — fechamento documental em revalidação
 Base: main@9e80138cb398ec69d7ee67e3687b801cc394594d
 Autoridades: Documento Mestre §§2, 3, 3.0.1–3.0.3 e Fase 6; System Design Master;
 Issue #66; inventário Fase 6.
@@ -94,3 +94,25 @@ F6-E exige compile/Ruff/mypy; unitários de métricas/telemetria/rollback;
 integração de retry e read-only; concorrência; rollback atômico e divergência
 existentes; regressão completa do PDV; F6-D comercial PostgreSQL/browser e
 matriz transversal no mesmo SHA antes do fechamento.
+
+
+## 12. Evidência de fechamento técnico
+
+SHA funcional homologado: `1b110fcae89013b2d3c682c79cceb21f6278a12f`.
+
+- compile F6-E: PASS;
+- Ruff F6-E: PASS;
+- mypy `core/pdv`: PASS;
+- readiness/retry/concorrência/rollback/divergência: 20 passed;
+- regressão PDV completa: 49 passed;
+- F6-D comercial no mesmo SHA: migration PostgreSQL 30→64 PASS;
+- regressões F6-D: 25 passed;
+- Playwright comercial F6-D: 3 passed;
+- evidência PostgreSQL pós-browser: pedidos=2, pagamentos=2;
+- matriz transversal do SHA: 23/23 workflows SUCCESS;
+- nenhuma migration nova;
+- nenhuma autocorreção destrutiva;
+- nenhum merge/deploy executado por este gate.
+
+Próximo STOP: revalidar o checkpoint documental que marca F6-E como FECHADA. Só
+depois o F6-F pode iniciar.

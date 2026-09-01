@@ -11,6 +11,7 @@
 - F6-B fechada em `c9a2a06fa68bb2404e0fd7b9dbbc058cd334af68`: gate dedicado + matriz 21/21 verdes.
 - F6-C fechada em `f635495049657230391adc452d4571239b5b85b2`: gate dedicado + matriz transversal 22/22 verdes, sem falhas ou pendências.
 - F6-D fechada em `db422035c2339f9a8b9743f5138149fc205168d4`: gate comercial dedicado + matriz transversal 25/25 verdes; Playwright comercial 3/3 (dinheiro, cartão presencial e Pix fail-closed); migration PostgreSQL `VARCHAR(30) -> VARCHAR(64)` comprovada; evidência pós-browser com 2 pedidos e 2 pagamentos canônicos persistidos.
+- F6-E fechada tecnicamente em `1b110fcae89013b2d3c682c79cceb21f6278a12f`: gate dedicado verde (20 focados + 49 regressões PDV), F6-D comercial verde e matriz transversal 23/23 verde; readiness somente leitura, rollback LEGACY, concorrência e retry comprovados.
 
 ## 1. Resultado executivo
 
@@ -89,7 +90,7 @@ A prova operacional do F6-D foi concluída em runtime comercial de staging, Post
 - evidência pós-browser no mesmo PostgreSQL: `pedidos_v1 = 2` e `pagamentos_v1 = 2`;
 - gate de Administração Fase 5 e demais regressões transversais também verdes no SHA de fechamento.
 
-### F6-E — Canary Readiness / Reconciliation / Rollback — EM VALIDAÇÃO
+### F6-E — Canary Readiness / Reconciliation / Rollback — FECHADA
 - métricas por modo/terminal: telemetria estruturada para todos os modos + read model persistente de shadow/canary;
 - reconciliação sem autocorreção destrutiva: read model estritamente somente leitura;
 - rollback por configuração para LEGACY, preservando dados canônicos;
@@ -97,7 +98,10 @@ A prova operacional do F6-D foi concluída em runtime comercial de staging, Post
 - CLI operacional somente leitura com recomendação conservadora;
 - evidência de concorrência e retry;
 - nenhuma migration nova e nenhuma nova autoridade operacional;
-- implementação candidata parte de main@9e80138cb398ec69d7ee67e3687b801cc394594d; fechamento depende do gate dedicado, F6-D e matriz transversal no mesmo SHA.
+- SHA funcional homologado: `1b110fcae89013b2d3c682c79cceb21f6278a12f`;
+- gate dedicado F6-E: Ruff, mypy, 20 testes focados e 49 testes PDV completos verdes;
+- F6-D comercial no mesmo SHA: PostgreSQL 30→64 verde, 25 regressões, Playwright 3/3, evidência pós-browser `pedidos=2` e `pagamentos=2`;
+- matriz transversal integral: 23/23 workflows verdes, 0 falhas.
 
 ### F6-F — Fechamento
 - matriz transversal verde;
