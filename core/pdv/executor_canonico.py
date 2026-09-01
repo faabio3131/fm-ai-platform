@@ -15,7 +15,11 @@ from application.order_result_orchestrator import (
 from core.dominio.dinheiro import Dinheiro
 from core.dominio.enums import PagamentoStatus
 from core.pagamentos.modelos import MetodoPagamento
-from core.pagamentos.servicos import confirmar_pagamento, processar_webhook
+from core.pagamentos.servicos import (
+    confirmar_pagamento,
+    confirmar_pagamento_presencial,
+    processar_webhook,
+)
 from core.seguranca.contexto import ContextoExecucao
 from infra.transacoes.uow import RecursosTransacionaisV1
 
@@ -207,6 +211,24 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
                 expected_version=iniciado.pagamento.versao,
                 timestamp=instante,
                 referencia_externa=f"operacional:{self.contexto.usuario_id}",
+            )
+        elif (
+            metodo
+            in {MetodoPagamento.CARTAO_CREDITO, MetodoPagamento.CARTAO_DEBITO}
+            and entrada.confirmacao_presencial
+        ):
+            confirmado = confirmar_pagamento_presencial(
+                contexto=self.contexto,
+                repositorio=recursos.pagamentos,
+                pagamento_id=comando.pagamento_id,
+                valor=entrada.total,
+                metodo=metodo,
+                idempotency_key=f"{entrada.idempotency_key}:confirmacao",
+                expected_version=iniciado.pagamento.versao,
+                timestamp=instante,
+                referencia_externa=(
+                    f"presencial:{entrada.terminal_id}:{self.contexto.usuario_id}"
+                ),
             )
         elif metodo is MetodoPagamento.PIX and entrada.pix_sandbox:
             from core.pagamentos.adapters import ProvedorPagamentoFake

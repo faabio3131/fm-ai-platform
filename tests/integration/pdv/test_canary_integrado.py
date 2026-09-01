@@ -1,3 +1,4 @@
+from dataclasses import replace
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -75,3 +76,36 @@ def test_canary_dinheiro_pr7_e_retry_exatamente_uma_vez(fabrica, contexto, entra
         assert Decimal(str(s.get(VendaTeste, 1).valor_total)) == Decimal("24.9")
         assert s.get(InsumoTeste, 1).saldo_atual == 10
         assert Decimal(str(s.get(ClienteTeste, 1).saldo_cashback)) == Decimal("6.25")
+
+def test_canary_cartao_presencial_liquida_sem_provider_externo(fabrica, contexto, entrada):
+    entrada_cartao = replace(
+        entrada,
+        forma_pagamento="Cartão de Crédito",
+        checkout_id="atendimento-cartao-presencial",
+        valor_recebido=None,
+        usar_cashback=False,
+        desconto_cashback=entrada.desconto_cashback - entrada.desconto_cashback,
+        confirmacao_presencial=True,
+    )
+
+    resultado = executar(
+        fabrica,
+        contexto,
+        entrada_cartao,
+        ModoPDV.AUTHORITATIVE_CANARY,
+    )
+
+    assert resultado.sucesso is True
+    with fabrica() as session:
+        pagamento = session.scalar(select(PagamentoORM))
+        assert pagamento is not None
+        assert pagamento.status == "pago"
+        assert pagamento.metodo == "cartao_credito"
+        confirmacoes = session.scalars(
+            select(TransacaoPagamentoORM).where(
+                TransacaoPagamentoORM.tipo == "confirmacao"
+            )
+        ).all()
+        assert len(confirmacoes) == 1
+        assert confirmacoes[0].id_externo == "presencial:caixa-1:caixa"
+
