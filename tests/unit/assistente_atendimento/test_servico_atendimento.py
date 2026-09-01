@@ -18,6 +18,7 @@ from core.assistente_atendimento.contexto import (
     ContextoAtendimento,
     TipoClienteAtendimento,
 )
+from core.assistente_atendimento.customer_context import ContextoClienteAutorizado
 from core.assistente_atendimento.entradas import (
     EntradaAtendimento,
     ModalidadeEntrada,
@@ -97,8 +98,17 @@ def contexto_atendimento(
     tipo=TipoClienteAtendimento.CONHECIDO,
     tenant="tenant-a",
     unidade="unidade-a",
+    endereco_ref=None,
 ):
     cliente_ref = "cliente-1" if tipo is TipoClienteAtendimento.CONHECIDO else None
+    customer_context = (
+        ContextoClienteAutorizado(
+            cliente_ref=cliente_ref,
+            ultimo_endereco_ref=endereco_ref,
+        )
+        if cliente_ref is not None and endereco_ref is not None
+        else None
+    )
     return ContextoAtendimento(
         contexto_execucao=contexto_execucao(tenant, unidade),
         conversa_id="conv-1",
@@ -108,6 +118,7 @@ def contexto_atendimento(
             cliente_ref=cliente_ref,
             nome="João",
         ),
+        customer_context=customer_context,
     )
 
 
@@ -299,6 +310,43 @@ def test_cotacao_entrega_altera_fingerprint_taxa_total_e_exige_reconfirmacao():
             idempotency_key="confirmacao-1",
         )
     assert checkout.chamadas == []
+
+
+def test_entrega_confirmada_transporta_referencia_autorizada_ao_checkout():
+    srv, checkout, _ = servico()
+    contexto = contexto_atendimento(endereco_ref="address://endereco-1")
+    interpretado = srv.interpretar(
+        contexto=contexto,
+        entrada=entrada_texto(),
+        raw_ia=raw_intencao(
+            modalidade="entrega",
+            endereco="Rua A, 10, CEP 01000-000",
+        ),
+        catalogo=catalogo(),
+    )
+    cotado = srv.aplicar_cotacao_entrega(
+        contexto=contexto,
+        resultado=interpretado,
+        cotacao=cotacao(),
+    )
+    pronto = srv.definir_pagamento(
+        resultado=cotado,
+        metodo=MetodoPagamento.PIX,
+    )
+    assert pronto.carrinho is not None
+
+    confirmado = srv.confirmar(
+        contexto=contexto,
+        resultado=pronto,
+        confirmacao_cliente=True,
+        fingerprint_confirmado=pronto.carrinho.fingerprint,
+        metodo=MetodoPagamento.PIX,
+        idempotency_key="confirmacao-entrega-ref",
+    )
+
+    assert confirmado.estado is EstadoAtendimento.CHECKOUT_REGISTRADO
+    assert len(checkout.chamadas) == 1
+    assert checkout.chamadas[0][6] == "address://endereco-1"
 
 
 def test_dinheiro_com_troco_entra_no_fingerprint_e_na_confirmacao():
