@@ -449,20 +449,14 @@ class RuntimeAssistenteAtendimentoV1:
             entrada=entrada,
         )
 
-    def interpretar_audio(
+    def transcrever_audio(
         self,
         *,
         contexto_solicitante: ContextoExecucao,
-        conversa_id: str,
         mensagem_id: str,
-        identificador_cliente: str,
         audio: bytes,
         mime_type: str,
-        nome_publico: str,
-    ) -> ResultadoRuntimeAssistente:
-        if not identificador_cliente.strip():
-            raise ValueError("cliente é obrigatório")
-
+    ) -> str:
         contexto = _contexto_agente(contexto_solicitante)
         db = self._session_factory()
         try:
@@ -493,9 +487,30 @@ class RuntimeAssistenteAtendimentoV1:
             texto = str(transcricao.conteudo).strip()
             if not texto:
                 raise ErroGerenteIA("transcricao_audio_vazia")
+            return texto
         finally:
             db.close()
 
+    def interpretar_audio(
+        self,
+        *,
+        contexto_solicitante: ContextoExecucao,
+        conversa_id: str,
+        mensagem_id: str,
+        identificador_cliente: str,
+        audio: bytes,
+        mime_type: str,
+        nome_publico: str,
+    ) -> ResultadoRuntimeAssistente:
+        if not identificador_cliente.strip():
+            raise ValueError("cliente é obrigatório")
+        texto = self.transcrever_audio(
+            contexto_solicitante=contexto_solicitante,
+            mensagem_id=mensagem_id,
+            audio=audio,
+            mime_type=mime_type,
+        )
+        contexto = _contexto_agente(contexto_solicitante)
         entrada = EntradaAtendimento(
             mensagem_id=mensagem_id,
             modalidade=ModalidadeEntrada.AUDIO,
