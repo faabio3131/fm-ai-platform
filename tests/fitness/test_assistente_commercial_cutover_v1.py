@@ -168,3 +168,65 @@ def test_assistant_delivery_converges_on_canonical_entrega_and_order() -> None:
     assert "core.delivery.runtime_teste" not in convergence
     assert "0012_restaurant_operations_runtime_v1" in runner
     assert "DeliveryBase.metadata.create_all" in runner
+
+
+
+def test_f4f_whatsapp_runtime_is_scoped_signed_durable_and_no_fake_channel() -> None:
+    http = _text("http_api/app.py")
+    provider = _text("core/integracoes/provedores.py")
+    runtime = _text("application/assistente_channel_runtime.py")
+    state_store = _text(
+        "infra/assistente_atendimento/canal_estado_sqlalchemy.py"
+    )
+
+    assert "/webhooks/meta/whatsapp/{tenant_id}/{unidade_id}" in http
+    assert "x-hub-signature-256" in http
+    assert "extrair_mensagens_whatsapp(" in http
+    assert "validar_desafio(" in http
+    assert "MensagemWhatsAppEntrada" in provider
+    assert "baixar_audio_whatsapp(" in provider
+    assert "RuntimeCanalWhatsAppV1" in runtime
+    assert "RepositorioInboxSQLAlchemy" in runtime
+    assert "EncryptedSQLAlchemyChannelStateStore" in runtime
+    assert "tenant-demo" not in runtime
+    assert "unidade-demo" not in runtime
+    assert "Fake" not in runtime
+    assert "Fernet" in state_store
+    assert "sender_hash" in state_store
+    assert "recipient_ciphertext" in _text(
+        "infra/assistente_atendimento/canal_schema.py"
+    )
+
+
+def test_f4f_operational_notifications_read_canonical_states_after_commit() -> None:
+    runtime = _text("application/assistente_channel_runtime.py")
+    notifier = _text("application/assistente_operational_notifications.py")
+    kds = _text("application/kds_transacoes.py")
+    entrega = _text("application/entrega_transacoes.py")
+    http = _text("http_api/app.py")
+
+    assert "PagamentoORM" in runtime
+    assert "ProducaoItemORM" in runtime
+    assert "EntregaORM" in runtime
+    assert "EventoEntregaORM" in runtime
+    assert "ultimo_status_hash" in runtime
+    assert "notificar_status_assistente_best_effort" in notifier
+    assert "uow.commit()" in kds
+    assert "notificar_status_assistente_best_effort(" in kds
+    assert "uow.commit()" in entrega
+    assert "notificar_status_assistente_best_effort(" in entrega
+    assert "notificar_status_assistente_best_effort(" in http
+    assert "Nao vou estimar prazo novo" not in runtime
+    assert "Não vou estimar prazo novo" in runtime
+
+
+def test_f4f_channel_migration_is_append_only_and_registered() -> None:
+    runner = _text("migrations/runner.py")
+    migration = _text("migrations/assistente_channel_runtime_v1.py")
+    manifest = _text("migrations/manifest_v1.json")
+
+    assert "0035_assistente_channel_runtime_v1" in runner
+    assert "0035_assistente_channel_runtime_v1" in manifest
+    assert "assistente_canal_conversas_v1" in migration
+    assert "create(" in migration
+    assert "drop(" not in migration
