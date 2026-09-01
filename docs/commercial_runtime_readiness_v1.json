@@ -86,14 +86,12 @@
       "code_blockers": [],
       "external_blockers": [
         "pix_provider_homologation_incomplete",
-        "migration_0034_not_applied_in_current_homologation_db",
-        "whatsapp_cloud_api_homologation_pending",
-        "migration_0035_not_applied_in_current_homologation_db"
+        "whatsapp_cloud_api_homologation_pending"
       ],
       "evidence": {
-        "sha": "0509500388317824a22e90918915a8d7f1c08b3c",
-        "commercial_runtime_e2e": null,
-        "physical_test": null
+        "sha": "523bd3534865290ea8362139f32166e72c2d3bdc",
+        "commercial_runtime_e2e": "github-actions://Assistente-Fase-4-Commercial-E2E-V1/run-5/33463947423",
+        "physical_test": "github-actions://Assistente-Fase-4-Commercial-E2E-V1/run-5/chromium"
       }
     },
     "cardapio_ficha_tecnica": {
