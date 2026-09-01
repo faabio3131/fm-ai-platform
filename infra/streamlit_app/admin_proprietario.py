@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from decimal import Decimal, InvalidOperation
 
 import pandas as pd
@@ -18,6 +19,7 @@ from core.administracao import (
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.permissoes import MATRIZ_PADRAO, Papel, Permissao
 from infra.streamlit_app.auth_ui import verify_sensitive_pin
+from infra.streamlit_app.integracoes_admin import render_integracoes_admin
 
 _FORMAS_PAGAMENTO = (
     "dinheiro",
@@ -652,10 +654,32 @@ def _render_usuarios(
                     _erro_generico("F5-USERS-CREATE")
 
 
+def _identidade_no_escopo_admin(
+    identidade: IdentidadeUsuario,
+    *,
+    unidade_id: str,
+) -> IdentidadeUsuario:
+    if unidade_id == identidade.unidade_id:
+        return identidade
+    if Papel.ADMINISTRADOR in identidade.papeis:
+        return replace(
+            identidade,
+            unidade_id=unidade_id,
+            unidades_permitidas=frozenset(
+                {*identidade.unidades_permitidas, unidade_id}
+            ),
+        )
+    return identidade.no_escopo_ativo(
+        tenant_id=identidade.tenant_id,
+        unidade_id=unidade_id,
+    )
+
+
 def _render_integracoes(
     app: AplicacaoAdministracaoProprietarioV1,
     *,
     identidade: IdentidadeUsuario,
+    session_factory: Callable[[], Session],
 ) -> None:
     contexto = _contexto(identidade)
     try:
@@ -668,7 +692,7 @@ def _render_integracoes(
         _erro_generico("F5-INTEGRACOES-READ")
         return
     st.caption(
-        "Somente estado e metadados públicos são mostrados aqui. "
+        "Somente estado e metadados públicos são mostrados no resumo. "
         "Tokens, chaves e segredos nunca são reexibidos."
     )
     if integracoes:
@@ -692,12 +716,31 @@ def _render_integracoes(
     else:
         st.info("Nenhuma integração configurada nas unidades cadastradas.")
 
-    st.page_link(
-        "pages/7_Integracoes_e_Credenciais.py",
-        label="Gerenciar Integrações e Credenciais",
-        icon="🔑",
-        use_container_width=True,
+    if not unidades:
+        return
+    unidade_id = st.selectbox(
+        "Unidade para gerenciar integrações",
+        options=[u.unidade_id for u in unidades],
+        format_func=lambda uid: next(
+            f"{u.nome_fantasia} · {uid}" for u in unidades if u.unidade_id == uid
+        ),
+        key="f5_integracoes_unidade",
     )
+    st.caption(
+        "O gerenciamento abaixo usa o mesmo Control Plane e o mesmo Vault da "
+        "unidade selecionada; nenhum segredo é copiado para a Fase 5."
+    )
+    with st.expander(
+        f"Gerenciar integrações de {unidade_id}",
+        expanded=False,
+    ):
+        render_integracoes_admin(
+            identidade=_identidade_no_escopo_admin(
+                identidade,
+                unidade_id=unidade_id,
+            ),
+            session_factory=session_factory,
+        )
 
 
 def _render_auditoria(
@@ -795,6 +838,10 @@ def render_admin_proprietario(
             session_factory=session_factory,
         )
     with abas[4]:
-        _render_integracoes(app, identidade=identidade)
+        _render_integracoes(
+            app,
+            identidade=identidade,
+            session_factory=session_factory,
+        )
     with abas[5]:
         _render_auditoria(app, identidade=identidade)
