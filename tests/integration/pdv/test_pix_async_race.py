@@ -83,7 +83,7 @@ def test_duas_fontes_concorrentes_finalizam_efeito_economico_uma_vez(
                 )
                 session.commit()
                 return resultado
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - race test captures worker outcome
             return exc
 
     with ThreadPoolExecutor(max_workers=2) as pool:
