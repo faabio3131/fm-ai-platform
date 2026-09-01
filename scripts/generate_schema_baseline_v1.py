@@ -102,10 +102,27 @@ def main() -> int:
 
     output = args.output.resolve()
     if args.check:
-        atual = output.read_text(encoding="utf-8") if output.exists() else ""
-        if atual != rendered:
+        if not output.exists():
             print(rendered, end="")
-            raise SystemExit("schema baseline desatualizado")
+            raise SystemExit("schema baseline ausente")
+        atual = json.loads(output.read_text(encoding="utf-8"))
+        structural_keys = (
+            "algorithm",
+            "dialect",
+            "signature_sha256",
+            "table_count",
+        )
+        divergencias = {
+            key: {"esperado": payload[key], "atual": atual.get(key)}
+            for key in structural_keys
+            if atual.get(key) != payload[key]
+        }
+        if divergencias:
+            print(rendered, end="")
+            raise SystemExit(
+                "schema baseline desatualizado: "
+                + json.dumps(divergencias, ensure_ascii=False, sort_keys=True)
+            )
         print(
             "Schema baseline V1 confere: "
             f"sha256={payload['signature_sha256']} "

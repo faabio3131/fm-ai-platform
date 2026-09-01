@@ -171,7 +171,7 @@ def _schema_signature(engine: Engine) -> dict[str, dict[str, object]]:
     return signature
 
 
-def test_af04_a_fresh_install_aplica_sequencia_oficial_ate_0030() -> None:
+def test_af04_a_fresh_install_aplica_sequencia_oficial_ate_0036() -> None:
     engine = _engine()
 
     applied = run_migrations(engine)
