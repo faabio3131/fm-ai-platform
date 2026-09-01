@@ -265,6 +265,10 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
         "0036_administracao_proprietario_v1",
         upgrade_administracao_proprietario_v1,
     ),
+    Migration(
+        "0037_pdv_reconciliation_strategy_width_v1",
+        upgrade_pdv_reconciliation_strategy_width_v1,
+    ),
 )
 
 

@@ -100,6 +100,52 @@ jobs:
           python -m compileall -q             core/pdv             core/runtime             core/seguranca             infra/seguranca             infra/streamlit_app/auth_ui.py             scripts/seed_f6d_commercial_runtime.py
           ruff check             scripts/seed_f6d_commercial_runtime.py             core/pdv/configuracao.py             core/pdv/contexto.py             infra/streamlit_app/auth_ui.py
 
+      - name: Provar upgrade PostgreSQL 30→64
+        run: |
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, inspect, text
+          from migrations.pdv_reconciliation_strategy_width_v1 import (
+              upgrade_pdv_reconciliation_strategy_width_v1,
+          )
+
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          with engine.connect() as connection:
+              connection.execute(text("CREATE SCHEMA f6d_migration_probe"))
+              connection.commit()
+              try:
+                  connection.execute(text("SET search_path TO f6d_migration_probe"))
+                  connection.execute(
+                      text(
+                          "CREATE TABLE pdv_reconciliacoes_v1 "
+                          "(estoque_estrategia VARCHAR(30) NOT NULL)"
+                      )
+                  )
+                  connection.commit()
+
+                  with connection.begin():
+                      upgrade_pdv_reconciliation_strategy_width_v1(connection)
+
+                  column = next(
+                      item
+                      for item in inspect(connection).get_columns(
+                          "pdv_reconciliacoes_v1"
+                      )
+                      if item["name"] == "estoque_estrategia"
+                  )
+                  length = getattr(column["type"], "length", None)
+                  assert length == 64, f"largura inesperada: {length}"
+                  print("migration 0037 PostgreSQL VARCHAR(30) -> VARCHAR(64) OK")
+              finally:
+                  if connection.in_transaction():
+                      connection.rollback()
+                  connection.execute(text("RESET search_path"))
+                  connection.execute(
+                      text("DROP SCHEMA IF EXISTS f6d_migration_probe CASCADE")
+                  )
+                  connection.commit()
+          PY
+
       - name: Preparar PostgreSQL comercial efêmero
         run: |
           test -z "${FM_AI_TEST_MODE:-}"
