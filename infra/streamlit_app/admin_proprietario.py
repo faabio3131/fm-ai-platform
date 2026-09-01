@@ -5,8 +5,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import replace
 from decimal import Decimal, InvalidOperation
+from typing import Any, cast
 
-import pandas as pd
+import pandas as pd  # type: ignore[import-untyped]
 import streamlit as st
 from sqlalchemy.orm import Session
 
@@ -426,7 +427,7 @@ def _render_financeiro(
         taxa_embalagem = st.number_input(
             "Taxa pública de embalagem (R$)",
             min_value=0.0,
-            value=float(config.politica_financeira.get("taxa_embalagem", 0) or 0),
+            value=float(cast(Any, config.politica_financeira.get("taxa_embalagem", 0) or 0)),
             step=0.5,
         )
         pin = st.text_input(

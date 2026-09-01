@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal
+from typing import cast
 
-from sqlalchemy import inspect, select, text
+from sqlalchemy import Table, inspect, select, text
 from sqlalchemy.engine import Connection
 
 from infra.administracao.modelos_orm import (
@@ -116,7 +117,7 @@ def upgrade_administracao_proprietario_v1(connection: Connection) -> None:
         )
         if empresa is None:
             connection.execute(
-                EmpresaAdminORM.__table__.insert().values(
+                cast(Table, EmpresaAdminORM.__table__).insert().values(
                     tenant_id=tenant_id,
                     nome_exibicao=tenant_id,
                     moeda="BRL",
@@ -141,7 +142,7 @@ def upgrade_administracao_proprietario_v1(connection: Connection) -> None:
                 unidade_id=unidade_id,
             ) or unidade_id
             connection.execute(
-                UnidadeAdminORM.__table__.insert().values(
+                cast(Table, UnidadeAdminORM.__table__).insert().values(
                     tenant_id=tenant_id,
                     unidade_id=unidade_id,
                     codigo=unidade_id,
@@ -167,7 +168,7 @@ def upgrade_administracao_proprietario_v1(connection: Connection) -> None:
         )
         if configuracao is None:
             connection.execute(
-                ConfiguracaoEstabelecimentoORM.__table__.insert().values(
+                cast(Table, ConfiguracaoEstabelecimentoORM.__table__).insert().values(
                     tenant_id=tenant_id,
                     unidade_id=unidade_id,
                     formas_pagamento=[],

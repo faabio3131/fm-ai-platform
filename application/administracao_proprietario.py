@@ -10,6 +10,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
+from typing import Any, cast
 from uuid import uuid4
 
 from sqlalchemy import MetaData, Table, func, select
@@ -119,7 +120,7 @@ def _exigir(contexto: ContextoExecucao, permissao: Permissao) -> None:
 def _decimal(valor: object | None) -> Decimal:
     if valor is None:
         return Decimal(0)
-    return Decimal(valor)
+    return Decimal(cast(Any, valor))
 
 
 def _administrador_tenant(contexto: ContextoExecucao) -> bool:
