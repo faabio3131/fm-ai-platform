@@ -103,7 +103,7 @@ jobs:
       - name: Preparar PostgreSQL comercial efêmero
         run: |
           test -z "${FM_AI_TEST_MODE:-}"
-          python scripts/seed_f6d_commercial_runtime.py
+          python -m scripts.seed_f6d_commercial_runtime
           python -m scripts.migrate_v1
 
       - name: Regressões de rollout, auth e PDV
