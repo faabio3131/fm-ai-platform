@@ -1045,6 +1045,72 @@ Os componentes centrais de cutover PDV e `application/checkout.py` já existem n
 
 **Próxima tarefa F4**
 - iniciar o **F4-F — Runtime do canal e E2E**: integrar e provar WhatsApp/voz/texto, handoff, monitoramento de pagamento, KDS/entrega, falhas e matriz de homologação real por tenant; integrações externas indisponíveis podem permanecer explicitamente pendentes sem homologação fictícia.
+
+## 10.10 Checkpoint Fase 4 / F4-F — runtime de canal + monitoramento operacional — 31/08/2026
+
+**SHA técnico validado:** `0509500388317824a22e90918915a8d7f1c08b3c`
+
+**Current → Target**
+- Current antes deste bloco: o runtime comercial do Assistente já executava interpretação, checkout, Customer Context, resultado financeiro e convergência mínima com Entrega, porém o canal WhatsApp real ainda não tinha ingress HTTP escopado, continuidade multi-turno persistida, deduplicação durável, download seguro de áudio, resposta outbound governada e notificação automática orientada por mudança real de Pagamento/KDS/Entrega.
+- Target aplicado: WhatsApp Cloud API torna-se a borda de canal do Assistente, sem virar autoridade de negócio; toda decisão continua sendo validada contra Pedido, Pagamento, Estoque, KDS, Entrega, CRM, Maps e AI Router canônicos.
+- O F4-F fecha a implementação interna da Fase 4 e promove o Assistente a **COMMERCIAL_CANDIDATE**. A homologação comercial final continua proibida até Commercial Runtime E2E, teste físico no mesmo SHA candidato e homologações externas reais.
+
+**Implementado**
+- criado `RuntimeCanalWhatsAppV1` em `application/assistente_channel_runtime.py` como composition root de canal;
+- criado ingress HTTP `/webhooks/meta/whatsapp/{tenant_id}/{unidade_id}` com challenge do Meta, assinatura `x-hub-signature-256`, escopo explícito por tenant/unidade e falha fechada;
+- `MetaAdapter` passou a extrair mensagens WhatsApp de texto e áudio do payload oficial sem aceitar remetente ou mídia vazios;
+- áudio WhatsApp é obtido pela API Meta autenticada, com validação de HTTPS, MIME `audio/*`, limite de tamanho e transporte binário separado; os bytes são enviados ao mesmo capability governado de transcrição do AI Router;
+- texto e áudio convergem para a mesma máquina de atendimento e para a mesma continuidade multi-turno;
+- criado estado persistente `assistente_canal_conversas_v1`, migration `0035_assistente_channel_runtime_v1`, com telefone e estado sensível cifrados por Fernet; lookup de remetente usa HMAC escopado e não persiste telefone em claro;
+- o estado guarda somente o necessário para continuidade: conversa, estado, IDs canônicos de Pedido/Pagamento/Entrega, último inbound/outbound, fingerprint operacional e versão otimista;
+- Inbox persistente protege replay de mensagem; a mesma `wamid` não executa novamente o fluxo nem envia segunda resposta;
+- falha incerta de POST Meta não faz retry cego, porque a Meta pode ter aceitado a mensagem antes do timeout; o fluxo entra em handoff/reconciliação em vez de arriscar duplicação;
+- handoff por pedido explícito do cliente, reclamação ou falha de canal preserva contexto minimizado e consulta os estados canônicos quando já existe Pedido;
+- o Assistente passou a observar status real de Pedido, Pagamento, KDS e Entrega, incluindo último evento logístico, sem fabricar um novo ETA quando a fonte operacional não o confirma;
+- criado fingerprint do snapshot operacional; WhatsApp recebe atualização somente quando o estado real mudou;
+- notificações de KDS e Entrega são disparadas somente **depois** do commit da operação canônica;
+- notificação de mudança financeira do PagBank também ocorre depois da confirmação financeira; falha do WhatsApp jamais reverte Pagamento, KDS ou Entrega;
+- `application/assistente_operational_notifications.py` mantém a notificação como efeito best-effort: indisponibilidade do canal não invalida o write canônico;
+- composition roots comerciais não usam Fake/Mock/runtime_teste, tenant demo ou unidade demo;
+- testes históricos de migration foram tornados append-safe para permitir a 0035 sem alterar a semântica das migrations anteriores.
+
+**Provas internas**
+- Assistente Fase 4 Gate V1 — run **209** no SHA técnico: **PASS**;
+- Commercial Runtime Readiness V1 — run **224** no mesmo SHA: **PASS**;
+- compile: **PASS**;
+- Ruff: **PASS**;
+- suíte ampliada Fase 4: **137 passed**;
+- testes cobrem criptografia em repouso, isolamento tenant/unidade, versionamento do estado, replay de inbound, follow-up por áudio, falha incerta de outbound, consulta combinada Pedido/Pagamento/KDS/Entrega, notificação somente quando snapshot muda, challenge HTTP, homologação obrigatória para POST, assinatura inválida e unidade sem configuração;
+- fitness guards do F4-F foram adicionados para impedir regressão para canal fake, tenant demo, estado em claro, runtime sem assinatura ou notificação anterior ao commit.
+
+**Matriz de homologação e limites externos**
+- WhatsApp Cloud API: contrato interno/challenge/HMAC/texto/áudio/outbound foram implementados e testados por fixtures; falta evidência com WABA/número/Meta App reais, `wamid` real e callback real de status no tenant de homologação;
+- PagBank PIX: permanece `pix_provider_homologation_incomplete`; não existe evidência real de cobrança/webhook/consulta do provedor para o tenant comercial;
+- migration `0034_crm_customer_context_v1`: ainda precisa ser aplicada e validada no banco físico de homologação;
+- migration `0035_assistente_channel_runtime_v1`: também precisa ser aplicada e validada no banco físico de homologação;
+- nenhum desses itens externos foi marcado como PASS por teste fake, fixture ou simulação.
+
+**Readiness após F4-F**
+- `assistente_atendimento = COMMERCIAL_CANDIDATE`;
+- blockers de código conhecidos da Fase 4: **0**;
+- blockers externos/de implantação: `pix_provider_homologation_incomplete`, `whatsapp_cloud_api_homologation_pending`, `migration_0034_not_applied_in_current_homologation_db` e `migration_0035_not_applied_in_current_homologation_db`;
+- `commercial_runtime_e2e`: **pendente** no candidato final;
+- `physical_test`: **pendente** no candidato final;
+- portanto F4-F está internamente implementado, mas **Fase 4 ainda não é COMMERCIAL_HOMOLOGATED**.
+
+**Rollback**
+- antes de merge/deploy, rollback é reverter os commits F4-F da branch;
+- após implantação da 0035, registros cifrados de continuidade já gravados devem ser preservados; rollback deve retirar o composition root do canal, não apagar histórico de conversa necessário para auditoria/reconciliação;
+- Pedido, Pagamento, KDS, Entrega, CRM e eventos canônicos nunca devem ser apagados para desfazer falha de WhatsApp;
+- o canal é uma borda substituível; as autoridades de negócio permanecem nos módulos canônicos.
+
+**Próximo gate permitido**
+- não iniciar Fase 5 por este checkpoint;
+- preparar o candidato final da Fase 4 para Commercial Runtime E2E + teste físico no mesmo SHA;
+- aplicar migrations 0034/0035 no ambiente de homologação, configurar/homologar WhatsApp real e, quando disponível, PagBank PIX real;
+- somente após evidências objetivas e nova reconciliação de readiness o status pode evoluir para `COMMERCIAL_HOMOLOGATED`.
+
+
 ## 11. Regra de preservação
 
 Durante a recuperação:
