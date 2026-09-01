@@ -24,6 +24,7 @@ from application.assistente_atendimento_runtime import (
     RuntimeAssistenteAtendimentoV1,
     _contexto_agente,
 )
+from application.assistente_handoff_transacoes import HandoffAssistenteTransacionalV1
 from core.assistente_atendimento.atendimento_modelos import (
     CarrinhoAtendimento,
     CotacaoEntregaAtendimento,
@@ -66,15 +67,13 @@ from infra.assistente_atendimento.canal_estado_sqlalchemy import (
 from infra.assistente_atendimento.contexto_cliente_sqlalchemy import (
     ContextoClienteAtendimentoSQLAlchemy,
 )
-from infra.assistente_atendimento.handoff_sqlalchemy import (
-    HandoffAssistenteAuditSQLAlchemy,
-)
 from infra.eventos.adaptador_sqlalchemy import RepositorioInboxSQLAlchemy
 from infra.eventos.modelos_orm import InboxEventoORM
 from infra.gerente_ia.persistencia_sqlalchemy import (
     RepositorioIdentidadeAssistenteSQLAlchemy,
 )
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
+from infra.transacoes.uow import UnitOfWorkV1
 
 SessionFactory = Callable[[], Session]
 
@@ -448,11 +447,11 @@ class RuntimeCanalWhatsAppV1:
         session_factory: SessionFactory,
         *,
         runtime: RuntimeAssistenteAtendimentoV1 | None = None,
-        handoff: HandoffAssistenteAuditSQLAlchemy | None = None,
+        handoff: HandoffAssistenteTransacionalV1 | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._runtime = runtime or RuntimeAssistenteAtendimentoV1(session_factory)
-        self._handoff = handoff or HandoffAssistenteAuditSQLAlchemy(session_factory)
+        self._handoff = handoff or HandoffAssistenteTransacionalV1(session_factory)
 
     def _contexto(
         self,
@@ -576,6 +575,7 @@ class RuntimeCanalWhatsAppV1:
         if not pedido_id.strip():
             raise ValueError("pedido_id_obrigatorio")
         db = self._session_factory()
+        uow = UnitOfWorkV1.adotar_session(db)
         try:
             store = EncryptedSQLAlchemyChannelStateStore(db)
             estados = store.obter_por_pedido(
@@ -638,10 +638,10 @@ class RuntimeCanalWhatsAppV1:
                     versao_esperada=estado.versao,
                 )
                 enviados += 1
-            db.commit()
+            uow.commit()
             return enviados
         except Exception:
-            db.rollback()
+            uow.rollback()
             raise
         finally:
             db.close()
@@ -926,6 +926,7 @@ class RuntimeCanalWhatsAppV1:
             mensagem_id=mensagem.mensagem_id,
         )
         db = self._session_factory()
+        uow = UnitOfWorkV1.adotar_session(db)
         try:
             store = EncryptedSQLAlchemyChannelStateStore(db)
             sender_hash = store.sender_hash(
@@ -1064,6 +1065,7 @@ class RuntimeCanalWhatsAppV1:
 
         checkout = runtime_atual.resultado.checkout
         db = self._session_factory()
+        uow = UnitOfWorkV1.adotar_session(db)
         try:
             store = EncryptedSQLAlchemyChannelStateStore(db)
             estado_anterior = store.obter(
@@ -1129,9 +1131,9 @@ class RuntimeCanalWhatsAppV1:
                 resultado="processado",
                 estado=salvo.estado,
             )
-            db.commit()
+            uow.commit()
         except Exception:
-            db.rollback()
+            uow.rollback()
             raise
         finally:
             db.close()
@@ -1148,6 +1150,7 @@ class RuntimeCanalWhatsAppV1:
                 motivo="falha_envio_whatsapp_reconciliacao_obrigatoria",
             )
             db = self._session_factory()
+        uow = UnitOfWorkV1.adotar_session(db)
             try:
                 store = EncryptedSQLAlchemyChannelStateStore(db)
                 atual = store.obter(
@@ -1178,9 +1181,9 @@ class RuntimeCanalWhatsAppV1:
                     resultado="falha_canal_handoff",
                     estado=EstadoAtendimento.HANDOFF_HUMANO.value,
                 )
-                db.commit()
+                uow.commit()
             except Exception:
-                db.rollback()
+                uow.rollback()
                 raise
             finally:
                 db.close()
@@ -1193,6 +1196,7 @@ class RuntimeCanalWhatsAppV1:
             )
 
         db = self._session_factory()
+        uow = UnitOfWorkV1.adotar_session(db)
         try:
             store = EncryptedSQLAlchemyChannelStateStore(db)
             store.registrar_outbound(
@@ -1208,9 +1212,9 @@ class RuntimeCanalWhatsAppV1:
                 resultado="resposta_enviada",
                 estado=runtime_atual.resultado.estado.value,
             )
-            db.commit()
+            uow.commit()
         except Exception:
-            db.rollback()
+            uow.rollback()
             raise
         finally:
             db.close()
