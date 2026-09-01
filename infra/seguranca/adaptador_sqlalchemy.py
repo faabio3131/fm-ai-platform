@@ -23,6 +23,28 @@ class RepositorioIdentidadesSQLAlchemy:
     def __init__(self, session: Session) -> None:
         self._session = session
 
+    def listar_por_tenant(self, *, tenant_id: str) -> tuple[IdentidadeUsuario, ...]:
+        tenant = tenant_id.strip()
+        if not tenant:
+            raise ValueError("tenant_id obrigatorio")
+        emails = self._session.scalars(
+            select(UsuarioSegurancaORM.email)
+            .where(UsuarioSegurancaORM.tenant_id == tenant)
+            .order_by(UsuarioSegurancaORM.email)
+        ).all()
+        identidades = tuple(
+            identidade
+            for email in emails
+            if (identidade := self.obter_por_email(str(email))) is not None
+        )
+        return identidades
+
+    def obter_por_id(self, *, usuario_id: str) -> IdentidadeUsuario | None:
+        usuario = self._session.get(UsuarioSegurancaORM, usuario_id)
+        if usuario is None:
+            return None
+        return self.obter_por_email(usuario.email)
+
     def obter_por_email(self, email_normalizado: str) -> IdentidadeUsuario | None:
         usuario = self._session.scalar(
             select(UsuarioSegurancaORM).where(
@@ -163,6 +185,38 @@ class RepositorioIdentidadesSQLAlchemy:
                 for papel in papeis_set
             ]
         )
+        self._session.flush()
+
+    def definir_unidades(
+        self,
+        *,
+        usuario_id: str,
+        unidades_permitidas: Iterable[str],
+        unidade_padrao_id: str,
+    ) -> None:
+        usuario = self._session.get(UsuarioSegurancaORM, usuario_id)
+        if usuario is None:
+            raise ValueError("usuario inexistente")
+        unidades = frozenset(
+            str(unidade).strip()
+            for unidade in unidades_permitidas
+            if str(unidade).strip()
+        )
+        padrao = unidade_padrao_id.strip()
+        if not unidades or not padrao or padrao not in unidades:
+            raise ValueError("escopo de unidades invalido")
+        self._session.execute(
+            delete(UsuarioUnidadeORM).where(
+                UsuarioUnidadeORM.usuario_id == usuario_id
+            )
+        )
+        self._session.add_all(
+            [
+                UsuarioUnidadeORM(usuario_id=usuario_id, unidade_id=unidade)
+                for unidade in sorted(unidades)
+            ]
+        )
+        usuario.unidade_padrao_id = padrao
         self._session.flush()
 
     def definir_ativo(self, *, usuario_id: str, ativo: bool) -> None:
