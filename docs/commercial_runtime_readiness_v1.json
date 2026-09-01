@@ -111,13 +111,12 @@
       }
     },
     "pdv_pagamentos": {
-      "status": "LEGACY_AUTHORITY",
+      "status": "CUTOVER_PENDING",
       "commercial_paths": [
         "app.py",
         "core/pdv/configuracao.py"
       ],
       "code_blockers": [
-        "pdv_forced_legacy_outside_test",
         "pdv_legacy_adapter_in_app"
       ],
       "external_blockers": [

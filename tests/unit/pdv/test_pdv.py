@@ -4,6 +4,7 @@ from decimal import Decimal
 import pytest
 
 from core.dominio.dinheiro import Dinheiro
+from core.dominio.erros import ValorMonetarioInvalido
 from core.pagamentos.flags import FlagsPagamentosV1
 from core.pdv.configuracao import carregar_rollout_ambiente
 from core.pdv.contexto import contexto_caixa_pdv_autenticado
@@ -179,7 +180,7 @@ def test_rbac_minimo_caixa_e_gerente_ia() -> None:
 
 
 def test_dinheiro_nao_aceita_float_v1() -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(ValorMonetarioInvalido):
         Dinheiro(29.9)  # type: ignore[arg-type]
 
 
