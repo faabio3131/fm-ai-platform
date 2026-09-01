@@ -67,7 +67,11 @@
         "application/finalizacao_pagamento.py",
         "application/pagbank_reconciliacao.py",
         "application/kds_runtime_core.py",
-        "application/legacy_stock_projection.py"
+        "application/legacy_stock_projection.py",
+        "application/assistente_delivery_convergence.py",
+        "core/entrega/adaptador_sqlalchemy.py",
+        "core/entrega/integracoes_sqlalchemy.py",
+        "core/entrega/servicos.py"
       ],
       "code_blockers": [],
       "external_blockers": [
@@ -75,7 +79,7 @@
         "migration_0034_not_applied_in_current_homologation_db"
       ],
       "evidence": {
-        "sha": "1f3277d699e8f000e9d1922d519d7745b8b49560",
+        "sha": "4884a2948d554ce69b849721b2ad706b09dc2872",
         "commercial_runtime_e2e": null,
         "physical_test": null
       }
