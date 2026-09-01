@@ -148,6 +148,10 @@
     {
       "version": "0036_administracao_proprietario_v1",
       "sha256": "19d24cd49f469ec18e3274dd7200928715e5a4926ad99188d2632af98642f995"
+    },
+    {
+      "version": "0037_pdv_reconciliation_strategy_width_v1",
+      "sha256": "554633a8df4143ec98b8ddc29bfb767a88cd72f2292029f3f7dc9f3237bc1875"
     }
   ]
 }

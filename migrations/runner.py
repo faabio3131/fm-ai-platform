@@ -88,6 +88,9 @@ from migrations.manifest import assert_migration_manifest, migration_fingerprint
 from migrations.migration_history_integrity_v1 import (
     upgrade_migration_history_integrity_v1,
 )
+from migrations.pdv_reconciliation_strategy_width_v1 import (
+    upgrade_pdv_reconciliation_strategy_width_v1,
+)
 from migrations.product_unit_scope_compat_v1 import upgrade_product_unit_scope_compat_v1
 from migrations.unit_legacy_store_mapping_v1 import upgrade_unit_legacy_store_mapping_v1
 
@@ -264,6 +267,10 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         "0036_administracao_proprietario_v1",
         upgrade_administracao_proprietario_v1,
+    ),
+    Migration(
+        "0037_pdv_reconciliation_strategy_width_v1",
+        upgrade_pdv_reconciliation_strategy_width_v1,
     ),
 )
 

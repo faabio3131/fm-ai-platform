@@ -421,6 +421,55 @@ def confirmar_pagamento(
     )
 
 
+_METODOS_CARTAO_PRESENCIAL = frozenset(
+    {MetodoPagamento.CARTAO_CREDITO, MetodoPagamento.CARTAO_DEBITO}
+)
+
+
+def confirmar_pagamento_presencial(
+    *,
+    contexto: ContextoExecucao,
+    repositorio: RepositorioPagamentos,
+    pagamento_id: str,
+    valor: Dinheiro,
+    metodo: MetodoPagamento,
+    idempotency_key: str,
+    expected_version: int,
+    timestamp: datetime,
+    referencia_externa: str,
+    correlation_id: str | None = None,
+) -> ResultadoPagamento:
+    """Liquida cartão presencial explicitamente atestado no terminal físico.
+
+    Este caminho não amplia a confirmação manual genérica: aceita somente
+    crédito/débito e exige referência externa auditável do terminal/operador.
+    Pix e demais métodos continuam dependendo de fonte financeira própria.
+    """
+
+    if metodo not in _METODOS_CARTAO_PRESENCIAL:
+        raise FonteFinanceiraNaoConfiavel(
+            "confirmacao presencial restrita a cartao de credito/debito"
+        )
+    referencia = referencia_externa.strip()
+    if not referencia:
+        raise FonteFinanceiraNaoConfiavel(
+            "confirmacao presencial exige referencia auditavel"
+        )
+    return _confirmar_pagamento_validado(
+        contexto=contexto,
+        repositorio=repositorio,
+        pagamento_id=pagamento_id,
+        valor=valor,
+        metodo=metodo,
+        idempotency_key=idempotency_key,
+        expected_version=expected_version,
+        timestamp=timestamp,
+        referencia_externa=referencia,
+        correlation_id=correlation_id,
+        fonte_financeira_validada=True,
+    )
+
+
 def processar_webhook(
     *,
     contexto: ContextoExecucao,

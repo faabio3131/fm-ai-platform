@@ -44,17 +44,10 @@ def finalizar_venda_pdv(
     modo = decidir_modo(
         contexto=contexto, terminal_id=entrada.terminal_id, config=config
     )
-    # PR7 nao modela obrigacao zero: fallback explicito, nunca pagamento ficticio.
-    if modo is ModoPDV.AUTHORITATIVE_CANARY and entrada.total.valor == 0:
-        modo = ModoPDV.LEGACY
     if modo is ModoPDV.LEGACY:
         with uow_legado:
             resultado = legado.executar(entrada)
             uow_legado.commit()
-        if entrada.total.valor == 0:
-            return ResultadoPDV(
-                **{**resultado.__dict__, "motivo": "saldo_zero_financeiro_nao_modelado"}
-            )
         return resultado
     if modo is ModoPDV.SHADOW:
         with uow_legado:

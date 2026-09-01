@@ -275,13 +275,22 @@ class LegacyPDVSQLAlchemyAdapter:
         existente = self._feito(TipoEfeitoCompat.VENDA_LEGADA)
         if existente and existente.referencia_legada:
             return self.session.get(self.Venda, int(existente.referencia_legada))
+        forma_pagamento = (
+            "Cashback"
+            if (
+                entrada.total.valor == 0
+                and entrada.usar_cashback
+                and entrada.desconto_cashback.valor > 0
+            )
+            else entrada.forma_pagamento
+        )
         venda = self.Venda(
             produto_id=entrada.produto_id,
             cliente_id=entrada.cliente_id,
             quantidade=entrada.quantidade,
             valor_total=float(entrada.total.valor),
             custo_total=float(entrada.custo_total.valor),
-            forma_pagamento=entrada.forma_pagamento,
+            forma_pagamento=forma_pagamento,
             status_pagamento=status,
             data_venda=instante.replace(tzinfo=None),
         )
@@ -380,6 +389,39 @@ class LegacyPDVSQLAlchemyAdapter:
         self.baixar_estoque_uma_vez(entrada, consumos, instante)
         self.aplicar_cashback_uma_vez(entrada, instante)
         return ResultadoPDV("legacy", True, venda_legada_id=str(venda.id))
+
+
+class PonteProjecaoCompatLegadaPDVSQLAlchemy:
+    """Visão restrita do legado entregue ao executor canônico.
+
+    Deliberadamente não expõe executar() nem baixar_estoque_uma_vez().
+    """
+
+    def __init__(self, legado: LegacyPDVSQLAlchemyAdapter) -> None:
+        self._legado = legado
+
+    def validar_estoque(self, entrada: EntradaPDV) -> list[tuple[Any, Decimal]]:
+        return self._legado.validar_estoque(entrada)
+
+    def criar_venda_uma_vez(
+        self,
+        entrada: EntradaPDV,
+        *,
+        instante: datetime,
+        status: str = "Aprovado",
+    ) -> Any:
+        return self._legado.criar_venda_uma_vez(
+            entrada,
+            instante=instante,
+            status=status,
+        )
+
+    def aplicar_cashback_uma_vez(
+        self,
+        entrada: EntradaPDV,
+        instante: datetime,
+    ) -> None:
+        self._legado.aplicar_cashback_uma_vez(entrada, instante)
 
 
 FaultInjector = Callable[[str], None]

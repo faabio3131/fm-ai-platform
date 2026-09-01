@@ -1,0 +1,70 @@
+name: Fase 6A Canonical PDV Cutover Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app.py'
+      - 'core/pdv/**'
+      - 'core/runtime/**'
+      - 'application/checkout.py'
+      - 'application/finalizacao_pagamento.py'
+      - 'tests/unit/pdv/**'
+      - 'tests/integration/pdv/**'
+      - 'tests/fitness/test_f6a_pdv_cutover_wiring.py'
+      - 'tests/unit/integracoes/test_wire_pix_pdv_durability_v1.py'
+      - 'scripts/wire_pix_pdv_durability_v1.py'
+      - 'docs/inventario-fase6-pdv-pedido-pagamento-estoque-v1.md'
+      - 'docs/system-design-fase6a-pdv-canonical-cutover-v1.md'
+      - '.github/workflows/fase6a-pdv-canonical-cutover.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  f6a:
+    name: Production rollout fail-closed
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Compilar F6-A
+        run: >-
+          python -m compileall -q
+          core/pdv core/runtime
+          tests/unit/pdv/test_pdv.py
+          tests/fitness/test_f6a_pdv_cutover_wiring.py
+          scripts/wire_pix_pdv_durability_v1.py
+          tests/unit/integracoes/test_wire_pix_pdv_durability_v1.py
+          app.py
+      - name: Ruff F6-A
+        run: >-
+          ruff check
+          core/pdv/configuracao.py
+          tests/unit/pdv/test_pdv.py
+          tests/fitness/test_f6a_pdv_cutover_wiring.py
+          scripts/wire_pix_pdv_durability_v1.py
+          tests/unit/integracoes/test_wire_pix_pdv_durability_v1.py
+      - name: Mypy F6-A
+        run: mypy core/pdv core/runtime
+      - name: Rollout e wiring canônico
+        run: >-
+          pytest -q
+          tests/unit/pdv/test_pdv.py
+          tests/fitness/test_f6a_pdv_cutover_wiring.py
+          tests/unit/integracoes/test_wire_pix_pdv_durability_v1.py
+      - name: Regressão PDV canary e Active Scope
+        run: >-
+          pytest -q
+          tests/integration/pdv/test_canary_integrado.py
+          tests/integration/pdv/test_active_execution_scope.py

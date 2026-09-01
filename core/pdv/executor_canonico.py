@@ -5,27 +5,30 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 
-from application.checkout import executar_checkout_em_transacao
+from application.checkout import (
+    confirmar_checkout_sem_obrigacao_financeira_em_transacao,
+    executar_checkout_em_transacao,
+)
 from application.order_result_orchestrator import (
     orquestrar_resultado_pagamento_em_transacao,
 )
 from core.dominio.dinheiro import Dinheiro
 from core.dominio.enums import PagamentoStatus
-from core.pagamentos.adapters import ProvedorPagamentoFake
 from core.pagamentos.modelos import MetodoPagamento
-from core.pagamentos.servicos import confirmar_pagamento, processar_webhook
+from core.pagamentos.servicos import (
+    confirmar_pagamento,
+    confirmar_pagamento_presencial,
+    processar_webhook,
+)
 from core.seguranca.contexto import ContextoExecucao
 from infra.transacoes.uow import RecursosTransacionaisV1
 
-from .adaptadores_sqlalchemy import (
-    FaultInjector,
-    LegacyPDVSQLAlchemyAdapter,
-    RepositorioPDVSQLAlchemy,
-)
+from .adaptadores_sqlalchemy import FaultInjector, RepositorioPDVSQLAlchemy
 from .cutover_canonico import montar_checkout_pdv
 from .finalizacao_pendente import RepositorioFinalizacaoPendentePDV
 from .modelos import EntradaPDV, ResultadoPDV, mapear_metodo
 from .reconciliacao import ReconciliacaoPDV, detectar_divergencias
+from .repositorios import PonteProjecaoCompatLegadaPDV
 
 
 def _cashback_ganho(entrada: EntradaPDV) -> Decimal:
@@ -42,13 +45,15 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
         *,
         session,
         contexto: ContextoExecucao,
-        legado: LegacyPDVSQLAlchemyAdapter,
+        legado: PonteProjecaoCompatLegadaPDV,
         fault: FaultInjector | None = None,
+        permitir_pix_sandbox: bool = False,
     ) -> None:
         self.session = session
         self.contexto = contexto
         self.legado = legado
         self.fault = fault or (lambda _ponto: None)
+        self.permitir_pix_sandbox = permitir_pix_sandbox
 
     def _registrar_pendente(
         self,
@@ -97,6 +102,8 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
         )
 
     def executar(self, entrada: EntradaPDV) -> ResultadoPDV:
+        if entrada.pix_sandbox and not self.permitir_pix_sandbox:
+            raise RuntimeError("pix_sandbox_nao_autorizado")
         instante = datetime.now(timezone.utc)
         pdv = RepositorioPDVSQLAlchemy(self.session)
         recursos = RecursosTransacionaisV1(self.session)
@@ -132,9 +139,62 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
         )
         pedido = checkout.aguardando_confirmacao.pedido
         iniciado = checkout.pagamento
+        self.fault("after_checkout_canonico")
+
+        if entrada.total.valor == 0:
+            if (
+                iniciado is not None
+                or comando.pagamento_id is not None
+                or comando.metodo_pagamento is not None
+            ):
+                raise RuntimeError("pdv_saldo_zero_com_obrigacao_financeira")
+            confirmado_zero = confirmar_checkout_sem_obrigacao_financeira_em_transacao(
+                checkout=checkout,
+                contexto=self.contexto,
+                recursos=recursos,
+                timestamp=instante,
+            )
+            pedido = confirmado_zero.pedido
+            self.fault("after_confirmacao_saldo_zero")
+
+            venda = self.legado.criar_venda_uma_vez(entrada, instante=instante)
+            self.legado.aplicar_cashback_uma_vez(entrada, instante)
+            self.fault("after_projecoes_legadas")
+            self.fault("before_reconciliacao")
+            pdv.reconciliar(
+                tenant_id=self.contexto.tenant_id,
+                unidade_id=self.contexto.unidade_id,
+                modo="authoritative_canary",
+                pedido_id=str(pedido.id),
+                pagamento_id=None,
+                venda_financeira_id=None,
+                venda_legada_id=str(venda.id),
+                idempotency_key=f"{entrada.idempotency_key}:reconciliacao",
+                valor_pedido=entrada.total.valor,
+                valor_pagamento=None,
+                valor_venda_financeira=None,
+                valor_venda_legada=Decimal(str(venda.valor_total)),
+                estoque_estrategia="canonico_reservado",
+                cashback_usado=(
+                    entrada.desconto_cashback.valor
+                    if entrada.usar_cashback
+                    else Decimal(0)
+                ),
+                cashback_ganho=_cashback_ganho(entrada),
+                status="conciliado",
+                divergencias=[],
+                criado_em=instante,
+            )
+            return ResultadoPDV(
+                "authoritative_canary",
+                True,
+                pedido_id=str(pedido.id),
+                venda_legada_id=str(venda.id),
+                troco=Dinheiro(Decimal(0)),
+            )
+
         if iniciado is None or comando.pagamento_id is None:
             raise RuntimeError("pdv_checkout_sem_obrigacao_financeira")
-        self.fault("after_checkout_canonico")
 
         metodo = mapear_metodo(entrada.forma_pagamento)
         confirmado = None
@@ -152,7 +212,27 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
                 timestamp=instante,
                 referencia_externa=f"operacional:{self.contexto.usuario_id}",
             )
+        elif (
+            metodo
+            in {MetodoPagamento.CARTAO_CREDITO, MetodoPagamento.CARTAO_DEBITO}
+            and entrada.confirmacao_presencial
+        ):
+            confirmado = confirmar_pagamento_presencial(
+                contexto=self.contexto,
+                repositorio=recursos.pagamentos,
+                pagamento_id=comando.pagamento_id,
+                valor=entrada.total,
+                metodo=metodo,
+                idempotency_key=f"{entrada.idempotency_key}:confirmacao",
+                expected_version=iniciado.pagamento.versao,
+                timestamp=instante,
+                referencia_externa=(
+                    f"presencial:{entrada.terminal_id}:{self.contexto.usuario_id}"
+                ),
+            )
         elif metodo is MetodoPagamento.PIX and entrada.pix_sandbox:
+            from core.pagamentos.adapters import ProvedorPagamentoFake
+
             webhook = ProvedorPagamentoFake().normalizar_webhook(
                 {
                     "evento_externo": f"sandbox:{entrada.checkout_id}",

@@ -64,6 +64,7 @@ _EXPECTED_MIGRATIONS = (
     "0034_crm_customer_context_v1",
     "0035_assistente_channel_runtime_v1",
     "0036_administracao_proprietario_v1",
+    "0037_pdv_reconciliation_strategy_width_v1",
 )
 
 
