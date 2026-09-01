@@ -12,7 +12,7 @@ import json
 from dataclasses import dataclass, replace
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 
 from core.dominio.enums import PagamentoStatus, PedidoStatus
 from core.dominio.ids import IdempotencyKey, PedidoId, TenantId, UnidadeId
@@ -92,6 +92,11 @@ def _producao_status(
     unidade_id: str,
     pedido_id: str,
 ) -> tuple[str, ...]:
+    bind = recursos.session.get_bind()
+    if not inspect(bind).has_table(ProducaoItemORM.__tablename__):
+        # Produção é estado observado, não pré-requisito da finalização financeira.
+        # O runtime KDS continua responsável por falhar fechado em seus próprios writes.
+        return ()
     statuses = recursos.session.scalars(
         select(ProducaoItemORM.status).where(
             ProducaoItemORM.tenant_id == tenant_id,
