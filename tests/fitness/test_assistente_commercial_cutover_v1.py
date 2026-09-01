@@ -161,6 +161,10 @@ def test_assistant_delivery_converges_on_canonical_entrega_and_order() -> None:
     assert "pedido_id=str(pedido.id)" in convergence
     assert "address://" in convergence
     assert "entrega_sem_referencia_endereco_autorizada" in service
+    runner = _text("migrations/runner.py")
+
     assert "PedidoDelivery" not in convergence
     assert "RuntimeDeliveryTeste" not in convergence
     assert "core.delivery.runtime_teste" not in convergence
+    assert "0012_restaurant_operations_runtime_v1" in runner
+    assert "DeliveryBase.metadata.create_all" in runner
