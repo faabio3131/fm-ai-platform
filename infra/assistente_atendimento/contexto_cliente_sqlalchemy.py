@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal
+from typing import cast
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -94,8 +95,8 @@ class ContextoClienteAtendimentoSQLAlchemy:
             PedidoHistoricoAtendimento(
                 pedido_id=row.id,
                 status=row.status,
-                criado_em=_utc(row.criado_em),
-                total=Decimal(row.total),
+                criado_em=_utc(cast(datetime, row.criado_em)),
+                total=Decimal(str(row.total)),
                 itens=tuple(
                     ItemHistoricoAtendimento(
                         produto_id=str(item.produto_id or ""),

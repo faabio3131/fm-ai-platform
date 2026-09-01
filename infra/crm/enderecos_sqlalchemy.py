@@ -35,7 +35,7 @@ class EncryptedSQLAlchemyAddressStore:
     """PII de endereço só é decifrada no boundary operacional autorizado."""
 
     def __init__(self, session: Session, *, master_key: str | None = None) -> None:
-        raw = (master_key or os.getenv("FM_AI_SECRET_MASTER_KEY", "")).strip()
+        raw = (master_key or os.getenv("FM_AI_SECRET_MASTER_KEY", "") or "").strip()
         if not raw:
             raise RuntimeError(
                 "FM_AI_SECRET_MASTER_KEY ausente; configure a chave mestra da infraestrutura"

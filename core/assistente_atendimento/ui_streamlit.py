@@ -144,7 +144,7 @@ def render_assistente_atendimento_v1(
                     origem="streamlit.assistente_atendimento"
                 )
                 if modalidade_entrada == "Texto":
-                    resultado = runtime.interpretar_texto(
+                    runtime_obtido = runtime.interpretar_texto(
                         contexto_solicitante=contexto_solicitante,
                         conversa_id=conversa_id,
                         mensagem_id=mensagem_id,
@@ -159,7 +159,7 @@ def render_assistente_atendimento_v1(
                         if str(audio_upload.type or "").startswith("audio/")
                         else "audio/ogg"
                     )
-                    resultado = runtime.interpretar_audio(
+                    runtime_obtido = runtime.interpretar_audio(
                         contexto_solicitante=contexto_solicitante,
                         conversa_id=conversa_id,
                         mensagem_id=mensagem_id,
@@ -168,7 +168,7 @@ def render_assistente_atendimento_v1(
                         mime_type=mime_type,
                         nome_publico=nome,
                     )
-                st.session_state[_RESULTADO_KEY] = resultado
+                st.session_state[_RESULTADO_KEY] = runtime_obtido
                 st.session_state[_IDEMPOTENCIA_KEY] = str(uuid4())
                 st.rerun()
             except _ERROS_RUNTIME_SEGURO:

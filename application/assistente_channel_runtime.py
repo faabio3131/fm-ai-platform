@@ -654,7 +654,7 @@ class RuntimeCanalWhatsAppV1:
         mensagem_contexto: str | None = None,
     ) -> ResultadoRuntimeAssistente:
         checkout = runtime.resultado.checkout
-        metadata = {
+        metadata: dict[str, str | int | bool] = {
             "estado": runtime.resultado.estado.value,
             "pedido_id": checkout.pedido_id if checkout is not None else "nao_criado",
         }

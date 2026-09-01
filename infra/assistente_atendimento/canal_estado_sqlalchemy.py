@@ -39,7 +39,7 @@ class EncryptedSQLAlchemyChannelStateStore:
     """Estado mínimo de conversa cifrado e escopado por tenant/unidade."""
 
     def __init__(self, session: Session, *, master_key: str | None = None) -> None:
-        raw = (master_key or os.getenv("FM_AI_SECRET_MASTER_KEY", "")).strip()
+        raw = (master_key or os.getenv("FM_AI_SECRET_MASTER_KEY", "") or "").strip()
         if not raw:
             raise RuntimeError(
                 "FM_AI_SECRET_MASTER_KEY ausente; configure a chave mestra da infraestrutura"

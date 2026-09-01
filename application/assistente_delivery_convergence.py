@@ -78,6 +78,7 @@ def executar_checkout_assistente_convergente_v1(
         if modalidade is ModalidadePedidoAtendimento.ENTREGA:
             if uow.session is None or endereco_ref is None:
                 raise RuntimeError("uow_entrega_invalida")
+            session = uow.session
 
             entrega_id = _id_deterministico(
                 f"{contexto.tenant_id}:{contexto.unidade_id}:"
@@ -110,11 +111,11 @@ def executar_checkout_assistente_convergente_v1(
                 )
 
             servico = ServicoEntrega(
-                RepositorioEntregaSQLAlchemy(uow.session),
+                RepositorioEntregaSQLAlchemy(session),
                 financeiro_resolvido=(
                     lambda tenant_id, unidade_id, pedido_id:
                     financeiro_resolvido_sqlalchemy(
-                        uow.session,
+                        session,
                         tenant_id,
                         unidade_id,
                         pedido_id,
@@ -123,7 +124,7 @@ def executar_checkout_assistente_convergente_v1(
                 pedido_cancelado=(
                     lambda tenant_id, unidade_id, pedido_id:
                     pedido_cancelado_sqlalchemy(
-                        uow.session,
+                        session,
                         tenant_id,
                         unidade_id,
                         pedido_id,

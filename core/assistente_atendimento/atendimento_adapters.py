@@ -20,6 +20,7 @@ class PortaCheckoutAssistente(Protocol):
         canal: str,
         metodo: MetodoPagamento,
         idempotency_key: str,
+        endereco_ref: str | None = None,
     ) -> ResultadoCheckoutAssistente: ...
 
 
