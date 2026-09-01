@@ -76,6 +76,10 @@ jobs:
           pytest -q tests/integration/integracoes tests/unit/integracoes
           tests/unit/runtime tests/unit/security
           tests/fitness/test_af03_transaction_ownership.py
+      - name: Gate baseline de schema gerado
+        run: python scripts/generate_schema_baseline_v1.py --check
+      - name: AF04 schema convergence isolado
+        run: pytest -q tests/fitness/test_af04_schema_convergence.py
       - name: Suite Python completa
         run: pytest -q
 
