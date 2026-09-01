@@ -42,10 +42,17 @@ def _schema_engine(prefix: str) -> Iterator[Engine]:
 
 
 def test_0036_backfill_admin_aplica_em_postgres_e_registry_fica_idempotente() -> None:
+    indice_0036 = next(
+        index
+        for index, migration in enumerate(DEFAULT_MIGRATIONS)
+        if migration.version == "0036_administracao_proprietario_v1"
+    )
+    migration_0036 = DEFAULT_MIGRATIONS[indice_0036]
+
     with _schema_engine("f5_admin") as engine:
         aplicadas_ate_f4 = run_migrations(
             engine,
-            DEFAULT_MIGRATIONS[:-1],
+            DEFAULT_MIGRATIONS[:indice_0036],
         )
         assert "0035_assistente_channel_runtime_v1" in aplicadas_ate_f4
         assert "0036_administracao_proprietario_v1" not in aplicadas_ate_f4
@@ -63,8 +70,11 @@ def test_0036_backfill_admin_aplica_em_postgres_e_registry_fica_idempotente() ->
             )
             session.commit()
 
-        assert run_migrations(engine, (DEFAULT_MIGRATIONS[-1],)) == (
+        assert run_migrations(engine, (migration_0036,)) == (
             "0036_administracao_proprietario_v1",
+        )
+        assert run_migrations(engine) == tuple(
+            migration.version for migration in DEFAULT_MIGRATIONS[indice_0036 + 1 :]
         )
         assert run_migrations(engine) == ()
 
