@@ -179,6 +179,51 @@ def executar_checkout_em_transacao(
     return ResultadoCheckoutV1(criado, pagamento, reserva, aguardando)
 
 
+def confirmar_checkout_sem_obrigacao_financeira_em_transacao(
+    *,
+    checkout: ResultadoCheckoutV1,
+    contexto: ContextoExecucao,
+    recursos: RecursosTransacionaisV1,
+    timestamp: datetime,
+) -> ResultadoPedidoAutoritativo:
+    """Confirma pedido zerado sem inventar Pagamento/VendaFinanceira.
+
+    O saldo econômico já foi resolvido antes do checkout (por exemplo, cashback
+    cobrindo integralmente o pedido). A transição continua auditada, idempotente
+    e na mesma UoW que Pedido/Estoque/projeções.
+    """
+
+    pedido = checkout.aguardando_confirmacao.pedido
+    if pedido.total.valor != 0:
+        raise CheckoutInvalido("checkout sem obrigação exige pedido zerado")
+    if checkout.pagamento is not None:
+        raise CheckoutInvalido("pedido zerado não pode possuir pagamento")
+    if pedido.status is not PedidoStatus.AGUARDANDO_CONFIRMACAO:
+        raise CheckoutInvalido("pedido zerado deve aguardar confirmação")
+
+    return transicionar_pedido(
+        tenant_id=pedido.tenant_id,
+        unidade_id=pedido.unidade_id,
+        pedido_id=pedido.id,
+        destino=PedidoStatus.CONFIRMADO,
+        versao_esperada=pedido.versao,
+        idempotency_key=IdempotencyKey(
+            f"{pedido.idempotency_key}:confirmado_sem_pagamento"
+        ),
+        contexto=_contexto_efeito_checkout(contexto, Permissao.PEDIDO_ALTERAR),
+        repositorio=recursos.pedidos,
+        outbox=recursos.outbox,
+        auditoria=recursos.auditoria,
+        timestamp=timestamp,
+        precondicoes={"dados_confirmados": True},
+        metadata={
+            "origem_derivada": "saldo_zero_sem_obrigacao",
+            "pagamento_criado": False,
+            "estoque_reservado": checkout.reserva is not None,
+        },
+    )
+
+
 def executar_checkout_v1(
     *,
     comando: ComandoCheckoutV1,

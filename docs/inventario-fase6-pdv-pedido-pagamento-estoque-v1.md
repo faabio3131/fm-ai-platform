@@ -5,6 +5,11 @@
 **Programa de recuperação:** Issue #62  
 **Regra:** preservar patrimônio canônico já construído; corrigir composição/cutover, não reescrever domínio válido.
 
+## 0. Checkpoints de execução
+
+- F6-A fechada em `8ce3eba882d65af78822a35dae23c97e0e8ad628`: matriz 20/20 verde e reexecução extra do PR11 E2E principal verde.
+- F6-B aberta após o checkpoint F6-A, sem merge/deploy e sem reabrir decisões já aprovadas.
+
 ## 1. Resultado executivo
 
 A Fase 6 não começa do zero. Pedido, checkout, Pagamento/VendaFinanceira, ledger/reserva de Estoque, UoW, eventos/outbox/auditoria, reconciliação e o executor canônico do PDV já existem e possuem gates verdes na `main`.
@@ -41,7 +46,7 @@ O gap principal é operacional: o loader atual do PDV força `LEGACY` fora de `F
 
 ## 4. Gaps ordenados
 
-### F6-A — Production Rollout / Canonical PDV Cutover Gate
+### F6-A — Production Rollout / Canonical PDV Cutover Gate — FECHADA
 - permitir `authoritative_canary` em staging/produção somente com autorização server-side;
 - usar tenant/unidade do `RuntimeSettings`, não input da UI;
 - identificar terminal por `FM_AI_PDV_TERMINAL_ID`;
@@ -50,7 +55,7 @@ O gap principal é operacional: o loader atual do PDV força `LEGACY` fora de `F
 - falhar fechado em configuração parcial/inconsistente;
 - criar fitness + CI dedicado.
 
-### F6-B — Economic Edge Cleanup
+### F6-B — Economic Edge Cleanup — EM IMPLEMENTAÇÃO
 - remover fallback de total zero para Venda legada;
 - fechar contrato canônico para pedido de valor zero;
 - provar idempotência/rollback sem criar obrigação fictícia.

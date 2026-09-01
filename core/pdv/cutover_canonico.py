@@ -207,14 +207,23 @@ def montar_checkout_pdv(
         recursos=recursos,
         legado=legado,
     )
+    exige_pagamento = entrada.total.valor > 0
     return (
         ComandoCheckoutV1(
             pedido=pedido,
             timestamp=instante,
-            pagamento_id=_id_deterministico(f"{entrada.idempotency_key}:pagamento"),
-            metodo_pagamento=mapear_metodo(entrada.forma_pagamento),
+            pagamento_id=(
+                _id_deterministico(f"{entrada.idempotency_key}:pagamento")
+                if exige_pagamento
+                else None
+            ),
+            metodo_pagamento=(
+                mapear_metodo(entrada.forma_pagamento) if exige_pagamento else None
+            ),
             snapshot_estoque=snapshot,
-            provedor_pagamento="sandbox" if entrada.pix_sandbox else None,
+            provedor_pagamento=(
+                "sandbox" if exige_pagamento and entrada.pix_sandbox else None
+            ),
         ),
         consumos,
     )

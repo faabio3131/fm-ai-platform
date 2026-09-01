@@ -5,7 +5,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 
-from application.checkout import executar_checkout_em_transacao
+from application.checkout import (
+    confirmar_checkout_sem_obrigacao_financeira_em_transacao,
+    executar_checkout_em_transacao,
+)
 from application.order_result_orchestrator import (
     orquestrar_resultado_pagamento_em_transacao,
 )
@@ -135,9 +138,62 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
         )
         pedido = checkout.aguardando_confirmacao.pedido
         iniciado = checkout.pagamento
+        self.fault("after_checkout_canonico")
+
+        if entrada.total.valor == 0:
+            if (
+                iniciado is not None
+                or comando.pagamento_id is not None
+                or comando.metodo_pagamento is not None
+            ):
+                raise RuntimeError("pdv_saldo_zero_com_obrigacao_financeira")
+            confirmado_zero = confirmar_checkout_sem_obrigacao_financeira_em_transacao(
+                checkout=checkout,
+                contexto=self.contexto,
+                recursos=recursos,
+                timestamp=instante,
+            )
+            pedido = confirmado_zero.pedido
+            self.fault("after_confirmacao_saldo_zero")
+
+            venda = self.legado.criar_venda_uma_vez(entrada, instante=instante)
+            self.legado.aplicar_cashback_uma_vez(entrada, instante)
+            self.fault("after_projecoes_legadas")
+            self.fault("before_reconciliacao")
+            pdv.reconciliar(
+                tenant_id=self.contexto.tenant_id,
+                unidade_id=self.contexto.unidade_id,
+                modo="authoritative_canary",
+                pedido_id=str(pedido.id),
+                pagamento_id=None,
+                venda_financeira_id=None,
+                venda_legada_id=str(venda.id),
+                idempotency_key=f"{entrada.idempotency_key}:reconciliacao",
+                valor_pedido=entrada.total.valor,
+                valor_pagamento=None,
+                valor_venda_financeira=None,
+                valor_venda_legada=Decimal(str(venda.valor_total)),
+                estoque_estrategia="canonico_reservado",
+                cashback_usado=(
+                    entrada.desconto_cashback.valor
+                    if entrada.usar_cashback
+                    else Decimal(0)
+                ),
+                cashback_ganho=_cashback_ganho(entrada),
+                status="conciliado",
+                divergencias=[],
+                criado_em=instante,
+            )
+            return ResultadoPDV(
+                "authoritative_canary",
+                True,
+                pedido_id=str(pedido.id),
+                venda_legada_id=str(venda.id),
+                troco=Dinheiro(Decimal(0)),
+            )
+
         if iniciado is None or comando.pagamento_id is None:
             raise RuntimeError("pdv_checkout_sem_obrigacao_financeira")
-        self.fault("after_checkout_canonico")
 
         metodo = mapear_metodo(entrada.forma_pagamento)
         confirmado = None

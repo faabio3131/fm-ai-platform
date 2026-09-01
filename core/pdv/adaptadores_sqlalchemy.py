@@ -275,13 +275,22 @@ class LegacyPDVSQLAlchemyAdapter:
         existente = self._feito(TipoEfeitoCompat.VENDA_LEGADA)
         if existente and existente.referencia_legada:
             return self.session.get(self.Venda, int(existente.referencia_legada))
+        forma_pagamento = (
+            "Cashback"
+            if (
+                entrada.total.valor == 0
+                and entrada.usar_cashback
+                and entrada.desconto_cashback.valor > 0
+            )
+            else entrada.forma_pagamento
+        )
         venda = self.Venda(
             produto_id=entrada.produto_id,
             cliente_id=entrada.cliente_id,
             quantidade=entrada.quantidade,
             valor_total=float(entrada.total.valor),
             custo_total=float(entrada.custo_total.valor),
-            forma_pagamento=entrada.forma_pagamento,
+            forma_pagamento=forma_pagamento,
             status_pagamento=status,
             data_venda=instante.replace(tzinfo=None),
         )
