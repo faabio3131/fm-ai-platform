@@ -164,7 +164,11 @@ def _seed_consentimento(session: Session) -> None:
 
 
 def test_0034_customer_context_esta_no_manifest_e_cria_vault() -> None:
-    assert DEFAULT_MIGRATIONS[-1].version == "0034_crm_customer_context_v1"
+    versions = tuple(migration.version for migration in DEFAULT_MIGRATIONS)
+    assert "0034_crm_customer_context_v1" in versions
+    assert versions.index("0034_crm_customer_context_v1") > versions.index(
+        "0033_delivery_policy_v1"
+    )
     assert_migration_manifest(DEFAULT_MIGRATIONS)
     engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
     aplicadas = run_migrations(engine)
