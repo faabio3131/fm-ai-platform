@@ -1,11 +1,61 @@
 import { expect, test, type Page } from '@playwright/test';
 
-async function abrirEntregador(page: Page) {
-  await page.goto('/?papel=entregador');
-  await expect(page.locator('[data-fm-ai-e2e-ready="true"]')).toHaveAttribute(
-    'data-fm-ai-e2e-papel',
-    'entregador',
+async function abrirEntrega(page: Page, papel: string) {
+  await page.goto(`/?papel=${papel}`, {
+    waitUntil: 'domcontentloaded',
+  });
+
+  const readyMarker = page.locator(
+    `[data-fm-ai-e2e-ready="true"][data-fm-ai-e2e-papel="${papel}"]`,
   );
+
+  try {
+    await expect
+      .poll(
+        async () => readyMarker.count(),
+        {
+          message: `Entrega E2E deve ficar pronta para ${papel}`,
+          timeout: 30_000,
+        },
+      )
+      .toBeGreaterThan(0);
+  } catch {
+    // Uma única recarga controlada cobre o cold start do Streamlit.
+    // Nenhuma assertion funcional da jornada é removida.
+    await page.reload({
+      waitUntil: 'domcontentloaded',
+    });
+
+    await expect
+      .poll(
+        async () => readyMarker.count(),
+        {
+          message: `Entrega E2E deve ficar pronta após reload para ${papel}`,
+          timeout: 60_000,
+        },
+      )
+      .toBeGreaterThan(0);
+  }
+
+  await expect(
+    readyMarker,
+  ).toHaveCount(1, {
+    timeout: 30_000,
+  });
+
+  await expect(
+    page.locator('[data-testid="stSkeleton"]'),
+  ).toHaveCount(0, {
+    timeout: 30_000,
+  });
+
+  await expect(
+    page.locator('[data-testid="stException"]'),
+  ).toHaveCount(0);
+}
+
+async function abrirEntregador(page: Page) {
+  await abrirEntrega(page, 'entregador');
 }
 
 test('entregador conclui custodia somente com financeiro resolvido', async ({ page }) => {

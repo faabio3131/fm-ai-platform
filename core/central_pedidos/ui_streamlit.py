@@ -16,8 +16,8 @@ from uuid import uuid4
 import streamlit as st
 from sqlalchemy.orm import Session
 
+from application.central_pedidos_transacoes import AplicacaoCentralPedidosTransacoesV1
 from core.central_pedidos import CentralPedidosSQLAlchemy, FiltroCentralPedidos
-from core.central_pedidos.servicos import ServicoComandosCentral
 from core.dominio.erros import (
     ConflitoIdempotencia,
     PermissaoNegada,
@@ -54,6 +54,7 @@ def _preparar_e2e_se_injetado(engine: Any, contexto: ContextoExecucao | None) ->
 def _executar_transicao(
     *,
     session: Session,
+    session_factory: Callable[[], Session],
     contexto: ContextoExecucao,
     pedido_id: str,
     destino: str,
@@ -61,26 +62,31 @@ def _executar_transicao(
     precondicoes: dict[str, bool] | None = None,
     motivo: str | None = None,
 ) -> None:
-    chave = f"central:{pedido_id}:{versao}:{destino}"
-    try:
-        ServicoComandosCentral(session).transicionar(
-            contexto=contexto,
-            pedido_id=pedido_id,
-            destino=destino,
-            versao_esperada=versao,
-            idempotency_key=chave,
-            precondicoes=precondicoes,
-            motivo=motivo,
-            metadata={"origem_ui": "central_pedidos"},
-        )
-        session.commit()
-    except ErroTransicao:
-        # A máquina não alterou Pedido/Outbox; confirma somente a trilha de negativa.
-        session.commit()
-        raise
-    except Exception:
-        session.rollback()
-        raise
+    chave = (
+        f"central:{pedido_id}:"
+        f"{versao}:{destino}"
+    )
+
+    # A Session de leitura da tela não deve competir
+    # com a nova fronteira de escrita, especialmente
+    # no runtime SQLite de teste.
+    session.close()
+
+    AplicacaoCentralPedidosTransacoesV1(
+        session_factory
+    ).transicionar(
+        contexto=contexto,
+        pedido_id=pedido_id,
+        destino=destino,
+        versao_esperada=versao,
+        idempotency_key=chave,
+        precondicoes=precondicoes,
+        motivo=motivo,
+        metadata={
+            "origem_ui":
+                "central_pedidos"
+        },
+    )
 
 
 def render_central_pedidos(
@@ -197,6 +203,7 @@ def render_central_pedidos(
         ):
             _executar_transicao(
                 session=sessao_central,
+                session_factory=session_factory,
                 contexto=contexto_central,
                 pedido_id=selecionado,
                 destino="aguardando_confirmacao",
@@ -230,6 +237,7 @@ def render_central_pedidos(
                 else:
                     _executar_transicao(
                         session=sessao_central,
+                        session_factory=session_factory,
                         contexto=contexto_central,
                         pedido_id=selecionado,
                         destino="cancelado",

@@ -7,6 +7,7 @@ existe sincronização silenciosa capaz de esconder dupla fonte de verdade.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime
 from decimal import Decimal
 from uuid import NAMESPACE_URL, uuid5
@@ -29,6 +30,7 @@ from core.dominio.tipos import QuantidadeItem
 from core.estoque.modelos import ItemSnapshotFicha, SnapshotFichaEstoque, TipoMovimento
 from core.estoque.servicos import registrar_movimento
 from core.seguranca.contexto import ContextoExecucao
+from core.seguranca.permissoes import Permissao
 from infra.transacoes.uow import RecursosTransacionaisV1
 
 from .adaptadores_sqlalchemy import LegacyPDVSQLAlchemyAdapter
@@ -49,17 +51,20 @@ def _id_deterministico(chave: str) -> str:
 
 
 def contexto_estoque_automatico_pdv(
-    contexto: ContextoExecucao, instante: datetime
+    contexto: ContextoExecucao,
+    instante: datetime,
+    *,
+    permissao: Permissao,
 ) -> ContextoExecucao:
-    """Identidade técnica para efeitos derivados; não amplia privilégios do caixa."""
+    """Autoridade interna estrita para um único efeito de estoque do PDV."""
 
-    return ContextoExecucao.sistema(
-        identidade="pdv-estoque-automatico",
-        motivo="efeito de estoque derivado de checkout PDV previamente autorizado",
-        tenant_id=contexto.tenant_id,
-        unidade_id=contexto.unidade_id,
-        correlation_id=contexto.correlation_id,
+    return replace(
+        contexto,
+        permissoes=frozenset({permissao}),
+        unidades_permitidas=frozenset({contexto.unidade_id}),
         solicitado_em=instante,
+        identidade_sistema=False,
+        motivo_sistema=None,
     )
 
 
@@ -120,7 +125,11 @@ def preparar_snapshot_estoque_pdv(
     if not consumos:
         return None, consumos
 
-    contexto_sistema = contexto_estoque_automatico_pdv(contexto, pedido.criado_em)
+    contexto_bootstrap = contexto_estoque_automatico_pdv(
+        contexto,
+        pedido.criado_em,
+        permissao=Permissao.ESTOQUE_AJUSTAR,
+    )
     itens: list[ItemSnapshotFicha] = []
     for insumo, necessario in consumos:
         insumo_id = id_insumo_legado(insumo.id)
@@ -130,7 +139,7 @@ def preparar_snapshot_estoque_pdv(
         )
         if saldo.versao == 0:
             bootstrap = registrar_movimento(
-                contexto=contexto_sistema,
+                contexto=contexto_bootstrap,
                 repositorio=recursos.estoque,
                 insumo_id=insumo_id,
                 tipo=TipoMovimento.ENTRADA,

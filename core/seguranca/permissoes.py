@@ -41,11 +41,14 @@ class Permissao(StrEnum):
     CAMPANHA_CRIAR = "campanha.criar"
     CAMPANHA_APROVAR = "campanha.aprovar"
     CONSENTIMENTO_VISUALIZAR = "consentimento.visualizar"
+    ADMIN_ACESSAR = "admin.acessar"
     USUARIO_GERENCIAR = "usuario.gerenciar"
     PERMISSAO_GERENCIAR = "permissao.gerenciar"
     INTEGRACAO_GERENCIAR = "integracao.gerenciar"
     AUDITORIA_VISUALIZAR = "auditoria.visualizar"
     CONFIGURACAO_ALTERAR = "configuracao.alterar"
+    NOTIFICACAO_INTERNA_GERENCIAR = "notificacao_interna.gerenciar"
+    LOJA_LEGADA_RECONCILIAR = "loja_legada.reconciliar"
     GERENTE_IA_CONSULTAR = "gerente_ia.consultar"
     GERENTE_IA_PREPARAR_ACAO = "gerente_ia.preparar_acao"
     GERENTE_IA_EXECUTAR_ACAO = "gerente_ia.executar_acao"
@@ -67,8 +70,19 @@ class Papel(StrEnum):
 
 MATRIZ_PADRAO: dict[Papel, frozenset[Permissao]] = {
     Papel.ADMINISTRADOR: frozenset(Permissao),
+    # O gerente mantém capacidades gerenciais/operacionais amplas, porém não
+    # recebe implicitamente o gate da área Administração/Proprietário nem a
+    # capacidade de alterar a própria matriz de permissões. ADMIN_ACESSAR só é
+    # acrescentada à identidade quando houver autorização explícita por usuário.
     Papel.GERENTE: frozenset(
-        p for p in Permissao if not p.value.startswith("permissao.")
+        p
+        for p in Permissao
+        if p
+        not in {
+            Permissao.ADMIN_ACESSAR,
+            Permissao.PERMISSAO_GERENCIAR,
+            Permissao.LOJA_LEGADA_RECONCILIAR,
+        }
     ),
     Papel.CAIXA: frozenset(
         {

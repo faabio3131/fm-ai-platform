@@ -17,8 +17,26 @@ export async function waitForTestDb() {
   await expect.poll(() => {
     if (!existsSync(testDbPath)) return 'missing';
     if (statSync(testDbPath).size <= 0) return 'empty';
-    return dbValue("select count(*) from sqlite_master where type='table' and name in ('produtos','insumos','clientes','vendas')");
-  }, { message: `aguardando banco temporário em ${testDbPath}`, timeout: 15_000 }).toBe('4');
+    return dbValue(`
+      select case when
+        (select count(*) from sqlite_master where type='table' and name in
+          ('produtos','insumos','clientes','vendas','lojas','fm_unidade_loja_legacy_v1')) = 6
+        and (select count(*) from fm_unidade_loja_legacy_v1) = 1
+        and (select count(*) from fm_unidade_loja_legacy_v1 as m
+          join lojas as l on l.id = m.loja_id
+          where m.tenant_id = 'tenant-local' and m.unidade_id = 'unidade-local'
+            and m.ativo = 1 and l.nome_fantasia = 'Loja Sandbox') = 1
+        and (select count(*) from produtos as p
+          where p.loja_id is null or p.loja_id !=
+            (select loja_id from fm_unidade_loja_legacy_v1
+             where tenant_id = 'tenant-local' and unidade_id = 'unidade-local' and ativo = 1)) = 0
+        and (select count(*) from insumos as i
+          where i.loja_id is null or i.loja_id !=
+            (select loja_id from fm_unidade_loja_legacy_v1
+             where tenant_id = 'tenant-local' and unidade_id = 'unidade-local' and ativo = 1)) = 0
+      then 1 else 0 end
+    `);
+  }, { message: `aguardando escopo canônico do banco temporário em ${testDbPath}`, timeout: 15_000 }).toBe('1');
 }
 
 export function dbValue(sql: string): string {

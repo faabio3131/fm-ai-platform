@@ -43,6 +43,49 @@ class StatusPreview(StrEnum):
     CANCELADO = "cancelado"
 
 
+class StatusCampanha(StrEnum):
+    RASCUNHO = "rascunho"
+    APROVADA = "aprovada"
+    PUBLICAVEL = "publicavel"
+
+
+@dataclass(frozen=True)
+class CampanhaRef:
+    """Referência opaca e versionada para uma campanha humana já publicável."""
+
+    valor: str
+
+    def __post_init__(self) -> None:
+        valor = self.valor.strip()
+        prefixo = "campanha://v1/"
+        if not valor.startswith(prefixo):
+            raise ErroGerenteIA("campanha_ref_invalida")
+        campanha_id, separador, fingerprint = valor[len(prefixo):].partition("/")
+        if (
+            not separador
+            or not campanha_id
+            or len(fingerprint) != 64
+            or any(ch not in "0123456789abcdef" for ch in fingerprint)
+        ):
+            raise ErroGerenteIA("campanha_ref_invalida")
+        object.__setattr__(self, "valor", valor)
+
+    @classmethod
+    def de_publicacao(cls, *, campanha_id: str, fingerprint: str) -> CampanhaRef:
+        campanha = campanha_id.strip()
+        digest = fingerprint.strip().casefold()
+        if (
+            not campanha
+            or len(digest) != 64
+            or any(ch not in "0123456789abcdef" for ch in digest)
+        ):
+            raise ErroGerenteIA("campanha_ref_invalida")
+        return cls(f"campanha://v1/{campanha}/{digest}")
+
+    def __str__(self) -> str:
+        return self.valor
+
+
 @dataclass(frozen=True)
 class ChamadaTool:
     tool: ToolGerenteIA
@@ -132,6 +175,132 @@ class RascunhoCampanha:
         if self.criado_em.tzinfo is None or self.criado_em.utcoffset() is None:
             raise ErroGerenteIA("timestamp_sem_timezone")
         object.__setattr__(self, "criado_em", self.criado_em.astimezone(timezone.utc))
+
+    @property
+    def fingerprint(self) -> str:
+        return fingerprint_campanha(
+            campanha_id=self.rascunho_id,
+            tenant_id=self.tenant_id,
+            unidade_id=self.unidade_id,
+            canal=self.canal,
+            finalidade=self.finalidade,
+            objetivo=self.objetivo,
+            texto_base=self.texto_base,
+            audiencia_elegivel=self.audiencia_elegivel,
+        )
+
+
+def fingerprint_campanha(
+    *,
+    campanha_id: str,
+    tenant_id: str,
+    unidade_id: str,
+    canal: str,
+    finalidade: str,
+    objetivo: str,
+    texto_base: str,
+    audiencia_elegivel: int,
+) -> str:
+    payload = {
+        "campanha_id": campanha_id.strip(),
+        "tenant_id": tenant_id.strip(),
+        "unidade_id": unidade_id.strip(),
+        "canal": canal.strip(),
+        "finalidade": finalidade.strip(),
+        "objetivo": objetivo.strip(),
+        "texto_base": texto_base,
+        "audiencia_elegivel": audiencia_elegivel,
+    }
+    if any(
+        not str(payload[chave]).strip()
+        for chave in (
+            "campanha_id",
+            "tenant_id",
+            "unidade_id",
+            "canal",
+            "finalidade",
+            "objetivo",
+            "texto_base",
+        )
+    ):
+        raise ErroGerenteIA("campanha_invalida")
+    if audiencia_elegivel < 0:
+        raise ErroGerenteIA("audiencia_invalida")
+    serializado = dumps(
+        payload, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+    )
+    return sha256(serializado.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
+class CampanhaAprovada:
+    campanha_id: str
+    tenant_id: str
+    unidade_id: str
+    fingerprint: str
+    aprovado_por: str
+    aprovado_em: datetime
+    idempotency_key: str
+    idempotente: bool = False
+    status: StatusCampanha = StatusCampanha.APROVADA
+
+    def __post_init__(self) -> None:
+        if any(
+            not valor.strip()
+            for valor in (
+                self.campanha_id,
+                self.tenant_id,
+                self.unidade_id,
+                self.aprovado_por,
+                self.idempotency_key,
+            )
+        ):
+            raise ErroGerenteIA("aprovacao_campanha_invalida")
+        if len(self.fingerprint) != 64 or any(
+            ch not in "0123456789abcdef" for ch in self.fingerprint
+        ):
+            raise ErroGerenteIA("fingerprint_campanha_invalido")
+        if self.aprovado_em.tzinfo is None or self.aprovado_em.utcoffset() is None:
+            raise ErroGerenteIA("timestamp_sem_timezone")
+        object.__setattr__(
+            self, "aprovado_em", self.aprovado_em.astimezone(timezone.utc)
+        )
+
+
+@dataclass(frozen=True)
+class CampanhaPublicavel:
+    campanha_id: str
+    tenant_id: str
+    unidade_id: str
+    fingerprint: str
+    campanha_ref: CampanhaRef
+    publicado_por: str
+    publicado_em: datetime
+    idempotency_key: str
+    idempotente: bool = False
+    status: StatusCampanha = StatusCampanha.PUBLICAVEL
+
+    def __post_init__(self) -> None:
+        if any(
+            not valor.strip()
+            for valor in (
+                self.campanha_id,
+                self.tenant_id,
+                self.unidade_id,
+                self.publicado_por,
+                self.idempotency_key,
+            )
+        ):
+            raise ErroGerenteIA("publicacao_campanha_invalida")
+        if len(self.fingerprint) != 64 or any(
+            ch not in "0123456789abcdef" for ch in self.fingerprint
+        ):
+            raise ErroGerenteIA("fingerprint_campanha_invalido")
+        if self.publicado_em.tzinfo is None or self.publicado_em.utcoffset() is None:
+            raise ErroGerenteIA("timestamp_sem_timezone")
+        object.__setattr__(
+            self, "publicado_em", self.publicado_em.astimezone(timezone.utc)
+        )
 
 
 @dataclass(frozen=True)

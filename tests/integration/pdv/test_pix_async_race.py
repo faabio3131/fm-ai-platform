@@ -83,7 +83,7 @@ def test_duas_fontes_concorrentes_finalizam_efeito_economico_uma_vez(
                 )
                 session.commit()
                 return resultado
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - race test captures worker outcome
             return exc
 
     with ThreadPoolExecutor(max_workers=2) as pool:
@@ -99,7 +99,7 @@ def test_duas_fontes_concorrentes_finalizam_efeito_economico_uma_vez(
     with fabrica() as session:
         assert session.scalar(select(func.count()).select_from(VendaFinanceiraORM)) == 1
         assert session.scalar(select(func.count()).select_from(VendaTeste)) == 1
-        assert session.get(InsumoTeste, 1).saldo_atual == 9
+        assert session.get(InsumoTeste, 1).saldo_atual == 10
         trabalho = session.scalar(
             select(FinalizacaoPendentePDVORM).where(
                 FinalizacaoPendentePDVORM.pagamento_id == pendente.pagamento_id

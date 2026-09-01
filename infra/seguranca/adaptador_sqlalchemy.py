@@ -8,7 +8,12 @@ from uuid import uuid4
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from core.seguranca.autenticacao import IdentidadeUsuario, hash_password
+from core.seguranca.autenticacao import (
+    IdentidadeUsuario,
+    hash_admin_pin,
+    hash_password,
+    verify_admin_pin,
+)
 from core.seguranca.permissoes import Papel
 
 from .modelos_orm import UsuarioPapelORM, UsuarioSegurancaORM, UsuarioUnidadeORM
@@ -17,6 +22,28 @@ from .modelos_orm import UsuarioPapelORM, UsuarioSegurancaORM, UsuarioUnidadeORM
 class RepositorioIdentidadesSQLAlchemy:
     def __init__(self, session: Session) -> None:
         self._session = session
+
+    def listar_por_tenant(self, *, tenant_id: str) -> tuple[IdentidadeUsuario, ...]:
+        tenant = tenant_id.strip()
+        if not tenant:
+            raise ValueError("tenant_id obrigatorio")
+        emails = self._session.scalars(
+            select(UsuarioSegurancaORM.email)
+            .where(UsuarioSegurancaORM.tenant_id == tenant)
+            .order_by(UsuarioSegurancaORM.email)
+        ).all()
+        identidades = tuple(
+            identidade
+            for email in emails
+            if (identidade := self.obter_por_email(str(email))) is not None
+        )
+        return identidades
+
+    def obter_por_id(self, *, usuario_id: str) -> IdentidadeUsuario | None:
+        usuario = self._session.get(UsuarioSegurancaORM, usuario_id)
+        if usuario is None:
+            return None
+        return self.obter_por_email(usuario.email)
 
     def obter_por_email(self, email_normalizado: str) -> IdentidadeUsuario | None:
         usuario = self._session.scalar(
@@ -52,6 +79,7 @@ class RepositorioIdentidadesSQLAlchemy:
             papeis=papeis,
             unidades_permitidas=unidades,
             ativo=usuario.ativo,
+            acesso_admin_sensivel=bool(usuario.acesso_admin_sensivel),
         )
 
     def criar_usuario(
@@ -64,6 +92,8 @@ class RepositorioIdentidadesSQLAlchemy:
         papeis: Iterable[Papel],
         unidades_permitidas: Iterable[str] | None = None,
         usuario_id: str | None = None,
+        admin_pin: str | None = None,
+        acesso_admin_sensivel: bool = False,
     ) -> IdentidadeUsuario:
         normalizado = email.strip().casefold()
         if not normalizado or "@" not in normalizado:
@@ -85,11 +115,20 @@ class RepositorioIdentidadesSQLAlchemy:
             usuario_id=uid,
             email=normalizado,
             senha_hash=hash_password(password),
+            admin_pin_hash=hash_admin_pin(admin_pin) if admin_pin is not None else None,
+            acesso_admin_sensivel=bool(acesso_admin_sensivel),
             tenant_id=tenant_id.strip(),
             unidade_padrao_id=unidade_padrao_id.strip(),
             ativo=True,
         )
         self._session.add(usuario)
+
+        # Garante que a linha-pai exista fisicamente antes das associações que
+        # possuem FK para fm_usuarios_v1. Sem este flush intermediário, objetos
+        # filhos criados apenas com usuario_id podem ser emitidos primeiro em
+        # alguns cenários, causando ForeignKeyViolation no PostgreSQL.
+        self._session.flush()
+
         self._session.add_all(
             [UsuarioPapelORM(usuario_id=uid, papel=papel.value) for papel in papeis_set]
         )
@@ -109,6 +148,30 @@ class RepositorioIdentidadesSQLAlchemy:
         usuario.senha_hash = hash_password(nova_senha)
         self._session.flush()
 
+    def definir_pin_admin(self, *, usuario_id: str, novo_pin: str) -> None:
+        usuario = self._session.get(UsuarioSegurancaORM, usuario_id)
+        if usuario is None:
+            raise ValueError("usuario inexistente")
+        usuario.admin_pin_hash = hash_admin_pin(novo_pin)
+        self._session.flush()
+
+    def definir_acesso_admin_sensivel(self, *, usuario_id: str, autorizado: bool) -> None:
+        usuario = self._session.get(UsuarioSegurancaORM, usuario_id)
+        if usuario is None:
+            raise ValueError("usuario inexistente")
+        usuario.acesso_admin_sensivel = bool(autorizado)
+        self._session.flush()
+
+    def possui_pin_admin(self, *, usuario_id: str) -> bool:
+        usuario = self._session.get(UsuarioSegurancaORM, usuario_id)
+        return bool(usuario is not None and usuario.admin_pin_hash)
+
+    def verificar_pin_admin(self, *, usuario_id: str, pin: str) -> bool:
+        usuario = self._session.get(UsuarioSegurancaORM, usuario_id)
+        if usuario is None or not usuario.ativo:
+            return False
+        return verify_admin_pin(pin, usuario.admin_pin_hash)
+
     def definir_papeis(self, *, usuario_id: str, papeis: Iterable[Papel]) -> None:
         papeis_set = frozenset(papeis)
         if not papeis_set:
@@ -122,6 +185,38 @@ class RepositorioIdentidadesSQLAlchemy:
                 for papel in papeis_set
             ]
         )
+        self._session.flush()
+
+    def definir_unidades(
+        self,
+        *,
+        usuario_id: str,
+        unidades_permitidas: Iterable[str],
+        unidade_padrao_id: str,
+    ) -> None:
+        usuario = self._session.get(UsuarioSegurancaORM, usuario_id)
+        if usuario is None:
+            raise ValueError("usuario inexistente")
+        unidades = frozenset(
+            str(unidade).strip()
+            for unidade in unidades_permitidas
+            if str(unidade).strip()
+        )
+        padrao = unidade_padrao_id.strip()
+        if not unidades or not padrao or padrao not in unidades:
+            raise ValueError("escopo de unidades invalido")
+        self._session.execute(
+            delete(UsuarioUnidadeORM).where(
+                UsuarioUnidadeORM.usuario_id == usuario_id
+            )
+        )
+        self._session.add_all(
+            [
+                UsuarioUnidadeORM(usuario_id=usuario_id, unidade_id=unidade)
+                for unidade in sorted(unidades)
+            ]
+        )
+        usuario.unidade_padrao_id = padrao
         self._session.flush()
 
     def definir_ativo(self, *, usuario_id: str, ativo: bool) -> None:

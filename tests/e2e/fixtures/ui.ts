@@ -1,5 +1,21 @@
 import { expect, type Page } from '@playwright/test';
 
+async function latestReadyRun(page: Page): Promise<number | null> {
+  const values = await page
+    .locator('[data-fm-ai-e2e-ready="true"]')
+    .evaluateAll(elements =>
+      elements
+        .map(element => Number(element.getAttribute('data-fm-ai-e2e-run')))
+        .filter(value => Number.isFinite(value)),
+    );
+
+  if (!values.length) {
+    return null;
+  }
+
+  return Math.max(...values);
+}
+
 export async function waitForAppReady(page: Page) {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
@@ -58,14 +74,18 @@ export async function expectNoFatal(page: Page) {
 }
 
 export async function clickAndWaitForStreamlitRerun(page: Page, buttonName: string | RegExp) {
-  const readyMarker = page.locator('[data-fm-ai-e2e-ready="true"]');
-  const runBeforeClick = await readyMarker.getAttribute('data-fm-ai-e2e-run');
+  const runBeforeClick = await latestReadyRun(page);
+
   await page.getByRole('button', { name: buttonName }).click();
+
   await expect
     .poll(
       async () => {
-        const runAfterClick = await readyMarker.getAttribute('data-fm-ai-e2e-run');
-        return runAfterClick !== null && runAfterClick !== runBeforeClick;
+        const runAfterClick = await latestReadyRun(page);
+        return (
+          runAfterClick !== null &&
+          (runBeforeClick === null || runAfterClick > runBeforeClick)
+        );
       },
       {
         message: `Streamlit deve concluir o rerun após clicar em ${buttonName}`,
@@ -142,7 +162,6 @@ export async function selectComboboxOption(
   option: string | RegExp,
 ) {
   const combobox = page.getByRole('combobox', { name: label }).first();
-  const readyMarker = page.locator('[data-fm-ai-e2e-ready="true"]');
   await expect(combobox).toBeVisible();
   await expect(combobox).toBeEnabled();
   if (typeof option === 'string' && (await combobox.inputValue()) === option) {
@@ -151,7 +170,7 @@ export async function selectComboboxOption(
     return;
   }
 
-  const runBeforeSelection = await readyMarker.getAttribute('data-fm-ai-e2e-run');
+  const runBeforeSelection = await latestReadyRun(page);
   await expect(async () => {
     if (typeof option === 'string' && (await combobox.inputValue()) === option) {
       return;
@@ -176,8 +195,11 @@ export async function selectComboboxOption(
   await expect
     .poll(
       async () => {
-        const runAfterSelection = await readyMarker.getAttribute('data-fm-ai-e2e-run');
-        return runAfterSelection !== null && runAfterSelection !== runBeforeSelection;
+        const runAfterSelection = await latestReadyRun(page);
+        return (
+          runAfterSelection !== null &&
+          (runBeforeSelection === null || runAfterSelection > runBeforeSelection)
+        );
       },
       {
         message: `Streamlit deve concluir o rerun após selecionar ${option}`,

@@ -48,6 +48,10 @@ st.set_page_config(
     layout="wide",
 )
 
+st.session_state["_fm_ai_e2e_run"] = int(
+    st.session_state.get("_fm_ai_e2e_run", 0)
+) + 1
+
 st.caption("Central E2E pronta")
 render_central_pedidos(
     engine=engine,
@@ -56,4 +60,12 @@ render_central_pedidos(
         correlation_id=str(uuid4()),
         solicitado_em=datetime.now(timezone.utc),
     ),
+)
+
+
+st.markdown(
+    f'<span data-fm-ai-e2e-ready="true" '
+    f'data-fm-ai-e2e-run="{st.session_state["_fm_ai_e2e_run"]}" '
+    'style="display:none" aria-hidden="true"></span>',
+    unsafe_allow_html=True,
 )

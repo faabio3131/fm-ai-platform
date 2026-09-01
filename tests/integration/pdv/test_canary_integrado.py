@@ -54,24 +54,24 @@ def test_canary_dinheiro_pr7_e_retry_exatamente_uma_vez(fabrica, contexto, entra
         )
         assert s.scalar(select(func.count()).select_from(CriterioFinanceiroORM)) == 1
         assert s.scalar(select(func.count()).select_from(VendaFinanceiraORM)) == 1
-        assert s.scalar(select(func.count()).select_from(MovimentoEstoqueORM)) == 3
+        assert s.scalar(select(func.count()).select_from(MovimentoEstoqueORM)) == 2
         reserva = s.scalar(
             select(ReservaEstoqueORM).where(
                 ReservaEstoqueORM.pedido_id == resultado.pedido_id
             )
         )
-        assert reserva is not None and reserva.status == "consumida"
+        assert reserva is not None and reserva.status == "ativa"
         saldo = s.get(
             SaldoEstoqueORM,
             ("tenant-teste", "unidade-teste", "legacy:insumo:1"),
         )
         assert saldo is not None
-        assert Decimal(str(saldo.saldo_fisico)) == Decimal(9)
-        assert Decimal(str(saldo.saldo_reservado)) == Decimal(0)
+        assert Decimal(str(saldo.saldo_fisico)) == Decimal(10)
+        assert Decimal(str(saldo.saldo_reservado)) == Decimal(1)
         assert s.scalar(select(func.count()).select_from(VendaTeste)) == 1
         assert s.scalar(select(func.count()).select_from(VendaLegadaLinkORM)) == 1
-        assert s.scalar(select(func.count()).select_from(EfeitoCompatPDVORM)) == 4
+        assert s.scalar(select(func.count()).select_from(EfeitoCompatPDVORM)) == 3
         assert s.scalar(select(func.count()).select_from(ReconciliacaoPDVORM)) == 1
         assert Decimal(str(s.get(VendaTeste, 1).valor_total)) == Decimal("24.9")
-        assert s.get(InsumoTeste, 1).saldo_atual == 9
+        assert s.get(InsumoTeste, 1).saldo_atual == 10
         assert Decimal(str(s.get(ClienteTeste, 1).saldo_cashback)) == Decimal("6.25")

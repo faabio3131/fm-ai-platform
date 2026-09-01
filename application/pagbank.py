@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from typing import Protocol
 from uuid import uuid4
+
+from sqlalchemy.orm import Session
 
 from application.finalizacao_pagamento import finalizar_pagamento_liquidado_em_transacao
 from core.dominio.dinheiro import Dinheiro
@@ -30,11 +34,21 @@ from core.pagamentos.pagbank import AdapterPagBank, ClientePagBank
 from core.pagamentos.servicos import processar_webhook
 from core.seguranca.auditoria import EventoAuditoria, sanitizar_metadata
 from core.seguranca.contexto import ContextoExecucao
-from infra.transacoes.uow import RecursosTransacionaisV1
+from infra.transacoes.uow import RecursosTransacionaisV1, UnitOfWorkV1
 
 
 class PagBankAplicacaoInvalida(RuntimeError):
     pass
+
+
+class FabricaAdapterPagBank(Protocol):
+    def __call__(
+        self,
+        *,
+        session: Session,
+        tenant_id: str,
+        unidade_id: str,
+    ) -> AdapterPagBank: ...
 
 
 @dataclass(frozen=True)
@@ -210,3 +224,52 @@ def processar_webhook_pagbank_em_transacao(
             timestamp=webhook.timestamp,
         )
     return resultado
+
+def processar_webhook_pagbank(
+    *,
+    session_factory: Callable[[], Session],
+    adapter_factory: FabricaAdapterPagBank,
+    order_id: str,
+    payload_bruto: bytes,
+    assinatura: str,
+):
+    """Processa o webhook sob ownership transacional da Application."""
+
+    order_id_normalizado = order_id.strip()
+
+    if not order_id_normalizado:
+        raise PagBankAplicacaoInvalida(
+            "order_id PagBank ausente"
+        )
+
+    with UnitOfWorkV1(session_factory) as uow:
+        vinculo = (
+            uow.pagamentos.buscar_transacao_externa(
+                "pagbank",
+                order_id_normalizado,
+                TipoTransacao.INICIACAO,
+            )
+        )
+
+        if vinculo is None:
+            return None
+
+        adapter = adapter_factory(
+            session=uow.recursos.session,
+            tenant_id=vinculo.tenant_id,
+            unidade_id=vinculo.unidade_id,
+        )
+
+        resultado = processar_webhook_pagbank_em_transacao(
+            recursos=uow.recursos,
+            adapter=adapter,
+            payload_bruto=payload_bruto,
+            assinatura=assinatura,
+        )
+
+        if resultado is None:
+            return None
+
+        uow.commit()
+
+        return resultado

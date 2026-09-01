@@ -7,6 +7,7 @@ on:
     branches: [main]
     paths:
       - 'application/**'
+      - 'app.py'
       - 'http_api/**'
       - 'core/pedidos/**'
       - 'core/pagamentos/**'
@@ -16,6 +17,7 @@ on:
       - 'core/estados/**'
       - 'core/pdv/**'
       - 'infra/eventos/**'
+      - 'infra/integracoes/pix_durabilidade.py'
       - 'infra/pagamentos/**'
       - 'infra/transacoes/**'
       - 'infra/seguranca/**'
@@ -23,9 +25,17 @@ on:
       - 'requirements.txt'
       - 'scripts/configure_pagbank_v1.py'
       - 'scripts/pagbank_sandbox_smoke_v1.py'
+      - 'scripts/wire_pix_pdv_durability_v1.py'
+      - 'tests/fitness/test_af03_transaction_ownership.py'
+      - 'tests/fitness/transaction_ownership_baseline_v1.json'
+      - 'tests/integration/integracoes/test_pix_durabilidade_control_plane_v1.py'
+      - 'tests/integration/integracoes/test_pix_confirmacao_duravel_v1.py'
+      - 'tests/integration/integracoes/test_pix_transaction_ownership_v1.py'
       - 'tests/integration/wave1/**'
       - 'tests/integration/pdv/**'
       - 'tests/unit/events/**'
+      - 'tests/unit/integracoes/test_pix_runtime_v1.py'
+      - 'tests/unit/integracoes/test_wire_pix_pdv_durability_v1.py'
       - 'tests/unit/orders/test_canais_canonicos.py'
       - 'tests/unit/payments/test_fonte_financeira.py'
       - 'tests/unit/pdv/**'
@@ -57,7 +67,12 @@ jobs:
           python -m compileall -q application http_api core/pedidos core/pagamentos core/estoque
           core/eventos core/dominio core/estados core/pdv infra/eventos infra/pagamentos
           infra/transacoes infra/seguranca migrations scripts/configure_pagbank_v1.py
-          scripts/pagbank_sandbox_smoke_v1.py
+          scripts/pagbank_sandbox_smoke_v1.py scripts/wire_pix_pdv_durability_v1.py
+          app.py infra/integracoes/pix_durabilidade.py
+          tests/fitness/test_af03_transaction_ownership.py
+          tests/integration/integracoes/test_pix_durabilidade_control_plane_v1.py
+          tests/integration/integracoes/test_pix_confirmacao_duravel_v1.py
+          tests/integration/integracoes/test_pix_transaction_ownership_v1.py
       - name: Ruff Onda 1
         run: >-
           ruff check application http_api core/pedidos core/pagamentos core/estoque core/eventos
@@ -67,6 +82,14 @@ jobs:
           tests/unit/orders/test_canais_canonicos.py
           tests/unit/payments/test_fonte_financeira.py
           tests/unit/runtime/test_runtime_foundation.py
+          infra/integracoes/pix_durabilidade.py
+          scripts/wire_pix_pdv_durability_v1.py
+          tests/fitness/test_af03_transaction_ownership.py
+          tests/integration/integracoes/test_pix_durabilidade_control_plane_v1.py
+          tests/integration/integracoes/test_pix_confirmacao_duravel_v1.py
+          tests/integration/integracoes/test_pix_transaction_ownership_v1.py
+          tests/unit/integracoes/test_pix_runtime_v1.py
+          tests/unit/integracoes/test_wire_pix_pdv_durability_v1.py
       - name: Mypy baseline funcional
         run: >-
           mypy application http_api core/runtime core/seguranca core/pedidos
@@ -77,5 +100,11 @@ jobs:
           pytest -q tests/integration/wave1 tests/integration/pdv tests/unit/events
           tests/unit/orders tests/unit/payments tests/unit/stock tests/unit/pdv
           tests/unit/runtime/test_runtime_foundation.py
+          tests/fitness/test_af03_transaction_ownership.py
+          tests/integration/integracoes/test_pix_durabilidade_control_plane_v1.py
+          tests/integration/integracoes/test_pix_confirmacao_duravel_v1.py
+          tests/integration/integracoes/test_pix_transaction_ownership_v1.py
+          tests/unit/integracoes/test_pix_runtime_v1.py
+          tests/unit/integracoes/test_wire_pix_pdv_durability_v1.py
       - name: Suite Python completa
         run: pytest -q

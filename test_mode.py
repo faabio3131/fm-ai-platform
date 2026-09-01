@@ -11,7 +11,7 @@ import os
 import shutil
 import tempfile
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -58,6 +58,80 @@ def reset_database(engine: Any, base: Any) -> None:
     base.metadata.create_all(bind=engine, checkfirst=True)
 
 
+def prepare_legacy_scope(
+    engine: Any,
+    *,
+    tenant_id: str,
+    unidade_id: str,
+) -> None:
+    """Cria um vínculo explícito e determinístico somente no sandbox de teste."""
+    if not is_test_mode():
+        raise RuntimeError("Escopo legado de teste só pode existir no sandbox.")
+
+    from sqlalchemy import text
+
+    from migrations.legacy_catalog_unit_scope_v1 import (
+        upgrade_legacy_catalog_unit_scope_v1,
+    )
+    from migrations.legacy_store_baseline_v1 import (
+        upgrade_legacy_store_baseline_v1,
+    )
+    from migrations.product_unit_scope_compat_v1 import (
+        upgrade_product_unit_scope_compat_v1,
+    )
+    from migrations.unit_legacy_store_mapping_v1 import (
+        upgrade_unit_legacy_store_mapping_v1,
+    )
+
+    with engine.begin() as connection:
+        upgrade_legacy_store_baseline_v1(connection)
+        upgrade_unit_legacy_store_mapping_v1(connection)
+        upgrade_product_unit_scope_compat_v1(connection)
+
+        existente = connection.execute(
+            text(
+                "SELECT loja_id FROM fm_unidade_loja_legacy_v1 "
+                "WHERE tenant_id = :tenant_id AND unidade_id = :unidade_id "
+                "AND ativo = TRUE"
+            ),
+            {"tenant_id": tenant_id, "unidade_id": unidade_id},
+        ).scalar_one_or_none()
+        if existente is None:
+            loja_id = connection.execute(
+                text("SELECT COALESCE(MAX(id), 0) + 1 FROM lojas")
+            ).scalar_one()
+            connection.execute(
+                text(
+                    "INSERT INTO lojas (id, nome_fantasia) "
+                    "VALUES (:loja_id, 'Loja Sandbox')"
+                ),
+                {"loja_id": loja_id},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO fm_unidade_loja_legacy_v1 "
+                    "(tenant_id, unidade_id, loja_id, ativo) "
+                    "VALUES (:tenant_id, :unidade_id, :loja_id, TRUE)"
+                ),
+                {
+                    "tenant_id": tenant_id,
+                    "unidade_id": unidade_id,
+                    "loja_id": loja_id,
+                },
+            )
+        else:
+            loja_id = existente
+
+        connection.execute(
+            text(
+                "UPDATE produtos SET loja_id = :loja_id "
+                "WHERE loja_id IS NULL"
+            ),
+            {"loja_id": loja_id},
+        )
+        upgrade_legacy_catalog_unit_scope_v1(connection)
+
+
 def mock_generate_content(*, contents: Any, **_: Any) -> Any:
     text = str(contents).lower()
     if "fm_ai_mock_400" in text:
@@ -70,7 +144,7 @@ def mock_generate_content(*, contents: Any, **_: Any) -> Any:
         raise RuntimeError("Gemini mock: erro 429")
     if "fm_ai_mock_invalid" in text:
         return SimpleNamespace(text="{resposta inválida")
-    if "mica" in text or "assistente virtual" in text:
+    if ("assistente de atendimento" in text or "assistente virtual" in text or "mica" in text):
         return SimpleNamespace(
             text=json.dumps(
                 {
@@ -78,6 +152,22 @@ def mock_generate_content(*, contents: Any, **_: Any) -> Any:
                     "itens": [{"nome_produto": "Burger Teste", "quantidade": 1}],
                     "resposta_whatsapp": "Pedido confirmado em sandbox. Pix de teste gerado.",
                 }
+            )
+        )
+    if (
+        "risco iminente de esgotamento" in text
+        and "previsao_esgotamento" in text
+        and "mensagem_alerta" in text
+    ):
+        return SimpleNamespace(
+            text=json.dumps(
+                [
+                    {
+                        "insumo": "Pão Teste",
+                        "previsao_esgotamento": "Vence em 5 dias",
+                        "mensagem_alerta": "Estoque crítico no sandbox.",
+                    }
+                ]
             )
         )
     return SimpleNamespace(
@@ -117,60 +207,91 @@ def mock_whatsapp_send(phone: str, message: str) -> dict[str, Any]:
     return {"ok": True, "status_code": 200, "message": "Envio WhatsApp simulado"}
 
 
-def seed_database(session_factory: Any, models: dict[str, Any]) -> None:
+def seed_database(
+    session_factory: Any,
+    models: dict[str, Any],
+    *,
+    tenant_id: str,
+    unidade_id: str,
+) -> None:
     if not is_test_mode():
         return
+    prepare_legacy_scope(
+        session_factory.kw["bind"],
+        tenant_id=tenant_id,
+        unidade_id=unidade_id,
+    )
     db = session_factory()
     try:
-        if db.query(models["Produto"]).count() > 0:
+        from infra.legacy_product_scope import (
+            inserir_ficha_tecnica_legada,
+            inserir_insumo_legado,
+            inserir_produto_legado,
+            listar_produtos_legados,
+        )
+
+        if listar_produtos_legados(
+            db,
+            tenant_id=tenant_id,
+            unidade_id=unidade_id,
+        ):
             return
         Usuario = models["Usuario"]
         Cliente = models["Cliente"]
-        Produto = models["Produto"]
-        Insumo = models["Insumo"]
-        FichaTecnica = models["FichaTecnica"]
         Venda = models["Venda"]
         ConfiguracaoMeta = models["ConfiguracaoMeta"]
         ContatoGerencial = models["ContatoGerencial"]
         db.add(Usuario(email="admin.test@fm.ai", senha_hash="test-only"))
-        carne = Insumo(
-            nome="Carne Teste",
-            unidade_medida="un",
-            saldo_atual=50,
-            estoque_minimo=5,
-            custo_unitario=7,
-            data_validade=datetime.now() + timedelta(days=20),
+        carne_id = inserir_insumo_legado(
+            db,
+            tenant_id=tenant_id,
+            unidade_id=unidade_id,
+            valores={
+                "nome": "Carne Teste",
+                "unidade_medida": "un",
+                "saldo_atual": 50,
+                "estoque_minimo": 5,
+                "custo_unitario": 7,
+                "data_validade": datetime.now(timezone.utc) + timedelta(days=20),
+            },
         )
-        pao = Insumo(
-            nome="Pão Teste",
-            unidade_medida="un",
-            saldo_atual=50,
-            estoque_minimo=5,
-            custo_unitario=2,
-            data_validade=datetime.now() + timedelta(days=5),
-            dias_alerta_vencimento=7,
+        pao_id = inserir_insumo_legado(
+            db,
+            tenant_id=tenant_id,
+            unidade_id=unidade_id,
+            valores={
+                "nome": "Pão Teste",
+                "unidade_medida": "un",
+                "saldo_atual": 50,
+                "estoque_minimo": 5,
+                "custo_unitario": 2,
+                "data_validade": datetime.now(timezone.utc) + timedelta(days=5),
+                "dias_alerta_vencimento": 7,
+            },
         )
         cliente = Cliente(
             nome="Cliente Teste",
             whatsapp="5511999990001",
-            ultima_compra=datetime.now() - timedelta(days=30),
+            ultima_compra=datetime.now(timezone.utc) - timedelta(days=30),
             total_gasto=100,
             saldo_cashback=10,
             status="Inativo",
         )
-        produto = Produto(
-            nome="Burger Teste",
-            categoria="Hambúrgueres",
-            preco_venda=29.90,
-            custo_total_cmv=9.0,
-            margem_exibicao="69.9%",
+        produto_id = inserir_produto_legado(
+            db,
+            tenant_id=tenant_id,
+            unidade_id=unidade_id,
+            valores={
+                "nome": "Burger Teste",
+                "categoria": "Hambúrgueres",
+                "preco_venda": 29.90,
+                "custo_total_cmv": 9.0,
+                "margem_exibicao": "69.9%",
+            },
         )
         db.add_all(
             [
-                carne,
-                pao,
                 cliente,
-                produto,
                 ConfiguracaoMeta(
                     gateway_provider="Mercado Pago",
                     gateway_pix_key="sandbox-pix",
@@ -182,23 +303,31 @@ def seed_database(session_factory: Any, models: dict[str, Any]) -> None:
             ]
         )
         db.commit()
-        db.add_all(
-            [
-                FichaTecnica(
-                    produto_id=produto.id, insumo_id=carne.id, quantidade_utilizada=1
-                ),
-                FichaTecnica(
-                    produto_id=produto.id, insumo_id=pao.id, quantidade_utilizada=1
-                ),
-                Venda(
-                    produto_id=produto.id,
-                    cliente_id=cliente.id,
-                    quantidade=1,
-                    valor_total=29.90,
-                    custo_total=9.0,
-                    forma_pagamento="Dinheiro Em Espécie",
-                ),
-            ]
+        inserir_ficha_tecnica_legada(
+            db,
+            tenant_id=tenant_id,
+            unidade_id=unidade_id,
+            produto_id=produto_id,
+            insumo_id=carne_id,
+            quantidade=1,
+        )
+        inserir_ficha_tecnica_legada(
+            db,
+            tenant_id=tenant_id,
+            unidade_id=unidade_id,
+            produto_id=produto_id,
+            insumo_id=pao_id,
+            quantidade=1,
+        )
+        db.add(
+            Venda(
+                produto_id=produto_id,
+                cliente_id=cliente.id,
+                quantidade=1,
+                valor_total=29.90,
+                custo_total=9.0,
+                forma_pagamento="Dinheiro Em Espécie",
+            )
         )
         db.commit()
     finally:

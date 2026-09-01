@@ -1,0 +1,258 @@
+name: Assistente Fase 4 Gate V1
+
+on:
+  pull_request:
+    paths:
+      - "core/assistente_atendimento/**"
+      - "core/ai_router.py"
+      - "core/delivery/**"
+      - "core/integracoes/google_maps.py"
+      - "core/integracoes/provedores.py"
+      - "infra/integracoes/fabrica_adapters.py"
+      - "http_api/app.py"
+      - "tests/unit/integracoes/test_whatsapp_control_plane_runtime_v1.py"
+      - "tests/integration/integracoes/test_whatsapp_control_plane_integration_v1.py"
+      - "tests/integration/integracoes/test_whatsapp_channel_http_f4f.py"
+      - "application/assistente_atendimento_runtime.py"
+      - "application/assistente_channel_runtime.py"
+      - "application/assistente_operational_notifications.py"
+      - "application/kds_transacoes.py"
+      - "application/entrega_transacoes.py"
+      - "infra/assistente_atendimento/canal_schema.py"
+      - "infra/assistente_atendimento/canal_estado_sqlalchemy.py"
+      - "migrations/assistente_channel_runtime_v1.py"
+      - "application/catalogo_estoque_cutover.py"
+      - "application/assistente_delivery_convergence.py"
+      - "core/entrega/**"
+      - "application/order_result_orchestrator.py"
+      - "application/finalizacao_pagamento.py"
+      - "application/pdv_legacy_projection.py"
+      - "application/pagbank_reconciliacao.py"
+      - "application/legacy_stock_projection.py"
+      - "application/kds_runtime_core.py"
+      - "core/pdv/executor_canonico.py"
+      - "core/pdv/reconciliacao.py"
+      - "application/ai_router_runtime.py"
+      - "infra/integracoes/**"
+      - "infra/assistente_atendimento/**"
+      - "infra/delivery/**"
+      - "infra/crm/**"
+      - "infra/gerente_ia/modelos_orm.py"
+      - "infra/gerente_ia/persistencia_sqlalchemy.py"
+      - "application/crm_regularizacao_legado.py"
+      - "infra/legacy_customer_scope.py"
+      - "migrations/delivery_policy_v1.py"
+      - "migrations/crm_customer_context_v1.py"
+      - "migrations/runner.py"
+      - "migrations/manifest_v1.json"
+      - "app.py"
+      - "tests/unit/assistente_atendimento/**"
+      - "tests/integration/wave1/test_pagbank_reconciliation.py"
+      - "tests/integration/wave2/test_kds_authoritative_runtime.py"
+      - "tests/integration/wave2/test_kds_transaction_ownership.py"
+      - "tests/integration/entrega/test_entrega_transaction_ownership.py"
+      - "tests/integration/entrega/test_entrega_fluxo.py"
+      - "tests/integration/pdv/test_canary_integrado.py"
+      - "tests/integration/pdv/test_concorrencia.py"
+      - "tests/integration/pdv/test_cutover_divergencia.py"
+      - "tests/integration/pdv/test_pix_async_finalizer.py"
+      - "tests/integration/pdv/test_pix_async_race.py"
+      - "tests/integration/pdv/test_rollback.py"
+      - "tests/unit/stock/**"
+      - "tests/unit/delivery/**"
+      - "tests/unit/ai_router/test_router.py"
+      - "tests/unit/integracoes/test_gemini_audio_transport_v1.py"
+      - "tests/unit/integracoes/test_google_maps_delivery_address_v1.py"
+      - "tests/unit/integracoes/test_delivery_policy_migration_v1.py"
+      - "tests/fitness/test_assistente_commercial_cutover_v1.py"
+      - ".github/workflows/assistente-fase4-gate-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  assistente-fase4:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Compile attendance commercial runtime
+        run: |
+          python -m py_compile \
+            core/assistente_atendimento/atendimento_adapters.py \
+            core/assistente_atendimento/atendimento_schemas.py \
+            core/assistente_atendimento/atendimento_servicos.py \
+            core/assistente_atendimento/cliente_adapters.py \
+            core/assistente_atendimento/contexto.py \
+            core/assistente_atendimento/customer_context.py \
+            core/assistente_atendimento/entradas.py \
+            core/assistente_atendimento/checkout_adapter.py \
+            core/assistente_atendimento/ui_streamlit.py \
+            core/ai_router.py \
+            core/delivery/modelos.py \
+            core/delivery/modelos_orm.py \
+            core/integracoes/google_maps.py \
+            core/integracoes/provedores.py \
+            infra/integracoes/fabrica_adapters.py \
+            http_api/app.py \
+            application/assistente_atendimento_runtime.py \
+            application/assistente_channel_runtime.py \
+            application/assistente_operational_notifications.py \
+            application/kds_transacoes.py \
+            application/entrega_transacoes.py \
+            infra/assistente_atendimento/canal_schema.py \
+            infra/assistente_atendimento/canal_estado_sqlalchemy.py \
+            migrations/assistente_channel_runtime_v1.py \
+            application/catalogo_estoque_cutover.py \
+            application/assistente_delivery_convergence.py \
+            core/entrega/adaptador_sqlalchemy.py \
+            core/entrega/integracoes_sqlalchemy.py \
+            core/entrega/modelos.py \
+            core/entrega/modelos_orm.py \
+            core/entrega/servicos.py \
+            application/order_result_orchestrator.py \
+            application/finalizacao_pagamento.py \
+            application/pdv_legacy_projection.py \
+            application/pagbank_reconciliacao.py \
+            application/legacy_stock_projection.py \
+            application/kds_runtime_core.py \
+            core/pdv/executor_canonico.py \
+            core/pdv/reconciliacao.py \
+            application/ai_router_runtime.py \
+            infra/integracoes/transportes.py \
+            infra/assistente_atendimento/clientes_sqlalchemy.py \
+            infra/assistente_atendimento/contexto_cliente_sqlalchemy.py \
+            infra/assistente_atendimento/entrega_maps.py \
+            infra/assistente_atendimento/handoff_sqlalchemy.py \
+            infra/delivery/politica_sqlalchemy.py \
+            infra/crm/consentimentos_sqlalchemy.py \
+            infra/crm/contatos_sqlalchemy.py \
+            infra/crm/enderecos_schema.py \
+            infra/crm/enderecos_sqlalchemy.py \
+            infra/gerente_ia/modelos_orm.py \
+            infra/gerente_ia/persistencia_sqlalchemy.py \
+            migrations/crm_customer_context_v1.py \
+            migrations/delivery_policy_v1.py \
+            migrations/runner.py
+      - name: Ruff attendance commercial runtime
+        run: |
+          ruff check \
+            core/assistente_atendimento/atendimento_adapters.py \
+            core/assistente_atendimento/atendimento_schemas.py \
+            core/assistente_atendimento/atendimento_servicos.py \
+            core/assistente_atendimento/cliente_adapters.py \
+            core/assistente_atendimento/contexto.py \
+            core/assistente_atendimento/customer_context.py \
+            core/assistente_atendimento/entradas.py \
+            core/assistente_atendimento/checkout_adapter.py \
+            core/assistente_atendimento/ui_streamlit.py \
+            core/ai_router.py \
+            core/delivery/modelos.py \
+            core/delivery/modelos_orm.py \
+            core/integracoes/google_maps.py \
+            core/integracoes/provedores.py \
+            infra/integracoes/fabrica_adapters.py \
+            http_api/app.py \
+            application/assistente_atendimento_runtime.py \
+            application/assistente_channel_runtime.py \
+            application/assistente_operational_notifications.py \
+            application/kds_transacoes.py \
+            application/entrega_transacoes.py \
+            infra/assistente_atendimento/canal_schema.py \
+            infra/assistente_atendimento/canal_estado_sqlalchemy.py \
+            migrations/assistente_channel_runtime_v1.py \
+            application/catalogo_estoque_cutover.py \
+            application/assistente_delivery_convergence.py \
+            core/entrega/adaptador_sqlalchemy.py \
+            core/entrega/integracoes_sqlalchemy.py \
+            core/entrega/modelos.py \
+            core/entrega/modelos_orm.py \
+            core/entrega/servicos.py \
+            application/order_result_orchestrator.py \
+            application/finalizacao_pagamento.py \
+            application/pdv_legacy_projection.py \
+            application/pagbank_reconciliacao.py \
+            application/legacy_stock_projection.py \
+            application/kds_runtime_core.py \
+            core/pdv/executor_canonico.py \
+            core/pdv/reconciliacao.py \
+            application/ai_router_runtime.py \
+            infra/integracoes/transportes.py \
+            infra/assistente_atendimento/clientes_sqlalchemy.py \
+            infra/assistente_atendimento/contexto_cliente_sqlalchemy.py \
+            infra/assistente_atendimento/entrega_maps.py \
+            infra/assistente_atendimento/handoff_sqlalchemy.py \
+            infra/delivery/politica_sqlalchemy.py \
+            infra/crm/consentimentos_sqlalchemy.py \
+            infra/crm/contatos_sqlalchemy.py \
+            infra/crm/enderecos_schema.py \
+            infra/crm/enderecos_sqlalchemy.py \
+            infra/gerente_ia/modelos_orm.py \
+            infra/gerente_ia/persistencia_sqlalchemy.py \
+            migrations/crm_customer_context_v1.py \
+            migrations/delivery_policy_v1.py \
+            migrations/runner.py \
+            tests/unit/assistente_atendimento/test_servico_atendimento.py \
+            tests/unit/assistente_atendimento/test_checkout_adapter.py \
+            tests/unit/assistente_atendimento/test_customer_context_f4c.py \
+            tests/unit/assistente_atendimento/test_delivery_convergence_f4e.py \
+            tests/unit/assistente_atendimento/test_channel_runtime_f4f.py \
+            tests/unit/assistente_atendimento/test_ficha_estoque_checkout.py \
+            tests/unit/assistente_atendimento/test_order_result_orchestrator_f4d.py \
+            tests/integration/wave1/test_pagbank_reconciliation.py \
+            tests/integration/wave2/test_kds_authoritative_runtime.py \
+            tests/integration/wave2/test_kds_transaction_ownership.py \
+            tests/integration/entrega/test_entrega_transaction_ownership.py \
+            tests/integration/entrega/test_entrega_fluxo.py \
+            tests/integration/pdv/test_canary_integrado.py \
+            tests/integration/pdv/test_concorrencia.py \
+            tests/integration/pdv/test_cutover_divergencia.py \
+            tests/integration/pdv/test_pix_async_finalizer.py \
+            tests/integration/pdv/test_pix_async_race.py \
+            tests/integration/pdv/test_rollback.py \
+            tests/unit/delivery/test_politica_sqlalchemy.py \
+            tests/unit/ai_router/test_router.py \
+            tests/unit/integracoes/test_gemini_audio_transport_v1.py \
+            tests/unit/integracoes/test_google_maps_delivery_address_v1.py \
+            tests/unit/integracoes/test_whatsapp_control_plane_runtime_v1.py \
+            tests/integration/integracoes/test_whatsapp_control_plane_integration_v1.py \
+            tests/integration/integracoes/test_whatsapp_channel_http_f4f.py \
+            tests/unit/integracoes/test_delivery_policy_migration_v1.py \
+            tests/fitness/test_assistente_commercial_cutover_v1.py
+      - name: Targeted attendance tests
+        run: |
+          pytest -q \
+            tests/unit/assistente_atendimento/test_servico_atendimento.py \
+            tests/unit/assistente_atendimento/test_checkout_adapter.py \
+            tests/unit/assistente_atendimento/test_customer_context_f4c.py \
+            tests/unit/assistente_atendimento/test_delivery_convergence_f4e.py \
+            tests/unit/assistente_atendimento/test_channel_runtime_f4f.py \
+            tests/unit/assistente_atendimento/test_ficha_estoque_checkout.py \
+            tests/unit/assistente_atendimento/test_order_result_orchestrator_f4d.py \
+            tests/integration/wave1/test_pagbank_reconciliation.py \
+            tests/integration/wave2/test_kds_authoritative_runtime.py \
+            tests/integration/wave2/test_kds_transaction_ownership.py \
+            tests/integration/entrega/test_entrega_transaction_ownership.py \
+            tests/integration/entrega/test_entrega_fluxo.py \
+            tests/integration/pdv \
+            tests/unit/stock/test_ledger_servicos.py \
+            tests/unit/delivery/test_modelos.py \
+            tests/unit/delivery/test_politica_sqlalchemy.py \
+            tests/unit/ai_router/test_router.py \
+            tests/unit/integracoes/test_gemini_audio_transport_v1.py \
+            tests/unit/integracoes/test_google_maps_delivery_address_v1.py \
+            tests/unit/integracoes/test_whatsapp_control_plane_runtime_v1.py \
+            tests/integration/integracoes/test_whatsapp_control_plane_integration_v1.py \
+            tests/integration/integracoes/test_whatsapp_channel_http_f4f.py \
+            tests/unit/integracoes/test_delivery_policy_migration_v1.py \
+            tests/fitness/test_assistente_commercial_cutover_v1.py

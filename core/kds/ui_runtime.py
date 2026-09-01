@@ -13,6 +13,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from application.kds_runtime import ServicoKDSCanonico
+from application.kds_transacoes import transicionar_kds_v1
 from core.kds.adaptador_sqlalchemy import RepositorioKDSSQLAlchemy
 from core.kds.erros import ErroKDS
 from core.kds.servicos import CacheFilaKDS, ServicoKDS
@@ -167,22 +168,22 @@ def render_kds(
             precondicoes: dict[str, bool] | None = None,
             motivo: str | None = None,
         ) -> None:
-            try:
-                resultado = canonico.transicionar(
-                    contexto_kds,
-                    producao_id=producao.producao_id,
-                    destino=destino,
-                    versao_esperada=producao.versao,
-                    idempotency_key=(
-                        f"ui:{producao.producao_id}:{producao.versao}:{destino}"
-                    ),
-                    precondicoes=precondicoes,
-                    motivo=motivo,
-                )
-                sessao.commit()
-            except Exception:
-                sessao.rollback()
-                raise
+            # A sessão da fila é de leitura. Fecha o snapshot antes do
+            # write para não competir com a transação Application/UoW.
+            sessao.close()
+
+            resultado = transicionar_kds_v1(
+                session_factory=session_factory,
+                contexto=contexto_kds,
+                producao_id=producao.producao_id,
+                destino=destino,
+                versao_esperada=producao.versao,
+                idempotency_key=(
+                    f"ui:{producao.producao_id}:{producao.versao}:{destino}"
+                ),
+                precondicoes=precondicoes,
+                motivo=motivo,
+            )
             st.success(
                 f"Produção atualizada para {destino}; pedido={resultado.pedido_status.value}."
             )
@@ -237,15 +238,10 @@ def render_kds(
                     },
                 )
         except ErroKDS as exc:
-            sessao.rollback()
             st.error(f"Comando KDS recusado: {exc.codigo}")
     except PermissionError:
-        if sessao is not None:
-            sessao.rollback()
         st.error("Seu usuário não possui acesso ao KDS desta unidade.")
     except Exception as exc:  # noqa: BLE001
-        if sessao is not None:
-            sessao.rollback()
         st.error(f"Não foi possível carregar o KDS: {type(exc).__name__}")
     finally:
         if sessao is not None:

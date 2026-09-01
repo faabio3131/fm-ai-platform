@@ -40,6 +40,30 @@ _EXPECTED_MIGRATIONS = (
     "0011_external_services_config_v1",
     "0012_restaurant_operations_runtime_v1",
     "0013_core_runtime_v1",
+    "0014_legacy_schema_upgrade_v1",
+    "0015_legacy_schema_reconciliation_v1",
+    "0016_integration_secret_vault_v1",
+    "0017_admin_pin_v1",
+    "0018_admin_access_authorization_v1",
+    "0019_client_payment_identity_v1",
+    "0020_product_unit_scope_compat_v1",
+    "0020b_legacy_store_baseline_v1",
+    "0021_unit_legacy_store_mapping_v1",
+    "0022_crm_clientes_persistencia_v1",
+    "0023_crm_contact_vault_v1",
+    "0024_crm_cliente_legado_mapping_v1",
+    "0025_crm_contact_ownership_v1",
+    "0026_crm_consentimentos_historico_v1",
+    "0027_legacy_catalog_unit_scope_v1",
+    "0028_legacy_expiration_alert_integrity_v1",
+    "0029_internal_notification_recipients_v1",
+    "0030_migration_history_integrity_v1",
+    "0031_ai_usage_metering_v1",
+    "0032_ai_finops_read_model_v1",
+    "0033_delivery_policy_v1",
+    "0034_crm_customer_context_v1",
+    "0035_assistente_channel_runtime_v1",
+    "0036_administracao_proprietario_v1",
 )
 
 
@@ -166,7 +190,10 @@ def test_sqlite_health_and_versioned_migration_are_idempotent(
         "fm_usuarios_v1",
         "fm_usuario_papeis_v1",
         "fm_credenciais_referencias_v1",
+        "fm_segredos_integracoes_v1",
         "fm_auditoria_v1",
+        "lojas",
+        "fm_unidade_loja_legacy_v1",
         "produtos",
         "vendas",
         "configuracoes_meta",
@@ -188,6 +215,11 @@ def test_sqlite_health_and_versioned_migration_are_idempotent(
         "produto_disponibilidade_v1",
         "crm_consentimentos_atuais_v1",
         "crm_rascunhos_campanha_v1",
+        "crm_clientes_v1",
+        "crm_cliente_contatos_v1",
+        "crm_contatos_seguros_v1",
+        "crm_cliente_legado_v1",
+        "crm_consentimentos_v1",
     ):
         assert table in tables
 
@@ -205,11 +237,7 @@ def test_migration_0011_upgrade_downgrade_and_reapply_are_atomic(
         "0011_external_services_config_v1"
     )
     assert "fm_servicos_externos_config_v1" not in inspect(engine).get_table_names()
-    assert pending_versions(engine) == (
-        "0011_external_services_config_v1",
-        "0012_restaurant_operations_runtime_v1",
-        "0013_core_runtime_v1",
-    )
+    assert pending_versions(engine) == _EXPECTED_MIGRATIONS[10:]
 
     assert run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:11]) == (
         "0011_external_services_config_v1",
@@ -237,13 +265,15 @@ def test_migration_0013_core_upgrade_downgrade_e_reapply(
     _clear_runtime_env(monkeypatch)
     monkeypatch.setenv("FM_AI_TEST_MODE", "1")
     engine = build_engine(load_runtime_settings(test_database_url="sqlite:///:memory:"))
-    run_migrations(engine)
+    run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:13])
 
     assert "gerente_ia_previews_v1" in inspect(engine).get_table_names()
     assert rollback_migration(engine, "0013_core_runtime_v1") == "0013_core_runtime_v1"
     assert "gerente_ia_previews_v1" not in inspect(engine).get_table_names()
-    assert pending_versions(engine) == ("0013_core_runtime_v1",)
-    assert run_migrations(engine) == ("0013_core_runtime_v1",)
+    assert pending_versions(engine) == _EXPECTED_MIGRATIONS[12:]
+    assert run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:13]) == (
+        "0013_core_runtime_v1",
+    )
     assert "gerente_ia_previews_v1" in inspect(engine).get_table_names()
 
 

@@ -64,7 +64,7 @@ jobs:
       - name: Instalar Chromium
         run: npx playwright install --with-deps chromium
       - name: Rodar E2E padrao com KDS habilitado
-        run: npx playwright test --reporter=list
+        run: npx playwright test tests/e2e/app-smoke.spec.ts tests/e2e/functional-tabs.spec.ts tests/e2e/hardening-accessibility.spec.ts tests/e2e/menu-engineering.spec.ts tests/e2e/payments-stock-dashboard-bot.spec.ts tests/e2e/pdv-cashback.spec.ts tests/e2e/pdv-static.spec.ts --reporter=list
 
   e2e-kds:
     name: E2E KDS multi-setor e offline

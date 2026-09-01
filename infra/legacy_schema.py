@@ -16,6 +16,7 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    text,
 )
 
 legacy_metadata = MetaData()
@@ -65,7 +66,12 @@ insumos = Table(
     Column("custo_unitario", Float),
     Column("data_fabricacao", DateTime, nullable=True),
     Column("data_validade", DateTime, nullable=True),
-    Column("dias_alerta_vencimento", Integer),
+    Column(
+        "dias_alerta_vencimento",
+        Integer,
+        nullable=False,
+        server_default=text("15"),
+    ),
 )
 
 fichas_tecnicas = Table(

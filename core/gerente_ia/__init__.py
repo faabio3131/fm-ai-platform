@@ -3,6 +3,9 @@
 from .erros import ErroGerenteIA
 from .flags import gerente_ia_v1_enabled
 from .modelos import (
+    CampanhaAprovada,
+    CampanhaPublicavel,
+    CampanhaRef,
     ChamadaTool,
     NaturezaTool,
     PreviewAcao,
@@ -10,12 +13,16 @@ from .modelos import (
     RegistroGerencial,
     ResultadoAcao,
     ResultadoTool,
+    StatusCampanha,
     StatusPreview,
     ToolGerenteIA,
 )
 from .servicos import ServicoGerenteIA
 
 __all__ = [
+    "CampanhaAprovada",
+    "CampanhaPublicavel",
+    "CampanhaRef",
     "ChamadaTool",
     "ErroGerenteIA",
     "NaturezaTool",
@@ -25,6 +32,7 @@ __all__ = [
     "ResultadoAcao",
     "ResultadoTool",
     "ServicoGerenteIA",
+    "StatusCampanha",
     "StatusPreview",
     "ToolGerenteIA",
     "gerente_ia_v1_enabled",

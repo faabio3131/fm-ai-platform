@@ -20,6 +20,7 @@ from core.integracoes.provedores import (
     GeminiTenantAdapter,
     MercadoPagoAdapter,
     MetaAdapter,
+    PortaDownloadBinario,
     PortaGeminiTenant,
     PortaHTTPProvedor,
 )
@@ -35,6 +36,7 @@ from infra.seguranca.modelos_orm import CredencialReferenciaORM
 from .repositorio_sqlalchemy import RepositorioConfiguracoesExternasSQLAlchemy
 from .transportes import (
     GoogleGenAITenantGateway,
+    RequestsBinaryTransport,
     RequestsGoogleMapsTransport,
     RequestsProviderTransport,
 )
@@ -46,7 +48,13 @@ class FabricaAdaptersExternos:
         self._store = secret_store
         self._configs = RepositorioConfiguracoesExternasSQLAlchemy(session)
 
-    def _config(self, contexto: ContextoExecucao, configuracao_id: str):
+    def _config(
+        self,
+        contexto: ContextoExecucao,
+        configuracao_id: str,
+        *,
+        exigir_homologacao: bool = True,
+    ):
         config = self._configs.obter(
             tenant_id=contexto.tenant_id,
             unidade_id=contexto.unidade_id,
@@ -54,7 +62,9 @@ class FabricaAdaptersExternos:
         )
         if config is None:
             raise ErroConfiguracaoServico("configuracao_indisponivel")
-        if not config.habilitada or not config.homologada:
+        if not config.habilitada:
+            raise ErroConfiguracaoServico("integracao_desabilitada")
+        if exigir_homologacao and not config.homologada:
             raise ErroConfiguracaoServico("integracao_nao_homologada")
         return config
 
@@ -129,9 +139,15 @@ class FabricaAdaptersExternos:
         contexto: ContextoExecucao,
         configuracao_id: str,
         http: PortaHTTPProvedor | None = None,
+        media_http: PortaDownloadBinario | None = None,
         sleep: Callable[[float], None] = lambda _: None,
+        exigir_homologacao: bool = True,
     ) -> MetaAdapter:
-        config = self._config(contexto, configuracao_id)
+        config = self._config(
+            contexto,
+            configuracao_id,
+            exigir_homologacao=exigir_homologacao,
+        )
         if config.provedor != "meta":
             raise ErroConfiguracaoServico("adapter_incompativel")
         parametros = config.parametros
@@ -167,6 +183,7 @@ class FabricaAdaptersExternos:
                 graph_api_version=str(parametros.get("graph_api_version", "v23.0")),
             ),
             http=http or RequestsProviderTransport(),
+            media_http=media_http or RequestsBinaryTransport(),
             sleep=sleep,
         )
 

@@ -30,7 +30,7 @@ def test_cutover_bloqueia_segunda_venda_se_estoque_legado_divergir_do_canonico(
             ("tenant-teste", "unidade-teste", "legacy:insumo:1"),
         )
         assert saldo is not None
-        assert Decimal(str(saldo.saldo_fisico)) == Decimal(9)
+        assert Decimal(str(saldo.saldo_fisico)) == Decimal(10)
         insumo = session.get(InsumoTeste, 1)
         assert insumo is not None
         insumo.saldo_atual = 8
@@ -51,6 +51,6 @@ def test_cutover_bloqueia_segunda_venda_se_estoque_legado_divergir_do_canonico(
             ("tenant-teste", "unidade-teste", "legacy:insumo:1"),
         )
         assert saldo is not None
-        assert Decimal(str(saldo.saldo_fisico)) == Decimal(9)
-        assert Decimal(str(saldo.saldo_reservado)) == Decimal(0)
+        assert Decimal(str(saldo.saldo_fisico)) == Decimal(10)
+        assert Decimal(str(saldo.saldo_reservado)) == Decimal(1)
         assert session.get(InsumoTeste, 1).saldo_atual == 8

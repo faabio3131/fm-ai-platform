@@ -1,7 +1,8 @@
 """Persistência aditiva da Expedição e Entrega V1.
 
-As tabelas deste módulo só são materializadas pelo runtime de teste da PR13.
-Não há migration de produção nesta etapa.
+As tabelas deste módulo integram o schema comercial V1 pela migration
+0012_restaurant_operations_runtime_v1 do runner oficial. O runtime de teste
+reutiliza o mesmo metadata, sem criar uma autoridade de schema paralela.
 """
 
 from sqlalchemy import (

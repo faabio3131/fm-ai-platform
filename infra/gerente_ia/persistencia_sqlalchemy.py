@@ -11,6 +11,13 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
 from core.assistente_atendimento.modelos import ConfiguracaoIdentidadeAssistente
+from core.crm.erros import ErroCRM
+from core.crm.modelos import (
+    CanalMarketing,
+    ClienteCRM,
+    ContatoCRM,
+    OrigemClienteCRM,
+)
 from core.eventos.modelos import EnvelopeMensagem
 from core.gerente_ia.erros import ErroGerenteIA
 from core.gerente_ia.modelos import (
@@ -22,10 +29,13 @@ from core.gerente_ia.modelos import (
     ToolGerenteIA,
 )
 from core.kds.modelos_orm import ProducaoItemORM
+from core.marketplaces.modelos import PlataformaMarketplace
 from core.pedidos.modelos_orm import ItemPedidoORM
 
 from .modelos_orm import (
+    ClienteCRMORM,
     ConsentimentoCRMAtualORM,
+    ContatoCRMORM,
     DisponibilidadeProdutoORM,
     EventoCoreORM,
     IdentidadeAssistenteORM,
@@ -107,6 +117,183 @@ class RepositorioIdentidadeAssistenteSQLAlchemy:
             row.atualizado_em = agora
         self._session.flush()
         return cast(ConfiguracaoIdentidadeAssistente, self.obter(tenant_id=tenant_id, unidade_id=unidade_id))
+
+
+class RepositorioClientesCRMSQLAlchemy:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    @staticmethod
+    def _chave(
+        *,
+        tenant_id: str,
+        unidade_id: str,
+        cliente_id: str,
+    ) -> tuple[str, str, str]:
+        return tenant_id, unidade_id, cliente_id
+
+    def _modelo(self, row: ClienteCRMORM) -> ClienteCRM:
+        contatos_rows = self._session.scalars(
+            select(ContatoCRMORM)
+            .where(
+                ContatoCRMORM.tenant_id == row.tenant_id,
+                ContatoCRMORM.unidade_id == row.unidade_id,
+                ContatoCRMORM.cliente_id == row.cliente_id,
+            )
+            .order_by(ContatoCRMORM.canal)
+        ).all()
+
+        contatos = tuple(
+            ContatoCRM(
+                canal=CanalMarketing(contato.canal),
+                referencia=contato.referencia,
+            )
+            for contato in contatos_rows
+        )
+
+        marketplace_origem = (
+            PlataformaMarketplace(row.marketplace_origem)
+            if row.marketplace_origem is not None
+            else None
+        )
+
+        return ClienteCRM(
+            cliente_id=row.cliente_id,
+            tenant_id=row.tenant_id,
+            unidade_id=row.unidade_id,
+            origem=OrigemClienteCRM(row.origem),
+            contatos=contatos,
+            criado_em=_utc(row.criado_em),
+            marketplace_origem=marketplace_origem,
+            versao=row.versao,
+        )
+
+    @staticmethod
+    def _semantica(cliente: ClienteCRM) -> tuple:
+        contatos = tuple(
+            sorted(
+                (contato.canal.value, contato.referencia)
+                for contato in cliente.contatos
+            )
+        )
+        marketplace = (
+            cliente.marketplace_origem.value
+            if cliente.marketplace_origem is not None
+            else None
+        )
+        return (
+            cliente.tenant_id,
+            cliente.unidade_id,
+            cliente.cliente_id,
+            cliente.origem.value,
+            contatos,
+            marketplace,
+            cliente.versao,
+        )
+
+    def registrar(self, cliente: ClienteCRM) -> tuple[ClienteCRM, bool]:
+        chave = self._chave(
+            tenant_id=cliente.tenant_id,
+            unidade_id=cliente.unidade_id,
+            cliente_id=cliente.cliente_id,
+        )
+        existente_row = self._session.get(ClienteCRMORM, chave)
+        if existente_row is not None:
+            existente = self._modelo(existente_row)
+            if self._semantica(existente) != self._semantica(cliente):
+                raise ErroCRM("cliente_id_em_conflito")
+            return existente, True
+
+        self._session.add(
+            ClienteCRMORM(
+                tenant_id=cliente.tenant_id,
+                unidade_id=cliente.unidade_id,
+                cliente_id=cliente.cliente_id,
+                origem=cliente.origem.value,
+                marketplace_origem=(
+                    cliente.marketplace_origem.value
+                    if cliente.marketplace_origem is not None
+                    else None
+                ),
+                criado_em=cliente.criado_em,
+                versao=cliente.versao,
+            )
+        )
+        for contato in cliente.contatos:
+            self._session.add(
+                ContatoCRMORM(
+                    tenant_id=cliente.tenant_id,
+                    unidade_id=cliente.unidade_id,
+                    cliente_id=cliente.cliente_id,
+                    canal=contato.canal.value,
+                    referencia=contato.referencia,
+                )
+            )
+        self._session.flush()
+
+        salvo = self.obter(
+            tenant_id=cliente.tenant_id,
+            unidade_id=cliente.unidade_id,
+            cliente_id=cliente.cliente_id,
+        )
+        if salvo is None:
+            raise ErroCRM("recurso_indisponivel")
+        return salvo, False
+
+    def obter(
+        self,
+        *,
+        tenant_id: str,
+        unidade_id: str,
+        cliente_id: str,
+    ) -> ClienteCRM | None:
+        row = self._session.get(
+            ClienteCRMORM,
+            self._chave(
+                tenant_id=tenant_id,
+                unidade_id=unidade_id,
+                cliente_id=cliente_id,
+            ),
+        )
+        return self._modelo(row) if row is not None else None
+
+    def obter_por_referencia_contato(
+        self,
+        *,
+        tenant_id: str,
+        unidade_id: str,
+        referencia: str,
+    ) -> ClienteCRM | None:
+        contato = self._session.scalar(
+            select(ContatoCRMORM).where(
+                ContatoCRMORM.tenant_id == tenant_id,
+                ContatoCRMORM.unidade_id == unidade_id,
+                ContatoCRMORM.referencia == referencia,
+            )
+        )
+        if contato is None:
+            return None
+        return self.obter(
+            tenant_id=tenant_id,
+            unidade_id=unidade_id,
+            cliente_id=contato.cliente_id,
+        )
+
+    def listar(
+        self,
+        *,
+        tenant_id: str,
+        unidade_id: str,
+    ) -> tuple[ClienteCRM, ...]:
+        rows = self._session.scalars(
+            select(ClienteCRMORM)
+            .where(
+                ClienteCRMORM.tenant_id == tenant_id,
+                ClienteCRMORM.unidade_id == unidade_id,
+            )
+            .order_by(ClienteCRMORM.criado_em, ClienteCRMORM.cliente_id)
+        ).all()
+        return tuple(self._modelo(row) for row in rows)
 
 
 class RepositorioPreviewsSQLAlchemy:

@@ -9,6 +9,7 @@ from typing import Any
 import streamlit as st
 from sqlalchemy.orm import Session
 
+from application.entrega_transacoes import AplicacaoEntregaV1
 from core.seguranca import Papel
 
 from .adaptador_sqlalchemy import RepositorioEntregaSQLAlchemy
@@ -50,13 +51,16 @@ def _servico(session: Session) -> ServicoEntrega:
 
 
 def _executar(session: Session, acao: Callable[[], Any]) -> None:
+    # A Session desta tela é somente leitura. Ela é fechada antes do
+    # write autoritativo para evitar concorrência com a nova UoW.
+    session.close()
+
     try:
         acao()
-        session.commit()
     except ErroEntrega as exc:
-        session.rollback()
         st.error(f"Operação recusada: {exc.codigo}")
         return
+
     st.rerun()
 
 
@@ -72,6 +76,8 @@ def render_entrega(*, session_factory: SessionFactory, papel: str, usuario_id: s
 
     with session_factory() as session:
         servico = _servico(session)
+        aplicacao = AplicacaoEntregaV1(session_factory)
+
         try:
             entregas = servico.listar(contexto)
         except ErroEntrega as exc:
@@ -90,14 +96,14 @@ def render_entrega(*, session_factory: SessionFactory, papel: str, usuario_id: s
                 st.write(f"Entregador: {entrega.entregador_id or 'não atribuído'}")
 
                 if papel in {Papel.EXPEDICAO.value, Papel.GERENTE.value}:
-                    _acoes_expedicao(session, servico, contexto, entrega)
+                    _acoes_expedicao(session, aplicacao, contexto, entrega)
                 if papel == Papel.ENTREGADOR.value:
-                    _acoes_entregador(session, servico, contexto, entrega)
+                    _acoes_entregador(session, aplicacao, contexto, entrega)
 
 
 def _acoes_expedicao(
     session: Session,
-    servico: ServicoEntrega,
+    aplicacao: AplicacaoEntregaV1,
     contexto: Any,
     entrega: Any,
 ) -> None:
@@ -120,7 +126,7 @@ def _acoes_expedicao(
         ):
             _executar(
                 session,
-                lambda: servico.concluir_checklist(
+                lambda: aplicacao.concluir_checklist(
                     entrega.entrega_id,
                     ChecklistExpedicao(itens, embalagem, identificacao),
                     versao_esperada=entrega.versao,
@@ -146,7 +152,7 @@ def _acoes_expedicao(
         ):
             _executar(
                 session,
-                lambda: servico.atribuir(
+                lambda: aplicacao.atribuir(
                     entrega.entrega_id,
                     entregador_id,
                     versao_esperada=entrega.versao,
@@ -158,7 +164,7 @@ def _acoes_expedicao(
 
 def _acoes_entregador(
     session: Session,
-    servico: ServicoEntrega,
+    aplicacao: AplicacaoEntregaV1,
     contexto: Any,
     entrega: Any,
 ) -> None:
@@ -168,7 +174,7 @@ def _acoes_entregador(
     ):
         _executar(
             session,
-            lambda: servico.coletar(
+            lambda: aplicacao.coletar(
                 entrega.entrega_id,
                 versao_esperada=entrega.versao,
                 contexto=contexto,
@@ -182,7 +188,7 @@ def _acoes_entregador(
     ):
         _executar(
             session,
-            lambda: servico.sair_em_rota(
+            lambda: aplicacao.sair_em_rota(
                 entrega.entrega_id,
                 versao_esperada=entrega.versao,
                 contexto=contexto,
@@ -203,7 +209,7 @@ def _acoes_entregador(
             prova = ProvaEntrega(prova_ref, "confirmacao", _agora())
             _executar(
                 session,
-                lambda: servico.confirmar_entrega(
+                lambda: aplicacao.confirmar_entrega(
                     entrega.entrega_id,
                     prova,
                     versao_esperada=entrega.versao,
@@ -223,7 +229,7 @@ def _acoes_entregador(
         ):
             _executar(
                 session,
-                lambda: servico.registrar_tentativa_falha(
+                lambda: aplicacao.registrar_tentativa_falha(
                     entrega.entrega_id,
                     motivo,
                     versao_esperada=entrega.versao,

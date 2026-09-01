@@ -6,9 +6,12 @@ orquestra serviços/projeções previamente autorizados pelo domínio.
 
 from __future__ import annotations
 
-from typing import Protocol
+from datetime import datetime
+from typing import Protocol, runtime_checkable
 
 from .modelos import (
+    CampanhaAprovada,
+    CampanhaPublicavel,
     PreviewAcao,
     RascunhoCampanha,
     RegistroGerencial,
@@ -97,6 +100,7 @@ class PortaAcoesGerenciais(Protocol):
     ) -> str: ...
 
 
+@runtime_checkable
 class PortaCampanhasGerenciais(Protocol):
     def preparar_rascunho(
         self,
@@ -111,6 +115,33 @@ class PortaCampanhasGerenciais(Protocol):
         correlation_id: str,
         idempotency_key: str,
     ) -> RascunhoCampanha: ...
+
+
+@runtime_checkable
+class PortaCampanhasGovernadas(PortaCampanhasGerenciais, Protocol):
+    def aprovar(
+        self,
+        *,
+        tenant_id: str,
+        unidade_id: str,
+        campanha_id: str,
+        usuario_id: str,
+        correlation_id: str,
+        idempotency_key: str,
+        agora: datetime,
+    ) -> CampanhaAprovada: ...
+
+    def publicar(
+        self,
+        *,
+        tenant_id: str,
+        unidade_id: str,
+        campanha_id: str,
+        usuario_id: str,
+        correlation_id: str,
+        idempotency_key: str,
+        agora: datetime,
+    ) -> CampanhaPublicavel: ...
 
 
 class RepositorioPreviewsGerenteIA(Protocol):

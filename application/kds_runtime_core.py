@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -11,6 +11,9 @@ from sqlalchemy.orm import Session
 
 from core.dominio.enums import PedidoStatus
 from core.dominio.ids import PedidoId, TenantId, UnidadeId
+from core.estoque.adaptador_sqlalchemy import RepositorioLedgerSQLAlchemy
+from core.estoque.modelos import StatusReserva
+from core.estoque.servicos import consumir_reserva
 from core.kds.adaptador_sqlalchemy import RepositorioKDSSQLAlchemy
 from core.kds.erros import ErroKDS
 from core.kds.modelos import FilaKDS, ProducaoItem, SetorProducao
@@ -18,6 +21,7 @@ from core.kds.modelos_orm import ProducaoItemORM
 from core.kds.servicos import ResultadoComandoKDS, ServicoKDS
 from core.pedidos.adaptador_sqlalchemy import RepositorioPedidosSQLAlchemy
 from core.seguranca.contexto import ContextoExecucao
+from core.seguranca.permissoes import Permissao
 from infra.eventos.adaptador_sqlalchemy import RepositorioOutboxSQLAlchemy
 from infra.gerente_ia.persistencia_sqlalchemy import ConsumidorEventosCoreSQLAlchemy
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
@@ -26,6 +30,9 @@ from .kds_runtime_support import (
     auditar_roteamento_kds,
     publicar_evento_kds,
     transicionar_pedido_por_kds,
+)
+from .legacy_stock_projection import (
+    projetar_consumo_estoque_legado_em_transacao,
 )
 
 
@@ -44,6 +51,7 @@ class ServicoKDSCanonico:
         self.agora = agora or (lambda: datetime.now(timezone.utc))
         self.kds_repo = RepositorioKDSSQLAlchemy(session)
         self.pedido_repo = RepositorioPedidosSQLAlchemy(session)
+        self.estoque_repo = RepositorioLedgerSQLAlchemy(session)
         self.outbox = RepositorioOutboxSQLAlchemy(
             session, ao_adicionar=ConsumidorEventosCoreSQLAlchemy(session).consumir
         )
@@ -89,6 +97,55 @@ class ServicoKDSCanonico:
             chave=chave,
             instante=instante,
             motivo=motivo,
+        )
+
+    def _consumir_reserva_inicio_producao(
+        self,
+        *,
+        contexto: ContextoExecucao,
+        pedido,
+        instante: datetime,
+    ) -> None:
+        reserva = self.estoque_repo.buscar_reserva(
+            contexto.tenant_id,
+            contexto.unidade_id,
+            str(pedido.id),
+        )
+        if reserva is None or reserva.status is StatusReserva.CONSUMIDA:
+            return
+        if reserva.status is StatusReserva.LIBERADA:
+            raise ErroKDS("reserva_estoque_liberada")
+
+        tecnico = ContextoExecucao.sistema(
+            identidade="kds-stock-orchestrator-v1",
+            motivo="consumo da reserva no início real da produção",
+            tenant_id=contexto.tenant_id,
+            unidade_id=contexto.unidade_id,
+            correlation_id=contexto.correlation_id,
+            solicitado_em=instante,
+        )
+        contexto_estoque = replace(
+            tecnico,
+            permissoes=frozenset({Permissao.ESTOQUE_BAIXAR}),
+        )
+        consumo = consumir_reserva(
+            contexto=contexto_estoque,
+            repositorio=self.estoque_repo,
+            pedido_id=str(pedido.id),
+            pedido_version=pedido.versao,
+            idempotency_key=f"order-result:{pedido.id}:estoque:inicio-producao",
+        )
+        if consumo.idempotente:
+            return
+        for evento in consumo.eventos:
+            self.outbox.adicionar(evento)
+        for auditoria in consumo.auditorias:
+            self.auditoria.adicionar(auditoria)
+        projetar_consumo_estoque_legado_em_transacao(
+            session=self.session,
+            tenant_id=contexto.tenant_id,
+            unidade_id=contexto.unidade_id,
+            movimentos=consumo.movimentos,
         )
 
     def rotear_item(
@@ -195,6 +252,11 @@ class ServicoKDSCanonico:
                 instante=instante,
                 motivo="inicio de preparo confirmado pelo KDS",
             )
+            self._consumir_reserva_inicio_producao(
+                contexto=contexto,
+                pedido=pedido,
+                instante=instante,
+            )
         if destino in {"pronta", "retirada"} and self._todos_prontos(item):
             if pedido.status is PedidoStatus.ENVIADO_PRODUCAO:
                 pedido = self._transicionar_pedido(
@@ -204,6 +266,11 @@ class ServicoKDSCanonico:
                     chave=f"{chave}:pedido-em-preparo",
                     instante=instante,
                     motivo="produção finalizada sem etapa explícita de início",
+                )
+                self._consumir_reserva_inicio_producao(
+                    contexto=contexto,
+                    pedido=pedido,
+                    instante=instante,
                 )
             if pedido.status is PedidoStatus.EM_PREPARO:
                 pedido = self._transicionar_pedido(

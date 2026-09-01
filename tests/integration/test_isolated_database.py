@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from test_mode import reset_database, seed_database
+from test_mode import prepare_legacy_scope, reset_database, seed_database
 
 
 def test_seed_and_reset_isolated_database(monkeypatch, tmp_path):
@@ -12,6 +12,11 @@ def test_seed_and_reset_isolated_database(monkeypatch, tmp_path):
     engine = create_engine(db_url, connect_args={"check_same_thread": False})
     Session = sessionmaker(bind=engine)
     reset_database(engine, app.Base)
+    prepare_legacy_scope(
+        engine,
+        tenant_id="tenant-local",
+        unidade_id="unidade-local",
+    )
     models = {
         name: getattr(app, name)
         for name in [
@@ -25,7 +30,12 @@ def test_seed_and_reset_isolated_database(monkeypatch, tmp_path):
             "ContatoGerencial",
         ]
     }
-    seed_database(Session, models)
+    seed_database(
+        Session,
+        models,
+        tenant_id="tenant-local",
+        unidade_id="unidade-local",
+    )
     db = Session()
     try:
         assert db.query(app.Usuario).filter_by(email="admin.test@fm.ai").count() == 1

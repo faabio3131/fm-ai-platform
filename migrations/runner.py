@@ -21,6 +21,7 @@ from sqlalchemy import (
     Table,
     delete,
     insert,
+    inspect,
     select,
 )
 from sqlalchemy.engine import Connection
@@ -33,6 +34,7 @@ from core.pagamentos.modelos_orm import PaymentsBase
 from core.pdv.modelos_orm import PDVBase
 from core.pedidos.modelos_orm import OrdersBase
 from core.salao.modelos_orm import SalaoBase
+from infra.ai_metering import AIMeteringBase
 from infra.eventos.modelos_orm import EventBusBase
 from infra.gerente_ia.modelos_orm import CoreRuntimeBase
 from infra.integracoes.modelos_orm import IntegrationConfigBase
@@ -42,6 +44,52 @@ from infra.seguranca.modelos_orm import (
     EventoAuditoriaORM,
     SecurityBase,
 )
+from migrations.admin_access_authorization_v1 import (
+    upgrade_admin_access_authorization_v1,
+)
+from migrations.admin_pin_v1 import upgrade_admin_pin_v1
+from migrations.administracao_proprietario_v1 import (
+    upgrade_administracao_proprietario_v1,
+)
+from migrations.ai_finops_read_model_v1 import (
+    revert_ai_finops_read_model_v1,
+    upgrade_ai_finops_read_model_v1,
+)
+from migrations.assistente_channel_runtime_v1 import (
+    upgrade_assistente_channel_runtime_v1,
+)
+from migrations.client_payment_identity_v1 import upgrade_client_payment_identity_v1
+from migrations.crm_cliente_legado_mapping_v1 import (
+    upgrade_crm_cliente_legado_mapping_v1,
+)
+from migrations.crm_clientes_persistencia_v1 import upgrade_crm_clientes_persistencia_v1
+from migrations.crm_consentimentos_historico_v1 import (
+    upgrade_crm_consentimentos_historico_v1,
+)
+from migrations.crm_contact_ownership_v1 import upgrade_crm_contact_ownership_v1
+from migrations.crm_contact_vault_v1 import upgrade_crm_contact_vault_v1
+from migrations.crm_customer_context_v1 import upgrade_crm_customer_context_v1
+from migrations.delivery_policy_v1 import upgrade_delivery_policy_v1
+from migrations.history_guard import MigrationHistoryError, assert_applied_history
+from migrations.integration_secret_vault_v1 import upgrade_integration_secret_vault_v1
+from migrations.internal_notification_recipients_v1 import (
+    upgrade_internal_notification_recipients_v1,
+)
+from migrations.legacy_catalog_unit_scope_v1 import (
+    upgrade_legacy_catalog_unit_scope_v1,
+)
+from migrations.legacy_expiration_alert_integrity_v1 import (
+    upgrade_legacy_expiration_alert_integrity_v1,
+)
+from migrations.legacy_schema_reconciliation_v1 import reconcile_legacy_schema_v1
+from migrations.legacy_schema_upgrade_v1 import upgrade_legacy_schema_v1
+from migrations.legacy_store_baseline_v1 import upgrade_legacy_store_baseline_v1
+from migrations.manifest import assert_migration_manifest, migration_fingerprint
+from migrations.migration_history_integrity_v1 import (
+    upgrade_migration_history_integrity_v1,
+)
+from migrations.product_unit_scope_compat_v1 import upgrade_product_unit_scope_compat_v1
+from migrations.unit_legacy_store_mapping_v1 import upgrade_unit_legacy_store_mapping_v1
 
 _metadata = MetaData()
 _schema_migrations = Table(
@@ -49,6 +97,7 @@ _schema_migrations = Table(
     _metadata,
     Column("version", String(128), primary_key=True),
     Column("applied_at", DateTime(timezone=True), nullable=False),
+    Column("migration_sha256", String(64), nullable=True),
 )
 
 
@@ -133,6 +182,14 @@ def _revert_core_runtime_v1(connection: Connection) -> None:
     CoreRuntimeBase.metadata.drop_all(bind=connection, checkfirst=True)
 
 
+def _ai_usage_metering_v1(connection: Connection) -> None:
+    AIMeteringBase.metadata.create_all(bind=connection, checkfirst=True)
+
+
+def _revert_ai_usage_metering_v1(connection: Connection) -> None:
+    AIMeteringBase.metadata.drop_all(bind=connection, checkfirst=True)
+
+
 DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001_security_identity_v1", _security_identity_v1),
     Migration("0002_credential_references_v1", _credential_references_v1),
@@ -155,7 +212,103 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
         _revert_restaurant_operations_runtime_v1,
     ),
     Migration("0013_core_runtime_v1", _core_runtime_v1, _revert_core_runtime_v1),
+    Migration("0014_legacy_schema_upgrade_v1", upgrade_legacy_schema_v1),
+    Migration("0015_legacy_schema_reconciliation_v1", reconcile_legacy_schema_v1),
+    Migration("0016_integration_secret_vault_v1", upgrade_integration_secret_vault_v1),
+    Migration("0017_admin_pin_v1", upgrade_admin_pin_v1),
+    Migration("0018_admin_access_authorization_v1", upgrade_admin_access_authorization_v1),
+    Migration("0019_client_payment_identity_v1", upgrade_client_payment_identity_v1),
+    Migration("0020_product_unit_scope_compat_v1", upgrade_product_unit_scope_compat_v1),
+    Migration("0020b_legacy_store_baseline_v1", upgrade_legacy_store_baseline_v1),
+    Migration("0021_unit_legacy_store_mapping_v1", upgrade_unit_legacy_store_mapping_v1),
+    Migration("0022_crm_clientes_persistencia_v1", upgrade_crm_clientes_persistencia_v1),
+    Migration("0023_crm_contact_vault_v1", upgrade_crm_contact_vault_v1),
+    Migration("0024_crm_cliente_legado_mapping_v1", upgrade_crm_cliente_legado_mapping_v1),
+    Migration("0025_crm_contact_ownership_v1", upgrade_crm_contact_ownership_v1),
+    Migration(
+        "0026_crm_consentimentos_historico_v1",
+        upgrade_crm_consentimentos_historico_v1,
+    ),
+    Migration(
+        "0027_legacy_catalog_unit_scope_v1",
+        upgrade_legacy_catalog_unit_scope_v1,
+    ),
+    Migration(
+        "0028_legacy_expiration_alert_integrity_v1",
+        upgrade_legacy_expiration_alert_integrity_v1,
+    ),
+    Migration(
+        "0029_internal_notification_recipients_v1",
+        upgrade_internal_notification_recipients_v1,
+    ),
+    Migration(
+        "0030_migration_history_integrity_v1",
+        upgrade_migration_history_integrity_v1,
+    ),
+    Migration(
+        "0031_ai_usage_metering_v1",
+        _ai_usage_metering_v1,
+        _revert_ai_usage_metering_v1,
+    ),
+    Migration(
+        "0032_ai_finops_read_model_v1",
+        upgrade_ai_finops_read_model_v1,
+        revert_ai_finops_read_model_v1,
+    ),
+    Migration("0033_delivery_policy_v1", upgrade_delivery_policy_v1),
+    Migration("0034_crm_customer_context_v1", upgrade_crm_customer_context_v1),
+    Migration(
+        "0035_assistente_channel_runtime_v1",
+        upgrade_assistente_channel_runtime_v1,
+    ),
+    Migration(
+        "0036_administracao_proprietario_v1",
+        upgrade_administracao_proprietario_v1,
+    ),
 )
+
+
+def _official_versions() -> tuple[str, ...]:
+    return tuple(migration.version for migration in DEFAULT_MIGRATIONS)
+
+
+def _assert_requested_sequence(
+    already: set[str],
+    ordered: tuple[Migration, ...],
+) -> None:
+    official = _official_versions()
+    requested = tuple(
+        migration.version
+        for migration in ordered
+        if migration.version not in already
+    )
+    unknown = sorted(set(requested) - set(official))
+    if unknown:
+        raise MigrationHistoryError(
+            "execucao solicitou migration fora do registry oficial: "
+            + ", ".join(unknown)
+        )
+
+    expected = official[len(already) : len(already) + len(requested)]
+    if requested != expected:
+        raise MigrationHistoryError(
+            "execucao de migrations fora da ordem oficial; "
+            f"esperado={expected}; solicitado={requested}"
+        )
+
+
+def _record_applied(connection: Connection, migration: Migration) -> None:
+    values: dict[str, object] = {
+        "version": migration.version,
+        "applied_at": datetime.now(timezone.utc),
+    }
+    columns = {
+        str(column["name"])
+        for column in inspect(connection).get_columns("fm_schema_migrations")
+    }
+    if "migration_sha256" in columns:
+        values["migration_sha256"] = migration_fingerprint(migration).sha256
+    connection.execute(insert(_schema_migrations).values(**values))
 
 
 def applied_versions(connection: Connection) -> frozenset[str]:
@@ -166,6 +319,7 @@ def applied_versions(connection: Connection) -> frozenset[str]:
 def pending_versions(engine: Engine) -> tuple[str, ...]:
     with engine.begin() as connection:
         applied = applied_versions(connection)
+        assert_applied_history(connection, _official_versions())
     return tuple(
         migration.version
         for migration in DEFAULT_MIGRATIONS
@@ -192,28 +346,63 @@ def run_migrations(
     versions = [migration.version for migration in ordered]
     if len(versions) != len(set(versions)):
         raise ValueError("versao de migration duplicada")
+    strict_history = ordered == DEFAULT_MIGRATIONS
+    if strict_history:
+        assert_migration_manifest(ordered)
 
     applied_now: list[str] = []
     with engine.begin() as connection:
         already = set(applied_versions(connection))
+        if strict_history:
+            assert_applied_history(connection, _official_versions())
+    if strict_history:
+        _assert_requested_sequence(already, ordered)
 
     for migration in ordered:
         if migration.version in already:
+            continue
+        if (
+            migration.version == "0028_legacy_expiration_alert_integrity_v1"
+            and engine.dialect.name == "sqlite"
+        ):
+            applied_sqlite_now = False
+            with engine.connect() as connection:
+                original_foreign_keys = int(
+                    connection.exec_driver_sql("PRAGMA foreign_keys").scalar_one()
+                )
+                connection.commit()
+                try:
+                    connection.exec_driver_sql("PRAGMA foreign_keys = OFF")
+                    connection.commit()
+                    with connection.begin():
+                        current = set(applied_versions(connection))
+                        if migration.version not in current:
+                            migration.apply(connection)
+                            _record_applied(connection, migration)
+                            applied_sqlite_now = True
+                finally:
+                    if connection.in_transaction():
+                        connection.rollback()
+                    connection.exec_driver_sql(
+                        f"PRAGMA foreign_keys = {original_foreign_keys}"
+                    )
+                    connection.commit()
+            already.add(migration.version)
+            if applied_sqlite_now:
+                applied_now.append(migration.version)
             continue
         with engine.begin() as connection:
             current = set(applied_versions(connection))
             if migration.version in current:
                 continue
             migration.apply(connection)
-            connection.execute(
-                insert(_schema_migrations).values(
-                    version=migration.version,
-                    applied_at=datetime.now(timezone.utc),
-                )
-            )
+            _record_applied(connection, migration)
         already.add(migration.version)
         applied_now.append(migration.version)
 
+    if strict_history:
+        with engine.begin() as connection:
+            assert_applied_history(connection, _official_versions())
     return tuple(applied_now)
 
 
@@ -234,6 +423,7 @@ def rollback_migration(engine: Engine, version: str) -> str:
 
     with engine.begin() as connection:
         applied = applied_versions(connection)
+        assert_applied_history(connection, _official_versions())
         if version not in applied:
             raise RuntimeError("migration nao aplicada")
         latest = next(

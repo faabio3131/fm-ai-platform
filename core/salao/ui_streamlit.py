@@ -12,6 +12,7 @@ import streamlit as st
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from application.salao_transacoes import AplicacaoSalaoV1
 from core.pedidos.modelos_orm import PedidoORM
 from core.salao import (
     ErroSalao,
@@ -23,8 +24,6 @@ from core.salao import (
     contexto_salao_teste,
     preparar_schema_teste,
 )
-
-from .runtime_teste import registrar_pagamento_confirmado_teste
 
 
 def _contexto():
@@ -52,6 +51,7 @@ def render_salao(*, engine: Any, session_factory: Callable[[], Session]) -> None
         sessao = session_factory()
         repositorio = RepositorioSalaoSQLAlchemy(sessao)
         servico = ServicoSalao(repositorio, agora=lambda: datetime.now(timezone.utc))
+        aplicacao = AplicacaoSalaoV1(session_factory)
         contexto = _contexto()
         mapa = servico.listar_mapa(contexto)
 
@@ -87,21 +87,25 @@ def render_salao(*, engine: Any, session_factory: Callable[[], Session]) -> None
         st.write(f"**Capacidade:** {mesa.capacidade}")
         st.write(f"**Versão:** {mesa.versao}")
 
-        def concluir() -> None:
-            sessao.commit()
+        def concluir(acao: Callable[[], object]) -> None:
+            # A sessão desta tela é somente leitura. Fecha o snapshot antes
+            # de abrir a transação autoritativa da Application.
+            sessao.close()
+            acao()
             st.rerun()
 
         if mesa.status == StatusMesa.LIVRE:
             if st.button("Abrir comanda", key=f"abrir-{mesa.mesa_id}"):
-                servico.abrir_comanda(
-                    contexto,
-                    comanda_id=str(uuid4()),
-                    numero=f"M{mesa.codigo}-{uuid4().hex[:6]}",
-                    mesa_id=mesa.mesa_id,
-                    expected_mesa_version=mesa.versao,
-                    idempotency_key=f"ui:abrir:{mesa.mesa_id}:{mesa.versao}",
+                concluir(
+                    lambda: aplicacao.abrir_comanda(
+                        contexto,
+                        comanda_id=str(uuid4()),
+                        numero=f"M{mesa.codigo}-{uuid4().hex[:6]}",
+                        mesa_id=mesa.mesa_id,
+                        expected_mesa_version=mesa.versao,
+                        idempotency_key=f"ui:abrir:{mesa.mesa_id}:{mesa.versao}",
+                    )
                 )
-                concluir()
             return
 
         ativas = comandas_por_mesa.get(mesa.mesa_id, [])
@@ -150,16 +154,17 @@ def render_salao(*, engine: Any, session_factory: Callable[[], Session]) -> None
             if not pedidos and st.button(
                 "Cancelar comanda", key=f"cancelar-{comanda.comanda_id}"
             ):
-                servico.cancelar_comanda(
-                    contexto,
-                    comanda_id=comanda.comanda_id,
-                    expected_version=comanda.versao,
-                    idempotency_key=(
-                        f"ui:cancelar:{comanda.comanda_id}:{comanda.versao}"
-                    ),
-                    pedidos_resolvidos=True,
+                concluir(
+                    lambda: aplicacao.cancelar_comanda(
+                        contexto,
+                        comanda_id=comanda.comanda_id,
+                        expected_version=comanda.versao,
+                        idempotency_key=(
+                            f"ui:cancelar:{comanda.comanda_id}:{comanda.versao}"
+                        ),
+                        pedidos_resolvidos=True,
+                    )
                 )
-                concluir()
 
             with st.expander("Participantes e consumo", expanded=True):
                 apelido = st.text_input(
@@ -171,17 +176,18 @@ def render_salao(*, engine: Any, session_factory: Callable[[], Session]) -> None
                 ):
                     if not apelido.strip():
                         raise ErroSalao("participante_sem_apelido")
-                    servico.adicionar_participante(
-                        contexto,
-                        comanda_id=comanda.comanda_id,
-                        participante_id=str(uuid4()),
-                        apelido=apelido.strip(),
-                        expected_version=comanda.versao,
-                        idempotency_key=(
-                            f"ui:participante:{comanda.comanda_id}:{comanda.versao}"
-                        ),
+                    concluir(
+                        lambda: aplicacao.adicionar_participante(
+                            contexto,
+                            comanda_id=comanda.comanda_id,
+                            participante_id=str(uuid4()),
+                            apelido=apelido.strip(),
+                            expected_version=comanda.versao,
+                            idempotency_key=(
+                                f"ui:participante:{comanda.comanda_id}:{comanda.versao}"
+                            ),
+                        )
                     )
-                    concluir()
 
                 vinculados = {item.pedido_id for item in pedidos}
                 consulta_pedidos = (
@@ -224,17 +230,18 @@ def render_salao(*, engine: Any, session_factory: Callable[[], Session]) -> None
                         "Adicionar pedido", key=f"pedido-add-{comanda.comanda_id}"
                     ):
                         pedido = opcoes_pedido[pedido_nome]
-                        servico.vincular_pedido(
-                            contexto,
-                            comanda_id=comanda.comanda_id,
-                            pedido_id=pedido.id,
-                            participante_id=participante_opcoes[participante_nome],
-                            expected_version=comanda.versao,
-                            idempotency_key=(
-                                f"ui:pedido:{comanda.comanda_id}:{pedido.id}"
-                            ),
+                        concluir(
+                            lambda: aplicacao.vincular_pedido(
+                                contexto,
+                                comanda_id=comanda.comanda_id,
+                                pedido_id=pedido.id,
+                                participante_id=participante_opcoes[participante_nome],
+                                expected_version=comanda.versao,
+                                idempotency_key=(
+                                    f"ui:pedido:{comanda.comanda_id}:{pedido.id}"
+                                ),
+                            )
                         )
-                        concluir()
                 else:
                     st.caption("Nenhum pedido disponível para vincular.")
 
@@ -248,18 +255,19 @@ def render_salao(*, engine: Any, session_factory: Callable[[], Session]) -> None
                 )
                 if st.button("Transferir comanda", key=f"transferir-{comanda.comanda_id}"):
                     mesa_destino = opcoes_destino[destino_nome]
-                    servico.transferir_comanda(
-                        contexto,
-                        comanda_id=comanda.comanda_id,
-                        mesa_destino_id=mesa_destino.mesa_id,
-                        expected_comanda_version=comanda.versao,
-                        expected_origem_version=mesa.versao,
-                        expected_destino_version=mesa_destino.versao,
-                        idempotency_key=(
-                            f"ui:transferir:{comanda.comanda_id}:{comanda.versao}"
-                        ),
+                    concluir(
+                        lambda: aplicacao.transferir_comanda(
+                            contexto,
+                            comanda_id=comanda.comanda_id,
+                            mesa_destino_id=mesa_destino.mesa_id,
+                            expected_comanda_version=comanda.versao,
+                            expected_origem_version=mesa.versao,
+                            expected_destino_version=mesa_destino.versao,
+                            idempotency_key=(
+                                f"ui:transferir:{comanda.comanda_id}:{comanda.versao}"
+                            ),
+                        )
                     )
-                    concluir()
 
             if len(pedidos) > 1:
                 pedido_separar = st.selectbox(
@@ -268,18 +276,19 @@ def render_salao(*, engine: Any, session_factory: Callable[[], Session]) -> None
                     key=f"separar-pedido-{comanda.comanda_id}",
                 )
                 if st.button("Separar pedido", key=f"separar-{comanda.comanda_id}"):
-                    servico.separar_comanda(
-                        contexto,
-                        origem_id=comanda.comanda_id,
-                        nova_comanda_id=str(uuid4()),
-                        novo_numero=f"{comanda.numero}-S{uuid4().hex[:3]}",
-                        pedido_ids=(pedido_separar,),
-                        expected_origem_version=comanda.versao,
-                        idempotency_key=(
-                            f"ui:separar:{comanda.comanda_id}:{pedido_separar}"
-                        ),
+                    concluir(
+                        lambda: aplicacao.separar_comanda(
+                            contexto,
+                            origem_id=comanda.comanda_id,
+                            nova_comanda_id=str(uuid4()),
+                            novo_numero=f"{comanda.numero}-S{uuid4().hex[:3]}",
+                            pedido_ids=(pedido_separar,),
+                            expected_origem_version=comanda.versao,
+                            idempotency_key=(
+                                f"ui:separar:{comanda.comanda_id}:{pedido_separar}"
+                            ),
+                        )
                     )
-                    concluir()
 
             outras = [c for c in mapa.comandas if c.comanda_id != comanda.comanda_id]
             if outras:
@@ -291,38 +300,41 @@ def render_salao(*, engine: Any, session_factory: Callable[[], Session]) -> None
                 )
                 if st.button("Juntar comandas", key=f"juntar-{comanda.comanda_id}"):
                     comanda_destino = opcoes_juntar[juntar_nome]
-                    servico.juntar_comandas(
-                        contexto,
-                        origem_id=comanda.comanda_id,
-                        destino_id=comanda_destino.comanda_id,
-                        expected_origem_version=comanda.versao,
-                        expected_destino_version=comanda_destino.versao,
-                        idempotency_key=(
-                            f"ui:juntar:{comanda.comanda_id}:{comanda_destino.comanda_id}"
-                        ),
+                    concluir(
+                        lambda: aplicacao.juntar_comandas(
+                            contexto,
+                            origem_id=comanda.comanda_id,
+                            destino_id=comanda_destino.comanda_id,
+                            expected_origem_version=comanda.versao,
+                            expected_destino_version=comanda_destino.versao,
+                            idempotency_key=(
+                                f"ui:juntar:{comanda.comanda_id}:{comanda_destino.comanda_id}"
+                            ),
+                        )
                     )
-                    concluir()
 
             if st.button("Solicitar conta", key=f"conta-{comanda.comanda_id}"):
-                servico.solicitar_conta(
-                    contexto,
-                    comanda_id=comanda.comanda_id,
-                    expected_version=comanda.versao,
-                    idempotency_key=f"ui:conta:{comanda.comanda_id}:{comanda.versao}",
+                concluir(
+                    lambda: aplicacao.solicitar_conta(
+                        contexto,
+                        comanda_id=comanda.comanda_id,
+                        expected_version=comanda.versao,
+                        idempotency_key=f"ui:conta:{comanda.comanda_id}:{comanda.versao}",
+                    )
                 )
-                concluir()
 
         elif comanda.status == StatusComanda.CONTA_SOLICITADA:
             if st.button("Retomar consumo", key=f"retomar-{comanda.comanda_id}"):
-                servico.retomar_consumo(
-                    contexto,
-                    comanda_id=comanda.comanda_id,
-                    expected_version=comanda.versao,
-                    idempotency_key=(
-                        f"ui:retomar:{comanda.comanda_id}:{comanda.versao}"
-                    ),
+                concluir(
+                    lambda: aplicacao.retomar_consumo(
+                        contexto,
+                        comanda_id=comanda.comanda_id,
+                        expected_version=comanda.versao,
+                        idempotency_key=(
+                            f"ui:retomar:{comanda.comanda_id}:{comanda.versao}"
+                        ),
+                    )
                 )
-                concluir()
 
             st.markdown("#### Divisão da conta")
             metade = (comanda.saldo / Decimal(2)).quantize(Decimal("0.01"))
@@ -342,16 +354,17 @@ def render_salao(*, engine: Any, session_factory: Callable[[], Session]) -> None
                 divisoes = [(MetodoFechamento.PIX, _centavos(pix), None)]
                 if restante > 0:
                     divisoes.append((MetodoFechamento.DINHEIRO, restante, None))
-                servico.definir_divisao_pagamento(
-                    contexto,
-                    comanda_id=comanda.comanda_id,
-                    expected_version=comanda.versao,
-                    idempotency_key=(
-                        f"ui:dividir:{comanda.comanda_id}:{comanda.versao}"
-                    ),
-                    divisoes=tuple(divisoes),
+                concluir(
+                    lambda: aplicacao.definir_divisao_pagamento(
+                        contexto,
+                        comanda_id=comanda.comanda_id,
+                        expected_version=comanda.versao,
+                        idempotency_key=(
+                            f"ui:dividir:{comanda.comanda_id}:{comanda.versao}"
+                        ),
+                        divisoes=tuple(divisoes),
+                    )
                 )
-                concluir()
 
         elif comanda.status in {
             StatusComanda.FECHAMENTO_EM_ANDAMENTO,
@@ -382,47 +395,38 @@ def render_salao(*, engine: Any, session_factory: Callable[[], Session]) -> None
                     if not pedidos:
                         raise ErroSalao("pedido_indisponivel")
                     pagamento_id = f"ui-pay-{uuid4().hex}"
-                    registrar_pagamento_confirmado_teste(
-                        sessao,
-                        pagamento_id=pagamento_id,
-                        pedido_id=pedidos[0].pedido_id,
-                        comanda_id=comanda.comanda_id,
-                        metodo=proxima.metodo.value,
-                        valor=proxima.valor,
-                        agora=datetime.now(timezone.utc),
+                    concluir(
+                        lambda: aplicacao.registrar_pagamento_confirmado_teste_v1(
+                            contexto,
+                            pagamento_id=pagamento_id,
+                            pedido_id=pedidos[0].pedido_id,
+                            comanda_id=comanda.comanda_id,
+                            metodo=proxima.metodo,
+                            valor=proxima.valor,
+                            expected_version=comanda.versao,
+                            idempotency_key=(
+                                f"ui:pay:{comanda.comanda_id}:{proxima.ordem}"
+                            ),
+                            agora=datetime.now(timezone.utc),
+                        )
                     )
-                    servico.registrar_pagamento_confirmado(
-                        contexto,
-                        comanda_id=comanda.comanda_id,
-                        pagamento_id=pagamento_id,
-                        metodo=proxima.metodo,
-                        valor=proxima.valor,
-                        expected_version=comanda.versao,
-                        idempotency_key=(
-                            f"ui:pay:{comanda.comanda_id}:{proxima.ordem}"
-                        ),
-                    )
-                    concluir()
             elif comanda.saldo == Decimal("0.00"):
                 st.success("Saldo integralmente confirmado.")
                 if st.button("Fechar comanda", key=f"fechar-{comanda.comanda_id}"):
-                    servico.fechar_comanda(
-                        contexto,
-                        comanda_id=comanda.comanda_id,
-                        expected_version=comanda.versao,
-                        idempotency_key=(
-                            f"ui:fechar:{comanda.comanda_id}:{comanda.versao}"
-                        ),
-                        pedidos_resolvidos=True,
+                    concluir(
+                        lambda: aplicacao.fechar_comanda(
+                            contexto,
+                            comanda_id=comanda.comanda_id,
+                            expected_version=comanda.versao,
+                            idempotency_key=(
+                                f"ui:fechar:{comanda.comanda_id}:{comanda.versao}"
+                            ),
+                            pedidos_resolvidos=True,
+                        )
                     )
-                    concluir()
     except ErroSalao as exc:
-        if sessao is not None:
-            sessao.rollback()
         st.error(f"Operação de salão recusada: {exc.codigo}")
     except Exception as exc:  # noqa: BLE001
-        if sessao is not None:
-            sessao.rollback()
         st.error(f"Não foi possível carregar o salão: {type(exc).__name__}")
     finally:
         if sessao is not None:

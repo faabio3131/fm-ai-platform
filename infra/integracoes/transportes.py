@@ -13,8 +13,9 @@ import requests
 from google import genai
 from google.genai import types
 
+from core.ai_router import ConteudoAudioIA
 from core.integracoes.google_maps import RespostaHTTPMaps
-from core.integracoes.provedores import RespostaProvedor
+from core.integracoes.provedores import RespostaBinariaProvedor, RespostaProvedor
 
 
 def _payload_json(resposta: requests.Response) -> Mapping[str, Any]:
@@ -79,6 +80,34 @@ class RequestsGoogleMapsTransport:
         )
 
 
+class RequestsBinaryTransport:
+    def __init__(self, session: requests.Session | None = None) -> None:
+        self._session = session or requests.Session()
+
+    def get(
+        self,
+        *,
+        url: str,
+        headers: Mapping[str, str],
+        timeout_seconds: float,
+    ) -> RespostaBinariaProvedor:
+        try:
+            resposta = self._session.get(
+                url,
+                headers=dict(headers),
+                timeout=timeout_seconds,
+            )
+        except requests.Timeout as exc:
+            raise TimeoutError("timeout no download de midia externa") from exc
+        except requests.RequestException as exc:
+            raise ConnectionError("falha de transporte no download de midia externa") from exc
+        return RespostaBinariaProvedor(
+            status_code=resposta.status_code,
+            content=bytes(resposta.content),
+            content_type=resposta.headers.get("content-type"),
+        )
+
+
 class RequestsProviderTransport:
     def __init__(self, session: requests.Session | None = None) -> None:
         self._session = session or requests.Session()
@@ -126,7 +155,19 @@ class GoogleGenAITenantGateway:
                     retry_options=types.HttpRetryOptions(attempts=1),
                 ),
             )
-            return client.models.generate_content(model=model, contents=contents)
+            provider_contents = contents
+            if isinstance(contents, ConteudoAudioIA):
+                provider_contents = [
+                    contents.instrucao,
+                    types.Part.from_bytes(
+                        data=contents.audio,
+                        mime_type=contents.mime_type,
+                    ),
+                ]
+            return client.models.generate_content(
+                model=model,
+                contents=provider_contents,
+            )
         except TimeoutError:
             raise
         except Exception as exc:

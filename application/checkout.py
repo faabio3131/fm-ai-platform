@@ -2,13 +2,14 @@
 
 Canais como PDV, Assistente de Atendimento, Salão, Delivery e marketplaces devem entrar por esta
 fronteira. Pedido/Pagamento preservam a identidade do operador/canal, enquanto
-efeitos automáticos de estoque podem usar uma identidade técnica auditável.
+efeitos internos recebem somente a permissão estrita necessária dentro do mesmo
+tenant, unidade e contexto auditável do operador/canal.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 
 from sqlalchemy.orm import Session
@@ -26,6 +27,7 @@ from core.pedidos.servicos import (
     transicionar_pedido,
 )
 from core.seguranca.contexto import ContextoExecucao
+from core.seguranca.permissoes import Permissao
 from infra.transacoes.uow import RecursosTransacionaisV1, UnitOfWorkV1
 
 
@@ -78,15 +80,18 @@ def _validar(comando: ComandoCheckoutV1, contexto: ContextoExecucao) -> None:
         raise CheckoutInvalido("pedido zerado não deve criar obrigação financeira")
 
 
-def _validar_contexto_estoque(
-    *, contexto: ContextoExecucao, contexto_estoque: ContextoExecucao
-) -> None:
-    if (
-        contexto_estoque.tenant_id != contexto.tenant_id
-        or contexto_estoque.unidade_id != contexto.unidade_id
-        or contexto_estoque.correlation_id != contexto.correlation_id
-    ):
-        raise CheckoutInvalido("contexto automático de estoque fora do checkout")
+def _contexto_efeito_checkout(
+    contexto: ContextoExecucao, permissao: Permissao
+) -> ContextoExecucao:
+    """Vincula uma autoridade interna estreita ao ator e Active Scope originais."""
+
+    return replace(
+        contexto,
+        permissoes=frozenset({permissao}),
+        unidades_permitidas=frozenset({contexto.unidade_id}),
+        identidade_sistema=False,
+        motivo_sistema=None,
+    )
 
 
 def executar_checkout_em_transacao(
@@ -94,13 +99,10 @@ def executar_checkout_em_transacao(
     comando: ComandoCheckoutV1,
     contexto: ContextoExecucao,
     recursos: RecursosTransacionaisV1,
-    contexto_estoque: ContextoExecucao | None = None,
 ) -> ResultadoCheckoutV1:
     """Executa o checkout na Session recebida; o chamador continua dono do commit."""
 
     _validar(comando, contexto)
-    contexto_estoque = contexto_estoque or contexto
-    _validar_contexto_estoque(contexto=contexto, contexto_estoque=contexto_estoque)
     pedido = comando.pedido
     raiz = str(pedido.idempotency_key)
 
@@ -119,7 +121,9 @@ def executar_checkout_em_transacao(
         if pagamento_id is None or metodo_pagamento is None:
             raise CheckoutInvalido("pedido com valor exige obrigação de pagamento")
         pagamento = criar_obrigacao_pagamento(
-            contexto=contexto,
+            contexto=_contexto_efeito_checkout(
+                contexto, Permissao.PAGAMENTO_REGISTRAR
+            ),
             repositorio=recursos.pagamentos,
             pagamento_id=pagamento_id,
             pedido_id=str(pedido.id),
@@ -139,7 +143,9 @@ def executar_checkout_em_transacao(
     reserva: ResultadoReserva | None = None
     if comando.snapshot_estoque is not None:
         reserva = reservar_estoque(
-            contexto=contexto_estoque,
+            contexto=_contexto_efeito_checkout(
+                contexto, Permissao.ESTOQUE_RESERVAR
+            ),
             repositorio=recursos.estoque,
             pedido_id=str(pedido.id),
             pedido_version=pedido.versao,
@@ -159,7 +165,7 @@ def executar_checkout_em_transacao(
         destino=PedidoStatus.AGUARDANDO_CONFIRMACAO,
         versao_esperada=pedido.versao,
         idempotency_key=IdempotencyKey(f"{raiz}:aguardando_confirmacao"),
-        contexto=contexto,
+        contexto=_contexto_efeito_checkout(contexto, Permissao.PEDIDO_ALTERAR),
         repositorio=recursos.pedidos,
         outbox=recursos.outbox,
         auditoria=recursos.auditoria,
@@ -178,7 +184,6 @@ def executar_checkout_v1(
     comando: ComandoCheckoutV1,
     contexto: ContextoExecucao,
     session_factory: Callable[[], Session],
-    contexto_estoque: ContextoExecucao | None = None,
 ) -> ResultadoCheckoutV1:
     """Registra checkout inteiro ou nada; replays usam as mesmas chaves derivadas."""
 
@@ -187,7 +192,6 @@ def executar_checkout_v1(
             comando=comando,
             contexto=contexto,
             recursos=uow.recursos,
-            contexto_estoque=contexto_estoque,
         )
         uow.commit()
         return resultado

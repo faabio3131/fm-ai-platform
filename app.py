@@ -14,6 +14,7 @@ from infra.streamlit_app.auth_ui import (
     require_authentication,
 )
 from infra.seguranca.session_guard import build_session_factory
+from infra.legacy_expiration_alert import status_validade_legado
 from migrations.runner import assert_schema_current, run_migrations
 
 # Patch: ensure compatibility with custom keyword args used across the app
@@ -48,6 +49,7 @@ from test_mode import (
     mock_generate_content,
     mock_upload_file,
     mock_whatsapp_send,
+    prepare_legacy_scope,
     reset_database,
     seed_database,
 )
@@ -82,7 +84,6 @@ import json
 from dotenv import load_dotenv
 import pandas as pd  # type: ignore[import-untyped]
 from PIL import Image
-import requests
 from sqlalchemy import (
     Column,
     DateTime,
@@ -96,6 +97,12 @@ from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.exc import SQLAlchemyError
 import io
 
+from application.legacy_cardapio_transacoes import AplicacaoLegacyCardapioV1
+from application.legacy_estoque_transacoes import AplicacaoLegacyEstoqueV1
+from application.legacy_gateway_teste_transacoes import AplicacaoLegacyGatewayTesteV1
+from application.legacy_cliente_e2e_transacoes import AplicacaoLegacyClienteE2EV1
+from application.legacy_bootstrap_transacoes import AplicacaoLegacyBootstrapV1
+
 from core.pdv.adaptadores_sqlalchemy import (
     LegacyPDVSQLAlchemyAdapter,
     RegistroFalhaShadowSQLAlchemy,
@@ -103,7 +110,7 @@ from core.pdv.adaptadores_sqlalchemy import (
     SQLAlchemyPDVUnitOfWork,
 )
 from core.pdv.configuracao import carregar_rollout_ambiente
-from core.pdv.contexto import contexto_caixa_pdv
+from core.pdv.contexto import contexto_caixa_pdv_autenticado
 from core.pdv.executores import (
     ExecutorAutoritativoSQLAlchemy,
     EscritorShadowSQLAlchemy,
@@ -120,9 +127,11 @@ from core.salao.flags import salao_v1_enabled
 from core.salao.ui_streamlit import render_salao
 from core.assistente_atendimento.modelos import ConfiguracaoIdentidadeAssistente
 from core.assistente_atendimento.ui_streamlit import render_assistente_atendimento_v1
+from infra.ai_finops_read_model import AIFinOpsSQLAlchemyReadModel
 from infra.gerente_ia.persistencia_sqlalchemy import (
     RepositorioIdentidadeAssistenteSQLAlchemy,
 )
+from infra.streamlit_app.ai_finops import render_ai_finops_dashboard
 
 try:
     import pypdf
@@ -171,6 +180,8 @@ class Cliente(Base):  # type: ignore[misc, valid-type]
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String, index=True)
     whatsapp = Column(String, unique=True, index=True)
+    email = Column(String, nullable=True)
+    documento_fiscal = Column(String, nullable=True)
     ultima_compra = Column(DateTime, default=datetime.now)
     total_gasto = Column(Float, default=0.0)
     saldo_cashback = Column(Float, default=0.0)
@@ -295,6 +306,13 @@ CURRENT_IDENTITY = require_authentication(
     settings=RUNTIME_SETTINGS,
 )
 
+if is_test_mode():
+    prepare_legacy_scope(
+        engine,
+        tenant_id=CURRENT_IDENTITY.tenant_id,
+        unidade_id=CURRENT_IDENTITY.unidade_id,
+    )
+
 
 def get_db():
     db = SessionLocal()
@@ -304,33 +322,14 @@ def get_db():
         db.close()
 
 
-def recalcular_cmv_geral(db_session):
-    try:
-        produtos = db_session.query(Produto).all()
-        for prod in produtos:
-            fichas = (
-                db_session.query(FichaTecnica)
-                .filter(FichaTecnica.produto_id == prod.id)
-                .all()
-            )
-            novo_cmv = 0.0
-            for f in fichas:
-                ins = db_session.query(Insumo).filter(Insumo.id == f.insumo_id).first()
-                if ins:
-                    novo_cmv += f.quantidade_utilizada * ins.custo_unitario
-
-            prod.custo_total_cmv = round(novo_cmv, 2)
-            if prod.preco_venda and prod.preco_venda > 0:
-                margem = ((prod.preco_venda - novo_cmv) / prod.preco_venda) * 100
-                prod.margem_exibicao = f"{margem:.1f}%"
-        db_session.commit()
-    except Exception:
-        db_session.rollback()
-
-
 def render_cadastro_ficha_tecnica(
     db_session, Insumo, Produto, FichaTecnica, client=None, GENAI_DISPONIVEL=False
 ):
+    application_cardapio = AplicacaoLegacyCardapioV1(SessionLocal)
+    contexto_cardapio = CURRENT_IDENTITY.contexto(
+        origem="app.legacy_cardapio"
+    )
+
     st.subheader("👨‍🍳 Engenharia de Cardápio & Ficha Técnica (Pratos do Menu)")
     st.caption(
         "Cadastre os pratos do cardápio utilizando exclusivamente os insumos já cadastrados e validados no Almoxarifado (Aba 4)."
@@ -351,7 +350,7 @@ def render_cadastro_ficha_tecnica(
         col_nome, col_cat = st.columns([2, 1])
         with col_nome:
             nome_produto = st.text_input(
-                "Nome do Prato / Lanche", placeholder="Ex: Mica Royal Truffle Bacon"
+                "Nome do Prato / Lanche", placeholder="Ex: Burger Artesanal da Casa"
             )
         with col_cat:
             categoria = st.selectbox(
@@ -360,7 +359,13 @@ def render_cadastro_ficha_tecnica(
             )
 
         st.write("### 🥗 Composição da Ficha Técnica (Puxando do Almoxarifado)")
-        insumos_disponiveis = db_session.query(Insumo).all()
+        from infra.legacy_product_scope import listar_insumos_legados
+
+        insumos_disponiveis = listar_insumos_legados(
+            db_session,
+            tenant_id=CURRENT_IDENTITY.tenant_id,
+            unidade_id=CURRENT_IDENTITY.unidade_id,
+        )
 
         if not insumos_disponiveis:
             st.warning(
@@ -480,23 +485,22 @@ def render_cadastro_ficha_tecnica(
             elif not st.session_state.itens_ficha_tecnica:
                 st.error("❌ Adicione pelo menos 1 insumo à ficha técnica.")
             else:
-                novo_prod = Produto(
-                    nome=nome_produto,
-                    categoria=categoria,
-                    preco_venda=preco_venda_final,
-                    custo_total_cmv=cmv_total_calculado,
-                )
-                db_session.add(novo_prod)
-                db_session.commit()
+                # A sessão desta tela fica somente para leituras.
+                # O write completo passa a pertencer à Application + UoW.
+                db_session.close()
 
-                for item in st.session_state.itens_ficha_tecnica:
-                    nova_ft = FichaTecnica(
-                        produto_id=novo_prod.id,
-                        insumo_id=item["insumo_id"],
-                        quantidade_utilizada=item["quantidade"],
-                    )
-                    db_session.add(nova_ft)
-                db_session.commit()
+                application_cardapio.salvar_prato_com_ficha(
+                    contexto_cardapio,
+                    valores_produto={
+                        "nome": nome_produto,
+                        "categoria": categoria,
+                        "preco_venda": preco_venda_final,
+                        "custo_total_cmv": cmv_total_calculado,
+                    },
+                    itens_ficha=tuple(
+                        st.session_state.itens_ficha_tecnica
+                    ),
+                )
 
                 st.success(
                     f"✅ Prato **{nome_produto}** cadastrado com sucesso no Cardápio!"
@@ -595,20 +599,51 @@ def render_cadastro_ficha_tecnica(
                     )
                     produtos_extraidos = json.loads(texto_limpo)
 
-                    qtd_cadastrados = 0
-                    for prod in produtos_extraidos:
-                        cmv_est = round(float(prod.get("preco", 0)) * 0.32, 2)
-                        novo_prod = Produto(
-                            nome=prod.get("nome"),
-                            categoria=prod.get("categoria", "Geral"),
-                            preco_venda=float(prod.get("preco", 0)),
-                            custo_total_cmv=cmv_est,
-                            descricao_bruta=prod.get("ingredientes", ""),
-                        )
-                        db_session.add(novo_prod)
-                        qtd_cadastrados += 1
+                    produtos_para_salvar = []
 
-                    db_session.commit()
+                    for prod in produtos_extraidos:
+                        cmv_est = round(
+                            float(
+                                prod.get(
+                                    "preco",
+                                    0,
+                                )
+                            )
+                            * 0.32,
+                            2,
+                        )
+
+                        produtos_para_salvar.append(
+                            {
+                                "nome": prod.get("nome"),
+                                "categoria": prod.get(
+                                    "categoria",
+                                    "Geral",
+                                ),
+                                "preco_venda": float(
+                                    prod.get(
+                                        "preco",
+                                        0,
+                                    )
+                                ),
+                                "custo_total_cmv": cmv_est,
+                                "descricao_bruta": prod.get(
+                                    "ingredientes",
+                                    "",
+                                ),
+                            }
+                        )
+
+                    db_session.close()
+
+                    qtd_cadastrados = (
+                        application_cardapio.importar_produtos(
+                            contexto_cardapio,
+                            produtos=tuple(
+                                produtos_para_salvar
+                            ),
+                        )
+                    )
                     st.success(
                         f"🎉 Sucesso! **{qtd_cadastrados} pratos** foram extraídos pelo Gemini e salvos diretamente no cardápio!"
                     )
@@ -617,39 +652,89 @@ def render_cadastro_ficha_tecnica(
                     st.error(f"❌ Erro ao processar cardápio com IA: {e}")
 
 
-def executar_forecasting_e_alertar(db_session):
-    if not is_test_mode():
-        return (
-            "⚠️ Disparo legado bloqueado. Configure e homologue "
-            "mensageria.whatsapp/meta no control plane seguro da V1."
-        )
-    insumos = db_session.query(Insumo).all()
-    destinatarios = (
-        db_session.query(ContatoGerencial)
-        .filter(ContatoGerencial.receber_alertas_estoque == 1)
-        .all()
+def executar_forecasting_e_alertar(
+    db_session,
+    *,
+    tenant_id: str,
+    unidade_id: str,
+):
+    from core.notificacoes_internas.flags import (
+        internal_notifications_v1_enabled,
     )
-    config_meta = db_session.query(ConfiguracaoMeta).first()
+    from infra.legacy_product_scope import listar_insumos_legados
 
-    if not destinatarios:
-        return "⚠️ Nenhum gerente ou administrador está configurado para receber alertas na Aba 4."
-    if not config_meta or not config_meta.whatsapp_token:
-        return "⚠️ Configure o token de acesso da Meta Cloud API para ativar os disparos reais de WhatsApp."
+    insumos = listar_insumos_legados(
+        db_session,
+        tenant_id=tenant_id,
+        unidade_id=unidade_id,
+    )
+    usar_diretorio_canonico = internal_notifications_v1_enabled()
+    contexto_notificacoes = None
+    diretorio_notificacoes = None
+
+    if usar_diretorio_canonico:
+        try:
+            from infra.notificacoes_internas import (
+                RepositorioNotificacoesInternasSQLAlchemy,
+            )
+
+            contexto_notificacoes = CURRENT_IDENTITY.contexto(
+                origem="app.forecasting.notificacoes_internas"
+            )
+            if (
+                contexto_notificacoes.tenant_id != tenant_id
+                or contexto_notificacoes.unidade_id != unidade_id
+            ):
+                raise PermissionError(
+                    "escopo do forecasting diverge da identidade ativa"
+                )
+            diretorio_notificacoes = (
+                RepositorioNotificacoesInternasSQLAlchemy(db_session)
+            )
+            destinatarios = diretorio_notificacoes.listar_alertas_estoque(
+                contexto=contexto_notificacoes
+            )
+        except Exception:
+            return (
+                "❌ Não foi possível resolver os destinatários de alertas "
+                "da unidade ativa."
+            )
+        if not destinatarios:
+            return (
+                "⚠️ Nenhum destinatário interno está configurado para "
+                "receber alertas nesta unidade."
+            )
+    else:
+        destinatarios = (
+            db_session.query(ContatoGerencial)
+            .filter(ContatoGerencial.receber_alertas_estoque == 1)
+            .all()
+        )
+        if not destinatarios:
+            return (
+                "⚠️ Nenhum gerente ou administrador está configurado "
+                "para receber alertas na Aba 4."
+            )
 
     resumo_estoque = ""
     for i in insumos:
         val_info = (
-            f", Validade: {i.data_validade.strftime('%d/%m/%Y')} (Aviso {i.dias_alerta_vencimento} dias antes)"
+            f", Validade: {i.data_validade.strftime('%d/%m/%Y')} "
+            f"(Aviso {i.dias_alerta_vencimento} dias antes)"
             if i.data_validade
             else ""
         )
-        resumo_estoque += f"- {i.nome}: Saldo Atual = {i.saldo_atual} {i.unidade_medida}, Mínimo = {i.estoque_minimo}{val_info}\n"
+        resumo_estoque += (
+            f"- {i.nome}: Saldo Atual = {i.saldo_atual} "
+            f"{i.unidade_medida}, Mínimo = {i.estoque_minimo}"
+            f"{val_info}\n"
+        )
 
     prompt_forecast = f"""
     Você é o assistente de inteligência preditiva de um ERP gastronômico de alta performance.
     Analise o estado atual do almoxarifado abaixo e determine se há algum ingrediente com risco iminente de esgotamento OU próximo da data de validade com base no ritmo operacional:
     {resumo_estoque}
-    
+
     Retorne APENAS um array JSON puro (sem markdown) com os insumos em risco crítico (quantidade ou validade):
     [
       {{"insumo": "Nome do Insumo", "previsao_esgotamento": "Sábado às 20h ou Vence em 5 dias", "mensagem_alerta": "Estoque crítico! / Sugestão de Promoção!"}}
@@ -665,86 +750,125 @@ def executar_forecasting_e_alertar(db_session):
         alertas_ia = json.loads(texto_limpo)
 
         if not alertas_ia:
-            return "✅ Estoque operacional seguro e validades sob controle. Nenhum alerta preditivo gerado."
-
-        url_wa = f"[https://graph.facebook.com/v17.0/](https://graph.facebook.com/v17.0/){config_meta.whatsapp_phone_id}/messages"
-        headers = {
-            "Authorization": f"Bearer {config_meta.whatsapp_token}",
-            "Content-Type": "application/json",
-        }
+            return (
+                "✅ Estoque operacional seguro e validades sob controle. "
+                "Nenhum alerta preditivo gerado."
+            )
 
         total_enviados = 0
-        for alerta in alertas_ia:
-            texto_msg = f"🚨 *ALERTA PREDITIVO DE ESTOQUE (F&M AI FOOD)* 🚨\n\nItem: *{alerta['insumo']}*\nRisco/Previsão: *{alerta['previsao_esgotamento']}*\nStatus: {alerta['mensagem_alerta']}\n\n*Acesse o painel para reposição ou criar promoção de queima.*"
+        if usar_diretorio_canonico:
+            assert contexto_notificacoes is not None
+            assert diretorio_notificacoes is not None
 
-            for contato in destinatarios:
-                payload = {
-                    "messaging_product": "whatsapp",
-                    "to": contato.whatsapp,
-                    "type": "text",
-                    "text": {"body": texto_msg},
-                }
-                if is_test_mode():
-                    envio_mock = mock_whatsapp_send(contato.whatsapp, texto_msg)
-                    if envio_mock["ok"]:
-                        total_enviados += 1
-                else:
-                    response = requests.post(
-                        url_wa, headers=headers, json=payload, timeout=15
-                    )
-                    if response.status_code == 200:
-                        total_enviados += 1
+            from application.notificacoes_internas import (
+                despachar_alerta_estoque,
+            )
+            from infra.notificacoes_internas import (
+                EntregaWhatsAppNotificacaoInterna,
+            )
 
-        return f"🚀 Análise concluída com sucesso! {len(alertas_ia)} alertas preditivos (Estoque/Validade) disparados para {total_enviados} gestores via WhatsApp."
-    except Exception as e:
-        return f"❌ Erro técnico ao processar forecasting inteligente: {e}"
+            def _sender_teste(
+                destinatario: str,
+                texto: str,
+                idempotency_key: str,
+            ) -> str:
+                envio = mock_whatsapp_send(destinatario, texto)
+                if not envio["ok"]:
+                    raise RuntimeError("falha simulada de WhatsApp")
+                return f"mock:{idempotency_key}"
 
+            entrega = EntregaWhatsAppNotificacaoInterna(
+                session=db_session,
+                diretorio=diretorio_notificacoes,
+                sender=_sender_teste if is_test_mode() else None,
+            )
+            for alerta in alertas_ia:
+                texto_msg = (
+                    "🚨 *ALERTA PREDITIVO DE ESTOQUE (F&M AI FOOD)* 🚨\n\n"
+                    f"Item: *{alerta['insumo']}*\n"
+                    f"Risco/Previsão: *{alerta['previsao_esgotamento']}*\n"
+                    f"Status: {alerta['mensagem_alerta']}\n\n"
+                    "*Acesse o painel para reposição ou criar promoção de queima.*"
+                )
+                resultados = despachar_alerta_estoque(
+                    contexto=contexto_notificacoes,
+                    diretorio=diretorio_notificacoes,
+                    entrega=entrega,
+                    alerta=alerta,
+                    texto=texto_msg,
+                    data_referencia=date.today(),
+                )
+                total_enviados += sum(
+                    1 for resultado in resultados if resultado.enviado
+                )
+            if total_enviados == 0:
+                return (
+                    "❌ Os alertas foram gerados, mas nenhum destinatário "
+                    "da unidade recebeu a notificação."
+                )
+        else:
+            for alerta in alertas_ia:
+                texto_msg = (
+                    "🚨 *ALERTA PREDITIVO DE ESTOQUE (F&M AI FOOD)* 🚨\n\n"
+                    f"Item: *{alerta['insumo']}*\n"
+                    f"Risco/Previsão: *{alerta['previsao_esgotamento']}*\n"
+                    f"Status: {alerta['mensagem_alerta']}\n\n"
+                    "*Acesse o painel para reposição ou criar promoção de queima.*"
+                )
+                for contato in destinatarios:
+                    if is_test_mode():
+                        envio_mock = mock_whatsapp_send(
+                            contato.whatsapp,
+                            texto_msg,
+                        )
+                        if envio_mock["ok"]:
+                            total_enviados += 1
+                    else:
+                        from infra.integracoes.idempotencia_alertas import (
+                            chave_idempotencia_alerta_estoque,
+                        )
 
-def popular_dados_iniciais():
-    db = SessionLocal()
-    try:
-        if db.query(ConfiguracaoMeta).count() == 0:
-            db.add(ConfiguracaoMeta(gateway_provider="Mercado Pago"))
-            db.commit()
+                        mensagem_id = _enviar_whatsapp_control_plane(
+                            destinatario=contato.whatsapp,
+                            texto=texto_msg,
+                            idempotency_key=(
+                                chave_idempotencia_alerta_estoque(
+                                    contato_id=contato.id,
+                                    alerta=alerta,
+                                    data_referencia=date.today(),
+                                )
+                            ),
+                        )
+                        if mensagem_id:
+                            total_enviados += 1
 
-        if db.query(Insumo).count() == 0:
-            insumos_padrao = [
-                Insumo(
-                    nome="Hambúrguer 180g Angus",
-                    unidade_medida="un",
-                    saldo_atual=500.0,
-                    estoque_minimo=50.0,
-                    custo_unitario=6.50,
-                    data_validade=datetime.now() + timedelta(days=90),
-                ),
-                Insumo(
-                    nome="Queijo Provolone / Cheddar",
-                    unidade_medida="fatias",
-                    saldo_atual=400.0,
-                    estoque_minimo=60.0,
-                    custo_unitario=1.20,
-                    data_validade=datetime.now() + timedelta(days=30),
-                ),
-                Insumo(
-                    nome="Pão Brioche Artesanal",
-                    unidade_medida="un",
-                    saldo_atual=120.0,
-                    estoque_minimo=50.0,
-                    custo_unitario=2.00,
-                    data_validade=datetime.now() + timedelta(days=5),
-                    dias_alerta_vencimento=3,
-                ),
-            ]
-            db.add_all(insumos_padrao)
-            db.commit()
+        return (
+            f"🚀 Análise concluída com sucesso! {len(alertas_ia)} alertas "
+            f"preditivos (Estoque/Validade) disparados para "
+            f"{total_enviados} gestores via WhatsApp."
+        )
     except Exception:
-        db.rollback()
-    finally:
-        db.close()
+        return (
+            "❌ Não foi possível concluir o forecasting ou enviar os alertas. "
+            "Verifique as integrações Gemini e Meta/WhatsApp desta unidade."
+        )
 
 
-# Inicialização
-popular_dados_iniciais()
+# Inicialização legada governada pela camada Application.
+try:
+    AplicacaoLegacyBootstrapV1(
+        SessionLocal,
+        ConfiguracaoMeta,
+    ).executar(
+        CURRENT_IDENTITY.contexto(
+            origem="app.legacy_bootstrap"
+        ),
+        habilitar_gateway_teste=is_test_mode(),
+        agora=datetime.now(),
+    )
+except Exception:
+    # Preserva a semântica histórica de startup não fatal.
+    pass
 seed_database(
     SessionLocal,
     {
@@ -757,11 +881,242 @@ seed_database(
         "ConfiguracaoMeta": ConfiguracaoMeta,
         "ContatoGerencial": ContatoGerencial,
     },
+    tenant_id=CURRENT_IDENTITY.tenant_id,
+    unidade_id=CURRENT_IDENTITY.unidade_id,
 )
 
 # Verificação da Inteligência Artificial Gemini
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GENAI_DISPONIVEL = is_test_mode() or bool(GEMINI_API_KEY)
+
+
+def _gemini_disponivel_no_runtime() -> bool:
+    if is_test_mode():
+        return True
+
+    if not RUNTIME_SETTINGS.commercial:
+        return bool(GEMINI_API_KEY)
+
+    db = SessionLocal()
+    try:
+        from infra.integracoes import FabricaAdaptersExternos
+        from infra.seguranca.segredos_sqlalchemy import (
+            EncryptedSQLAlchemySecretStore,
+        )
+
+        vault = EncryptedSQLAlchemySecretStore(db)
+        FabricaAdaptersExternos(
+            session=db,
+            secret_store=vault,
+        ).gemini(
+            contexto=CURRENT_IDENTITY.contexto(
+                origem="app.gemini_availability"
+            ),
+            configuracao_id="ia.generativa--gemini",
+        )
+        return True
+    except Exception:
+        return False
+    finally:
+        db.close()
+
+
+GENAI_DISPONIVEL = _gemini_disponivel_no_runtime()
+
+
+def _enviar_whatsapp_control_plane(
+    *,
+    destinatario: str,
+    texto: str,
+    idempotency_key: str,
+) -> str:
+    db = SessionLocal()
+    try:
+        from infra.integracoes import FabricaAdaptersExternos
+        from infra.seguranca.segredos_sqlalchemy import (
+            EncryptedSQLAlchemySecretStore,
+        )
+
+        vault = EncryptedSQLAlchemySecretStore(db)
+        adapter = FabricaAdaptersExternos(
+            session=db,
+            secret_store=vault,
+        ).meta(
+            contexto=CURRENT_IDENTITY.contexto(
+                origem="app.whatsapp_runtime"
+            ),
+            configuracao_id="mensageria.whatsapp--meta",
+        )
+        return adapter.enviar_whatsapp(
+            destinatario=destinatario,
+            texto=texto,
+            idempotency_key=idempotency_key,
+        )
+    finally:
+        db.close()
+
+
+def _provedor_pix_control_plane() -> str:
+    db = SessionLocal()
+    try:
+        from infra.integracoes.pix_runtime import selecionar_integracao_pix
+        from infra.integracoes.repositorio_sqlalchemy import (
+            RepositorioConfiguracoesExternasSQLAlchemy,
+        )
+
+        contexto = CURRENT_IDENTITY.contexto(origem="app.pdv.pix_discovery")
+        repositorio = RepositorioConfiguracoesExternasSQLAlchemy(db)
+        configuracao = selecionar_integracao_pix(
+            repositorio.listar(
+                tenant_id=contexto.tenant_id,
+                unidade_id=contexto.unidade_id,
+            )
+        )
+        return configuracao.provedor
+    finally:
+        db.close()
+
+
+def _criar_pix_control_plane(
+    *,
+    pagamento_id: str,
+    pedido_id: str,
+    valor: float,
+    idempotency_key: str,
+    nome_pagador: str,
+    email_pagador: str,
+    documento_pagador: str,
+    terminal_id: str,
+    assinatura_checkout: str,
+):
+    db = SessionLocal()
+    try:
+        from decimal import Decimal
+
+        from infra.integracoes import FabricaAdaptersExternos
+        from infra.integracoes.pix_runtime import (
+            DadosPagadorPix,
+            criar_cobranca_pix_por_control_plane,
+        )
+        from infra.integracoes.repositorio_sqlalchemy import (
+            RepositorioConfiguracoesExternasSQLAlchemy,
+        )
+        from infra.seguranca.segredos_sqlalchemy import (
+            EncryptedSQLAlchemySecretStore,
+        )
+
+        contexto = CURRENT_IDENTITY.contexto(origem="app.pdv.pix_create")
+        vault = EncryptedSQLAlchemySecretStore(db)
+        fabrica = FabricaAdaptersExternos(session=db, secret_store=vault)
+        repositorio = RepositorioConfiguracoesExternasSQLAlchemy(db)
+
+        valor_decimal = Decimal(str(round(valor, 2)))
+        cobranca = criar_cobranca_pix_por_control_plane(
+            repositorio=repositorio,
+            fabrica=fabrica,
+            contexto=contexto,
+            pagamento_id=pagamento_id,
+            valor=valor_decimal,
+            idempotency_key=idempotency_key,
+            pagador=DadosPagadorPix(
+                nome=nome_pagador,
+                email=email_pagador,
+                documento=documento_pagador,
+            ),
+        )
+
+        from application.pix_durabilidade import registrar_vinculo_cobranca_pix
+
+        # A Session usada para resolver configuração/credenciais é somente leitura
+        # neste ponto. Libera-a antes da transação de persistência do vínculo.
+        db.close()
+
+        registrar_vinculo_cobranca_pix(
+            session_factory=SessionLocal,
+            contexto=contexto,
+            pagamento_id=pagamento_id,
+            pedido_id=pedido_id,
+            valor=valor_decimal,
+            provedor=cobranca.provedor,
+            id_externo=cobranca.id_externo,
+            idempotency_key=f"{idempotency_key}:vinculo",
+            terminal_id=terminal_id,
+            assinatura_checkout=assinatura_checkout,
+        )
+        return cobranca
+    finally:
+        db.close()
+
+
+def _consultar_pix_control_plane(
+    *, provedor: str, id_externo: str, pagamento_id: str | None = None
+):
+    db = SessionLocal()
+    try:
+        from infra.integracoes import FabricaAdaptersExternos
+        from infra.integracoes.pix_runtime import (
+            consultar_cobranca_pix_por_control_plane,
+        )
+        from infra.integracoes.repositorio_sqlalchemy import (
+            RepositorioConfiguracoesExternasSQLAlchemy,
+        )
+        from infra.seguranca.segredos_sqlalchemy import (
+            EncryptedSQLAlchemySecretStore,
+        )
+
+        contexto = CURRENT_IDENTITY.contexto(origem="app.pdv.pix_status")
+        vault = EncryptedSQLAlchemySecretStore(db)
+        fabrica = FabricaAdaptersExternos(session=db, secret_store=vault)
+        repositorio = RepositorioConfiguracoesExternasSQLAlchemy(db)
+
+        cobranca = consultar_cobranca_pix_por_control_plane(
+            repositorio=repositorio,
+            fabrica=fabrica,
+            contexto=contexto,
+            provedor=provedor,
+            id_externo=id_externo,
+        )
+        if pagamento_id:
+            from application.pix_durabilidade import (
+                confirmar_cobranca_pix_consultada,
+            )
+
+            # A consulta externa terminou; o write financeiro passa para
+            # a fronteira Application/UoW.
+            db.close()
+
+            confirmar_cobranca_pix_consultada(
+                session_factory=SessionLocal,
+                contexto=contexto,
+                pagamento_id=pagamento_id,
+                cobranca=cobranca,
+            )
+        return cobranca
+    finally:
+        db.close()
+
+
+def _recuperar_pix_control_plane(*, terminal_id: str, assinatura_checkout: str):
+    db = SessionLocal()
+    try:
+        from infra.integracoes.pix_durabilidade import recuperar_pix_aberto_por_terminal
+
+        return recuperar_pix_aberto_por_terminal(
+            session=db,
+            contexto=CURRENT_IDENTITY.contexto(origem="app.pdv.pix_recovery"),
+            terminal_id=terminal_id,
+            assinatura_checkout=assinatura_checkout,
+        )
+    finally:
+        db.close()
+
+
+def _pix_status_confirmado(status: str) -> bool:
+    return status.strip().casefold() in {
+        "pago",
+        "paid",
+        "approved",
+        "aprovado",
+    }
 
 
 # --- 6. BARRA LATERAL (SIDEBAR CORPORATIVA) ---
@@ -802,6 +1157,7 @@ _nomes_abas = [
     "📦 Estoque & Validades (Novo!)",
     "📊 Dashboard Financeiro",
     "💬 Assistente de Atendimento",
+    "💡 AI FinOps",
 ]
 if order_center_v1_enabled():
     _nomes_abas.append("\U0001F4CB Central de Pedidos")
@@ -811,9 +1167,9 @@ if salao_v1_enabled():
     _nomes_abas.append("🪑 Mesas e Comandas")
 
 _abas = st.tabs(_nomes_abas)
-aba1, aba2, aba3, aba4, aba5, aba6 = _abas[:6]
+aba1, aba2, aba3, aba4, aba5, aba6, aba7 = _abas[:7]
 
-_indice_extra = 6
+_indice_extra = 7
 
 aba_central = None
 if order_center_v1_enabled():
@@ -849,6 +1205,13 @@ if aba_salao is not None:
             engine=engine,
             session_factory=SessionLocal,
         )
+
+with aba7:
+    render_ai_finops_dashboard(
+        read_model=AIFinOpsSQLAlchemyReadModel(SessionLocal),
+        tenant_id=CURRENT_IDENTITY.tenant_id,
+        unidade_id=CURRENT_IDENTITY.unidade_id,
+    )
 
 # ==============================================================================
 # ABA 1: ENGENHARIA DE CARD?PIO
@@ -918,11 +1281,11 @@ with aba2:
                             f"💳 Cashback disponível: **R$ {cli.saldo_cashback:.2f}**"
                         )
 
-                    msg_resgate_padrao = f"Olá {cli.nome}! Sentimos muito a sua falta aqui no Mica Burguer. Preparamos um cupom exclusivo de 15% de desconto para você pedir seu hambúrguer favorito hoje!"
+                    msg_resgate_padrao = f"Olá {cli.nome}! Sentimos muito a sua falta aqui no nosso estabelecimento. Preparamos um cupom exclusivo de 15% de desconto para você pedir seu hambúrguer favorito hoje!"
 
                     if GENAI_DISPONIVEL:
                         try:
-                            prompt_resg = f"Escreva uma mensagem curta, carinhosa e muito persuasiva de WhatsApp para resgatar o cliente '{cli.nome}', que não faz pedidos em nossa hamburgueria gourmet há semanas. Ofereça um cupom especial de 15% de desconto (CUPOM: VOLTAMICA15). Sem clichês em excesso."
+                            prompt_resg = f"Escreva uma mensagem curta, carinhosa e muito persuasiva de WhatsApp para resgatar o cliente '{cli.nome}', que não faz pedidos em nossa hamburgueria gourmet há semanas. Ofereça um cupom especial de 15% de desconto (CUPOM: VOLTA15). Sem clichês em excesso."
                             resp_resg = generate_content(contents=prompt_resg)
                             if resp_resg and resp_resg.text:
                                 msg_resgate_padrao = resp_resg.text.strip()
@@ -937,9 +1300,35 @@ with aba2:
                             key=f"btn_zap_resgate_{cli.id}",
                             type="primary",
                         ):
-                            st.success(
-                                f"✅ Campanha de resgate enviada com sucesso para o número {cli.whatsapp}!"
-                            )
+                            try:
+                                if is_test_mode():
+                                    envio = mock_whatsapp_send(
+                                        cli.whatsapp,
+                                        msg_resgate_padrao,
+                                    )
+                                    if not envio.get("ok"):
+                                        raise RuntimeError("envio_teste_falhou")
+                                else:
+                                    mensagem_id = _enviar_whatsapp_control_plane(
+                                        destinatario=cli.whatsapp,
+                                        texto=msg_resgate_padrao,
+                                        idempotency_key=(
+                                            f"crm-resgate-{cli.id}-"
+                                            f"{date.today().isoformat()}"
+                                        ),
+                                    )
+                                    if not mensagem_id:
+                                        raise RuntimeError("envio_sem_confirmacao")
+
+                                st.success(
+                                    f"✅ Campanha de resgate enviada com sucesso para o número {cli.whatsapp}!"
+                                )
+                            except Exception:
+                                st.error(
+                                    "Não foi possível enviar a campanha pelo WhatsApp. "
+                                    "Verifique se a integração Meta/WhatsApp desta unidade "
+                                    "está configurada, habilitada e homologada."
+                                )
         else:
             st.success(
                 "🎉 Excelente notícia! Nenhum cliente inativo há mais de 15 dias foi identificado no momento. Sua base está altamente engajada!"
@@ -977,38 +1366,58 @@ with aba2:
                 st.markdown("### 🧪 Cadastro seguro de cliente para testes E2E")
                 nome_cliente_e2e = st.text_input("Nome do Cliente E2E")
                 whatsapp_cliente_e2e = st.text_input("WhatsApp do Cliente E2E")
+                email_cliente_e2e = st.text_input(
+                    "E-mail do Cliente E2E (opcional)"
+                )
+                documento_cliente_e2e = st.text_input(
+                    "CPF/CNPJ do Cliente E2E (opcional)"
+                )
                 if st.form_submit_button("💾 Salvar Cliente E2E", type="secondary"):
+                    documento_normalizado = "".join(
+                        caractere
+                        for caractere in documento_cliente_e2e
+                        if caractere.isdigit()
+                    )
+                    documento_valido = (
+                        not documento_normalizado
+                        or len(documento_normalizado) in {11, 14}
+                    )
+                    email_normalizado = email_cliente_e2e.strip()
+
                     if not nome_cliente_e2e.strip() or not whatsapp_cliente_e2e.strip():
                         st.error("Nome e WhatsApp do cliente E2E são obrigatórios.")
+                    elif not documento_valido:
+                        st.error(
+                            "CPF/CNPJ deve conter 11 ou 14 dígitos quando informado."
+                        )
+                    elif email_normalizado and (
+                        "@" not in email_normalizado
+                        or "." not in email_normalizado.rsplit("@", 1)[-1]
+                    ):
+                        st.error("Informe um e-mail válido quando preencher o campo.")
                     else:
-                        db_cli_e2e = get_db()
                         try:
-                            existente = (
-                                db_cli_e2e.query(Cliente)
-                                .filter(
-                                    Cliente.whatsapp == whatsapp_cliente_e2e.strip()
-                                )
-                                .first()
+                            criado = AplicacaoLegacyClienteE2EV1(
+                                SessionLocal,
+                                Cliente,
+                            ).cadastrar(
+                                nome=nome_cliente_e2e,
+                                whatsapp=whatsapp_cliente_e2e,
+                                email=email_normalizado or None,
+                                documento_fiscal=(
+                                    documento_normalizado or None
+                                ),
                             )
-                            if existente:
-                                st.error("Cliente E2E já cadastrado com este WhatsApp.")
-                            else:
-                                db_cli_e2e.add(
-                                    Cliente(
-                                        nome=nome_cliente_e2e.strip(),
-                                        whatsapp=whatsapp_cliente_e2e.strip(),
-                                        status="Ativo",
-                                        saldo_cashback=0.0,
-                                    )
+
+                            if not criado:
+                                st.error(
+                                    "Cliente E2E já cadastrado com este WhatsApp."
                                 )
-                                db_cli_e2e.commit()
+                            else:
                                 st.success("Cliente E2E salvo com sucesso.")
                                 st.rerun()
                         except Exception as exc:
-                            db_cli_e2e.rollback()
                             st.error(f"Erro ao salvar cliente E2E: {exc}")
-                        finally:
-                            db_cli_e2e.close()
 
         st.markdown("---")
         with st.form("form_ajustar_cashback"):
@@ -1075,9 +1484,19 @@ with aba3:
         st.success(flash_sucesso_pdv)
 
     db_pdv = get_db()
-    lista_pratos_pdv = db_pdv.query(Produto).all()
+    from infra.legacy_product_scope import listar_produtos_legados
+
+    lista_pratos_pdv = listar_produtos_legados(
+        db_pdv,
+        tenant_id=CURRENT_IDENTITY.tenant_id,
+        unidade_id=CURRENT_IDENTITY.unidade_id,
+    )
     lista_clientes_pdv = db_pdv.query(Cliente).all()
-    config_gtw = db_pdv.query(ConfiguracaoMeta).first()
+    config_gtw = (
+        db_pdv.query(ConfiguracaoMeta).first()
+        if is_test_mode()
+        else None
+    )
 
     # A configuração legada só existe para E2E isolado. Nunca promove o PDV
     # comercial nem autoriza uso das colunas de segredo em texto puro.
@@ -1151,25 +1570,21 @@ with aba3:
                 if not is_test_mode():
                     st.error("Configuração legada bloqueada fora do ambiente de teste.")
                     st.stop()
-                db_g_save = get_db()
                 try:
-                    conf_db = db_g_save.query(ConfiguracaoMeta).first()
-                    if not conf_db:
-                        conf_db = ConfiguracaoMeta()
-                        db_g_save.add(conf_db)
-                    conf_db.gateway_provider = g_provider
-                    conf_db.gateway_pix_key = g_pix_key
-                    conf_db.gateway_api_key = g_api_key
-                    db_g_save.commit()
+                    AplicacaoLegacyGatewayTesteV1(
+                        SessionLocal,
+                        ConfiguracaoMeta,
+                    ).salvar(
+                        provider=g_provider,
+                        pix_key=g_pix_key,
+                        api_key=g_api_key,
+                    )
                     st.success(
                         "✅ Configuração simulada salva no banco temporário de teste."
                     )
                     st.rerun()
                 except Exception as e_gtw:
-                    db_g_save.rollback()
                     st.error(f"Erro ao salvar configurações bancárias: {e_gtw}")
-                finally:
-                    db_g_save.close()
 
     st.markdown("---")
 
@@ -1315,34 +1730,13 @@ with aba3:
                     pass
             st.info(f"🤖 *{sugestao_upsell}*")
 
+        if "pdv_checkout_id" not in st.session_state:
+            st.session_state["pdv_checkout_id"] = str(uuid4())
+
         if forma_pag_pdv.startswith("Pix"):
             st.markdown("---")
-            if modo_producao_ativo:
-                st.subheader(
-                    f"📱 Cobrança Pix Real Gerada via API ({config_gtw.gateway_provider})"
-                )
-                payload_pix = f"00020126580014br.gov.bcb.pix0136{config_gtw.gateway_pix_key}5204000053039865405{float(total_final_pdv):.2f}5802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A"
-                col_pix1, col_pix2 = st.columns([1, 3])
-                with col_pix1:
-                    try:
-                        st.image(
-                            montar_url_qrcode_pix(payload_pix),
-                            width=180,
-                            caption="QR Code Oficial da Conta PJ",
-                        )
-                    except Exception:
-                        st.warning(
-                            "Não foi possível exibir o QR Code Pix agora. Use a chave/código Pix abaixo para concluir o pagamento."
-                        )
-                with col_pix2:
-                    st.success(
-                        f"⚡ **Chave Pix Oficial:** `{config_gtw.gateway_pix_key}`"
-                    )
-                    st.code(payload_pix, language="text")
-                    st.write(
-                        "🟢 **Status:** Aguardando sinal de confirmação do Webhook do banco na conta da Michele..."
-                    )
-            else:
+
+            if is_test_mode():
                 st.subheader("📱 Gateway Pix Automático (Simulador de Treinamento)")
                 payload_pix = montar_payload_pix_simulado(total_final_pdv)
                 col_pix1, col_pix2 = st.columns([1, 3])
@@ -1355,16 +1749,260 @@ with aba3:
                         )
                     except Exception:
                         st.warning(
-                            "Não foi possível exibir o QR Code Pix agora. Use a chave/código Pix abaixo para concluir o pagamento."
+                            "Não foi possível exibir o QR Code Pix agora. "
+                            "Use o código Pix abaixo."
                         )
                 with col_pix2:
                     st.info(
-                        "🟡 **Chave Pix de Treinamento (Simulado):**\n\n`00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-426614174000520400005303986540539.905802BR5916MICA BURGER LOJA6009SAO PAULO62070503***6304E12A`"
+                        "🟡 **Pix de treinamento — nenhuma cobrança financeira real.**"
                     )
                     st.code(payload_pix, language="text")
-                    st.write(
-                        "👉 *No modo Sandbox, clique no botão abaixo para simular a aprovação do recebimento:*"
+            else:
+                try:
+                    provedor_pix_pdv = _provedor_pix_control_plane()
+                    erro_provedor_pix_pdv = None
+                except Exception:
+                    provedor_pix_pdv = None
+                    erro_provedor_pix_pdv = (
+                        "Nenhum provedor Pix único, habilitado e homologado está "
+                        "disponível para esta unidade."
                     )
+
+                checkout_id_pix = st.session_state["pdv_checkout_id"]
+                terminal_pix_pdv = os.getenv("FM_AI_TEST_TERMINAL", "pdv-default")
+                assinatura_checkout_duravel = (
+                    f"{getattr(prod_pdv, 'id', '')}:"
+                    f"{qtd_pdv}:{cliente_id_pdv}:{total_final_pdv:.2f}"
+                )
+                assinatura_pix = (
+                    f"{checkout_id_pix}:{assinatura_checkout_duravel}"
+                )
+
+                if st.session_state.get("pdv_pix_assinatura") != assinatura_pix:
+                    for chave in (
+                        "pdv_pix_provedor",
+                        "pdv_pix_id_externo",
+                        "pdv_pix_status",
+                        "pdv_pix_copia_cola",
+                        "pdv_pix_qr_url",
+                        "pdv_pix_qr_base64",
+                        "pdv_pix_confirmado",
+                        "pdv_pix_pagamento_id",
+                    ):
+                        st.session_state.pop(chave, None)
+                    st.session_state["pdv_pix_assinatura"] = assinatura_pix
+
+                st.subheader("📱 Cobrança Pix via Control Plane")
+
+                if erro_provedor_pix_pdv:
+                    st.warning(erro_provedor_pix_pdv)
+                else:
+                    st.caption(
+                        f"Provedor homologado da unidade: {provedor_pix_pdv}."
+                    )
+
+                email_pagador = (
+                    str(getattr(cliente_pdv, "email", "") or "").strip()
+                    if cliente_pdv
+                    else ""
+                )
+                documento_pagador = (
+                    str(getattr(cliente_pdv, "documento_fiscal", "") or "").strip()
+                    if cliente_pdv
+                    else ""
+                )
+                nome_pagador = (
+                    str(getattr(cliente_pdv, "nome", "") or "").strip()
+                    if cliente_pdv
+                    else ""
+                )
+
+                dados_pagador_ok = bool(cliente_pdv and email_pagador)
+                motivo_dados = None
+
+                if not cliente_pdv:
+                    motivo_dados = (
+                        "Identifique um cliente para gerar a cobrança Pix comercial."
+                    )
+                elif not email_pagador:
+                    motivo_dados = (
+                        "O cliente precisa ter e-mail cadastrado para pagamento Pix."
+                    )
+                elif provedor_pix_pdv == "pagbank" and len(documento_pagador) not in {
+                    11,
+                    14,
+                }:
+                    dados_pagador_ok = False
+                    motivo_dados = (
+                        "Para PagBank, cadastre CPF ou CNPJ válido do cliente."
+                    )
+
+                if motivo_dados:
+                    st.info(motivo_dados)
+
+                if not st.session_state.get("pdv_pix_id_externo"):
+                    try:
+                        vinculo_pix = _recuperar_pix_control_plane(
+                            terminal_id=terminal_pix_pdv,
+                            assinatura_checkout=assinatura_checkout_duravel,
+                        )
+                        if vinculo_pix is not None:
+                            st.session_state["pdv_pix_provedor"] = vinculo_pix.provedor
+                            st.session_state["pdv_pix_id_externo"] = vinculo_pix.id_externo
+                            st.session_state["pdv_pix_pagamento_id"] = vinculo_pix.pagamento_id
+                            if vinculo_pix.pagamento_id.startswith("pdv-"):
+                                st.session_state["pdv_checkout_id"] = vinculo_pix.pagamento_id[4:]
+                            consulta_recuperada = _consultar_pix_control_plane(
+                                provedor=vinculo_pix.provedor,
+                                id_externo=vinculo_pix.id_externo,
+                                pagamento_id=vinculo_pix.pagamento_id,
+                            )
+                            st.session_state["pdv_pix_status"] = consulta_recuperada.status
+                            st.session_state["pdv_pix_copia_cola"] = consulta_recuperada.pix_copia_cola
+                            st.session_state["pdv_pix_qr_url"] = consulta_recuperada.qr_code_url
+                            st.session_state["pdv_pix_qr_base64"] = consulta_recuperada.qr_code_base64
+                            st.session_state["pdv_pix_confirmado"] = _pix_status_confirmado(
+                                consulta_recuperada.status
+                            )
+                    except Exception:
+                        # Recuperação é best-effort; uma falha de consulta nunca confirma Pix.
+                        pass
+
+                tem_cobranca_pix = bool(
+                    st.session_state.get("pdv_pix_id_externo")
+                )
+
+                if not tem_cobranca_pix:
+                    if st.button(
+                        "⚡ Gerar cobrança Pix",
+                        key="pdv_gerar_pix_real",
+                        disabled=bool(
+                            erro_provedor_pix_pdv or not dados_pagador_ok
+                        ),
+                    ):
+                        try:
+                            pagamento_id_pix = f"pdv-{checkout_id_pix}"
+                            cobranca_pix = _criar_pix_control_plane(
+                                pagamento_id=pagamento_id_pix,
+                                pedido_id=checkout_id_pix,
+                                valor=float(total_final_pdv),
+                                idempotency_key=f"pdv-pix-{checkout_id_pix}",
+                                nome_pagador=nome_pagador,
+                                email_pagador=email_pagador,
+                                documento_pagador=documento_pagador,
+                                terminal_id=terminal_pix_pdv,
+                                assinatura_checkout=assinatura_checkout_duravel,
+                            )
+                            st.session_state["pdv_pix_pagamento_id"] = pagamento_id_pix
+                            st.session_state["pdv_pix_provedor"] = (
+                                cobranca_pix.provedor
+                            )
+                            st.session_state["pdv_pix_id_externo"] = (
+                                cobranca_pix.id_externo
+                            )
+                            st.session_state["pdv_pix_status"] = cobranca_pix.status
+                            st.session_state["pdv_pix_copia_cola"] = (
+                                cobranca_pix.pix_copia_cola
+                            )
+                            st.session_state["pdv_pix_qr_url"] = (
+                                cobranca_pix.qr_code_url
+                            )
+                            st.session_state["pdv_pix_qr_base64"] = (
+                                cobranca_pix.qr_code_base64
+                            )
+                            st.session_state["pdv_pix_confirmado"] = (
+                                _pix_status_confirmado(cobranca_pix.status)
+                            )
+                            st.rerun()
+                        except Exception:
+                            st.error(
+                                "Não foi possível gerar a cobrança Pix. "
+                                "Verifique a integração e os dados do pagador."
+                            )
+                else:
+                    st.success(
+                        f"Cobrança criada via "
+                        f"{st.session_state.get('pdv_pix_provedor', '')}."
+                    )
+
+                    pix_copia_cola = st.session_state.get("pdv_pix_copia_cola")
+                    pix_qr_url = st.session_state.get("pdv_pix_qr_url")
+                    pix_qr_base64 = st.session_state.get("pdv_pix_qr_base64")
+
+                    col_pix1, col_pix2 = st.columns([1, 3])
+                    with col_pix1:
+                        try:
+                            if pix_qr_base64:
+                                import base64
+
+                                st.image(
+                                    base64.b64decode(pix_qr_base64),
+                                    width=180,
+                                    caption="QR Code Pix",
+                                )
+                            elif pix_qr_url:
+                                st.image(
+                                    pix_qr_url,
+                                    width=180,
+                                    caption="QR Code Pix",
+                                )
+                        except Exception:
+                            st.warning(
+                                "QR Code indisponível para exibição. "
+                                "Use o Pix copia e cola."
+                            )
+
+                    with col_pix2:
+                        if pix_copia_cola:
+                            st.code(pix_copia_cola, language="text")
+
+                        status_pix = str(
+                            st.session_state.get("pdv_pix_status", "pendente")
+                        )
+                        if st.session_state.get("pdv_pix_confirmado", False):
+                            st.success(
+                                f"✅ Pagamento confirmado pelo provedor: {status_pix}"
+                            )
+                        else:
+                            st.warning(
+                                f"⏳ Pagamento ainda não confirmado: {status_pix}"
+                            )
+
+                        if st.button(
+                            "🔄 Consultar status do pagamento",
+                            key="pdv_consultar_pix_real",
+                        ):
+                            try:
+                                consulta_pix = _consultar_pix_control_plane(
+                                    provedor=str(
+                                        st.session_state["pdv_pix_provedor"]
+                                    ),
+                                    id_externo=str(
+                                        st.session_state["pdv_pix_id_externo"]
+                                    ),
+                                    pagamento_id=str(
+                                        st.session_state.get(
+                                            "pdv_pix_pagamento_id",
+                                            f"pdv-{st.session_state['pdv_checkout_id']}",
+                                        )
+                                    ),
+                                )
+                                st.session_state["pdv_pix_status"] = (
+                                    consulta_pix.status
+                                )
+                                st.session_state["pdv_pix_confirmado"] = (
+                                    _pix_status_confirmado(consulta_pix.status)
+                                )
+                                if consulta_pix.pix_copia_cola:
+                                    st.session_state["pdv_pix_copia_cola"] = (
+                                        consulta_pix.pix_copia_cola
+                                    )
+                                st.rerun()
+                            except Exception:
+                                st.error(
+                                    "Não foi possível consultar o pagamento agora. "
+                                    "A venda continua bloqueada até confirmação."
+                                )
 
         st.markdown("---")
         if "pdv_checkout_id" not in st.session_state:
@@ -1404,8 +2042,14 @@ with aba3:
                 cliente_existe=cliente_existe_pdv,
                 usar_cashback=usa_cashback_pdv,
                 desconto_cashback=desconto_cb_pdv,
-                pix_confirmado=not modo_producao_ativo or _canary_pdv,
-                pix_producao=modo_producao_ativo,
+                pix_confirmado=(
+                    True
+                    if is_test_mode()
+                    else bool(st.session_state.get("pdv_pix_confirmado", False))
+                ),
+                pix_producao=(
+                    forma_pag_pdv.startswith("Pix") and not is_test_mode()
+                ),
             )
             if not validacao_pdv.valido:
                 st.session_state["pdv_processando"] = False
@@ -1420,10 +2064,16 @@ with aba3:
                 SessionLocal() if _pdv_rollout.modo is ModoPDV.SHADOW else None
             )
             try:
-                produto_db = (
-                    db_exec_venda.query(Produto)
-                    .filter(Produto.id == prod_pdv.id)
-                    .first()
+                from infra.legacy_product_scope import (
+                    obter_insumo_por_id_legado,
+                    obter_produto_por_id_legado,
+                )
+
+                produto_db = obter_produto_por_id_legado(
+                    db_exec_venda,
+                    tenant_id=CURRENT_IDENTITY.tenant_id,
+                    unidade_id=CURRENT_IDENTITY.unidade_id,
+                    produto_id=prod_pdv.id,
                 )
                 cliente_db = (
                     db_exec_venda.query(Cliente)
@@ -1467,9 +2117,8 @@ with aba3:
                     )
                     st.stop()
 
-                contexto_pdv = contexto_caixa_pdv(
-                    tenant_id=_pdv_rollout.tenant_id,
-                    unidade_id=_pdv_rollout.unidade_id,
+                contexto_pdv = contexto_caixa_pdv_autenticado(
+                    identidade=CURRENT_IDENTITY,
                     usuario_id="caixa-e2e" if is_test_mode() else "caixa-local",
                     correlation_id=str(uuid4()),
                     instante=datetime.now().astimezone(),
@@ -1510,6 +2159,24 @@ with aba3:
                 )
                 rastrear = modo_resolvido is not ModoPDV.LEGACY
                 repo_pdv = RepositorioPDVSQLAlchemy(db_exec_venda) if rastrear else None
+
+                def _resolver_insumo_pdv(legacy_insumo_id: int):
+                    comprovado = obter_insumo_por_id_legado(
+                        db_exec_venda,
+                        tenant_id=contexto_pdv.tenant_id,
+                        unidade_id=contexto_pdv.unidade_id,
+                        insumo_id=legacy_insumo_id,
+                        for_update=True,
+                    )
+                    if comprovado is None:
+                        return None
+                    return (
+                        db_exec_venda.query(Insumo)
+                        .filter(Insumo.id == legacy_insumo_id)
+                        .with_for_update()
+                        .first()
+                    )
+
                 legado_pdv = LegacyPDVSQLAlchemyAdapter(
                     session=db_exec_venda,
                     venda_cls=Venda,
@@ -1521,6 +2188,7 @@ with aba3:
                     pedido_id=pedido_id_pdv,
                     rastrear_efeitos=rastrear,
                     repositorio_pdv=repo_pdv,
+                    resolver_insumo=_resolver_insumo_pdv,
                 )
                 uow_legado = SQLAlchemyPDVUnitOfWork(
                     SessionLocal, fechar=False, session=db_exec_venda
@@ -1585,7 +2253,6 @@ with aba3:
                 st.rerun()
             except Exception as e:
                 st.session_state["pdv_processando"] = False
-                db_exec_venda.rollback()
                 st.error(f"❌ Erro ao registrar a venda no sistema: {e}")
             finally:
                 db_exec_venda.close()
@@ -1612,12 +2279,30 @@ with aba4:
         ]
     )
 
+    application_estoque = AplicacaoLegacyEstoqueV1(
+        SessionLocal
+    )
+    contexto_estoque = CURRENT_IDENTITY.contexto(
+        origem="app.legacy_estoque"
+    )
+
     db_estoque = get_db()
 
     with sub_aba1:
         st.subheader("📋 Status do Almoxarifado em Tempo Real")
 
-        insumos_cadastrados = db_estoque.query(Insumo).all()
+        from infra.legacy_product_scope import (
+            listar_insumos_legados,
+        )
+
+        try:
+            insumos_cadastrados = listar_insumos_legados(
+                db_estoque,
+                tenant_id=CURRENT_IDENTITY.tenant_id,
+                unidade_id=CURRENT_IDENTITY.unidade_id,
+            )
+        finally:
+            db_estoque.close()
 
         if insumos_cadastrados:
             dados_estoque = []
@@ -1627,13 +2312,10 @@ with aba4:
                 valor_total_item = i.saldo_atual * i.custo_unitario
                 valor_total_geral += valor_total_item
 
-                status_validade = "🟢 No Prazo"
-                if i.data_validade:
-                    dias_restantes = (i.data_validade.date() - date.today()).days
-                    if dias_restantes <= 0:
-                        status_validade = "🔴 VENCIDO!"
-                    elif dias_restantes <= i.dias_alerta_vencimento:
-                        status_validade = f"🟡 Vence em {dias_restantes} dias!"
+                status_validade = status_validade_legado(
+                    data_validade=i.data_validade,
+                    dias_alerta_vencimento=i.dias_alerta_vencimento,
+                )
 
                 status_estoque = (
                     "🔴 Reposição" if i.saldo_atual < i.estoque_minimo else "🟢 Ok"
@@ -1673,13 +2355,23 @@ with aba4:
             )
 
             if st.button("Excluir Insumo Permanentemente", type="primary"):
-                item_obj = (
-                    db_estoque.query(Insumo).filter_by(nome=insumo_para_deletar).first()
+                item_obj = next(
+                    (
+                        item
+                        for item in insumos_cadastrados
+                        if item.nome == insumo_para_deletar
+                    ),
+                    None,
                 )
+
                 if item_obj:
-                    db_estoque.delete(item_obj)
-                    db_estoque.commit()
-                    st.success(f"Insumo '{insumo_para_deletar}' excluído com sucesso!")
+                    application_estoque.excluir_insumo(
+                        contexto_estoque,
+                        insumo_id=int(item_obj.id),
+                    )
+                    st.success(
+                        f"Insumo '{insumo_para_deletar}' excluído com sucesso!"
+                    )
                     st.rerun()
 
         st.markdown("---")
@@ -1688,7 +2380,11 @@ with aba4:
             "🔮 Executar Varredura de Estoque e Validades Agora", type="primary"
         ):
             db_fc = get_db()
-            resultado_ia = executar_forecasting_e_alertar(db_fc)
+            resultado_ia = executar_forecasting_e_alertar(
+                db_fc,
+                tenant_id=CURRENT_IDENTITY.tenant_id,
+                unidade_id=CURRENT_IDENTITY.unidade_id,
+            )
             db_fc.close()
             st.info(resultado_ia)
 
@@ -1728,41 +2424,58 @@ with aba4:
                         )
                         itens_lidos = json.loads(texto_ocr)
 
-                        db_cad = get_db()
+                        itens_para_aplicar = []
+
                         for item in itens_lidos:
-                            nome_l = str(item.get("nome", "")).strip()
-                            qtd_l = float(item.get("quantidade", 0.0))
-                            val_str = item.get("data_validade")
+                            nome_l = str(
+                                item.get(
+                                    "nome",
+                                    "",
+                                )
+                            ).strip()
+                            qtd_l = float(
+                                item.get(
+                                    "quantidade",
+                                    0.0,
+                                )
+                            )
+                            val_str = item.get(
+                                "data_validade"
+                            )
 
                             val_obj = None
+
                             if val_str:
                                 try:
-                                    val_obj = datetime.strptime(val_str, "%Y-%m-%d")
+                                    val_obj = datetime.strptime(
+                                        val_str,
+                                        "%Y-%m-%d",
+                                    )
                                 except ValueError:
                                     pass
 
                             if nome_l and qtd_l > 0:
-                                ins_db = (
-                                    db_cad.query(Insumo)
-                                    .filter(Insumo.nome.ilike(f"%{nome_l}%"))
-                                    .first()
+                                itens_para_aplicar.append(
+                                    {
+                                        "nome":
+                                            nome_l,
+                                        "quantidade":
+                                            qtd_l,
+                                        "unidade":
+                                            item.get(
+                                                "unidade",
+                                                "un",
+                                            ),
+                                        "data_validade":
+                                            val_obj,
+                                    }
                                 )
-                                if ins_db:
-                                    ins_db.saldo_atual += qtd_l
-                                    if val_obj:
-                                        ins_db.data_validade = val_obj
-                                else:
-                                    novo_i = Insumo(
-                                        nome=nome_l,
-                                        unidade_medida=item.get("unidade", "un"),
-                                        saldo_atual=qtd_l,
-                                        estoque_minimo=qtd_l * 0.15,
-                                        data_validade=val_obj,
-                                        dias_alerta_vencimento=15,
-                                    )
-                                    db_cad.add(novo_i)
 
-                        db_cad.commit()
+                        if itens_para_aplicar:
+                            application_estoque.aplicar_lote_leitura(
+                                contexto_estoque,
+                                itens=itens_para_aplicar,
+                            )
                         st.success(
                             "🎉 Leitura concluída! Validades salvas no banco de dados."
                         )
@@ -1809,31 +2522,28 @@ with aba4:
                 "💾 Salvar Insumo no Almoxarifado", type="primary"
             ):
                 if novo_nome.strip() != "":
-                    db_m = get_db()
                     try:
-                        novo_insumo = Insumo(
-                            nome=novo_nome.strip(),
-                            unidade_medida=unidade_medida,
-                            saldo_atual=novo_saldo,
-                            estoque_minimo=estoque_minimo,
-                            custo_unitario=novo_custo,
-                            data_fabricacao=nova_fab,
-                            data_validade=nova_val,
-                            dias_alerta_vencimento=dias_alerta,
+                        application_estoque.salvar_insumo(
+                            contexto_estoque,
+                            valores={
+                                "nome": novo_nome.strip(),
+                                "unidade_medida": unidade_medida,
+                                "saldo_atual": novo_saldo,
+                                "estoque_minimo": estoque_minimo,
+                                "custo_unitario": novo_custo,
+                                "data_fabricacao": nova_fab,
+                                "data_validade": nova_val,
+                                "dias_alerta_vencimento": dias_alerta,
+                            },
                         )
-                        db_m.add(novo_insumo)
-                        db_m.commit()
                         st.success(
                             f"✅ Insumo '{novo_nome}' salvo no Almoxarifado com controle de validade!"
                         )
                         st.rerun()
                     except Exception:
-                        db_m.rollback()
                         st.error(
                             f"❌ Erro ao salvar: Já existe um insumo cadastrado com o nome '{novo_nome}' ou ocorreu um conflito."
                         )
-                    finally:
-                        db_m.close()
                 else:
                     st.warning("⚠️ O nome do insumo não pode estar vazio.")
 
@@ -1915,8 +2625,7 @@ with aba6:
         db_identidade_assistente.close()
     render_assistente_atendimento_v1(
         session_factory=SessionLocal,
-        produto_cls=Produto,
-        generate_content=generate_content,
+        identidade=CURRENT_IDENTITY,
         nome_publico=identidade_assistente.nome_publico,
     )
 

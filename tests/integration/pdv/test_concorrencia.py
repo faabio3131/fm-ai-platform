@@ -26,7 +26,7 @@ def test_duas_sessoes_mesmo_checkout_constraints_impedem_duplicidade(
         barreira.wait()
         try:
             return executar(fabrica, contexto, entrada, ModoPDV.AUTHORITATIVE_CANARY)
-        except Exception as exc:  # SQLite pode recusar um writer concorrente.
+        except Exception as exc:  # noqa: BLE001 - SQLite pode recusar writer concorrente.
             return exc
 
     with ThreadPoolExecutor(max_workers=2) as pool:
@@ -51,6 +51,6 @@ def test_duas_sessoes_mesmo_checkout_constraints_impedem_duplicidade(
         assert session.scalar(select(func.count()).select_from(VendaFinanceiraORM)) == 1
         assert session.scalar(select(func.count()).select_from(VendaTeste)) == 1
         assert session.scalar(select(func.count()).select_from(VendaLegadaLinkORM)) == 1
-        assert session.scalar(select(func.count()).select_from(EfeitoCompatPDVORM)) == 4
-        assert session.get(InsumoTeste, 1).saldo_atual == 9
+        assert session.scalar(select(func.count()).select_from(EfeitoCompatPDVORM)) == 3
+        assert session.get(InsumoTeste, 1).saldo_atual == 10
         assert session.get(ClienteTeste, 1).saldo_cashback == 6.25

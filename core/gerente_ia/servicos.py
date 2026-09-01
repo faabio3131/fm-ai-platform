@@ -25,11 +25,14 @@ from core.seguranca.permissoes import Papel, Permissao
 from .adapters import (
     PortaAcoesGerenciais,
     PortaCampanhasGerenciais,
+    PortaCampanhasGovernadas,
     PortaConsultasGerenciais,
     RepositorioPreviewsGerenteIA,
 )
 from .erros import ErroGerenteIA
 from .modelos import (
+    CampanhaAprovada,
+    CampanhaPublicavel,
     ChamadaTool,
     NaturezaTool,
     PreviewAcao,
@@ -185,6 +188,111 @@ class ServicoGerenteIA:
                 instante=instante,
             )
         raise ErroGerenteIA("tool_nao_permitida")
+
+    def aprovar_campanha(
+        self,
+        *,
+        contexto_humano: ContextoExecucao,
+        campanha_id: str,
+        idempotency_key: str,
+        agora: datetime | None = None,
+    ) -> CampanhaAprovada:
+        instante = _agora(agora)
+        campanha = campanha_id.strip()
+        idem = idempotency_key.strip()
+        if not campanha or not idem or len(idem) > 192:
+            raise ErroGerenteIA("campanha_e_idempotencia_obrigatorias")
+        self._exigir_humano_campanha(
+            contexto=contexto_humano,
+            campanha_id=campanha,
+            acao="gerente_ia.aprovar_campanha",
+            instante=instante,
+        )
+        if not isinstance(self.campanhas, PortaCampanhasGovernadas):
+            raise ErroGerenteIA("campanha_governanca_indisponivel")
+        resultado = self.campanhas.aprovar(
+            tenant_id=contexto_humano.tenant_id,
+            unidade_id=contexto_humano.unidade_id,
+            campanha_id=campanha,
+            usuario_id=contexto_humano.usuario_id,
+            correlation_id=contexto_humano.correlation_id,
+            idempotency_key=idem,
+            agora=instante,
+        )
+        if (
+            resultado.tenant_id != contexto_humano.tenant_id
+            or resultado.unidade_id != contexto_humano.unidade_id
+            or resultado.campanha_id != campanha
+        ):
+            raise ErroGerenteIA("campanha_aprovada_inconsistente")
+        self._auditar(
+            contexto=contexto_humano,
+            acao="gerente_ia.aprovar_campanha",
+            recurso_tipo="campanha",
+            recurso_id=campanha,
+            resultado="sucesso",
+            motivo="aprovacao_humana",
+            politica="campanha_governada_f4g_v1",
+            instante=instante,
+            metadata={
+                "fingerprint": resultado.fingerprint,
+                "idempotente": resultado.idempotente,
+            },
+        )
+        return resultado
+
+    def publicar_campanha(
+        self,
+        *,
+        contexto_humano: ContextoExecucao,
+        campanha_id: str,
+        idempotency_key: str,
+        agora: datetime | None = None,
+    ) -> CampanhaPublicavel:
+        instante = _agora(agora)
+        campanha = campanha_id.strip()
+        idem = idempotency_key.strip()
+        if not campanha or not idem or len(idem) > 192:
+            raise ErroGerenteIA("campanha_e_idempotencia_obrigatorias")
+        self._exigir_humano_campanha(
+            contexto=contexto_humano,
+            campanha_id=campanha,
+            acao="gerente_ia.publicar_campanha",
+            instante=instante,
+        )
+        if not isinstance(self.campanhas, PortaCampanhasGovernadas):
+            raise ErroGerenteIA("campanha_governanca_indisponivel")
+        resultado = self.campanhas.publicar(
+            tenant_id=contexto_humano.tenant_id,
+            unidade_id=contexto_humano.unidade_id,
+            campanha_id=campanha,
+            usuario_id=contexto_humano.usuario_id,
+            correlation_id=contexto_humano.correlation_id,
+            idempotency_key=idem,
+            agora=instante,
+        )
+        if (
+            resultado.tenant_id != contexto_humano.tenant_id
+            or resultado.unidade_id != contexto_humano.unidade_id
+            or resultado.campanha_id != campanha
+        ):
+            raise ErroGerenteIA("campanha_publicavel_inconsistente")
+        self._auditar(
+            contexto=contexto_humano,
+            acao="gerente_ia.publicar_campanha",
+            recurso_tipo="campanha",
+            recurso_id=campanha,
+            resultado="sucesso",
+            motivo="publicacao_humana_sem_despacho",
+            politica="campanha_governada_f4g_v1",
+            instante=instante,
+            metadata={
+                "campanha_ref": str(resultado.campanha_ref),
+                "fingerprint": resultado.fingerprint,
+                "idempotente": resultado.idempotente,
+            },
+        )
+        return resultado
 
     def confirmar_acao(
         self,
@@ -475,6 +583,37 @@ class ServicoGerenteIA:
                 correlation_id=contexto.correlation_id,
             )
         raise ErroGerenteIA("tool_execucao_nao_permitida")
+
+    def _exigir_humano_campanha(
+        self,
+        *,
+        contexto: ContextoExecucao,
+        campanha_id: str,
+        acao: str,
+        instante: datetime,
+    ) -> None:
+        if contexto.identidade_sistema or not (
+            {Papel.GERENTE, Papel.ADMINISTRADOR} & contexto.papeis
+        ):
+            self._auditar(
+                contexto=contexto,
+                acao=acao,
+                recurso_tipo="campanha",
+                recurso_id=campanha_id,
+                resultado="negado",
+                motivo="aprovacao_humana_gerencial_exigida",
+                politica="campanha_governada_f4g_v1",
+                instante=instante,
+            )
+            raise ErroGerenteIA("aprovacao_humana_gerencial_exigida")
+        self._exigir(
+            contexto=contexto,
+            permissao=Permissao.GERENTE_IA_APROVAR_CAMPANHA,
+            acao=acao,
+            recurso_tipo="campanha",
+            recurso_id=campanha_id,
+            instante=instante,
+        )
 
     def _exigir(
         self,

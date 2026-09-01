@@ -4,6 +4,9 @@ A implementação V1 vive em `core.gerente_ia` e permanece desacoplada de ORM/UI
 """
 
 from core.gerente_ia import (
+    CampanhaAprovada,
+    CampanhaPublicavel,
+    CampanhaRef,
     ChamadaTool,
     ErroGerenteIA,
     PreviewAcao,
@@ -16,6 +19,9 @@ from core.gerente_ia import (
 )
 
 __all__ = [
+    "CampanhaAprovada",
+    "CampanhaPublicavel",
+    "CampanhaRef",
     "ChamadaTool",
     "ErroGerenteIA",
     "PreviewAcao",

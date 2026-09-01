@@ -15,6 +15,8 @@ on:
       - 'migrations/**'
       - 'tests/integration/wave2/**'
       - 'tests/integration/kds/**'
+      - 'tests/fitness/test_af03_transaction_ownership.py'
+      - 'tests/fitness/transaction_ownership_baseline_v1.json'
       - 'tests/e2e-kds/**'
       - 'playwright.kds.config.ts'
       - '.github/workflows/v1-wave2-kds.yml'
@@ -47,24 +49,26 @@ jobs:
           npx playwright install chromium
       - name: Compilar KDS
         run: >-
-          python -m compileall -q application/kds_runtime.py application/kds_roteamento.py
+          python -m compileall -q application/kds_runtime.py application/kds_roteamento.py application/kds_transacoes.py
           core/kds core/pedidos core/estados infra/eventos infra/seguranca migrations
           tests/integration/wave2
       - name: Ruff KDS
         run: >-
-          ruff check application/kds_runtime.py application/kds_roteamento.py
+          ruff check application/kds_runtime.py application/kds_roteamento.py application/kds_transacoes.py
           core/kds core/pedidos core/estados infra/eventos infra/seguranca
           migrations/runner.py tests/integration/wave2
       - name: Mypy KDS
         run: >-
-          mypy application/kds_runtime.py application/kds_roteamento.py
+          mypy application/kds_runtime.py application/kds_roteamento.py application/kds_transacoes.py
           core/kds core/pedidos core/estados infra/eventos infra/seguranca
           migrations/runner.py
       - name: Provas autoritativas KDS-001
         run: >-
           pytest -x -vv --tb=short
           tests/integration/wave2/test_kds_authoritative_runtime.py
+          tests/integration/wave2/test_kds_transaction_ownership.py
           tests/integration/kds
+          tests/fitness/test_af03_transaction_ownership.py
       - name: Regressao Python completa
         run: pytest -q
       - name: Jornada real de navegador KDS

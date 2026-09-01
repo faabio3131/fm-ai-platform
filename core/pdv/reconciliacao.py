@@ -49,10 +49,16 @@ def detectar_divergencias(
             erros.append("venda_financeira_sem_venda_legada")
     if vendas_legadas != 1:
         erros.append("dupla_venda" if vendas_legadas > 1 else "venda_ausente")
-    if efeitos_estoque != 1:
-        erros.append(
-            "efeito_estoque_duplicado" if efeitos_estoque > 1 else "estoque_ausente"
-        )
+    estoque_adiado = registro.estoque_estrategia in {
+        "canonico_reservado",
+        "canonico_reservado_aguardando_producao",
+    }
+    esperado_estoque = 0 if estoque_adiado else 1
+    if efeitos_estoque != esperado_estoque:
+        if efeitos_estoque > esperado_estoque:
+            erros.append("efeito_estoque_duplicado")
+        else:
+            erros.append("estoque_ausente")
     if efeitos_cashback_usado > 1:
         erros.append("cashback_duplicado")
     valores = tuple(

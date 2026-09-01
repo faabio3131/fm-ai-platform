@@ -7,7 +7,7 @@ const tabTexts = [
   'Frente de Caixa',
   'Estoque & Validades',
   'Dashboard Financeiro',
-  'Bot Cliente',
+  'Assistente de Atendimento',
 ];
 
 if (process.env.FM_AI_KDS_V1 === '1') {

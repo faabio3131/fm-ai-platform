@@ -10,6 +10,7 @@ from sqlalchemy import (
     Integer,
     String,
     create_engine,
+    text,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker
 
@@ -24,6 +25,12 @@ from core.seguranca.permissoes import MATRIZ_PADRAO, Papel
 from infra.eventos.modelos_orm import EventBusBase
 from infra.gerente_ia.modelos_orm import CoreRuntimeBase
 from infra.seguranca.modelos_orm import SecurityBase
+from migrations.legacy_store_baseline_v1 import (
+    upgrade_legacy_store_baseline_v1,
+)
+from migrations.unit_legacy_store_mapping_v1 import (
+    upgrade_unit_legacy_store_mapping_v1,
+)
 
 LegacyBase = declarative_base()
 
@@ -43,12 +50,14 @@ class ProdutoTeste(LegacyBase):  # type: ignore[misc, valid-type]
     nome = Column(String)
     preco_venda = Column(Float)
     custo_total_cmv = Column(Float)
+    loja_id = Column(Integer, nullable=False)
 
 
 class InsumoTeste(LegacyBase):  # type: ignore[misc, valid-type]
     __tablename__ = "insumos"
     id = Column(Integer, primary_key=True)
     saldo_atual = Column(Float)
+    loja_id = Column(Integer, nullable=False)
 
 
 class FichaTeste(LegacyBase):  # type: ignore[misc, valid-type]
@@ -79,6 +88,22 @@ def fabrica(tmp_path):
         connect_args={"check_same_thread": False},
     )
     LegacyBase.metadata.create_all(engine)
+    with engine.begin() as connection:
+        upgrade_legacy_store_baseline_v1(connection)
+        upgrade_unit_legacy_store_mapping_v1(connection)
+        connection.execute(
+            text(
+                "INSERT INTO lojas (id, nome_fantasia) "
+                "VALUES (7, 'Loja PDV Teste')"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO fm_unidade_loja_legacy_v1 "
+                "(tenant_id, unidade_id, loja_id, ativo) "
+                "VALUES ('tenant-teste', 'unidade-teste', 7, TRUE)"
+            )
+        )
     OrdersBase.metadata.create_all(engine)
     PaymentsBase.metadata.create_all(engine)
     StockBase.metadata.create_all(engine)
@@ -91,10 +116,16 @@ def fabrica(tmp_path):
         session.add_all(
             [
                 ClienteTeste(
-                    id=1, saldo_cashback=Decimal("10"), total_gasto=0, status="Inativo"
+                    id=1, saldo_cashback=Decimal(10), total_gasto=0, status="Inativo"
                 ),
-                ProdutoTeste(id=1, nome="Burger", preco_venda=29.9, custo_total_cmv=9),
-                InsumoTeste(id=1, saldo_atual=10),
+                ProdutoTeste(
+                    id=1,
+                    nome="Burger",
+                    preco_venda=29.9,
+                    custo_total_cmv=9,
+                    loja_id=7,
+                ),
+                InsumoTeste(id=1, saldo_atual=10, loja_id=7),
                 FichaTeste(id=1, produto_id=1, insumo_id=1, quantidade_utilizada=1),
             ]
         )
@@ -124,13 +155,13 @@ def entrada() -> EntradaPDV:
         produto_nome="Burger",
         quantidade=1,
         preco_unitario=Dinheiro(Decimal("29.90")),
-        custo_total=Dinheiro(Decimal("9")),
+        custo_total=Dinheiro(Decimal(9)),
         forma_pagamento="Dinheiro Em Espécie",
         terminal_id="caixa-1",
         checkout_id="atendimento-1",
         cliente_id=1,
-        valor_recebido=Dinheiro(Decimal("50")),
+        valor_recebido=Dinheiro(Decimal(50)),
         usar_cashback=True,
-        desconto_cashback=Dinheiro(Decimal("5")),
+        desconto_cashback=Dinheiro(Decimal(5)),
         confirmacao_presencial=True,
     )

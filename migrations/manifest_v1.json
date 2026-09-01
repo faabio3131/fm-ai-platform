@@ -1,0 +1,153 @@
+{
+  "algorithm": "sha256:migration-callable-source-v1",
+  "migrations": [
+    {
+      "version": "0001_security_identity_v1",
+      "sha256": "3b85e73805e3224165e0f73823d8027a7ff6e5b2ded48d6357c629b6885eb4b3"
+    },
+    {
+      "version": "0002_credential_references_v1",
+      "sha256": "90baf4b794c723eb59a89f9d5844646ce5fcb9821967400710a0cde67d3f71a3"
+    },
+    {
+      "version": "0003_legacy_app_schema_v1",
+      "sha256": "84a4e901513caa79a6f5bc79deebc5821b5eb1c8d030985d17900b6d5cc7b77a"
+    },
+    {
+      "version": "0004_orders_authoritative_v1",
+      "sha256": "00eab48afff3d0a47ad59f1017333649a99e0472735963e82282d2858762794c"
+    },
+    {
+      "version": "0005_payments_authoritative_v1",
+      "sha256": "52d1bf398c4f13fb3419a145075e2469e8072fc9ca9d110601ac62469822fd07"
+    },
+    {
+      "version": "0006_stock_authoritative_v1",
+      "sha256": "cffd36abc408c67cbdc83508ed9a98881d7b377ef7b9aebcb5a05a2f5b95cb55"
+    },
+    {
+      "version": "0007_event_bus_persistence_v1",
+      "sha256": "4e13842cd23a1b8c36241019682d3c070ee83600f120928ddfa19d62bfd5a17b"
+    },
+    {
+      "version": "0008_audit_log_v1",
+      "sha256": "96f4d2bee19f9c6f64525fde307a6074895997b542c622d9014969c2e89bd835"
+    },
+    {
+      "version": "0009_pdv_authoritative_runtime_v1",
+      "sha256": "46963c0afcaa730f3ecc38cbb751040c73321783a7b6709f0111d893a64e20ba"
+    },
+    {
+      "version": "0010_kds_authoritative_runtime_v1",
+      "sha256": "b9a631dc85334b17cb7afbe3b5bb341d4f9137f56019b2f2f1b8f2cbf1829685"
+    },
+    {
+      "version": "0011_external_services_config_v1",
+      "sha256": "31ea7aec29f40733d474d512e46e50d5ba5c8f480ac7ad71f912c7d009d2d79f"
+    },
+    {
+      "version": "0012_restaurant_operations_runtime_v1",
+      "sha256": "ed8bc15fa5a90b42cfc5711d597c09c7a9e03fefaa5feeba75370b28f23934d3"
+    },
+    {
+      "version": "0013_core_runtime_v1",
+      "sha256": "45e17ada761330a052c36c54b8835f14736f70900c6e84027b39c0fb73d0115e"
+    },
+    {
+      "version": "0014_legacy_schema_upgrade_v1",
+      "sha256": "020a99cafe79255057af6e304a7196e023b1e99ac35c61d58347bf7cac044d16"
+    },
+    {
+      "version": "0015_legacy_schema_reconciliation_v1",
+      "sha256": "b800d925748830ef0d4a5ad042cb5dd132e7ec4404fa618cf84789d1d9b415ef"
+    },
+    {
+      "version": "0016_integration_secret_vault_v1",
+      "sha256": "04509d2c0787726b21bca3522ba6bb694af8ea0fb72986a0d03bfa48487075fc"
+    },
+    {
+      "version": "0017_admin_pin_v1",
+      "sha256": "e68d73e31d01fc5cccfbdf153d8d8cd831aa9d51c4fadb9b6a482e7e6c14e7b6"
+    },
+    {
+      "version": "0018_admin_access_authorization_v1",
+      "sha256": "cd4abc6a11f6b7ae769a01464ae8bdbf23aa51657cde40aa9331d73712f332a6"
+    },
+    {
+      "version": "0019_client_payment_identity_v1",
+      "sha256": "c18f3a261cc0cf929ac69f497ebfb7fa04647142006f1630c13cc97b8bc6102c"
+    },
+    {
+      "version": "0020_product_unit_scope_compat_v1",
+      "sha256": "a883e533043884e952439502f44959da71f31280d45d3d16f78bfa8b3c2c02fa"
+    },
+    {
+      "version": "0020b_legacy_store_baseline_v1",
+      "sha256": "05d0d5b03f3cadd4239f2189c87f78da0444ebf99f391d90830b0cd62de6e521"
+    },
+    {
+      "version": "0021_unit_legacy_store_mapping_v1",
+      "sha256": "8df32dda75530f25144fe61ef2e99b0f93ac70a2b5064198031c74d268434171"
+    },
+    {
+      "version": "0022_crm_clientes_persistencia_v1",
+      "sha256": "5186d115276e4e63aa446c78aed50b883ec8caff0b2cdbe3ea19eec577235277"
+    },
+    {
+      "version": "0023_crm_contact_vault_v1",
+      "sha256": "911bc18b21026b405ee6508ae820dd675890c7772c2d68a3fe46b792f7c392f2"
+    },
+    {
+      "version": "0024_crm_cliente_legado_mapping_v1",
+      "sha256": "67b90c74050458fe6f52c830f70bf59a1a59113c0daac44effa2cbdb56979b4e"
+    },
+    {
+      "version": "0025_crm_contact_ownership_v1",
+      "sha256": "06c65e28d94b5e72292cb0207555d6c377b9e599679e5b166ff71c7b16d41edf"
+    },
+    {
+      "version": "0026_crm_consentimentos_historico_v1",
+      "sha256": "26aba38a6c7f81c44370645d2a6a8ce828965e105ede619584aa934add9d61e0"
+    },
+    {
+      "version": "0027_legacy_catalog_unit_scope_v1",
+      "sha256": "12a5a3eac5ab5bcc369b116e1c582386817c6ca4a0ad65a4401bc7fd51c31664"
+    },
+    {
+      "version": "0028_legacy_expiration_alert_integrity_v1",
+      "sha256": "820d7ba64b04e3c12119fd6377c940c011615d66d6cb1accbf7af1e153ad2cc6"
+    },
+    {
+      "version": "0029_internal_notification_recipients_v1",
+      "sha256": "9bc1464136a47c22195c0f60a5c327388bd3decd1c6ebced4a9d7d07c62414ca"
+    },
+    {
+      "version": "0030_migration_history_integrity_v1",
+      "sha256": "eacd585a95082131642a35b75d1d37625524ff66737b996b8797b48e61831ce6"
+    },
+    {
+      "version": "0031_ai_usage_metering_v1",
+      "sha256": "9e8d46b7b19a2b82348acf66b4e81c544c946a2540c42c51a97b379af1898aa4"
+    },
+    {
+      "version": "0032_ai_finops_read_model_v1",
+      "sha256": "582e0a9eeaea3092c4a369620f68c245b282a944c13858d84cb652225b20e90e"
+    },
+    {
+      "version": "0033_delivery_policy_v1",
+      "sha256": "0568c9a1aa8dfd4e63c9d307727fb7a8dddadda14e534870e3c1ef0d3d0bf141"
+    },
+    {
+      "version": "0034_crm_customer_context_v1",
+      "sha256": "58a83aa342df355afae3f0d7539efadb50712f110d79c575937dc230442ea519"
+    },
+    {
+      "version": "0035_assistente_channel_runtime_v1",
+      "sha256": "d0cf021ccee080ae3870234ba6030569a68fd96bc3a4082de8a32e51254f2bc3"
+    },
+    {
+      "version": "0036_administracao_proprietario_v1",
+      "sha256": "19d24cd49f469ec18e3274dd7200928715e5a4926ad99188d2632af98642f995"
+    }
+  ]
+}

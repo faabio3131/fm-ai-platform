@@ -1,0 +1,81 @@
+{
+  "schema": "sd1e-transaction-ownership-baseline-v1",
+  "source_head": "e2523e89fd196dc327fa0dd7a4ee4d6e1a239c0f",
+  "policy": {
+    "transaction_owner_target": "application/use-case boundary via UnitOfWorkV1",
+    "line_numbers_are_not_identity": true,
+    "budget_may_only_decrease": true,
+    "automatic_baseline_growth_forbidden": true
+  },
+  "categories": {
+    "presentation_debt": [
+      {
+        "path": "app.py",
+        "function": "<module>",
+        "receiver": "db_cb",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "app.py",
+        "function": "<module>",
+        "receiver": "db_cb",
+        "operation": "rollback",
+        "count": 1
+      }
+    ],
+    "pdv_compatibility": [
+      {
+        "path": "core/pdv/adaptadores_sqlalchemy.py",
+        "function": "__exit__",
+        "receiver": "self",
+        "operation": "rollback",
+        "count": 1
+      },
+      {
+        "path": "core/pdv/adaptadores_sqlalchemy.py",
+        "function": "commit",
+        "receiver": "self.session",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "core/pdv/adaptadores_sqlalchemy.py",
+        "function": "registrar_falha_shadow",
+        "receiver": "session",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "core/pdv/adaptadores_sqlalchemy.py",
+        "function": "rollback",
+        "receiver": "self.session",
+        "operation": "rollback",
+        "count": 1
+      },
+      {
+        "path": "core/pdv/servicos.py",
+        "function": "finalizar_venda_pdv",
+        "receiver": "uow_autoritativo",
+        "operation": "commit",
+        "count": 1
+      },
+      {
+        "path": "core/pdv/servicos.py",
+        "function": "finalizar_venda_pdv",
+        "receiver": "uow_legado",
+        "operation": "commit",
+        "count": 2
+      },
+      {
+        "path": "core/pdv/servicos.py",
+        "function": "finalizar_venda_pdv",
+        "receiver": "uow_shadow",
+        "operation": "commit",
+        "count": 1
+      }
+    ],
+    "infra_pix_hidden": [],
+    "integration_boundary_debt": []
+  }
+}

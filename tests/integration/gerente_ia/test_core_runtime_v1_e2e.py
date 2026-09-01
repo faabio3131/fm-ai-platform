@@ -8,7 +8,9 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from application.gerente_ia_runtime import PlanejadorGeminiCore
+from application.ai_router_runtime import construir_ai_model_router
+from application.gerente_ia_runtime import PlanejadorAIRouterCore
+from core.ai_router import CapabilityIA, MedidorUsoIAEmMemoria
 from core.dominio.ids import (
     CorrelationId,
     EventoId,
@@ -292,51 +294,153 @@ def test_runtime_real_autenticado_eventos_acoes_llm_e_assistente_isolados(monkey
         assert disponibilidade is not None and disponibilidade.pausado is True
 
 
-def test_planejador_gemini_de_producao_resolve_configuracao_e_segredo_por_tenant() -> None:
+def test_ai_router_resolve_gemini_por_tenant_sem_acoplar_consumer() -> None:
     _, factory = _infra()
     _seed(factory)
+
     with factory() as session:
-        for tenant, sufixo in (("tenant-a", "a"), ("tenant-b", "b")):
+        for tenant, sufixo in (
+            ("tenant-a", "a"),
+            ("tenant-b", "b"),
+        ):
             session.add(
                 ServicoExternoConfigORM(
-                    tenant_id=tenant, unidade_id="loja-1", configuracao_id="gemini-padrao",
-                    servico="ia.generativa", provedor="gemini", conta_externa=f"conta-{sufixo}",
-                    ambiente="homologacao", parametros_publicos={"model": f"modelo-{sufixo}"},
-                    finalidades_credenciais={"api_key": "core_llm"}, habilitada=True,
-                    homologada=True, evidencia_homologacao_ref=f"evidencia://{sufixo}", versao=1,
-                    atualizado_por="admin", correlation_id=f"corr-{sufixo}",
-                    criado_em=AGORA, atualizado_em=AGORA,
+                    tenant_id=tenant,
+                    unidade_id="loja-1",
+                    configuracao_id="gemini-padrao",
+                    servico="ia.generativa",
+                    provedor="gemini",
+                    conta_externa=f"conta-{sufixo}",
+                    ambiente="homologacao",
+                    parametros_publicos={
+                        "model": f"modelo-{sufixo}",
+                    },
+                    finalidades_credenciais={
+                        "api_key": "core_llm",
+                    },
+                    habilitada=True,
+                    homologada=True,
+                    evidencia_homologacao_ref=(
+                        f"evidencia://{sufixo}"
+                    ),
+                    versao=1,
+                    atualizado_por="admin",
+                    correlation_id=f"corr-{sufixo}",
+                    criado_em=AGORA,
+                    atualizado_em=AGORA,
                 )
             )
+
             session.add(
                 CredencialReferenciaORM(
-                    tenant_id=tenant, unidade_id="loja-1", provedor="gemini",
-                    finalidade="core_llm", referencia=f"mapping:key-{sufixo}", versao=1,
-                    ativa=True, rotacionada_por="admin", correlation_id=f"corr-{sufixo}",
+                    tenant_id=tenant,
+                    unidade_id="loja-1",
+                    provedor="gemini",
+                    finalidade="core_llm",
+                    referencia=f"mapping:key-{sufixo}",
+                    versao=1,
+                    ativa=True,
+                    rotacionada_por="admin",
+                    correlation_id=f"corr-{sufixo}",
                     criada_em=AGORA,
                 )
             )
+
         session.commit()
 
     gateway = GatewayGeminiCaptura()
-    store = ReferenceSecretStore(mapping={"key-a": "segredo-a", "key-b": "segredo-b"})
+
+    store = ReferenceSecretStore(
+        mapping={
+            "key-a": "segredo-a",
+            "key-b": "segredo-b",
+        }
+    )
+
+    metering = MedidorUsoIAEmMemoria()
+
     with factory() as session:
         repo = RepositorioIdentidadesSQLAlchemy(session)
-        identidade_a = repo.obter_por_email("admin-a@example.com")
-        identidade_b = repo.obter_por_email("admin-b@example.com")
-        assert identidade_a is not None and identidade_b is not None
-        chamada_a = PlanejadorGeminiCore(
-            session=session, contexto=identidade_a.contexto(origem="teste"),
-            secret_store=store, gateway=gateway,
-        ).planejar(pergunta="Como está?", nome_assistente="Lia")
-        chamada_b = PlanejadorGeminiCore(
-            session=session, contexto=identidade_b.contexto(origem="teste"),
-            secret_store=store, gateway=gateway,
-        ).planejar(pergunta="Como está?", nome_assistente="Beto")
 
-    assert chamada_a.tool is chamada_b.tool is ToolGerenteIA.GERAR_RELATORIO
-    assert [(item["api_key"], item["model"]) for item in gateway.chamadas] == [
-        ("segredo-a", "modelo-a"), ("segredo-b", "modelo-b")
+        identidade_a = repo.obter_por_email(
+            "admin-a@example.com"
+        )
+        identidade_b = repo.obter_por_email(
+            "admin-b@example.com"
+        )
+
+        assert identidade_a is not None
+        assert identidade_b is not None
+
+        contexto_a = identidade_a.contexto(
+            origem="teste"
+        )
+        contexto_b = identidade_b.contexto(
+            origem="teste"
+        )
+
+        router_a = construir_ai_model_router(
+            session=session,
+            contexto=contexto_a,
+            secret_store=store,
+            gemini_gateway=gateway,
+            metering=metering,
+        )
+
+        router_b = construir_ai_model_router(
+            session=session,
+            contexto=contexto_b,
+            secret_store=store,
+            gemini_gateway=gateway,
+            metering=metering,
+        )
+
+        chamada_a = PlanejadorAIRouterCore(
+            router=router_a,
+            contexto=contexto_a,
+        ).planejar(
+            pergunta="Como está?",
+            nome_assistente="Lia",
+        )
+
+        chamada_b = PlanejadorAIRouterCore(
+            router=router_b,
+            contexto=contexto_b,
+        ).planejar(
+            pergunta="Como está?",
+            nome_assistente="Beto",
+        )
+
+    assert (
+        chamada_a.tool
+        is chamada_b.tool
+        is ToolGerenteIA.GERAR_RELATORIO
+    )
+
+    assert [
+        (item["api_key"], item["model"])
+        for item in gateway.chamadas
+    ] == [
+        ("segredo-a", "modelo-a"),
+        ("segredo-b", "modelo-b"),
     ]
+
     assert "Lia" in gateway.chamadas[0]["contents"]["system"]
     assert "Beto" in gateway.chamadas[1]["contents"]["system"]
+
+    assert len(metering.eventos) == 2
+
+    assert [
+        evento.provider
+        for evento in metering.eventos
+    ] == ["gemini", "gemini"]
+
+    assert all(
+        evento.capability is CapabilityIA.TOOL_PLANNING
+        for evento in metering.eventos
+    )
+
+    assert all(
+        evento.price_snapshot_id == "legacy-unpriced-v1"
+        for evento in metering.eventos
+    )
