@@ -1,10 +1,13 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from application.checkout import ComandoCheckoutV1, executar_checkout_v1
+from application.legacy_stock_projection import (
+    projetar_consumo_estoque_legado_em_transacao,
+)
 from application.order_result_orchestrator import (
     orquestrar_resultado_pagamento_em_transacao,
 )
@@ -23,6 +26,7 @@ from core.dominio.pedidos import ItemPedido, Pedido
 from core.dominio.tipos import QuantidadeItem
 from core.estoque.modelos import (
     ItemSnapshotFicha,
+    MovimentoEstoque,
     SnapshotFichaEstoque,
     StatusReserva,
     TipoMovimento,
@@ -268,3 +272,63 @@ def test_replay_do_resultado_financeiro_nao_duplica_venda_ou_efeitos() -> None:
         assert session.scalar(select(func.count()).select_from(ReservaEstoqueORM)) == 1
         tipos = tuple(session.scalars(select(MovimentoEstoqueORM.tipo_movimento)))
         assert "consumo" not in tipos
+
+
+def test_projecao_legada_so_replica_consumo_canonico_no_mesmo_escopo() -> None:
+    engine, factory = _factory()
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO lojas (id, nome_fantasia) "
+                "VALUES (7, 'Loja F4D')"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO fm_unidade_loja_legacy_v1 "
+                "(tenant_id, unidade_id, loja_id, ativo) "
+                "VALUES (:tenant, :unidade, 7, TRUE)"
+            ),
+            {"tenant": TENANT, "unidade": UNIDADE},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO insumos "
+                "(id, loja_id, nome, unidade_medida, saldo_atual, "
+                "custo_unitario, dias_alerta_vencimento) "
+                "VALUES (11, 7, 'Insumo F4D', 'un', 10, 1, 15)"
+            )
+        )
+
+    movimento = MovimentoEstoque(
+        movimento_id="mov-consumo-f4d",
+        tenant_id=TENANT,
+        unidade_id=UNIDADE,
+        insumo_id="legacy:insumo:11",
+        tipo_movimento=TipoMovimento.CONSUMO,
+        quantidade=Decimal("2"),
+        unidade_medida="un",
+        origem_tipo="pedido",
+        origem_id=PEDIDO,
+        origem_versao=3,
+        idempotency_key="consumo:f4d",
+        occurred_at=AGORA,
+        correlation_id="corr-f4d",
+        causation_id=None,
+        ator="kds-stock-orchestrator-v1",
+        motivo="inicio_producao",
+    )
+    with factory() as session:
+        projetar_consumo_estoque_legado_em_transacao(
+            session=session,
+            tenant_id=TENANT,
+            unidade_id=UNIDADE,
+            movimentos=(movimento,),
+        )
+        session.commit()
+
+    with engine.connect() as connection:
+        saldo = connection.scalar(
+            text("SELECT saldo_atual FROM insumos WHERE id = 11")
+        )
+        assert Decimal(str(saldo)) == Decimal("8")
