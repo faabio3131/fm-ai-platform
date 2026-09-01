@@ -20,6 +20,8 @@ on:
       - "tests/unit/administracao/**"
       - "tests/integration/administracao/**"
       - "tests/integration/runtime/test_f5_admin_postgres_homologation.py"
+      - "tests/e2e/fase5/**"
+      - "playwright.admin-fase5.config.ts"
       - ".github/workflows/administracao-fase5-gate-v1.yml"
   workflow_dispatch:
 
@@ -32,9 +34,9 @@ concurrency:
 
 jobs:
   fase5-gate:
-    name: Fase 5 backend + PostgreSQL + regressions
+    name: Fase 5 PostgreSQL + RBAC + browser
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
 
     services:
       postgres:
@@ -63,6 +65,11 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
@@ -71,11 +78,33 @@ jobs:
 
       - name: Compile Phase 5 administration
         run: |
-          python -m py_compile             application/administracao_proprietario.py             core/administracao/modelos.py             infra/administracao/modelos_orm.py             infra/administracao/repositorio_sqlalchemy.py             infra/seguranca/adaptador_sqlalchemy.py             infra/streamlit_app/admin_proprietario.py             migrations/administracao_proprietario_v1.py             pages/6_Administracao_Proprietario.py             tests/unit/administracao/test_modelos_f5.py             tests/integration/administracao/test_admin_proprietario_f5.py             tests/integration/runtime/test_f5_admin_postgres_homologation.py
+          python -m py_compile application/administracao_proprietario.py
+          python -m py_compile core/administracao/modelos.py
+          python -m py_compile infra/administracao/modelos_orm.py
+          python -m py_compile infra/administracao/repositorio_sqlalchemy.py
+          python -m py_compile infra/seguranca/adaptador_sqlalchemy.py
+          python -m py_compile infra/streamlit_app/admin_proprietario.py
+          python -m py_compile migrations/administracao_proprietario_v1.py
+          python -m py_compile pages/6_Administracao_Proprietario.py
+          python -m py_compile tests/unit/administracao/test_modelos_f5.py
+          python -m py_compile tests/integration/administracao/test_admin_proprietario_f5.py
+          python -m py_compile tests/integration/runtime/test_f5_admin_postgres_homologation.py
+          python -m py_compile tests/e2e/fase5/init_admin_browser_db.py
 
       - name: Ruff Phase 5 administration
         run: |
-          ruff check             application/administracao_proprietario.py             core/administracao             infra/administracao             infra/seguranca/adaptador_sqlalchemy.py             infra/streamlit_app/admin_proprietario.py             migrations/administracao_proprietario_v1.py             migrations/runner.py             pages/6_Administracao_Proprietario.py             tests/unit/administracao             tests/integration/administracao             tests/integration/runtime/test_f5_admin_postgres_homologation.py
+          ruff check application/administracao_proprietario.py
+          ruff check core/administracao
+          ruff check infra/administracao
+          ruff check infra/seguranca/adaptador_sqlalchemy.py
+          ruff check infra/streamlit_app/admin_proprietario.py
+          ruff check migrations/administracao_proprietario_v1.py
+          ruff check migrations/runner.py
+          ruff check pages/6_Administracao_Proprietario.py
+          ruff check tests/unit/administracao
+          ruff check tests/integration/administracao
+          ruff check tests/integration/runtime/test_f5_admin_postgres_homologation.py
+          ruff check tests/e2e/fase5/init_admin_browser_db.py
 
       - name: PostgreSQL migration 0036
         run: |
@@ -83,12 +112,35 @@ jobs:
 
       - name: Phase 5 administration tests
         run: |
-          pytest -q             tests/unit/administracao/test_modelos_f5.py             tests/integration/administracao/test_admin_proprietario_f5.py
+          pytest -q tests/unit/administracao/test_modelos_f5.py
+          pytest -q tests/integration/administracao/test_admin_proprietario_f5.py
 
       - name: Auth RBAC regression
         run: |
-          pytest -q             tests/unit/security/test_sensitive_admin_access_v1.py             tests/integration/security/test_admin_pin_v1.py             tests/fitness/test_auth_sensitive_entrypoints_v1.py
+          pytest -q tests/unit/security/test_sensitive_admin_access_v1.py
+          pytest -q tests/integration/security/test_admin_pin_v1.py
+          pytest -q tests/fitness/test_auth_sensitive_entrypoints_v1.py
 
       - name: Integration scope regression
         run: |
-          pytest -q             tests/integration/integracoes/test_unit_isolation_control_plane_v1.py
+          pytest -q tests/integration/integracoes/test_unit_isolation_control_plane_v1.py
+
+      - name: Install Playwright browser
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Physical browser gate for owner administration
+        run: |
+          npx playwright test tests/e2e/fase5/admin-proprietario.spec.ts -c playwright.admin-fase5.config.ts --project=chromium --reporter=list
+
+      - name: Publish browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: administracao-fase5-${{ github.sha }}
+          path: |
+            playwright-report-f5
+            test-results
+          if-no-files-found: warn
+          retention-days: 14
