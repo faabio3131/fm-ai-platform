@@ -385,17 +385,20 @@ def require_sensitive_reauthentication(
 def render_identity_sidebar(
     identity: IdentidadeUsuario,
     settings: RuntimeSettings,
+    *,
+    show_admin_link: bool = True,
 ) -> None:
     st.success(f"Conectado como:\n**{identity.email}**")
     st.info(f"🏪 **Unidade ativa:**\n{identity.unidade_id}")
     papeis = ", ".join(sorted(papel.value for papel in identity.papeis))
     st.caption(f"Perfil: {papeis}")
     if can_access_sensitive_area(identity):
-        st.page_link(
-            "pages/6_Administracao_Proprietario.py",
-            label="🔐 Administração / Proprietário",
-            use_container_width=True,
-        )
+        if show_admin_link:
+            st.page_link(
+                "pages/6_Administracao_Proprietario.py",
+                label="🔐 Administração / Proprietário",
+                use_container_width=True,
+            )
         grant = st.session_state.get(_SENSITIVE_AUTH_KEY)
         if (
             isinstance(grant, dict)
