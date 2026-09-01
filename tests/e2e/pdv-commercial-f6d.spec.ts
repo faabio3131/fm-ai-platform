@@ -31,12 +31,24 @@ async function openPDV(page: Page) {
 async function selectPayment(page: Page, option: string) {
   const box = page.getByRole('combobox', { name: /Forma de Pagamento/ }).first();
   await expect(box).toBeVisible();
-  await box.click();
-  const choice = page.getByRole('option', { name: option, exact: true });
-  await expect(choice).toBeVisible();
+  await expect(box).toBeEnabled();
+
+  await box.focus();
+  if ((await box.getAttribute('aria-expanded')) !== 'true') {
+    await box.press('ArrowDown');
+  }
+  await expect(box).toHaveAttribute('aria-expanded', 'true', { timeout: 5_000 });
+
+  const listbox = page.getByRole('listbox').filter({ visible: true }).last();
+  await expect(listbox).toBeVisible({ timeout: 5_000 });
+  const choice = listbox.getByRole('option', { name: option, exact: true });
+  await expect(choice).toBeVisible({ timeout: 5_000 });
   await choice.click();
-  await expect(box).toHaveValue(option);
+
   await waitStable(page);
+  await expect(
+    page.getByRole('combobox', { name: /Forma de Pagamento/ }).first(),
+  ).toHaveValue(option, { timeout: 20_000 });
 }
 
 async function finalize(page: Page) {
