@@ -47,6 +47,7 @@ from core.dominio.ids import (
     TenantId,
     UnidadeId,
 )
+from core.entrega.modelos_orm import EntregaORM, EventoEntregaORM
 from core.eventos.modelos import EnvelopeMensagem
 from core.integracoes.provedores import (
     ErroProvedorExterno,
@@ -59,10 +60,8 @@ from core.pagamentos.modelos_orm import PagamentoORM
 from core.pedidos.modelos_orm import PedidoORM
 from core.seguranca.auditoria import EventoAuditoria
 from core.seguranca.contexto import ContextoExecucao
-from core.entrega.modelos_orm import EntregaORM, EventoEntregaORM
 from infra.assistente_atendimento.canal_estado_sqlalchemy import (
     EncryptedSQLAlchemyChannelStateStore,
-    EstadoCanalPersistido,
 )
 from infra.assistente_atendimento.contexto_cliente_sqlalchemy import (
     ContextoClienteAtendimentoSQLAlchemy,
@@ -335,7 +334,7 @@ def _restaurar_runtime(
     )
     resultado_payload = payload.get("resultado")
     if not isinstance(resultado_payload, dict):
-        raise LookupError("estado_canal_sem_resultado")
+        raise TypeError("estado_canal_sem_resultado")
     resultado = ResultadoAtendimento(
         estado=EstadoAtendimento(str(resultado_payload["estado"])),
         mensagem=str(resultado_payload["mensagem"]),
