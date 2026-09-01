@@ -40,9 +40,18 @@ class CheckoutFake:
         canal,
         metodo,
         idempotency_key,
+        endereco_ref=None,
     ):
         self.chamadas.append(
-            (contexto, carrinho, cliente_ref, canal, metodo, idempotency_key)
+            (
+                contexto,
+                carrinho,
+                cliente_ref,
+                canal,
+                metodo,
+                idempotency_key,
+                endereco_ref,
+            )
         )
         return ResultadoCheckoutAssistente(
             pedido_id="pedido-1",
