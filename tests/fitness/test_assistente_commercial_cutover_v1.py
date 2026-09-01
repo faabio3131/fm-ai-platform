@@ -32,8 +32,8 @@ def test_commercial_runtime_uses_canonical_checkout_and_real_scope() -> None:
     assert "listar_produtos_legados(" in runtime
     assert "tenant_id=contexto.tenant_id" in runtime
     assert "unidade_id=contexto.unidade_id" in runtime
-    assert "executar_checkout_com_ficha_estoque_v1" in checkout
-    assert "executar_checkout_em_transacao" in stock_bridge
+    assert "executar_checkout_assistente_convergente_v1" in checkout
+    assert "executar_checkout_com_ficha_estoque_em_transacao" in stock_bridge
     assert "FM_AI_TEST_TENANT" not in runtime
     assert "FM_AI_TEST_UNIDADE" not in runtime
     assert "tenant-demo" not in runtime
@@ -121,7 +121,7 @@ def test_commercial_assistant_reserves_canonical_stock_from_authoritative_ficha(
     bridge = _text("application/catalogo_estoque_cutover.py")
     checkout = _text("application/checkout.py")
 
-    assert "executar_checkout_com_ficha_estoque_v1" in adapter
+    assert "executar_checkout_assistente_convergente_v1" in adapter
     assert "preparar_snapshot_ficha_estoque_v1" in bridge
     assert "listar_fichas_produto_legadas" in bridge
     assert "obter_insumo_por_id_legado" in bridge
@@ -147,3 +147,20 @@ def test_order_result_orchestrator_is_channel_independent_and_does_not_consume_s
     assert "reconhecer_venda(" in orchestrator
     assert "orquestrar_resultado_pagamento_em_transacao" in pdv_compat
     assert "finalizar_pagamento_liquidado_em_transacao" in pagbank
+
+
+def test_assistant_delivery_converges_on_canonical_entrega_and_order() -> None:
+    adapter = _text("core/assistente_atendimento/checkout_adapter.py")
+    convergence = _text("application/assistente_delivery_convergence.py")
+    service = _text("core/assistente_atendimento/atendimento_servicos.py")
+
+    assert "executar_checkout_assistente_convergente_v1" in adapter
+    assert "executar_checkout_com_ficha_estoque_em_transacao" in convergence
+    assert "RepositorioEntregaSQLAlchemy" in convergence
+    assert "ServicoEntrega" in convergence
+    assert "pedido_id=str(pedido.id)" in convergence
+    assert "address://" in convergence
+    assert "entrega_sem_referencia_endereco_autorizada" in service
+    assert "PedidoDelivery" not in convergence
+    assert "RuntimeDeliveryTeste" not in convergence
+    assert "core.delivery.runtime_teste" not in convergence
