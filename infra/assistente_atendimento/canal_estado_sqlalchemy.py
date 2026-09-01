@@ -244,6 +244,64 @@ class EncryptedSQLAlchemyChannelStateStore:
             raise RuntimeError("estado_canal_nao_persistido")
         return atual
 
+    def registrar_outbound(
+        self,
+        *,
+        contexto: ContextoExecucao,
+        canal: str,
+        recipient: str,
+        outbound_id: str,
+        agora: datetime | None = None,
+    ) -> EstadoCanalPersistido:
+        atual = self.obter(contexto=contexto, canal=canal, recipient=recipient)
+        if atual is None:
+            raise LookupError("estado_canal_ausente")
+        return self.salvar(
+            contexto=contexto,
+            canal=canal,
+            recipient=recipient,
+            conversa_id=atual.conversa_id,
+            estado=atual.estado,
+            state=atual.state,
+            pedido_id=atual.pedido_id,
+            pagamento_id=atual.pagamento_id,
+            entrega_id=atual.entrega_id,
+            ultimo_inbound_id=atual.ultimo_inbound_id,
+            ultimo_outbound_id=outbound_id,
+            ultimo_status_hash=atual.ultimo_status_hash,
+            versao_esperada=atual.versao,
+            agora=agora,
+        )
+
+    def registrar_status_hash(
+        self,
+        *,
+        contexto: ContextoExecucao,
+        canal: str,
+        recipient: str,
+        status_hash: str,
+        agora: datetime | None = None,
+    ) -> EstadoCanalPersistido:
+        atual = self.obter(contexto=contexto, canal=canal, recipient=recipient)
+        if atual is None:
+            raise LookupError("estado_canal_ausente")
+        return self.salvar(
+            contexto=contexto,
+            canal=canal,
+            recipient=recipient,
+            conversa_id=atual.conversa_id,
+            estado=atual.estado,
+            state=atual.state,
+            pedido_id=atual.pedido_id,
+            pagamento_id=atual.pagamento_id,
+            entrega_id=atual.entrega_id,
+            ultimo_inbound_id=atual.ultimo_inbound_id,
+            ultimo_outbound_id=atual.ultimo_outbound_id,
+            ultimo_status_hash=status_hash,
+            versao_esperada=atual.versao,
+            agora=agora,
+        )
+
     def _modelo(self, row) -> EstadoCanalPersistido:
         return EstadoCanalPersistido(
             conversa_id=str(row["conversa_id"]),
