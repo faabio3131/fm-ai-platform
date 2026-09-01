@@ -35,10 +35,7 @@ from infra.administracao.repositorio_sqlalchemy import (
 from infra.integracoes.repositorio_sqlalchemy import (
     RepositorioConfiguracoesExternasSQLAlchemy,
 )
-from infra.legacy_product_scope import (
-    ErroEscopoLojaLegada,
-    resolver_loja_id_legada,
-)
+from infra.legacy_product_scope import resolver_loja_id_legada
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
 from infra.seguranca.modelos_orm import UsuarioSegurancaORM
@@ -125,9 +122,48 @@ def _decimal(valor: object | None) -> Decimal:
     return Decimal(valor)
 
 
+def _administrador_tenant(contexto: ContextoExecucao) -> bool:
+    return Papel.ADMINISTRADOR in contexto.papeis
+
+
 class AplicacaoAdministracaoProprietarioV1:
     def __init__(self, session_factory: SessionFactory) -> None:
         self._session_factory = session_factory
+
+    def _unidades_administraveis(
+        self,
+        *,
+        session: Session,
+        contexto: ContextoExecucao,
+        incluir_inativas: bool = True,
+    ) -> tuple[UnidadeAdministrativa, ...]:
+        todas = RepositorioAdministracaoSQLAlchemy(session).listar_unidades(
+            tenant_id=contexto.tenant_id,
+            incluir_inativas=incluir_inativas,
+        )
+        if _administrador_tenant(contexto):
+            return todas
+        permitidas = set(contexto.unidades_permitidas)
+        return tuple(
+            unidade for unidade in todas if unidade.unidade_id in permitidas
+        )
+
+    def _exigir_unidade_administravel(
+        self,
+        *,
+        session: Session,
+        contexto: ContextoExecucao,
+        unidade_id: str,
+    ) -> UnidadeAdministrativa:
+        unidades = self._unidades_administraveis(
+            session=session,
+            contexto=contexto,
+            incluir_inativas=True,
+        )
+        for unidade in unidades:
+            if unidade.unidade_id == unidade_id:
+                return unidade
+        raise PermissionError("unidade_fora_do_escopo_administrativo")
 
     def _auditar(
         self,
@@ -197,8 +233,9 @@ class AplicacaoAdministracaoProprietarioV1:
     ) -> tuple[UnidadeAdministrativa, ...]:
         _exigir(contexto, Permissao.CONFIGURACAO_ALTERAR)
         with self._session_factory() as session:
-            return RepositorioAdministracaoSQLAlchemy(session).listar_unidades(
-                tenant_id=contexto.tenant_id,
+            return self._unidades_administraveis(
+                session=session,
+                contexto=contexto,
                 incluir_inativas=incluir_inativas,
             )
 
@@ -210,6 +247,11 @@ class AplicacaoAdministracaoProprietarioV1:
     ) -> ConfiguracaoEstabelecimento:
         _exigir(contexto, Permissao.CONFIGURACAO_ALTERAR)
         with self._session_factory() as session:
+            self._exigir_unidade_administravel(
+                session=session,
+                contexto=contexto,
+                unidade_id=unidade_id,
+            )
             config = RepositorioAdministracaoSQLAlchemy(session).obter_configuracao(
                 tenant_id=contexto.tenant_id,
                 unidade_id=unidade_id,
@@ -311,6 +353,11 @@ class AplicacaoAdministracaoProprietarioV1:
         if unidade.tenant_id != contexto.tenant_id:
             raise PermissionError("tenant_admin_divergente")
         with self._session_factory() as session:
+            self._exigir_unidade_administravel(
+                session=session,
+                contexto=contexto,
+                unidade_id=unidade.unidade_id,
+            )
             repo = RepositorioAdministracaoSQLAlchemy(session)
             anterior = repo.obter_unidade(
                 tenant_id=contexto.tenant_id,
@@ -355,11 +402,12 @@ class AplicacaoAdministracaoProprietarioV1:
         if configuracao.tenant_id != contexto.tenant_id:
             raise PermissionError("tenant_admin_divergente")
         with self._session_factory() as session:
-            repo = RepositorioAdministracaoSQLAlchemy(session)
-            unidade = repo.obter_unidade(
-                tenant_id=contexto.tenant_id,
+            unidade = self._exigir_unidade_administravel(
+                session=session,
+                contexto=contexto,
                 unidade_id=configuracao.unidade_id,
             )
+            repo = RepositorioAdministracaoSQLAlchemy(session)
             if unidade is None:
                 raise LookupError("unidade_admin_ausente")
             anterior = repo.obter_configuracao(
@@ -400,6 +448,13 @@ class AplicacaoAdministracaoProprietarioV1:
             identidades = RepositorioIdentidadesSQLAlchemy(session).listar_por_tenant(
                 tenant_id=contexto.tenant_id
             )
+            if not _administrador_tenant(contexto):
+                permitidas = set(contexto.unidades_permitidas)
+                identidades = tuple(
+                    identidade
+                    for identidade in identidades
+                    if set(identidade.unidades_permitidas) & permitidas
+                )
             return tuple(
                 UsuarioAdminResumo(
                     usuario_id=identidade.usuario_id,
@@ -437,8 +492,9 @@ class AplicacaoAdministracaoProprietarioV1:
             admin_repo = RepositorioAdministracaoSQLAlchemy(session)
             validas = {
                 unidade.unidade_id
-                for unidade in admin_repo.listar_unidades(
-                    tenant_id=contexto.tenant_id,
+                for unidade in self._unidades_administraveis(
+                    session=session,
+                    contexto=contexto,
                     incluir_inativas=True,
                 )
             }
@@ -554,11 +610,11 @@ class AplicacaoAdministracaoProprietarioV1:
         unidades_alvo = set(unidades or ())
         with self._session_factory() as session:
             repo = RepositorioConfiguracoesExternasSQLAlchemy(session)
-            admin_repo = RepositorioAdministracaoSQLAlchemy(session)
             unidades_validas = {
                 u.unidade_id
-                for u in admin_repo.listar_unidades(
-                    tenant_id=contexto.tenant_id,
+                for u in self._unidades_administraveis(
+                    session=session,
+                    contexto=contexto,
                     incluir_inativas=True,
                 )
             }
@@ -604,15 +660,11 @@ class AplicacaoAdministracaoProprietarioV1:
         _exigir(contexto, Permissao.AUDITORIA_VISUALIZAR)
         alvo = unidade_id or contexto.unidade_id
         with self._session_factory() as session:
-            admin_repo = RepositorioAdministracaoSQLAlchemy(session)
-            if (
-                admin_repo.obter_unidade(
-                    tenant_id=contexto.tenant_id,
-                    unidade_id=alvo,
-                )
-                is None
-            ):
-                raise PermissionError("auditoria_unidade_fora_do_tenant")
+            self._exigir_unidade_administravel(
+                session=session,
+                contexto=contexto,
+                unidade_id=alvo,
+            )
             return RepositorioAuditoriaSQLAlchemy(session).listar(
                 tenant_id=contexto.tenant_id,
                 unidade_id=alvo,
@@ -693,11 +745,11 @@ class AplicacaoAdministracaoProprietarioV1:
     ) -> PainelExecutivoAdmin:
         _exigir(contexto, Permissao.FINANCEIRO_VISUALIZAR)
         with self._session_factory() as session:
-            admin_repo = RepositorioAdministracaoSQLAlchemy(session)
             registradas = {
                 u.unidade_id
-                for u in admin_repo.listar_unidades(
-                    tenant_id=contexto.tenant_id,
+                for u in self._unidades_administraveis(
+                    session=session,
+                    contexto=contexto,
                     incluir_inativas=True,
                 )
             }
