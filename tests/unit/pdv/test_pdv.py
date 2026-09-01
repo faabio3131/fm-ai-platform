@@ -21,6 +21,7 @@ from core.pdv.roteamento import (
     decidir_modo,
 )
 from core.pedidos.flags import OrdersFeatureFlags
+from core.runtime.config import RuntimeEnvironment, RuntimeSettings
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.erros import CredenciaisInvalidas
@@ -182,10 +183,88 @@ def test_dinheiro_nao_aceita_float_v1() -> None:
         Dinheiro(29.9)  # type: ignore[arg-type]
 
 
-def test_loader_nunca_ativa_canary_fora_de_test_mode(monkeypatch) -> None:
+def _runtime_comercial() -> RuntimeSettings:
+    return RuntimeSettings(
+        RuntimeEnvironment.PRODUCTION,
+        "postgresql+psycopg://localhost/gerente_ai",
+        "tenant-prod",
+        "unidade-prod",
+    )
+
+
+def test_loader_mantem_legacy_por_padrao_em_runtime_comercial(monkeypatch) -> None:
+    monkeypatch.delenv("FM_AI_TEST_MODE", raising=False)
+    monkeypatch.delenv("FM_AI_PDV_MODE", raising=False)
+    config = carregar_rollout_ambiente(runtime_settings=_runtime_comercial())
+    assert config.modo is ModoPDV.LEGACY
+    assert (config.tenant_id, config.unidade_id) == (
+        "tenant-prod",
+        "unidade-prod",
+    )
+
+
+def test_loader_falha_fechado_se_canary_for_solicitado_sem_runtime_comercial(
+    monkeypatch,
+) -> None:
     monkeypatch.delenv("FM_AI_TEST_MODE", raising=False)
     monkeypatch.setenv("FM_AI_PDV_MODE", "authoritative_canary")
-    assert carregar_rollout_ambiente().modo is ModoPDV.LEGACY
+    with pytest.raises(
+        ConfiguracaoRolloutInvalida,
+        match="pdv_canary_fora_de_runtime_comercial",
+    ):
+        carregar_rollout_ambiente()
+
+
+def test_loader_canary_comercial_exige_autorizacao_explicita(monkeypatch) -> None:
+    monkeypatch.delenv("FM_AI_TEST_MODE", raising=False)
+    monkeypatch.setenv("FM_AI_PDV_MODE", "authoritative_canary")
+    monkeypatch.delenv("FM_AI_PDV_COMMERCIAL_CANARY_ENABLED", raising=False)
+    with pytest.raises(
+        ConfiguracaoRolloutInvalida,
+        match="pdv_canary_comercial_nao_autorizado",
+    ):
+        carregar_rollout_ambiente(runtime_settings=_runtime_comercial())
+
+
+def test_loader_canary_comercial_exige_terminal_allowlisted(monkeypatch) -> None:
+    monkeypatch.delenv("FM_AI_TEST_MODE", raising=False)
+    monkeypatch.setenv("FM_AI_PDV_MODE", "authoritative_canary")
+    monkeypatch.setenv("FM_AI_PDV_COMMERCIAL_CANARY_ENABLED", "1")
+    monkeypatch.setenv("FM_AI_PDV_TERMINAL_ID", "caixa-01")
+    monkeypatch.setenv("FM_AI_PDV_ALLOWED_TERMINALS", "caixa-02,caixa-03")
+    with pytest.raises(
+        ConfiguracaoRolloutInvalida,
+        match="pdv_terminal_fora_da_allowlist",
+    ):
+        carregar_rollout_ambiente(runtime_settings=_runtime_comercial())
+
+
+def test_loader_canary_comercial_usa_escopo_do_runtime_e_flags_canonicas(
+    monkeypatch,
+) -> None:
+    monkeypatch.delenv("FM_AI_TEST_MODE", raising=False)
+    monkeypatch.setenv("FM_AI_PDV_MODE", "authoritative_canary")
+    monkeypatch.setenv("FM_AI_PDV_COMMERCIAL_CANARY_ENABLED", "1")
+    monkeypatch.setenv("FM_AI_PDV_TERMINAL_ID", "caixa-01")
+    monkeypatch.setenv(
+        "FM_AI_PDV_ALLOWED_TERMINALS",
+        "caixa-01, caixa-02",
+    )
+
+    config = carregar_rollout_ambiente(runtime_settings=_runtime_comercial())
+
+    assert config.modo is ModoPDV.AUTHORITATIVE_CANARY
+    assert config.contexto_confiavel
+    assert (config.tenant_id, config.unidade_id) == (
+        "tenant-prod",
+        "unidade-prod",
+    )
+    assert config.terminais_permitidos == frozenset({"caixa-01", "caixa-02"})
+    assert config.flags.orders.orders_authoritative
+    assert config.flags.payments.payments_v1_enabled
+    assert config.flags.payments.sales_from_orders_enabled
+    assert config.flags.payments.legacy_sale_adapter_enabled
+    assert config.flags.stock_ledger_authoritative
 
 
 def test_loader_canary_exige_ambiente_explicito(monkeypatch) -> None:

@@ -109,7 +109,10 @@ from core.pdv.adaptadores_sqlalchemy import (
     RepositorioPDVSQLAlchemy,
     SQLAlchemyPDVUnitOfWork,
 )
-from core.pdv.configuracao import carregar_rollout_ambiente
+from core.pdv.configuracao import (
+    carregar_rollout_ambiente,
+    carregar_terminal_pdv_ambiente,
+)
 from core.pdv.contexto import contexto_caixa_pdv_autenticado
 from core.pdv.executores import (
     ExecutorAutoritativoSQLAlchemy,
@@ -286,7 +289,8 @@ except Exception as e:
         st.stop()
 
 # Schemas V1 nunca sao criados automaticamente fora do banco temporario E2E.
-_pdv_rollout = carregar_rollout_ambiente()
+_pdv_rollout = carregar_rollout_ambiente(runtime_settings=RUNTIME_SETTINGS)
+_pdv_terminal_id = carregar_terminal_pdv_ambiente()
 if is_test_mode() and _pdv_rollout.modo is not ModoPDV.LEGACY:
     from migrations.pdv_v1 import upgrade as upgrade_pdv_v1
 
@@ -1769,7 +1773,7 @@ with aba3:
                     )
 
                 checkout_id_pix = st.session_state["pdv_checkout_id"]
-                terminal_pix_pdv = os.getenv("FM_AI_TEST_TERMINAL", "pdv-default")
+                terminal_pix_pdv = _pdv_terminal_id
                 assinatura_checkout_duravel = (
                     f"{getattr(prod_pdv, 'id', '')}:"
                     f"{qtd_pdv}:{cliente_id_pdv}:{total_final_pdv:.2f}"
@@ -2007,7 +2011,7 @@ with aba3:
         st.markdown("---")
         if "pdv_checkout_id" not in st.session_state:
             st.session_state["pdv_checkout_id"] = str(uuid4())
-        _terminal_pdv = os.getenv("FM_AI_TEST_TERMINAL", "pdv-default")
+        _terminal_pdv = _pdv_terminal_id
         _canary_pdv = _pdv_rollout.modo is ModoPDV.AUTHORITATIVE_CANARY
         botao_finalizar_pdv = st.button(
             "🚀 Confirmar Pagamento & Finalizar Venda",
