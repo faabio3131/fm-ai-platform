@@ -155,20 +155,13 @@ def finalizar_pagamento_liquidado_em_transacao(
         raise FinalizacaoPagamentoInvalida("pendencia_pdv_de_outro_pedido")
 
     entrada = reconstruir_entrada(pendente)
-    reserva = recursos.estoque.buscar_reserva(
-        pagamento.tenant_id,
-        pagamento.unidade_id,
-        generico.pedido_id,
-    )
     venda_legada_id = projetar_legado_em_transacao(
         recursos=recursos,
         tenant_id=pagamento.tenant_id,
         unidade_id=pagamento.unidade_id,
         pedido_id=generico.pedido_id,
         entrada=entrada,
-        reserva=reserva,
         timestamp=timestamp,
-        projetar_estoque=False,
     )
     RepositorioPDVSQLAlchemy(recursos.session).criar_link(
         tenant=pagamento.tenant_id,

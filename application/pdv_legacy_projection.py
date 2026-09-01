@@ -1,4 +1,4 @@
-"""Projeções legadas idempotentes após liquidação canônica do PDV."""
+"""Projeções legadas idempotentes de venda/cashback após liquidação canônica."""
 
 from __future__ import annotations
 
@@ -9,29 +9,14 @@ from typing import Any, cast
 from sqlalchemy import insert, select, update
 from sqlalchemy.engine import CursorResult
 
-from core.estoque.modelos import ReservaEstoque
 from core.pdv.adaptadores_sqlalchemy import RepositorioPDVSQLAlchemy, TipoEfeitoCompat
 from core.pdv.modelos import EntradaPDV
-from infra.legacy_product_scope import (
-    atualizar_insumo_legado,
-    obter_insumo_por_id_legado,
-)
 from infra.legacy_schema import clientes, vendas
 from infra.transacoes.uow import RecursosTransacionaisV1
 
 
 class ProjecaoLegadaInvalida(RuntimeError):
     pass
-
-
-def _insumo_legado_id(insumo_id: str) -> int:
-    prefixo = "legacy:insumo:"
-    if not insumo_id.startswith(prefixo):
-        raise ProjecaoLegadaInvalida("snapshot sem insumo legado")
-    try:
-        return int(insumo_id.removeprefix(prefixo))
-    except ValueError as exc:
-        raise ProjecaoLegadaInvalida("identificador de insumo legado inválido") from exc
 
 
 def projetar_legado_em_transacao(
@@ -41,9 +26,7 @@ def projetar_legado_em_transacao(
     unidade_id: str,
     pedido_id: str,
     entrada: EntradaPDV,
-    reserva: ReservaEstoque | None,
     timestamp: datetime,
-    projetar_estoque: bool = True,
 ) -> str:
     session = recursos.session
     pdv = RepositorioPDVSQLAlchemy(session)
@@ -80,42 +63,6 @@ def projetar_legado_em_transacao(
             tipo=TipoEfeitoCompat.VENDA_LEGADA,
             chave=f"{entrada.idempotency_key}:legacy_sale",
             referencia=venda_legada_id,
-            instante=timestamp,
-        )
-
-    if projetar_estoque and pdv.buscar_efeito(
-        tenant_id, unidade_id, pedido_id, TipoEfeitoCompat.ESTOQUE_LEGADO
-    ) is None:
-        if reserva is not None:
-            for item in reserva.snapshot.itens:
-                insumo_id = _insumo_legado_id(item.insumo_id)
-                insumo = obter_insumo_por_id_legado(
-                    session,
-                    tenant_id=tenant_id,
-                    unidade_id=unidade_id,
-                    insumo_id=insumo_id,
-                    for_update=True,
-                )
-                if insumo is None:
-                    raise ProjecaoLegadaInvalida("insumo legado não encontrado")
-                atual = Decimal(str(insumo.saldo_atual or 0))
-                if atual < item.quantidade_total:
-                    raise ProjecaoLegadaInvalida("estoque legado divergente")
-                atualizar_insumo_legado(
-                    session,
-                    tenant_id=tenant_id,
-                    unidade_id=unidade_id,
-                    insumo_id=insumo_id,
-                    valores={
-                        "saldo_atual": float(atual - item.quantidade_total),
-                    },
-                )
-        pdv.registrar_efeito(
-            tenant=tenant_id,
-            unidade=unidade_id,
-            pedido_id=pedido_id,
-            tipo=TipoEfeitoCompat.ESTOQUE_LEGADO,
-            chave=f"{entrada.idempotency_key}:legacy_stock",
             instante=timestamp,
         )
 

@@ -1,6 +1,7 @@
 from core.pagamentos.flags import FlagsPagamentosV1
 from core.pdv.adaptadores_sqlalchemy import (
     LegacyPDVSQLAlchemyAdapter,
+    PonteProjecaoCompatLegadaPDVSQLAlchemy,
     RegistroFalhaShadowSQLAlchemy,
     RepositorioPDVSQLAlchemy,
     SQLAlchemyPDVUnitOfWork,
@@ -82,7 +83,10 @@ def executar(factory, contexto, entrada, modo: ModoPDV, fault=None):
     )
     autoritativo = (
         ExecutorAutoritativoSQLAlchemy(
-            session=session, contexto=contexto, legado=legado, fault=fault
+            session=session,
+            contexto=contexto,
+            legado=PonteProjecaoCompatLegadaPDVSQLAlchemy(legado),
+            fault=fault,
         )
         if canary
         else None

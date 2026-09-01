@@ -19,15 +19,12 @@ from core.pagamentos.servicos import confirmar_pagamento, processar_webhook
 from core.seguranca.contexto import ContextoExecucao
 from infra.transacoes.uow import RecursosTransacionaisV1
 
-from .adaptadores_sqlalchemy import (
-    FaultInjector,
-    LegacyPDVSQLAlchemyAdapter,
-    RepositorioPDVSQLAlchemy,
-)
+from .adaptadores_sqlalchemy import FaultInjector, RepositorioPDVSQLAlchemy
 from .cutover_canonico import montar_checkout_pdv
 from .finalizacao_pendente import RepositorioFinalizacaoPendentePDV
 from .modelos import EntradaPDV, ResultadoPDV, mapear_metodo
 from .reconciliacao import ReconciliacaoPDV, detectar_divergencias
+from .repositorios import PonteProjecaoCompatLegadaPDV
 
 
 def _cashback_ganho(entrada: EntradaPDV) -> Decimal:
@@ -44,7 +41,7 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
         *,
         session,
         contexto: ContextoExecucao,
-        legado: LegacyPDVSQLAlchemyAdapter,
+        legado: PonteProjecaoCompatLegadaPDV,
         fault: FaultInjector | None = None,
         permitir_pix_sandbox: bool = False,
     ) -> None:

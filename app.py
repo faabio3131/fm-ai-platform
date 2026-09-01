@@ -105,6 +105,7 @@ from application.legacy_bootstrap_transacoes import AplicacaoLegacyBootstrapV1
 
 from core.pdv.adaptadores_sqlalchemy import (
     LegacyPDVSQLAlchemyAdapter,
+    PonteProjecaoCompatLegadaPDVSQLAlchemy,
     RegistroFalhaShadowSQLAlchemy,
     RepositorioPDVSQLAlchemy,
     SQLAlchemyPDVUnitOfWork,
@@ -2223,7 +2224,7 @@ with aba3:
                     ExecutorAutoritativoSQLAlchemy(
                         session=db_exec_venda,
                         contexto=contexto_pdv,
-                        legado=legado_pdv,
+                        legado=PonteProjecaoCompatLegadaPDVSQLAlchemy(legado_pdv),
                         permitir_pix_sandbox=is_test_mode(),
                     )
                     if modo_resolvido is ModoPDV.AUTHORITATIVE_CANARY

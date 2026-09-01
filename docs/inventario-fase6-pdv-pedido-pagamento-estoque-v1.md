@@ -8,7 +8,8 @@
 ## 0. Checkpoints de execução
 
 - F6-A fechada em `8ce3eba882d65af78822a35dae23c97e0e8ad628`: matriz 20/20 verde e reexecução extra do PR11 E2E principal verde.
-- F6-B aberta após o checkpoint F6-A, sem merge/deploy e sem reabrir decisões já aprovadas.
+- F6-B fechada em `c9a2a06fa68bb2404e0fd7b9dbbc058cd334af68`: gate dedicado + matriz 21/21 verdes.
+- F6-C aberta após o checkpoint F6-B, sem merge/deploy.
 
 ## 1. Resultado executivo
 
@@ -55,12 +56,12 @@ O gap principal é operacional: o loader atual do PDV força `LEGACY` fora de `F
 - falhar fechado em configuração parcial/inconsistente;
 - criar fitness + CI dedicado.
 
-### F6-B — Economic Edge Cleanup — CANDIDATA EM VALIDAÇÃO
+### F6-B — Economic Edge Cleanup — FECHADA
 - remover fallback de total zero para Venda legada;
 - fechar contrato canônico para pedido de valor zero;
 - provar idempotência/rollback sem criar obrigação fictícia.
 
-### F6-C — Legacy Projection Containment
+### F6-C — Legacy Projection Containment — CANDIDATA EM VALIDAÇÃO
 - classificar `LegacyPDVSQLAlchemyAdapter` somente como projeção/ponte de catálogo;
 - eliminar qualquer baixa de estoque legada do caminho canônico;
 - garantir que cashback/projeções compatíveis sejam efeitos idempotentes e não autoridade financeira.

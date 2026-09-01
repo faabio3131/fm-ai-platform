@@ -33,13 +33,13 @@ from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import Permissao
 from infra.transacoes.uow import RecursosTransacionaisV1
 
-from .adaptadores_sqlalchemy import LegacyPDVSQLAlchemyAdapter
 from .modelos import (
     EntradaPDV,
     id_insumo_legado,
     id_produto_legado,
     mapear_metodo,
 )
+from .repositorios import PonteCatalogoLegadoPDV
 
 
 class DivergenciaEstoqueCutover(RuntimeError):
@@ -117,7 +117,7 @@ def preparar_snapshot_estoque_pdv(
     contexto: ContextoExecucao,
     pedido: Pedido,
     recursos: RecursosTransacionaisV1,
-    legado: LegacyPDVSQLAlchemyAdapter,
+    legado: PonteCatalogoLegadoPDV,
 ) -> tuple[SnapshotFichaEstoque | None, list[tuple[object, Decimal]]]:
     """Valida/ancora o saldo do cutover e cria snapshot imutável da receita."""
 
@@ -197,7 +197,7 @@ def montar_checkout_pdv(
     contexto: ContextoExecucao,
     instante: datetime,
     recursos: RecursosTransacionaisV1,
-    legado: LegacyPDVSQLAlchemyAdapter,
+    legado: PonteCatalogoLegadoPDV,
 ) -> tuple[ComandoCheckoutV1, list[tuple[object, Decimal]]]:
     pedido = montar_pedido_pdv(entrada=entrada, contexto=contexto, instante=instante)
     snapshot, consumos = preparar_snapshot_estoque_pdv(
