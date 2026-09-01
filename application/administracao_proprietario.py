@@ -126,6 +126,11 @@ def _administrador_tenant(contexto: ContextoExecucao) -> bool:
     return Papel.ADMINISTRADOR in contexto.papeis
 
 
+def _exigir_administrador_tenant(contexto: ContextoExecucao) -> None:
+    if not _administrador_tenant(contexto):
+        raise PermissionError("operacao_exclusiva_administrador_tenant")
+
+
 class AplicacaoAdministracaoProprietarioV1:
     def __init__(self, session_factory: SessionFactory) -> None:
         self._session_factory = session_factory
@@ -279,6 +284,7 @@ class AplicacaoAdministracaoProprietarioV1:
         versao_esperada: int,
     ) -> EmpresaAdministrativa:
         _exigir(contexto, Permissao.CONFIGURACAO_ALTERAR)
+        _exigir_administrador_tenant(contexto)
         if empresa.tenant_id != contexto.tenant_id:
             raise PermissionError("tenant_admin_divergente")
         with self._session_factory() as session:
@@ -317,6 +323,7 @@ class AplicacaoAdministracaoProprietarioV1:
         unidade: UnidadeAdministrativa,
     ) -> UnidadeAdministrativa:
         _exigir(contexto, Permissao.CONFIGURACAO_ALTERAR)
+        _exigir_administrador_tenant(contexto)
         if unidade.tenant_id != contexto.tenant_id:
             raise PermissionError("tenant_admin_divergente")
         with self._session_factory() as session:
