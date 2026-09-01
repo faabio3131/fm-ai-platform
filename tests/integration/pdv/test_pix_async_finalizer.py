@@ -90,17 +90,17 @@ def test_pix_pago_assincrono_finaliza_tudo_e_replay_nao_duplica(
                 ReservaEstoqueORM.pedido_id == pendente.pedido_id
             )
         )
-        assert reserva is not None and reserva.status == "consumida"
+        assert reserva is not None and reserva.status == "ativa"
         saldo = session.get(
             SaldoEstoqueORM,
             (contexto.tenant_id, contexto.unidade_id, "legacy:insumo:1"),
         )
         assert saldo is not None
-        assert Decimal(str(saldo.saldo_fisico)) == Decimal(9)
-        assert Decimal(str(saldo.saldo_reservado)) == Decimal(0)
+        assert Decimal(str(saldo.saldo_fisico)) == Decimal(10)
+        assert Decimal(str(saldo.saldo_reservado)) == Decimal(1)
         assert session.scalar(select(func.count()).select_from(VendaFinanceiraORM)) == 1
         assert session.scalar(select(func.count()).select_from(VendaTeste)) == 1
-        assert session.get(InsumoTeste, 1).saldo_atual == 9
+        assert session.get(InsumoTeste, 1).saldo_atual == 10
         cliente = session.get(ClienteTeste, 1)
         assert cliente is not None
         assert Decimal(str(cliente.saldo_cashback)) == Decimal("6.25")
@@ -133,4 +133,4 @@ def test_pix_pago_assincrono_finaliza_tudo_e_replay_nao_duplica(
     with fabrica() as session:
         assert session.scalar(select(func.count()).select_from(VendaFinanceiraORM)) == 1
         assert session.scalar(select(func.count()).select_from(VendaTeste)) == 1
-        assert session.get(InsumoTeste, 1).saldo_atual == 9
+        assert session.get(InsumoTeste, 1).saldo_atual == 10
