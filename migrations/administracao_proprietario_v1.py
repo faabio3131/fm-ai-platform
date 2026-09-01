@@ -171,7 +171,7 @@ def upgrade_administracao_proprietario_v1(connection: Connection) -> None:
                     tenant_id=tenant_id,
                     unidade_id=unidade_id,
                     formas_pagamento=[],
-                    taxa_servico_percentual=Decimal("0"),
+                    taxa_servico_percentual=Decimal(0),
                     parametros_operacionais={},
                     politica_financeira={},
                     versao=1,
