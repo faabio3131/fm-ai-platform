@@ -992,6 +992,59 @@ Os componentes centrais de cutover PDV e `application/checkout.py` já existem n
 **Próxima tarefa F4**
 - iniciar o **F4-E — Convergência mínima do Delivery**: fazer somente o caminho necessário ao Assistente convergir para Pedido/Checkout/Order Result canônicos, preservando capacidades específicas de Delivery e mantendo sua homologação completa para a Fase 11.
 
+## 10.9 Checkpoint Fase 4 / F4-E — convergência mínima do Delivery — 31/08/2026
+
+**SHA técnico validado:** `4884a2948d554ce69b849721b2ad706b09dc2872`
+
+**Current → Target**
+- Current antes deste bloco: o Assistente já criava Pedido/Pagamento/Reserva canônicos, porém a logística de entrega ainda não era vinculada ao mesmo Pedido pelo caminho comercial do Assistente; o domínio histórico `core.delivery` continuava com fechamento próprio paralelo.
+- Target aplicado: o caminho usado pelo Assistente fecha em **Pedido/Checkout/Reserva + Entrega canônica no mesmo `pedido_id` e na mesma UoW**, sem usar `PedidoDelivery`, `RuntimeDeliveryTeste` ou pagamento paralelo do Delivery.
+- A homologação completa do Delivery Próprio continua reservada para a Fase 11; F4-E faz somente a convergência estrutural mínima exigida pela Fase 4.
+
+**Implementado**
+- criado `application/assistente_delivery_convergence.py` como composição transacional do checkout do Assistente com `core.entrega`;
+- `application/catalogo_estoque_cutover.py` passou a expor também `executar_checkout_com_ficha_estoque_em_transacao`, permitindo que o chamador seja dono da UoW e evitando commit intermediário;
+- para modalidade entrega, Pedido, Pagamento, Reserva de Estoque e agregado `Entrega` são materializados sob a mesma UoW; falha em qualquer etapa reverte o conjunto;
+- a Entrega usa exatamente o `pedido_id` retornado pelo checkout canônico e inicia em `aguardando_producao`;
+- o vínculo de endereço usa somente referência autorizada `address://...` proveniente do Customer Context; endereço bruto não é copiado para o agregado logístico;
+- retirada não cria agregado de Entrega;
+- replay da mesma confirmação preserva o mesmo Pedido/Entrega e não duplica Pedido, Pagamento, Reserva ou evento de criação da Entrega;
+- `CheckoutAssistenteV1` passou a delegar ao convergence root quando usa o executor comercial real; injeção de executor permanece somente como seam de teste;
+- `ResultadoCheckoutAssistente` expõe `entrega_id`/`entrega_status` quando aplicável;
+- `ServicoAssistenteAtendimento` exige referência de endereço autorizada para entrega e registra o status logístico na auditoria do atendimento;
+- confirmado patrimônio existente: `DeliveryBase` já integra o schema comercial pela migration `0012_restaurant_operations_runtime_v1`; nenhuma nova migration de Entrega foi criada;
+- corrigido comentário histórico de `core/entrega/modelos_orm.py` que ainda dizia incorretamente que o schema seria apenas de teste;
+- fitness guard agora prova que o convergence root não depende de `PedidoDelivery`, `RuntimeDeliveryTeste` ou `core.delivery.runtime_teste` e que `DeliveryBase` está no runner comercial oficial.
+
+**Provas**
+- Assistente Fase 4 Gate V1 — run 169: **PASS**;
+- Commercial Runtime Readiness V1 — run 184: **PASS**;
+- compile do recorte F4-E: **PASS**;
+- Ruff do recorte F4-E: **PASS**;
+- regressão ampliada: **109 passed**;
+- testes F4-E cobrem: mesmo Pedido entre checkout e Entrega, mesmo tenant/unidade, endereço `address://`, retirada sem agregado logístico e replay sem duplicação.
+
+**Limites preservados**
+- `core.delivery`/Delivery Próprio não é promovido a autoridade comercial pela Fase 4; seu runtime de teste e sua UI própria permanecem patrimônio para a Fase 11;
+- `core.entrega` é a capacidade logística canônica já existente usada pelo convergence root;
+- nenhuma lógica de pagamento foi duplicada no Delivery;
+- nenhuma baixa de estoque foi movida para o Delivery; o consumo continua ligado ao início real da produção/KDS conforme F4-D;
+- nenhuma homologação real de PagBank foi declarada; a conta/credenciais oficiais continuam ausentes.
+
+**Readiness**
+- `assistente_atendimento` continua `CUTOVER_PENDING` porque F4-F e o gate comercial/prático final ainda não foram concluídos;
+- blockers de código conhecidos no recorte F4-E: **0**;
+- blockers externos/de implantação preservados: `pix_provider_homologation_incomplete` e aplicação física da migration `0034_crm_customer_context_v1` no banco de homologação;
+- `commercial_runtime_e2e`: ainda não executado no SHA candidato final;
+- `physical_test`: ainda não executado no SHA candidato final.
+
+**Rollback**
+- nenhuma migration nova foi criada no F4-E;
+- antes de merge/deploy, rollback é reverter os commits deste bloco;
+- após eventual implantação futura, Pedido/Pagamento/Reserva/Entrega e eventos já persistidos devem ser preservados; rollback deve retirar o composition root, não apagar agregados canônicos.
+
+**Próxima tarefa F4**
+- iniciar o **F4-F — Runtime do canal e E2E**: integrar e provar WhatsApp/voz/texto, handoff, monitoramento de pagamento, KDS/entrega, falhas e matriz de homologação real por tenant; integrações externas indisponíveis podem permanecer explicitamente pendentes sem homologação fictícia.
 ## 11. Regra de preservação
 
 Durante a recuperação:
