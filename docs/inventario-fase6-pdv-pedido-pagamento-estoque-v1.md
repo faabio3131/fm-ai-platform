@@ -10,7 +10,7 @@
 - F6-A fechada em `8ce3eba882d65af78822a35dae23c97e0e8ad628`: matriz 20/20 verde e reexecução extra do PR11 E2E principal verde.
 - F6-B fechada em `c9a2a06fa68bb2404e0fd7b9dbbc058cd334af68`: gate dedicado + matriz 21/21 verdes.
 - F6-C fechada em `f635495049657230391adc452d4571239b5b85b2`: gate dedicado + matriz transversal 22/22 verdes, sem falhas ou pendências.
-- F6-D aberta após o checkpoint F6-C, sem merge/deploy.
+- F6-D fechada em `db422035c2339f9a8b9743f5138149fc205168d4`: gate comercial dedicado + matriz transversal 25/25 verdes; Playwright comercial 3/3 (dinheiro, cartão presencial e Pix fail-closed); migration PostgreSQL `VARCHAR(30) -> VARCHAR(64)` comprovada; evidência pós-browser com 2 pedidos e 2 pagamentos canônicos persistidos.
 
 ## 1. Resultado executivo
 
@@ -18,7 +18,7 @@ A Fase 6 não começa do zero. Pedido, checkout, Pagamento/VendaFinanceira, ledg
 
 F6-A removeu o bloqueio estrutural que impedia promoção governada fora do harness de teste. O canary comercial agora depende de autorização server-side, Active Execution Scope e terminal allowlisted. F6-B removeu o fallback econômico legado de total zero. F6-C conteve o adapter legado como projeção/ponte de catálogo, sem autoridade de baixa de estoque no caminho canônico.
 
-O gap atual é operacional: provar o caminho completo em runtime comercial de staging, PostgreSQL e navegador real, sem `FM_AI_TEST_MODE`.
+A prova operacional do F6-D foi concluída em runtime comercial de staging, PostgreSQL e navegador real, sem `FM_AI_TEST_MODE`. O próximo bloco técnico previsto no inventário é o F6-E — Canary Readiness / Reconciliation / Rollback.
 
 ## 2. Current → Target
 
@@ -70,7 +70,7 @@ O gap atual é operacional: provar o caminho completo em runtime comercial de st
 - garantir que cashback/projeções compatíveis sejam efeitos idempotentes e não autoridade financeira;
 - matriz transversal 22/22 verde no SHA de fechamento.
 
-### F6-D — Commercial Runtime E2E — EM VALIDAÇÃO
+### F6-D — Commercial Runtime E2E — FECHADA
 - PostgreSQL 16 efêmero no gate;
 - `FM_AI_ENV=staging`, sem `FM_AI_TEST_MODE`;
 - migrations oficiais + `assert_schema_current`;
@@ -81,7 +81,13 @@ O gap atual é operacional: provar o caminho completo em runtime comercial de st
 - Pix sem provider homologado bloqueado/fail-closed;
 - Playwright comercial separado do harness E2E de teste;
 - evidência pós-browser nas tabelas canônicas do mesmo PostgreSQL;
-- workflow dedicado `Fase 6D Commercial Runtime E2E Gate`.
+- workflow dedicado `Fase 6D Commercial Runtime E2E Gate`;
+- fechamento técnico no SHA `db422035c2339f9a8b9743f5138149fc205168d4`;
+- matriz transversal integral 25/25 verde no mesmo SHA;
+- Playwright comercial 3/3 verde: dinheiro, cartão presencial e Pix sem provider homologado fail-closed;
+- migration `0037_pdv_reconciliation_strategy_width_v1` comprovada no PostgreSQL, ampliando `estoque_estrategia` de `VARCHAR(30)` para `VARCHAR(64)`;
+- evidência pós-browser no mesmo PostgreSQL: `pedidos_v1 = 2` e `pagamentos_v1 = 2`;
+- gate de Administração Fase 5 e demais regressões transversais também verdes no SHA de fechamento.
 
 ### F6-E — Canary Readiness / Reconciliation / Rollback
 - métricas por modo/terminal;
