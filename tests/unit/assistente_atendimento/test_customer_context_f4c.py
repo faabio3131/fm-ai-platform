@@ -172,7 +172,10 @@ def test_0034_customer_context_esta_no_manifest_e_cria_vault() -> None:
     assert_migration_manifest(DEFAULT_MIGRATIONS)
     engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
     aplicadas = run_migrations(engine)
-    assert aplicadas[-1] == "0034_crm_customer_context_v1"
+    assert "0034_crm_customer_context_v1" in aplicadas
+    assert aplicadas.index("0034_crm_customer_context_v1") < aplicadas.index(
+        "0035_assistente_channel_runtime_v1"
+    )
     assert "crm_enderecos_seguros_v1" in set(inspect(engine).get_table_names())
 
 
