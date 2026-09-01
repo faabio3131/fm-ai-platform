@@ -6,7 +6,7 @@ import base64
 import json
 from collections.abc import Callable
 from dataclasses import asdict, is_dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, cast
 
@@ -16,6 +16,9 @@ from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
 from application.assistente_channel_runtime import RuntimeCanalWhatsAppV1
+from application.assistente_operational_notifications import (
+    notificar_status_assistente_best_effort,
+)
 from application.finalizacao_pagamento import FinalizacaoPagamentoInvalida
 from application.gerente_ia_runtime import PlanejadorLLM, compor_runtime_gerente_ia
 from application.gerente_ia_transacoes import (
@@ -293,6 +296,19 @@ def build_http_app(
                 status_code=status.HTTP_204_NO_CONTENT
             )
 
+        contexto_status = ContextoExecucao.sistema(
+            identidade="pagbank-status-assistente-v1",
+            motivo="notificar mudança financeira já confirmada ao canal do Assistente",
+            tenant_id=resultado.pagamento.tenant_id,
+            unidade_id=resultado.pagamento.unidade_id,
+            correlation_id=resultado.pagamento.correlation_id,
+            solicitado_em=datetime.now(timezone.utc),
+        )
+        notificar_status_assistente_best_effort(
+            session_factory=session_factory,
+            contexto=contexto_status,
+            pedido_id=resultado.pagamento.pedido_id,
+        )
         return Response(
             status_code=status.HTTP_204_NO_CONTENT
         )
