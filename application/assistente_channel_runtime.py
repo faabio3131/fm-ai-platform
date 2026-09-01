@@ -570,6 +570,7 @@ class RuntimeCanalWhatsAppV1:
         *,
         runtime: ResultadoRuntimeAssistente,
         motivo: str,
+        mensagem_contexto: str | None = None,
     ) -> ResultadoRuntimeAssistente:
         checkout = runtime.resultado.checkout
         metadata = {
@@ -587,7 +588,12 @@ class RuntimeCanalWhatsAppV1:
             resultado=ResultadoAtendimento(
                 estado=EstadoAtendimento.HANDOFF_HUMANO,
                 mensagem=(
-                    "Encaminhei este atendimento para uma pessoa da equipe. "
+                    (
+                        f"{mensagem_contexto} "
+                        if mensagem_contexto is not None
+                        else ""
+                    )
+                    + "Encaminhei este atendimento para uma pessoa da equipe. "
                     "Não vou inventar uma resposta operacional."
                 ),
                 carrinho=runtime.resultado.carrinho,
@@ -629,6 +635,7 @@ class RuntimeCanalWhatsAppV1:
             return self._handoff_resultado(
                 runtime=runtime,
                 motivo="cliente_solicitou_atendimento_humano",
+                mensagem_contexto=runtime.resultado.mensagem,
             )
 
         estado = runtime.resultado.estado
@@ -1055,6 +1062,10 @@ class RuntimeCanalWhatsAppV1:
                 idempotency_key=f"reply:{mensagem.mensagem_id}",
             )
         except ErroProvedorExterno:
+            handoff_runtime = self._handoff_resultado(
+                runtime=runtime_atual,
+                motivo="falha_envio_whatsapp_reconciliacao_obrigatoria",
+            )
             db = self._session_factory()
             try:
                 store = EncryptedSQLAlchemyChannelStateStore(db)
@@ -1070,7 +1081,7 @@ class RuntimeCanalWhatsAppV1:
                         recipient=mensagem.remetente,
                         conversa_id=atual.conversa_id,
                         estado=EstadoAtendimento.HANDOFF_HUMANO.value,
-                        state=atual.state,
+                        state=_serializar_runtime(handoff_runtime),
                         pedido_id=atual.pedido_id,
                         pagamento_id=atual.pagamento_id,
                         entrega_id=atual.entrega_id,
@@ -1092,12 +1103,6 @@ class RuntimeCanalWhatsAppV1:
                 raise
             finally:
                 db.close()
-            self._handoff.registrar(
-                contexto=_contexto_agente(contexto),
-                conversa_id=conversa_id,
-                motivo="falha_envio_whatsapp_reconciliacao_obrigatoria",
-                metadata_segura={"estado": runtime_atual.resultado.estado.value},
-            )
             return ResultadoMensagemCanal(
                 mensagem_id=mensagem.mensagem_id,
                 duplicada=False,
