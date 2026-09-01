@@ -1,6 +1,8 @@
 name: Assistente Fase 4 Commercial E2E V1
 
 on:
+  push:
+    branches: [recovery/v1-fase4-assistente-cutover]
   pull_request:
     branches: [main]
     paths:
