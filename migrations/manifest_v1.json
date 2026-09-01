@@ -144,6 +144,10 @@
     {
       "version": "0035_assistente_channel_runtime_v1",
       "sha256": "d0cf021ccee080ae3870234ba6030569a68fd96bc3a4082de8a32e51254f2bc3"
+    },
+    {
+      "version": "0036_administracao_proprietario_v1",
+      "sha256": "e1804e577dfe327272bd40a0c8ab3b8751c94dbc12532f7980020cb32db41bc9"
     }
   ]
 }
