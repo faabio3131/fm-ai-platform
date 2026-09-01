@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import os
 import uuid
-from contextlib import contextmanager
 from collections.abc import Iterator
+from contextlib import contextmanager
 
 import pytest
-from sqlalchemy import Engine, create_engine, inspect, select, text
+from sqlalchemy import Engine, create_engine, inspect, text
 
 from migrations.runner import run_migrations
 
