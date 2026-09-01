@@ -113,6 +113,10 @@ jobs:
             core/integracoes/google_maps.py \
             application/assistente_atendimento_runtime.py \
             application/catalogo_estoque_cutover.py \
+            application/order_result_orchestrator.py \
+            application/finalizacao_pagamento.py \
+            application/pdv_legacy_projection.py \
+            application/pagbank_reconciliacao.py \
             application/ai_router_runtime.py \
             infra/integracoes/transportes.py \
             infra/assistente_atendimento/clientes_sqlalchemy.py \
