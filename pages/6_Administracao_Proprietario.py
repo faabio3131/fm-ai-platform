@@ -41,7 +41,7 @@ render_sensitive_idle_watchdog(identity)
 
 with st.sidebar:
     st.subheader("🔐 Acesso Corporativo")
-    render_identity_sidebar(identity, settings)
+    render_identity_sidebar(identity, settings, show_admin_link=False)
 
 st.title("🔐 Administração / Proprietário")
 st.caption(
