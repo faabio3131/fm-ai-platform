@@ -181,12 +181,7 @@ jobs:
             tests/unit/assistente_atendimento/test_order_result_orchestrator_f4d.py \
             tests/integration/wave1/test_pagbank_reconciliation.py \
             tests/integration/wave2/test_kds_authoritative_runtime.py \
-            tests/integration/pdv/test_canary_integrado.py \
-            tests/integration/pdv/test_concorrencia.py \
-            tests/integration/pdv/test_cutover_divergencia.py \
-            tests/integration/pdv/test_pix_async_finalizer.py \
-            tests/integration/pdv/test_pix_async_race.py \
-            tests/integration/pdv/test_rollback.py \
+            tests/integration/pdv \
             tests/unit/stock/test_ledger_servicos.py \
             tests/unit/delivery/test_modelos.py \
             tests/unit/delivery/test_politica_sqlalchemy.py \
