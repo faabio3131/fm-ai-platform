@@ -6,13 +6,13 @@ apenas IDs canônicos e fingerprints não reversíveis.
 """
 
 from sqlalchemy import (
+    Column,
     DateTime,
     Index,
     Integer,
     MetaData,
     String,
     Table,
-    Column,
     Text,
     UniqueConstraint,
 )
