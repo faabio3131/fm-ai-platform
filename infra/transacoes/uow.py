@@ -63,6 +63,23 @@ class UnitOfWorkV1:
         self.committed = False
         self._recursos: RecursosTransacionaisV1 | None = None
 
+    @classmethod
+    def adotar_session(cls, session: Session) -> Self:
+        """Faz a application boundary possuir commit/rollback de Session já aberta."""
+
+        uow = cls(lambda: session)
+        uow.session = session
+        uow._recursos = RecursosTransacionaisV1(session)
+        uow.pedidos = uow._recursos.pedidos
+        uow.pagamentos = uow._recursos.pagamentos
+        uow.estoque = uow._recursos.estoque
+        uow.outbox = uow._recursos.outbox
+        uow.inbox = uow._recursos.inbox
+        uow.dlq = uow._recursos.dlq
+        uow.auditoria = uow._recursos.auditoria
+        uow.committed = False
+        return uow
+
     @property
     def recursos(self) -> RecursosTransacionaisV1:
         if self._recursos is None:
