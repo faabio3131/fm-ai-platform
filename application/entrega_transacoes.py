@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 from application.assistente_operational_notifications import (
     notificar_status_assistente_best_effort,
 )
-
 from core.entrega import (
     ChecklistExpedicao,
     Entrega,
