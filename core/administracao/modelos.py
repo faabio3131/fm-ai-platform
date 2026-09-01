@@ -18,8 +18,55 @@ def _texto(valor: str, *, nome: str, maximo: int) -> str:
     return normalizado
 
 
+_MARCADORES_SECRETOS = (
+    "access_token",
+    "api_key",
+    "apikey",
+    "authorization",
+    "client_secret",
+    "password",
+    "private_key",
+    "refresh_token",
+    "senha",
+    "segredo",
+    "secret",
+    "token",
+    "pix_key",
+    "chave_pix",
+)
+
+
+def _json_seguro(valor: object, *, profundidade: int = 0) -> object:
+    if profundidade > 6:
+        raise ValueError("configuracao_admin_excede_profundidade")
+    if isinstance(valor, (str, int, float, bool, type(None))):
+        return valor
+    if isinstance(valor, Mapping):
+        if len(valor) > 128:
+            raise ValueError("configuracao_admin_excede_limite")
+        saida: dict[str, object] = {}
+        for chave, item in valor.items():
+            nome = str(chave).strip()
+            normalizado = nome.casefold().replace("-", "_")
+            if not nome or any(marcador in normalizado for marcador in _MARCADORES_SECRETOS):
+                raise ValueError("segredo_nao_permitido_em_configuracao_admin")
+            saida[nome] = _json_seguro(item, profundidade=profundidade + 1)
+        return saida
+    if isinstance(valor, (list, tuple)):
+        if len(valor) > 128:
+            raise ValueError("configuracao_admin_excede_limite")
+        return [
+            _json_seguro(item, profundidade=profundidade + 1)
+            for item in valor
+        ]
+    raise TypeError("configuracao_admin_valor_invalido")
+
+
 def _mapping(valor: Mapping[str, object] | None) -> Mapping[str, object]:
-    return MappingProxyType(dict(valor or {}))
+    seguro = _json_seguro(dict(valor or {}))
+    if not isinstance(seguro, dict):
+        raise TypeError("configuracao_admin_mapping_invalido")
+    return MappingProxyType(seguro)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -115,6 +162,18 @@ class ConfiguracaoEstabelecimento:
                 if str(item).strip()
             )
         )
+        permitidas = {
+            "dinheiro",
+            "pix",
+            "cartao_credito",
+            "cartao_debito",
+            "voucher",
+            "outro",
+            "pagamento_na_entrega",
+            "recebimento_posterior",
+        }
+        if any(forma not in permitidas for forma in formas):
+            raise ValueError("forma_pagamento_invalida")
         object.__setattr__(self, "formas_pagamento", formas)
         taxa = Decimal(self.taxa_servico_percentual)
         if not taxa.is_finite() or taxa < 0 or taxa > 100:
