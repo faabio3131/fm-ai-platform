@@ -15,6 +15,9 @@ on:
       - "tests/integration/integracoes/test_whatsapp_channel_http_f4f.py"
       - "application/assistente_atendimento_runtime.py"
       - "application/assistente_channel_runtime.py"
+      - "application/assistente_operational_notifications.py"
+      - "application/kds_transacoes.py"
+      - "application/entrega_transacoes.py"
       - "infra/assistente_atendimento/canal_schema.py"
       - "infra/assistente_atendimento/canal_estado_sqlalchemy.py"
       - "migrations/assistente_channel_runtime_v1.py"
@@ -46,6 +49,9 @@ on:
       - "tests/unit/assistente_atendimento/**"
       - "tests/integration/wave1/test_pagbank_reconciliation.py"
       - "tests/integration/wave2/test_kds_authoritative_runtime.py"
+      - "tests/integration/wave2/test_kds_transaction_ownership.py"
+      - "tests/integration/entrega/test_entrega_transaction_ownership.py"
+      - "tests/integration/entrega/test_entrega_fluxo.py"
       - "tests/integration/pdv/test_canary_integrado.py"
       - "tests/integration/pdv/test_concorrencia.py"
       - "tests/integration/pdv/test_cutover_divergencia.py"
@@ -101,6 +107,9 @@ jobs:
             http_api/app.py \
             application/assistente_atendimento_runtime.py \
             application/assistente_channel_runtime.py \
+            application/assistente_operational_notifications.py \
+            application/kds_transacoes.py \
+            application/entrega_transacoes.py \
             infra/assistente_atendimento/canal_schema.py \
             infra/assistente_atendimento/canal_estado_sqlalchemy.py \
             migrations/assistente_channel_runtime_v1.py \
@@ -156,6 +165,9 @@ jobs:
             http_api/app.py \
             application/assistente_atendimento_runtime.py \
             application/assistente_channel_runtime.py \
+            application/assistente_operational_notifications.py \
+            application/kds_transacoes.py \
+            application/entrega_transacoes.py \
             infra/assistente_atendimento/canal_schema.py \
             infra/assistente_atendimento/canal_estado_sqlalchemy.py \
             migrations/assistente_channel_runtime_v1.py \
@@ -199,6 +211,9 @@ jobs:
             tests/unit/assistente_atendimento/test_order_result_orchestrator_f4d.py \
             tests/integration/wave1/test_pagbank_reconciliation.py \
             tests/integration/wave2/test_kds_authoritative_runtime.py \
+            tests/integration/wave2/test_kds_transaction_ownership.py \
+            tests/integration/entrega/test_entrega_transaction_ownership.py \
+            tests/integration/entrega/test_entrega_fluxo.py \
             tests/integration/pdv/test_canary_integrado.py \
             tests/integration/pdv/test_concorrencia.py \
             tests/integration/pdv/test_cutover_divergencia.py \
@@ -226,6 +241,9 @@ jobs:
             tests/unit/assistente_atendimento/test_order_result_orchestrator_f4d.py \
             tests/integration/wave1/test_pagbank_reconciliation.py \
             tests/integration/wave2/test_kds_authoritative_runtime.py \
+            tests/integration/wave2/test_kds_transaction_ownership.py \
+            tests/integration/entrega/test_entrega_transaction_ownership.py \
+            tests/integration/entrega/test_entrega_fluxo.py \
             tests/integration/pdv \
             tests/unit/stock/test_ledger_servicos.py \
             tests/unit/delivery/test_modelos.py \
