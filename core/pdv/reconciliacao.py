@@ -1,10 +1,10 @@
 """Modelo consultavel e detector conservador de divergencias do checkout."""
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Iterable
 
 
 class StatusReconciliacao(StrEnum):
