@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from types import MappingProxyType
-from typing import Mapping
 
 
 def _texto(valor: str, *, nome: str, maximo: int) -> str:
@@ -99,7 +99,7 @@ class ConfiguracaoEstabelecimento:
     tenant_id: str
     unidade_id: str
     formas_pagamento: tuple[str, ...] = ()
-    taxa_servico_percentual: Decimal = Decimal("0")
+    taxa_servico_percentual: Decimal = Decimal(0)
     parametros_operacionais: Mapping[str, object] = field(default_factory=dict)
     politica_financeira: Mapping[str, object] = field(default_factory=dict)
     versao: int = 1
