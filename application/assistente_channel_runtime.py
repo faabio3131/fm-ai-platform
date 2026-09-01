@@ -565,6 +565,88 @@ class RuntimeCanalWhatsAppV1:
             entrega_evento=str(evento_entrega) if evento_entrega else None,
         )
 
+    def notificar_status_pedido(
+        self,
+        *,
+        contexto: ContextoExecucao,
+        pedido_id: str,
+        adapter: MetaAdapter,
+    ) -> int:
+        """Envia snapshot somente quando o estado operacional realmente mudou."""
+
+        if not pedido_id.strip():
+            raise ValueError("pedido_id_obrigatorio")
+        db = self._session_factory()
+        try:
+            store = EncryptedSQLAlchemyChannelStateStore(db)
+            estados = store.obter_por_pedido(
+                tenant_id=contexto.tenant_id,
+                unidade_id=contexto.unidade_id,
+                pedido_id=pedido_id,
+            )
+            enviados = 0
+            for estado in estados:
+                snapshot = self.consultar_status(
+                    session=db,
+                    contexto=contexto,
+                    pedido_id=pedido_id,
+                    pagamento_id=estado.pagamento_id,
+                )
+                fingerprint = snapshot.fingerprint
+                if fingerprint == estado.ultimo_status_hash:
+                    continue
+                try:
+                    outbound_id = adapter.enviar_whatsapp(
+                        destinatario=estado.recipient,
+                        texto=_mensagem_snapshot(snapshot),
+                        idempotency_key=(
+                            f"status:{pedido_id}:{fingerprint[:24]}"
+                        ),
+                    )
+                except ErroProvedorExterno:
+                    # POST Meta pode ter sido aceito antes de um timeout. Não repetir
+                    # automaticamente evita mensagem duplicada; o próximo inbound
+                    # consulta as fontes canônicas novamente.
+                    store.salvar(
+                        contexto=contexto,
+                        canal="whatsapp",
+                        recipient=estado.recipient,
+                        conversa_id=estado.conversa_id,
+                        estado=estado.estado,
+                        state=estado.state,
+                        pedido_id=estado.pedido_id,
+                        pagamento_id=estado.pagamento_id,
+                        entrega_id=estado.entrega_id,
+                        ultimo_inbound_id=estado.ultimo_inbound_id,
+                        ultimo_outbound_id=estado.ultimo_outbound_id,
+                        ultimo_status_hash=fingerprint,
+                        versao_esperada=estado.versao,
+                    )
+                    continue
+                store.salvar(
+                    contexto=contexto,
+                    canal="whatsapp",
+                    recipient=estado.recipient,
+                    conversa_id=estado.conversa_id,
+                    estado=estado.estado,
+                    state=estado.state,
+                    pedido_id=estado.pedido_id,
+                    pagamento_id=estado.pagamento_id,
+                    entrega_id=estado.entrega_id,
+                    ultimo_inbound_id=estado.ultimo_inbound_id,
+                    ultimo_outbound_id=outbound_id,
+                    ultimo_status_hash=fingerprint,
+                    versao_esperada=estado.versao,
+                )
+                enviados += 1
+            db.commit()
+            return enviados
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
     def _handoff_resultado(
         self,
         *,
