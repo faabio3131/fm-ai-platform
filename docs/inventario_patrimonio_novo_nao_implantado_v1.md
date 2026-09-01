@@ -1105,10 +1105,16 @@ Os componentes centrais de cutover PDV e `application/checkout.py` já existem n
 - Pedido, Pagamento, KDS, Entrega, CRM e eventos canônicos nunca devem ser apagados para desfazer falha de WhatsApp;
 - o canal é uma borda substituível; as autoridades de negócio permanecem nos módulos canônicos.
 
+**Decisão de avanço condicional do proprietário — 31/08/2026**
+- PagBank, Meta/WhatsApp e Mercado Pago podem permanecer registrados como **PENDÊNCIA EXTERNA** enquanto conta, verificação, credenciais ou suporte do provedor não estiverem disponíveis; isso não autoriza marcar qualquer provedor como homologado.
+- Mercado Pago é uma pendência externa herdada do Control Plane/Fase 3 e **não é code blocker interno do F4-F**; PagBank/PIX e Meta/WhatsApp continuam explicitamente pendentes na matriz de homologação.
+- A auditoria do candidato final mostrou, porém, que **essas não são as únicas pendências atuais da Fase 4**: ainda faltam aplicar/validar as migrations 0034 e 0035 no banco físico de homologação e registrar Commercial Runtime E2E + teste físico/browser no mesmo candidato.
+- Por isso, a autorização condicional para avançar à Fase 5 ainda **não foi consumada** neste checkpoint. Fase 4 permanece `COMMERCIAL_CANDIDATE`, aprovada internamente, sem falsificar o gate físico.
+
 **Próximo gate permitido**
-- não iniciar Fase 5 por este checkpoint;
-- preparar o candidato final da Fase 4 para Commercial Runtime E2E + teste físico no mesmo SHA;
-- aplicar migrations 0034/0035 no ambiente de homologação, configurar/homologar WhatsApp real e, quando disponível, PagBank PIX real;
+- resolver o recorte local/físico restante: migrations 0034/0035 no banco de homologação + Commercial Runtime E2E/teste físico no mesmo SHA candidato;
+- as homologações externas de PagBank, Meta/WhatsApp e Mercado Pago podem continuar pendentes e explicitamente registradas quando o provedor estiver indisponível;
+- concluído o recorte local/físico e reconciliado o readiness, a Fase 5 poderá ser liberada sem esperar artificialmente pelos provedores externos;
 - somente após evidências objetivas e nova reconciliação de readiness o status pode evoluir para `COMMERCIAL_HOMOLOGATED`.
 
 
