@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -49,7 +50,6 @@ from core.dominio.ids import (
 from core.eventos.modelos import EnvelopeMensagem
 from core.integracoes.provedores import (
     ErroProvedorExterno,
-    ErroProvedorTransitorio,
     MensagemWhatsAppEntrada,
     MetaAdapter,
 )
@@ -71,12 +71,13 @@ from infra.assistente_atendimento.handoff_sqlalchemy import (
     HandoffAssistenteAuditSQLAlchemy,
 )
 from infra.eventos.adaptador_sqlalchemy import RepositorioInboxSQLAlchemy
+from infra.eventos.modelos_orm import InboxEventoORM
 from infra.gerente_ia.persistencia_sqlalchemy import (
     RepositorioIdentidadeAssistenteSQLAlchemy,
 )
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
 
-SessionFactory = callable
+SessionFactory = Callable[[], Session]
 
 
 @dataclass(frozen=True)
@@ -443,10 +444,16 @@ def _mensagem_snapshot(snapshot: SnapshotOperacionalAssistente) -> str:
 
 
 class RuntimeCanalWhatsAppV1:
-    def __init__(self, session_factory) -> None:
+    def __init__(
+        self,
+        session_factory: SessionFactory,
+        *,
+        runtime: RuntimeAssistenteAtendimentoV1 | None = None,
+        handoff: HandoffAssistenteAuditSQLAlchemy | None = None,
+    ) -> None:
         self._session_factory = session_factory
-        self._runtime = RuntimeAssistenteAtendimentoV1(session_factory)
-        self._handoff = HandoffAssistenteAuditSQLAlchemy(session_factory)
+        self._runtime = runtime or RuntimeAssistenteAtendimentoV1(session_factory)
+        self._handoff = handoff or HandoffAssistenteAuditSQLAlchemy(session_factory)
 
     def _contexto(
         self,
@@ -856,11 +863,11 @@ class RuntimeCanalWhatsAppV1:
                 contexto=contexto, mensagem=mensagem, sender_hash=sender_hash
             )
             inbox = RepositorioInboxSQLAlchemy(db)
-            registrado = inbox.registrar(envelope)
-            if not registrado and inbox.ja_processada(
-                envelope.tenant_id, envelope.unidade_id, envelope.idempotency_key
+            if inbox.ja_processada(
+                envelope.tenant_id,
+                envelope.unidade_id,
+                envelope.idempotency_key,
             ):
-                db.rollback()
                 return ResultadoMensagemCanal(
                     mensagem_id=mensagem.mensagem_id,
                     duplicada=True,
@@ -1018,7 +1025,7 @@ class RuntimeCanalWhatsAppV1:
                 envelope.idempotency_key,
             ):
                 if db.get(
-                    __import__("infra.eventos.modelos_orm", fromlist=["InboxEventoORM"]).InboxEventoORM,
+                    InboxEventoORM,
                     (tenant_id, unidade_id, str(envelope.idempotency_key)),
                 ) is None:
                     inbox.registrar(envelope)
@@ -1047,7 +1054,7 @@ class RuntimeCanalWhatsAppV1:
                 texto=runtime_atual.resultado.mensagem,
                 idempotency_key=f"reply:{mensagem.mensagem_id}",
             )
-        except (ErroProvedorExterno, ErroProvedorTransitorio):
+        except ErroProvedorExterno:
             db = self._session_factory()
             try:
                 store = EncryptedSQLAlchemyChannelStateStore(db)
