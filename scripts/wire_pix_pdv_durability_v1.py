@@ -45,8 +45,23 @@ def aplicar(texto: str) -> str:
     )
 
     antigo_assinatura = '''                checkout_id_pix = st.session_state["pdv_checkout_id"]\n                assinatura_pix = (\n                    f"{checkout_id_pix}:{getattr(prod_pdv, 'id', '')}:"\n                    f"{qtd_pdv}:{cliente_id_pdv}:{total_final_pdv:.2f}"\n                )\n'''
-    novo_assinatura = '''                checkout_id_pix = st.session_state["pdv_checkout_id"]\n                terminal_pix_pdv = os.getenv("FM_AI_TEST_TERMINAL", "pdv-default")\n                assinatura_checkout_duravel = (\n                    f"{getattr(prod_pdv, 'id', '')}:"\n                    f"{qtd_pdv}:{cliente_id_pdv}:{total_final_pdv:.2f}"\n                )\n                assinatura_pix = (\n                    f"{checkout_id_pix}:{assinatura_checkout_duravel}"\n                )\n'''
-    texto = _replace_once(texto, antigo_assinatura, novo_assinatura, "assinatura_checkout")
+    novo_assinatura = '''                checkout_id_pix = st.session_state["pdv_checkout_id"]\n                terminal_pix_pdv = _pdv_terminal_id\n                assinatura_checkout_duravel = (\n                    f"{getattr(prod_pdv, 'id', '')}:"\n                    f"{qtd_pdv}:{cliente_id_pdv}:{total_final_pdv:.2f}"\n                )\n                assinatura_pix = (\n                    f"{checkout_id_pix}:{assinatura_checkout_duravel}"\n                )\n'''
+    novo_assinatura_teste = novo_assinatura.replace(
+        "terminal_pix_pdv = _pdv_terminal_id",
+        'terminal_pix_pdv = os.getenv("FM_AI_TEST_TERMINAL", "pdv-default")',
+    )
+    if novo_assinatura not in texto and novo_assinatura_teste not in texto:
+        candidato_assinatura = (
+            novo_assinatura
+            if "_pdv_terminal_id = carregar_terminal_pdv_ambiente()" in texto
+            else novo_assinatura_teste
+        )
+        texto = _replace_once(
+            texto,
+            antigo_assinatura,
+            candidato_assinatura,
+            "assinatura_checkout",
+        )
 
     marcador_recuperacao = '''                if motivo_dados:\n                    st.info(motivo_dados)\n\n                tem_cobranca_pix = bool(\n                    st.session_state.get("pdv_pix_id_externo")\n                )\n'''
     bloco_recuperacao = '''                if motivo_dados:\n                    st.info(motivo_dados)\n\n                if not st.session_state.get("pdv_pix_id_externo"):\n                    try:\n                        vinculo_pix = _recuperar_pix_control_plane(\n                            terminal_id=terminal_pix_pdv,\n                            assinatura_checkout=assinatura_checkout_duravel,\n                        )\n                        if vinculo_pix is not None:\n                            st.session_state["pdv_pix_provedor"] = vinculo_pix.provedor\n                            st.session_state["pdv_pix_id_externo"] = vinculo_pix.id_externo\n                            st.session_state["pdv_pix_pagamento_id"] = vinculo_pix.pagamento_id\n                            if vinculo_pix.pagamento_id.startswith("pdv-"):\n                                st.session_state["pdv_checkout_id"] = vinculo_pix.pagamento_id[4:]\n                            consulta_recuperada = _consultar_pix_control_plane(\n                                provedor=vinculo_pix.provedor,\n                                id_externo=vinculo_pix.id_externo,\n                                pagamento_id=vinculo_pix.pagamento_id,\n                            )\n                            st.session_state["pdv_pix_status"] = consulta_recuperada.status\n                            st.session_state["pdv_pix_copia_cola"] = consulta_recuperada.pix_copia_cola\n                            st.session_state["pdv_pix_qr_url"] = consulta_recuperada.qr_code_url\n                            st.session_state["pdv_pix_qr_base64"] = consulta_recuperada.qr_code_base64\n                            st.session_state["pdv_pix_confirmado"] = _pix_status_confirmado(\n                                consulta_recuperada.status\n                            )\n                    except Exception:\n                        # Recuperação é best-effort; uma falha de consulta nunca confirma Pix.\n                        pass\n\n                tem_cobranca_pix = bool(\n                    st.session_state.get("pdv_pix_id_externo")\n                )\n'''
