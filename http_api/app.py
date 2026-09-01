@@ -30,9 +30,9 @@ from application.pagbank import (
 )
 from application.pdv_legacy_projection import ProjecaoLegadaInvalida
 from core.gerente_ia.erros import ErroGerenteIA
+from core.gerente_ia.modelos import ChamadaTool
 from core.integracoes.modelos import ErroConfiguracaoServico
 from core.integracoes.provedores import ErroProvedorExterno
-from core.gerente_ia.modelos import ChamadaTool
 from core.pagamentos.erros import ConflitoIdempotenciaPagamento
 from core.pagamentos.pagbank import ErroPagBank
 from core.runtime import build_engine, check_database_health, load_runtime_settings
