@@ -28,9 +28,9 @@ from core.pedidos.modelos_orm import ItemPedidoORM, OrdersBase, PedidoORM
 from core.seguranca import MATRIZ_PADRAO, ContextoExecucao, Papel
 from infra.eventos.adaptador_sqlalchemy import RepositorioOutboxSQLAlchemy
 from infra.eventos.modelos_orm import EventBusBase, OutboxEventoORM
-from infra.gerente_ia.modelos_orm import (
+from infra.gerente_ia.modelos_orm import CoreRuntimeBase
+from infra.gerente_ia.persistencia_sqlalchemy import (
     ConsumidorEventosCoreSQLAlchemy,
-    CoreRuntimeBase,
 )
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
 from infra.seguranca.modelos_orm import EventoAuditoriaORM, SecurityBase
