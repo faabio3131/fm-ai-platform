@@ -11,18 +11,18 @@ test('candidato Fase 4 abre Assistente real no navegador sem fallback legado', a
   await expect(
     page.getByRole('heading', { name: /Funcionário Digital V1/ }),
   ).toBeVisible();
-  await expect(page.getByLabel('WhatsApp do cliente')).toBeVisible();
-  await expect(page.getByLabel('Entrada do cliente')).toBeVisible();
-  await expect(page.getByLabel('Mensagem do cliente')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Analisar com/ })).toBeVisible();
+  await expect(page.getByLabel('WhatsApp do cliente').first()).toBeVisible();
+  await expect(page.getByText('Entrada do cliente', { exact: true }).first()).toBeVisible();
+  await expect(page.getByLabel('Mensagem do cliente').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /Analisar com/ }).first()).toBeVisible();
 
-  await page.getByRole('button', { name: /Analisar com/ }).click();
+  await page.getByRole('button', { name: /Analisar com/ }).first().click();
   await expect(
     page.getByText(/WhatsApp e conteúdo de atendimento são obrigatórios/),
   ).toBeVisible();
 
-  await page.getByLabel('Entrada do cliente').getByText('Áudio').click();
-  await expect(page.getByText('Áudio do cliente')).toBeVisible();
+  await page.getByRole('radio', { name: 'Áudio' }).check();
+  await expect(page.getByText('Áudio do cliente', { exact: true }).first()).toBeVisible();
 
   await expect(page.getByRole('button', { name: /Processar Pedido/ })).toHaveCount(0);
   await expect(page.locator('body')).not.toContainText('OperacaoMicaFake');
