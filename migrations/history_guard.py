@@ -319,7 +319,9 @@ def assert_schema_baseline(
         raise SchemaBaselineError(
             f"schema final divergiu do baseline: esperado={expected}; atual={digest}"
         )
-    if int(baseline.get("table_count", -1)) != table_count:
+    expected_table_count = int(baseline.get("table_count", -1))
+    if expected_table_count != table_count:
         raise SchemaBaselineError(
-            "quantidade de tabelas divergiu do schema baseline"
+            "quantidade de tabelas divergiu do schema baseline: "
+            f"esperado={expected_table_count}; atual={table_count}"
         )
