@@ -340,6 +340,11 @@ def test_handoff_persistido_recupera_so_contexto_allowlisted_no_mesmo_escopo() -
             contexto=contexto,
             conversa_id="conv-handoff-1",
         )
+        outro_escopo = handoff.ultimo_contexto(
+            contexto=_contexto(tenant="tenant-b", unidade="unidade-b"),
+            conversa_id="conv-handoff-1",
+        )
+
     assert recuperado is not None
     assert recuperado["cliente_ref"] == CLIENTE
     assert recuperado["historico_count"] == 2
@@ -348,11 +353,4 @@ def test_handoff_persistido_recupera_so_contexto_allowlisted_no_mesmo_escopo() -
     assert "endereco_texto" not in recuperado
     assert "+5511999999999" not in repr(recuperado)
     assert "Rua secreta" not in repr(recuperado)
-
-        assert (
-            handoff.ultimo_contexto(
-                contexto=_contexto(tenant="tenant-b", unidade="unidade-b"),
-                conversa_id="conv-handoff-1",
-            )
-            is None
-        )
+    assert outro_escopo is None
