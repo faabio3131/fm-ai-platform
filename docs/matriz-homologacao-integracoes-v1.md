@@ -36,32 +36,35 @@ Git, documentação, banco em texto aberto, log ou conversa.
 de todas as referências existirem e uma evidência real do provedor ser registrada.
 Mudar conta, ambiente, parâmetro ou finalidade revoga a homologação anterior.
 
-## Estado do recorte F4-F — 31/08/2026
+## Estado do recorte F4-F — fechamento interno da Fase 4
 
-Esta seção registra somente o que foi provado internamente para o Assistente. Ela
-**não substitui** a evidência real exigida na tabela de homologação externa acima.
+Esta seção separa explicitamente prova interna real de configuração/homologação
+do provedor externo. O candidato final do recorte interno é
+`523bd3534865290ea8362139f32166e72c2d3bdc`.
 
-| Dependência do Assistente | Prova interna no candidato | O que ainda falta para homologação externa/comercial |
+| Dependência do Assistente | Prova interna / herdada válida | Pendência remanescente |
 |---|---|---|
-| WhatsApp Cloud API | webhook escopado por tenant/unidade, challenge, HMAC, texto, áudio, download autenticado de mídia, outbound, replay idempotente e falha fail-closed; Assistente Fase 4 Gate run 209 PASS | WABA/número/Meta App reais do tenant de homologação, challenge real, envio com `wamid` real, callback real de status, evidência datada e teste físico |
-| Gemini / transcrição | áudio WhatsApp converge para `CapabilityIA.ATENDIMENTO_TRANSCRICAO` do AI Router e usa o mesmo fluxo de atendimento do texto | execução física com credencial/provider homologado no tenant candidato, latência/quota/correlation sanitizados |
-| Google Maps Server | endereço/área/taxa/ETA já passam pelo adapter governado e política tenant/unidade do Assistente | manter/apresentar evidência real do ambiente candidato quando o E2E físico for executado |
-| PagBank PIX | reconciliação interna e Order Result Orchestrator estão cobertos por testes; nenhum pagamento é marcado como pago por declaração do cliente | conta/credenciais oficiais, cobrança/QR real, webhook/consulta autenticados e prova real de idempotência |
-| Migrations do Assistente | 0034 e 0035 estão registradas no runner/manifest e passam pelo gate automatizado | aplicar 0034/0035 no banco físico de homologação e registrar dry-run/upgrade/healthcheck do mesmo candidato |
+| WhatsApp Cloud API | contrato de webhook escopado, challenge, HMAC, texto, áudio, download autenticado, outbound, replay idempotente, fail-closed e UI browser-driven aprovados; Gate F4 + Commercial E2E verdes | **EXTERNA**: WABA/número/Meta App reais, challenge real, `wamid`/callback reais e evidência do tenant |
+| Gemini / transcrição | homologação prática já registrada no Control Plane + áudio do Assistente convergindo para `CapabilityIA.ATENDIMENTO_TRANSCRICAO`; regressão do candidato verde | nenhuma pendência interna da Fase 4 |
+| Google Maps Server | homologação prática já registrada + endereço/área/taxa/ETA do Assistente usando adapter e política tenant/unidade; regressão do candidato verde | nenhuma pendência interna da Fase 4 |
+| PagBank PIX | reconciliação, runtime PIX e Order Result Orchestrator aprovados internamente; pagamento nunca é promovido por declaração do cliente | **EXTERNA**: conta/credenciais oficiais, cobrança/QR real, webhook/consulta autenticados |
+| Migrations 0034 / 0035 | workflow `Assistente Fase 4 Commercial E2E V1` run 5: PostgreSQL 16 real, aplicação + registro + idempotência + tabelas: **PASS (2 testes)** | nenhuma pendência interna da Fase 4 |
+| Commercial Runtime E2E | run 5 (`33463947423`) no SHA candidato: **PASS** | nenhuma pendência interna da Fase 4 |
+| Browser físico automatizado | Chromium real via Playwright no run 5: aplicação Streamlit + Assistente V1 + texto/áudio + ausência de fallback legado: **PASS (1 teste)** | nenhuma pendência interna da Fase 4 |
 
-**Classificação atual do Assistente:** `COMMERCIAL_CANDIDATE`, não
-`COMMERCIAL_HOMOLOGATED`.
+**Mercado Pago:** permanece como pendência externa herdada do Control Plane/Fase 3
+por condição do provedor/suporte; não é blocker de código específico do F4-F.
 
-**Decisão de progressão:** PagBank, Meta/WhatsApp e Mercado Pago podem permanecer
-como pendências externas explícitas quando o provedor/conta/suporte estiver
-indisponível. Mercado Pago permanece como pendência externa herdada do Control
-Plane/Fase 3 e não constitui code blocker interno específico do F4-F. A promoção
-de fase, porém, continua separada do gate físico/local: migrations 0034/0035 no
-banco de homologação e Commercial Runtime E2E/teste físico ainda precisam de
-evidência própria antes de liberar a Fase 5 sob a regra condicional registrada.
+**Classificação atual do Assistente:** `COMMERCIAL_CANDIDATE`, com blockers
+internos conhecidos = 0. Não é `COMMERCIAL_HOMOLOGATED` porque PagBank e
+Meta/WhatsApp ainda dependem de configuração/homologação externa real.
 
-A promoção final exige que `docs/commercial_runtime_readiness_v1.json` tenha
-evidência real para `commercial_runtime_e2e` e `physical_test`, e que nenhum
-blocker externo permaneça. Fixture, mock, sandbox sem conta oficial ou teste
-automatizado isolado não pode ser usado para fabricar essa evidência.
+**Decisão de progressão:** a condição autorizada pelo proprietário foi satisfeita.
+As pendências locais que impediam o avanço — PostgreSQL/migrations, Commercial
+Runtime E2E e browser — foram fechadas. A **Fase 5 está liberada para execução
+sequencial**, enquanto PagBank, Meta/WhatsApp e Mercado Pago permanecem como
+`PENDÊNCIA EXTERNA`, sem qualquer declaração falsa de homologação.
 
+A promoção futura para `COMMERCIAL_HOMOLOGATED` exige remover os blockers
+externos com evidência real dos provedores. O E2E e o browser internos já estão
+registrados no readiness; fixture ou mock não substitui evidência externa.
