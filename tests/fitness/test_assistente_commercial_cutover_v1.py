@@ -132,3 +132,18 @@ def test_commercial_assistant_reserves_canonical_stock_from_authoritative_ficha(
     assert "reservar_estoque(" in checkout
     assert "baixar_estoque" not in adapter
     assert "baixar_estoque" not in bridge
+
+
+def test_order_result_orchestrator_is_channel_independent_and_does_not_consume_stock() -> None:
+    orchestrator = _text("application/order_result_orchestrator.py")
+    pdv_compat = _text("application/finalizacao_pagamento.py")
+    pagbank = _text("application/pagbank_reconciliacao.py")
+
+    assert "core.pdv" not in orchestrator
+    assert "pdv_legacy_projection" not in orchestrator
+    assert "app.py" not in orchestrator
+    assert "consumir_reserva(" not in orchestrator
+    assert "transicionar_pedido(" in orchestrator
+    assert "reconhecer_venda(" in orchestrator
+    assert "orquestrar_resultado_pagamento_em_transacao" in pdv_compat
+    assert "finalizar_pagamento_liquidado_em_transacao" in pagbank
