@@ -326,6 +326,26 @@
         "commercial_runtime_e2e": null,
         "physical_test": null
       }
+    },
+    "administracao_proprietario": {
+      "status": "COMMERCIAL_CANDIDATE",
+      "commercial_paths": [
+        "application/administracao_proprietario.py",
+        "core/administracao",
+        "infra/administracao",
+        "infra/seguranca/adaptador_sqlalchemy.py",
+        "infra/streamlit_app/admin_proprietario.py",
+        "infra/streamlit_app/auth_ui.py",
+        "pages/6_Administracao_Proprietario.py",
+        "migrations/administracao_proprietario_v1.py"
+      ],
+      "code_blockers": [],
+      "external_blockers": [],
+      "evidence": {
+        "sha": "b97c1681feecfbce8823a6ac414729e048ac6fba",
+        "commercial_runtime_e2e": "github-actions://Administracao-Fase-5-Gate-V1/run-25/33466768101",
+        "physical_test": "github-actions://Administracao-Fase-5-Gate-V1/run-25/chromium"
+      }
     }
   }
 }
