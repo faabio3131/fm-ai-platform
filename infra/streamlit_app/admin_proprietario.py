@@ -10,6 +10,7 @@ from typing import Any, cast
 import pandas as pd  # type: ignore[import-untyped]
 import streamlit as st
 from sqlalchemy.orm import Session
+from streamlit.errors import StreamlitPageNotFoundError
 
 from application.administracao_proprietario import AplicacaoAdministracaoProprietarioV1
 from core.administracao import (
@@ -402,9 +403,9 @@ def _render_financeiro(
             icon="🔑",
             width="stretch",
         )
-    except KeyError:
+    except (KeyError, StreamlitPageNotFoundError):
         # Compatibilidade com execução direta da página em gates/browser.
-        # Nesse modo algumas versões do Streamlit não preenchem url_pathname.
+        # Nesse modo a página irmã pode não fazer parte da navegação registrada.
         st.markdown(
             "🔑 [Abrir Integrações e Credenciais protegidas](./Integracoes_e_Credenciais)"
         )
