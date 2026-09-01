@@ -78,6 +78,70 @@ class RepositorioAdministracaoSQLAlchemy:
             atualizado_em=_utc(row.atualizado_em),
         )
 
+    def garantir_escopo(
+        self,
+        *,
+        tenant_id: str,
+        unidade_id: str,
+        nome_empresa: str | None = None,
+        nome_unidade: str | None = None,
+        agora: datetime | None = None,
+    ) -> None:
+        tenant = tenant_id.strip()
+        unidade = unidade_id.strip()
+        if not tenant or not unidade:
+            raise ValueError("escopo_admin_invalido")
+        instante = agora or datetime.now(timezone.utc)
+        if self._session.get(EmpresaAdminORM, tenant) is None:
+            self._session.add(
+                EmpresaAdminORM(
+                    tenant_id=tenant,
+                    nome_exibicao=(nome_empresa or tenant).strip() or tenant,
+                    moeda="BRL",
+                    timezone="America/Sao_Paulo",
+                    ativa=True,
+                    versao=1,
+                    criado_em=instante,
+                    atualizado_em=instante,
+                )
+            )
+        if self._session.get(UnidadeAdminORM, (tenant, unidade)) is None:
+            self._session.add(
+                UnidadeAdminORM(
+                    tenant_id=tenant,
+                    unidade_id=unidade,
+                    codigo=unidade,
+                    nome_fantasia=(nome_unidade or unidade).strip() or unidade,
+                    tipo="unidade",
+                    documento_fiscal=None,
+                    telefone=None,
+                    email=None,
+                    endereco={},
+                    horarios={},
+                    ativa=True,
+                    versao=1,
+                    criado_em=instante,
+                    atualizado_em=instante,
+                )
+            )
+        if self._session.get(
+            ConfiguracaoEstabelecimentoORM,
+            (tenant, unidade),
+        ) is None:
+            self._session.add(
+                ConfiguracaoEstabelecimentoORM(
+                    tenant_id=tenant,
+                    unidade_id=unidade,
+                    formas_pagamento=[],
+                    taxa_servico_percentual=Decimal("0"),
+                    parametros_operacionais={},
+                    politica_financeira={},
+                    versao=1,
+                    atualizado_em=instante,
+                )
+            )
+        self._session.flush()
+
     def obter_empresa(self, *, tenant_id: str) -> EmpresaAdministrativa | None:
         row = self._session.get(EmpresaAdminORM, tenant_id)
         return self._empresa(row) if row is not None else None
