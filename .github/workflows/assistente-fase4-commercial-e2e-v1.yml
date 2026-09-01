@@ -1,0 +1,151 @@
+name: Assistente Fase 4 Commercial E2E V1
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app.py'
+      - 'http_api/**'
+      - 'application/**'
+      - 'core/assistente_atendimento/**'
+      - 'core/integracoes/**'
+      - 'core/pedidos/**'
+      - 'core/pagamentos/**'
+      - 'core/estoque/**'
+      - 'core/kds/**'
+      - 'core/entrega/**'
+      - 'infra/assistente_atendimento/**'
+      - 'infra/crm/**'
+      - 'infra/integracoes/**'
+      - 'migrations/**'
+      - 'tests/unit/assistente_atendimento/**'
+      - 'tests/integration/integracoes/**'
+      - 'tests/integration/runtime/test_f4_migrations_postgres_homologation.py'
+      - 'tests/integration/runtime/test_migration_postgres_convergence.py'
+      - 'tests/e2e/assistente-commercial-candidate.spec.ts'
+      - 'playwright.config.ts'
+      - '.github/workflows/assistente-fase4-commercial-e2e-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: assistente-fase4-commercial-e2e-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  commercial-e2e:
+    name: Fase 4 candidate PostgreSQL + runtime + browser
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fm_ai_homologacao
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d fm_ai_homologacao"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      FM_AI_SD1D_POSTGRES_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/fm_ai_homologacao
+      FM_AI_ASSISTENTE_ATENDIMENTO_V1: '1'
+      FM_AI_SECRET_MASTER_KEY: 'bW1scnZpQzlCS2Q1dXBlTXRyUkJlTGNXWGtIclc3WktoM3lrb3Q5WT0='
+      FM_AI_TEST_MODE: '1'
+      PYTHONPATH: .
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1
+
+      - name: Compile final Fase 4 candidate
+        run: |
+          python -m py_compile             application/assistente_channel_runtime.py             application/assistente_operational_notifications.py             application/assistente_atendimento_runtime.py             http_api/app.py             migrations/crm_customer_context_v1.py             migrations/assistente_channel_runtime_v1.py             tests/integration/runtime/test_f4_migrations_postgres_homologation.py
+
+      - name: Ruff final Fase 4 candidate
+        run: |
+          ruff check             application/assistente_channel_runtime.py             application/assistente_operational_notifications.py             application/assistente_atendimento_runtime.py             http_api/app.py             migrations/crm_customer_context_v1.py             migrations/assistente_channel_runtime_v1.py             tests/integration/runtime/test_f4_migrations_postgres_homologation.py
+
+      - name: Apply and validate migrations 0034 and 0035 on PostgreSQL 16
+        run: |
+          pytest -q             tests/integration/runtime/test_migration_postgres_convergence.py             tests/integration/runtime/test_f4_migrations_postgres_homologation.py
+
+      - name: Commercial runtime E2E without external-provider claims
+        run: |
+          pytest -q             tests/unit/assistente_atendimento/test_channel_runtime_f4f.py             tests/unit/assistente_atendimento/test_delivery_convergence_f4e.py             tests/unit/assistente_atendimento/test_customer_context_f4c.py             tests/unit/assistente_atendimento/test_order_result_orchestrator_f4d.py             tests/integration/integracoes/test_whatsapp_control_plane_integration_v1.py             tests/integration/integracoes/test_whatsapp_channel_http_f4f.py
+
+      - name: Install Playwright browser
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Physical browser gate for final Fase 4 candidate
+        run: |
+          npx playwright test             tests/e2e/assistente-commercial-candidate.spec.ts             -c playwright.config.ts             --project=chromium             --reporter=list
+
+      - name: Write evidence summary
+        if: always()
+        run: |
+          mkdir -p evidence
+          python - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          Path("evidence/assistente-fase4-final.json").write_text(
+              json.dumps(
+                  {
+                      "sha": os.getenv("GITHUB_SHA"),
+                      "run_id": os.getenv("GITHUB_RUN_ID"),
+                      "postgresql": "16",
+                      "migrations_validated": [
+                          "0034_crm_customer_context_v1",
+                          "0035_assistente_channel_runtime_v1",
+                      ],
+                      "commercial_runtime_e2e": True,
+                      "physical_browser": "chromium",
+                      "external_provider_homologation_claimed": False,
+                      "collected_at": datetime.now(timezone.utc).isoformat(),
+                  },
+                  ensure_ascii=False,
+                  indent=2,
+              ) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Publish non-PII evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: assistente-fase4-final-${{ github.sha }}
+          path: |
+            evidence/assistente-fase4-final.json
+            playwright-report
+            test-results
+          if-no-files-found: warn
+          retention-days: 14
