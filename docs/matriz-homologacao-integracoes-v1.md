@@ -35,3 +35,25 @@ Git, documentação, banco em texto aberto, log ou conversa.
 `configurado` não significa `pronto`. O estado muda para `pronto` somente depois
 de todas as referências existirem e uma evidência real do provedor ser registrada.
 Mudar conta, ambiente, parâmetro ou finalidade revoga a homologação anterior.
+
+## Estado do recorte F4-F — 31/08/2026
+
+Esta seção registra somente o que foi provado internamente para o Assistente. Ela
+**não substitui** a evidência real exigida na tabela de homologação externa acima.
+
+| Dependência do Assistente | Prova interna no candidato | O que ainda falta para homologação externa/comercial |
+|---|---|---|
+| WhatsApp Cloud API | webhook escopado por tenant/unidade, challenge, HMAC, texto, áudio, download autenticado de mídia, outbound, replay idempotente e falha fail-closed; Assistente Fase 4 Gate run 209 PASS | WABA/número/Meta App reais do tenant de homologação, challenge real, envio com `wamid` real, callback real de status, evidência datada e teste físico |
+| Gemini / transcrição | áudio WhatsApp converge para `CapabilityIA.ATENDIMENTO_TRANSCRICAO` do AI Router e usa o mesmo fluxo de atendimento do texto | execução física com credencial/provider homologado no tenant candidato, latência/quota/correlation sanitizados |
+| Google Maps Server | endereço/área/taxa/ETA já passam pelo adapter governado e política tenant/unidade do Assistente | manter/apresentar evidência real do ambiente candidato quando o E2E físico for executado |
+| PagBank PIX | reconciliação interna e Order Result Orchestrator estão cobertos por testes; nenhum pagamento é marcado como pago por declaração do cliente | conta/credenciais oficiais, cobrança/QR real, webhook/consulta autenticados e prova real de idempotência |
+| Migrations do Assistente | 0034 e 0035 estão registradas no runner/manifest e passam pelo gate automatizado | aplicar 0034/0035 no banco físico de homologação e registrar dry-run/upgrade/healthcheck do mesmo candidato |
+
+**Classificação atual do Assistente:** `COMMERCIAL_CANDIDATE`, não
+`COMMERCIAL_HOMOLOGATED`.
+
+A promoção final exige que `docs/commercial_runtime_readiness_v1.json` tenha
+evidência real para `commercial_runtime_e2e` e `physical_test`, e que nenhum
+blocker externo permaneça. Fixture, mock, sandbox sem conta oficial ou teste
+automatizado isolado não pode ser usado para fabricar essa evidência.
+
