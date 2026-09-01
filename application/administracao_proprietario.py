@@ -22,7 +22,7 @@ from core.administracao import (
 )
 from core.entrega.modelos_orm import EntregaORM
 from core.estoque.modelos_orm import SaldoEstoqueORM
-from core.integracoes.modelos import StatusIntegracao
+from core.integracoes.modelos import EstadoProntidaoServico
 from core.pagamentos.modelos_orm import PagamentoORM, VendaFinanceiraORM
 from core.pedidos.modelos_orm import ItemPedidoORM, PedidoORM
 from core.seguranca.auditoria import EventoAuditoria
@@ -41,7 +41,7 @@ from infra.legacy_product_scope import (
 )
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
-from infra.seguranca.modelos_orm import UsuarioSegurancaORM, UsuarioUnidadeORM
+from infra.seguranca.modelos_orm import UsuarioSegurancaORM
 
 SessionFactory = Callable[[], Session]
 
@@ -576,11 +576,11 @@ class AplicacaoAdministracaoProprietarioV1:
                 )
                 for config in configs:
                     if not config.habilitada:
-                        estado = StatusIntegracao.DESATIVADO.value
+                        estado = EstadoProntidaoServico.DESATIVADO.value
                     elif config.homologada:
-                        estado = StatusIntegracao.PRONTO.value
+                        estado = EstadoProntidaoServico.PRONTO.value
                     else:
-                        estado = StatusIntegracao.CONFIGURADO.value
+                        estado = EstadoProntidaoServico.CONFIGURADO.value
                     saida.append(
                         IntegracaoAdminResumo(
                             unidade_id=unidade_id,
@@ -657,7 +657,9 @@ class AplicacaoAdministracaoProprietarioV1:
                     MetaData(),
                     autoload_with=session.connection(),
                 )
-            except (ErroEscopoLojaLegada, Exception):  # noqa: BLE001
+                if "custo_total_cmv" not in produtos.c or "loja_id" not in produtos.c:
+                    continue
+            except Exception:  # noqa: BLE001 - estimativa não bloqueia o painel
                 continue
             for item in itens:
                 bruto = str(item.produto_id or "").removeprefix("legacy:produto:")
