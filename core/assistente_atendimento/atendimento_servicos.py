@@ -550,6 +550,18 @@ class ServicoAssistenteAtendimento:
         if not idempotency_key.strip():
             raise ErroAssistenteAtendimento("idempotency_key_obrigatoria")
 
+        endereco_ref = None
+        if carrinho.modalidade is ModalidadePedidoAtendimento.ENTREGA:
+            customer_context = contexto.customer_context
+            if (
+                customer_context is None
+                or customer_context.ultimo_endereco_ref is None
+            ):
+                raise ErroAssistenteAtendimento(
+                    "entrega_sem_referencia_endereco_autorizada"
+                )
+            endereco_ref = customer_context.ultimo_endereco_ref
+
         checkout = self.checkout.executar(
             contexto=contexto.contexto_execucao,
             carrinho=carrinho,
@@ -557,6 +569,7 @@ class ServicoAssistenteAtendimento:
             canal=contexto.canal,
             metodo=carrinho.pagamento.metodo,
             idempotency_key=idempotency_key,
+            endereco_ref=endereco_ref,
         )
 
         return ResultadoAtendimento(
@@ -578,6 +591,12 @@ class ServicoAssistenteAtendimento:
                     "reservado"
                     if checkout.estoque_reservado
                     else "sem_ficha_aplicavel",
+                ),
+                (
+                    "entrega",
+                    checkout.entrega_status
+                    if checkout.entrega_status is not None
+                    else "nao_aplicavel",
                 ),
             ),
         )
