@@ -21,7 +21,12 @@ from core.dominio.ids import (
 )
 from core.dominio.pedidos import ItemPedido, Pedido
 from core.dominio.tipos import QuantidadeItem
-from core.estoque.modelos import ItemSnapshotFicha, SnapshotFichaEstoque, StatusReserva, TipoMovimento
+from core.estoque.modelos import (
+    ItemSnapshotFicha,
+    SnapshotFichaEstoque,
+    StatusReserva,
+    TipoMovimento,
+)
 from core.estoque.modelos_orm import MovimentoEstoqueORM, ReservaEstoqueORM
 from core.estoque.servicos import registrar_movimento
 from core.pagamentos.modelos import MetodoPagamento
