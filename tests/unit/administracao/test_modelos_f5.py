@@ -60,3 +60,23 @@ def test_unidade_rejeita_tipo_nao_governado() -> None:
             nome_fantasia="Loja 1",
             tipo="franquia-inventada",
         )
+
+
+
+def test_configuracao_admin_rejeita_segredos_e_forma_pagamento_inventada() -> None:
+    with pytest.raises(
+        ValueError,
+        match="segredo_nao_permitido_em_configuracao_admin",
+    ):
+        ConfiguracaoEstabelecimento(
+            tenant_id="tenant-1",
+            unidade_id="loja-1",
+            parametros_operacionais={"api_token": "nao-pode-ser-persistido"},
+        )
+
+    with pytest.raises(ValueError, match="forma_pagamento_invalida"):
+        ConfiguracaoEstabelecimento(
+            tenant_id="tenant-1",
+            unidade_id="loja-1",
+            formas_pagamento=("cripto_inventada",),
+        )
