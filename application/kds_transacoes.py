@@ -11,6 +11,9 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from application.assistente_operational_notifications import (
+    notificar_status_assistente_best_effort,
+)
 from application.kds_runtime import (
     ResultadoKDSCanonico,
     ServicoKDSCanonico,
@@ -56,7 +59,13 @@ def rotear_item_kds_v1(
         )
 
         uow.commit()
-        return resultado
+
+    notificar_status_assistente_best_effort(
+        session_factory=session_factory,
+        contexto=contexto,
+        pedido_id=resultado.item.pedido_id,
+    )
+    return resultado
 
 
 def transicionar_kds_v1(
@@ -86,4 +95,10 @@ def transicionar_kds_v1(
         )
 
         uow.commit()
-        return resultado
+
+    notificar_status_assistente_best_effort(
+        session_factory=session_factory,
+        contexto=contexto,
+        pedido_id=resultado.item.pedido_id,
+    )
+    return resultado
