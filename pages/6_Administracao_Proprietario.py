@@ -6,8 +6,8 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from core.runtime import build_engine, load_runtime_settings
-from core.seguranca.permissoes import Permissao
 from infra.seguranca.session_guard import build_session_factory
+from infra.streamlit_app.admin_proprietario import render_admin_proprietario
 from infra.streamlit_app.auth_ui import (
     render_identity_sidebar,
     require_authentication,
@@ -59,22 +59,7 @@ st.info(
     "no momento da execução, mesmo enquanto a área estiver desbloqueada."
 )
 
-st.subheader("Configurações sensíveis")
-if Permissao.INTEGRACAO_GERENCIAR in identity.permissoes:
-    st.page_link(
-        "pages/7_Integracoes_e_Credenciais.py",
-        label="Integrações e Credenciais",
-        icon="🔑",
-        use_container_width=True,
-    )
-else:
-    st.caption(
-        "Integrações e Credenciais não está disponível para este usuário porque a "
-        "permissão específica de gerenciamento de integrações não foi concedida."
-    )
-
-st.info(
-    "As demais funções administrativas — financeiro, relatórios, usuários, permissões "
-    "e gestão de matriz/filiais — serão incorporadas nesta mesma área conforme a ordem "
-    "do Documento Mestre, sem criar caminhos administrativos paralelos."
+render_admin_proprietario(
+    identidade=identity,
+    session_factory=session_factory,
 )
