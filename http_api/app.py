@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
+from application.assistente_channel_runtime import RuntimeCanalWhatsAppV1
 from application.finalizacao_pagamento import FinalizacaoPagamentoInvalida
 from application.gerente_ia_runtime import PlanejadorLLM, compor_runtime_gerente_ia
 from application.gerente_ia_transacoes import (
@@ -29,6 +30,8 @@ from application.pagbank import (
 )
 from application.pdv_legacy_projection import ProjecaoLegadaInvalida
 from core.gerente_ia.erros import ErroGerenteIA
+from core.integracoes.modelos import ErroConfiguracaoServico
+from core.integracoes.provedores import ErroProvedorExterno
 from core.gerente_ia.modelos import ChamadaTool
 from core.pagamentos.erros import ConflitoIdempotenciaPagamento
 from core.pagamentos.pagbank import ErroPagBank
@@ -41,11 +44,13 @@ from core.seguranca.erros import (
     SegredoAusente,
 )
 from core.seguranca.segredos import ReferenceSecretStore, SecretStore
+from infra.integracoes.fabrica_adapters import FabricaAdaptersExternos
 from infra.pagamentos.pagbank_runtime import (
     CredencialPagBankNaoConfigurada,
     PagBankAdapterFactory,
 )
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
+from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
 from infra.seguranca.session_guard import build_session_factory
 
 _MAX_WEBHOOK_BYTES = 1024 * 1024
@@ -99,6 +104,7 @@ def build_http_app(
     pagbank_factory: PagBankAdapterFactory | None = None,
     secret_store: SecretStore | None = None,
     planejador_llm_factory: Callable[[Session], PlanejadorLLM] | None = None,
+    whatsapp_secret_store_factory: Callable[[Session], SecretStore] | None = None,
 ) -> FastAPI:
     settings = settings or load_runtime_settings()
     engine = engine or build_engine(settings)
@@ -107,6 +113,11 @@ def build_http_app(
     )
     pagbank_factory = pagbank_factory or PagBankAdapterFactory()
     secret_store = secret_store or ReferenceSecretStore()
+    whatsapp_secret_store_factory = (
+        whatsapp_secret_store_factory
+        or (lambda session: EncryptedSQLAlchemySecretStore(session))
+    )
+    canal_whatsapp = RuntimeCanalWhatsAppV1(session_factory)
 
     app = FastAPI(
         title="F&M Gerente AI — Integration API",
@@ -123,6 +134,112 @@ def build_http_app(
             status_code=status.HTTP_200_OK if health.ok else status.HTTP_503_SERVICE_UNAVAILABLE,
             content={"ok": health.ok, "backend": health.backend, "detail": health.detail},
         )
+
+    def _contexto_whatsapp(
+        *, tenant_id: str, unidade_id: str, correlation_id: str
+    ) -> object:
+        if not tenant_id.strip() or not unidade_id.strip():
+            raise ValueError("escopo_whatsapp_invalido")
+        from core.seguranca.contexto import ContextoExecucao
+
+        return ContextoExecucao.sistema(
+            identidade="meta-whatsapp-webhook-v1",
+            motivo="webhook Meta/WhatsApp escopado por tenant e unidade",
+            tenant_id=tenant_id,
+            unidade_id=unidade_id,
+            correlation_id=correlation_id,
+        )
+
+    @app.get(
+        "/webhooks/meta/whatsapp/{tenant_id}/{unidade_id}",
+        include_in_schema=False,
+    )
+    def verificar_whatsapp(
+        tenant_id: str,
+        unidade_id: str,
+        request: Request,
+    ) -> Response:
+        mode = request.query_params.get("hub.mode", "")
+        verify_token = request.query_params.get("hub.verify_token", "")
+        challenge = request.query_params.get("hub.challenge", "")
+        if mode != "subscribe" or not verify_token or not challenge:
+            return Response(status_code=status.HTTP_400_BAD_REQUEST)
+        try:
+            contexto = _contexto_whatsapp(
+                tenant_id=tenant_id,
+                unidade_id=unidade_id,
+                correlation_id=request.headers.get("x-correlation-id")
+                or f"wa-verify:{tenant_id}:{unidade_id}",
+            )
+            with session_factory() as session:
+                adapter = FabricaAdaptersExternos(
+                    session=session,
+                    secret_store=whatsapp_secret_store_factory(session),
+                ).meta(
+                    contexto=contexto,
+                    configuracao_id="mensageria.whatsapp--meta",
+                    exigir_homologacao=False,
+                )
+                validado = adapter.validar_desafio(
+                    verify_token=verify_token,
+                    challenge=challenge,
+                )
+            return Response(
+                content=validado,
+                media_type="text/plain",
+                status_code=status.HTTP_200_OK,
+            )
+        except (ErroConfiguracaoServico, ErroProvedorExterno, RuntimeError):
+            return Response(status_code=status.HTTP_403_FORBIDDEN)
+
+    @app.post(
+        "/webhooks/meta/whatsapp/{tenant_id}/{unidade_id}",
+        include_in_schema=False,
+    )
+    async def webhook_whatsapp(
+        tenant_id: str,
+        unidade_id: str,
+        request: Request,
+    ) -> Response:
+        payload_bruto = await request.body()
+        if len(payload_bruto) > _MAX_WEBHOOK_BYTES:
+            return Response(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
+        assinatura = request.headers.get("x-hub-signature-256", "").strip()
+        if not assinatura:
+            return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+        try:
+            contexto = _contexto_whatsapp(
+                tenant_id=tenant_id,
+                unidade_id=unidade_id,
+                correlation_id=request.headers.get("x-correlation-id")
+                or f"wa:{tenant_id}:{unidade_id}",
+            )
+            with session_factory() as session:
+                adapter = FabricaAdaptersExternos(
+                    session=session,
+                    secret_store=whatsapp_secret_store_factory(session),
+                ).meta(
+                    contexto=contexto,
+                    configuracao_id="mensageria.whatsapp--meta",
+                )
+                mensagens = adapter.extrair_mensagens_whatsapp(
+                    payload_bruto=payload_bruto,
+                    assinatura=assinatura,
+                )
+                for mensagem in mensagens:
+                    canal_whatsapp.processar_mensagem(
+                        tenant_id=tenant_id,
+                        unidade_id=unidade_id,
+                        mensagem=mensagem,
+                        adapter=adapter,
+                    )
+            return Response(status_code=status.HTTP_204_NO_CONTENT)
+        except ErroProvedorExterno:
+            return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+        except ErroConfiguracaoServico:
+            return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except Exception:  # noqa: BLE001 - fronteira externa fail-closed
+            return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
 
     @app.post("/webhooks/pagbank", include_in_schema=False)
     async def webhook_pagbank(request: Request) -> Response:
