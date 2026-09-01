@@ -73,7 +73,10 @@ class ReconciliacaoPDVORM(PDVBase):
     valor_pagamento: Mapped[object | None] = mapped_column(Numeric(14, 2))
     valor_venda_financeira: Mapped[object | None] = mapped_column(Numeric(14, 2))
     valor_venda_legada: Mapped[object | None] = mapped_column(Numeric(14, 2))
-    estoque_estrategia: Mapped[str] = mapped_column(\n        String(30).with_variant(String(64), "postgresql"), nullable=False\n    )
+    estoque_estrategia: Mapped[str] = mapped_column(
+        String(30).with_variant(String(64), "postgresql"),
+        nullable=False,
+    )
     cashback_usado: Mapped[object] = mapped_column(Numeric(14, 2), nullable=False)
     cashback_ganho: Mapped[object] = mapped_column(Numeric(14, 2), nullable=False)
     status: Mapped[str] = mapped_column(String(30), nullable=False)

@@ -97,8 +97,8 @@ jobs:
 
       - name: Compile e lint F6-D
         run: |
-          python -m compileall -q             core/pdv             core/runtime             core/seguranca             infra/seguranca             infra/streamlit_app/auth_ui.py             scripts/seed_f6d_commercial_runtime.py
-          ruff check             scripts/seed_f6d_commercial_runtime.py             core/pdv/configuracao.py             core/pdv/contexto.py             infra/streamlit_app/auth_ui.py
+          python -m compileall -q             core/pdv             core/runtime             core/seguranca             infra/seguranca             infra/streamlit_app/auth_ui.py             scripts/seed_f6d_commercial_runtime.py             migrations/pdv_reconciliation_strategy_width_v1.py
+          ruff check             scripts/seed_f6d_commercial_runtime.py             migrations/pdv_reconciliation_strategy_width_v1.py             core/pdv/configuracao.py             core/pdv/contexto.py             infra/streamlit_app/auth_ui.py
 
       - name: Provar upgrade PostgreSQL 30→64
         run: |

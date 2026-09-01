@@ -85,6 +85,9 @@ from migrations.legacy_schema_reconciliation_v1 import reconcile_legacy_schema_v
 from migrations.legacy_schema_upgrade_v1 import upgrade_legacy_schema_v1
 from migrations.legacy_store_baseline_v1 import upgrade_legacy_store_baseline_v1
 from migrations.manifest import assert_migration_manifest, migration_fingerprint
+from migrations.pdv_reconciliation_strategy_width_v1 import (
+    upgrade_pdv_reconciliation_strategy_width_v1,
+)
 from migrations.migration_history_integrity_v1 import (
     upgrade_migration_history_integrity_v1,
 )
