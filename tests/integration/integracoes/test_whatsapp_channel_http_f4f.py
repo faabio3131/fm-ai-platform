@@ -39,7 +39,6 @@ class RuntimeCanalCaptura:
 
     def processar_mensagem(self, **kwargs):
         self.mensagens.append(kwargs)
-        return None
 
 
 def _contexto() -> ContextoExecucao:
