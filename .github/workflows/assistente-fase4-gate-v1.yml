@@ -7,6 +7,11 @@ on:
       - "core/ai_router.py"
       - "core/delivery/**"
       - "core/integracoes/google_maps.py"
+      - "core/integracoes/provedores.py"
+      - "infra/integracoes/fabrica_adapters.py"
+      - "http_api/app.py"
+      - "tests/unit/integracoes/test_whatsapp_control_plane_runtime_v1.py"
+      - "tests/integration/integracoes/test_whatsapp_control_plane_integration_v1.py"
       - "application/assistente_atendimento_runtime.py"
       - "application/catalogo_estoque_cutover.py"
       - "application/assistente_delivery_convergence.py"
@@ -86,6 +91,9 @@ jobs:
             core/delivery/modelos.py \
             core/delivery/modelos_orm.py \
             core/integracoes/google_maps.py \
+            core/integracoes/provedores.py \
+            infra/integracoes/fabrica_adapters.py \
+            http_api/app.py \
             application/assistente_atendimento_runtime.py \
             application/catalogo_estoque_cutover.py \
             application/assistente_delivery_convergence.py \
@@ -134,6 +142,9 @@ jobs:
             core/delivery/modelos.py \
             core/delivery/modelos_orm.py \
             core/integracoes/google_maps.py \
+            core/integracoes/provedores.py \
+            infra/integracoes/fabrica_adapters.py \
+            http_api/app.py \
             application/assistente_atendimento_runtime.py \
             application/catalogo_estoque_cutover.py \
             application/assistente_delivery_convergence.py \
@@ -184,6 +195,8 @@ jobs:
             tests/unit/ai_router/test_router.py \
             tests/unit/integracoes/test_gemini_audio_transport_v1.py \
             tests/unit/integracoes/test_google_maps_delivery_address_v1.py \
+            tests/unit/integracoes/test_whatsapp_control_plane_runtime_v1.py \
+            tests/integration/integracoes/test_whatsapp_control_plane_integration_v1.py \
             tests/unit/integracoes/test_delivery_policy_migration_v1.py \
             tests/fitness/test_assistente_commercial_cutover_v1.py
       - name: Targeted attendance tests
@@ -204,5 +217,7 @@ jobs:
             tests/unit/ai_router/test_router.py \
             tests/unit/integracoes/test_gemini_audio_transport_v1.py \
             tests/unit/integracoes/test_google_maps_delivery_address_v1.py \
+            tests/unit/integracoes/test_whatsapp_control_plane_runtime_v1.py \
+            tests/integration/integracoes/test_whatsapp_control_plane_integration_v1.py \
             tests/unit/integracoes/test_delivery_policy_migration_v1.py \
             tests/fitness/test_assistente_commercial_cutover_v1.py
