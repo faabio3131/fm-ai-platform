@@ -9,6 +9,8 @@ on:
       - "core/integracoes/google_maps.py"
       - "application/assistente_atendimento_runtime.py"
       - "application/catalogo_estoque_cutover.py"
+      - "application/assistente_delivery_convergence.py"
+      - "core/entrega/**"
       - "application/order_result_orchestrator.py"
       - "application/finalizacao_pagamento.py"
       - "application/pdv_legacy_projection.py"
@@ -86,6 +88,12 @@ jobs:
             core/integracoes/google_maps.py \
             application/assistente_atendimento_runtime.py \
             application/catalogo_estoque_cutover.py \
+            application/assistente_delivery_convergence.py \
+            core/entrega/adaptador_sqlalchemy.py \
+            core/entrega/integracoes_sqlalchemy.py \
+            core/entrega/modelos.py \
+            core/entrega/modelos_orm.py \
+            core/entrega/servicos.py \
             application/order_result_orchestrator.py \
             application/finalizacao_pagamento.py \
             application/pdv_legacy_projection.py \
@@ -128,6 +136,12 @@ jobs:
             core/integracoes/google_maps.py \
             application/assistente_atendimento_runtime.py \
             application/catalogo_estoque_cutover.py \
+            application/assistente_delivery_convergence.py \
+            core/entrega/adaptador_sqlalchemy.py \
+            core/entrega/integracoes_sqlalchemy.py \
+            core/entrega/modelos.py \
+            core/entrega/modelos_orm.py \
+            core/entrega/servicos.py \
             application/order_result_orchestrator.py \
             application/finalizacao_pagamento.py \
             application/pdv_legacy_projection.py \
@@ -155,6 +169,7 @@ jobs:
             tests/unit/assistente_atendimento/test_servico_atendimento.py \
             tests/unit/assistente_atendimento/test_checkout_adapter.py \
             tests/unit/assistente_atendimento/test_customer_context_f4c.py \
+            tests/unit/assistente_atendimento/test_delivery_convergence_f4e.py \
             tests/unit/assistente_atendimento/test_ficha_estoque_checkout.py \
             tests/unit/assistente_atendimento/test_order_result_orchestrator_f4d.py \
             tests/integration/wave1/test_pagbank_reconciliation.py \
@@ -177,6 +192,7 @@ jobs:
             tests/unit/assistente_atendimento/test_servico_atendimento.py \
             tests/unit/assistente_atendimento/test_checkout_adapter.py \
             tests/unit/assistente_atendimento/test_customer_context_f4c.py \
+            tests/unit/assistente_atendimento/test_delivery_convergence_f4e.py \
             tests/unit/assistente_atendimento/test_ficha_estoque_checkout.py \
             tests/unit/assistente_atendimento/test_order_result_orchestrator_f4d.py \
             tests/integration/wave1/test_pagbank_reconciliation.py \
