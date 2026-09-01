@@ -1089,6 +1089,7 @@ Os componentes centrais de cutover PDV e `application/checkout.py` já existem n
 - migration `0034_crm_customer_context_v1`: ainda precisa ser aplicada e validada no banco físico de homologação;
 - migration `0035_assistente_channel_runtime_v1`: também precisa ser aplicada e validada no banco físico de homologação;
 - nenhum desses itens externos foi marcado como PASS por teste fake, fixture ou simulação.
+- `docs/matriz-homologacao-integracoes-v1.md` foi reconciliada com o candidato F4-F, separando prova interna de evidência externa real.
 
 **Readiness após F4-F**
 - `assistente_atendimento = COMMERCIAL_CANDIDATE`;
