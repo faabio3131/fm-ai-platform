@@ -1,0 +1,145 @@
+name: Fase 6D Commercial Runtime E2E Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app.py'
+      - 'pdv_utils.py'
+      - 'application/**'
+      - 'core/pdv/**'
+      - 'core/runtime/**'
+      - 'core/seguranca/**'
+      - 'infra/seguranca/**'
+      - 'infra/streamlit_app/auth_ui.py'
+      - 'migrations/**'
+      - 'scripts/seed_f6d_commercial_runtime.py'
+      - 'tests/e2e/pdv-commercial-f6d.spec.ts'
+      - 'tests/e2e/start-streamlit-f6d-commercial.cjs'
+      - 'playwright.f6d.config.ts'
+      - 'docs/inventario-fase6-pdv-pedido-pagamento-estoque-v1.md'
+      - 'docs/system-design-fase6d-commercial-runtime-e2e-v1.md'
+      - '.github/workflows/fase6d-commercial-runtime-e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  f6d-commercial:
+    name: PostgreSQL staging + auth/RBAC + browser
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fm_ai_f6d
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d fm_ai_f6d"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      FM_AI_ENV: staging
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/fm_ai_f6d
+      FM_AI_TENANT_ID: tenant-f6d
+      FM_AI_UNIDADE_ID: unidade-f6d
+      FM_AI_PDV_MODE: authoritative_canary
+      FM_AI_PDV_COMMERCIAL_CANARY_ENABLED: '1'
+      FM_AI_PDV_TERMINAL_ID: caixa-f6d
+      FM_AI_PDV_ALLOWED_TERMINALS: caixa-f6d
+      FM_AI_SECRET_MASTER_KEY: bW1scnZpQzlCS2Q1dXBlTXRyUkJlTGNXWGtIclc3WktoM3lrb3Q5WT0=
+      PYTHONUNBUFFERED: '1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Provar ausência do harness de teste
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          python - <<'PY'
+          from core.runtime.config import load_runtime_settings, RuntimeEnvironment
+          from core.pdv.configuracao import carregar_rollout_ambiente
+          from core.pdv.roteamento import ModoPDV
+
+          settings = load_runtime_settings()
+          assert settings.environment is RuntimeEnvironment.STAGING
+          assert settings.commercial
+          rollout = carregar_rollout_ambiente(runtime_settings=settings)
+          assert rollout.modo is ModoPDV.AUTHORITATIVE_CANARY
+          assert "caixa-f6d" in rollout.terminais_permitidos
+          print("runtime staging/canary governado OK")
+          PY
+
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+          npm ci
+
+      - name: Compile e lint F6-D
+        run: |
+          python -m compileall -q             core/pdv core/runtime core/seguranca infra/seguranca             infra/streamlit_app/auth_ui.py             scripts/seed_f6d_commercial_runtime.py
+          ruff check             scripts/seed_f6d_commercial_runtime.py             core/pdv/configuracao.py             core/pdv/contexto.py             infra/streamlit_app/auth_ui.py
+
+      - name: Preparar PostgreSQL comercial efêmero
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          python scripts/seed_f6d_commercial_runtime.py
+          python -m scripts.migrate_v1 --check
+
+      - name: Regressões de rollout, auth e PDV
+        run: |
+          pytest -q             tests/unit/pdv/test_pdv.py             tests/integration/pdv/test_canary_integrado.py             tests/integration/pdv/test_pix_async_finalizer.py             tests/fitness/test_f6a_pdv_cutover_wiring.py             tests/fitness/test_f6c_legacy_projection_containment.py
+
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Navegador comercial F6-D
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          npx playwright test             tests/e2e/pdv-commercial-f6d.spec.ts             -c playwright.f6d.config.ts             --project=chromium             --reporter=list
+
+      - name: Evidência PostgreSQL pós-browser
+        if: always()
+        run: |
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, text
+
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          with engine.connect() as connection:
+              pedidos = connection.execute(
+                  text("select count(*) from pedidos where tenant_id='tenant-f6d' and unidade_id='unidade-f6d'")
+              ).scalar_one()
+              pagamentos = connection.execute(
+                  text("select count(*) from pagamentos where tenant_id='tenant-f6d' and unidade_id='unidade-f6d'")
+              ).scalar_one()
+              print({"pedidos": int(pedidos), "pagamentos": int(pagamentos)})
+          PY
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f6d-playwright-report
+          path: playwright-report-f6d/
+          if-no-files-found: ignore
