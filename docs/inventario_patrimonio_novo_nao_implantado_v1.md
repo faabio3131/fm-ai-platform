@@ -1083,40 +1083,48 @@ Os componentes centrais de cutover PDV e `application/checkout.py` já existem n
 - testes cobrem criptografia em repouso, isolamento tenant/unidade, versionamento do estado, replay de inbound, follow-up por áudio, falha incerta de outbound, consulta combinada Pedido/Pagamento/KDS/Entrega, notificação somente quando snapshot muda, challenge HTTP, homologação obrigatória para POST, assinatura inválida e unidade sem configuração;
 - fitness guards do F4-F foram adicionados para impedir regressão para canal fake, tenant demo, estado em claro, runtime sem assinatura ou notificação anterior ao commit.
 
-**Matriz de homologação e limites externos**
-- WhatsApp Cloud API: contrato interno/challenge/HMAC/texto/áudio/outbound foram implementados e testados por fixtures; falta evidência com WABA/número/Meta App reais, `wamid` real e callback real de status no tenant de homologação;
-- PagBank PIX: permanece `pix_provider_homologation_incomplete`; não existe evidência real de cobrança/webhook/consulta do provedor para o tenant comercial;
-- migration `0034_crm_customer_context_v1`: ainda precisa ser aplicada e validada no banco físico de homologação;
-- migration `0035_assistente_channel_runtime_v1`: também precisa ser aplicada e validada no banco físico de homologação;
-- nenhum desses itens externos foi marcado como PASS por teste fake, fixture ou simulação.
-- `docs/matriz-homologacao-integracoes-v1.md` foi reconciliada com o candidato F4-F, separando prova interna de evidência externa real.
+**Gate comercial interno / PostgreSQL / browser — encerramento**
+- workflow dedicado `Assistente Fase 4 Commercial E2E V1`, run **5** (`33463947423`), SHA `523bd3534865290ea8362139f32166e72c2d3bdc`: **PASS**;
+- compile do candidato: **PASS**;
+- Ruff do candidato: **PASS**;
+- PostgreSQL 16 real em processo isolado de homologação: migrations `0034_crm_customer_context_v1` e `0035_assistente_channel_runtime_v1` aplicadas, registradas no `fm_schema_migrations`, tabelas verificadas e segundo `run_migrations` idempotente: **PASS (2 testes)**;
+- Commercial Runtime E2E do Assistente, cobrindo Customer Context, Delivery convergence, Order Result Orchestrator, canal WhatsApp e runtime de atendimento sem reivindicar provedor externo: **PASS**;
+- Chromium real via Playwright abriu a aplicação Streamlit, selecionou `Assistente de Atendimento`, verificou o `Funcionário Digital V1`, campos do canal, validação, alternância texto/áudio e ausência do fallback `Processar Pedido`/Mica legado: **PASS (1 teste browser-driven)**;
+- a evidência foi publicada como artefato não-PII do GitHub Actions e vinculada ao mesmo SHA candidato;
+- esta prova resolve o gate técnico de PostgreSQL/migrations, Commercial Runtime E2E e browser. Ela não é usada para fingir chamada real a Meta, PagBank ou Mercado Pago.
 
-**Readiness após F4-F**
+**Matriz de homologação e limites externos**
+- WhatsApp Cloud API: contrato interno/challenge/HMAC/texto/áudio/outbound e browser do Assistente estão aprovados; falta somente a configuração/homologação externa com WABA, número e Meta App reais, `wamid` real e callback real de status;
+- PagBank PIX: permanece `pix_provider_homologation_incomplete` por ausência de conta/credenciais oficiais; não existe declaração falsa de cobrança/webhook real;
+- Mercado Pago: permanece pendência externa herdada do Control Plane/Fase 3 conforme registro já existente do provedor/suporte; não é blocker de código da Fase 4;
+- migrations 0034/0035: **resolvidas no gate interno PostgreSQL 16**; não permanecem como blockers de avanço da Fase 4;
+- `docs/matriz-homologacao-integracoes-v1.md` deve refletir a mesma separação entre prova interna real e configuração externa ainda indisponível.
+
+**Readiness após o gate final interno da Fase 4**
 - `assistente_atendimento = COMMERCIAL_CANDIDATE`;
 - blockers de código conhecidos da Fase 4: **0**;
-- blockers externos/de implantação: `pix_provider_homologation_incomplete`, `whatsapp_cloud_api_homologation_pending`, `migration_0034_not_applied_in_current_homologation_db` e `migration_0035_not_applied_in_current_homologation_db`;
-- `commercial_runtime_e2e`: **pendente** no candidato final;
-- `physical_test`: **pendente** no candidato final;
-- portanto F4-F está internamente implementado, mas **Fase 4 ainda não é COMMERCIAL_HOMOLOGATED**.
-
+- blockers não externos conhecidos da Fase 4: **0**;
+- blockers externos remanescentes no módulo: `pix_provider_homologation_incomplete` e `whatsapp_cloud_api_homologation_pending`;
+- Mercado Pago permanece como pendência externa herdada do Control Plane/Fase 3;
+- `commercial_runtime_e2e`: **PASS**, evidência `github-actions://Assistente-Fase-4-Commercial-E2E-V1/run-5/33463947423`;
+- `physical_test`: **PASS browser-driven Chromium**, evidência `github-actions://Assistente-Fase-4-Commercial-E2E-V1/run-5/chromium`;
+- Fase 4 está **APROVADA INTERNAMENTE / COMMERCIAL_CANDIDATE**, com avanço sequencial liberado; não é `COMMERCIAL_HOMOLOGATED` enquanto as homologações externas registradas permanecerem indisponíveis.
 **Rollback**
 - antes de merge/deploy, rollback é reverter os commits F4-F da branch;
 - após implantação da 0035, registros cifrados de continuidade já gravados devem ser preservados; rollback deve retirar o composition root do canal, não apagar histórico de conversa necessário para auditoria/reconciliação;
 - Pedido, Pagamento, KDS, Entrega, CRM e eventos canônicos nunca devem ser apagados para desfazer falha de WhatsApp;
 - o canal é uma borda substituível; as autoridades de negócio permanecem nos módulos canônicos.
 
-**Decisão de avanço condicional do proprietário — 31/08/2026**
-- PagBank, Meta/WhatsApp e Mercado Pago podem permanecer registrados como **PENDÊNCIA EXTERNA** enquanto conta, verificação, credenciais ou suporte do provedor não estiverem disponíveis; isso não autoriza marcar qualquer provedor como homologado.
-- Mercado Pago é uma pendência externa herdada do Control Plane/Fase 3 e **não é code blocker interno do F4-F**; PagBank/PIX e Meta/WhatsApp continuam explicitamente pendentes na matriz de homologação.
-- A auditoria do candidato final mostrou, porém, que **essas não são as únicas pendências atuais da Fase 4**: ainda faltam aplicar/validar as migrations 0034 e 0035 no banco físico de homologação e registrar Commercial Runtime E2E + teste físico/browser no mesmo candidato.
-- Por isso, a autorização condicional para avançar à Fase 5 ainda **não foi consumada** neste checkpoint. Fase 4 permanece `COMMERCIAL_CANDIDATE`, aprovada internamente, sem falsificar o gate físico.
+**Decisão de avanço do proprietário — condição satisfeita**
+- PagBank, Meta/WhatsApp e Mercado Pago permanecem como **PENDÊNCIA EXTERNA** enquanto conta, verificação, credenciais ou suporte do provedor não estiverem disponíveis; isso não autoriza marcar qualquer provedor como homologado.
+- As pendências que não dependiam desses provedores foram executadas e fechadas: PostgreSQL/migrations 0034/0035, Commercial Runtime E2E e teste browser-driven do Assistente estão verdes no candidato `523bd3534865290ea8362139f32166e72c2d3bdc`.
+- Portanto a condição definida pelo proprietário foi satisfeita: **só restam dependências externas de configuração/homologação de provedores**, sem blockers internos conhecidos da Fase 4.
+- A Fase 4 fica **APROVADA INTERNAMENTE / COMMERCIAL_CANDIDATE COM PENDÊNCIAS EXTERNAS DIFERIDAS**, preservando integralmente a regra de não declarar `COMMERCIAL_HOMOLOGATED` antes das provas reais dos provedores.
 
 **Próximo gate permitido**
-- resolver o recorte local/físico restante: migrations 0034/0035 no banco de homologação + Commercial Runtime E2E/teste físico no mesmo SHA candidato;
-- as homologações externas de PagBank, Meta/WhatsApp e Mercado Pago podem continuar pendentes e explicitamente registradas quando o provedor estiver indisponível;
-- concluído o recorte local/físico e reconciliado o readiness, a Fase 5 poderá ser liberada sem esperar artificialmente pelos provedores externos;
-- somente após evidências objetivas e nova reconciliação de readiness o status pode evoluir para `COMMERCIAL_HOMOLOGATED`.
-
+- **Fase 5 — Painel Proprietário / Administrador está liberada para execução sequencial**;
+- quando PagBank, Meta/WhatsApp ou Mercado Pago disponibilizarem conta/configuração/suporte, retomar suas homologações reais e anexar evidências ao readiness/matriz sem interromper artificialmente o trabalho interno;
+- sem merge final ou deploy definitivo sem autorização específica.
 
 ## 11. Regra de preservação
 
