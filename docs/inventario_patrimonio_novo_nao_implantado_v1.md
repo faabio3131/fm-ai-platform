@@ -575,8 +575,8 @@ A ordem deve continuar sendo a do Documento Mestre. O inventário determina **o 
 3. **Fase 4** — cortar Assistente para Core + Checkout + Pedido + Pagamento + Estoque + CRM + Maps/Delivery; eliminar `OperacaoMicaFake`.
 4. **Fase 5** — Painel Proprietário, reutilizando RBAC, Integrações, Notificações e configurações existentes.
 5. **Fase 6** — cortar PDV para Checkout/Pedido/Pagamento/Estoque autoritativos; migrar dashboard financeiro.
-6. **Fase 7** — Salão/Garçom: preservar domínio, substituir runtime_teste por composição comercial.
-7. **Fase 8** — KDS: preservar; provar jornada integrada.
+6. **Fase 7 — FECHADA TECNICAMENTE / COMMERCIAL_CANDIDATE** — Salão/Garçom cortados para composição comercial, identidade real, Pagamento/KDS canônicos e browser desktop/mobile/tablet.
+7. **Fase 8 — LIBERADA** — KDS: preservar domínio já válido; executar inventário Current → Target e cutover comercial integrado.
 8. **Fase 9** — Impressão: preservar spool, adicionar adapter físico e eventos.
 9. **Fase 10** — Expedição/Entrega: preservar domínio, substituir contexto de teste e integrar.
 10. **Fase 11** — Delivery Próprio: preservar regras; criar adapters reais para os domínios canônicos.
@@ -1172,6 +1172,140 @@ Os componentes centrais de cutover PDV e `application/checkout.py` já existem n
 - Fase 5 fica **APROVADA INTERNAMENTE / COMMERCIAL_CANDIDATE** no SHA técnico validado;
 - nenhuma dependência interna conhecida permanece aberta;
 - a próxima fase do Documento Mestre só deve começar mediante autorização expressa, mantendo **sem merge e sem deploy**.
+
+## 10.12 Checkpoint Fase 7 — Salão / Garçom — 02/09/2026
+
+**SHA técnico final validado:** `2191b45df395005b006072a98ea323500ff46e72`  
+**PR:** #72 — permanece draft, sem merge/deploy.
+
+**Current → Target**
+- Current inicial: domínio Salão/Garçom válido, porém composition comercial ainda
+  atravessava contexto/schema/pagamento de teste e o Garçom não possuía superfície
+  comercial governada.
+- Target aplicado: identidade autenticada, migration oficial, Pedido/KDS/Pagamento
+  autoritativos, Salão comercial desktop e Garçom mobile/tablet com RBAC real.
+
+**Fechamentos**
+- F7-B: composition comercial, identidade e schema;
+- F7-C: Pagamento canônico, PIX fail-closed, separação de alçadas;
+- F7-D: Garçom 390x844 + 820x1180, própria comanda, sem financeiro;
+- F7-E: Pedido → KDS/setor → pronta → alerta Garçom → solicitação de conta;
+- F7-F: PostgreSQL + login real + browser comercial desktop/mobile/tablet.
+
+**Provas finais**
+- matriz transversal: **24/24 workflows verdes no mesmo SHA**;
+- Fase 7F Commercial Runtime E2E Gate run 4 / 33662970167: **PASS**;
+- PR10 KDS Gates run 365 / 33662970046: **PASS**;
+- PR11 Salão, PR12 Garçom, F7-B, F7-C, F7-D, F7-E, Readiness, Wave0/Wave1,
+  Hardening e regressões transversais: **PASS**;
+- PR16 Delivery Gates run 237 / 33662970069: **PASS** após rerun do job E2E no
+  mesmo SHA, sem alteração de código.
+
+**Readiness**
+- `salao = COMMERCIAL_CANDIDATE`;
+- `garcom = COMMERCIAL_CANDIDATE`;
+- blockers de código conhecidos de ambos: **0**;
+- evidência de Commercial Runtime E2E/browser preenchida no readiness;
+- nenhuma migration F7 nova: `0012_restaurant_operations_runtime_v1` permanece
+  a autoridade de schema;
+- nenhuma autoridade Fake/Mock/runtime_teste retornou ao caminho comercial.
+
+**Rollback**
+- antes de merge/deploy, rollback é reverter os commits da branch F7;
+- após futura integração, rollback de UI/composition não apaga Mesa, Comanda,
+  Pedido, Pagamento, KDS ou eventos canônicos;
+- flags server-side de Salão/Garçom permanecem o mecanismo de contenção.
+
+**Decisão**
+- **Fase 7 tecnicamente fechada / COMMERCIAL_CANDIDATE**;
+- **Fase 8 — KDS comercial integrado — liberada para execução sequencial**;
+- merge e deploy continuam separados e dependem de autorização humana explícita.
+
+## 10.13 F8-A — KDS — Current → Target / System Design — 02/09/2026
+
+**Issue:** #73  
+**Branch:** `recovery/v1-fase8-kds-commercial-cutover`  
+**Base:** fechamento formal F7 em `f883f898e27c27f01af8930303a13e7f548d7397`.
+
+Auditoria pré-código confirmou:
+- domínio KDS, repositório, Application/UoW, RBAC, eventos e sincronização de
+  Pedido/Estoque já são patrimônio canônico;
+- `app.py` já contém a aba comercial KDS;
+- identidade comercial já é derivada de `IdentidadeUsuario`;
+- migration oficial KDS é `0010_kds_authoritative_runtime_v1`;
+- readiness já classifica KDS como `COMMERCIAL_CANDIDATE` sem code blockers;
+- o gap principal é evidência: o E2E KDS dedicado histórico ainda usa mini-app
+  com TEST_MODE, e falta operar a jornada completa do cozinheiro no `app.py`
+  real com PostgreSQL/login/RBAC.
+
+**Decisão econômica:** preservar KDS e implementar somente gaps reais de
+composition, prova comercial, RBAC explícito, resiliência e reconciliação.
+
+F8-A está concluída com:
+- `docs/inventario-fase8-kds-commercial-v1.md`;
+- `docs/system-design-fase8-kds-commercial-cutover-v1.md`.
+
+Próximo bloco após gate/reconciliação: **F8-B — composition/RBAC/fitness comercial**.
+Sem merge/deploy.
+
+
+## 10.14 F8-B / F8-C / F8-D — KDS commercial boundaries e resiliência — 02/09/2026
+
+A Fase 8 preservou o domínio KDS existente e fechou gaps de composition,
+evidência canônica e resiliência sem migration nova.
+
+Evidências:
+- F8-B `34ff1cef4199d5be21c37a3224303c7f79b64061`: RBAC/composition; 29/29 verdes;
+- F8-C `f2669cd9ab857bf03e498b1c0218e8eafb77a103`: Pedido -> KDS -> Estoque -> Outbox/Auditoria; 30/30 verdes;
+- F8-D `226bad9166844f91fbfe5ea7cb9af17d82ed791e`: multi-setor, CAS/replay, fail-closed, cache read-only e isolamento tenant/unidade; 31/31 verdes.
+
+Readiness permanece `COMMERCIAL_CANDIDATE` com
+`commercial_runtime_physical_gate_pending` reservado ao F8-E.
+
+**Próximo bloco:** F8-E — PostgreSQL 16 + migrations oficiais + `app.py` +
+login real + operador KDS real + browser + pós-condições persistidas.
+
+Sem merge/deploy.
+
+
+## 10.15 F8-E — KDS Commercial Runtime E2E / fechamento — 02/09/2026
+
+O fechamento comercial do KDS foi concluído no SHA
+`132e80bd2373aa30de42c4e17fea0037324ff7da`.
+
+Evidência final:
+- PostgreSQL 16;
+- migrations oficiais e schema current;
+- `app.py` real;
+- `FM_AI_TEST_MODE` ausente;
+- login real COZINHA;
+- GARCOM autenticado sem superfície KDS;
+- roteamento de Pedido confirmado feito pela própria UI comercial;
+- produção criada somente após o clique comercial;
+- aceite -> início -> pronta;
+- Pedido macro `pronto`;
+- reserva canônica de Estoque consumida exatamente uma vez;
+- saldo físico 8 e reservado 0 no cenário;
+- Outbox/Auditoria persistidos;
+- COZINHA sem capacidade de retirada;
+- `Fase 8E KDS Commercial Runtime E2E Gate` run 3 / `33685383011`: PASS;
+- **32/32 workflows verdes no mesmo SHA**.
+
+Durante a homologação, o browser revelou dois problemas de cenário/teste e ambos
+foram corrigidos sem relaxar domínio, RBAC ou política de cozinha:
+1. locator incorreto do selectbox Streamlit;
+2. ausência de Pagamento V1 confirmado no cenário, que corretamente causava
+   `cozinha_nao_autorizada`.
+
+Readiness final:
+- `kds = COMMERCIAL_CANDIDATE`;
+- `code_blockers=[]`;
+- `external_blockers=[]`;
+- evidência Commercial Runtime E2E/browser registrada;
+- nenhuma migration F8 nova.
+
+**Decisão:** Fase 8 tecnicamente fechada. Merge/deploy continuam separados e
+dependem de autorização humana explícita.
 
 ## 11. Regra de preservação
 

@@ -36,6 +36,11 @@ export default defineConfig({
     },
     {
       name: 'garcom-tablet',
+      testMatch: /garcom-tablet\.spec\.ts/,
+      use: { viewport: { width: 820, height: 1180 } },
+    },
+    {
+      name: 'gerente-tablet',
       testMatch: /gerente\.spec\.ts/,
       use: { viewport: { width: 820, height: 1180 } },
     },

@@ -125,7 +125,7 @@ from core.pdv.roteamento import ModoPDV, decidir_modo
 from core.pdv.servicos import finalizar_venda_pdv
 from core.central_pedidos.flags import order_center_v1_enabled
 from core.central_pedidos.ui_streamlit import render_central_pedidos
-from core.kds.flags import kds_v1_enabled
+from core.kds.flags import kds_v1_access_allowed
 from core.kds.ui_streamlit import render_kds
 from core.salao.flags import salao_v1_enabled
 from core.salao.ui_streamlit import render_salao
@@ -1155,6 +1155,8 @@ st.title("🍔 F&M AI FOOD — Painel de Gestão, PDV & Gateway")
 st.markdown("---")
 
 # --- 8. ESTRUTURA DAS 6 ABAS PRINCIPAIS ---
+_kds_disponivel = kds_v1_access_allowed(CURRENT_IDENTITY.permissoes)
+
 _nomes_abas = [
     "🤖 Engenharia de Cardápio",
     "📢 CRM, Resgate & Cashback",
@@ -1166,7 +1168,7 @@ _nomes_abas = [
 ]
 if order_center_v1_enabled():
     _nomes_abas.append("\U0001F4CB Central de Pedidos")
-if kds_v1_enabled():
+if _kds_disponivel:
     _nomes_abas.append("\U0001F373 KDS por Setor")
 if salao_v1_enabled():
     _nomes_abas.append("🪑 Mesas e Comandas")
@@ -1182,7 +1184,7 @@ if order_center_v1_enabled():
     _indice_extra += 1
 
 aba_kds = None
-if kds_v1_enabled():
+if _kds_disponivel:
     aba_kds = _abas[_indice_extra]
     _indice_extra += 1
 

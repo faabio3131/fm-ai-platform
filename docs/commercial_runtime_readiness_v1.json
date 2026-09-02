@@ -200,46 +200,40 @@
         "core/kds/ui_roteamento.py"
       ],
       "code_blockers": [],
-      "external_blockers": [
-        "commercial_runtime_physical_gate_pending"
-      ],
+      "external_blockers": [],
       "evidence": {
-        "sha": null,
-        "commercial_runtime_e2e": null,
-        "physical_test": null
+        "sha": "132e80bd2373aa30de42c4e17fea0037324ff7da",
+        "commercial_runtime_e2e": "github-actions://Fase-8E-KDS-Commercial-Runtime-E2E-Gate/run-3/33685383011",
+        "physical_test": "github-actions://Fase-8E-KDS-Commercial-Runtime-E2E-Gate/run-3/desktop-chromium"
       }
     },
     "salao": {
-      "status": "TEST_RUNTIME",
+      "status": "COMMERCIAL_CANDIDATE",
       "commercial_paths": [
-        "core/salao/ui_streamlit.py"
+        "core/salao/ui_streamlit.py",
+        "application/salao_transacoes.py"
       ],
-      "code_blockers": [
-        "salao_prepares_test_schema",
-        "salao_uses_test_context",
-        "salao_confirms_payment_with_test_helper"
-      ],
+      "code_blockers": [],
       "external_blockers": [],
       "evidence": {
-        "sha": null,
-        "commercial_runtime_e2e": null,
-        "physical_test": null
+        "sha": "2191b45df395005b006072a98ea323500ff46e72",
+        "commercial_runtime_e2e": "github-actions://Fase-7F-Commercial-Runtime-E2E-Gate/run-4/33662970167",
+        "physical_test": "github-actions://Fase-7F-Commercial-Runtime-E2E-Gate/run-4/desktop-chromium"
       }
     },
     "garcom": {
-      "status": "TEST_RUNTIME",
+      "status": "COMMERCIAL_CANDIDATE",
       "commercial_paths": [
-        "core/garcom/ui_streamlit.py"
+        "pages/8_Atendimento_Garcom.py",
+        "core/garcom/ui_streamlit.py",
+        "application/garcom_transacoes.py"
       ],
-      "code_blockers": [
-        "garcom_prepares_test_schema",
-        "garcom_uses_test_context"
-      ],
+      "code_blockers": [],
       "external_blockers": [],
       "evidence": {
-        "sha": null,
-        "commercial_runtime_e2e": null,
-        "physical_test": null
+        "sha": "2191b45df395005b006072a98ea323500ff46e72",
+        "commercial_runtime_e2e": "github-actions://Fase-7F-Commercial-Runtime-E2E-Gate/run-4/33662970167",
+        "physical_test": "github-actions://Fase-7F-Commercial-Runtime-E2E-Gate/run-4/mobile-tablet-chromium"
       }
     },
     "entrega": {

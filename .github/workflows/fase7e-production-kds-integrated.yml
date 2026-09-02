@@ -1,0 +1,69 @@
+name: Fase 7E Producao KDS Integrada Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'core/garcom/**'
+      - 'core/kds/**'
+      - 'core/salao/**'
+      - 'core/pedidos/**'
+      - 'application/garcom_transacoes.py'
+      - 'tests/integration/garcom/**'
+      - 'tests/integration/kds/**'
+      - 'tests/integration/fase7/**'
+      - '.github/workflows/fase7e-production-kds-integrated.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  f7e:
+    name: Pedido -> KDS -> pronto -> Garcom -> conta
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+
+      - name: Compile F7-E
+        run: |
+          python -m compileall -q \
+            core/garcom \
+            core/kds \
+            application/garcom_transacoes.py \
+            tests/integration/fase7/test_production_kds_garcom_chain.py
+
+      - name: Ruff F7-E
+        run: |
+          ruff check \
+            core/garcom \
+            core/kds \
+            application/garcom_transacoes.py \
+            tests/integration/fase7/test_production_kds_garcom_chain.py
+
+      - name: Mypy F7-E boundaries
+        run: mypy core/garcom core/kds application/garcom_transacoes.py
+
+      - name: Cadeia integrada F7-E
+        run: pytest -q tests/integration/fase7/test_production_kds_garcom_chain.py
+
+      - name: Regressao Garcom e KDS
+        run: |
+          pytest -q \
+            tests/integration/garcom \
+            tests/integration/kds \
+            tests/unit/garcom \
+            tests/unit/kds

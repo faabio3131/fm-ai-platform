@@ -2,6 +2,7 @@
 
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -16,6 +17,7 @@ import streamlit as st
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from core.garcom.runtime_teste import contexto_garcom_teste, preparar_schema_teste
 from core.garcom.ui_streamlit import render_garcom
 
 TMPDIR_RAW = os.environ.get("FM_AI_TEST_TMPDIR")
@@ -54,11 +56,17 @@ if papel not in {"garcom", "gerente"}:
 usuario_id = "garcom-1" if papel == "garcom" else "gerente-e2e"
 
 st.caption("Garcom E2E pronto")
+preparar_schema_teste(engine)
+contexto = contexto_garcom_teste(
+    correlation_id=f"corr-garcom-e2e-{papel}",
+    solicitado_em=datetime.now(timezone.utc),
+    papel=papel,
+    usuario_id=usuario_id,
+)
 render_garcom(
     engine=engine,
     session_factory=SessionLocal,
-    papel=papel,
-    usuario_id=usuario_id,
+    contexto=contexto,
 )
 
 st.markdown(

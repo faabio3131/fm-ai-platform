@@ -9,7 +9,6 @@ from .modelos import (
     ResumoMesaGarcom,
 )
 from .observabilidade import ColetorMetricasGarcom
-from .runtime_teste import contexto_garcom_teste, preparar_schema_teste
 from .servicos import ServicoGarcom
 
 __all__ = [
@@ -20,7 +19,5 @@ __all__ = [
     "ResumoComandaGarcom",
     "ResumoMesaGarcom",
     "ServicoGarcom",
-    "contexto_garcom_teste",
     "garcom_v1_enabled",
-    "preparar_schema_teste",
 ]

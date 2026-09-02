@@ -1,0 +1,99 @@
+name: Fase 7B Commercial Composition Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'application/salao_transacoes.py'
+      - 'core/salao/**'
+      - 'core/garcom/**'
+      - 'pages/8_Atendimento_Garcom.py'
+      - 'tests/fitness/test_f7_commercial_salao_garcom_boundary.py'
+      - 'docs/inventario-fase7-salao-garcom-v1.md'
+      - 'docs/system-design-fase7-salao-garcom-commercial-cutover-v1.md'
+      - 'docs/adr-fase7-commercial-composition-salao-garcom-v1.md'
+      - '.github/workflows/fase7b-commercial-composition.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  f7b:
+    name: Identity + schema + anti-test-runtime
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: f7
+          POSTGRES_PASSWORD: f7
+          POSTGRES_DB: f7
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U f7 -d f7"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+
+      - name: Compile F7-B
+        run: |
+          python -m compileall -q             application/salao_transacoes.py             core/salao             core/garcom             pages/8_Atendimento_Garcom.py             tests/fitness/test_f7_commercial_salao_garcom_boundary.py
+
+      - name: Ruff F7-B
+        run: |
+          ruff check             application/salao_transacoes.py             core/salao             core/garcom             pages/8_Atendimento_Garcom.py             tests/fitness/test_f7_commercial_salao_garcom_boundary.py
+
+      - name: Mypy F7-B
+        run: mypy application/salao_transacoes.py core/salao core/garcom
+
+      - name: Fitness anti-test-runtime
+        run: pytest -q tests/fitness/test_f7_commercial_salao_garcom_boundary.py
+
+      - name: Regressões Salão e Garçom
+        run: |
+          pytest -q             tests/unit/salao             tests/unit/garcom             tests/integration/salao             tests/integration/garcom
+
+      - name: Provar migration oficial 0012 em PostgreSQL
+        env:
+          DATABASE_URL: postgresql+psycopg://f7:f7@localhost:5432/f7
+        run: |
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, inspect
+          from migrations.runner import run_migrations, assert_schema_current
+
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          run_migrations(engine)
+          assert_schema_current(engine)
+          tabelas = set(inspect(engine).get_table_names())
+          obrigatorias = {
+              "mesas_v1",
+              "comandas_v1",
+              "comanda_participantes_v1",
+              "comanda_pedidos_v1",
+              "comanda_parcelas_fechamento_v1",
+              "comanda_pagamentos_confirmados_v1",
+              "eventos_salao_v1",
+          }
+          faltantes = obrigatorias - tabelas
+          if faltantes:
+              raise SystemExit(f"tabelas Salao ausentes: {sorted(faltantes)}")
+          print("F7-B PostgreSQL schema current; SalaoBase presente via migration 0012")
+          PY
