@@ -1,0 +1,276 @@
+name: Fase 8E KDS Commercial Runtime E2E Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'app.py'
+      - 'application/kds_*.py'
+      - 'core/kds/**'
+      - 'core/estoque/**'
+      - 'core/pedidos/**'
+      - 'core/seguranca/**'
+      - 'infra/seguranca/**'
+      - 'infra/streamlit_app/auth_ui.py'
+      - 'infra/eventos/**'
+      - 'migrations/**'
+      - 'scripts/seed_f8e_commercial_runtime.py'
+      - 'tests/e2e/f8e-commercial-kds.spec.ts'
+      - 'playwright.f8e.config.ts'
+      - 'docs/inventario-fase8-kds-commercial-v1.md'
+      - '.github/workflows/fase8e-kds-commercial-runtime-e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  f8e-commercial:
+    name: PostgreSQL + app.py + login real + KDS browser
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fm_ai_f8e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d fm_ai_f8e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      FM_AI_ENV: staging
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/fm_ai_f8e
+      FM_AI_TENANT_ID: tenant-f8e
+      FM_AI_UNIDADE_ID: unidade-f8e
+      FM_AI_KDS_V1: '1'
+      FM_AI_ADAPTER_ORDERS: sqlalchemy
+      FM_AI_ADAPTER_KDS: sqlalchemy
+      FM_AI_ADAPTER_AUTH: sqlalchemy
+      FM_AI_SECRET_MASTER_KEY: bW1scnZpQzlCS2Q1dXBlTXRyUkJlTGNXWGtIclc3WktoM3lrb3Q5WT0=
+      PYTHONUNBUFFERED: '1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+          npm ci
+
+      - name: Gerar credenciais efêmeras do gate
+        run: |
+          echo "F8E_COZINHA_EMAIL=cozinha-f8e@fm.ai" >> "$GITHUB_ENV"
+          echo "F8E_GARCOM_EMAIL=garcom-f8e@fm.ai" >> "$GITHUB_ENV"
+          echo "F8E_COZINHA_PASSWORD=F8E-Cozinha-${GITHUB_RUN_ID}!" >> "$GITHUB_ENV"
+          echo "F8E_GARCOM_PASSWORD=F8E-Garcom-${GITHUB_RUN_ID}!" >> "$GITHUB_ENV"
+
+      - name: Provar composition comercial KDS
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          python - <<'PY'
+          from core.kds.flags import kds_v1_access_allowed, kds_v1_enabled
+          from core.runtime.config import RuntimeEnvironment, load_runtime_settings
+          from core.seguranca import MATRIZ_PADRAO, Papel
+
+          settings = load_runtime_settings()
+          assert settings.environment is RuntimeEnvironment.STAGING
+          assert settings.commercial
+          assert kds_v1_enabled()
+          assert kds_v1_access_allowed(MATRIZ_PADRAO[Papel.COZINHA])
+          assert not kds_v1_access_allowed(MATRIZ_PADRAO[Papel.GARCOM])
+          print("F8-E commercial composition ready")
+          PY
+
+      - name: Compile Ruff Mypy F8-E
+        run: |
+          python -m compileall -q \
+            scripts/seed_f8e_commercial_runtime.py \
+            application/kds_runtime.py \
+            application/kds_runtime_core.py \
+            application/kds_runtime_support.py \
+            application/kds_transacoes.py \
+            application/kds_roteamento.py \
+            core/kds core/estoque
+          ruff check \
+            scripts/seed_f8e_commercial_runtime.py \
+            application/kds_runtime.py \
+            application/kds_runtime_core.py \
+            application/kds_runtime_support.py \
+            application/kds_transacoes.py \
+            application/kds_roteamento.py \
+            core/kds core/estoque
+          mypy \
+            application/kds_runtime.py \
+            application/kds_runtime_core.py \
+            application/kds_runtime_support.py \
+            application/kds_transacoes.py \
+            application/kds_roteamento.py \
+            core/kds core/estoque
+
+      - name: Preparar PostgreSQL comercial F8-E
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          python -m scripts.seed_f8e_commercial_runtime
+          python -m scripts.migrate_v1
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, func, select
+          from sqlalchemy.orm import Session
+
+          from core.estoque.modelos import StatusReserva
+          from core.estoque.modelos_orm import ReservaEstoqueORM
+          from core.kds.modelos_orm import ProducaoItemORM
+          from core.pedidos.modelos_orm import PedidoORM
+          from migrations.runner import assert_schema_current
+
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          assert_schema_current(engine)
+          with Session(engine) as session:
+              pedido = session.get(PedidoORM, ("pedido-f8e", "tenant-f8e", "unidade-f8e"))
+              assert pedido is not None
+              assert pedido.status == "confirmado"
+              producoes = session.scalar(
+                  select(func.count())
+                  .select_from(ProducaoItemORM)
+                  .where(
+                      ProducaoItemORM.tenant_id == "tenant-f8e",
+                      ProducaoItemORM.unidade_id == "unidade-f8e",
+                      ProducaoItemORM.pedido_id == "pedido-f8e",
+                  )
+              )
+              assert producoes == 0
+              reserva = session.scalar(
+                  select(ReservaEstoqueORM).where(
+                      ReservaEstoqueORM.tenant_id == "tenant-f8e",
+                      ReservaEstoqueORM.unidade_id == "unidade-f8e",
+                      ReservaEstoqueORM.pedido_id == "pedido-f8e",
+                  )
+              )
+              assert reserva is not None
+              assert reserva.status == StatusReserva.ATIVA.value
+          print("F8-E PostgreSQL pre-browser ready")
+          PY
+
+      - name: Regressões de fronteira KDS
+        run: |
+          pytest -q \
+            tests/fitness/test_f8_kds_commercial_boundary.py \
+            tests/integration/kds/test_kds.py \
+            tests/integration/wave2/test_kds_transaction_ownership.py
+
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser comercial F8-E
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          npx playwright test -c playwright.f8e.config.ts --reporter=list
+
+      - name: Evidência PostgreSQL pós-browser
+        if: always()
+        run: |
+          python - <<'PY'
+          import os
+          from decimal import Decimal
+
+          from sqlalchemy import create_engine, func, select
+          from sqlalchemy.orm import Session
+
+          from core.estoque.modelos import StatusReserva
+          from core.estoque.modelos_orm import ReservaEstoqueORM, SaldoEstoqueORM
+          from core.kds.modelos_orm import ProducaoItemORM
+          from core.pedidos.modelos_orm import PedidoORM
+          from infra.eventos.modelos_orm import OutboxEventoORM
+          from infra.seguranca.modelos_orm import EventoAuditoriaORM
+
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          with Session(engine) as session:
+              pedido = session.get(PedidoORM, ("pedido-f8e", "tenant-f8e", "unidade-f8e"))
+              assert pedido is not None
+              assert pedido.status == "pronto"
+
+              producoes = tuple(
+                  session.scalars(
+                      select(ProducaoItemORM).where(
+                          ProducaoItemORM.tenant_id == "tenant-f8e",
+                          ProducaoItemORM.unidade_id == "unidade-f8e",
+                          ProducaoItemORM.pedido_id == "pedido-f8e",
+                      )
+                  )
+              )
+              assert len(producoes) == 1
+              assert producoes[0].status == "pronta"
+
+              reserva = session.scalar(
+                  select(ReservaEstoqueORM).where(
+                      ReservaEstoqueORM.tenant_id == "tenant-f8e",
+                      ReservaEstoqueORM.unidade_id == "unidade-f8e",
+                      ReservaEstoqueORM.pedido_id == "pedido-f8e",
+                  )
+              )
+              assert reserva is not None
+              assert reserva.status == StatusReserva.CONSUMIDA.value
+
+              saldo = session.get(
+                  SaldoEstoqueORM,
+                  ("tenant-f8e", "unidade-f8e", "insumo-f8e"),
+              )
+              assert saldo is not None
+              assert Decimal(str(saldo.saldo_fisico)) == Decimal(8)
+              assert Decimal(str(saldo.saldo_reservado)) == Decimal(0)
+
+              tipos = set(session.scalars(select(OutboxEventoORM.event_type)).all())
+              assert {
+                  "producaoroteada.v1",
+                  "producaoempreparo.v1",
+                  "producaopronta.v1",
+                  "pedido.enviado_producao",
+                  "pedido.em_preparo",
+                  "pedido.pronto",
+              }.issubset(tipos)
+
+              auditorias = session.scalar(
+                  select(func.count()).select_from(EventoAuditoriaORM)
+              )
+              assert auditorias is not None
+              assert auditorias > 0
+
+              print(
+                  {
+                      "pedido": pedido.status,
+                      "kds": producoes[0].status,
+                      "reserva": reserva.status,
+                      "saldo_fisico": str(saldo.saldo_fisico),
+                      "saldo_reservado": str(saldo.saldo_reservado),
+                  }
+              )
+          PY
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f8e-playwright-report
+          path: playwright-report-f8e/
+          if-no-files-found: ignore

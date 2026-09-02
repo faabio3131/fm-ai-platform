@@ -1,6 +1,6 @@
 # Inventário — Fase 8 — KDS — Cutover Comercial Integrado
 
-**Status:** F8-D FECHADA — F8-E LIBERADA  
+**Status:** F8-E EM VALIDAÇÃO — Commercial Runtime E2E final  
 **Issue:** #73  
 **Base sequencial:** `f883f898e27c27f01af8930303a13e7f548d7397`  
 **Branch:** `recovery/v1-fase8-kds-commercial-cutover`
@@ -111,7 +111,7 @@ jornada Salão/Garçom.
 
 ## 4. Gaps Current → Target
 
-### B8-01 — Commercial Runtime E2E específico do KDS — CRÍTICO
+### B8-01 — Commercial Runtime E2E específico do KDS — EM VALIDAÇÃO F8-E
 Permanece para F8-E: PostgreSQL 16, migrations oficiais, `app.py`, login real,
 operador KDS real, jornada browser completa e pós-condições no banco.
 
@@ -145,7 +145,7 @@ O candidato F8-D consolida:
 - isolamento explícito entre tenant/unidade para leitura e comando;
 - rollback/ownership transacional preservados.
 
-### B8-06 — readiness final — ALTO
+### B8-06 — readiness final — EM VALIDAÇÃO F8-E
 Target F8-E:
 - preencher Commercial Runtime E2E/physical evidence;
 - remover blocker somente após evidência no mesmo candidato.
@@ -216,7 +216,7 @@ Falham fechado conforme a matriz vigente. F8 não amplia permissões para facili
 - rollback/ownership transacional;
 - 31/31 workflows verdes no mesmo SHA.
 
-### F8-E — Commercial Runtime E2E / fechamento
+### F8-E — EM VALIDAÇÃO — Commercial Runtime E2E / fechamento
 - PostgreSQL;
 - login real;
 - `app.py`;
@@ -343,7 +343,49 @@ Nenhum domínio, papel, permissão ou migration foi alterado.
 
 **Decisão:** F8-D fechada e **F8-E — Commercial Runtime E2E / fechamento — liberada**.
 
-## 11. STOP
+## 11. F8-E — Commercial Runtime E2E / fechamento — EM VALIDAÇÃO
+
+### Objetivo
+Provar o KDS pelo mesmo caminho comercial entregue ao operador:
+- PostgreSQL 16;
+- migrations oficiais e schema current;
+- `app.py` real;
+- `FM_AI_TEST_MODE` ausente;
+- identidade persistida e login real;
+- COZINHA com aba KDS e GARCOM sem superfície KDS;
+- Pedido confirmado roteado pela própria UI comercial;
+- aceite -> início -> pronta;
+- consumo real da reserva canônica de Estoque;
+- Pedido macro `PRONTO`;
+- Outbox/Auditoria persistidos;
+- ausência de `Registrar retirada` para COZINHA.
+
+### Candidato
+Artefatos dedicados:
+- `scripts/seed_f8e_commercial_runtime.py`;
+- `tests/e2e/f8e-commercial-kds.spec.ts`;
+- `playwright.f8e.config.ts`;
+- `.github/workflows/fase8e-kds-commercial-runtime-e2e.yml`.
+
+O seed não cria `ProducaoItem`. A produção deve surgir exclusivamente do clique
+comercial em **Enviar item para produção**, impedindo homologação artificial por
+estado pré-carregado.
+
+### Pós-condições obrigatórias
+- exatamente uma produção para `pedido-f8e`;
+- produção `pronta`;
+- Pedido `pronto`;
+- reserva de estoque `consumida`;
+- saldo físico 8 e reservado 0 para `insumo-f8e`;
+- eventos KDS/Pedido esperados na Outbox;
+- Auditoria persistida;
+- GARCOM sem aba KDS;
+- COZINHA sem capacidade de retirada.
+
+F8-E só fecha após o gate dedicado, matriz transversal e readiness/checkpoint
+ficarem reconciliados no mesmo candidato.
+
+## 12. STOP
 
 A Fase 8 não fecha se:
 - houver Fake/Mock/runtime_teste no caminho comercial;
