@@ -1,6 +1,6 @@
 # Inventário — Fase 8 — KDS — Cutover Comercial Integrado
 
-**Status:** F8-C FECHADA — F8-D LIBERADA  
+**Status:** F8-D EM VALIDAÇÃO — resiliência/fail-closed  
 **Issue:** #73  
 **Base sequencial:** `f883f898e27c27f01af8930303a13e7f548d7397`  
 **Branch:** `recovery/v1-fase8-kds-commercial-cutover`
@@ -135,11 +135,15 @@ O gate dedicado prova:
 - Outbox e Auditoria permanecem persistidos;
 - ownership de commit/rollback permanece na Application/UoW.
 
-### B8-05 — degradação/fail-closed — MÉDIO
-Target F8-D:
-- manter simulação fora do commercial default;
-- provar leitura degradada e bloqueio de write;
-- nenhuma falha de persistência pode inventar estado ou produzir commit parcial.
+### B8-05 — degradação/fail-closed — EM VALIDAÇÃO F8-D
+O candidato F8-D consolida:
+- multi-setor e ordenação independentes;
+- CAS com rejeição de versão stale;
+- replay/idempotência sem duplicação;
+- cache de último snapshot apenas para leitura degradada;
+- write sob indisponibilidade falha fechado com `kds_offline_somente_leitura`;
+- isolamento explícito entre tenant/unidade para leitura e comando;
+- rollback/ownership transacional preservados.
 
 ### B8-06 — readiness final — ALTO
 Target F8-E:
@@ -203,12 +207,13 @@ Falham fechado conforme a matriz vigente. F8 não amplia permissões para facili
 - ownership transacional e rollback preservados;
 - 30/30 workflows verdes no SHA técnico.
 
-### F8-D — resiliência
+### F8-D — EM VALIDAÇÃO
 - multi-setor;
 - CAS/replay;
-- falha de persistência;
-- cache somente leitura;
-- isolamento tenant/unidade.
+- falha de persistência sem fallback de escrita;
+- cache degradado somente leitura;
+- isolamento tenant/unidade;
+- rollback/ownership transacional.
 
 ### F8-E — Commercial Runtime E2E / fechamento
 - PostgreSQL;
@@ -302,7 +307,29 @@ Nenhum código de domínio, RBAC ou migration foi alterado no F8-C. O bloco fech
 
 **Decisão:** F8-C fechada e **F8-D — resiliência/fail-closed — liberada**.
 
-## 10. STOP
+## 10. F8-D — Resiliência / fail-closed — EM VALIDAÇÃO
+
+### Descoberta
+O domínio existente já implementa as proteções de resiliência. A auditoria encontrou
+boa cobertura histórica para multi-setor, CAS, replay/idempotência, degradação de
+leitura e rollback. O único gap de prova explícita identificado foi o isolamento
+tenant/unidade e a demonstração direta de que um snapshot de cache nunca vira
+autoridade de escrita.
+
+### Candidato
+O F8-D adiciona somente provas:
+1. leitura por setor continua independente;
+2. versão stale falha com `producao_concorrente`;
+3. replay válido permanece idempotente e fingerprint divergente falha;
+4. falha SQL de leitura usa apenas último snapshot e marca `somente_leitura`;
+5. falha SQL durante write retorna `kds_offline_somente_leitura` e não muda estado;
+6. tenant/unidade distintos não enxergam nem transicionam produção alheia;
+7. rollback Application/UoW continua sem persistência parcial.
+
+Nenhuma mudança de domínio, RBAC ou migration é prevista para este candidato.
+F8-D só fecha após gate dedicado e matriz transversal verdes no mesmo SHA.
+
+## 11. STOP
 
 A Fase 8 não fecha se:
 - houver Fake/Mock/runtime_teste no caminho comercial;

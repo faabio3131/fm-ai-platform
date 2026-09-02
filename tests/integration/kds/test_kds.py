@@ -50,12 +50,20 @@ def session():
         yield sessao
 
 
-def seed_item(session, pedido_id, item_id, ordem=1):
+def seed_item(
+    session,
+    pedido_id,
+    item_id,
+    ordem=1,
+    *,
+    tenant="tenant-1",
+    unidade="unidade-1",
+):
     session.add(
         PedidoORM(
             id=pedido_id,
-            tenant_id="tenant-1",
-            unidade_id="unidade-1",
+            tenant_id=tenant,
+            unidade_id=unidade,
             origem="pdv",
             canal="balcao",
             status="enviado_producao",
@@ -75,8 +83,8 @@ def seed_item(session, pedido_id, item_id, ordem=1):
     session.add(
         ItemPedidoORM(
             id=item_id,
-            tenant_id="tenant-1",
-            unidade_id="unidade-1",
+            tenant_id=tenant,
+            unidade_id=unidade,
             pedido_id=pedido_id,
             ordem=ordem,
             produto_id=f"produto-{item_id}",
@@ -326,3 +334,114 @@ def test_fila_offline_usa_ultimo_snapshot_e_fica_somente_leitura(session, monkey
     assert [i.producao.producao_id for i in degradado.itens] == [
         i.producao.producao_id for i in online.itens
     ]
+
+def test_isolamento_tenant_unidade_nao_vaza_fila_nem_comando(session):
+    seed_item(session, "pedido-t1", "item-t1")
+    seed_item(
+        session,
+        "pedido-t2",
+        "item-t2",
+        tenant="tenant-2",
+        unidade="unidade-2",
+    )
+    svc, _ = servico(session)
+    ctx_t1 = contexto(tenant="tenant-1", unidade="unidade-1")
+    ctx_t2 = contexto(tenant="tenant-2", unidade="unidade-2")
+
+    setor_t1 = svc.criar_setor(
+        ctx_t1,
+        codigo="quente",
+        nome="Cozinha T1",
+        setor_id="setor-t1",
+    )
+    setor_t2 = svc.criar_setor(
+        ctx_t2,
+        codigo="quente",
+        nome="Cozinha T2",
+        setor_id="setor-t2",
+    )
+    svc.rotear_item(
+        ctx_t1,
+        pedido_id="pedido-t1",
+        pedido_item_id="item-t1",
+        setor_id=setor_t1.setor_id,
+        quantidade=Decimal("1.0000"),
+        idempotency_key="route-t1",
+        producao_id="prod-t1",
+    )
+    svc.rotear_item(
+        ctx_t2,
+        pedido_id="pedido-t2",
+        pedido_item_id="item-t2",
+        setor_id=setor_t2.setor_id,
+        quantidade=Decimal("1.0000"),
+        idempotency_key="route-t2",
+        producao_id="prod-t2",
+    )
+
+    assert [i.producao.producao_id for i in svc.listar_fila(ctx_t1).itens] == [
+        "prod-t1"
+    ]
+    assert [i.producao.producao_id for i in svc.listar_fila(ctx_t2).itens] == [
+        "prod-t2"
+    ]
+
+    ctx_unidade_errada = contexto(tenant="tenant-1", unidade="unidade-9")
+    assert svc.listar_fila(ctx_unidade_errada).itens == ()
+
+    with pytest.raises(ErroKDS) as tenant_cruzado:
+        svc.transicionar(
+            ctx_t2,
+            producao_id="prod-t1",
+            destino="aceita",
+            versao_esperada=1,
+            idempotency_key="cross-tenant",
+            precondicoes={"setor_correto": True},
+        )
+    assert tenant_cruzado.value.codigo == "producao_indisponivel"
+
+    with pytest.raises(ErroKDS) as unidade_cruzada:
+        svc.transicionar(
+            ctx_unidade_errada,
+            producao_id="prod-t1",
+            destino="aceita",
+            versao_esperada=1,
+            idempotency_key="cross-unit",
+            precondicoes={"setor_correto": True},
+        )
+    assert unidade_cruzada.value.codigo == "producao_indisponivel"
+
+
+def test_write_offline_falha_fechado_sem_cache_como_autoridade(
+    session,
+    monkeypatch,
+):
+    svc, _, _, quente_item, _ = preparar_multissetor(session)
+    cozinha = contexto(Papel.COZINHA)
+    online = svc.listar_fila(cozinha)
+    assert online.itens
+
+    def falhar(*args, **kwargs):
+        raise OperationalError("select", {}, Exception("offline"))
+
+    monkeypatch.setattr(svc.repositorio, "obter_producao", falhar)
+
+    with pytest.raises(ErroKDS) as bloqueado:
+        svc.transicionar(
+            cozinha,
+            producao_id=quente_item.producao_id,
+            destino="aceita",
+            versao_esperada=1,
+            idempotency_key="offline-write",
+            precondicoes={"setor_correto": True},
+        )
+    assert bloqueado.value.codigo == "kds_offline_somente_leitura"
+
+    persistido = RepositorioKDSSQLAlchemy(session).obter_producao(
+        "tenant-1",
+        "unidade-1",
+        quente_item.producao_id,
+    )
+    assert persistido is not None
+    assert persistido.status == "aguardando"
+
