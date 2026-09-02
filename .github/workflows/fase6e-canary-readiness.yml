@@ -1,0 +1,58 @@
+name: Fase 6E Canary Readiness Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'core/pdv/**'
+      - 'core/runtime/**'
+      - 'scripts/pdv_canary_readiness.py'
+      - 'tests/unit/pdv/**'
+      - 'tests/integration/pdv/**'
+      - 'docs/inventario-fase6-pdv-pedido-pagamento-estoque-v1.md'
+      - 'docs/system-design-fase6e-canary-readiness-reconciliation-rollback-v1.md'
+      - 'docs/adr-fase6e-canary-readiness-observability-v1.md'
+      - 'docs/runbooks/fase6e-pdv-canary-cohort-rollback-v1.md'
+      - '.github/workflows/fase6e-canary-readiness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  f6e:
+    name: Readiness + reconciliation + rollback + concurrency
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+
+      - name: Compilar F6-E
+        run: |
+          python -m compileall -q             core/pdv             scripts/pdv_canary_readiness.py             tests/unit/pdv/test_f6e_canary_readiness.py             tests/integration/pdv/test_f6e_canary_readiness.py             tests/integration/pdv/test_concorrencia.py             tests/integration/pdv/test_rollback.py
+
+      - name: Ruff F6-E
+        run: |
+          ruff check             core/pdv/modelos.py             core/pdv/reconciliacao.py             core/pdv/servicos.py             core/pdv/adaptadores_sqlalchemy.py             scripts/pdv_canary_readiness.py             tests/unit/pdv/test_f6e_canary_readiness.py             tests/integration/pdv/test_f6e_canary_readiness.py             tests/integration/pdv/test_concorrencia.py
+
+      - name: Mypy F6-E
+        run: mypy core/pdv
+
+      - name: Readiness, retry, concorrencia e rollback
+        run: |
+          pytest -q             tests/unit/pdv/test_f6e_canary_readiness.py             tests/integration/pdv/test_f6e_canary_readiness.py             tests/integration/pdv/test_concorrencia.py             tests/integration/pdv/test_rollback.py             tests/integration/pdv/test_cutover_divergencia.py
+
+      - name: Regressao PDV completa
+        run: pytest -q tests/unit/pdv tests/integration/pdv

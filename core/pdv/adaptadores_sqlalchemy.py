@@ -7,7 +7,7 @@ from contextlib import AbstractContextManager
 from datetime import datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
-from typing import Any, Self
+from typing import Any, Self, cast
 from uuid import NAMESPACE_URL, uuid5
 
 from sqlalchemy import func, select
@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from .modelos import EntradaPDV, ResultadoPDV
 from .modelos_orm import EfeitoCompatPDVORM, ReconciliacaoPDVORM, VendaLegadaLinkORM
+from .reconciliacao import RegistroReadinessPDV, ResumoReadinessPDV, resumir_readiness
 
 
 class TipoEfeitoCompat(StrEnum):
@@ -205,6 +206,40 @@ class RepositorioPDVSQLAlchemy:
                 ReconciliacaoPDVORM.idempotency_key == chave,
             )
         )
+
+    def resumir_readiness(
+        self,
+        tenant: str,
+        unidade: str,
+        *,
+        limite: int = 1000,
+    ) -> ResumoReadinessPDV:
+        """Read model bounded e tenant-scoped; nao corrige nem persiste nada."""
+
+        if limite <= 0 or limite > 10_000:
+            raise ValueError("limite_readiness_pdv_invalido")
+        rows = self.session.scalars(
+            select(ReconciliacaoPDVORM)
+            .where(
+                ReconciliacaoPDVORM.tenant_id == tenant,
+                ReconciliacaoPDVORM.unidade_id == unidade,
+            )
+            .order_by(ReconciliacaoPDVORM.criado_em.desc())
+            .limit(limite)
+        ).all()
+        registros = tuple(
+            RegistroReadinessPDV(
+                tenant_id=str(row.tenant_id),
+                unidade_id=str(row.unidade_id),
+                modo=str(row.modo),
+                idempotency_key=str(row.idempotency_key),
+                status=str(row.status),
+                divergencias=tuple(str(item) for item in (row.divergencias or ())),
+                criado_em=cast(datetime, row.criado_em),
+            )
+            for row in rows
+        )
+        return resumir_readiness(registros)
 
 
 class LegacyPDVSQLAlchemyAdapter:

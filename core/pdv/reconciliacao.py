@@ -1,5 +1,6 @@
 """Modelo consultavel e detector conservador de divergencias do checkout."""
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -10,6 +11,14 @@ class StatusReconciliacao(StrEnum):
     CONCILIADO = "conciliado"
     DIVERGENTE = "divergente"
     REPARO_NECESSARIO = "reparo_necessario"
+
+
+class RecomendacaoCoortePDV(StrEnum):
+    """Decisao assistiva do F6-E; nunca altera rollout automaticamente."""
+
+    MANTER = "manter_coorte"
+    REDUZIR = "reduzir_coorte"
+    AMPLIACAO_ELEGIVEL = "ampliacao_elegivel"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -32,6 +41,136 @@ class ReconciliacaoPDV:
     cashback_ganho: Decimal = Decimal(0)
     status: StatusReconciliacao = StatusReconciliacao.CONCILIADO
     divergencias: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, kw_only=True)
+class RegistroReadinessPDV:
+    tenant_id: str
+    unidade_id: str
+    modo: str
+    idempotency_key: str
+    status: str
+    divergencias: tuple[str, ...]
+    criado_em: datetime
+
+
+@dataclass(frozen=True, kw_only=True)
+class MetricaModoTerminalPDV:
+    modo: str
+    terminal_id: str
+    total: int
+    conciliados: int
+    divergentes: int
+    reparo_necessario: int
+    pendentes: int
+
+    @property
+    def bloqueios(self) -> int:
+        return self.divergentes + self.reparo_necessario
+
+
+@dataclass(frozen=True, kw_only=True)
+class ResumoReadinessPDV:
+    total_registros: int
+    divergentes: int
+    reparo_necessario: int
+    pendentes: int
+    chaves_invalidas: int
+    metricas: tuple[MetricaModoTerminalPDV, ...]
+    recomendacao: RecomendacaoCoortePDV
+
+    @property
+    def apto_ampliacao(self) -> bool:
+        return self.recomendacao is RecomendacaoCoortePDV.AMPLIACAO_ELEGIVEL
+
+
+def extrair_terminal_id_reconciliacao(chave: str) -> str:
+    """Extrai terminal da chave pdv:<terminal>:<checkout>:reconciliacao."""
+
+    prefixo = "pdv:"
+    sufixo = ":reconciliacao"
+    if not chave.startswith(prefixo) or not chave.endswith(sufixo):
+        raise ValueError("chave_reconciliacao_pdv_invalida")
+    corpo = chave[len(prefixo) : -len(sufixo)]
+    terminal, separador, checkout = corpo.partition(":")
+    if not separador or not terminal.strip() or not checkout.strip():
+        raise ValueError("chave_reconciliacao_pdv_invalida")
+    return terminal
+
+
+def resumir_readiness(
+    registros: Iterable[RegistroReadinessPDV],
+) -> ResumoReadinessPDV:
+    """Produz metricas conservadoras sem mutar reconciliacao nem rollout."""
+
+    materializados = tuple(registros)
+    grupos: dict[tuple[str, str], dict[str, int]] = {}
+    chaves_invalidas = 0
+    divergentes = 0
+    reparo_necessario = 0
+    pendentes = 0
+
+    for registro in materializados:
+        try:
+            terminal = extrair_terminal_id_reconciliacao(registro.idempotency_key)
+        except ValueError:
+            chaves_invalidas += 1
+            continue
+
+        chave = (registro.modo, terminal)
+        contador = grupos.setdefault(
+            chave,
+            {
+                "total": 0,
+                "conciliados": 0,
+                "divergentes": 0,
+                "reparo_necessario": 0,
+                "pendentes": 0,
+            },
+        )
+        contador["total"] += 1
+        status = str(registro.status)
+        if status == StatusReconciliacao.CONCILIADO.value:
+            contador["conciliados"] += 1
+        elif status == StatusReconciliacao.DIVERGENTE.value:
+            contador["divergentes"] += 1
+            divergentes += 1
+        elif status == StatusReconciliacao.REPARO_NECESSARIO.value:
+            contador["reparo_necessario"] += 1
+            reparo_necessario += 1
+        else:
+            contador["pendentes"] += 1
+            pendentes += 1
+
+    metricas = tuple(
+        MetricaModoTerminalPDV(
+            modo=modo,
+            terminal_id=terminal,
+            total=contador["total"],
+            conciliados=contador["conciliados"],
+            divergentes=contador["divergentes"],
+            reparo_necessario=contador["reparo_necessario"],
+            pendentes=contador["pendentes"],
+        )
+        for (modo, terminal), contador in sorted(grupos.items())
+    )
+
+    if chaves_invalidas or divergentes or reparo_necessario:
+        recomendacao = RecomendacaoCoortePDV.REDUZIR
+    elif not materializados or pendentes:
+        recomendacao = RecomendacaoCoortePDV.MANTER
+    else:
+        recomendacao = RecomendacaoCoortePDV.AMPLIACAO_ELEGIVEL
+
+    return ResumoReadinessPDV(
+        total_registros=len(materializados),
+        divergentes=divergentes,
+        reparo_necessario=reparo_necessario,
+        pendentes=pendentes,
+        chaves_invalidas=chaves_invalidas,
+        metricas=metricas,
+        recomendacao=recomendacao,
+    )
 
 
 def detectar_divergencias(
