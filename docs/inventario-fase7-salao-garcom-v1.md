@@ -213,21 +213,31 @@ Este documento + System Design + ADR.
   permanece a migration oficial do Salão;
 - nenhum merge/deploy foi realizado neste bloco.
 
-### F7-D — Garçom mobile/tablet — EM VALIDAÇÃO
+### F7-D — Garçom mobile/tablet — FECHADA
 - auditoria confirmou que domínio, UoW, identidade comercial e filtro de alçada já
-  estavam corretos após F7-B; não há justificativa para reescrever o Garçom;
-- GARCOM passa a ter prova browser dedicada em **390x844** e **820x1180**;
-- celular e tablet provam somente própria comanda/alerta e ocultação da comanda
+  estavam corretos após F7-B; não houve reescrita do domínio Garçom;
+- identidade GARCOM e composition comercial permanecem fail-closed;
+- browser dedicado prova **390x844** e **820x1180**;
+- celular e tablet provam somente a própria comanda/alerta e ocultação da comanda
   pertencente a outro garçom;
 - ambos os viewports provam ausência de ações de pagamento e fechamento;
+- mobile prova a mutação autorizada `Solicitar conta` e a transição para
+  `conta_solicitada` sem liberar ação financeira;
 - prova de serviço continua recusando mutação de comanda alheia com
   `comanda_fora_alcada`, sem commit parcial;
-- Gerente permanece como regressão tablet separada, sem transformar a UI do
-  Garçom em superfície financeira;
-- página comercial continua usando `require_authentication` e não aceita
-  papel/usuário via query/widget;
+- Gerente permanece como regressão separada, sem transformar a UI do Garçom em
+  superfície financeira;
+- página comercial continua usando identidade autenticada e não aceita papel/usuário
+  via query/widget no caminho comercial; parâmetros do mini-app E2E permanecem isolados
+  sob o harness de teste;
 - nenhum domínio, permissão ou migration foi ampliado neste bloco;
-- fechamento depende do gate F7-D + PR12 + regressões proporcionais no mesmo SHA.
+- **fechamento técnico aprovado em 02/09/2026 no SHA
+  `433c524ea1610b3da68e6b305faa5034361bd26a`;**
+- **21/21 workflows verdes no mesmo SHA**, incluindo Fase 7D Garcom Mobile Tablet
+  Gate, PR12 Garçom, PR11 Salão, PR10 KDS, F7-B, F7-C, Readiness e Wave1;
+- gate F7-D fechou os dois jobs: `GARCOM 390x844 + 820x1180` e
+  `Identity + RBAC + transaction boundary` integralmente verdes;
+- nenhum merge/deploy foi realizado neste bloco.
 
 ### F7-E — Produção/KDS integrada
 - Pedido vinculado aparece no KDS/setor correto;
