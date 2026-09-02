@@ -11,11 +11,10 @@ def _texto(path: str) -> str:
 
 def test_app_so_expoe_kds_para_identidade_com_visualizacao_de_producao() -> None:
     source = _texto("app.py")
-    assert "from core.seguranca import Permissao" in source
-    assert "_kds_disponivel = (" in source
-    assert "kds_v1_enabled()" in source
+    assert "from core.seguranca" not in source
+    assert "from core.kds.flags import kds_v1_access_allowed" in source
     assert (
-        "Permissao.PRODUCAO_VISUALIZAR in CURRENT_IDENTITY.permissoes"
+        "_kds_disponivel = kds_v1_access_allowed(CURRENT_IDENTITY.permissoes)"
         in source
     )
     assert source.count("if _kds_disponivel:") == 2
@@ -53,3 +52,9 @@ def test_migration_kds_oficial_permanece_no_runner_comercial() -> None:
     assert "0010_kds_authoritative_runtime_v1" in source
     assert "KDSBase.metadata.create_all" in source
     assert "migrations.kds_v1" not in source
+
+
+def test_boundary_kds_concentra_decisao_de_exposicao_rbac() -> None:
+    source = _texto("core/kds/flags.py")
+    assert "Permissao.PRODUCAO_VISUALIZAR in permissoes" in source
+    assert "kds_v1_enabled()" in source
