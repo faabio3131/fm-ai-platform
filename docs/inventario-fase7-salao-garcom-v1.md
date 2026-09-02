@@ -239,10 +239,30 @@ Este documento + System Design + ADR.
   `Identity + RBAC + transaction boundary` integralmente verdes;
 - nenhum merge/deploy foi realizado neste bloco.
 
-### F7-E — Produção/KDS integrada
-- Pedido vinculado aparece no KDS/setor correto;
-- pronto volta como aviso ao Garçom;
-- estados consistentes até solicitação de conta.
+### F7-E — Produção/KDS integrada — FECHADA
+- o bloco não reescreveu Pedido, KDS, Salão ou Garçom; adicionou prova integrada
+  sobre as autoridades já existentes;
+- Pedido canônico com item real é vinculado à comanda pelo `ServicoGarcom`, sem
+  cópia ou segunda verdade do Pedido;
+- `ServicoKDS.criar_setor` e `ServicoKDS.rotear_item` criam o roteamento real no
+  setor correto, iniciando a produção em `aguardando`;
+- a produção percorre as transições oficiais
+  `aguardando -> aceita -> em_preparo -> pronta` com as precondições do KDS,
+  sem semear diretamente um `ProducaoItemORM` em estado final;
+- o painel do Garçom deriva o alerta `pronta` exclusivamente do KDS para a própria
+  comanda; outro GARCOM no mesmo tenant/unidade não recebe o alerta alheio;
+- após a produção pronta, o GARCOM solicita a conta e a comanda transita para
+  `conta_solicitada`, mantendo o saldo financeiro intacto e sem ganhar alçada de
+  pagamento ou fechamento;
+- gate dedicado também executa regressões completas de Garçom + KDS;
+- **fechamento técnico aprovado em 02/09/2026 no SHA
+  `bc1609397ffec66a9384a2867d85869eb2fe796f`;**
+- **22/22 workflows verdes no mesmo SHA**, incluindo Fase 7E Producao KDS
+  Integrada Gate, PR10 KDS, PR11 Salão, PR12 Garçom, F7-D, F7-C, F7-B,
+  Commercial Runtime Readiness V1, Fase 6D Commercial Runtime E2E Gate,
+  V1 Wave1 Authoritative Transactions e Hardening Gate E;
+- nenhuma migration nova foi criada e nenhum domínio/RBAC foi ampliado;
+- nenhum merge/deploy foi realizado neste bloco.
 
 ### F7-F — Commercial Runtime E2E / fechamento
 - PostgreSQL comercial/staging;
