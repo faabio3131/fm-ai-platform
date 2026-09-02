@@ -187,9 +187,9 @@ Este documento + System Design + ADR.
 - Nenhuma migration nova foi criada; `0012_restaurant_operations_runtime_v1` permanece a migration oficial do Salão.
 - Nenhum merge/deploy foi realizado neste bloco.
 
-### F7-C — Salão comercial + Pagamento — EM VALIDAÇÃO
+### F7-C — Salão comercial + Pagamento — FECHADA
 - confirmação financeira de teste permanece fora do caminho comercial;
-- candidato compõe `criar_obrigacao_pagamento`, `confirmar_pagamento` (dinheiro)
+- composição usa `criar_obrigacao_pagamento`, `confirmar_pagamento` (dinheiro)
   e `confirmar_pagamento_presencial` (crédito/débito) sem criar façade financeira paralela;
 - criação respeita `PAGAMENTO_REGISTRAR`; confirmação/projeção respeitam
   `PAGAMENTO_CONFIRMAR`; fechamento respeita `COMANDA_FECHAR`;
@@ -199,9 +199,19 @@ Este documento + System Design + ADR.
   do mesmo tenant/unidade/comanda, método e valor;
 - IDs comerciais gerenciados pela UI são estáveis por parcela/Pedido para replay seguro;
 - testes dedicados cobrem dinheiro, cartão presencial, PIX fail-closed,
-  alçada e conflito de versão;
-- gate F7-C dedicado deve ficar verde no mesmo SHA antes do fechamento do bloco;
-- nenhum merge/deploy é autorizado por este candidato.
+  alçada, idempotência e conflito de versão;
+- **fechamento técnico aprovado em 02/09/2026 no SHA
+  `7f6014c489bce15127f76b6c70576931699acc25`;**
+- matriz final do checkpoint técnico: **20/20 workflows verdes no mesmo SHA**;
+- gates críticos verdes: Fase 7C Salao Canonical Payment Gate, PR11 Salão,
+  PR12 Garçom, Fase 7B Commercial Composition Gate, Commercial Runtime Readiness V1,
+  V1 Wave1 Authoritative Transactions e PR10 KDS;
+- a primeira tentativa do E2E principal do PR10 expirou no teste transversal
+  `pdv-cashback.spec.ts` ao selecionar opção de CRM/PDV; o job falho foi reexecutado
+  no mesmo SHA e passou, enquanto os jobs específicos do KDS já estavam verdes;
+- nenhuma migration nova foi criada; `0012_restaurant_operations_runtime_v1`
+  permanece a migration oficial do Salão;
+- nenhum merge/deploy foi realizado neste bloco.
 
 ### F7-D — Garçom mobile/tablet
 - jornada real com identidade GARCOM;
