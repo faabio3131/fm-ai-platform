@@ -1,6 +1,6 @@
 # System Design — Fase 7 — Salão / Garçom — Commercial Cutover V1
 
-**Status:** APROVADO PARA IMPLEMENTAÇÃO CONTROLADA  
+**Status:** FECHADO TECNICAMENTE / COMMERCIAL_CANDIDATE  
 **Issue:** #71  
 **Base:** `main@0feb5594655f30e0c26fc72754bdaa03c3e88ddd`
 
@@ -241,3 +241,23 @@ F7 não fecha se:
 - commercial E2E não usar app/entrypoint real;
 - schema PostgreSQL não estiver current;
 - qualquer gate crítico estiver vermelho.
+## 18. Fechamento técnico — 02/09/2026
+
+A implementação foi validada no SHA final `2191b45df395005b006072a98ea323500ff46e72`.
+
+Evidência final:
+- F7-B, F7-C, F7-D, F7-E e F7-F concluídas;
+- PostgreSQL 16 + schema oficial + login real + browser comercial;
+- Salão desktop com fechamento financeiro canônico;
+- Garçom mobile/tablet com alçada própria e sem autoridade financeira;
+- Pedido/KDS/setor/pronto/alerta integrados;
+- alvo de toque mínimo de 44 px preservado na superfície Garçom;
+- matriz transversal **24/24 workflows verdes no mesmo SHA**;
+- nenhuma migration F7 nova e nenhuma autoridade paralela criada;
+- nenhum merge/deploy executado.
+
+Classificação final da fase: **COMMERCIAL_CANDIDATE**, com blockers internos
+conhecidos igual a zero para Salão e Garçom. A Fase 8 fica liberada para seu
+próprio inventário Current → Target e gates, sem alterar a autoridade KDS já
+existente por conveniência.
+

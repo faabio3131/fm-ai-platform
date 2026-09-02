@@ -1,6 +1,6 @@
 # Inventário — Fase 7 — Salão / Garçom — Cutover Comercial Canônico
 
-**Status:** F7-A CONCLUÍDA — desenho pronto para implementação controlada  
+**Status:** FASE 7 FECHADA TECNICAMENTE / COMMERCIAL_CANDIDATE — FASE 8 LIBERADA  
 **Issue:** #71  
 **Base:** `main@0feb5594655f30e0c26fc72754bdaa03c3e88ddd`  
 **Branch:** `recovery/v1-fase7-salao-garcom-commercial-cutover`
@@ -264,14 +264,32 @@ Este documento + System Design + ADR.
 - nenhuma migration nova foi criada e nenhum domínio/RBAC foi ampliado;
 - nenhum merge/deploy foi realizado neste bloco.
 
-### F7-F — Commercial Runtime E2E / fechamento
-- PostgreSQL comercial/staging;
-- `app.py`/entrypoint real;
-- login real;
-- browser desktop para Salão/fechamento;
-- viewport celular e tablet para Garçom;
-- matriz transversal no mesmo SHA;
-- inventário/Documento Mestre atualizados antes da Fase 8.
+### F7-F — Commercial Runtime E2E / fechamento — FECHADA
+- PostgreSQL 16 comercial/staging foi preparado pelo gate dedicado;
+- Salão executou login real, jornada desktop e fechamento com Pagamento canônico;
+- Garçom executou login real nas superfícies comerciais mobile/tablet, preservando
+  própria alçada, alerta KDS e ausência de ação financeira;
+- a evidência pós-browser confirmou no PostgreSQL a comanda gerencial `fechada`,
+  pagamento `pago` com saldo zero e produção KDS `pronta`;
+- o contrato de alvo de toque do Garçom foi corrigido para mínimo de 44 px em
+  todos os controles acionáveis da área principal;
+- o helper E2E de selectbox Streamlit foi estabilizado contra rerenderização,
+  reacquirindo o widget a cada tentativa sem alterar regra de negócio;
+- **checkpoint técnico final: `2191b45df395005b006072a98ea323500ff46e72`;**
+- **24/24 workflows verdes no mesmo SHA**;
+- `Fase 7F Commercial Runtime E2E Gate` run 4 / `33662970167`: **PASS**;
+- `PR10 KDS Gates` run 365 / `33662970046`: **PASS** após a estabilização
+  definitiva do helper E2E no candidato final;
+- `PR16 Delivery Gates` run 237 / `33662970069`: **PASS**; a primeira tentativa
+  do E2E de CEP fora da área não exibiu a mensagem dentro do timeout e o rerun do
+  job no mesmo SHA passou sem mudança de código;
+- Salão e Garçom permanecem `COMMERCIAL_CANDIDATE`, agora com evidência de
+  Commercial Runtime E2E/browser preenchida e sem blockers internos conhecidos;
+- nenhuma migration nova foi criada na Fase 7; `0012_restaurant_operations_runtime_v1`
+  permanece a migration oficial de Salão/Garçom;
+- nenhum merge e nenhum deploy foram executados;
+- **Fase 7 fechada tecnicamente; Fase 8 — KDS comercial integrado — liberada
+  para inventário Current → Target e execução sequencial.**
 
 ## 9. STOP
 

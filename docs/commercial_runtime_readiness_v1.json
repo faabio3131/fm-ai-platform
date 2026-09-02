@@ -216,13 +216,11 @@
         "application/salao_transacoes.py"
       ],
       "code_blockers": [],
-      "external_blockers": [
-        "commercial_runtime_physical_gate_pending"
-      ],
+      "external_blockers": [],
       "evidence": {
-        "sha": null,
-        "commercial_runtime_e2e": null,
-        "physical_test": null
+        "sha": "2191b45df395005b006072a98ea323500ff46e72",
+        "commercial_runtime_e2e": "github-actions://Fase-7F-Commercial-Runtime-E2E-Gate/run-4/33662970167",
+        "physical_test": "github-actions://Fase-7F-Commercial-Runtime-E2E-Gate/run-4/desktop-chromium"
       }
     },
     "garcom": {
@@ -233,13 +231,11 @@
         "application/garcom_transacoes.py"
       ],
       "code_blockers": [],
-      "external_blockers": [
-        "commercial_runtime_physical_gate_pending"
-      ],
+      "external_blockers": [],
       "evidence": {
-        "sha": null,
-        "commercial_runtime_e2e": null,
-        "physical_test": null
+        "sha": "2191b45df395005b006072a98ea323500ff46e72",
+        "commercial_runtime_e2e": "github-actions://Fase-7F-Commercial-Runtime-E2E-Gate/run-4/33662970167",
+        "physical_test": "github-actions://Fase-7F-Commercial-Runtime-E2E-Gate/run-4/mobile-tablet-chromium"
       }
     },
     "entrega": {
