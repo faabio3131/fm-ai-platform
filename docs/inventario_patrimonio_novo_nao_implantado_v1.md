@@ -1221,6 +1221,33 @@ Os componentes centrais de cutover PDV e `application/checkout.py` já existem n
 - **Fase 8 — KDS comercial integrado — liberada para execução sequencial**;
 - merge e deploy continuam separados e dependem de autorização humana explícita.
 
+## 10.13 F8-A — KDS — Current → Target / System Design — 02/09/2026
+
+**Issue:** #73  
+**Branch:** `recovery/v1-fase8-kds-commercial-cutover`  
+**Base:** fechamento formal F7 em `f883f898e27c27f01af8930303a13e7f548d7397`.
+
+Auditoria pré-código confirmou:
+- domínio KDS, repositório, Application/UoW, RBAC, eventos e sincronização de
+  Pedido/Estoque já são patrimônio canônico;
+- `app.py` já contém a aba comercial KDS;
+- identidade comercial já é derivada de `IdentidadeUsuario`;
+- migration oficial KDS é `0010_kds_authoritative_runtime_v1`;
+- readiness já classifica KDS como `COMMERCIAL_CANDIDATE` sem code blockers;
+- o gap principal é evidência: o E2E KDS dedicado histórico ainda usa mini-app
+  com TEST_MODE, e falta operar a jornada completa do cozinheiro no `app.py`
+  real com PostgreSQL/login/RBAC.
+
+**Decisão econômica:** preservar KDS e implementar somente gaps reais de
+composition, prova comercial, RBAC explícito, resiliência e reconciliação.
+
+F8-A está concluída com:
+- `docs/inventario-fase8-kds-commercial-v1.md`;
+- `docs/system-design-fase8-kds-commercial-cutover-v1.md`.
+
+Próximo bloco após gate/reconciliação: **F8-B — composition/RBAC/fitness comercial**.
+Sem merge/deploy.
+
 ## 11. Regra de preservação
 
 Durante a recuperação:
