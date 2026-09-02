@@ -530,30 +530,32 @@ def render_salao(
                             f"Pagamento {pagamento_gerenciado.id} · "
                             f"status {pagamento_gerenciado.status}"
                         )
-                        if pagamento_gerenciado.status == PagamentoStatus.PAGO.value:
-                            if Permissao.PAGAMENTO_CONFIRMAR in contexto.permissoes:
-                                if st.button(
-                                    "Projetar pagamento canônico confirmado",
-                                    key=(
-                                        f"projetar-pay-{comanda.comanda_id}-"
-                                        f"{proxima.ordem}-{pagamento_gerenciado.id}"
+                        if (
+                            pagamento_gerenciado.status == PagamentoStatus.PAGO.value
+                            and Permissao.PAGAMENTO_CONFIRMAR in contexto.permissoes
+                            and st.button(
+                                "Projetar pagamento canônico confirmado",
+                                key=(
+                                    f"projetar-pay-{comanda.comanda_id}-"
+                                    f"{proxima.ordem}-{pagamento_gerenciado.id}"
+                                ),
+                            )
+                        ):
+                            concluir(
+                                lambda: aplicacao.registrar_pagamento_confirmado(
+                                    contexto,
+                                    pagamento_id=pagamento_gerenciado.id,
+                                    comanda_id=comanda.comanda_id,
+                                    metodo=proxima.metodo,
+                                    valor=proxima.valor,
+                                    expected_version=comanda.versao,
+                                    idempotency_key=(
+                                        f"ui:pay:project:{comanda.comanda_id}:"
+                                        f"{proxima.ordem}:"
+                                        f"{pagamento_gerenciado.id}"
                                     ),
-                                ):
-                                    concluir(
-                                        lambda: aplicacao.registrar_pagamento_confirmado(
-                                            contexto,
-                                            pagamento_id=pagamento_gerenciado.id,
-                                            comanda_id=comanda.comanda_id,
-                                            metodo=proxima.metodo,
-                                            valor=proxima.valor,
-                                            expected_version=comanda.versao,
-                                            idempotency_key=(
-                                                f"ui:pay:project:{comanda.comanda_id}:"
-                                                f"{proxima.ordem}:"
-                                                f"{pagamento_gerenciado.id}"
-                                            ),
-                                        )
-                                    )
+                                )
+                            )
                         elif Permissao.PAGAMENTO_CONFIRMAR in contexto.permissoes:
                             if proxima.metodo == MetodoFechamento.DINHEIRO:
                                 if st.button(
