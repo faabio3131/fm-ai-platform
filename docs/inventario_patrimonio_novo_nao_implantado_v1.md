@@ -1248,6 +1248,25 @@ F8-A está concluída com:
 Próximo bloco após gate/reconciliação: **F8-B — composition/RBAC/fitness comercial**.
 Sem merge/deploy.
 
+
+## 10.14 F8-B / F8-C / F8-D — KDS commercial boundaries e resiliência — 02/09/2026
+
+A Fase 8 preservou o domínio KDS existente e fechou gaps de composition,
+evidência canônica e resiliência sem migration nova.
+
+Evidências:
+- F8-B `34ff1cef4199d5be21c37a3224303c7f79b64061`: RBAC/composition; 29/29 verdes;
+- F8-C `f2669cd9ab857bf03e498b1c0218e8eafb77a103`: Pedido -> KDS -> Estoque -> Outbox/Auditoria; 30/30 verdes;
+- F8-D `226bad9166844f91fbfe5ea7cb9af17d82ed791e`: multi-setor, CAS/replay, fail-closed, cache read-only e isolamento tenant/unidade; 31/31 verdes.
+
+Readiness permanece `COMMERCIAL_CANDIDATE` com
+`commercial_runtime_physical_gate_pending` reservado ao F8-E.
+
+**Próximo bloco:** F8-E — PostgreSQL 16 + migrations oficiais + `app.py` +
+login real + operador KDS real + browser + pós-condições persistidas.
+
+Sem merge/deploy.
+
 ## 11. Regra de preservação
 
 Durante a recuperação:

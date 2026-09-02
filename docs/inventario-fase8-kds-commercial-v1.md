@@ -1,6 +1,6 @@
 # Inventário — Fase 8 — KDS — Cutover Comercial Integrado
 
-**Status:** F8-D EM VALIDAÇÃO — resiliência/fail-closed  
+**Status:** F8-D FECHADA — F8-E LIBERADA  
 **Issue:** #73  
 **Base sequencial:** `f883f898e27c27f01af8930303a13e7f548d7397`  
 **Branch:** `recovery/v1-fase8-kds-commercial-cutover`
@@ -135,7 +135,7 @@ O gate dedicado prova:
 - Outbox e Auditoria permanecem persistidos;
 - ownership de commit/rollback permanece na Application/UoW.
 
-### B8-05 — degradação/fail-closed — EM VALIDAÇÃO F8-D
+### B8-05 — degradação/fail-closed — FECHADA NO F8-D
 O candidato F8-D consolida:
 - multi-setor e ordenação independentes;
 - CAS com rejeição de versão stale;
@@ -207,13 +207,14 @@ Falham fechado conforme a matriz vigente. F8 não amplia permissões para facili
 - ownership transacional e rollback preservados;
 - 30/30 workflows verdes no SHA técnico.
 
-### F8-D — EM VALIDAÇÃO
+### F8-D — FECHADA
 - multi-setor;
 - CAS/replay;
 - falha de persistência sem fallback de escrita;
 - cache degradado somente leitura;
 - isolamento tenant/unidade;
-- rollback/ownership transacional.
+- rollback/ownership transacional;
+- 31/31 workflows verdes no mesmo SHA.
 
 ### F8-E — Commercial Runtime E2E / fechamento
 - PostgreSQL;
@@ -307,7 +308,7 @@ Nenhum código de domínio, RBAC ou migration foi alterado no F8-C. O bloco fech
 
 **Decisão:** F8-C fechada e **F8-D — resiliência/fail-closed — liberada**.
 
-## 10. F8-D — Resiliência / fail-closed — EM VALIDAÇÃO
+## 10. F8-D — Resiliência / fail-closed — FECHADA
 
 ### Descoberta
 O domínio existente já implementa as proteções de resiliência. A auditoria encontrou
@@ -326,8 +327,21 @@ O F8-D adiciona somente provas:
 6. tenant/unidade distintos não enxergam nem transicionam produção alheia;
 7. rollback Application/UoW continua sem persistência parcial.
 
-Nenhuma mudança de domínio, RBAC ou migration é prevista para este candidato.
-F8-D só fecha após gate dedicado e matriz transversal verdes no mesmo SHA.
+Nenhuma mudança de domínio, RBAC ou migration foi necessária para este candidato.
+
+### Fechamento técnico
+**SHA candidato:** `226bad9166844f91fbfe5ea7cb9af17d82ed791e`
+
+- `Fase 8D KDS Resilience Fail Closed Gate` run 1 / `33680892412`: **PASS**;
+- compile, Ruff e mypy: **PASS**;
+- multi-setor, CAS, replay/idempotência e cache degradado read-only: **PASS**;
+- write indisponível falha fechado com `kds_offline_somente_leitura`: **PASS**;
+- isolamento tenant/unidade e ownership/rollback: **PASS**;
+- **matriz transversal final: 31/31 workflows verdes no mesmo SHA**.
+
+Nenhum domínio, papel, permissão ou migration foi alterado.
+
+**Decisão:** F8-D fechada e **F8-E — Commercial Runtime E2E / fechamento — liberada**.
 
 ## 11. STOP
 
