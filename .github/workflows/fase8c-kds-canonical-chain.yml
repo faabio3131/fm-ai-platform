@@ -1,0 +1,76 @@
+name: Fase 8C KDS Canonical Chain Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'application/kds_*.py'
+      - 'core/kds/**'
+      - 'core/pedidos/**'
+      - 'core/estoque/**'
+      - 'infra/eventos/**'
+      - 'infra/seguranca/**'
+      - 'migrations/**'
+      - 'tests/integration/wave2/**'
+      - 'tests/integration/kds/**'
+      - 'docs/inventario-fase8-kds-commercial-v1.md'
+      - '.github/workflows/fase8c-kds-canonical-chain.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canonical-chain:
+    name: Pedido + KDS + Estoque + Outbox + Auditoria
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Compile F8-C
+        run: >-
+          python -m compileall -q
+          application/kds_runtime.py
+          application/kds_runtime_core.py
+          application/kds_runtime_support.py
+          application/kds_transacoes.py
+          core/kds core/pedidos core/estoque infra/eventos infra/seguranca
+          tests/integration/wave2/test_kds_authoritative_runtime.py
+          tests/integration/wave2/test_kds_transaction_ownership.py
+      - name: Ruff F8-C
+        run: >-
+          ruff check
+          application/kds_runtime.py
+          application/kds_runtime_core.py
+          application/kds_runtime_support.py
+          application/kds_transacoes.py
+          core/kds core/pedidos core/estoque infra/eventos infra/seguranca
+          tests/integration/wave2/test_kds_authoritative_runtime.py
+          tests/integration/wave2/test_kds_transaction_ownership.py
+      - name: Mypy F8-C
+        run: >-
+          mypy
+          application/kds_runtime.py
+          application/kds_runtime_core.py
+          application/kds_runtime_support.py
+          application/kds_transacoes.py
+          core/kds core/pedidos core/estoque infra/eventos infra/seguranca
+      - name: Cadeia canônica Pedido KDS Estoque Eventos
+        run: >-
+          pytest -q
+          tests/integration/wave2/test_kds_authoritative_runtime.py
+          -k 'sincroniza_estado_macro or inicio_real_de_producao or roteamento_e_idempotente or falha_de_roteamento'
+      - name: Ownership transacional e rollback
+        run: pytest -q tests/integration/wave2/test_kds_transaction_ownership.py
+      - name: Regressão de domínio KDS
+        run: pytest -q tests/integration/kds/test_kds.py

@@ -1,6 +1,6 @@
 # Inventário — Fase 8 — KDS — Cutover Comercial Integrado
 
-**Status:** F8-B FECHADA — F8-C LIBERADA  
+**Status:** F8-C EM VALIDAÇÃO — cadeia operacional canônica  
 **Issue:** #73  
 **Base sequencial:** `f883f898e27c27f01af8930303a13e7f548d7397`  
 **Branch:** `recovery/v1-fase8-kds-commercial-cutover`
@@ -116,25 +116,24 @@ Permanece para F8-E: PostgreSQL 16, migrations oficiais, `app.py`, login real,
 operador KDS real, jornada browser completa e pós-condições no banco.
 
 ### B8-02 — prova comercial de RBAC — FECHADA NO F8-B
-A composition agora só expõe a superfície KDS a identidades com
+A composition só expõe a superfície KDS a identidades com
 `PRODUCAO_VISUALIZAR`, sem ampliar a matriz de permissões. O domínio/Application
 continuam como defesa final e o renderer converte negação em acesso recusado.
 
-### B8-03 — operação browser de roteamento — ALTO
-Target F8-C/F8-E:
-- Pedido confirmado aparece como pendente;
-- operador autorizado seleciona setor;
-- roteamento cria produção `aguardando`;
-- replay não duplica produção;
-- outro tenant/unidade não aparece.
+### B8-03 — cadeia de roteamento Application/UoW — EM VALIDAÇÃO F8-C
+O patrimônio já implementa a cadeia; F8-C consolida a prova dedicada de:
+- Pedido `CONFIRMADO -> ENVIADO_PRODUCAO` no roteamento;
+- Produção criada em `aguardando`;
+- idempotência sem duplicação de produção/evento;
+- rollback integral se o roteamento falhar.
 
-### B8-04 — sincronização Pedido/Estoque/Eventos — ALTO
-Target F8-C:
-- roteamento: Pedido -> `ENVIADO_PRODUCAO`;
-- iniciar: Pedido -> `EM_PREPARO`;
-- início consome reserva de estoque uma vez;
-- todos os itens prontos: Pedido -> `PRONTO`;
-- outbox/auditoria persistidos.
+### B8-04 — sincronização Pedido/Estoque/Eventos — EM VALIDAÇÃO F8-C
+O gate dedicado prova:
+- `aceita -> em_preparo` promove Pedido para `EM_PREPARO`;
+- início real consome a reserva canônica de Estoque exatamente uma vez;
+- `pronta` promove Pedido para `PRONTO` quando todos os itens terminam;
+- Outbox e Auditoria permanecem persistidos;
+- ownership de commit/rollback permanece na Application/UoW.
 
 ### B8-05 — degradação/fail-closed — MÉDIO
 Target F8-D:
@@ -155,11 +154,11 @@ Target F8-E:
 | Schema | migration 0010 oficial | preservar; sem migration nova sem drift |
 | Identidade | autenticada + exposição RBAC | provar browser real no F8-E |
 | Feature flag | orders+kds+auth + permissão | preservar |
-| Pedido | sincronização canônica | provar ponta a ponta F8-C |
-| Estoque | consumo no início de produção | provar exatamente uma vez F8-C/D |
-| Eventos/auditoria | implementados | provar persistência F8-C |
-| Roteamento | Application/UoW | provar cadeia operacional |
-| Transições | Application/UoW + CAS | provar cadeia operacional |
+| Pedido | sincronização canônica | gate dedicado F8-C |
+| Estoque | consumo no início de produção | gate dedicado F8-C + replay F8-D |
+| Eventos/auditoria | implementados | gate dedicado F8-C |
+| Roteamento | Application/UoW | gate dedicado F8-C |
+| Transições | Application/UoW + CAS | F8-C/F8-D |
 | Multi-setor | provado | preservar + resiliência F8-D |
 | Offline | cache/read-only | gate fail-closed F8-D |
 | E2E | histórico + navegador Wave2 | Commercial Runtime E2E F8-E |
@@ -193,16 +192,15 @@ Falham fechado conforme a matriz vigente. F8 não amplia permissões para facili
 ### F8-B — FECHADA
 - composition/RBAC commercial boundary;
 - fitness contra test harness no default;
-- nenhuma ampliação de permissão.
+- nenhuma ampliação de permissão;
+- 29/29 workflows verdes no SHA técnico e 29/29 na revalidação documental.
 
-### F8-C — LIBERADA
-- Pedido confirmado;
-- roteamento/setor;
-- aceite;
-- preparo;
-- pronto;
-- Pedido macro;
-- Estoque/eventos/auditoria.
+### F8-C — EM VALIDAÇÃO
+- consolidar prova dedicada da cadeia canônica já existente;
+- Pedido confirmado -> roteamento/setor -> aceite -> preparo -> pronto;
+- consumo de reserva de Estoque;
+- Eventos/Outbox/Auditoria;
+- ownership transacional e rollback.
 
 ### F8-D — resiliência
 - multi-setor;
@@ -243,23 +241,54 @@ Implementado/confirmado:
 ### Evidência
 - `Fase 8B KDS Commercial Boundary Gate` run 2 / `33675298080`: **PASS**;
 - compile, Ruff, mypy, fitness commercial boundary e regressões KDS/RBAC: **PASS**;
-- `V1 Wave2 KDS` run 144 / `33675298045`: **PASS**, incluindo jornada real de navegador KDS;
+- `V1 Wave2 KDS` run 144 / `33675298045`: **PASS**;
 - `PR10 KDS Gates` run 369 / `33675298031`: **PASS**;
-- `V1 Wave0 Production Foundation` run 209 / `33675298074`: **PASS**, incluindo PostgreSQL fresh/upgrade e schema convergence;
-- `PR11 Salao`, `PR12 Garcom`, F7-F, Wave1, Hardening e demais regressões: **PASS**;
+- `V1 Wave0 Production Foundation` run 209 / `33675298074`: **PASS**;
 - **matriz transversal final: 29/29 workflows verdes no mesmo SHA**.
 
-### Reconciliação
-- KDS permanece corretamente `COMMERCIAL_CANDIDATE`;
-- `code_blockers=[]`;
-- o blocker `commercial_runtime_physical_gate_pending` permanece porque o
-  Commercial Runtime E2E final específico da Fase 8 é responsabilidade do F8-E;
-- nenhum Fake/Mock/runtime_teste entrou no commercial default;
-- sem merge e sem deploy.
+### Reconciliação documental
+HEAD `07bf2b07f7e5db8c93f6b029a5722ffd7f1f1d09`:
+- inventário F8-B fechado;
+- readiness reconciliado sem retirar o blocker final indevidamente;
+- checkpoint dedicado criado;
+- PR/Issue sincronizadas;
+- **29/29 workflows verdes no HEAD documental**.
 
-**Decisão:** F8-B fechada e **F8-C — cadeia operacional canônica — liberada**.
+**Decisão:** F8-B fechada e F8-C liberada.
 
-## 9. STOP
+## 9. F8-C — Cadeia operacional canônica — EM VALIDAÇÃO
+
+### Descoberta pré-código
+Não foi encontrado gap funcional que justifique reescrever `ServicoKDSCanonico`.
+As provas históricas de Wave2 já demonstram individualmente:
+- sincronização do Pedido macro;
+- consumo de reserva no início real;
+- idempotência de roteamento/evento;
+- rollback de roteamento;
+- ownership transacional da Application.
+
+O problema era de **evidência fragmentada**, não de domínio ausente.
+
+### Candidato F8-C
+Foi criado o gate dedicado `.github/workflows/fase8c-kds-canonical-chain.yml`
+para consolidar como requisito explícito da Fase 8:
+1. compile/Ruff/mypy da cadeia KDS/Pedido/Estoque/Eventos;
+2. Pedido `CONFIRMADO -> ENVIADO_PRODUCAO` via roteamento canônico;
+3. `aceita -> em_preparo` e Pedido `EM_PREPARO`;
+4. consumo da reserva de Estoque no início real;
+5. `pronta` e Pedido macro `PRONTO`;
+6. Outbox/Auditoria;
+7. idempotência sem duplicar evento core;
+8. rollback sem persistência parcial;
+9. ownership transacional por `UnitOfWorkV1`;
+10. regressão do domínio KDS.
+
+### Regra
+Nenhum código de domínio, RBAC ou migration foi alterado para este candidato.
+F8-C só será marcada FECHADA após o gate dedicado e a matriz transversal ficarem
+verdes no mesmo SHA e a reconciliação documental ser concluída.
+
+## 10. STOP
 
 A Fase 8 não fecha se:
 - houver Fake/Mock/runtime_teste no caminho comercial;
