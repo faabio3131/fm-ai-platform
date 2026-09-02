@@ -13,8 +13,11 @@
 - F6-D fechada em `db422035c2339f9a8b9743f5138149fc205168d4`: gate comercial dedicado + matriz transversal 25/25 verdes; Playwright comercial 3/3 (dinheiro, cartão presencial e Pix fail-closed); migration PostgreSQL `VARCHAR(30) -> VARCHAR(64)` comprovada; evidência pós-browser com 2 pedidos e 2 pagamentos canônicos persistidos.
 - F6-E fechada tecnicamente em `1b110fcae89013b2d3c682c79cceb21f6278a12f`: gate dedicado verde (20 focados + 49 regressões PDV), F6-D comercial verde e matriz transversal 23/23 verde; readiness somente leitura, rollback LEGACY, concorrência e retry comprovados.
 - F6-E fechamento documental revalidado em `716a4c465caa46b729fe64b12f67469cfd7f941d`: 23/23 workflows verdes após rerun isolado do PR11 Salão; o rerun passou no mesmo SHA, sem alteração de código.
+- F6-F checkpoint final validado em `63d86adaaec8e9bf2bf9e5bebb4a12f3e0dc9cb3`: 23/23 workflows verdes, 0 falhas, blockers externos/deploy discriminados e nenhuma promoção automática executada.
 
 ## 1. Resultado executivo
+
+**Estado final:** FASE 6 FECHADA tecnicamente; merge ainda depende de autorização explícita e deploy de produção permanece pendente por ausência de canal operacional configurado.
 
 A Fase 6 não começa do zero. Pedido, checkout, Pagamento/VendaFinanceira, ledger/reserva de Estoque, UoW, eventos/outbox/auditoria, reconciliação e o executor canônico do PDV já existem e possuem gates verdes.
 
@@ -104,9 +107,10 @@ A prova operacional do F6-D foi concluída em runtime comercial de staging, Post
 - F6-D comercial no mesmo SHA: PostgreSQL 30→64 verde, 25 regressões, Playwright 3/3, evidência pós-browser `pedidos=2` e `pagamentos=2`;
 - matriz transversal integral: 23/23 workflows verdes, 0 falhas.
 
-### F6-F — Fechamento — EM VALIDAÇÃO FINAL
-- matriz transversal verde: F6-E documental revalidado em `716a4c465caa46b729fe64b12f67469cfd7f941d` com 23/23 workflows verdes;
-- checkpoint final da Fase 6 deve ser revalidado no mesmo SHA em que este fechamento documental for publicado;
+### F6-F — Fechamento — FECHADA
+- checkpoint final funcional/documental homologado em `63d86adaaec8e9bf2bf9e5bebb4a12f3e0dc9cb3` com matriz transversal 23/23 workflows verdes, 0 falhas e 0 pendências;
+- F6-E também revalidado no checkpoint final, incluindo readiness, rollback, concorrência e retry;
+- F6-D comercial também revalidado no checkpoint final, incluindo PostgreSQL, navegador comercial e evidência pós-browser;
 - external blockers discriminados:
   - PagBank: homologação/configuração externa pendente;
   - Mercado Pago: homologação/configuração externa pendente;

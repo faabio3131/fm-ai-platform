@@ -1,9 +1,10 @@
 # F6-F — Checkpoint Final da Fase 6
 
-**Status:** EM VALIDAÇÃO FINAL  
+**Status:** FECHADA — checkpoint final validado  
 **Branch:** `feature/f6e-canary-readiness-reconciliation-rollback`  
 **Base integrada:** `main@9e80138cb398ec69d7ee67e3687b801cc394594d`  
-**Checkpoint F6-E documental revalidado:** `716a4c465caa46b729fe64b12f67469cfd7f941d`
+**Checkpoint F6-E documental revalidado:** `716a4c465caa46b729fe64b12f67469cfd7f941d`  
+**Checkpoint F6-F homologado:** `63d86adaaec8e9bf2bf9e5bebb4a12f3e0dc9cb3`
 
 ## 1. Escopo encerrado até F6-E
 
@@ -72,8 +73,9 @@ operacional real e verificável de implantação.
 
 ## 6. Gate final
 
-O SHA que contém este documento deve executar novamente a matriz transversal.
-F6-F só poderá ser promovido de EM VALIDAÇÃO FINAL para FECHADA após:
-- todos os workflows aplicáveis concluírem com SUCCESS;
-- zero falhas/pending;
-- evidência registrada no mesmo SHA.
+O checkpoint F6-F `63d86adaaec8e9bf2bf9e5bebb4a12f3e0dc9cb3` concluiu a matriz transversal
+com 23/23 workflows SUCCESS, 0 falhas e 0 pendências.
+
+Este commit documental final que marca a Fase 6 como FECHADA também deve ser
+revalidado integralmente. Somente após essa revalidação o fechamento formal
+definitivo poderá ser declarado na PR.

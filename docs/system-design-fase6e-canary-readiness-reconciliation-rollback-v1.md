@@ -1,6 +1,6 @@
 # F6-E — System Design — Canary Readiness / Reconciliation / Rollback
 
-Status: GATE TÉCNICO APROVADO — fechamento documental em revalidação
+Status: FECHADA — F6-E revalidado e incorporado ao checkpoint final da Fase 6
 Base: main@9e80138cb398ec69d7ee67e3687b801cc394594d
 Autoridades: Documento Mestre §§2, 3, 3.0.1–3.0.3 e Fase 6; System Design Master;
 Issue #66; inventário Fase 6.
@@ -114,5 +114,7 @@ SHA funcional homologado: `1b110fcae89013b2d3c682c79cceb21f6278a12f`.
 - nenhuma autocorreção destrutiva;
 - nenhum merge/deploy executado por este gate.
 
-Próximo STOP: revalidar o checkpoint documental que marca F6-E como FECHADA. Só
-depois o F6-F pode iniciar.
+F6-E foi revalidado documentalmente em `716a4c465caa46b729fe64b12f67469cfd7f941d`
+com 23/23 workflows verdes e incorporado ao F6-F. O checkpoint final F6-F
+`63d86adaaec8e9bf2bf9e5bebb4a12f3e0dc9cb3` também concluiu 23/23 workflows
+verdes antes deste fechamento documental definitivo.
