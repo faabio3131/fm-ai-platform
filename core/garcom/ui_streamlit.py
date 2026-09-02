@@ -44,6 +44,12 @@ div[data-testid="stButton"] > button {
   min-height: 44px;
   width: 100%;
 }
+/* F7-F: todo controle acionável visível dentro da aplicação deve manter
+   alvo de toque mínimo em celular/tablet, inclusive controles Streamlit que
+   não usam o wrapper stButton. */
+div[data-testid="stAppViewContainer"] button {
+  min-height: 44px;
+}
 div[data-testid="stTextInput"] input,
 div[data-testid="stSelectbox"] > div {
   min-height: 44px;
