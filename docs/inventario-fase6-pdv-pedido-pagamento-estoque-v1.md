@@ -12,6 +12,7 @@
 - F6-C fechada em `f635495049657230391adc452d4571239b5b85b2`: gate dedicado + matriz transversal 22/22 verdes, sem falhas ou pendências.
 - F6-D fechada em `db422035c2339f9a8b9743f5138149fc205168d4`: gate comercial dedicado + matriz transversal 25/25 verdes; Playwright comercial 3/3 (dinheiro, cartão presencial e Pix fail-closed); migration PostgreSQL `VARCHAR(30) -> VARCHAR(64)` comprovada; evidência pós-browser com 2 pedidos e 2 pagamentos canônicos persistidos.
 - F6-E fechada tecnicamente em `1b110fcae89013b2d3c682c79cceb21f6278a12f`: gate dedicado verde (20 focados + 49 regressões PDV), F6-D comercial verde e matriz transversal 23/23 verde; readiness somente leitura, rollback LEGACY, concorrência e retry comprovados.
+- F6-E fechamento documental revalidado em `716a4c465caa46b729fe64b12f67469cfd7f941d`: 23/23 workflows verdes após rerun isolado do PR11 Salão; o rerun passou no mesmo SHA, sem alteração de código.
 
 ## 1. Resultado executivo
 
@@ -19,7 +20,7 @@ A Fase 6 não começa do zero. Pedido, checkout, Pagamento/VendaFinanceira, ledg
 
 F6-A removeu o bloqueio estrutural que impedia promoção governada fora do harness de teste. O canary comercial agora depende de autorização server-side, Active Execution Scope e terminal allowlisted. F6-B removeu o fallback econômico legado de total zero. F6-C conteve o adapter legado como projeção/ponte de catálogo, sem autoridade de baixa de estoque no caminho canônico.
 
-A prova operacional do F6-D foi concluída em runtime comercial de staging, PostgreSQL e navegador real, sem `FM_AI_TEST_MODE`. O próximo bloco técnico previsto no inventário é o F6-E — Canary Readiness / Reconciliation / Rollback.
+A prova operacional do F6-D foi concluída em runtime comercial de staging, PostgreSQL e navegador real, sem `FM_AI_TEST_MODE`. O F6-E também foi concluído e revalidado, incluindo readiness, reconciliação somente leitura, rollback para LEGACY, concorrência e retry. O bloco atual é o F6-F — fechamento governado da Fase 6.
 
 ## 2. Current → Target
 
@@ -103,11 +104,19 @@ A prova operacional do F6-D foi concluída em runtime comercial de staging, Post
 - F6-D comercial no mesmo SHA: PostgreSQL 30→64 verde, 25 regressões, Playwright 3/3, evidência pós-browser `pedidos=2` e `pagamentos=2`;
 - matriz transversal integral: 23/23 workflows verdes, 0 falhas.
 
-### F6-F — Fechamento
-- matriz transversal verde;
-- checkpoint no mesmo SHA;
-- external blockers discriminados;
-- merge somente após autorização e gates verdes.
+### F6-F — Fechamento — EM VALIDAÇÃO FINAL
+- matriz transversal verde: F6-E documental revalidado em `716a4c465caa46b729fe64b12f67469cfd7f941d` com 23/23 workflows verdes;
+- checkpoint final da Fase 6 deve ser revalidado no mesmo SHA em que este fechamento documental for publicado;
+- external blockers discriminados:
+  - PagBank: homologação/configuração externa pendente;
+  - Mercado Pago: homologação/configuração externa pendente;
+  - Meta: configuração/homologação externa pendente;
+  - deploy de produção: repositório ainda não possui canal operacional real de implantação; nenhum deploy é declarado;
+- LEGACY permanece rollback operacional enquanto o cutover comercial não for promovido para produção;
+- Pix comercial sem provider homologado permanece fail-closed;
+- nenhum Fake é autorizado no caminho comercial;
+- merge somente após autorização explícita do proprietário e gates verdes;
+- nenhum deploy automático deve ser inferido a partir de merge.
 
 ## 5. Definition of Done da Fase 6
 
