@@ -1,0 +1,87 @@
+name: Fase 7D Garcom Mobile Tablet Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'application/garcom_transacoes.py'
+      - 'core/garcom/**'
+      - 'pages/8_Atendimento_Garcom.py'
+      - 'playwright.garcom.config.ts'
+      - 'tests/e2e-garcom/**'
+      - 'tests/unit/garcom/**'
+      - 'tests/integration/garcom/**'
+      - 'tests/fitness/test_f7_commercial_salao_garcom_boundary.py'
+      - 'docs/inventario-fase7-salao-garcom-v1.md'
+      - '.github/workflows/fase7d-garcom-mobile-tablet.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  boundary:
+    name: Identity + RBAC + transaction boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Compile F7-D
+        run: |
+          python -m compileall -q \
+            application/garcom_transacoes.py \
+            core/garcom \
+            pages/8_Atendimento_Garcom.py \
+            tests/integration/garcom \
+            tests/fitness/test_f7_commercial_salao_garcom_boundary.py
+      - name: Ruff F7-D
+        run: |
+          ruff check \
+            application/garcom_transacoes.py \
+            core/garcom \
+            pages/8_Atendimento_Garcom.py \
+            tests/unit/garcom \
+            tests/integration/garcom \
+            tests/fitness/test_f7_commercial_salao_garcom_boundary.py
+      - name: Mypy F7-D
+        run: mypy application/garcom_transacoes.py core/garcom tests/unit/garcom tests/integration/garcom
+      - name: Fitness commercial boundary
+        run: pytest -q tests/fitness/test_f7_commercial_salao_garcom_boundary.py
+      - name: Garcom domain and transaction regressions
+        run: pytest -q tests/unit/garcom tests/integration/garcom
+
+  browser:
+    name: GARCOM 390x844 + 820x1180
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Instalar dependencias Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Instalar dependencias Node
+        run: npm ci
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Garcom mobile e tablet
+        run: >-
+          npx playwright test -c playwright.garcom.config.ts
+          --project=garcom-mobile --project=garcom-tablet --reporter=list

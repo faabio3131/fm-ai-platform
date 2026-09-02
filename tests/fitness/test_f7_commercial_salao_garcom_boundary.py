@@ -69,3 +69,23 @@ def test_f7c_salao_compoe_pagamento_pelos_servicos_canonicos() -> None:
     assert "registrar_pagamento_confirmado_teste" not in app
     assert "registrar_pagamento_confirmado_teste" not in ui
     assert "PIX permanece aguardando" in ui
+
+
+def test_f7d_garcom_comercial_preserva_identidade_alcada_e_separacao_financeira() -> None:
+    page = _texto("pages/8_Atendimento_Garcom.py")
+    ui = _texto("core/garcom/ui_streamlit.py")
+    app = _texto("application/garcom_transacoes.py")
+    servico = _texto("core/garcom/servicos.py")
+    config = _texto("playwright.garcom.config.ts")
+
+    assert "require_authentication" in page
+    assert "st.query_params" not in page
+    assert "PAGAMENTO_CONFIRMAR" not in ui
+    assert "COMANDA_FECHAR" not in ui
+    assert "core.pagamentos" not in app
+    assert "fechar_comanda(" not in app
+    assert "comanda_fora_alcada" in servico
+    assert "garcom-mobile" in config
+    assert "width: 390, height: 844" in config
+    assert "garcom-tablet" in config
+    assert "width: 820, height: 1180" in config

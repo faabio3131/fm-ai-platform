@@ -213,11 +213,21 @@ Este documento + System Design + ADR.
   permanece a migration oficial do Salão;
 - nenhum merge/deploy foi realizado neste bloco.
 
-### F7-D — Garçom mobile/tablet
-- jornada real com identidade GARCOM;
-- somente próprias comandas;
-- sem fechamento/pagamento;
-- gerente/admin com visão elevada conforme RBAC existente.
+### F7-D — Garçom mobile/tablet — EM VALIDAÇÃO
+- auditoria confirmou que domínio, UoW, identidade comercial e filtro de alçada já
+  estavam corretos após F7-B; não há justificativa para reescrever o Garçom;
+- GARCOM passa a ter prova browser dedicada em **390x844** e **820x1180**;
+- celular e tablet provam somente própria comanda/alerta e ocultação da comanda
+  pertencente a outro garçom;
+- ambos os viewports provam ausência de ações de pagamento e fechamento;
+- prova de serviço continua recusando mutação de comanda alheia com
+  `comanda_fora_alcada`, sem commit parcial;
+- Gerente permanece como regressão tablet separada, sem transformar a UI do
+  Garçom em superfície financeira;
+- página comercial continua usando `require_authentication` e não aceita
+  papel/usuário via query/widget;
+- nenhum domínio, permissão ou migration foi ampliado neste bloco;
+- fechamento depende do gate F7-D + PR12 + regressões proporcionais no mesmo SHA.
 
 ### F7-E — Produção/KDS integrada
 - Pedido vinculado aparece no KDS/setor correto;
