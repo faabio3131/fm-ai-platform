@@ -1,6 +1,6 @@
 # Inventário — Fase 8 — KDS — Cutover Comercial Integrado
 
-**Status:** F8-B EM VALIDAÇÃO — composition/RBAC/fitness comercial candidato  
+**Status:** F8-B FECHADA — F8-C LIBERADA  
 **Issue:** #73  
 **Base sequencial:** `f883f898e27c27f01af8930303a13e7f548d7397`  
 **Branch:** `recovery/v1-fase8-kds-commercial-cutover`
@@ -68,7 +68,8 @@ UI/repository/service não devem assumir ownership de commit.
 - preserva projeção legada somente como compatibilidade posterior ao efeito canônico.
 
 ### UI comercial
-`app.py` já inclui a aba KDS quando `kds_v1_enabled()`.
+`app.py` inclui a aba KDS apenas quando a feature está comercialmente habilitada
+e, após o F8-B, quando a identidade ativa possui `PRODUCAO_VISUALIZAR`.
 
 `core/kds/flags.py` exige adapters:
 - `orders`;
@@ -80,7 +81,8 @@ UI/repository/service não devem assumir ownership de commit.
 - só permite contexto/schema E2E injetado com `FM_AI_TEST_MODE=1`;
 - usa `ServicoKDSCanonico` e `transicionar_kds_v1`;
 - permite simulação offline somente em E2E isolado;
-- em degradação real, a leitura é somente leitura e comandos não são liberados.
+- em degradação real, a leitura é somente leitura e comandos não são liberados;
+- trata `permissao_insuficiente` como recusa explícita de acesso.
 
 `core/kds/ui_roteamento.py`:
 - usa identidade autenticada;
@@ -91,106 +93,58 @@ UI/repository/service não devem assumir ownership de commit.
 ## 3. Evidência já existente
 
 ### PR10 histórico
-O PR10 já prova:
-- domínio;
-- multi-setor;
-- SLA;
-- transições;
-- idempotência;
-- concorrência;
-- modo degradado;
-- mini-app Playwright.
-
-Limite: o E2E específico de KDS sobe `tests/e2e-kds/app_kds.py` com
-`FM_AI_TEST_MODE=1`. Ele é regressão válida, mas não é homologação comercial.
+O PR10 prova domínio, multi-setor, SLA, transições, idempotência, concorrência,
+modo degradado e mini-app Playwright. O E2E específico histórico permanece
+regressão válida, não substituto do Commercial Runtime E2E final.
 
 ### Fase 7
-F7-E provou a cadeia real de serviços:
-`Pedido -> KDS -> pronta -> alerta Garçom -> conta`.
-
+F7-E provou `Pedido -> KDS -> pronta -> alerta Garçom -> conta`.
 F7-F provou KDS persistido em PostgreSQL no runtime comercial como parte da
 jornada Salão/Garçom.
-
-Limite: a Fase 7 **não operou a aba KDS como usuário de cozinha autenticado**,
-nem executou pelo browser comercial toda a sequência de roteamento/transições.
 
 ### Readiness atual
 `kds = COMMERCIAL_CANDIDATE`
 
 - `code_blockers = []`;
-- blocker de evidência: `commercial_runtime_physical_gate_pending`;
-- `commercial_runtime_e2e = null`;
-- `physical_test = null`.
+- blocker final de evidência: `commercial_runtime_physical_gate_pending`;
+- Commercial Runtime E2E específico do F8 e physical gate permanecem para F8-E.
 
 ## 4. Gaps Current → Target
 
-### B8-01 — ausência de Commercial Runtime E2E específico do KDS — CRÍTICO
-Current:
-- E2E KDS dedicado usa mini-app/test mode;
-- PR10 com `app.py` habilita KDS, mas é smoke/regressão geral e não executa a
-  jornada operacional completa do cozinheiro.
+### B8-01 — Commercial Runtime E2E específico do KDS — CRÍTICO
+Permanece para F8-E: PostgreSQL 16, migrations oficiais, `app.py`, login real,
+operador KDS real, jornada browser completa e pós-condições no banco.
 
-Target:
-- PostgreSQL 16;
-- migrations oficiais;
-- `FM_AI_TEST_MODE` ausente;
-- `app.py` real;
-- login real;
-- usuário COZINHA/GERENTE real;
-- roteamento e transições no browser;
-- pós-condições conferidas no PostgreSQL.
+### B8-02 — prova comercial de RBAC — FECHADA NO F8-B
+A composition agora só expõe a superfície KDS a identidades com
+`PRODUCAO_VISUALIZAR`, sem ampliar a matriz de permissões. O domínio/Application
+continuam como defesa final e o renderer converte negação em acesso recusado.
 
-### B8-02 — prova comercial de RBAC incompleta — ALTO
-Current:
-- serviços falham fechado;
-- COZINHA possui `PRODUCAO_VISUALIZAR`, `PRODUCAO_ACEITAR`,
-  `PRODUCAO_ATUALIZAR`;
-- EXPEDICAO possui `PRODUCAO_VISUALIZAR` + `EXPEDICAO_OPERAR`;
-- GARCOM não possui permissões KDS.
-
-Target:
-- provar navegador com perfil correto;
-- provar negativo para perfil sem `PRODUCAO_VISUALIZAR`;
-- COZINHA não pode registrar retirada;
-- EXPEDICAO não recebe capacidade de preparo por conveniência;
-- se necessário, ocultar/recusar a aba no composition root sem ampliar RBAC.
-
-### B8-03 — operação browser de roteamento não homologada — ALTO
-Current:
-- `ui_roteamento` já usa Pedido canônico e Application/UoW.
-
-Target:
+### B8-03 — operação browser de roteamento — ALTO
+Target F8-C/F8-E:
 - Pedido confirmado aparece como pendente;
 - operador autorizado seleciona setor;
 - roteamento cria produção `aguardando`;
 - replay não duplica produção;
 - outro tenant/unidade não aparece.
 
-### B8-04 — sincronização Pedido/Estoque/Eventos não provada pela UI comercial — ALTO
-Target:
+### B8-04 — sincronização Pedido/Estoque/Eventos — ALTO
+Target F8-C:
 - roteamento: Pedido -> `ENVIADO_PRODUCAO`;
 - iniciar: Pedido -> `EM_PREPARO`;
 - início consome reserva de estoque uma vez;
 - todos os itens prontos: Pedido -> `PRONTO`;
-- outbox/auditoria persistidos;
-- replay não duplica consumo/eventos.
+- outbox/auditoria persistidos.
 
-### B8-05 — degradação/fail-closed precisa de gate comercial — MÉDIO
-Current:
-- `listar_fila_tolerante` usa último snapshot;
-- write indisponível gera `kds_offline_somente_leitura`;
-- checkbox de simulação é restrito ao E2E.
-
-Target:
+### B8-05 — degradação/fail-closed — MÉDIO
+Target F8-D:
 - manter simulação fora do commercial default;
-- teste integrado prova leitura degradada e bloqueio de write;
+- provar leitura degradada e bloqueio de write;
 - nenhuma falha de persistência pode inventar estado ou produzir commit parcial.
 
-### B8-06 — readiness sem evidência final — ALTO
-Target:
-- preencher SHA;
-- Commercial Runtime E2E;
-- browser/physical gate;
+### B8-06 — readiness final — ALTO
+Target F8-E:
+- preencher Commercial Runtime E2E/physical evidence;
 - remover blocker somente após evidência no mesmo candidato.
 
 ## 5. Current → Target por boundary
@@ -199,61 +153,49 @@ Target:
 |---|---|---|
 | Domínio KDS | canônico | preservar |
 | Schema | migration 0010 oficial | preservar; sem migration nova sem drift |
-| Identidade | autenticada no renderer | provar no browser real |
-| Feature flag | orders+kds+auth reais | preservar |
-| Pedido | sincronização canônica | provar ponta a ponta |
-| Estoque | consumo no início de produção | provar exatamente uma vez |
-| Eventos/auditoria | implementados | provar persistência |
-| Roteamento | Application/UoW | homologar no `app.py` |
-| Transições | Application/UoW + CAS | homologar no `app.py` |
-| Multi-setor | provado em mini-app | preservar + prova comercial mínima |
-| Offline | cache/read-only | preservar + gate fail-closed |
-| E2E | histórico test-mode | Commercial Runtime E2E real |
-| Readiness | candidate sem evidência | candidate com evidência e blockers 0 |
+| Identidade | autenticada + exposição RBAC | provar browser real no F8-E |
+| Feature flag | orders+kds+auth + permissão | preservar |
+| Pedido | sincronização canônica | provar ponta a ponta F8-C |
+| Estoque | consumo no início de produção | provar exatamente uma vez F8-C/D |
+| Eventos/auditoria | implementados | provar persistência F8-C |
+| Roteamento | Application/UoW | provar cadeia operacional |
+| Transições | Application/UoW + CAS | provar cadeia operacional |
+| Multi-setor | provado | preservar + resiliência F8-D |
+| Offline | cache/read-only | gate fail-closed F8-D |
+| E2E | histórico + navegador Wave2 | Commercial Runtime E2E F8-E |
+| Readiness | candidate | candidate com evidência final F8-E |
 
 ## 6. RBAC normativo
 
 ### COZINHA
-Pode:
-- visualizar produção;
-- aceitar;
-- atualizar/preparar/pausar/retomar/pronto.
-
-Não recebe por F8:
-- `EXPEDICAO_OPERAR`;
-- permissões financeiras;
-- permissões administrativas.
+Pode visualizar, aceitar e atualizar/preparar/pausar/retomar/pronto.
+Não recebe `EXPEDICAO_OPERAR`, financeiro ou administração.
 
 ### EXPEDICAO
-Pode:
-- visualizar produção;
-- registrar retirada quando a produção estiver pronta.
-
+Pode visualizar produção e registrar retirada quando pronta.
 Não recebe capacidade de preparo.
 
 ### GERENTE/ADMIN
-Mantêm alçada elevada já existente.
+Mantêm alçada elevada existente.
 
 ### Outros perfis
-Falham fechado conforme a matriz vigente. F8 não ampliará permissões para
-facilitar teste/UI.
+Falham fechado conforme a matriz vigente. F8 não amplia permissões para facilitar UI.
 
 ## 7. Sequência de execução
 
-### F8-A — inventário + System Design
-- Current → Target;
+### F8-A — FECHADA
+- inventário Current → Target;
 - fontes autoritativas;
-- migrations;
+- migration 0010;
 - RBAC;
-- concorrência/idempotência;
 - estratégia Commercial Runtime E2E.
 
-### F8-B — composition/RBAC/fitness
-- eliminar gaps de exposição/feedback de acesso, se confirmados;
-- fitness contra test harness no commercial default;
-- negativos de RBAC.
+### F8-B — FECHADA
+- composition/RBAC commercial boundary;
+- fitness contra test harness no default;
+- nenhuma ampliação de permissão.
 
-### F8-C — cadeia operacional canônica
+### F8-C — LIBERADA
 - Pedido confirmado;
 - roteamento/setor;
 - aceite;
@@ -275,45 +217,47 @@ facilitar teste/UI.
 - `app.py`;
 - browser;
 - pós-condições no banco;
-- matriz transversal no mesmo SHA;
+- matriz transversal;
 - readiness/inventário/checkpoint reconciliados.
 
-## 8. F8-B — Composition / RBAC / fitness comercial — EM VALIDAÇÃO
+## 8. F8-B — Composition / RBAC / fitness comercial — FECHADA
 
 ### Gate de entrada
 - F8-A validada no SHA `2aef66932ae9824bf16134f48baf302a7cceaea5`;
-- **24/24 workflows verdes** após abertura da PR draft #74;
-- PR10 KDS completo, Wave0/Wave1, F7-F e regressões transversais: PASS;
-- nenhum schema drift foi encontrado.
+- 24/24 workflows verdes.
 
-### Gap confirmado
-A flag KDS era comercialmente segura quanto a adapters, e o domínio já negava
-ações por RBAC, porém o `app.py` criava a aba KDS para qualquer identidade
-quando a flag global estava ligada. Perfis sem `PRODUCAO_VISUALIZAR` podiam
-receber uma superfície que terminava em erro genérico, embora não conseguissem
-operar o domínio.
+### Fechamento técnico
+**SHA candidato:** `34ff1cef4199d5be21c37a3224303c7f79b64061`
 
-### Candidato F8-B
-- composition root só cria a aba KDS quando:
-  - `kds_v1_enabled()` está verdadeiro; e
-  - a identidade ativa possui `PRODUCAO_VISUALIZAR`;
-- nenhuma permissão é adicionada ou alterada;
-- o renderer mantém defesa em profundidade e converte
-  `permissao_insuficiente` em recusa explícita de acesso;
-- contexto/schema E2E permanecem permitidos somente sob
-  `FM_AI_TEST_MODE=1`;
-- simulação offline continua inacessível no commercial default;
-- UI continua sem ownership de commit; writes permanecem em
-  `application.kds_transacoes` + `UnitOfWorkV1`;
-- migration oficial continua `0010_kds_authoritative_runtime_v1`;
-- fitness dedicado e workflow F8-B adicionados.
+Implementado/confirmado:
+- `app.py` só cria a aba KDS se `kds_v1_access_allowed(CURRENT_IDENTITY.permissoes)`;
+- `kds_v1_access_allowed` exige feature habilitada e `PRODUCAO_VISUALIZAR`;
+- nenhuma permissão/papel foi alterado;
+- renderer mantém defesa em profundidade e recusa `permissao_insuficiente`;
+- contexto/schema E2E continuam restritos a `FM_AI_TEST_MODE=1`;
+- simulação offline não entra no commercial default;
+- UI não assume commit; writes permanecem em Application + `UnitOfWorkV1`;
+- migration oficial permanece `0010_kds_authoritative_runtime_v1`;
+- nenhuma migration F8 foi criada.
 
-### Critério de fechamento
-F8-B só será marcada FECHADA após:
-- gate dedicado verde;
-- regressões KDS/RBAC verdes;
-- matriz transversal do SHA candidato sem regressão crítica;
-- reconciliação documental do resultado.
+### Evidência
+- `Fase 8B KDS Commercial Boundary Gate` run 2 / `33675298080`: **PASS**;
+- compile, Ruff, mypy, fitness commercial boundary e regressões KDS/RBAC: **PASS**;
+- `V1 Wave2 KDS` run 144 / `33675298045`: **PASS**, incluindo jornada real de navegador KDS;
+- `PR10 KDS Gates` run 369 / `33675298031`: **PASS**;
+- `V1 Wave0 Production Foundation` run 209 / `33675298074`: **PASS**, incluindo PostgreSQL fresh/upgrade e schema convergence;
+- `PR11 Salao`, `PR12 Garcom`, F7-F, Wave1, Hardening e demais regressões: **PASS**;
+- **matriz transversal final: 29/29 workflows verdes no mesmo SHA**.
+
+### Reconciliação
+- KDS permanece corretamente `COMMERCIAL_CANDIDATE`;
+- `code_blockers=[]`;
+- o blocker `commercial_runtime_physical_gate_pending` permanece porque o
+  Commercial Runtime E2E final específico da Fase 8 é responsabilidade do F8-E;
+- nenhum Fake/Mock/runtime_teste entrou no commercial default;
+- sem merge e sem deploy.
+
+**Decisão:** F8-B fechada e **F8-C — cadeia operacional canônica — liberada**.
 
 ## 9. STOP
 
