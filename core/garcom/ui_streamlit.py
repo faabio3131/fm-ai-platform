@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from datetime import datetime, timezone
 from functools import partial
@@ -17,10 +18,14 @@ from core.kds import RepositorioKDSSQLAlchemy
 from core.pedidos.modelos_orm import PedidoORM
 from core.salao import ErroSalao, RepositorioSalaoSQLAlchemy, StatusComanda
 from core.salao.modelos_orm import PedidoComandaORM
+from core.seguranca.autenticacao import IdentidadeUsuario
+from core.seguranca.contexto import ContextoExecucao
+from core.seguranca.permissoes import Papel
 
 from .erros import ErroGarcom
-from .runtime_teste import contexto_garcom_teste, preparar_schema_teste
 from .servicos import ServicoGarcom
+
+_AUTH_SESSION_KEY = "_fm_ai_authenticated_identity_v1"
 
 _CSS = """
 <style>
@@ -72,15 +77,61 @@ def _executar_write(
     st.rerun()
 
 
+def _resolver_contexto(
+    *,
+    engine: Any,
+    contexto: ContextoExecucao | None,
+    papel: str | None,
+    usuario_id: str | None,
+) -> ContextoExecucao:
+    injecao_teste = contexto is not None or papel is not None or usuario_id is not None
+    if injecao_teste:
+        if os.getenv("FM_AI_TEST_MODE") != "1":
+            raise RuntimeError("identidade_injetada_so_permitida_em_teste")
+        from .runtime_teste import contexto_garcom_teste, preparar_schema_teste
+
+        preparar_schema_teste(engine)
+        if contexto is not None:
+            return contexto
+        return contexto_garcom_teste(
+            correlation_id=str(uuid4()),
+            solicitado_em=datetime.now(timezone.utc),
+            papel=papel or "garcom",
+            usuario_id=usuario_id,
+        )
+
+    identidade = st.session_state.get(_AUTH_SESSION_KEY)
+    if not isinstance(identidade, IdentidadeUsuario) or not identidade.ativo:
+        raise PermissionError("identidade_autenticada_ausente")
+    return identidade.contexto(
+        origem="garcom_streamlit",
+        correlation_id=str(uuid4()),
+        solicitado_em=datetime.now(timezone.utc),
+    )
+
+
 def render_garcom(
     *,
     engine: Any,
     session_factory: Callable[[], Session],
-    papel: str = "garcom",
+    contexto: ContextoExecucao | None = None,
+    papel: str | None = None,
     usuario_id: str | None = None,
 ) -> None:
-    """Renderiza a jornada móvel sobre Salão/KDS sem criar autoridade paralela."""
-    preparar_schema_teste(engine)
+    """Renderiza a jornada móvel com identidade real ou E2E explicitamente isolado."""
+
+    contexto = _resolver_contexto(
+        engine=engine,
+        contexto=contexto,
+        papel=papel,
+        usuario_id=usuario_id,
+    )
+    perfil_garcom = (
+        Papel.GARCOM in contexto.papeis
+        and not ({Papel.ADMINISTRADOR, Papel.GERENTE} & contexto.papeis)
+    )
+    papeis_ativos = ", ".join(sorted(p.value for p in contexto.papeis))
+
     st.markdown(_CSS, unsafe_allow_html=True)
     st.header("Atendimento do Garçom")
     st.caption(
@@ -88,7 +139,7 @@ def render_garcom(
         "Pedido, KDS e Salão permanecem autoritativos."
     )
     st.markdown(
-        f'<div class="fm-garcom-meta">Perfil ativo: <strong>{papel}</strong></div>',
+        f'<div class="fm-garcom-meta">Perfil ativo: <strong>{papeis_ativos}</strong></div>',
         unsafe_allow_html=True,
     )
 
@@ -97,12 +148,6 @@ def render_garcom(
         sessao: Session | None = None
         try:
             sessao = session_factory()
-            contexto = contexto_garcom_teste(
-                correlation_id=str(uuid4()),
-                solicitado_em=datetime.now(timezone.utc),
-                papel=papel,
-                usuario_id=usuario_id,
-            )
             repositorio_salao = RepositorioSalaoSQLAlchemy(sessao)
             servico = ServicoGarcom(
                 repositorio_salao,
@@ -304,7 +349,7 @@ def render_garcom(
             if not painel.mesas:
                 st.info("Nenhuma mesa disponível na sua alçada.")
 
-            if papel == "garcom":
+            if perfil_garcom:
                 st.caption(
                     "Alçada do garçom: somente comandas sob sua responsabilidade; "
                     "ações financeiras não são liberadas."

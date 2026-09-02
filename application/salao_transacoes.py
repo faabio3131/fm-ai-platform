@@ -17,7 +17,6 @@ from core.salao import (
     RepositorioSalaoSQLAlchemy,
     ServicoSalao,
 )
-from core.salao.runtime_teste import registrar_pagamento_confirmado_teste
 from core.seguranca.contexto import ContextoExecucao
 from infra.transacoes.uow import UnitOfWorkV1
 
@@ -269,6 +268,31 @@ class AplicacaoSalaoV1:
             )
         )
 
+    def registrar_pagamento_confirmado(
+        self,
+        contexto: ContextoExecucao,
+        *,
+        pagamento_id: str,
+        comanda_id: str,
+        metodo: MetodoFechamento,
+        valor: Decimal,
+        expected_version: int,
+        idempotency_key: str,
+    ) -> Comanda:
+        """Projeta no Salão somente um Pagamento V1 já confirmado."""
+
+        return self._executar(
+            lambda servico, _session: servico.registrar_pagamento_confirmado(
+                contexto,
+                comanda_id=comanda_id,
+                pagamento_id=pagamento_id,
+                metodo=metodo,
+                valor=valor,
+                expected_version=expected_version,
+                idempotency_key=idempotency_key,
+            )
+        )
+
     def registrar_pagamento_confirmado_teste_v1(
         self,
         contexto: ContextoExecucao,
@@ -286,6 +310,8 @@ class AplicacaoSalaoV1:
             servico: ServicoSalao,
             session: Session,
         ) -> Comanda:
+            from core.salao.runtime_teste import registrar_pagamento_confirmado_teste
+
             registrar_pagamento_confirmado_teste(
                 session,
                 pagamento_id=pagamento_id,

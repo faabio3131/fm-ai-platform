@@ -169,12 +169,15 @@ Logo o F7 não cria migration por default. O gate deve provar:
 ### F7-A — Inventário + System Design — CONCLUÍDA
 Este documento + System Design + ADR.
 
-### F7-B — Commercial Composition Root / Identity / Schema
-- retirar test schema/context dos dois renderers;
-- adotar contexto autenticado;
-- bloquear injeção fora de TEST_MODE;
-- expor Garçom comercial de forma governada;
-- fitness tests anti-test-runtime.
+### F7-B — Commercial Composition Root / Identity / Schema — EM VALIDAÇÃO
+- test schema/context removidos do commercial default dos dois renderers;
+- contexto autenticado adotado; injeção artificial falha fora de TEST_MODE;
+- runtime_teste removido das APIs públicas/import graph default;
+- Salão deixou de fabricar pagamento de teste e só projeta pagamento canônico confirmado;
+- página comercial mobile/tablet do Garçom criada com auth/RBAC/flag/schema current;
+- migration oficial 0012 reutilizada, sem migration nova;
+- fitness anti-test-runtime + PostgreSQL dedicado adicionados;
+- fechamento depende do gate F7-B e regressões PR11/PR12 no mesmo SHA.
 
 ### F7-C — Salão comercial + Pagamento
 - remover confirmação financeira de teste do caminho da UI;

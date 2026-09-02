@@ -1,7 +1,8 @@
-"""UI Streamlit de mesas e comandas V1, protegida por feature flag de teste."""
+"""UI Streamlit comercial de mesas e comandas V1."""
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -21,26 +22,65 @@ from core.salao import (
     ServicoSalao,
     StatusComanda,
     StatusMesa,
-    contexto_salao_teste,
-    preparar_schema_teste,
 )
+from core.seguranca.autenticacao import IdentidadeUsuario
+from core.seguranca.contexto import ContextoExecucao
+from core.seguranca.permissoes import Permissao
+
+_AUTH_SESSION_KEY = "_fm_ai_authenticated_identity_v1"
 
 
-def _contexto():
-    return contexto_salao_teste(
+def _contexto_comercial() -> ContextoExecucao:
+    identidade = st.session_state.get(_AUTH_SESSION_KEY)
+    if not isinstance(identidade, IdentidadeUsuario) or not identidade.ativo:
+        raise PermissionError("identidade_autenticada_ausente")
+    return identidade.contexto(
+        origem="salao_streamlit",
         correlation_id=str(uuid4()),
         solicitado_em=datetime.now(timezone.utc),
-        papel="gerente",
     )
+
+
+def _resolver_contexto(
+    *, engine: Any, contexto: ContextoExecucao | None
+) -> ContextoExecucao:
+    if contexto is not None:
+        if os.getenv("FM_AI_TEST_MODE") != "1":
+            raise RuntimeError("contexto_injetado_so_permitido_em_teste")
+        from .runtime_teste import preparar_schema_teste
+
+        preparar_schema_teste(engine)
+        return contexto
+
+    identidade = st.session_state.get(_AUTH_SESSION_KEY)
+    if isinstance(identidade, IdentidadeUsuario) and identidade.ativo:
+        return _contexto_comercial()
+
+    if os.getenv("FM_AI_TEST_MODE") == "1":
+        from .runtime_teste import contexto_salao_teste, preparar_schema_teste
+
+        preparar_schema_teste(engine)
+        return contexto_salao_teste(
+            correlation_id=str(uuid4()),
+            solicitado_em=datetime.now(timezone.utc),
+            papel="gerente",
+        )
+    raise PermissionError("identidade_autenticada_ausente")
 
 
 def _centavos(valor: float) -> Decimal:
     return Decimal(str(valor)).quantize(Decimal("0.01"))
 
 
-def render_salao(*, engine: Any, session_factory: Callable[[], Session]) -> None:
-    """Renderiza o mapa e os comandos do salão V1 no runtime de teste."""
-    preparar_schema_teste(engine)
+def render_salao(
+    *,
+    engine: Any,
+    session_factory: Callable[[], Session],
+    contexto: ContextoExecucao | None = None,
+) -> None:
+    """Renderiza o Salão no runtime comercial ou em E2E explicitamente isolado."""
+
+    contexto = _resolver_contexto(engine=engine, contexto=contexto)
     st.header("🪑 Mesas e Comandas")
     st.caption(
         "Operação de salão V1 — Pedido e Pagamento permanecem domínios autoritativos."
@@ -52,7 +92,6 @@ def render_salao(*, engine: Any, session_factory: Callable[[], Session]) -> None
         repositorio = RepositorioSalaoSQLAlchemy(sessao)
         servico = ServicoSalao(repositorio, agora=lambda: datetime.now(timezone.utc))
         aplicacao = AplicacaoSalaoV1(session_factory)
-        contexto = _contexto()
         mapa = servico.listar_mapa(contexto)
 
         if not mapa.mesas:
@@ -388,27 +427,39 @@ def render_salao(*, engine: Any, session_factory: Callable[[], Session]) -> None
                 st.caption(
                     f"Próxima parcela: {proxima.metodo.value} · R$ {proxima.valor:.2f}"
                 )
-                if st.button(
-                    "Confirmar próxima parcela",
-                    key=f"confirmar-parcela-{comanda.comanda_id}-{proxima.ordem}",
-                ):
-                    if not pedidos:
-                        raise ErroSalao("pedido_indisponivel")
-                    pagamento_id = f"ui-pay-{uuid4().hex}"
-                    concluir(
-                        lambda: aplicacao.registrar_pagamento_confirmado_teste_v1(
-                            contexto,
-                            pagamento_id=pagamento_id,
-                            pedido_id=pedidos[0].pedido_id,
-                            comanda_id=comanda.comanda_id,
-                            metodo=proxima.metodo,
-                            valor=proxima.valor,
-                            expected_version=comanda.versao,
-                            idempotency_key=(
-                                f"ui:pay:{comanda.comanda_id}:{proxima.ordem}"
-                            ),
-                            agora=datetime.now(timezone.utc),
+                if Permissao.PAGAMENTO_CONFIRMAR in contexto.permissoes:
+                    pagamento_id = st.text_input(
+                        "ID do pagamento canônico já confirmado",
+                        key=f"pagamento-canonico-{comanda.comanda_id}-{proxima.ordem}",
+                        help=(
+                            "O Salão não cria nem simula pagamentos. Informe o ID de um "
+                            "Pagamento V1 realmente liquidado para esta comanda."
+                        ),
+                    )
+                    if st.button(
+                        "Vincular pagamento confirmado",
+                        key=f"confirmar-parcela-{comanda.comanda_id}-{proxima.ordem}",
+                    ):
+                        if not pagamento_id.strip():
+                            raise ErroSalao("pagamento_nao_confirmado")
+                        concluir(
+                            lambda: aplicacao.registrar_pagamento_confirmado(
+                                contexto,
+                                pagamento_id=pagamento_id.strip(),
+                                comanda_id=comanda.comanda_id,
+                                metodo=proxima.metodo,
+                                valor=proxima.valor,
+                                expected_version=comanda.versao,
+                                idempotency_key=(
+                                    f"ui:pay:{comanda.comanda_id}:{proxima.ordem}:"
+                                    f"{pagamento_id.strip()}"
+                                ),
+                            )
                         )
+                else:
+                    st.info(
+                        "A confirmação financeira exige Caixa/Gerência com "
+                        "PAGAMENTO_CONFIRMAR. O Salão permanece somente leitura nesta etapa."
                     )
             elif comanda.saldo == Decimal("0.00"):
                 st.success("Saldo integralmente confirmado.")

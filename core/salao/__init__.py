@@ -17,7 +17,6 @@ from .modelos import (
     StatusMesa,
 )
 from .modelos_orm import SalaoBase
-from .runtime_teste import contexto_salao_teste, preparar_schema_teste
 from .servicos import ServicoSalao
 
 __all__ = [
@@ -36,7 +35,5 @@ __all__ = [
     "SnapshotSalao",
     "StatusComanda",
     "StatusMesa",
-    "contexto_salao_teste",
-    "preparar_schema_teste",
     "salao_v1_enabled",
 ]
