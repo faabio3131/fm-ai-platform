@@ -9,6 +9,7 @@ from core.runtime import (
     build_engine as build_runtime_engine,
     load_runtime_settings,
 )
+from core.seguranca import Permissao
 from infra.streamlit_app.auth_ui import (
     render_identity_sidebar,
     require_authentication,
@@ -1155,6 +1156,11 @@ st.title("🍔 F&M AI FOOD — Painel de Gestão, PDV & Gateway")
 st.markdown("---")
 
 # --- 8. ESTRUTURA DAS 6 ABAS PRINCIPAIS ---
+_kds_disponivel = (
+    kds_v1_enabled()
+    and Permissao.PRODUCAO_VISUALIZAR in CURRENT_IDENTITY.permissoes
+)
+
 _nomes_abas = [
     "🤖 Engenharia de Cardápio",
     "📢 CRM, Resgate & Cashback",
@@ -1166,7 +1172,7 @@ _nomes_abas = [
 ]
 if order_center_v1_enabled():
     _nomes_abas.append("\U0001F4CB Central de Pedidos")
-if kds_v1_enabled():
+if _kds_disponivel:
     _nomes_abas.append("\U0001F373 KDS por Setor")
 if salao_v1_enabled():
     _nomes_abas.append("🪑 Mesas e Comandas")
@@ -1182,7 +1188,7 @@ if order_center_v1_enabled():
     _indice_extra += 1
 
 aba_kds = None
-if kds_v1_enabled():
+if _kds_disponivel:
     aba_kds = _abas[_indice_extra]
     _indice_extra += 1
 

@@ -1,6 +1,6 @@
 # Inventário — Fase 8 — KDS — Cutover Comercial Integrado
 
-**Status:** F8-A CONCLUÍDA — Current → Target e desenho prontos para implementação controlada  
+**Status:** F8-B EM VALIDAÇÃO — composition/RBAC/fitness comercial candidato  
 **Issue:** #73  
 **Base sequencial:** `f883f898e27c27f01af8930303a13e7f548d7397`  
 **Branch:** `recovery/v1-fase8-kds-commercial-cutover`
@@ -278,7 +278,44 @@ facilitar teste/UI.
 - matriz transversal no mesmo SHA;
 - readiness/inventário/checkpoint reconciliados.
 
-## 8. STOP
+## 8. F8-B — Composition / RBAC / fitness comercial — EM VALIDAÇÃO
+
+### Gate de entrada
+- F8-A validada no SHA `2aef66932ae9824bf16134f48baf302a7cceaea5`;
+- **24/24 workflows verdes** após abertura da PR draft #74;
+- PR10 KDS completo, Wave0/Wave1, F7-F e regressões transversais: PASS;
+- nenhum schema drift foi encontrado.
+
+### Gap confirmado
+A flag KDS era comercialmente segura quanto a adapters, e o domínio já negava
+ações por RBAC, porém o `app.py` criava a aba KDS para qualquer identidade
+quando a flag global estava ligada. Perfis sem `PRODUCAO_VISUALIZAR` podiam
+receber uma superfície que terminava em erro genérico, embora não conseguissem
+operar o domínio.
+
+### Candidato F8-B
+- composition root só cria a aba KDS quando:
+  - `kds_v1_enabled()` está verdadeiro; e
+  - a identidade ativa possui `PRODUCAO_VISUALIZAR`;
+- nenhuma permissão é adicionada ou alterada;
+- o renderer mantém defesa em profundidade e converte
+  `permissao_insuficiente` em recusa explícita de acesso;
+- contexto/schema E2E permanecem permitidos somente sob
+  `FM_AI_TEST_MODE=1`;
+- simulação offline continua inacessível no commercial default;
+- UI continua sem ownership de commit; writes permanecem em
+  `application.kds_transacoes` + `UnitOfWorkV1`;
+- migration oficial continua `0010_kds_authoritative_runtime_v1`;
+- fitness dedicado e workflow F8-B adicionados.
+
+### Critério de fechamento
+F8-B só será marcada FECHADA após:
+- gate dedicado verde;
+- regressões KDS/RBAC verdes;
+- matriz transversal do SHA candidato sem regressão crítica;
+- reconciliação documental do resultado.
+
+## 9. STOP
 
 A Fase 8 não fecha se:
 - houver Fake/Mock/runtime_teste no caminho comercial;

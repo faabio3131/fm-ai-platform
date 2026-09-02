@@ -241,6 +241,11 @@ def render_kds(
             st.error(f"Comando KDS recusado: {exc.codigo}")
     except PermissionError:
         st.error("Seu usuário não possui acesso ao KDS desta unidade.")
+    except ErroKDS as exc:
+        if exc.codigo == "permissao_insuficiente":
+            st.error("Seu usuário não possui acesso ao KDS desta unidade.")
+        else:
+            st.error(f"Não foi possível carregar o KDS: {exc.codigo}")
     except Exception as exc:  # noqa: BLE001
         st.error(f"Não foi possível carregar o KDS: {type(exc).__name__}")
     finally:
