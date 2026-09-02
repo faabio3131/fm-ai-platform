@@ -56,11 +56,11 @@ test('salao abre mesa agrega pedidos transfere divide pagamento e fecha', async 
   ).toBeVisible();
 
   await expect(page.getByText(/Próxima parcela: pix · R\$ 40\.00/)).toBeVisible();
-  await page.getByLabel('ID do pagamento canônico já confirmado').fill('e2e-pay-pix');
+  await page.getByRole('textbox', { name: 'ID do pagamento canônico já confirmado' }).fill('e2e-pay-pix');
   await clickAndWaitForStreamlitRerun(page, 'Vincular pagamento confirmado');
   await expect(page.getByText(/Status:\s*parcialmente_paga/).first()).toBeVisible();
   await expect(page.getByText(/Próxima parcela: dinheiro · R\$ 30\.00/)).toBeVisible();
-  await page.getByLabel('ID do pagamento canônico já confirmado').fill('e2e-pay-cash');
+  await page.getByRole('textbox', { name: 'ID do pagamento canônico já confirmado' }).fill('e2e-pay-cash');
   await clickAndWaitForStreamlitRerun(page, 'Vincular pagamento confirmado');
   await expect(page.getByText('Saldo integralmente confirmado.', { exact: true })).toBeVisible();
 
