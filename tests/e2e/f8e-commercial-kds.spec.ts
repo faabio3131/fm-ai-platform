@@ -81,9 +81,12 @@ test('COZINHA roteia Pedido real e conclui producao no app comercial', async ({
   await expect(expander).toBeVisible();
   await expander.locator('summary').click();
 
-  await expect(page.getByText(/pedido-f8e.*Burger F8-E/)).toBeVisible({
-    timeout: 15_000,
-  });
+  const itemConfirmado = page
+    .getByRole('combobox', { name: 'Item confirmado' })
+    .first();
+  await expect(itemConfirmado).toBeVisible({ timeout: 15_000 });
+  await expect(itemConfirmado).toHaveValue(/pedido-f8e.*Burger F8-E/);
+
   await selectComboboxOption(page, 'Setor de destino', 'Cozinha F8-E');
 
   await page
