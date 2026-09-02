@@ -16,10 +16,10 @@ async function loginGarcom(page: Page) {
   await page.getByRole('textbox', { name: 'E-mail' }).fill(EMAIL);
   await page.getByLabel('Senha').fill(PASSWORD);
   await page.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page.getByText(/Conectado como:/)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('heading', { name: 'Atendimento do Garçom' })).toBeVisible({
     timeout: 30_000,
   });
+  await expect(page.getByText(/Perfil ativo:\s*garcom/i)).toBeVisible({ timeout: 30_000 });
   await waitStable(page);
 }
 
@@ -28,11 +28,12 @@ test('F7-F Garçom comercial mobile/tablet vê somente própria comanda e alerta
 
   await loginGarcom(page);
 
-  await expect(page.getByText(/Perfil ativo:\s*garcom/i)).toBeVisible();
-  await expect(page.getByText(/Pedido pedido-f7f-garcom pronto/)).toBeVisible();
-  await expect(page.getByText(/Mesa G72/)).toBeVisible();
-  await expect(page.getByText(/Comanda GARCOM-F7F/)).toBeVisible();
-  await expect(page.getByText(/Cozinha F7-F/)).toBeVisible();
+  const alerta = page.getByRole('status').filter({ hasText: 'Pedido pedido-f7f-garcom pronto' });
+  await expect(alerta).toContainText('Mesa G72');
+  await expect(alerta).toContainText('Comanda GARCOM-F7F');
+  await expect(alerta).toContainText('Cozinha F7-F');
+  await expect(page.getByText('Mesa G72 · ocupada', { exact: true })).toBeVisible();
+  await expect(page.getByText('Comanda GARCOM-F7F', { exact: true }).first()).toBeVisible();
 
   await expect(page.getByText('GERENTE-F7F')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Confirmar recebimento|Confirmar cartão|Fechar comanda/ })).toHaveCount(0);
