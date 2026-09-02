@@ -41,30 +41,15 @@ def _contexto_comercial() -> ContextoExecucao:
     )
 
 
-def _resolver_contexto(
-    *, engine: Any, contexto: ContextoExecucao | None
-) -> ContextoExecucao:
+def _resolver_contexto(contexto: ContextoExecucao | None) -> ContextoExecucao:
     if contexto is not None:
         if os.getenv("FM_AI_TEST_MODE") != "1":
             raise RuntimeError("contexto_injetado_so_permitido_em_teste")
-        from .runtime_teste import preparar_schema_teste
-
-        preparar_schema_teste(engine)
         return contexto
 
     identidade = st.session_state.get(_AUTH_SESSION_KEY)
     if isinstance(identidade, IdentidadeUsuario) and identidade.ativo:
         return _contexto_comercial()
-
-    if os.getenv("FM_AI_TEST_MODE") == "1":
-        from .runtime_teste import contexto_salao_teste, preparar_schema_teste
-
-        preparar_schema_teste(engine)
-        return contexto_salao_teste(
-            correlation_id=str(uuid4()),
-            solicitado_em=datetime.now(timezone.utc),
-            papel="gerente",
-        )
     raise PermissionError("identidade_autenticada_ausente")
 
 
@@ -80,7 +65,8 @@ def render_salao(
 ) -> None:
     """Renderiza o Salão no runtime comercial ou em E2E explicitamente isolado."""
 
-    contexto = _resolver_contexto(engine=engine, contexto=contexto)
+    _ = engine
+    contexto = _resolver_contexto(contexto)
     st.header("🪑 Mesas e Comandas")
     st.caption(
         "Operação de salão V1 — Pedido e Pagamento permanecem domínios autoritativos."

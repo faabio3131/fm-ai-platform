@@ -293,46 +293,6 @@ class AplicacaoSalaoV1:
             )
         )
 
-    def registrar_pagamento_confirmado_teste_v1(
-        self,
-        contexto: ContextoExecucao,
-        *,
-        pagamento_id: str,
-        pedido_id: str,
-        comanda_id: str,
-        metodo: MetodoFechamento,
-        valor: Decimal,
-        expected_version: int,
-        idempotency_key: str,
-        agora: datetime,
-    ) -> Comanda:
-        def acao(
-            servico: ServicoSalao,
-            session: Session,
-        ) -> Comanda:
-            from core.salao.runtime_teste import registrar_pagamento_confirmado_teste
-
-            registrar_pagamento_confirmado_teste(
-                session,
-                pagamento_id=pagamento_id,
-                pedido_id=pedido_id,
-                comanda_id=comanda_id,
-                metodo=metodo.value,
-                valor=valor,
-                agora=agora,
-            )
-            return servico.registrar_pagamento_confirmado(
-                contexto,
-                comanda_id=comanda_id,
-                pagamento_id=pagamento_id,
-                metodo=metodo,
-                valor=valor,
-                expected_version=expected_version,
-                idempotency_key=idempotency_key,
-            )
-
-        return self._executar(acao)
-
     def fechar_comanda(
         self,
         contexto: ContextoExecucao,

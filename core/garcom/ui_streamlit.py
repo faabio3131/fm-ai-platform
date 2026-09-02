@@ -77,28 +77,11 @@ def _executar_write(
     st.rerun()
 
 
-def _resolver_contexto(
-    *,
-    engine: Any,
-    contexto: ContextoExecucao | None,
-    papel: str | None,
-    usuario_id: str | None,
-) -> ContextoExecucao:
-    injecao_teste = contexto is not None or papel is not None or usuario_id is not None
-    if injecao_teste:
+def _resolver_contexto(contexto: ContextoExecucao | None) -> ContextoExecucao:
+    if contexto is not None:
         if os.getenv("FM_AI_TEST_MODE") != "1":
-            raise RuntimeError("identidade_injetada_so_permitida_em_teste")
-        from .runtime_teste import contexto_garcom_teste, preparar_schema_teste
-
-        preparar_schema_teste(engine)
-        if contexto is not None:
-            return contexto
-        return contexto_garcom_teste(
-            correlation_id=str(uuid4()),
-            solicitado_em=datetime.now(timezone.utc),
-            papel=papel or "garcom",
-            usuario_id=usuario_id,
-        )
+            raise RuntimeError("contexto_injetado_so_permitido_em_teste")
+        return contexto
 
     identidade = st.session_state.get(_AUTH_SESSION_KEY)
     if not isinstance(identidade, IdentidadeUsuario) or not identidade.ativo:
@@ -115,17 +98,11 @@ def render_garcom(
     engine: Any,
     session_factory: Callable[[], Session],
     contexto: ContextoExecucao | None = None,
-    papel: str | None = None,
-    usuario_id: str | None = None,
 ) -> None:
     """Renderiza a jornada móvel com identidade real ou E2E explicitamente isolado."""
 
-    contexto = _resolver_contexto(
-        engine=engine,
-        contexto=contexto,
-        papel=papel,
-        usuario_id=usuario_id,
-    )
+    _ = engine
+    contexto = _resolver_contexto(contexto)
     perfil_garcom = (
         Papel.GARCOM in contexto.papeis
         and not ({Papel.ADMINISTRADOR, Papel.GERENTE} & contexto.papeis)

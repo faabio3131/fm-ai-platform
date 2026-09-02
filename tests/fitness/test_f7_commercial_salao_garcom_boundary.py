@@ -23,17 +23,23 @@ def test_public_api_garcom_nao_importa_runtime_teste() -> None:
     assert "preparar_schema_teste" not in source
 
 
-def test_renderers_nao_importam_harness_teste_no_top_level() -> None:
+def test_renderers_comerciais_nao_referenciam_harness_teste() -> None:
     for path in ("core/salao/ui_streamlit.py", "core/garcom/ui_streamlit.py"):
         source = _texto(path)
-        assert "from .runtime_teste import" not in source
+        assert "runtime_teste" not in source
+        assert "contexto_salao_teste" not in source
+        assert "contexto_garcom_teste" not in source
+        assert "preparar_schema_teste" not in source
 
 
-def test_salao_ui_nao_fabrica_pagamento_de_teste() -> None:
-    source = _texto("core/salao/ui_streamlit.py")
-    assert "registrar_pagamento_confirmado_teste_v1(" not in source
-    assert "ui-pay-" not in source
-    assert "registrar_pagamento_confirmado(" in source
+def test_salao_comercial_nao_fabrica_pagamento_de_teste() -> None:
+    ui = _texto("core/salao/ui_streamlit.py")
+    app = _texto("application/salao_transacoes.py")
+    assert "registrar_pagamento_confirmado_teste_v1" not in ui
+    assert "registrar_pagamento_confirmado_teste_v1" not in app
+    assert "runtime_teste" not in app
+    assert "ui-pay-" not in ui
+    assert "registrar_pagamento_confirmado(" in ui
 
 
 def test_garcom_comercial_nao_escolhe_papel_por_widget() -> None:

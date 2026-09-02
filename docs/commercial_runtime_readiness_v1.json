@@ -210,16 +210,15 @@
       }
     },
     "salao": {
-      "status": "TEST_RUNTIME",
+      "status": "COMMERCIAL_CANDIDATE",
       "commercial_paths": [
-        "core/salao/ui_streamlit.py"
+        "core/salao/ui_streamlit.py",
+        "application/salao_transacoes.py"
       ],
-      "code_blockers": [
-        "salao_prepares_test_schema",
-        "salao_uses_test_context",
-        "salao_confirms_payment_with_test_helper"
+      "code_blockers": [],
+      "external_blockers": [
+        "commercial_runtime_physical_gate_pending"
       ],
-      "external_blockers": [],
       "evidence": {
         "sha": null,
         "commercial_runtime_e2e": null,
@@ -227,15 +226,16 @@
       }
     },
     "garcom": {
-      "status": "TEST_RUNTIME",
+      "status": "COMMERCIAL_CANDIDATE",
       "commercial_paths": [
-        "core/garcom/ui_streamlit.py"
+        "pages/8_Atendimento_Garcom.py",
+        "core/garcom/ui_streamlit.py",
+        "application/garcom_transacoes.py"
       ],
-      "code_blockers": [
-        "garcom_prepares_test_schema",
-        "garcom_uses_test_context"
+      "code_blockers": [],
+      "external_blockers": [
+        "commercial_runtime_physical_gate_pending"
       ],
-      "external_blockers": [],
       "evidence": {
         "sha": null,
         "commercial_runtime_e2e": null,

@@ -172,11 +172,13 @@ Este documento + System Design + ADR.
 ### F7-B — Commercial Composition Root / Identity / Schema — EM VALIDAÇÃO
 - test schema/context removidos do commercial default dos dois renderers;
 - contexto autenticado adotado; injeção artificial falha fora de TEST_MODE;
-- runtime_teste removido das APIs públicas/import graph default;
+- runtime_teste removido das APIs públicas e das superfícies comerciais; helpers E2E ficam exclusivamente nos entrypoints de teste;
 - Salão deixou de fabricar pagamento de teste e só projeta pagamento canônico confirmado;
 - página comercial mobile/tablet do Garçom criada com auth/RBAC/flag/schema current;
 - migration oficial 0012 reutilizada, sem migration nova;
 - fitness anti-test-runtime + PostgreSQL dedicado adicionados;
+- readiness global atualizado de TEST_RUNTIME para COMMERCIAL_CANDIDATE em Salão/Garçom; gate físico/comercial final permanece pendente;
+- PR11/PR12 preservados por contextos e seeds explícitos nos entrypoints E2E, fora do import graph comercial.
 - fechamento depende do gate F7-B e regressões PR11/PR12 no mesmo SHA.
 
 ### F7-C — Salão comercial + Pagamento
