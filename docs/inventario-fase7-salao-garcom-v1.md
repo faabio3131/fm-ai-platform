@@ -187,11 +187,21 @@ Este documento + System Design + ADR.
 - Nenhuma migration nova foi criada; `0012_restaurant_operations_runtime_v1` permanece a migration oficial do Salão.
 - Nenhum merge/deploy foi realizado neste bloco.
 
-### F7-C — Salão comercial + Pagamento
-- remover confirmação financeira de teste do caminho da UI;
-- compor criação/confirmação canônica de pagamento por perfis autorizados;
-- projetar no Salão somente pagamento já confirmado;
-- fechamento idempotente e concorrente.
+### F7-C — Salão comercial + Pagamento — EM VALIDAÇÃO
+- confirmação financeira de teste permanece fora do caminho comercial;
+- candidato compõe `criar_obrigacao_pagamento`, `confirmar_pagamento` (dinheiro)
+  e `confirmar_pagamento_presencial` (crédito/débito) sem criar façade financeira paralela;
+- criação respeita `PAGAMENTO_REGISTRAR`; confirmação/projeção respeitam
+  `PAGAMENTO_CONFIRMAR`; fechamento respeita `COMANDA_FECHAR`;
+- PIX pode criar obrigação, porém não recebe confirmação humana artificial:
+  permanece pendente até webhook/provider financeiramente validado;
+- Salão continua projetando somente `PagamentoORM` realmente `PAGO`,
+  do mesmo tenant/unidade/comanda, método e valor;
+- IDs comerciais gerenciados pela UI são estáveis por parcela/Pedido para replay seguro;
+- testes dedicados cobrem dinheiro, cartão presencial, PIX fail-closed,
+  alçada e conflito de versão;
+- gate F7-C dedicado deve ficar verde no mesmo SHA antes do fechamento do bloco;
+- nenhum merge/deploy é autorizado por este candidato.
 
 ### F7-D — Garçom mobile/tablet
 - jornada real com identidade GARCOM;

@@ -9,13 +9,26 @@ from typing import TypeVar
 
 from sqlalchemy.orm import Session
 
+from core.dominio.dinheiro import Dinheiro
+from core.pagamentos.erros import (
+    FonteFinanceiraNaoConfiavel,
+    RecursoPagamentoIndisponivel,
+)
+from core.pagamentos.modelos import MetodoPagamento, ResultadoPagamento
+from core.pagamentos.servicos import (
+    confirmar_pagamento,
+    confirmar_pagamento_presencial,
+    criar_obrigacao_pagamento,
+)
 from core.salao import (
     Comanda,
+    ErroSalao,
     MetodoFechamento,
     ParcelaFechamento,
     ParticipanteComanda,
     RepositorioSalaoSQLAlchemy,
     ServicoSalao,
+    StatusComanda,
 )
 from core.seguranca.contexto import ContextoExecucao
 from infra.transacoes.uow import UnitOfWorkV1
@@ -267,6 +280,159 @@ class AplicacaoSalaoV1:
                 divisoes=divisoes,
             )
         )
+
+    def criar_pagamento_canonico(
+        self,
+        contexto: ContextoExecucao,
+        *,
+        pagamento_id: str,
+        pedido_id: str,
+        comanda_id: str,
+        metodo: MetodoFechamento,
+        valor: Decimal,
+        idempotency_key: str,
+        provedor: str | None = None,
+    ) -> ResultadoPagamento:
+        """Cria obrigação financeira usando exclusivamente o domínio Pagamentos V1."""
+
+        metodo_pagamento = MetodoPagamento(metodo.value)
+        valor_dinheiro = Dinheiro(valor)
+
+        with UnitOfWorkV1(self._session_factory) as uow:
+            session = _session_ativa(uow)
+            repositorio_salao = RepositorioSalaoSQLAlchemy(session)
+            comanda = repositorio_salao.obter_comanda(
+                contexto.tenant_id,
+                contexto.unidade_id,
+                comanda_id,
+            )
+            if comanda is None:
+                raise ErroSalao("comanda_indisponivel")
+            if comanda.status not in {
+                StatusComanda.FECHAMENTO_EM_ANDAMENTO,
+                StatusComanda.PARCIALMENTE_PAGA,
+            }:
+                raise ErroSalao("comanda_nao_esta_em_fechamento")
+
+            pedidos = repositorio_salao.listar_pedidos(
+                contexto.tenant_id,
+                contexto.unidade_id,
+                comanda_id,
+            )
+            if pedido_id not in {item.pedido_id for item in pedidos}:
+                raise ErroSalao("pedido_nao_pertence_comanda")
+
+            parcelas = repositorio_salao.listar_parcelas(
+                contexto.tenant_id,
+                contexto.unidade_id,
+                comanda_id,
+            )
+            if not any(
+                parcela.metodo == metodo and parcela.valor == valor_dinheiro.valor
+                for parcela in parcelas
+            ):
+                raise ErroSalao("pagamento_fora_plano")
+
+            resultado = criar_obrigacao_pagamento(
+                contexto=contexto,
+                repositorio=uow.pagamentos,
+                pagamento_id=pagamento_id,
+                pedido_id=pedido_id,
+                valor_previsto=valor_dinheiro,
+                metodo=metodo_pagamento,
+                idempotency_key=idempotency_key,
+                timestamp=self._agora(),
+                comanda_id=comanda_id,
+                provedor=provedor,
+            )
+            if not resultado.idempotente:
+                uow.registrar_efeitos(
+                    eventos=resultado.eventos,
+                    auditorias=resultado.auditorias,
+                )
+            uow.commit()
+            return resultado
+
+    def confirmar_pagamento_canonico(
+        self,
+        contexto: ContextoExecucao,
+        *,
+        pagamento_id: str,
+        comanda_id: str,
+        metodo: MetodoFechamento,
+        valor: Decimal,
+        expected_payment_version: int,
+        idempotency_key: str,
+        referencia_externa: str | None = None,
+    ) -> ResultadoPagamento:
+        """Confirma somente fontes financeiras permitidas pelo domínio canônico."""
+
+        metodo_pagamento = MetodoPagamento(metodo.value)
+        valor_dinheiro = Dinheiro(valor)
+
+        with UnitOfWorkV1(self._session_factory) as uow:
+            session = _session_ativa(uow)
+            repositorio_salao = RepositorioSalaoSQLAlchemy(session)
+            pagamento = uow.pagamentos.buscar_pagamento(
+                contexto.tenant_id,
+                contexto.unidade_id,
+                pagamento_id,
+            )
+            if pagamento is None:
+                raise RecursoPagamentoIndisponivel("recurso_indisponivel")
+            if pagamento.comanda_id != comanda_id:
+                raise ErroSalao("pagamento_nao_pertence_comanda")
+            if pagamento.metodo is not metodo_pagamento:
+                raise ErroSalao("pagamento_metodo_divergente")
+            if pagamento.valor_previsto != valor_dinheiro:
+                raise ErroSalao("pagamento_valor_divergente")
+
+            pedidos = repositorio_salao.listar_pedidos(
+                contexto.tenant_id,
+                contexto.unidade_id,
+                comanda_id,
+            )
+            if pagamento.pedido_id not in {item.pedido_id for item in pedidos}:
+                raise ErroSalao("pagamento_pedido_nao_pertence_comanda")
+
+            if metodo_pagamento is MetodoPagamento.DINHEIRO:
+                resultado = confirmar_pagamento(
+                    contexto=contexto,
+                    repositorio=uow.pagamentos,
+                    pagamento_id=pagamento_id,
+                    valor=valor_dinheiro,
+                    metodo=metodo_pagamento,
+                    idempotency_key=idempotency_key,
+                    expected_version=expected_payment_version,
+                    timestamp=self._agora(),
+                )
+            elif metodo_pagamento in {
+                MetodoPagamento.CARTAO_CREDITO,
+                MetodoPagamento.CARTAO_DEBITO,
+            }:
+                resultado = confirmar_pagamento_presencial(
+                    contexto=contexto,
+                    repositorio=uow.pagamentos,
+                    pagamento_id=pagamento_id,
+                    valor=valor_dinheiro,
+                    metodo=metodo_pagamento,
+                    idempotency_key=idempotency_key,
+                    expected_version=expected_payment_version,
+                    timestamp=self._agora(),
+                    referencia_externa=referencia_externa or "",
+                )
+            else:
+                raise FonteFinanceiraNaoConfiavel(
+                    "metodo exige confirmacao de fonte financeira validada"
+                )
+
+            if not resultado.idempotente:
+                uow.registrar_efeitos(
+                    eventos=resultado.eventos,
+                    auditorias=resultado.auditorias,
+                )
+            uow.commit()
+            return resultado
 
     def registrar_pagamento_confirmado(
         self,

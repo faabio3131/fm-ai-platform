@@ -7,13 +7,15 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 import streamlit as st
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from application.salao_transacoes import AplicacaoSalaoV1
+from core.dominio.enums import PagamentoStatus
+from core.pagamentos.modelos_orm import PagamentoORM
 from core.pedidos.modelos_orm import PedidoORM
 from core.salao import (
     ErroSalao,
@@ -55,6 +57,22 @@ def _resolver_contexto(contexto: ContextoExecucao | None) -> ContextoExecucao:
 
 def _centavos(valor: float) -> Decimal:
     return Decimal(str(valor)).quantize(Decimal("0.01"))
+
+
+def _pagamento_canonico_id(
+    contexto: ContextoExecucao,
+    *,
+    comanda_id: str,
+    parcela_ordem: int,
+    pedido_id: str,
+) -> str:
+    """ID estável por parcela para replay seguro de criação do pagamento."""
+
+    raiz = (
+        f"salao:{contexto.tenant_id}:{contexto.unidade_id}:"
+        f"{comanda_id}:{parcela_ordem}:{pedido_id}"
+    )
+    return f"salao-{uuid5(NAMESPACE_URL, raiz)}"
 
 
 def render_salao(
@@ -361,7 +379,37 @@ def render_salao(
                     )
                 )
 
-            st.markdown("#### Divisão da conta")
+            st.markdown("#### Plano de pagamento")
+            metodos_integrais = {
+                "Dinheiro": MetodoFechamento.DINHEIRO,
+                "PIX": MetodoFechamento.PIX,
+                "Cartão de crédito": MetodoFechamento.CARTAO_CREDITO,
+                "Cartão de débito": MetodoFechamento.CARTAO_DEBITO,
+            }
+            metodo_integral_nome = st.selectbox(
+                "Método para pagamento integral",
+                tuple(metodos_integrais),
+                key=f"metodo-integral-{comanda.comanda_id}",
+            )
+            if st.button(
+                "Definir pagamento integral",
+                key=f"integral-{comanda.comanda_id}",
+            ):
+                metodo_integral = metodos_integrais[metodo_integral_nome]
+                concluir(
+                    lambda: aplicacao.definir_divisao_pagamento(
+                        contexto,
+                        comanda_id=comanda.comanda_id,
+                        expected_version=comanda.versao,
+                        idempotency_key=(
+                            f"ui:integral:{comanda.comanda_id}:{comanda.versao}:"
+                            f"{metodo_integral.value}"
+                        ),
+                        divisoes=((metodo_integral, comanda.saldo, None),),
+                    )
+                )
+
+            st.markdown("##### Pagamento misto PIX + dinheiro")
             metade = (comanda.saldo / Decimal(2)).quantize(Decimal("0.01"))
             pix = st.number_input(
                 "Valor PIX",
@@ -413,13 +461,194 @@ def render_salao(
                 st.caption(
                     f"Próxima parcela: {proxima.metodo.value} · R$ {proxima.valor:.2f}"
                 )
+
+                if pedidos:
+                    opcoes_pedido_financeiro = {
+                        f"{item.pedido_id} · R$ {item.valor:.2f}": item.pedido_id
+                        for item in pedidos
+                    }
+                    pedido_financeiro_nome = st.selectbox(
+                        "Pedido vinculado ao pagamento",
+                        tuple(opcoes_pedido_financeiro),
+                        key=(
+                            f"pedido-financeiro-{comanda.comanda_id}-"
+                            f"{proxima.ordem}"
+                        ),
+                    )
+                    pedido_financeiro_id = opcoes_pedido_financeiro[
+                        pedido_financeiro_nome
+                    ]
+                    pagamento_gerenciado_id = _pagamento_canonico_id(
+                        contexto,
+                        comanda_id=comanda.comanda_id,
+                        parcela_ordem=proxima.ordem,
+                        pedido_id=pedido_financeiro_id,
+                    )
+                    pagamento_gerenciado = sessao.get(
+                        PagamentoORM,
+                        (
+                            pagamento_gerenciado_id,
+                            contexto.tenant_id,
+                            contexto.unidade_id,
+                        ),
+                    )
+
+                    if pagamento_gerenciado is None:
+                        if Permissao.PAGAMENTO_REGISTRAR in contexto.permissoes:
+                            st.caption(
+                                "Nenhuma obrigação financeira canônica foi criada "
+                                "para esta parcela."
+                            )
+                            if st.button(
+                                "Criar pagamento canônico",
+                                key=(
+                                    f"criar-pay-{comanda.comanda_id}-"
+                                    f"{proxima.ordem}-{pedido_financeiro_id}"
+                                ),
+                            ):
+                                concluir(
+                                    lambda: aplicacao.criar_pagamento_canonico(
+                                        contexto,
+                                        pagamento_id=pagamento_gerenciado_id,
+                                        pedido_id=pedido_financeiro_id,
+                                        comanda_id=comanda.comanda_id,
+                                        metodo=proxima.metodo,
+                                        valor=proxima.valor,
+                                        idempotency_key=(
+                                            f"ui:pay:create:{comanda.comanda_id}:"
+                                            f"{proxima.ordem}:{pedido_financeiro_id}"
+                                        ),
+                                    )
+                                )
+                        else:
+                            st.info(
+                                "Este perfil não possui PAGAMENTO_REGISTRAR. "
+                                "A obrigação deve ser criada por Caixa/Gerência/Admin."
+                            )
+                    else:
+                        st.caption(
+                            f"Pagamento {pagamento_gerenciado.id} · "
+                            f"status {pagamento_gerenciado.status}"
+                        )
+                        if pagamento_gerenciado.status == PagamentoStatus.PAGO.value:
+                            if Permissao.PAGAMENTO_CONFIRMAR in contexto.permissoes:
+                                if st.button(
+                                    "Projetar pagamento canônico confirmado",
+                                    key=(
+                                        f"projetar-pay-{comanda.comanda_id}-"
+                                        f"{proxima.ordem}-{pagamento_gerenciado.id}"
+                                    ),
+                                ):
+                                    concluir(
+                                        lambda: aplicacao.registrar_pagamento_confirmado(
+                                            contexto,
+                                            pagamento_id=pagamento_gerenciado.id,
+                                            comanda_id=comanda.comanda_id,
+                                            metodo=proxima.metodo,
+                                            valor=proxima.valor,
+                                            expected_version=comanda.versao,
+                                            idempotency_key=(
+                                                f"ui:pay:project:{comanda.comanda_id}:"
+                                                f"{proxima.ordem}:"
+                                                f"{pagamento_gerenciado.id}"
+                                            ),
+                                        )
+                                    )
+                        elif Permissao.PAGAMENTO_CONFIRMAR in contexto.permissoes:
+                            if proxima.metodo == MetodoFechamento.DINHEIRO:
+                                if st.button(
+                                    "Confirmar recebimento em dinheiro",
+                                    key=(
+                                        f"confirmar-cash-{comanda.comanda_id}-"
+                                        f"{proxima.ordem}"
+                                    ),
+                                ):
+                                    concluir(
+                                        lambda: aplicacao.confirmar_pagamento_canonico(
+                                            contexto,
+                                            pagamento_id=pagamento_gerenciado.id,
+                                            comanda_id=comanda.comanda_id,
+                                            metodo=proxima.metodo,
+                                            valor=proxima.valor,
+                                            expected_payment_version=(
+                                                pagamento_gerenciado.versao
+                                            ),
+                                            idempotency_key=(
+                                                f"ui:pay:confirm:{pagamento_gerenciado.id}"
+                                            ),
+                                        )
+                                    )
+                            elif proxima.metodo in {
+                                MetodoFechamento.CARTAO_CREDITO,
+                                MetodoFechamento.CARTAO_DEBITO,
+                            }:
+                                referencia_terminal = st.text_input(
+                                    "Referência do terminal",
+                                    key=(
+                                        f"terminal-ref-{comanda.comanda_id}-"
+                                        f"{proxima.ordem}"
+                                    ),
+                                    help=(
+                                        "Informe NSU/autorização/referência auditável "
+                                        "produzida pelo terminal presencial."
+                                    ),
+                                )
+                                if st.button(
+                                    "Confirmar cartão presencial",
+                                    key=(
+                                        f"confirmar-card-{comanda.comanda_id}-"
+                                        f"{proxima.ordem}"
+                                    ),
+                                ):
+                                    if not referencia_terminal.strip():
+                                        raise ErroSalao(
+                                            "referencia_financeira_ausente"
+                                        )
+                                    concluir(
+                                        lambda: aplicacao.confirmar_pagamento_canonico(
+                                            contexto,
+                                            pagamento_id=pagamento_gerenciado.id,
+                                            comanda_id=comanda.comanda_id,
+                                            metodo=proxima.metodo,
+                                            valor=proxima.valor,
+                                            expected_payment_version=(
+                                                pagamento_gerenciado.versao
+                                            ),
+                                            idempotency_key=(
+                                                f"ui:pay:confirm:{pagamento_gerenciado.id}"
+                                            ),
+                                            referencia_externa=(
+                                                referencia_terminal.strip()
+                                            ),
+                                        )
+                                    )
+                            else:
+                                st.info(
+                                    "Este método exige confirmação por fonte "
+                                    "financeira validada. PIX permanece aguardando "
+                                    "webhook/provider; o Salão não confirma artificialmente."
+                                )
+                        else:
+                            st.info(
+                                "Pagamento pendente. A confirmação exige "
+                                "PAGAMENTO_CONFIRMAR."
+                            )
+                else:
+                    st.error(
+                        "A comanda não possui Pedido canônico vinculado; "
+                        "criação financeira bloqueada."
+                    )
+
                 if Permissao.PAGAMENTO_CONFIRMAR in contexto.permissoes:
                     pagamento_id = st.text_input(
                         "ID do pagamento canônico já confirmado",
-                        key=f"pagamento-canonico-{comanda.comanda_id}-{proxima.ordem}",
+                        key=(
+                            f"pagamento-canonico-{comanda.comanda_id}-"
+                            f"{proxima.ordem}"
+                        ),
                         help=(
-                            "O Salão não cria nem simula pagamentos. Informe o ID de um "
-                            "Pagamento V1 realmente liquidado para esta comanda."
+                            "Use este campo para um Pagamento V1 liquidado fora "
+                            "desta composição, mas pertencente à mesma comanda."
                         ),
                     )
                     if st.button(
@@ -444,22 +673,27 @@ def render_salao(
                         )
                 else:
                     st.info(
-                        "A confirmação financeira exige Caixa/Gerência com "
-                        "PAGAMENTO_CONFIRMAR. O Salão permanece somente leitura nesta etapa."
+                        "A projeção financeira exige PAGAMENTO_CONFIRMAR. "
+                        "O Salão permanece somente leitura para este perfil."
                     )
             elif comanda.saldo == Decimal("0.00"):
                 st.success("Saldo integralmente confirmado.")
-                if st.button("Fechar comanda", key=f"fechar-{comanda.comanda_id}"):
-                    concluir(
-                        lambda: aplicacao.fechar_comanda(
-                            contexto,
-                            comanda_id=comanda.comanda_id,
-                            expected_version=comanda.versao,
-                            idempotency_key=(
-                                f"ui:fechar:{comanda.comanda_id}:{comanda.versao}"
-                            ),
-                            pedidos_resolvidos=True,
+                if Permissao.COMANDA_FECHAR in contexto.permissoes:
+                    if st.button("Fechar comanda", key=f"fechar-{comanda.comanda_id}"):
+                        concluir(
+                            lambda: aplicacao.fechar_comanda(
+                                contexto,
+                                comanda_id=comanda.comanda_id,
+                                expected_version=comanda.versao,
+                                idempotency_key=(
+                                    f"ui:fechar:{comanda.comanda_id}:{comanda.versao}"
+                                ),
+                                pedidos_resolvidos=True,
+                            )
                         )
+                else:
+                    st.info(
+                        "Saldo pago. O fechamento da comanda exige COMANDA_FECHAR."
                     )
     except ErroSalao as exc:
         st.error(f"Operação de salão recusada: {exc.codigo}")

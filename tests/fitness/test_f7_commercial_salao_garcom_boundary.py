@@ -56,3 +56,16 @@ def test_migration_salao_teste_nao_entra_no_runner_oficial() -> None:
     assert "0012_restaurant_operations_runtime_v1" in source
     assert "SalaoBase.metadata.create_all" in source
     assert "migrations.salao_v1" not in source
+
+
+def test_f7c_salao_compoe_pagamento_pelos_servicos_canonicos() -> None:
+    app = _texto("application/salao_transacoes.py")
+    ui = _texto("core/salao/ui_streamlit.py")
+    assert "criar_obrigacao_pagamento(" in app
+    assert "confirmar_pagamento(" in app
+    assert "confirmar_pagamento_presencial(" in app
+    assert "ProvedorPagamentoFake" not in app
+    assert "ProvedorPagamentoFake" not in ui
+    assert "registrar_pagamento_confirmado_teste" not in app
+    assert "registrar_pagamento_confirmado_teste" not in ui
+    assert "PIX permanece aguardando" in ui
