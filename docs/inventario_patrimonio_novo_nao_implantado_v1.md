@@ -1267,6 +1267,46 @@ login real + operador KDS real + browser + pós-condições persistidas.
 
 Sem merge/deploy.
 
+
+## 10.15 F8-E — KDS Commercial Runtime E2E / fechamento — 02/09/2026
+
+O fechamento comercial do KDS foi concluído no SHA
+`132e80bd2373aa30de42c4e17fea0037324ff7da`.
+
+Evidência final:
+- PostgreSQL 16;
+- migrations oficiais e schema current;
+- `app.py` real;
+- `FM_AI_TEST_MODE` ausente;
+- login real COZINHA;
+- GARCOM autenticado sem superfície KDS;
+- roteamento de Pedido confirmado feito pela própria UI comercial;
+- produção criada somente após o clique comercial;
+- aceite -> início -> pronta;
+- Pedido macro `pronto`;
+- reserva canônica de Estoque consumida exatamente uma vez;
+- saldo físico 8 e reservado 0 no cenário;
+- Outbox/Auditoria persistidos;
+- COZINHA sem capacidade de retirada;
+- `Fase 8E KDS Commercial Runtime E2E Gate` run 3 / `33685383011`: PASS;
+- **32/32 workflows verdes no mesmo SHA**.
+
+Durante a homologação, o browser revelou dois problemas de cenário/teste e ambos
+foram corrigidos sem relaxar domínio, RBAC ou política de cozinha:
+1. locator incorreto do selectbox Streamlit;
+2. ausência de Pagamento V1 confirmado no cenário, que corretamente causava
+   `cozinha_nao_autorizada`.
+
+Readiness final:
+- `kds = COMMERCIAL_CANDIDATE`;
+- `code_blockers=[]`;
+- `external_blockers=[]`;
+- evidência Commercial Runtime E2E/browser registrada;
+- nenhuma migration F8 nova.
+
+**Decisão:** Fase 8 tecnicamente fechada. Merge/deploy continuam separados e
+dependem de autorização humana explícita.
+
 ## 11. Regra de preservação
 
 Durante a recuperação:

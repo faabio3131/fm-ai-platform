@@ -200,13 +200,11 @@
         "core/kds/ui_roteamento.py"
       ],
       "code_blockers": [],
-      "external_blockers": [
-        "commercial_runtime_physical_gate_pending"
-      ],
+      "external_blockers": [],
       "evidence": {
-        "sha": "226bad9166844f91fbfe5ea7cb9af17d82ed791e",
-        "commercial_runtime_e2e": null,
-        "physical_test": null
+        "sha": "132e80bd2373aa30de42c4e17fea0037324ff7da",
+        "commercial_runtime_e2e": "github-actions://Fase-8E-KDS-Commercial-Runtime-E2E-Gate/run-3/33685383011",
+        "physical_test": "github-actions://Fase-8E-KDS-Commercial-Runtime-E2E-Gate/run-3/desktop-chromium"
       }
     },
     "salao": {

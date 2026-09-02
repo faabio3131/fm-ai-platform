@@ -1,6 +1,6 @@
 # Inventário — Fase 8 — KDS — Cutover Comercial Integrado
 
-**Status:** F8-E EM VALIDAÇÃO — Commercial Runtime E2E final  
+**Status:** FASE 8 FECHADA — KDS COMMERCIAL_CANDIDATE  
 **Issue:** #73  
 **Base sequencial:** `f883f898e27c27f01af8930303a13e7f548d7397`  
 **Branch:** `recovery/v1-fase8-kds-commercial-cutover`
@@ -111,7 +111,7 @@ jornada Salão/Garçom.
 
 ## 4. Gaps Current → Target
 
-### B8-01 — Commercial Runtime E2E específico do KDS — EM VALIDAÇÃO F8-E
+### B8-01 — Commercial Runtime E2E específico do KDS — FECHADA NO F8-E
 Permanece para F8-E: PostgreSQL 16, migrations oficiais, `app.py`, login real,
 operador KDS real, jornada browser completa e pós-condições no banco.
 
@@ -145,7 +145,7 @@ O candidato F8-D consolida:
 - isolamento explícito entre tenant/unidade para leitura e comando;
 - rollback/ownership transacional preservados.
 
-### B8-06 — readiness final — EM VALIDAÇÃO F8-E
+### B8-06 — readiness final — FECHADA NO F8-E
 Target F8-E:
 - preencher Commercial Runtime E2E/physical evidence;
 - remover blocker somente após evidência no mesmo candidato.
@@ -216,7 +216,7 @@ Falham fechado conforme a matriz vigente. F8 não amplia permissões para facili
 - rollback/ownership transacional;
 - 31/31 workflows verdes no mesmo SHA.
 
-### F8-E — EM VALIDAÇÃO — Commercial Runtime E2E / fechamento
+### F8-E — FECHADA — Commercial Runtime E2E / fechamento
 - PostgreSQL;
 - login real;
 - `app.py`;
@@ -343,7 +343,7 @@ Nenhum domínio, papel, permissão ou migration foi alterado.
 
 **Decisão:** F8-D fechada e **F8-E — Commercial Runtime E2E / fechamento — liberada**.
 
-## 11. F8-E — Commercial Runtime E2E / fechamento — EM VALIDAÇÃO
+## 11. F8-E — Commercial Runtime E2E / fechamento — FECHADA
 
 ### Objetivo
 Provar o KDS pelo mesmo caminho comercial entregue ao operador:
@@ -382,8 +382,38 @@ estado pré-carregado.
 - GARCOM sem aba KDS;
 - COZINHA sem capacidade de retirada.
 
-F8-E só fecha após o gate dedicado, matriz transversal e readiness/checkpoint
-ficarem reconciliados no mesmo candidato.
+### Correções durante a homologação
+- candidato inicial `7827edbbb9fc228a7928c5fd6a801d2bda65ce85`: o browser expôs um locator incorreto do selectbox Streamlit; corrigido sem tocar no domínio;
+- candidato intermediário `c0496ac856a463f959a1017199af73b0a557783f`: o browser chegou ao roteamento real e revelou a pré-condição legítima `cozinha_nao_autorizada`, pois o cenário não havia criado Pagamento V1 confirmado;
+- candidato final `132e80bd2373aa30de42c4e17fea0037324ff7da`: seed comercial passou a preparar Pagamento V1 confirmado, preservando a política de cozinha. Nenhuma permissão foi ampliada.
+
+### Fechamento técnico
+**SHA técnico final:** `132e80bd2373aa30de42c4e17fea0037324ff7da`
+
+Evidência:
+- `Fase 8E KDS Commercial Runtime E2E Gate` run 3 / `33685383011`: **PASS**;
+- PostgreSQL 16 + migrations oficiais + schema current: **PASS**;
+- `app.py` real e `FM_AI_TEST_MODE` ausente: **PASS**;
+- login real COZINHA: **PASS**;
+- GARCOM autenticado sem aba KDS: **PASS**;
+- Pedido confirmado roteado pela UI comercial: **PASS**;
+- zero `ProducaoItem` antes do clique e exatamente uma produção depois: **PASS**;
+- `aguardando -> aceita -> em_preparo -> pronta`: **PASS**;
+- Pedido macro `pronto`: **PASS**;
+- reserva de Estoque `consumida`, saldo físico 8 e reservado 0: **PASS**;
+- Outbox KDS/Pedido e Auditoria persistidos: **PASS**;
+- COZINHA sem `Registrar retirada`: **PASS**;
+- **matriz transversal final: 32/32 workflows verdes no mesmo SHA**.
+
+Readiness final:
+- `kds = COMMERCIAL_CANDIDATE`;
+- `code_blockers=[]`;
+- `external_blockers=[]`;
+- Commercial Runtime E2E e browser comercial registrados;
+- nenhuma migration F8 nova;
+- nenhum Fake/Mock/runtime_teste no commercial default.
+
+**Decisão:** Fase 8 tecnicamente fechada. Merge e deploy permanecem separados e dependem de autorização humana explícita.
 
 ## 12. STOP
 
