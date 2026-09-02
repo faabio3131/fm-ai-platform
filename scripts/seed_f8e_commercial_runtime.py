@@ -17,6 +17,7 @@ from core.estoque.adaptador_sqlalchemy import RepositorioLedgerSQLAlchemy
 from core.estoque.modelos import ItemSnapshotFicha, SnapshotFichaEstoque, TipoMovimento
 from core.estoque.servicos import registrar_movimento, reservar_estoque
 from core.kds import RepositorioAuditoriaEmMemoria, RepositorioKDSSQLAlchemy, ServicoKDS
+from core.pagamentos.modelos_orm import ObrigacaoPagamentoORM, PagamentoORM
 from core.pedidos.modelos_orm import ItemPedidoORM, PedidoORM
 from core.seguranca import MATRIZ_PADRAO, ContextoExecucao, Papel
 from infra.eventos.adaptador_sqlalchemy import RepositorioOutboxSQLAlchemy
@@ -153,6 +154,56 @@ def _garantir_pedido(session: Session) -> PedidoORM:
     return pedido
 
 
+def _garantir_pagamento_confirmado(session: Session, pedido: PedidoORM) -> None:
+    pagamento_id = "pagamento-f8e"
+    existente = session.get(PagamentoORM, (pagamento_id, TENANT, UNIDADE))
+    if existente is not None:
+        return
+
+    valor = Decimal(str(pedido.total))
+    session.add(
+        ObrigacaoPagamentoORM(
+            id=pagamento_id,
+            tenant_id=TENANT,
+            unidade_id=UNIDADE,
+            pedido_id=pedido.id,
+            comanda_id=None,
+            valor_previsto=valor,
+            moeda="BRL",
+            criado_em=AGORA,
+            versao=1,
+            correlation_id="corr-pagamento-f8e",
+            idempotency_key="obrigacao-f8e",
+            request_hash="hash-obrigacao-f8e",
+        )
+    )
+    session.add(
+        PagamentoORM(
+            id=pagamento_id,
+            tenant_id=TENANT,
+            unidade_id=UNIDADE,
+            pedido_id=pedido.id,
+            comanda_id=None,
+            status="pago",
+            metodo="dinheiro",
+            valor_previsto=valor,
+            valor_pago=valor,
+            valor_estornado=Decimal("0.00"),
+            saldo=Decimal("0.00"),
+            moeda="BRL",
+            recebimento_posterior=False,
+            provedor=None,
+            criado_em=AGORA,
+            atualizado_em=AGORA,
+            versao=1,
+            correlation_id="corr-pagamento-f8e",
+            idempotency_key="pagamento-f8e",
+            request_hash="hash-pagamento-f8e",
+        )
+    )
+    session.flush()
+
+
 def _garantir_setor(session: Session) -> None:
     contexto = _contexto(Papel.ADMINISTRADOR, "admin-seed-f8e")
     repo = RepositorioKDSSQLAlchemy(session)
@@ -239,6 +290,7 @@ def main() -> None:
         _garantir_loja_legacy(session)
         _garantir_identidades(session)
         pedido = _garantir_pedido(session)
+        _garantir_pagamento_confirmado(session, pedido)
         _garantir_setor(session)
         _garantir_reserva_estoque(session, pedido)
     print("F8-E commercial seed ready; producao KDS ainda nao criada")

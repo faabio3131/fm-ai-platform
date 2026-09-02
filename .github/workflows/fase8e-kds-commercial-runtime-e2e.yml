@@ -141,6 +141,7 @@ jobs:
           from core.estoque.modelos import StatusReserva
           from core.estoque.modelos_orm import ReservaEstoqueORM
           from core.kds.modelos_orm import ProducaoItemORM
+          from core.pagamentos.modelos_orm import PagamentoORM
           from core.pedidos.modelos_orm import PedidoORM
           from migrations.runner import assert_schema_current
 
@@ -150,6 +151,13 @@ jobs:
               pedido = session.get(PedidoORM, ("pedido-f8e", "tenant-f8e", "unidade-f8e"))
               assert pedido is not None
               assert pedido.status == "confirmado"
+              pagamento = session.get(
+                  PagamentoORM,
+                  ("pagamento-f8e", "tenant-f8e", "unidade-f8e"),
+              )
+              assert pagamento is not None
+              assert pagamento.status == "pago"
+              assert str(pagamento.saldo) in {"0.00", "0.0000"}
               producoes = session.scalar(
                   select(func.count())
                   .select_from(ProducaoItemORM)
