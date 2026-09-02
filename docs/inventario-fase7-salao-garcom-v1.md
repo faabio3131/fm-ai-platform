@@ -169,7 +169,7 @@ Logo o F7 não cria migration por default. O gate deve provar:
 ### F7-A — Inventário + System Design — CONCLUÍDA
 Este documento + System Design + ADR.
 
-### F7-B — Commercial Composition Root / Identity / Schema — EM VALIDAÇÃO
+### F7-B — Commercial Composition Root / Identity / Schema — FECHADA
 - test schema/context removidos do commercial default dos dois renderers;
 - contexto autenticado adotado; injeção artificial falha fora de TEST_MODE;
 - runtime_teste removido das APIs públicas e das superfícies comerciais; helpers E2E ficam exclusivamente nos entrypoints de teste;
@@ -180,6 +180,12 @@ Este documento + System Design + ADR.
 - readiness global atualizado de TEST_RUNTIME para COMMERCIAL_CANDIDATE em Salão/Garçom; gate físico/comercial final permanece pendente;
 - PR11/PR12 preservados por contextos e seeds explícitos nos entrypoints E2E, fora do import graph comercial.
 - fechamento depende do gate F7-B e regressões PR11/PR12 no mesmo SHA.
+- **Fechamento técnico aprovado em 02/09/2026 no SHA `b56e11695f43b253b339953e5072908b00eec7ca`.**
+- Matriz final do checkpoint técnico: **19/19 workflows verdes** no mesmo SHA.
+- Gates críticos: Fase 7B Commercial Composition Gate = success; PR11 Salão = success; PR12 Garçom = success; Commercial Runtime Readiness V1 = success.
+- A primeira tentativa do PR11 apresentou timeout transversal em PDV/CRM cashback; o job foi reexecutado no mesmo SHA e passou integralmente, enquanto o E2E próprio de Salão já estava verde.
+- Nenhuma migration nova foi criada; `0012_restaurant_operations_runtime_v1` permanece a migration oficial do Salão.
+- Nenhum merge/deploy foi realizado neste bloco.
 
 ### F7-C — Salão comercial + Pagamento
 - remover confirmação financeira de teste do caminho da UI;
