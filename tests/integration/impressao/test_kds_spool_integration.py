@@ -54,7 +54,7 @@ def _preparar():
                 tenant_id=TENANT,
                 unidade_id=UNIDADE,
                 origem="pdv",
-                canal="balcao",
+                canal="pdv",
                 status="enviado_producao",
                 cliente_id=None,
                 criado_em=AGORA,
