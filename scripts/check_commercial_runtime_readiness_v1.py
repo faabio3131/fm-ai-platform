@@ -113,15 +113,15 @@ CAPABILITY_BLOCKER_RULES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
         ("ServicoSpoolImpressao", "UnitOfWorkV1"),
     ),
     "kds_to_print_spool_not_composed": (
-        ("application/*.py",),
-        ("enfileirar_item_kds", "ProducaoItem"),
+        ("application/kds_transacoes.py",),
+        ("IntegracaoImpressaoKDSV1", "enfileirar_roteamento", "uow.commit()"),
     ),
     "print_real_adapter_not_composed": (
         ("infra/**/*.py",),
         ("PortaImpressora", "def imprimir"),
     ),
     "print_destinations_not_commercially_configured": (
-        ("application/*.py", "infra/**/*.py"),
+        ("infra/**/*.py",),
         ("DestinoImpressao", "tenant_id", "unidade_id", "setor_id"),
     ),
     "print_surface_not_exposed_in_app": (
