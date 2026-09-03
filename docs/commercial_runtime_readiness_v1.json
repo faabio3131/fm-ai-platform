@@ -347,13 +347,14 @@
         "application/impressao_kds.py",
         "core/impressao/servicos.py",
         "core/impressao/adaptador_sqlalchemy.py",
-        "core/impressao/flags.py"
+        "core/impressao/flags.py",
+        "infra/impressao/adapter_tcp.py",
+        "infra/impressao/configuracao_sqlalchemy.py",
+        "core/impressao/ui_comercial.py",
+        "infra/streamlit_app/admin_proprietario.py",
+        "app.py"
       ],
-      "code_blockers": [
-        "print_real_adapter_not_composed",
-        "print_destinations_not_commercially_configured",
-        "print_surface_not_exposed_in_app"
-      ],
+      "code_blockers": [],
       "external_blockers": [
         "physical_printer_hardware_gate_pending"
       ],
