@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 
 from application.impressao_transacoes import AplicacaoImpressaoV1
 from core.impressao import (
@@ -71,7 +71,7 @@ def _producao() -> ProducaoItem:
         setor_id="setor-f9b",
         status="aguardando",
         prioridade=0,
-        quantidade=Decimal("1"),
+        quantidade=Decimal(1),
         tentativa=1,
         versao=1,
         criado_em=AGORA,
