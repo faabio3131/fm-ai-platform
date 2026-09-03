@@ -10,7 +10,7 @@ import streamlit as st
 from sqlalchemy.orm import Session
 
 from application.impressao_transacoes import AplicacaoImpressaoV1
-from core.impressao import StatusImpressao
+from core.impressao import ErroImpressao, StatusImpressao
 from core.seguranca.autenticacao import IdentidadeUsuario
 from infra.impressao import ImpressoraTCPRaw, ResolverDestinosImpressaoSQLAlchemy
 
@@ -74,19 +74,20 @@ def render_impressao_operacional(
 
     c1, c2 = st.columns(2)
     with c1:
-        if selecionado.status in {StatusImpressao.PENDENTE, StatusImpressao.FALHOU}:
-            if st.button("Processar impressão", type="primary", use_container_width=True):
-                try:
-                    resultado = app.processar(contexto=contexto, job_id=job_id)
-                    if resultado.impresso:
-                        st.success("Impressão enviada com sucesso.")
-                    elif resultado.contingencia:
-                        st.warning("Job movido para contingência.")
-                    else:
-                        st.error("Impressora indisponível; tentativa registrada.")
-                    st.rerun()
-                except Exception:
-                    st.error("Não foi possível processar o job de impressão.")
+        if selecionado.status in {StatusImpressao.PENDENTE, StatusImpressao.FALHOU} and st.button(
+            "Processar impressão", type="primary", use_container_width=True
+        ):
+            try:
+                resultado = app.processar(contexto=contexto, job_id=job_id)
+                if resultado.impresso:
+                    st.success("Impressão enviada com sucesso.")
+                elif resultado.contingencia:
+                    st.warning("Job movido para contingência.")
+                else:
+                    st.error("Impressora indisponível; tentativa registrada.")
+                st.rerun()
+            except (ErroImpressao, RuntimeError):
+                st.error("Não foi possível processar o job de impressão.")
     with c2:
         motivo = st.text_input(
             "Motivo da reimpressão",
@@ -103,5 +104,5 @@ def render_impressao_operacional(
                 )
                 st.success("Reimpressão criada no spool.")
                 st.rerun()
-            except Exception:
+            except (ErroImpressao, RuntimeError):
                 st.error("Reimpressão não autorizada ou motivo inválido.")
