@@ -1,0 +1,63 @@
+name: Fase 9D Impressao Adapter Config UI Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'infra/impressao/**'
+      - 'core/impressao/**'
+      - 'application/impressao_transacoes.py'
+      - 'infra/streamlit_app/admin_proprietario.py'
+      - 'app.py'
+      - 'tests/unit/impressao/**'
+      - 'tests/fitness/test_f9d_impressao_comercial.py'
+      - 'scripts/check_commercial_runtime_readiness_v1.py'
+      - 'docs/commercial_runtime_readiness_v1.json'
+      - '.github/workflows/fase9d-impressao-adapter-config-ui.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  f9d:
+    name: Adapter TCP + config duravel + UI comercial
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+
+      - name: Compile F9-D
+        run: |
+          python -m compileall -q             infra/impressao             core/impressao/ui_comercial.py             application/impressao_transacoes.py             infra/streamlit_app/admin_proprietario.py             tests/unit/impressao             tests/fitness/test_f9d_impressao_comercial.py
+
+      - name: Ruff F9-D
+        run: |
+          ruff check             infra/impressao             core/impressao/ui_comercial.py             application/impressao_transacoes.py             infra/streamlit_app/admin_proprietario.py             tests/unit/impressao/test_adapter_tcp_comercial.py             tests/unit/impressao/test_configuracao_comercial.py             tests/fitness/test_f9d_impressao_comercial.py             scripts/check_commercial_runtime_readiness_v1.py
+
+      - name: Mypy F9-D
+        run: |
+          mypy             infra/impressao             core/impressao/ui_comercial.py             application/impressao_transacoes.py
+
+      - name: Fitness e readiness
+        run: |
+          pytest -q             tests/fitness/test_f9d_impressao_comercial.py             tests/fitness/test_commercial_runtime_readiness_v1.py
+
+      - name: Adapter e configuracao comercial
+        run: |
+          pytest -q             tests/unit/impressao/test_adapter_tcp_comercial.py             tests/unit/impressao/test_configuracao_comercial.py
+
+      - name: Regressao Impressao
+        run: pytest -q tests/unit/impressao tests/integration/impressao
