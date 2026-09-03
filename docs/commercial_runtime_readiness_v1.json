@@ -344,12 +344,12 @@
       "status": "CUTOVER_PENDING",
       "commercial_paths": [
         "application/impressao_transacoes.py",
+        "application/impressao_kds.py",
         "core/impressao/servicos.py",
         "core/impressao/adaptador_sqlalchemy.py",
         "core/impressao/flags.py"
       ],
       "code_blockers": [
-        "kds_to_print_spool_not_composed",
         "print_real_adapter_not_composed",
         "print_destinations_not_commercially_configured",
         "print_surface_not_exposed_in_app"
