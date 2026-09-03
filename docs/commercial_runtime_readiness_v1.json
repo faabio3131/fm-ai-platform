@@ -339,6 +339,29 @@
         "commercial_runtime_e2e": "github-actions://Administracao-Fase-5-Gate-V1/run-25/33466768101",
         "physical_test": "github-actions://Administracao-Fase-5-Gate-V1/run-25/chromium"
       }
+    },
+    "impressao_operacional": {
+      "status": "CUTOVER_PENDING",
+      "commercial_paths": [
+        "application/impressao_transacoes.py",
+        "application/impressao_kds.py",
+        "core/impressao/servicos.py",
+        "core/impressao/adaptador_sqlalchemy.py",
+        "core/impressao/flags.py"
+      ],
+      "code_blockers": [
+        "print_real_adapter_not_composed",
+        "print_destinations_not_commercially_configured",
+        "print_surface_not_exposed_in_app"
+      ],
+      "external_blockers": [
+        "physical_printer_hardware_gate_pending"
+      ],
+      "evidence": {
+        "sha": "c30fb3de5748dc3b7e53b0030e0fc62703cc2295",
+        "commercial_runtime_e2e": null,
+        "physical_test": null
+      }
     }
   }
 }

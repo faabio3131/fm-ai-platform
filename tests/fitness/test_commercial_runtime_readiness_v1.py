@@ -26,3 +26,26 @@ def test_commercial_runtime_readiness_inventory_matches_code() -> None:
         completed.stdout + "\n" + completed.stderr
     )
     assert "INVENTORY_MATCH=TRUE" in completed.stdout
+
+
+
+def test_f9_print_capability_blockers_match_manifest() -> None:
+    import json
+
+    from scripts.check_commercial_runtime_readiness_v1 import (
+        CAPABILITY_BLOCKER_RULES,
+        detect_code_blockers,
+    )
+
+    manifest = json.loads(
+        (ROOT / "docs" / "commercial_runtime_readiness_v1.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    declared = set(
+        manifest["modules"]["impressao_operacional"].get("code_blockers", [])
+    )
+    print_blockers = set(CAPABILITY_BLOCKER_RULES)
+    detected = detect_code_blockers()
+
+    assert detected & print_blockers == declared & print_blockers

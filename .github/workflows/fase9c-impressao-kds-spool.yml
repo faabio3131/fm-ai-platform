@@ -1,0 +1,57 @@
+name: Fase 9C Impressao KDS Spool Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'application/kds_transacoes.py'
+      - 'application/impressao_kds.py'
+      - 'application/impressao_transacoes.py'
+      - 'core/impressao/**'
+      - 'core/kds/**'
+      - 'tests/integration/impressao/test_kds_spool_integration.py'
+      - '.github/workflows/fase9c-impressao-kds-spool.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  f9c:
+    name: KDS commit -> spool idempotente e best-effort
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+
+      - name: Compile F9-C
+        run: |
+          python -m compileall -q             application/kds_transacoes.py             application/impressao_kds.py             application/impressao_transacoes.py             tests/integration/impressao/test_kds_spool_integration.py
+
+      - name: Ruff F9-C
+        run: |
+          ruff check             application/kds_transacoes.py             application/impressao_kds.py             application/impressao_transacoes.py             tests/integration/impressao/test_kds_spool_integration.py
+
+      - name: Mypy F9-C
+        run: |
+          mypy             application/kds_transacoes.py             application/impressao_kds.py             application/impressao_transacoes.py
+
+      - name: Prova KDS -> spool
+        run: |
+          pytest -q             tests/integration/impressao/test_kds_spool_integration.py             tests/integration/impressao/test_transacoes.py
+
+      - name: Regressao KDS e Impressao
+        run: |
+          pytest -q             tests/integration/kds             tests/unit/impressao             tests/integration/impressao

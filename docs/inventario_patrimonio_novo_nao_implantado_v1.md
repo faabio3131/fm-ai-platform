@@ -1307,6 +1307,85 @@ Readiness final:
 **Decisão:** Fase 8 tecnicamente fechada. Merge/deploy continuam separados e
 dependem de autorização humana explícita.
 
+## 10.16 F9-A — Impressão Operacional — Current → Target / System Design — 02/09/2026
+
+**Issue:** #75  
+**Branch:** `recovery/v1-fase9-impressao-operacional-cutover`  
+**Base:** `main` após Fase 8, merge commit `591c08bace3467b0cedbc827b12396fc8d49bcae`.
+
+Auditoria pré-código confirmou:
+- `core/impressao` já possui domínio/spool reutilizável com deduplicação, CAS,
+  retry limitado, contingência, reimpressão idempotente e auditoria;
+- `RepositorioSpoolSQLAlchemy` é durável e não assume ownership de commit;
+- a migration comercial oficial `0012_restaurant_operations_runtime_v1`
+  já cria `ImpressaoBase`; `migrations/impressao_v1.py` permanece histórico/test-only;
+- RBAC `impressao.reimprimir` já existe;
+- KDS permanece autoridade operacional e a impressão é somente efeito auxiliar;
+- falha de impressora já é modelada para não alterar/bloquear KDS;
+- não existe hoje composition root/Application/UoW comercial de impressão;
+- não existe integração runtime KDS/evento -> spool;
+- destinos de impressão são apenas objetos injetados em memória, sem configuração
+  comercial persistente por tenant/unidade/setor;
+- não existe adapter físico/comercial; `ImpressoraFake` é apenas teste;
+- `app.py` não expõe superfície comercial de impressão.
+
+**Decisão econômica:** preservar integralmente o domínio/spool atual e implementar
+somente composition, configuração/adapters reais, integração por evento e evidência.
+
+Readiness inicial F9:
+- `impressao_operacional = CUTOVER_PENDING`;
+- code blockers: composition, integração KDS->spool, adapter real, configuração de
+  destinos e superfície comercial;
+- external blocker: evidência física com impressora real;
+- nenhuma migration F9 nova autorizada sem drift objetivo.
+
+Sequência:
+1. F9-B — composition/Application/UoW + fitness anti-Fake;
+2. F9-C — KDS/evento -> spool idempotente e não bloqueante;
+3. F9-D — adapter/configuração operacional real + contingência;
+4. F9-E — Commercial Runtime E2E + evidência física/manual.
+
+Sem merge/deploy.
+
+## 10.17 F9-B — Impressão — Application/UoW comercial — 02/09/2026
+
+**Issue:** #75  
+**PR draft:** #76  
+**SHA técnico:** `58032024c05284a6f7325a4b0e961709b98d0a48`.
+
+F9-B fechou exclusivamente o gap de composition/transação:
+- criada `application/impressao_transacoes.py` com `AplicacaoImpressaoV1`;
+- `UnitOfWorkV1` é dona de commit/rollback;
+- spool SQLAlchemy e auditoria canônica compartilham a mesma Session;
+- `PortaImpressora` continua abstração injetada;
+- nenhum `ImpressoraFake`, runtime_teste ou migration test-only entrou no
+  caminho comercial;
+- schema comercial continua pertencendo à migration oficial `0012`;
+- readiness passou a fiscalizar blockers por **ausência de capacidade**, além
+  dos blockers históricos por presença de legado/Fake.
+
+Evidência:
+- Fase 9B Impressao Commercial Boundary Gate run `33699707722`: **PASS**;
+- PostgreSQL 16 + schema current + `impressao_jobs_v1`: **PASS**;
+- readiness fitness: **PASS**;
+- **20/20 workflows verdes no mesmo SHA**.
+
+Correção durante o gate:
+- o primeiro candidato `9bf2c84d...` falhou somente por duas violações Ruff
+  no teste novo;
+- `58032024...` corrigiu o import não usado e a construção de `Decimal`,
+  sem mudança funcional.
+
+Readiness:
+- B9-01 fechado;
+- B9-02 KDS->spool, B9-03 adapter real, B9-04 configuração de destinos e
+  B9-05 superfície comercial permanecem;
+- hardware físico permanece bloqueio externo para F9-E;
+- nenhuma migration F9 nova.
+
+**Decisão:** F9-B fechada; F9-C liberada após revalidação documental.  
+Sem merge/deploy.
+
 ## 11. Regra de preservação
 
 Durante a recuperação:
@@ -1337,3 +1416,43 @@ Se inventário, código e evidência divergirem, a execução deve **STOP** até
 O patrimônio novo é substancial. A maior parte do custo de domínio e arquitetura **já foi investida**. O problema central é que vários desses blocos ficaram em estado **BACKEND/TEST RUNTIME READY** sem chegar a **COMMERCIAL CUTOVER**.
 
 A estratégia de menor custo e menor prazo é: **implantar o que já existe, fechar os adapters/composition roots faltantes e eliminar a autoridade legada/fake do caminho comercial**, módulo por módulo, na ordem do Documento Mestre.
+
+
+## 10.18 F9-C — Impressão — KDS → Spool idempotente — 03/09/2026
+
+**Issue:** #75  
+**PR draft:** #76  
+**SHA técnico final validado:** `c30fb3de5748dc3b7e53b0030e0fc62703cc2295`.
+
+F9-C fechou o gap B9-02 sem acoplar impressão à transação autoritativa do KDS:
+- `rotear_item_kds_v1` commita KDS primeiro;
+- `IntegracaoImpressaoKDSV1` cria spool depois do commit, em UoW separada;
+- replay do mesmo roteamento produz exatamente um job;
+- falha do spool é best-effort e não desfaz Produção;
+- dados do ticket vêm de fontes canônicas de Pedido/KDS;
+- `ImpressoraFake` permanece somente em testes;
+- nenhuma migration F9 nova foi criada.
+
+Evidência no mesmo SHA:
+- Fase 9C Impressao KDS Spool Gate run `33704029604`: **PASS**;
+- Commercial Runtime Readiness V1: **PASS**;
+- PR10 KDS Gates: **PASS**;
+- PR14 Impressao Gates: **PASS**;
+- V1 Wave2 KDS e matriz transversal completa: **27/27 workflows verdes**.
+
+Durante a homologação, os dois testes novos falharam inicialmente porque o seed
+usava `canal="balcao"`, valor que pertence à origem histórica e não ao enum
+`CanalAtendimento`. A correção final usou `canal="pdv"`, sem alterar domínio ou
+regra de negócio; depois disso toda a matriz ficou verde.
+
+Readiness após F9-C:
+- B9-01 composition/Application: fechado;
+- B9-02 KDS → spool: fechado;
+- B9-03 adapter físico/comercial: pendente;
+- B9-04 configuração durável de destinos: pendente;
+- B9-05 superfície comercial: pendente;
+- B9-06 prova física/comercial completa: reservada à F9-E;
+- `physical_printer_hardware_gate_pending` permanece externo.
+
+**Decisão:** F9-C tecnicamente fechada e F9-D liberada para execução sequencial.  
+PR permanece draft. Sem merge/deploy.

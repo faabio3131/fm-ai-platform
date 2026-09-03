@@ -1,0 +1,225 @@
+# INVENTÁRIO FASE 9 — IMPRESSÃO OPERACIONAL — CUTOVER COMERCIAL V1
+
+**Projeto:** Kordena / GERENTE AI V1.0  
+**Autoridade:** Documento Mestre + RECOVERY Issue #62  
+**Issue da fase:** #75  
+**Branch:** `recovery/v1-fase9-impressao-operacional-cutover`  
+**Base auditada:** `main` @ `591c08bace3467b0cedbc827b12396fc8d49bcae`  
+**Status:** F9-C CONCLUÍDA — KDS → spool idempotente e não bloqueante validado; F9-D liberada
+
+## 1. Objetivo
+
+Promover o patrimônio já existente de impressão por setor para o runtime comercial
+sem reescrever o domínio/spool que já funciona.
+
+Impressão continua sendo um efeito operacional auxiliar. KDS permanece a fonte
+autoritativa da Produção e falha de impressora nunca pode bloquear ou alterar
+Pedido, Produção, Estoque, Pagamento ou Entrega.
+
+## 2. Current — patrimônio preservado
+
+Já existe em `core/impressao`:
+- `JobImpressao`, `DestinoImpressao` e estados pendente/falhou/impresso/contingência;
+- renderer de ticket minimizado, sem PII financeira;
+- deduplicação/idempotência por tenant/unidade/setor/chave/template;
+- retry limitado e contingência;
+- CAS/optimistic locking por versão;
+- reimpressão idempotente com motivo e auditoria;
+- `RepositorioSpoolSQLAlchemy`, sem `commit()` escondido;
+- porta `PortaImpressora`;
+- `ImpressoraFake` restrita ao universo de testes;
+- feature readiness exigindo adapters `orders` e `print`.
+
+Também já existe:
+- RBAC `impressao.reimprimir`;
+- migration comercial oficial `0012_restaurant_operations_runtime_v1`, que cria
+  `ImpressaoBase`;
+- migration histórica `migrations/impressao_v1.py` test-only, que não deve ser
+  usada como migration comercial;
+- testes unitários/integrados de dedup, CAS, falha/contingência, isolamento e auditoria;
+- workflow histórico `PR14 Impressao Gates`.
+
+## 3. Current — gaps objetivos
+
+### B9-01 — Composition/Application comercial ausente — FECHADO EM F9-B
+`application/impressao_transacoes.py` agora fornece `AplicacaoImpressaoV1`
+sob `UnitOfWorkV1`, compondo spool SQLAlchemy, auditoria canônica e
+`PortaImpressora` injetada. A Application é a única dona de `commit()`;
+repository/service/UI permanecem sem ownership transacional.
+
+### B9-02 — KDS → spool não composto no runtime — FECHADO EM F9-C
+`application/kds_transacoes.py` agora conclui primeiro o commit autoritativo do KDS
+e somente depois aciona `IntegracaoImpressaoKDSV1`, que cria o job em uma UoW de
+impressão separada. Replay usa chave estável derivada do roteamento KDS e falha de
+spool é best-effort: é registrada, mas não desfaz nem altera a Produção já commitada.
+
+### B9-03 — Adapter físico/comercial ausente
+A única implementação concreta de `PortaImpressora` é `ImpressoraFake`.
+Nenhum arquivo comercial pode instanciá-la ou depender dela.
+
+### B9-04 — Destinos não possuem configuração comercial durável
+`DestinoImpressao` é atualmente fornecido por tupla ao construtor do serviço.
+Não existe fonte comercial governada por tenant/unidade/setor para resolver
+`impressora_id`, ativação e `max_tentativas`.
+
+### B9-05 — Superfície comercial ausente
+`app.py` não referencia impressão. Não há visão operacional de spool,
+contingência ou reimpressão no runtime comercial.
+
+### B9-06 — Evidência comercial/física ausente
+Os testes históricos provam domínio e persistência isolada, mas não provam:
+PostgreSQL + migration oficial + identidade real + KDS real + spool comercial +
+adapter real/contingência + navegador e impressora física no mesmo SHA.
+
+## 4. Target
+
+Ao final da Fase 9:
+1. KDS gera, por integração canônica e idempotente, intenção/job de impressão;
+2. Application/UoW é proprietária da transação do spool;
+3. falha de impressão permanece separada da transação/estado KDS;
+4. destinos são resolvidos por tenant/unidade/setor a partir de configuração
+   comercial governada;
+5. provider real implementa `PortaImpressora` sem expor segredos/PII;
+6. ausência de provider/configuração falha de forma explícita e segura;
+7. UI comercial permite observar spool/contingência e reimprimir apenas com RBAC;
+8. `ImpressoraFake`, runtime/test helpers e migrations test-only ficam fora do
+   caminho comercial;
+9. nenhuma migration nova é criada sem drift objetivo;
+10. Commercial Runtime E2E e prova física fecham a fase.
+
+## 5. Current → Target
+
+| Área | Current | Target |
+|---|---|---|
+| Domínio/spool | Canônico | Preservado |
+| Persistência | SQLAlchemy existente | Reutilizada via UoW |
+| Migration | `0012` já oficial | Reutilizar; sem nova migration por padrão |
+| KDS | Sem ligação comercial com spool | Evento/integração idempotente |
+| Commit | Repository não commita, mas sem Application dedicada | Application/UoW dona do commit |
+| Destinos | Tupla em memória | Configuração comercial tenant/unidade/setor |
+| Driver | `ImpressoraFake` | Adapter comercial real + fail-closed |
+| UI | Ausente | Spool/contingência/reimpressão governados |
+| Evidência | Testes isolados | PostgreSQL + app real + browser + hardware |
+
+## 6. Sequência de execução
+
+### F9-B — Commercial Boundary / Composition
+- criar Application/UoW de impressão;
+- composição comercial;
+- fitness proibindo `ImpressoraFake`/test-runtime em caminhos comerciais;
+- provar migration oficial e ownership transacional.
+
+### F9-C — KDS → Spool
+- integrar criação de job a partir da cadeia canônica de KDS;
+- idempotência/replay;
+- provar que falha do spool não altera KDS;
+- outbox/auditoria quando aplicável.
+
+### F9-D — Adapter e configuração operacional
+- definir/resolver configuração real por tenant/unidade/setor;
+- implementar adapter comercial aprovado;
+- timeout/erro normalizado/retry/contingência;
+- UI de observabilidade/reimpressão com RBAC.
+
+### F9-E — Commercial Runtime E2E / físico
+- PostgreSQL 16;
+- migrations oficiais;
+- `app.py` real sem `FM_AI_TEST_MODE`;
+- login/identidade real;
+- Pedido → KDS → spool;
+- sucesso e contingência;
+- reimpressão autorizada;
+- prova física/manual com impressora real quando disponível.
+
+## 7. Readiness inicial
+
+`impressao_operacional = CUTOVER_PENDING`
+
+Code blockers:
+- `print_commercial_composition_missing`;
+- `kds_to_print_spool_not_composed`;
+- `print_real_adapter_not_composed`;
+- `print_destinations_not_commercially_configured`;
+- `print_surface_not_exposed_in_app`.
+
+External blocker:
+- `physical_printer_hardware_gate_pending`.
+
+## 8. STOP
+
+F9-A não autoriza merge nem deploy. Cada bloco deve passar seus gates,
+reconciliar inventário/readiness e registrar evidência antes do bloco seguinte.
+
+
+## 9. F9-B — Commercial Boundary / Composition — FECHADA
+
+**SHA técnico final:** `58032024c05284a6f7325a4b0e961709b98d0a48`  
+**Gate dedicado:** Fase 9B Impressao Commercial Boundary Gate / run `33699707722` — PASS  
+**Matriz transversal:** **20/20 workflows verdes** no mesmo SHA.
+
+Implementado:
+- `AplicacaoImpressaoV1` como fronteira Application + `UnitOfWorkV1`;
+- `RepositorioSpoolSQLAlchemy` e auditoria canônica compostos na mesma Session;
+- `PortaImpressora` permanece contrato injetado, sem driver/Fake comercial;
+- processamento e reimpressão passam a ter ownership transacional explícito;
+- fitness anti-`ImpressoraFake`/test-runtime/migration test-only no caminho comercial;
+- gate de readiness evoluído para detectar também **capacidades comerciais ausentes**,
+  sem apagar blockers legítimos para fazer CI passar;
+- PostgreSQL 16 confirmou `impressao_jobs_v1` via migration oficial
+  `0012_restaurant_operations_runtime_v1`;
+- nenhuma migration F9 criada.
+
+Histórico de correção:
+1. SHA `9bf2c84d2cfa5b4481bc54896f99651e9233bf4e` chegou ao Ruff e revelou
+   duas violações exclusivamente no teste novo: import `Session` não usado e
+   `Decimal("1")`;
+2. SHA `58032024c05284a6f7325a4b0e961709b98d0a48` corrigiu somente essas duas
+   linhas; o gate dedicado e toda a matriz fecharam verdes.
+
+Readiness após F9-B:
+- `impressao_operacional = CUTOVER_PENDING`;
+- B9-01 removido objetivamente;
+- permanecem B9-02, B9-03, B9-04 e B9-05;
+- `physical_printer_hardware_gate_pending` permanece;
+- Commercial Runtime E2E e prova física continuam nulos, reservados a F9-E.
+
+**Próximo bloco liberado:** F9-C — KDS/evento -> spool idempotente e não bloqueante.  
+Sem merge/deploy.
+
+
+## 10. F9-C — KDS → Spool idempotente e não bloqueante — FECHADA
+
+**SHA técnico final:** `c30fb3de5748dc3b7e53b0030e0fc62703cc2295`  
+**Gate dedicado:** Fase 9C Impressao KDS Spool Gate / run `33704029604` — PASS  
+**Matriz transversal:** **27/27 workflows verdes** no mesmo SHA.
+
+Implementado:
+- `AplicacaoImpressaoV1.enfileirar_item_kds` executa o spool sob `UnitOfWorkV1` própria;
+- `IntegracaoImpressaoKDSV1` resolve dados canônicos do setor/item e delega a criação do job;
+- `rotear_item_kds_v1` preserva o commit autoritativo do KDS antes de qualquer efeito de impressão;
+- chave de replay de impressão é estável: `kds-route:<idempotency_key>`;
+- falha de spool é best-effort e não reverte o KDS;
+- nenhuma `ImpressoraFake`, runtime de teste ou migration nova entrou no caminho comercial;
+- readiness foi endurecido para só fechar B9-02 quando a composição real estiver em
+  `application/kds_transacoes.py`, preservando B9-04 até existir configuração durável em infraestrutura.
+
+Provas:
+- teste dedicado comprovou criação de exatamente um job no replay do mesmo roteamento;
+- teste dedicado comprovou Produção persistida em `aguardando` mesmo quando o spool falha;
+- Commercial Runtime Readiness V1: PASS;
+- PR10 KDS Gates, PR14 Impressao Gates, Wave2 KDS e regressões transversais: PASS;
+- correção de teste no SHA final substituiu `canal="balcao"` por `canal="pdv"`, valor canônico de
+  `CanalAtendimento`; não houve alteração de regra de negócio.
+
+Readiness após F9-C:
+- `impressao_operacional = CUTOVER_PENDING`;
+- B9-01 e B9-02 fechados;
+- permanecem B9-03 `print_real_adapter_not_composed`, B9-04
+  `print_destinations_not_commercially_configured` e B9-05 `print_surface_not_exposed_in_app`;
+- B9-06/evidência física permanece reservada à F9-E;
+- blocker externo `physical_printer_hardware_gate_pending` permanece;
+- nenhuma migration F9 nova.
+
+**Próximo bloco liberado:** F9-D — adapter comercial real, configuração durável por
+ tenant/unidade/setor e superfície operacional governada.  
+Sem merge/deploy.

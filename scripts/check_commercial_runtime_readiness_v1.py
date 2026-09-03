@@ -103,6 +103,34 @@ BLOCKER_RULES: dict[str, tuple[str, tuple[str, ...]]] = {
     ),
 }
 
+# A capability blocker is active while no candidate commercial file contains
+# every required needle. This complements BLOCKER_RULES, which detects legacy
+# debt by presence. Capability rules are intentionally scoped to commercial
+# application/infra paths and never inspect tests.
+CAPABILITY_BLOCKER_RULES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
+    "print_commercial_composition_missing": (
+        ("application/*.py",),
+        ("ServicoSpoolImpressao", "UnitOfWorkV1"),
+    ),
+    "kds_to_print_spool_not_composed": (
+        ("application/kds_transacoes.py",),
+        ("IntegracaoImpressaoKDSV1", "enfileirar_roteamento", "uow.commit()"),
+    ),
+    "print_real_adapter_not_composed": (
+        ("infra/**/*.py",),
+        ("PortaImpressora", "def imprimir"),
+    ),
+    "print_destinations_not_commercially_configured": (
+        ("infra/**/*.py",),
+        ("DestinoImpressao", "tenant_id", "unidade_id", "setor_id"),
+    ),
+    "print_surface_not_exposed_in_app": (
+        ("app.py",),
+        ("impressao",),
+    ),
+}
+
+
 GENERIC_FORBIDDEN_IF_HOMOLOGATED = (
     re.compile(r"\b[A-Za-z0-9_]*Fake\b"),
     re.compile(r"runtime_teste"),
@@ -125,11 +153,31 @@ def _file_text(relative_path: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _capability_present(patterns: tuple[str, ...], needles: tuple[str, ...]) -> bool:
+    for pattern in patterns:
+        paths = (ROOT / pattern,)
+        candidates = (
+            [paths[0]]
+            if "*" not in pattern
+            else [path for path in ROOT.glob(pattern) if path.is_file()]
+        )
+        for path in candidates:
+            if not path.exists():
+                continue
+            text = path.read_text(encoding="utf-8")
+            if all(needle.lower() in text.lower() for needle in needles):
+                return True
+    return False
+
+
 def detect_code_blockers() -> set[str]:
     detected: set[str] = set()
     for blocker_id, (relative_path, needles) in BLOCKER_RULES.items():
         text = _file_text(relative_path)
         if text and all(needle in text for needle in needles):
+            detected.add(blocker_id)
+    for blocker_id, (patterns, needles) in CAPABILITY_BLOCKER_RULES.items():
+        if not _capability_present(patterns, needles):
             detected.add(blocker_id)
     return detected
 
@@ -167,8 +215,9 @@ def _verify_inventory(manifest: dict[str, Any]) -> list[str]:
         if status not in statuses:
             errors.append(f"{module_name}: status invalido {status!r}")
 
+        known_blockers = set(BLOCKER_RULES) | set(CAPABILITY_BLOCKER_RULES)
         for blocker in module.get("code_blockers", []):
-            if blocker not in BLOCKER_RULES:
+            if blocker not in known_blockers:
                 errors.append(
                     f"{module_name}: blocker desconhecido no gate: {blocker}"
                 )
