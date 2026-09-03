@@ -28,14 +28,24 @@ def test_commercial_runtime_readiness_inventory_matches_code() -> None:
     assert "INVENTORY_MATCH=TRUE" in completed.stdout
 
 
-def test_f9_print_missing_capabilities_are_detected() -> None:
-    from scripts.check_commercial_runtime_readiness_v1 import detect_code_blockers
 
+def test_f9_print_capability_blockers_match_manifest() -> None:
+    import json
+
+    from scripts.check_commercial_runtime_readiness_v1 import (
+        CAPABILITY_BLOCKER_RULES,
+        detect_code_blockers,
+    )
+
+    manifest = json.loads(
+        (ROOT / "docs" / "commercial_runtime_readiness_v1.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    declared = set(
+        manifest["modules"]["impressao_operacional"].get("code_blockers", [])
+    )
+    print_blockers = set(CAPABILITY_BLOCKER_RULES)
     detected = detect_code_blockers()
-    assert {
-        "print_commercial_composition_missing",
-        "kds_to_print_spool_not_composed",
-        "print_real_adapter_not_composed",
-        "print_destinations_not_commercially_configured",
-        "print_surface_not_exposed_in_app",
-    } <= detected
+
+    assert detected & print_blockers == declared & print_blockers
