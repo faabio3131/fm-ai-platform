@@ -5,7 +5,7 @@
 **Issue da fase:** #75  
 **Branch:** `recovery/v1-fase9-impressao-operacional-cutover`  
 **Base auditada:** `main` @ `591c08bace3467b0cedbc827b12396fc8d49bcae`  
-**Status:** F9-B CONCLUÍDA — Application/UoW comercial validada; F9-C liberada
+**Status:** F9-C CONCLUÍDA — KDS → spool idempotente e não bloqueante validado; F9-D liberada
 
 ## 1. Objetivo
 
@@ -47,10 +47,11 @@ sob `UnitOfWorkV1`, compondo spool SQLAlchemy, auditoria canônica e
 `PortaImpressora` injetada. A Application é a única dona de `commit()`;
 repository/service/UI permanecem sem ownership transacional.
 
-### B9-02 — KDS → spool não composto no runtime
-O serviço aceita um `ProducaoItem`, mas hoje não há consumidor/application
-integrado ao evento/resultado canônico de roteamento KDS para criar o job
-automaticamente.
+### B9-02 — KDS → spool não composto no runtime — FECHADO EM F9-C
+`application/kds_transacoes.py` agora conclui primeiro o commit autoritativo do KDS
+e somente depois aciona `IntegracaoImpressaoKDSV1`, que cria o job em uma UoW de
+impressão separada. Replay usa chave estável derivada do roteamento KDS e falha de
+spool é best-effort: é registrada, mas não desfaz nem altera a Produção já commitada.
 
 ### B9-03 — Adapter físico/comercial ausente
 A única implementação concreta de `PortaImpressora` é `ImpressoraFake`.
@@ -183,4 +184,42 @@ Readiness após F9-B:
 - Commercial Runtime E2E e prova física continuam nulos, reservados a F9-E.
 
 **Próximo bloco liberado:** F9-C — KDS/evento -> spool idempotente e não bloqueante.  
+Sem merge/deploy.
+
+
+## 10. F9-C — KDS → Spool idempotente e não bloqueante — FECHADA
+
+**SHA técnico final:** `c30fb3de5748dc3b7e53b0030e0fc62703cc2295`  
+**Gate dedicado:** Fase 9C Impressao KDS Spool Gate / run `33704029604` — PASS  
+**Matriz transversal:** **27/27 workflows verdes** no mesmo SHA.
+
+Implementado:
+- `AplicacaoImpressaoV1.enfileirar_item_kds` executa o spool sob `UnitOfWorkV1` própria;
+- `IntegracaoImpressaoKDSV1` resolve dados canônicos do setor/item e delega a criação do job;
+- `rotear_item_kds_v1` preserva o commit autoritativo do KDS antes de qualquer efeito de impressão;
+- chave de replay de impressão é estável: `kds-route:<idempotency_key>`;
+- falha de spool é best-effort e não reverte o KDS;
+- nenhuma `ImpressoraFake`, runtime de teste ou migration nova entrou no caminho comercial;
+- readiness foi endurecido para só fechar B9-02 quando a composição real estiver em
+  `application/kds_transacoes.py`, preservando B9-04 até existir configuração durável em infraestrutura.
+
+Provas:
+- teste dedicado comprovou criação de exatamente um job no replay do mesmo roteamento;
+- teste dedicado comprovou Produção persistida em `aguardando` mesmo quando o spool falha;
+- Commercial Runtime Readiness V1: PASS;
+- PR10 KDS Gates, PR14 Impressao Gates, Wave2 KDS e regressões transversais: PASS;
+- correção de teste no SHA final substituiu `canal="balcao"` por `canal="pdv"`, valor canônico de
+  `CanalAtendimento`; não houve alteração de regra de negócio.
+
+Readiness após F9-C:
+- `impressao_operacional = CUTOVER_PENDING`;
+- B9-01 e B9-02 fechados;
+- permanecem B9-03 `print_real_adapter_not_composed`, B9-04
+  `print_destinations_not_commercially_configured` e B9-05 `print_surface_not_exposed_in_app`;
+- B9-06/evidência física permanece reservada à F9-E;
+- blocker externo `physical_printer_hardware_gate_pending` permanece;
+- nenhuma migration F9 nova.
+
+**Próximo bloco liberado:** F9-D — adapter comercial real, configuração durável por
+ tenant/unidade/setor e superfície operacional governada.  
 Sem merge/deploy.
