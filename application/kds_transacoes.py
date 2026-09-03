@@ -6,6 +6,7 @@ possuem sua própria fronteira Application + UnitOfWorkV1.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from decimal import Decimal
 
@@ -14,6 +15,7 @@ from sqlalchemy.orm import Session
 from application.assistente_operational_notifications import (
     notificar_status_assistente_best_effort,
 )
+from application.impressao_kds import IntegracaoImpressaoKDSV1
 from application.kds_runtime import (
     ResultadoKDSCanonico,
     ServicoKDSCanonico,
@@ -21,11 +23,39 @@ from application.kds_runtime import (
 from core.seguranca.contexto import ContextoExecucao
 from infra.transacoes.uow import UnitOfWorkV1
 
+logger = logging.getLogger(__name__)
+
 
 def _session_ativa(uow: UnitOfWorkV1) -> Session:
     if uow.session is None:
         raise RuntimeError("UnitOfWorkV1 sem Session ativa")
     return uow.session
+
+
+def _enfileirar_impressao_best_effort(
+    *,
+    integracao: IntegracaoImpressaoKDSV1 | None,
+    contexto: ContextoExecucao,
+    resultado: ResultadoKDSCanonico,
+    idempotency_key: str,
+) -> None:
+    if integracao is None:
+        return
+    try:
+        integracao.enfileirar_roteamento(
+            contexto=contexto,
+            producao=resultado.item,
+            idempotency_key=idempotency_key,
+        )
+    except Exception:
+        logger.exception(
+            "falha_impressao_kds_best_effort",
+            extra={
+                "tenant_id": contexto.tenant_id,
+                "unidade_id": contexto.unidade_id,
+                "producao_id": resultado.item.producao_id,
+            },
+        )
 
 
 def rotear_item_kds_v1(
@@ -40,6 +70,7 @@ def rotear_item_kds_v1(
     prioridade: int = 0,
     tentativa: int = 1,
     producao_id: str | None = None,
+    integracao_impressao: IntegracaoImpressaoKDSV1 | None = None,
 ) -> ResultadoKDSCanonico:
     """Roteia um item sob ownership transacional da Application."""
 
@@ -60,6 +91,12 @@ def rotear_item_kds_v1(
 
         uow.commit()
 
+    _enfileirar_impressao_best_effort(
+        integracao=integracao_impressao,
+        contexto=contexto,
+        resultado=resultado,
+        idempotency_key=idempotency_key,
+    )
     notificar_status_assistente_best_effort(
         session_factory=session_factory,
         contexto=contexto,
