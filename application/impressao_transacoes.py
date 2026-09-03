@@ -17,9 +17,11 @@ from core.impressao import (
     JobImpressao,
     PortaImpressora,
     RepositorioSpoolSQLAlchemy,
+    ResultadoEnfileiramento,
     ResultadoProcessamento,
     ServicoSpoolImpressao,
 )
+from core.kds.modelos import ProducaoItem, SetorProducao
 from core.seguranca import ContextoExecucao
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
 from infra.transacoes.uow import UnitOfWorkV1
@@ -68,6 +70,32 @@ class AplicacaoImpressaoV1:
             resultado = acao(servico)
             uow.commit()
             return resultado
+
+    def enfileirar_item_kds(
+        self,
+        *,
+        contexto: ContextoExecucao,
+        producao: ProducaoItem,
+        setor: SetorProducao,
+        idempotency_key: str,
+        descricao_item: str,
+        observacao: str | None = None,
+        timestamp: datetime | None = None,
+    ) -> ResultadoEnfileiramento:
+        """Persiste intenção de impressão em UoW própria, separada do KDS."""
+
+        instante = timestamp or self._agora()
+        return self._executar(
+            lambda servico: servico.enfileirar_item_kds(
+                contexto=contexto,
+                producao=producao,
+                setor=setor,
+                idempotency_key=idempotency_key,
+                descricao_item=descricao_item,
+                observacao=observacao,
+                timestamp=instante,
+            )
+        )
 
     def processar(
         self,
