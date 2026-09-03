@@ -358,7 +358,7 @@
         "physical_printer_hardware_gate_pending"
       ],
       "evidence": {
-        "sha": null,
+        "sha": "58032024c05284a6f7325a4b0e961709b98d0a48",
         "commercial_runtime_e2e": null,
         "physical_test": null
       }

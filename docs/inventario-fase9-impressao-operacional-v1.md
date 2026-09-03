@@ -5,7 +5,7 @@
 **Issue da fase:** #75  
 **Branch:** `recovery/v1-fase9-impressao-operacional-cutover`  
 **Base auditada:** `main` @ `591c08bace3467b0cedbc827b12396fc8d49bcae`  
-**Status:** F9-A CONCLUÍDA — Current → Target antes de código
+**Status:** F9-B CONCLUÍDA — Application/UoW comercial validada; F9-C liberada
 
 ## 1. Objetivo
 
@@ -41,10 +41,11 @@ Também já existe:
 
 ## 3. Current — gaps objetivos
 
-### B9-01 — Composition/Application comercial ausente
-Não existe `application/impressao_transacoes.py` nem composition root comercial
-que abra UoW, componha repositório/auditoria/adapter e assuma ownership explícito
-de commit/rollback.
+### B9-01 — Composition/Application comercial ausente — FECHADO EM F9-B
+`application/impressao_transacoes.py` agora fornece `AplicacaoImpressaoV1`
+sob `UnitOfWorkV1`, compondo spool SQLAlchemy, auditoria canônica e
+`PortaImpressora` injetada. A Application é a única dona de `commit()`;
+repository/service/UI permanecem sem ownership transacional.
 
 ### B9-02 — KDS → spool não composto no runtime
 O serviço aceita um `ProducaoItem`, mas hoje não há consumidor/application
@@ -147,3 +148,39 @@ External blocker:
 
 F9-A não autoriza merge nem deploy. Cada bloco deve passar seus gates,
 reconciliar inventário/readiness e registrar evidência antes do bloco seguinte.
+
+
+## 9. F9-B — Commercial Boundary / Composition — FECHADA
+
+**SHA técnico final:** `58032024c05284a6f7325a4b0e961709b98d0a48`  
+**Gate dedicado:** Fase 9B Impressao Commercial Boundary Gate / run `33699707722` — PASS  
+**Matriz transversal:** **20/20 workflows verdes** no mesmo SHA.
+
+Implementado:
+- `AplicacaoImpressaoV1` como fronteira Application + `UnitOfWorkV1`;
+- `RepositorioSpoolSQLAlchemy` e auditoria canônica compostos na mesma Session;
+- `PortaImpressora` permanece contrato injetado, sem driver/Fake comercial;
+- processamento e reimpressão passam a ter ownership transacional explícito;
+- fitness anti-`ImpressoraFake`/test-runtime/migration test-only no caminho comercial;
+- gate de readiness evoluído para detectar também **capacidades comerciais ausentes**,
+  sem apagar blockers legítimos para fazer CI passar;
+- PostgreSQL 16 confirmou `impressao_jobs_v1` via migration oficial
+  `0012_restaurant_operations_runtime_v1`;
+- nenhuma migration F9 criada.
+
+Histórico de correção:
+1. SHA `9bf2c84d2cfa5b4481bc54896f99651e9233bf4e` chegou ao Ruff e revelou
+   duas violações exclusivamente no teste novo: import `Session` não usado e
+   `Decimal("1")`;
+2. SHA `58032024c05284a6f7325a4b0e961709b98d0a48` corrigiu somente essas duas
+   linhas; o gate dedicado e toda a matriz fecharam verdes.
+
+Readiness após F9-B:
+- `impressao_operacional = CUTOVER_PENDING`;
+- B9-01 removido objetivamente;
+- permanecem B9-02, B9-03, B9-04 e B9-05;
+- `physical_printer_hardware_gate_pending` permanece;
+- Commercial Runtime E2E e prova física continuam nulos, reservados a F9-E.
+
+**Próximo bloco liberado:** F9-C — KDS/evento -> spool idempotente e não bloqueante.  
+Sem merge/deploy.

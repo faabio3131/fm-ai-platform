@@ -1347,6 +1347,45 @@ Sequência:
 
 Sem merge/deploy.
 
+## 10.17 F9-B — Impressão — Application/UoW comercial — 02/09/2026
+
+**Issue:** #75  
+**PR draft:** #76  
+**SHA técnico:** `58032024c05284a6f7325a4b0e961709b98d0a48`.
+
+F9-B fechou exclusivamente o gap de composition/transação:
+- criada `application/impressao_transacoes.py` com `AplicacaoImpressaoV1`;
+- `UnitOfWorkV1` é dona de commit/rollback;
+- spool SQLAlchemy e auditoria canônica compartilham a mesma Session;
+- `PortaImpressora` continua abstração injetada;
+- nenhum `ImpressoraFake`, runtime_teste ou migration test-only entrou no
+  caminho comercial;
+- schema comercial continua pertencendo à migration oficial `0012`;
+- readiness passou a fiscalizar blockers por **ausência de capacidade**, além
+  dos blockers históricos por presença de legado/Fake.
+
+Evidência:
+- Fase 9B Impressao Commercial Boundary Gate run `33699707722`: **PASS**;
+- PostgreSQL 16 + schema current + `impressao_jobs_v1`: **PASS**;
+- readiness fitness: **PASS**;
+- **20/20 workflows verdes no mesmo SHA**.
+
+Correção durante o gate:
+- o primeiro candidato `9bf2c84d...` falhou somente por duas violações Ruff
+  no teste novo;
+- `58032024...` corrigiu o import não usado e a construção de `Decimal`,
+  sem mudança funcional.
+
+Readiness:
+- B9-01 fechado;
+- B9-02 KDS->spool, B9-03 adapter real, B9-04 configuração de destinos e
+  B9-05 superfície comercial permanecem;
+- hardware físico permanece bloqueio externo para F9-E;
+- nenhuma migration F9 nova.
+
+**Decisão:** F9-B fechada; F9-C liberada após revalidação documental.  
+Sem merge/deploy.
+
 ## 11. Regra de preservação
 
 Durante a recuperação:
