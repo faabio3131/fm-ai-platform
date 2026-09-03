@@ -1307,6 +1307,46 @@ Readiness final:
 **Decisão:** Fase 8 tecnicamente fechada. Merge/deploy continuam separados e
 dependem de autorização humana explícita.
 
+## 10.16 F9-A — Impressão Operacional — Current → Target / System Design — 02/09/2026
+
+**Issue:** #75  
+**Branch:** `recovery/v1-fase9-impressao-operacional-cutover`  
+**Base:** `main` após Fase 8, merge commit `591c08bace3467b0cedbc827b12396fc8d49bcae`.
+
+Auditoria pré-código confirmou:
+- `core/impressao` já possui domínio/spool reutilizável com deduplicação, CAS,
+  retry limitado, contingência, reimpressão idempotente e auditoria;
+- `RepositorioSpoolSQLAlchemy` é durável e não assume ownership de commit;
+- a migration comercial oficial `0012_restaurant_operations_runtime_v1`
+  já cria `ImpressaoBase`; `migrations/impressao_v1.py` permanece histórico/test-only;
+- RBAC `impressao.reimprimir` já existe;
+- KDS permanece autoridade operacional e a impressão é somente efeito auxiliar;
+- falha de impressora já é modelada para não alterar/bloquear KDS;
+- não existe hoje composition root/Application/UoW comercial de impressão;
+- não existe integração runtime KDS/evento -> spool;
+- destinos de impressão são apenas objetos injetados em memória, sem configuração
+  comercial persistente por tenant/unidade/setor;
+- não existe adapter físico/comercial; `ImpressoraFake` é apenas teste;
+- `app.py` não expõe superfície comercial de impressão.
+
+**Decisão econômica:** preservar integralmente o domínio/spool atual e implementar
+somente composition, configuração/adapters reais, integração por evento e evidência.
+
+Readiness inicial F9:
+- `impressao_operacional = CUTOVER_PENDING`;
+- code blockers: composition, integração KDS->spool, adapter real, configuração de
+  destinos e superfície comercial;
+- external blocker: evidência física com impressora real;
+- nenhuma migration F9 nova autorizada sem drift objetivo.
+
+Sequência:
+1. F9-B — composition/Application/UoW + fitness anti-Fake;
+2. F9-C — KDS/evento -> spool idempotente e não bloqueante;
+3. F9-D — adapter/configuração operacional real + contingência;
+4. F9-E — Commercial Runtime E2E + evidência física/manual.
+
+Sem merge/deploy.
+
 ## 11. Regra de preservação
 
 Durante a recuperação:
