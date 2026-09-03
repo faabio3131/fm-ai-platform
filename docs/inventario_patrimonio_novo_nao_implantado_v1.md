@@ -1416,3 +1416,43 @@ Se inventário, código e evidência divergirem, a execução deve **STOP** até
 O patrimônio novo é substancial. A maior parte do custo de domínio e arquitetura **já foi investida**. O problema central é que vários desses blocos ficaram em estado **BACKEND/TEST RUNTIME READY** sem chegar a **COMMERCIAL CUTOVER**.
 
 A estratégia de menor custo e menor prazo é: **implantar o que já existe, fechar os adapters/composition roots faltantes e eliminar a autoridade legada/fake do caminho comercial**, módulo por módulo, na ordem do Documento Mestre.
+
+
+## 10.18 F9-C — Impressão — KDS → Spool idempotente — 03/09/2026
+
+**Issue:** #75  
+**PR draft:** #76  
+**SHA técnico final validado:** `c30fb3de5748dc3b7e53b0030e0fc62703cc2295`.
+
+F9-C fechou o gap B9-02 sem acoplar impressão à transação autoritativa do KDS:
+- `rotear_item_kds_v1` commita KDS primeiro;
+- `IntegracaoImpressaoKDSV1` cria spool depois do commit, em UoW separada;
+- replay do mesmo roteamento produz exatamente um job;
+- falha do spool é best-effort e não desfaz Produção;
+- dados do ticket vêm de fontes canônicas de Pedido/KDS;
+- `ImpressoraFake` permanece somente em testes;
+- nenhuma migration F9 nova foi criada.
+
+Evidência no mesmo SHA:
+- Fase 9C Impressao KDS Spool Gate run `33704029604`: **PASS**;
+- Commercial Runtime Readiness V1: **PASS**;
+- PR10 KDS Gates: **PASS**;
+- PR14 Impressao Gates: **PASS**;
+- V1 Wave2 KDS e matriz transversal completa: **27/27 workflows verdes**.
+
+Durante a homologação, os dois testes novos falharam inicialmente porque o seed
+usava `canal="balcao"`, valor que pertence à origem histórica e não ao enum
+`CanalAtendimento`. A correção final usou `canal="pdv"`, sem alterar domínio ou
+regra de negócio; depois disso toda a matriz ficou verde.
+
+Readiness após F9-C:
+- B9-01 composition/Application: fechado;
+- B9-02 KDS → spool: fechado;
+- B9-03 adapter físico/comercial: pendente;
+- B9-04 configuração durável de destinos: pendente;
+- B9-05 superfície comercial: pendente;
+- B9-06 prova física/comercial completa: reservada à F9-E;
+- `physical_printer_hardware_gate_pending` permanece externo.
+
+**Decisão:** F9-C tecnicamente fechada e F9-D liberada para execução sequencial.  
+PR permanece draft. Sem merge/deploy.
