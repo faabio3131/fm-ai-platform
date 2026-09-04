@@ -170,13 +170,12 @@ jobs:
       - name: Instalar Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Browser comercial F9-E
+      - name: Browser COZINHA comercial F9-E
         run: |
           test -z "${FM_AI_TEST_MODE:-}"
-          npx playwright test -c playwright.f9e.config.ts --reporter=list
+          npx playwright test -c playwright.f9e.config.ts --reporter=list --grep "COZINHA roteia Pedido real"
 
-      - name: Evidencia PostgreSQL e RAW TCP pos-browser
-        if: always()
+      - name: Evidencia duravel COZINHA PostgreSQL e RAW TCP
         run: |
           python - <<'PY'
           import os
@@ -207,31 +206,72 @@ jobs:
               }
               for job in jobs
           ]
-          print({"spool": estado})
+          print({"spool_pos_cozinha": estado})
 
-          originais = [
-              job
-              for job in jobs
-              if job.pedido_id == "pedido-f8e" and job.reimpressao_de is None
-          ]
-          reimpressoes = [
-              job
-              for job in jobs
-              if job.pedido_id == "pedido-f8e" and job.reimpressao_de is not None
-          ]
-          assert originais, f"job original comercial ausente: {estado}"
-          assert any(job.status == "impresso" for job in originais), (
-              f"job original nao persistiu como impresso: {estado}"
-          )
-          assert reimpressoes, f"reimpressao comercial ausente: {estado}"
-          assert any(job.status == "pendente" for job in reimpressoes), (
-              f"reimpressao nao persistiu pendente: {estado}"
-          )
+          originais = [job for job in jobs if job.pedido_id == "pedido-f8e" and job.reimpressao_de is None]
+          reimpressoes = [job for job in jobs if job.pedido_id == "pedido-f8e" and job.reimpressao_de is not None]
+          assert len(originais) == 1, f"esperado um job original: {estado}"
+          assert originais[0].status == "impresso", f"original nao persistiu impresso: {estado}"
+          assert originais[0].tentativa >= 1, f"tentativa de impressao nao persistiu: {estado}"
+          assert len(reimpressoes) == 1, f"esperada uma reimpressao criada pela COZINHA: {estado}"
+          assert reimpressoes[0].status == "pendente", f"reimpressao nao ficou pendente: {estado}"
+          assert reimpressoes[0].reimpressao_de == originais[0].id, f"vinculo de reimpressao invalido: {estado}"
 
           captura = Path(os.environ["F9E_PRINT_CAPTURE"]).read_text(encoding="utf-8")
-          print({"tcp_capture_bytes": len(captura.encode())})
+          print({"tcp_capture_bytes_pos_cozinha": len(captura.encode())})
           assert "Burger F8-E" in captura, "payload RAW TCP sem item comercial"
           assert "pedido-f8e" in captura, "payload RAW TCP sem pedido comercial"
+          PY
+
+      - name: Browser GARCOM RBAC F9-E
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          npx playwright test -c playwright.f9e.config.ts --reporter=list --grep "GARCOM autenticado"
+
+      - name: Evidencia final PostgreSQL RBAC sem mutacao indevida
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from sqlalchemy import create_engine, select
+          from sqlalchemy.orm import Session
+
+          from core.impressao.modelos_orm import JobImpressaoORM
+
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          with Session(engine) as session:
+              jobs = tuple(
+                  session.scalars(
+                      select(JobImpressaoORM)
+                      .where(JobImpressaoORM.tenant_id == "tenant-f8e")
+                      .where(JobImpressaoORM.unidade_id == "unidade-f8e")
+                      .order_by(JobImpressaoORM.criado_em)
+                  )
+              )
+
+          estado = [
+              {
+                  "id": job.id,
+                  "pedido_id": job.pedido_id,
+                  "status": job.status,
+                  "tentativa": job.tentativa,
+                  "reimpressao_de": job.reimpressao_de,
+              }
+              for job in jobs
+          ]
+          print({"spool_pos_garcom": estado})
+
+          originais = [job for job in jobs if job.pedido_id == "pedido-f8e" and job.reimpressao_de is None]
+          reimpressoes = [job for job in jobs if job.pedido_id == "pedido-f8e" and job.reimpressao_de is not None]
+          assert len(originais) == 1, f"job original alterado indevidamente: {estado}"
+          assert originais[0].status == "impresso", f"status original regrediu: {estado}"
+          assert len(reimpressoes) == 1, f"GARCOM criou mutacao indevida no spool: {estado}"
+          assert reimpressoes[0].status == "pendente", f"reimpressao esperada mudou indevidamente: {estado}"
+
+          captura = Path(os.environ["F9E_PRINT_CAPTURE"]).read_text(encoding="utf-8")
+          print({"tcp_capture_bytes_final": len(captura.encode())})
+          assert "Burger F8-E" in captura, "payload RAW TCP final sem item comercial"
+          assert "pedido-f8e" in captura, "payload RAW TCP final sem pedido comercial"
           PY
 
       - name: Upload Playwright report
