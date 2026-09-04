@@ -237,18 +237,20 @@
       }
     },
     "entrega": {
-      "status": "CUTOVER_PENDING",
+      "status": "COMMERCIAL_CANDIDATE",
       "commercial_paths": [
         "pages/9_Expedicao_Entrega.py",
         "core/entrega/ui_streamlit.py",
+        "application/entrega_composicao.py",
+        "application/entrega_kds_handoff.py",
         "application/entrega_transacoes.py"
       ],
       "code_blockers": [],
       "external_blockers": [],
       "evidence": {
-        "sha": null,
-        "commercial_runtime_e2e": null,
-        "physical_test": null
+        "sha": "022b282ce4fcf3310c6bd722355d10a7afda48a9",
+        "commercial_runtime_e2e": "github-actions://Fase-10E-Entrega-Commercial-Runtime-E2E-Gate/run-2/33925204226",
+        "physical_test": "github-actions://Fase-10E-Entrega-Commercial-Runtime-E2E-Gate/run-2/desktop-chromium"
       }
     },
     "delivery_proprio": {
