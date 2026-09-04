@@ -6,7 +6,7 @@
 **Branch:** `recovery/v1-fase9d-impressao-adapter-config-ui`  
 **SHA técnico validado:** `20a80f9d8f1c479ad95091d0537795a29503f80e`  
 **Data:** 04/09/2026  
-**Status:** F9-E comercial fechada tecnicamente; gate físico/manual de impressora permanece pendente.
+**Status:** F9-E comercial fechada tecnicamente; gate físico/manual de impressora diferido para a homologação final da V1.
 
 ## 1. Escopo comprovado
 
@@ -82,11 +82,25 @@ Portanto:
 - `impressao_operacional` permanece `CUTOVER_PENDING`;
 - a Fase 9 não recebe homologação física nem cutover final ainda.
 
-## 6. Próximo passo permitido
+## 6. Decisão de continuidade — pendência diferida
 
-Executar o gate físico/manual B9-06b quando houver uma impressora real disponível, registrando modelo, conexão, destino/setor, ticket impresso, reimpressão e comportamento de contingência.
+Por decisão de execução de 04/09/2026, o B9-06b — teste físico/manual com impressora real — passa a ser tratado como **pendência diferida para a fase final de homologação da V1**, no mesmo regime operacional das homologações externas que dependem de ambiente/provedor real, como Mercado Pago, Meta e PagBank.
 
-Até lá:
+Essa decisão:
+- **não fecha** o B9-06b;
+- **não remove** `physical_printer_hardware_gate_pending` do readiness;
+- **não preenche** `physical_test` sem evidência real;
+- **não promove** `impressao_operacional` para `COMMERCIAL_HOMOLOGATED`;
+- **não autoriza** merge ou deploy;
+- **não bloqueia** o avanço para a próxima fase técnica do Documento Mestre.
+
+O gate físico deverá ser executado na homologação final assim que houver impressora real disponível, registrando modelo, conexão, destino/setor, ticket impresso, reimpressão e comportamento de contingência.
+
+## 7. Próxima fase liberada
+
+Com o Commercial Runtime E2E da Fase 9 validado e o único bloqueio restante formalmente diferido, fica liberado o avanço para **Fase 10 — Expedição/Entregador**, obedecendo o protocolo RECOVERY: inventário Current → Target antes de qualquer implementação.
+
+Até a homologação final:
 - PR #79 permanece draft;
 - sem merge;
 - sem deploy;
