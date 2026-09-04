@@ -180,7 +180,7 @@ def test_atribuicao_governada_recusa_identidade_nao_elegivel(
 ) -> None:
     engine, factory = _infra()
 
-    with pytest.raises(ErroEntrega, match="entregador_nao_elegivel"):
+    with pytest.raises(ErroEntrega) as exc_info:
         AplicacaoEntregaV1(factory, agora=lambda: AGORA).atribuir_entregador_governado(
             "entrega-f10d",
             entregador_id,
@@ -188,6 +188,7 @@ def test_atribuicao_governada_recusa_identidade_nao_elegivel(
             contexto=_contexto_expedicao(),
             idempotency_key=f"f10d:atribuir:{entregador_id}",
         )
+    assert exc_info.value.codigo == "entregador_nao_elegivel"
 
     with Session(engine) as session:
         row = session.scalar(select(EntregaORM).where(EntregaORM.id == "entrega-f10d"))
