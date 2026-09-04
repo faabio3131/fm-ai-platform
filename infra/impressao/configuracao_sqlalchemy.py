@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from core.impressao import DestinoImpressao
-from infra.administracao.repositorio_sqlalchemy import RepositorioAdministracaoSQLAlchemy
 from sqlalchemy.orm import Session
+
+from core.impressao import DestinoImpressao
+from infra.administracao.repositorio_sqlalchemy import (
+    RepositorioAdministracaoSQLAlchemy,
+)
 
 
 class ResolverDestinosImpressaoSQLAlchemy:
