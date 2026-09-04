@@ -243,9 +243,7 @@
         "core/entrega/ui_streamlit.py",
         "application/entrega_transacoes.py"
       ],
-      "code_blockers": [
-        "entrega_commercial_runtime_e2e_missing"
-      ],
+      "code_blockers": [],
       "external_blockers": [],
       "evidence": {
         "sha": null,
