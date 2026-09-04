@@ -46,7 +46,7 @@ def main() -> None:
             ]
         }
         config.parametros_operacionais = parametros
-        config.versao += 1
+        config.versao = int(config.versao or 0) + 1
 
     print(f"F9-E commercial print destination ready: {endpoint}")
 
