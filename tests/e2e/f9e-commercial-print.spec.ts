@@ -60,15 +60,19 @@ test('COZINHA roteia Pedido real, cria spool e imprime via RAW TCP comercial', a
   let printPanel = visibleTabPanel(page);
   await expect(printPanel).toContainText('pedido-f8e', { timeout: 30_000 });
   await expect(printPanel).toContainText(/pendente/);
-  await page.getByRole('button', { name: 'Processar impressão', exact: true }).click();
+  await printPanel.getByRole('button', { name: 'Processar impressão', exact: true }).click();
+  await expect(page.getByText('Impressão enviada com sucesso.')).toBeVisible({ timeout: 30_000 });
   await waitStable(page);
+
   await openTab(page, /Impressão Operacional/);
   printPanel = visibleTabPanel(page);
   await expect(printPanel).toContainText(/impresso/, { timeout: 30_000 });
 
-  await page.getByRole('textbox', { name: 'Motivo da reimpressão' }).fill('ticket danificado F9-E');
-  await page.getByRole('button', { name: 'Criar reimpressão', exact: true }).click();
+  await printPanel.getByRole('textbox', { name: 'Motivo da reimpressão' }).fill('ticket danificado F9-E');
+  await printPanel.getByRole('button', { name: 'Criar reimpressão', exact: true }).click();
+  await expect(page.getByText('Reimpressão criada no spool.')).toBeVisible({ timeout: 30_000 });
   await waitStable(page);
+
   await openTab(page, /Impressão Operacional/);
   printPanel = visibleTabPanel(page);
   await expect(printPanel).toContainText(/pendente/, { timeout: 30_000 });
@@ -79,8 +83,9 @@ test('GARCOM autenticado não consegue criar reimpressão', async ({ page }) => 
   expect(GARCOM_PASSWORD).not.toBe('');
   await login(page, GARCOM_EMAIL, GARCOM_PASSWORD);
   await openTab(page, /Impressão Operacional/);
-  await page.getByRole('textbox', { name: 'Motivo da reimpressão' }).fill('tentativa sem alçada');
-  await page.getByRole('button', { name: 'Criar reimpressão', exact: true }).click();
+  const printPanel = visibleTabPanel(page);
+  await printPanel.getByRole('textbox', { name: 'Motivo da reimpressão' }).fill('tentativa sem alçada');
+  await printPanel.getByRole('button', { name: 'Criar reimpressão', exact: true }).click();
   await expect(page.getByText('Reimpressão não autorizada ou motivo inválido.')).toBeVisible({
     timeout: 30_000,
   });
