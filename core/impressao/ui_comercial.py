@@ -14,6 +14,25 @@ from core.impressao import ErroImpressao, StatusImpressao
 from core.seguranca.autenticacao import IdentidadeUsuario
 from infra.impressao import ImpressoraTCPRaw, ResolverDestinosImpressaoSQLAlchemy
 
+_FLASH_KEY = "f9d_print_flash"
+
+
+def _registrar_flash(nivel: str, mensagem: str) -> None:
+    st.session_state[_FLASH_KEY] = (nivel, mensagem)
+
+
+def _renderizar_flash() -> None:
+    flash = st.session_state.pop(_FLASH_KEY, None)
+    if flash is None:
+        return
+    nivel, mensagem = flash
+    if nivel == "success":
+        st.success(mensagem)
+    elif nivel == "warning":
+        st.warning(mensagem)
+    else:
+        st.error(mensagem)
+
 
 def render_impressao_operacional(
     *,
@@ -37,6 +56,7 @@ def render_impressao_operacional(
     st.caption(
         "Spool auxiliar do KDS. Falha de impressora não altera Pedido nem Produção."
     )
+    _renderizar_flash()
     if not destinos:
         st.warning("Nenhum destino de impressão ativo configurado para esta unidade.")
     if not jobs:
@@ -80,11 +100,11 @@ def render_impressao_operacional(
             try:
                 resultado = app.processar(contexto=contexto, job_id=job_id)
                 if resultado.impresso:
-                    st.success("Impressão enviada com sucesso.")
+                    _registrar_flash("success", "Impressão enviada com sucesso.")
                 elif resultado.contingencia:
-                    st.warning("Job movido para contingência.")
+                    _registrar_flash("warning", "Job movido para contingência.")
                 else:
-                    st.error("Impressora indisponível; tentativa registrada.")
+                    _registrar_flash("error", "Impressora indisponível; tentativa registrada.")
                 st.rerun()
             except (ErroImpressao, RuntimeError):
                 st.error("Não foi possível processar o job de impressão.")
@@ -102,7 +122,7 @@ def render_impressao_operacional(
                     motivo=motivo,
                     idempotency_key=f"ui-reprint:{job_id}:{uuid4()}",
                 )
-                st.success("Reimpressão criada no spool.")
+                _registrar_flash("success", "Reimpressão criada no spool.")
                 st.rerun()
             except (ErroImpressao, RuntimeError):
                 st.error("Reimpressão não autorizada ou motivo inválido.")
