@@ -1,0 +1,46 @@
+name: PR Superseded Runs Cleanup
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: pr-superseded-cleanup-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  cancel-superseded:
+    name: Cancelar runs obsoletos da mesma PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Cancelar somente SHAs antigos da mesma branch/PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_REF: ${{ github.head_ref }}
+          CURRENT_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Preservando HEAD atual: ${CURRENT_SHA}"
+          echo "Limpando apenas runs pull_request obsoletos da branch: ${HEAD_REF}"
+
+          gh api --paginate \
+            "/repos/${REPO}/actions/runs?branch=${HEAD_REF}&event=pull_request&per_page=100" \
+            --jq ".workflow_runs[] | select(.head_sha != \"${CURRENT_SHA}\") | select(.status == \"queued\" or .status == \"in_progress\") | .id" \
+          | sort -u \
+          | while read -r run_id; do
+              if [[ -z "${run_id}" ]]; then
+                continue
+              fi
+              echo "Cancelando run obsoleto ${run_id}"
+              gh api --method POST "/repos/${REPO}/actions/runs/${run_id}/cancel" >/dev/null || true
+            done
+
+          echo "Limpeza concluída; nenhum run do HEAD atual foi cancelado."
