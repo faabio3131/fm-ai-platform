@@ -154,6 +154,11 @@ jobs:
           test -f /tmp/f9e-print-capture.txt
 
       - name: Regressões impressão e KDS
+        env:
+          FM_AI_ADAPTER_ORDERS: ''
+          FM_AI_ADAPTER_KDS: ''
+          FM_AI_ADAPTER_PRINT: ''
+          FM_AI_ADAPTER_AUTH: ''
         run: |
           pytest -q \
             tests/unit/impressao \
