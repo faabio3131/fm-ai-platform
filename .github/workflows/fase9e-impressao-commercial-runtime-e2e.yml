@@ -196,15 +196,42 @@ jobs:
                       .order_by(JobImpressaoORM.criado_em)
                   )
               )
-              assert jobs, "spool comercial nao foi criado"
-              assert any(job.pedido_id == "pedido-f8e" for job in jobs)
-              assert any(job.status == "impresso" for job in jobs)
-              assert any(job.reimpressao_de is not None for job in jobs)
+
+          estado = [
+              {
+                  "id": job.id,
+                  "pedido_id": job.pedido_id,
+                  "status": job.status,
+                  "tentativa": job.tentativa,
+                  "reimpressao_de": job.reimpressao_de,
+              }
+              for job in jobs
+          ]
+          print({"spool": estado})
+
+          originais = [
+              job
+              for job in jobs
+              if job.pedido_id == "pedido-f8e" and job.reimpressao_de is None
+          ]
+          reimpressoes = [
+              job
+              for job in jobs
+              if job.pedido_id == "pedido-f8e" and job.reimpressao_de is not None
+          ]
+          assert originais, f"job original comercial ausente: {estado}"
+          assert any(job.status == "impresso" for job in originais), (
+              f"job original nao persistiu como impresso: {estado}"
+          )
+          assert reimpressoes, f"reimpressao comercial ausente: {estado}"
+          assert any(job.status == "pendente" for job in reimpressoes), (
+              f"reimpressao nao persistiu pendente: {estado}"
+          )
 
           captura = Path(os.environ["F9E_PRINT_CAPTURE"]).read_text(encoding="utf-8")
-          assert "Burger F8-E" in captura
-          assert "pedido-f8e" in captura
-          print({"jobs": len(jobs), "tcp_capture_bytes": len(captura.encode())})
+          print({"tcp_capture_bytes": len(captura.encode())})
+          assert "Burger F8-E" in captura, "payload RAW TCP sem item comercial"
+          assert "pedido-f8e" in captura, "payload RAW TCP sem pedido comercial"
           PY
 
       - name: Upload Playwright report
