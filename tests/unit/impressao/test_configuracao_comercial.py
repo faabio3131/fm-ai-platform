@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any, cast
 
 from infra.impressao.configuracao_sqlalchemy import ResolverDestinosImpressaoSQLAlchemy
 
@@ -36,7 +37,7 @@ class _Repo:
 
 def test_resolver_destinos_e_estritamente_escopado() -> None:
     resolver = object.__new__(ResolverDestinosImpressaoSQLAlchemy)
-    resolver._repo = _Repo()
+    resolver._repo = cast(Any, _Repo())
 
     destinos = resolver.listar(tenant_id="tenant-a", unidade_id="unidade-a")
     assert len(destinos) == 1
