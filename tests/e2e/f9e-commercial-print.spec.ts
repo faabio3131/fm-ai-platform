@@ -59,21 +59,25 @@ test('COZINHA roteia Pedido real, cria spool e imprime via RAW TCP comercial', a
   await openTab(page, /Impressão Operacional/);
   let printPanel = visibleTabPanel(page);
   await expect(printPanel).toContainText('pedido-f8e', { timeout: 30_000 });
-  await expect(printPanel).toContainText(/pendente/);
+  await expect(printPanel.getByRole('combobox', { name: 'Selecionar job' })).toHaveValue(
+    /pedido-f8e.*pendente/i,
+  );
+
   await printPanel.getByRole('button', { name: 'Processar impressão', exact: true }).click();
+  await expect(page.getByText('Impressão enviada com sucesso.')).toBeVisible({ timeout: 30_000 });
   await waitStable(page);
 
   await openTab(page, /Impressão Operacional/);
   printPanel = visibleTabPanel(page);
-  await expect(printPanel).toContainText(/impresso/, { timeout: 30_000 });
+  await expect(printPanel.getByRole('combobox', { name: 'Selecionar job' })).toHaveValue(
+    /pedido-f8e.*impresso/i,
+    { timeout: 30_000 },
+  );
 
   await printPanel.getByRole('textbox', { name: 'Motivo da reimpressão' }).fill('ticket danificado F9-E');
   await printPanel.getByRole('button', { name: 'Criar reimpressão', exact: true }).click();
+  await expect(page.getByText('Reimpressão criada no spool.')).toBeVisible({ timeout: 30_000 });
   await waitStable(page);
-
-  await openTab(page, /Impressão Operacional/);
-  printPanel = visibleTabPanel(page);
-  await expect(printPanel).toContainText(/pendente/, { timeout: 30_000 });
 });
 
 test('GARCOM autenticado não consegue criar reimpressão', async ({ page }) => {
