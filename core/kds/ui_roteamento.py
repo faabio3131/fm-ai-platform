@@ -9,6 +9,7 @@ from uuid import uuid4
 import streamlit as st
 from sqlalchemy.orm import Session
 
+from application.impressao_composicao import montar_integracao_impressao_kds
 from application.kds_roteamento import listar_itens_pendentes
 from application.kds_runtime import ServicoKDSCanonico
 from application.kds_transacoes import rotear_item_kds_v1
@@ -92,6 +93,10 @@ def render_roteamento_kds(
                 # antes de abrir a transação autoritativa da Application.
                 session.close()
 
+                integracao_impressao = montar_integracao_impressao_kds(
+                    session_factory=session_factory,
+                    contexto=contexto_kds,
+                )
                 resultado = rotear_item_kds_v1(
                     session_factory=session_factory,
                     contexto=contexto_kds,
@@ -101,6 +106,7 @@ def render_roteamento_kds(
                     quantidade=item.quantidade,
                     idempotency_key=chave,
                     prioridade=prioridade,
+                    integracao_impressao=integracao_impressao,
                 )
                 st.success(
                     "Item enviado ao KDS; "
