@@ -8,7 +8,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from infra.administracao.modelos_orm import ConfiguracaoEstabelecimentoORM
-from scripts.seed_f8e_commercial_runtime import TENANT, UNIDADE, main as seed_f8e
+from scripts.seed_f8e_commercial_runtime import TENANT, UNIDADE
+from scripts.seed_f8e_commercial_runtime import main as seed_f8e
 
 
 def main() -> None:
