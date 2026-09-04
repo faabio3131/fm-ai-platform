@@ -14,8 +14,9 @@ Este adendo reconcilia o inventário da Fase 9 após a prova comercial de ponta 
 - F9-C: FECHADA
 - F9-D: FECHADA TECNICAMENTE
 - F9-E — Commercial Runtime E2E: FECHADA TECNICAMENTE
-- F9-E — hardware físico/manual: PENDENTE
+- F9-E — hardware físico/manual: **PENDENTE — DIFERIDO PARA HOMOLOGAÇÃO FINAL V1**
 - Fase 9 / cutover final: `CUTOVER_PENDING`
+- Continuidade técnica: **LIBERADA PARA FASE 10**
 
 ## Blockers
 
@@ -54,7 +55,7 @@ Evidência autoritativa:
 - estado final confirma ausência de mutação indevida.
 
 #### B9-06b — Impressora física/manual
-**PERMANECE ABERTO.**
+**PERMANECE ABERTO — PENDÊNCIA DIFERIDA PARA A HOMOLOGAÇÃO FINAL DA V1.**
 
 O listener TCP não substitui uma impressora física. Ainda é necessário validar manualmente pelo menos:
 - modelo/firmware e protocolo aceito;
@@ -65,6 +66,8 @@ O listener TCP não substitui uma impressora física. Ainda é necessário valid
 - reimpressão física;
 - indisponibilidade/contingência no ambiente real.
 
+Por decisão de execução de 04/09/2026, essa dependência de hardware real fica registrada para a fase final de homologação, seguindo o mesmo princípio usado para pendências externas que dependem de ambiente/provedor real, como Mercado Pago, Meta e PagBank. O diferimento não equivale a aprovação nem homologação; apenas impede que uma dependência externa indisponível paralise o restante do cutover técnico da V1.
+
 ## Evidência transversal
 
 No SHA `20a80f9d8f1c479ad95091d0537795a29503f80e`, a matriz final ficou **35/35 workflows SUCCESS**.
@@ -73,7 +76,7 @@ O único vermelho inicial fora da F9-E foi um timeout do E2E CRM/PDV cashback de
 
 ## Readiness
 
-A reconciliação correta é:
+A reconciliação correta permanece:
 - `impressao_operacional.status = CUTOVER_PENDING`;
 - `code_blockers = []`;
 - `external_blockers = [physical_printer_hardware_gate_pending]`;
@@ -84,10 +87,13 @@ Não promover para `COMMERCIAL_HOMOLOGATED` enquanto a prova física/manual perm
 
 ## Regra de continuidade
 
-A próxima ação da Fase 9 depende de hardware real. Até essa evidência existir:
+O B9-06b foi **diferido, não fechado**. Até a homologação final:
 - não fechar B9-06b;
-- não declarar cutover final da Fase 9;
+- não declarar cutover final físico da Fase 9;
+- não remover o blocker físico;
+- não preencher `physical_test` sem evidência real;
 - não fazer merge;
 - não fazer deploy;
-- não remover o blocker físico;
 - merge/deploy somente com autorização humana explícita.
+
+Como os blockers de código B9-01 a B9-05 estão fechados e o B9-06a comercial foi validado, a sequência do Documento Mestre fica liberada para **Fase 10 — Expedição/Entregador**, iniciando obrigatoriamente por inventário Current → Target antes de código.
