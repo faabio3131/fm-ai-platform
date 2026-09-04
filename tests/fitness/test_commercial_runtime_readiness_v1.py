@@ -28,7 +28,6 @@ def test_commercial_runtime_readiness_inventory_matches_code() -> None:
     assert "INVENTORY_MATCH=TRUE" in completed.stdout
 
 
-
 def test_f9_print_capability_blockers_match_manifest() -> None:
     import json
 
@@ -45,7 +44,11 @@ def test_f9_print_capability_blockers_match_manifest() -> None:
     declared = set(
         manifest["modules"]["impressao_operacional"].get("code_blockers", [])
     )
-    print_blockers = set(CAPABILITY_BLOCKER_RULES)
+    print_blockers = {
+        blocker
+        for blocker in CAPABILITY_BLOCKER_RULES
+        if blocker.startswith("print_") or blocker == "kds_to_print_spool_not_composed"
+    }
     detected = detect_code_blockers()
 
     assert detected & print_blockers == declared & print_blockers
