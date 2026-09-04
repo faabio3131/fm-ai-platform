@@ -4,11 +4,6 @@ This script does not declare the product ready. It makes the current cutover deb
 machine-readable and blocks a module from being marked COMMERCIAL_HOMOLOGATED
 while known Fake/test-runtime blockers, external blockers, or required physical
 evidence are still present.
-
-Usage:
-    python scripts/check_commercial_runtime_readiness_v1.py --verify-inventory
-    python scripts/check_commercial_runtime_readiness_v1.py --module assistente_atendimento --require-homologated
-    python scripts/check_commercial_runtime_readiness_v1.py --all-ready
 """
 
 from __future__ import annotations
@@ -23,7 +18,6 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / "docs" / "commercial_runtime_readiness_v1.json"
 
-# A rule is active when every required needle is present in the file.
 BLOCKER_RULES: dict[str, tuple[str, tuple[str, ...]]] = {
     "auth_temporary_diagnostics": (
         "infra/streamlit_app/auth_ui.py",
@@ -103,10 +97,6 @@ BLOCKER_RULES: dict[str, tuple[str, tuple[str, ...]]] = {
     ),
 }
 
-# A capability blocker is active while no candidate commercial file contains
-# every required needle. This complements BLOCKER_RULES, which detects legacy
-# debt by presence. Capability rules are intentionally scoped to commercial
-# application/infra paths and never inspect tests.
 CAPABILITY_BLOCKER_RULES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     "print_commercial_composition_missing": (
         ("application/*.py",),
@@ -128,8 +118,27 @@ CAPABILITY_BLOCKER_RULES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
         ("app.py",),
         ("impressao",),
     ),
+    "entrega_commercial_identity_missing": (
+        ("core/entrega/ui_streamlit.py",),
+        ("IdentidadeUsuario", "_fm_ai_authenticated_identity_v1", ".contexto("),
+    ),
+    "entrega_commercial_surface_missing": (
+        ("pages/9_Expedicao_Entrega.py",),
+        ("require_authentication", "Permissao.EXPEDICAO_OPERAR", "render_entrega"),
+    ),
+    "entrega_kds_handoff_missing": (
+        ("application/entrega_kds_handoff.py",),
+        ("HandoffEntregaKDSV1", "notificar_pedido_pronto"),
+    ),
+    "entrega_driver_governance_missing": (
+        ("application/entrega_composicao.py",),
+        ("listar_entregadores_elegiveis", "RepositorioIdentidadesSQLAlchemy", "Papel.ENTREGADOR"),
+    ),
+    "entrega_commercial_runtime_e2e_missing": (
+        ("tests/e2e/f10e-commercial-entrega.spec.ts",),
+        ("EXPEDICAO", "ENTREGADOR", "PostgreSQL"),
+    ),
 }
-
 
 GENERIC_FORBIDDEN_IF_HOMOLOGATED = (
     re.compile(r"\b[A-Za-z0-9_]*Fake\b"),
@@ -210,12 +219,12 @@ def _verify_inventory(manifest: dict[str, Any]) -> list[str]:
         )
 
     statuses = set(manifest.get("statuses", []))
+    known_blockers = set(BLOCKER_RULES) | set(CAPABILITY_BLOCKER_RULES)
     for module_name, module in manifest["modules"].items():
         status = module.get("status")
         if status not in statuses:
             errors.append(f"{module_name}: status invalido {status!r}")
 
-        known_blockers = set(BLOCKER_RULES) | set(CAPABILITY_BLOCKER_RULES)
         for blocker in module.get("code_blockers", []):
             if blocker not in known_blockers:
                 errors.append(

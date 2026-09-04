@@ -237,12 +237,16 @@
       }
     },
     "entrega": {
-      "status": "TEST_RUNTIME",
+      "status": "CUTOVER_PENDING",
       "commercial_paths": [
-        "core/entrega/ui_streamlit.py"
+        "pages/9_Expedicao_Entrega.py",
+        "core/entrega/ui_streamlit.py",
+        "application/entrega_transacoes.py"
       ],
       "code_blockers": [
-        "entrega_uses_test_context"
+        "entrega_kds_handoff_missing",
+        "entrega_driver_governance_missing",
+        "entrega_commercial_runtime_e2e_missing"
       ],
       "external_blockers": [],
       "evidence": {

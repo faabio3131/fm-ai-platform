@@ -2,6 +2,7 @@
 
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -16,6 +17,7 @@ import streamlit as st
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from core.entrega.runtime_teste import contexto_entrega_teste
 from core.entrega.ui_streamlit import render_entrega
 
 TMPDIR_RAW = os.environ.get("FM_AI_TEST_TMPDIR")
@@ -44,9 +46,15 @@ papel = str(st.query_params.get("papel", "expedicao"))
 if papel not in {"expedicao", "entregador", "gerente"}:
     papel = "expedicao"
 usuario_id = "driver-1" if papel == "entregador" else f"{papel}-e2e"
+contexto = contexto_entrega_teste(
+    correlation_id=f"entrega-ui-{papel}-{usuario_id}",
+    solicitado_em=datetime.now(timezone.utc),
+    papel=papel,
+    usuario_id=usuario_id,
+)
 
 st.caption("Entrega E2E pronta")
-render_entrega(session_factory=SessionLocal, papel=papel, usuario_id=usuario_id)
+render_entrega(session_factory=SessionLocal, contexto=contexto)
 st.markdown(
     f'<span data-fm-ai-e2e-ready="true" '
     f'data-fm-ai-e2e-run="{st.session_state["_fm_ai_e2e_run"]}" '

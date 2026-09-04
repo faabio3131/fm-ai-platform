@@ -1,16 +1,18 @@
-"""Interface operacional mínima da Expedição e Entrega V1."""
+"""Interface operacional da Expedição e Entrega V1."""
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
+from uuid import uuid4
 
 import streamlit as st
 from sqlalchemy.orm import Session
 
 from application.entrega_transacoes import AplicacaoEntregaV1
-from core.seguranca import Papel
+from core.seguranca import ContextoExecucao, IdentidadeUsuario, Papel
 
 from .adaptador_sqlalchemy import RepositorioEntregaSQLAlchemy
 from .erros import ErroEntrega
@@ -19,22 +21,29 @@ from .integracoes_sqlalchemy import (
     pedido_cancelado_sqlalchemy,
 )
 from .modelos import ChecklistExpedicao, ProvaEntrega, StatusEntrega
-from .runtime_teste import contexto_entrega_teste
 from .servicos import ServicoEntrega
 
 SessionFactory = Callable[[], Session]
+_AUTH_SESSION_KEY = "_fm_ai_authenticated_identity_v1"
 
 
 def _agora() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _contexto(papel: str, usuario_id: str):
-    return contexto_entrega_teste(
-        correlation_id=f"entrega-ui-{papel}-{usuario_id}",
+def _resolver_contexto(contexto: ContextoExecucao | None) -> ContextoExecucao:
+    if contexto is not None:
+        if os.getenv("FM_AI_TEST_MODE") != "1":
+            raise RuntimeError("contexto_injetado_so_permitido_em_teste")
+        return contexto
+
+    identidade = st.session_state.get(_AUTH_SESSION_KEY)
+    if not isinstance(identidade, IdentidadeUsuario) or not identidade.ativo:
+        raise PermissionError("identidade_autenticada_ausente")
+    return identidade.contexto(
+        origem="entrega_streamlit",
+        correlation_id=str(uuid4()),
         solicitado_em=_agora(),
-        papel=papel,
-        usuario_id=usuario_id,
     )
 
 
@@ -51,28 +60,41 @@ def _servico(session: Session) -> ServicoEntrega:
 
 
 def _executar(session: Session, acao: Callable[[], Any]) -> None:
-    # A Session desta tela é somente leitura. Ela é fechada antes do
-    # write autoritativo para evitar concorrência com a nova UoW.
     session.close()
-
     try:
         acao()
     except ErroEntrega as exc:
         st.error(f"Operação recusada: {exc.codigo}")
         return
-
     st.rerun()
 
 
-def render_entrega(*, session_factory: SessionFactory, papel: str, usuario_id: str) -> None:
-    """Renderiza somente o escopo autorizado para expedição/entregador."""
-    if papel not in {Papel.EXPEDICAO.value, Papel.ENTREGADOR.value, Papel.GERENTE.value}:
+def render_entrega(
+    *,
+    session_factory: SessionFactory,
+    contexto: ContextoExecucao | None = None,
+) -> None:
+    """Renderiza o escopo autorizado com identidade real no runtime comercial."""
+
+    contexto = _resolver_contexto(contexto)
+    papeis_operacionais = {
+        Papel.EXPEDICAO,
+        Papel.ENTREGADOR,
+        Papel.GERENTE,
+        Papel.ADMINISTRADOR,
+    }
+    if not (contexto.papeis & papeis_operacionais):
         st.error("Papel sem acesso à Expedição e Entrega")
         return
 
-    contexto = _contexto(papel, usuario_id)
+    perfil_expedicao = bool(
+        contexto.papeis & {Papel.EXPEDICAO, Papel.GERENTE, Papel.ADMINISTRADOR}
+    )
+    perfil_entregador = Papel.ENTREGADOR in contexto.papeis
+    papeis_ativos = ", ".join(sorted(papel.value for papel in contexto.papeis))
+
     st.title("Expedição e Entrega")
-    st.caption(f"Papel: {papel} · usuário: {usuario_id}")
+    st.caption(f"Papel: {papeis_ativos} · usuário: {contexto.usuario_id}")
 
     with session_factory() as session:
         servico = _servico(session)
@@ -95,16 +117,16 @@ def render_entrega(*, session_factory: SessionFactory, papel: str, usuario_id: s
                 st.write(f"Tentativa: {entrega.tentativa}")
                 st.write(f"Entregador: {entrega.entregador_id or 'não atribuído'}")
 
-                if papel in {Papel.EXPEDICAO.value, Papel.GERENTE.value}:
+                if perfil_expedicao:
                     _acoes_expedicao(session, aplicacao, contexto, entrega)
-                if papel == Papel.ENTREGADOR.value:
+                if perfil_entregador:
                     _acoes_entregador(session, aplicacao, contexto, entrega)
 
 
 def _acoes_expedicao(
     session: Session,
     aplicacao: AplicacaoEntregaV1,
-    contexto: Any,
+    contexto: ContextoExecucao,
     entrega: Any,
 ) -> None:
     if entrega.status is StatusEntrega.AGUARDANDO_EXPEDICAO:
@@ -141,31 +163,39 @@ def _acoes_expedicao(
         StatusEntrega.AGUARDANDO_ENTREGADOR,
         StatusEntrega.TENTATIVA_FALHOU,
     }:
-        entregador_id = st.text_input(
-            f"ID do entregador · {entrega.pedido_id}",
-            value="driver-1",
-            key=f"entrega-driver-{entrega.entrega_id}",
-        )
-        if st.button(
-            f"Atribuir entregador · {entrega.pedido_id}",
-            key=f"entrega-atribuir-{entrega.entrega_id}",
-        ):
-            _executar(
-                session,
-                lambda: aplicacao.atribuir(
-                    entrega.entrega_id,
-                    entregador_id,
-                    versao_esperada=entrega.versao,
-                    contexto=contexto,
-                    idempotency_key=f"ui:atribuir:{entrega.entrega_id}:v{entrega.versao}",
-                ),
+        if os.getenv("FM_AI_TEST_MODE") == "1":
+            entregador_id = st.text_input(
+                f"ID do entregador · {entrega.pedido_id}",
+                value="",
+                key=f"entrega-driver-{entrega.entrega_id}",
+            )
+            if st.button(
+                f"Atribuir entregador · {entrega.pedido_id}",
+                key=f"entrega-atribuir-{entrega.entrega_id}",
+            ):
+                _executar(
+                    session,
+                    lambda: aplicacao.atribuir(
+                        entrega.entrega_id,
+                        entregador_id,
+                        versao_esperada=entrega.versao,
+                        contexto=contexto,
+                        idempotency_key=(
+                            f"ui:atribuir:{entrega.entrega_id}:v{entrega.versao}"
+                        ),
+                    ),
+                )
+        else:
+            st.info(
+                "Atribuição de entregador está bloqueada até a governança "
+                "canônica de usuários ENTREGADOR da F10-D."
             )
 
 
 def _acoes_entregador(
     session: Session,
     aplicacao: AplicacaoEntregaV1,
-    contexto: Any,
+    contexto: ContextoExecucao,
     entrega: Any,
 ) -> None:
     if entrega.status is StatusEntrega.ATRIBUIDA and st.button(
