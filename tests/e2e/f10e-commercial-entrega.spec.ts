@@ -69,6 +69,20 @@ async function waitEntregaStatus(page: Page, status: string) {
   await waitStable(page);
 }
 
+async function checkStreamlitCheckbox(page: Page, label: string) {
+  const checkbox = page.getByRole('checkbox', { name: label });
+  await expect(checkbox).toBeVisible({ timeout: 30_000 });
+  if (!(await checkbox.isChecked())) {
+    const visibleLabel = page.locator('label').filter({ hasText: label }).first();
+    await expect(visibleLabel).toBeVisible({ timeout: 30_000 });
+    await visibleLabel.click();
+    await waitStable(page);
+  }
+  await expect(page.getByRole('checkbox', { name: label })).toBeChecked({
+    timeout: 30_000,
+  });
+}
+
 test('COZINHA comercial conclui KDS e dispara handoff para EXPEDICAO', async ({
   page,
 }) => {
@@ -116,8 +130,7 @@ test('EXPEDICAO comercial conclui checklist e atribui ENTREGADOR canonico', asyn
     'Embalagem conferida · pedido-f8e',
     'Identificação conferida · pedido-f8e',
   ]) {
-    await page.getByRole('checkbox', { name: label }).check();
-    await waitStable(page);
+    await checkStreamlitCheckbox(page, label);
   }
 
   await page.getByRole('button', { name: 'Concluir checklist · pedido-f8e' }).click();
