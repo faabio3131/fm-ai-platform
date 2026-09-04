@@ -2,6 +2,7 @@
 
 **Projeto:** Kordena / GERENTE AI V1.0  
 **Autoridade:** Documento Mestre + RECOVERY Issue #62  
+**Issue da fase:** #80  
 **Fase:** 10 — Expedição / Entregador  
 **Branch:** `recovery/v1-fase10-expedicao-entregador-cutover`  
 **Base auditada:** `main` @ `2e8c4cb6efe0563e6ea705d99de8a77b411b2b05`  
