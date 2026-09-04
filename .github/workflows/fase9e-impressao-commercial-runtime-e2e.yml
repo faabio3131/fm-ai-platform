@@ -176,6 +176,7 @@ jobs:
           npx playwright test -c playwright.f9e.config.ts --reporter=list --grep "COZINHA roteia Pedido real"
 
       - name: Evidencia duravel COZINHA PostgreSQL e RAW TCP
+        if: always()
         run: |
           python - <<'PY'
           import os
