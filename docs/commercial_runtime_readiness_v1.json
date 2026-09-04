@@ -244,7 +244,6 @@
         "application/entrega_transacoes.py"
       ],
       "code_blockers": [
-        "entrega_driver_governance_missing",
         "entrega_commercial_runtime_e2e_missing"
       ],
       "external_blockers": [],
