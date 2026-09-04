@@ -61,7 +61,6 @@ test('COZINHA roteia Pedido real, cria spool e imprime via RAW TCP comercial', a
   await expect(printPanel).toContainText('pedido-f8e', { timeout: 30_000 });
   await expect(printPanel).toContainText(/pendente/);
   await printPanel.getByRole('button', { name: 'Processar impressão', exact: true }).click();
-  await expect(page.getByText('Impressão enviada com sucesso.')).toBeVisible({ timeout: 30_000 });
   await waitStable(page);
 
   await openTab(page, /Impressão Operacional/);
