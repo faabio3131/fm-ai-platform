@@ -90,6 +90,9 @@ def render_impressao_operacional(
         key="f9d_print_job",
     )
     selecionado = next(job for job in jobs if job.job_id == job_id)
+    # Sinal explícito e stateless do estado autoritativo recém-lido. Não depende do
+    # rótulo cacheado do selectbox e também melhora a observabilidade para o operador.
+    st.caption(f"Status do job selecionado: {selecionado.status.value}")
     st.code(selecionado.conteudo, language=None)
 
     c1, c2 = st.columns(2)
