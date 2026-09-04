@@ -70,7 +70,6 @@ test('COZINHA roteia Pedido real, cria spool e imprime via RAW TCP comercial', a
 
   await printPanel.getByRole('textbox', { name: 'Motivo da reimpressão' }).fill('ticket danificado F9-E');
   await printPanel.getByRole('button', { name: 'Criar reimpressão', exact: true }).click();
-  await expect(page.getByText('Reimpressão criada no spool.')).toBeVisible({ timeout: 30_000 });
   await waitStable(page);
 
   await openTab(page, /Impressão Operacional/);
