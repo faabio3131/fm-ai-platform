@@ -1,0 +1,211 @@
+name: Fase 9E Impressao Commercial Runtime E2E Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'app.py'
+      - 'application/impressao_*.py'
+      - 'application/kds_*.py'
+      - 'core/impressao/**'
+      - 'core/kds/**'
+      - 'infra/impressao/**'
+      - 'infra/administracao/**'
+      - 'infra/streamlit_app/auth_ui.py'
+      - 'migrations/**'
+      - 'scripts/seed_f8e_commercial_runtime.py'
+      - 'scripts/seed_f9e_commercial_runtime.py'
+      - 'scripts/f9e_tcp_capture_server.py'
+      - 'tests/e2e/f9e-commercial-print.spec.ts'
+      - 'tests/fitness/test_f9e_impressao_commercial_runtime.py'
+      - 'playwright.f9e.config.ts'
+      - '.github/workflows/fase9e-impressao-commercial-runtime-e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  f9e-commercial:
+    name: PostgreSQL + app.py + KDS + spool + RAW TCP + RBAC
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fm_ai_f9e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d fm_ai_f9e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      FM_AI_ENV: staging
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/fm_ai_f9e
+      FM_AI_TENANT_ID: tenant-f8e
+      FM_AI_UNIDADE_ID: unidade-f8e
+      FM_AI_KDS_V1: '1'
+      FM_AI_PRINT_V1: '1'
+      FM_AI_ADAPTER_ORDERS: sqlalchemy
+      FM_AI_ADAPTER_KDS: sqlalchemy
+      FM_AI_ADAPTER_PRINT: real
+      FM_AI_ADAPTER_AUTH: sqlalchemy
+      FM_AI_SECRET_MASTER_KEY: bW1scnZpQzlCS2Q1dXBlTXRyUkJlTGNXWGtIclc3WktoM3lrb3Q5WT0=
+      F9E_PRINT_PORT: '19100'
+      F9E_PRINT_ENDPOINT: tcp://127.0.0.1:19100
+      F9E_PRINT_CAPTURE: /tmp/f9e-print-capture.txt
+      PYTHONUNBUFFERED: '1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+          npm ci
+
+      - name: Gerar credenciais efemeras
+        run: |
+          echo "F8E_COZINHA_EMAIL=cozinha-f9e@fm.ai" >> "$GITHUB_ENV"
+          echo "F8E_GARCOM_EMAIL=garcom-f9e@fm.ai" >> "$GITHUB_ENV"
+          echo "F8E_COZINHA_PASSWORD=F9E-Cozinha-${GITHUB_RUN_ID}!" >> "$GITHUB_ENV"
+          echo "F8E_GARCOM_PASSWORD=F9E-Garcom-${GITHUB_RUN_ID}!" >> "$GITHUB_ENV"
+
+      - name: Provar composition comercial F9-E
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          python - <<'PY'
+          from core.impressao.flags import impressao_v1_enabled
+          from core.kds.flags import kds_v1_enabled
+          from core.runtime.config import RuntimeEnvironment, load_runtime_settings
+
+          settings = load_runtime_settings()
+          assert settings.environment is RuntimeEnvironment.STAGING
+          assert settings.commercial
+          assert kds_v1_enabled()
+          assert impressao_v1_enabled()
+          print("F9-E commercial composition ready")
+          PY
+
+      - name: Compile Ruff Mypy e fitness F9-E
+        run: |
+          python -m compileall -q \
+            scripts/seed_f9e_commercial_runtime.py \
+            scripts/f9e_tcp_capture_server.py \
+            application/impressao_composicao.py \
+            application/impressao_kds.py \
+            application/impressao_transacoes.py \
+            core/impressao core/kds/ui_roteamento.py infra/impressao
+          ruff check \
+            scripts/seed_f9e_commercial_runtime.py \
+            scripts/f9e_tcp_capture_server.py \
+            application/impressao_composicao.py \
+            application/impressao_kds.py \
+            application/impressao_transacoes.py \
+            core/impressao core/kds/ui_roteamento.py infra/impressao \
+            tests/fitness/test_f9e_impressao_commercial_runtime.py
+          mypy \
+            application/impressao_composicao.py \
+            application/impressao_kds.py \
+            application/impressao_transacoes.py \
+            core/impressao infra/impressao
+          pytest -q tests/fitness/test_f9e_impressao_commercial_runtime.py
+
+      - name: Preparar PostgreSQL comercial F9-E
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          python -m scripts.seed_f9e_commercial_runtime
+          python -m scripts.migrate_v1
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine
+          from migrations.runner import assert_schema_current
+
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          assert_schema_current(engine)
+          print("F9-E PostgreSQL schema current")
+          PY
+
+      - name: Iniciar captura RAW TCP
+        run: |
+          python -m scripts.f9e_tcp_capture_server > /tmp/f9e-tcp-server.log 2>&1 &
+          echo $! > /tmp/f9e-tcp-server.pid
+          sleep 1
+          test -f /tmp/f9e-print-capture.txt
+
+      - name: Regressões impressão e KDS
+        run: |
+          pytest -q \
+            tests/unit/impressao \
+            tests/integration/impressao \
+            tests/integration/kds/test_kds.py \
+            tests/fitness/test_f9d_impressao_comercial.py \
+            tests/fitness/test_f9e_impressao_commercial_runtime.py
+
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser comercial F9-E
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          npx playwright test -c playwright.f9e.config.ts --reporter=list
+
+      - name: Evidencia PostgreSQL e RAW TCP pos-browser
+        if: always()
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from sqlalchemy import create_engine, select
+          from sqlalchemy.orm import Session
+
+          from core.impressao.modelos_orm import JobImpressaoORM
+
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          with Session(engine) as session:
+              jobs = tuple(
+                  session.scalars(
+                      select(JobImpressaoORM)
+                      .where(JobImpressaoORM.tenant_id == "tenant-f8e")
+                      .where(JobImpressaoORM.unidade_id == "unidade-f8e")
+                      .order_by(JobImpressaoORM.criado_em)
+                  )
+              )
+              assert jobs, "spool comercial nao foi criado"
+              assert any(job.pedido_id == "pedido-f8e" for job in jobs)
+              assert any(job.status == "impresso" for job in jobs)
+              assert any(job.reimpressao_de is not None for job in jobs)
+
+          captura = Path(os.environ["F9E_PRINT_CAPTURE"]).read_text(encoding="utf-8")
+          assert "Burger F8-E" in captura
+          assert "pedido-f8e" in captura
+          print({"jobs": len(jobs), "tcp_capture_bytes": len(captura.encode())})
+          PY
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f9e-playwright-report
+          path: playwright-report-f9e/
+          if-no-files-found: ignore
