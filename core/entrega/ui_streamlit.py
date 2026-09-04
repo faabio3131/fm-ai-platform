@@ -11,6 +11,7 @@ from uuid import uuid4
 import streamlit as st
 from sqlalchemy.orm import Session
 
+from application.entrega_composicao import listar_entregadores_elegiveis
 from application.entrega_transacoes import AplicacaoEntregaV1
 from core.seguranca import ContextoExecucao, IdentidadeUsuario, Papel
 
@@ -186,10 +187,37 @@ def _acoes_expedicao(
                     ),
                 )
         else:
-            st.info(
-                "Atribuição de entregador está bloqueada até a governança "
-                "canônica de usuários ENTREGADOR da F10-D."
-            )
+            entregadores = listar_entregadores_elegiveis(session, contexto=contexto)
+            if not entregadores:
+                st.warning(
+                    "Nenhum usuário ENTREGADOR ativo e autorizado para esta unidade."
+                )
+            else:
+                rotulos = {
+                    f"{item.email} · {item.usuario_id}": item.usuario_id
+                    for item in entregadores
+                }
+                selecionado = st.selectbox(
+                    f"Entregador elegível · {entrega.pedido_id}",
+                    options=tuple(rotulos),
+                    key=f"entrega-driver-governado-{entrega.entrega_id}",
+                )
+                if st.button(
+                    f"Atribuir entregador · {entrega.pedido_id}",
+                    key=f"entrega-atribuir-{entrega.entrega_id}",
+                ):
+                    _executar(
+                        session,
+                        lambda: aplicacao.atribuir_entregador_governado(
+                            entrega.entrega_id,
+                            rotulos[selecionado],
+                            versao_esperada=entrega.versao,
+                            contexto=contexto,
+                            idempotency_key=(
+                                f"ui:atribuir:{entrega.entrega_id}:v{entrega.versao}"
+                            ),
+                        ),
+                    )
 
 
 def _acoes_entregador(
