@@ -152,6 +152,10 @@
     {
       "version": "0037_pdv_reconciliation_strategy_width_v1",
       "sha256": "554633a8df4143ec98b8ddc29bfb767a88cd72f2292029f3f7dc9f3237bc1875"
+    },
+    {
+      "version": "0038_delivery_channel_state_v1",
+      "sha256": "d36ca67b65a0e59b18694625f28941e981ec531a91d434278e53e5baf8052fdd"
     }
   ]
 }
