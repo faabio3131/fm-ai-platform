@@ -96,7 +96,7 @@ def test_pedido_comercial_preserva_checkout_como_autoridade_economica() -> None:
     assert pedido.taxas.valor == Decimal("7.50")
     assert pedido.descontos.valor == Decimal("0.00")
     assert pedido.total.valor == Decimal("57.50")
-    assert pedido.itens[0].produto_id == "legacy:produto:10"
+    assert str(pedido.itens[0].produto_id) == "legacy:produto:10"
 
 
 def test_endereco_comercial_usa_referencia_segura_e_cep_validado() -> None:
