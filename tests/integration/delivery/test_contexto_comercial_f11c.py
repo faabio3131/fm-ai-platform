@@ -261,7 +261,7 @@ def test_contexto_comercial_deriva_escopo_e_fontes_canonicas(
         "legacy:produto:1"
     ]
     # Massa permite 5 unidades; queijo permite 6. O catálogo anuncia o menor teto.
-    assert resolvido.catalogo[0].estoque_disponivel == Decimal("5")
+    assert resolvido.catalogo[0].estoque_disponivel == Decimal(5)
     assert resolvido.catalogo[0].preco == Decimal("50.00")
 
 
