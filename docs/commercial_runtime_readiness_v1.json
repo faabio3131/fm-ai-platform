@@ -349,19 +349,20 @@
         "application/impressao_kds.py",
         "core/impressao/servicos.py",
         "core/impressao/adaptador_sqlalchemy.py",
-        "core/impressao/flags.py"
+        "core/impressao/flags.py",
+        "infra/impressao/adapter_tcp.py",
+        "infra/impressao/configuracao_sqlalchemy.py",
+        "core/impressao/ui_comercial.py",
+        "infra/streamlit_app/admin_proprietario.py",
+        "app.py"
       ],
-      "code_blockers": [
-        "print_real_adapter_not_composed",
-        "print_destinations_not_commercially_configured",
-        "print_surface_not_exposed_in_app"
-      ],
+      "code_blockers": [],
       "external_blockers": [
         "physical_printer_hardware_gate_pending"
       ],
       "evidence": {
-        "sha": "c30fb3de5748dc3b7e53b0030e0fc62703cc2295",
-        "commercial_runtime_e2e": null,
+        "sha": "20a80f9d8f1c479ad95091d0537795a29503f80e",
+        "commercial_runtime_e2e": "github-actions://Fase-9E-Impressao-Commercial-Runtime-E2E-Gate/run-16/33908356204",
         "physical_test": null
       }
     }

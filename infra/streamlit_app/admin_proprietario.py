@@ -485,6 +485,120 @@ def _render_financeiro(
             _erro_generico("F5-FIN-WRITE")
 
 
+
+def _render_impressao_config(
+    app: AplicacaoAdministracaoProprietarioV1,
+    *,
+    identidade: IdentidadeUsuario,
+    session_factory: Callable[[], Session],
+) -> None:
+    contexto = _contexto(identidade)
+    try:
+        unidades = app.listar_unidades(contexto=contexto)
+    except Exception:  # noqa: BLE001
+        _erro_generico("F9D-PRINT-UNIDADES")
+        return
+    if not unidades:
+        st.info("Cadastre uma unidade antes de configurar impressão.")
+        return
+
+    uid = st.selectbox(
+        "Unidade de impressão",
+        options=[u.unidade_id for u in unidades],
+        format_func=lambda valor: next(
+            f"{u.nome_fantasia} · {valor}" for u in unidades if u.unidade_id == valor
+        ),
+        key="f9d_print_unit",
+    )
+    try:
+        config = app.obter_configuracao(contexto=contexto, unidade_id=uid)
+    except Exception:  # noqa: BLE001
+        _erro_generico("F9D-PRINT-CONFIG")
+        return
+
+    bloco = config.parametros_operacionais.get("impressao", {})
+    destinos = bloco.get("destinos", []) if isinstance(bloco, dict) else []
+    linhas = [
+        {
+            "setor_id": str(item.get("setor_id", "")),
+            "impressora_id": str(item.get("impressora_id", "")),
+            "max_tentativas": int(item.get("max_tentativas", 3)),
+            "ativo": bool(item.get("ativo", True)),
+        }
+        for item in destinos
+        if isinstance(item, dict)
+    ]
+    st.caption(
+        "Adapter comercial RAW TCP/JetDirect. Use endpoints como tcp://192.168.0.50:9100. "
+        "Não informe usuário, senha, token ou outro segredo."
+    )
+    editado = st.data_editor(
+        pd.DataFrame(linhas, columns=["setor_id", "impressora_id", "max_tentativas", "ativo"]),
+        num_rows="dynamic",
+        hide_index=True,
+        use_container_width=True,
+        key="f9d_print_destinations",
+    )
+    pin = st.text_input(
+        "PIN administrativo para salvar impressão",
+        type="password",
+        max_chars=8,
+        autocomplete="one-time-code",
+        key="f9d_print_pin",
+    )
+    if st.button("Salvar destinos de impressão", type="primary", key="f9d_print_save"):
+        if not _pin_ok(
+            identidade=identidade,
+            pin=pin,
+            session_factory=session_factory,
+            permissao=Permissao.CONFIGURACAO_ALTERAR,
+        ):
+            st.error("PIN administrativo inválido ou sem permissão.")
+            return
+        novos: list[dict[str, object]] = []
+        try:
+            for row in editado.to_dict(orient="records"):
+                setor = str(row.get("setor_id", "")).strip()
+                endpoint = str(row.get("impressora_id", "")).strip()
+                if not setor and not endpoint:
+                    continue
+                if not setor or not endpoint.startswith("tcp://"):
+                    raise ValueError("destino_impressao_invalido")
+                max_tentativas = int(row.get("max_tentativas", 3))
+                if max_tentativas < 1 or max_tentativas > 10:
+                    raise ValueError("max_tentativas_invalido")
+                novos.append(
+                    {
+                        "provider": "raw_tcp",
+                        "setor_id": setor,
+                        "impressora_id": endpoint,
+                        "max_tentativas": max_tentativas,
+                        "ativo": bool(row.get("ativo", True)),
+                    }
+                )
+            app.salvar_configuracao(
+                contexto=contexto,
+                configuracao=ConfiguracaoEstabelecimento(
+                    tenant_id=contexto.tenant_id,
+                    unidade_id=uid,
+                    formas_pagamento=config.formas_pagamento,
+                    taxa_servico_percentual=config.taxa_servico_percentual,
+                    parametros_operacionais={
+                        **dict(config.parametros_operacionais),
+                        "impressao": {"destinos": novos},
+                    },
+                    politica_financeira=dict(config.politica_financeira),
+                    versao=config.versao,
+                ),
+                versao_esperada=config.versao,
+            )
+            st.success("Destinos de impressão atualizados.")
+            st.rerun()
+        except (TypeError, ValueError):
+            st.error("Configuração de impressão inválida.")
+        except Exception:  # noqa: BLE001
+            _erro_generico("F9D-PRINT-WRITE")
+
 def _render_usuarios(
     app: AplicacaoAdministracaoProprietarioV1,
     *,
@@ -821,6 +935,7 @@ def render_admin_proprietario(
             "📊 Visão executiva",
             "🏢 Empresa e unidades",
             "💳 Financeiro",
+            "🖨️ Impressão",
             "👥 Usuários e permissões",
             "🔌 Integrações e saúde",
             "🧾 Auditoria",
@@ -841,16 +956,22 @@ def render_admin_proprietario(
             session_factory=session_factory,
         )
     with abas[3]:
-        _render_usuarios(
+        _render_impressao_config(
             app,
             identidade=identidade,
             session_factory=session_factory,
         )
     with abas[4]:
-        _render_integracoes(
+        _render_usuarios(
             app,
             identidade=identidade,
             session_factory=session_factory,
         )
     with abas[5]:
+        _render_integracoes(
+            app,
+            identidade=identidade,
+            session_factory=session_factory,
+        )
+    with abas[6]:
         _render_auditoria(app, identidade=identidade)

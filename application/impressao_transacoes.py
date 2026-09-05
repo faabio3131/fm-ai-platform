@@ -97,6 +97,14 @@ class AplicacaoImpressaoV1:
             )
         )
 
+    def listar(self, *, contexto: ContextoExecucao) -> tuple[JobImpressao, ...]:
+        """Lista o spool somente no escopo autenticado, sem iniciar transação de escrita."""
+        with self._session_factory() as session:
+            return RepositorioSpoolSQLAlchemy(session).listar(
+                contexto.tenant_id,
+                contexto.unidade_id,
+            )
+
     def processar(
         self,
         *,

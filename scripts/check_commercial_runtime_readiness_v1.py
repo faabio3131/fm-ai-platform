@@ -107,16 +107,16 @@ CAPABILITY_BLOCKER_RULES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
         ("IntegracaoImpressaoKDSV1", "enfileirar_roteamento", "uow.commit()"),
     ),
     "print_real_adapter_not_composed": (
-        ("infra/**/*.py",),
-        ("PortaImpressora", "def imprimir"),
+        ("infra/impressao/adapter_tcp.py",),
+        ("class ImpressoraTCPRaw", "def imprimir", "socket.create_connection"),
     ),
     "print_destinations_not_commercially_configured": (
-        ("infra/**/*.py",),
-        ("DestinoImpressao", "tenant_id", "unidade_id", "setor_id"),
+        ("infra/impressao/configuracao_sqlalchemy.py",),
+        ("ResolverDestinosImpressaoSQLAlchemy", "DestinoImpressao", "parametros_operacionais"),
     ),
     "print_surface_not_exposed_in_app": (
         ("app.py",),
-        ("impressao",),
+        ("render_impressao_operacional", "Impressão Operacional"),
     ),
     "entrega_commercial_identity_missing": (
         ("core/entrega/ui_streamlit.py",),

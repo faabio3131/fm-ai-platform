@@ -127,6 +127,8 @@ from core.central_pedidos.flags import order_center_v1_enabled
 from core.central_pedidos.ui_streamlit import render_central_pedidos
 from core.kds.flags import kds_v1_access_allowed
 from core.kds.ui_streamlit import render_kds
+from core.impressao.flags import impressao_v1_enabled
+from core.impressao.ui_comercial import render_impressao_operacional
 from core.salao.flags import salao_v1_enabled
 from core.salao.ui_streamlit import render_salao
 from core.assistente_atendimento.modelos import ConfiguracaoIdentidadeAssistente
@@ -1172,6 +1174,8 @@ if _kds_disponivel:
     _nomes_abas.append("\U0001F373 KDS por Setor")
 if salao_v1_enabled():
     _nomes_abas.append("🪑 Mesas e Comandas")
+if impressao_v1_enabled():
+    _nomes_abas.append("🖨️ Impressão Operacional")
 
 _abas = st.tabs(_nomes_abas)
 aba1, aba2, aba3, aba4, aba5, aba6, aba7 = _abas[:7]
@@ -1191,6 +1195,11 @@ if _kds_disponivel:
 aba_salao = None
 if salao_v1_enabled():
     aba_salao = _abas[_indice_extra]
+    _indice_extra += 1
+
+aba_impressao = None
+if impressao_v1_enabled():
+    aba_impressao = _abas[_indice_extra]
 
 if aba_central is not None:
     with aba_central:
@@ -1210,6 +1219,13 @@ if aba_salao is not None:
     with aba_salao:
         render_salao(
             engine=engine,
+            session_factory=SessionLocal,
+        )
+
+if aba_impressao is not None:
+    with aba_impressao:
+        render_impressao_operacional(
+            identidade=CURRENT_IDENTITY,
             session_factory=SessionLocal,
         )
 
