@@ -131,6 +131,8 @@ from core.impressao.flags import impressao_v1_enabled
 from core.impressao.ui_comercial import render_impressao_operacional
 from core.salao.flags import salao_v1_enabled
 from core.salao.ui_streamlit import render_salao
+from core.delivery.flags import delivery_v1_access_allowed, delivery_v1_enabled
+from core.delivery.ui_streamlit import render_delivery_v1
 from core.assistente_atendimento.modelos import ConfiguracaoIdentidadeAssistente
 from core.assistente_atendimento.ui_streamlit import render_assistente_atendimento_v1
 from infra.ai_finops_read_model import AIFinOpsSQLAlchemyReadModel
@@ -1158,6 +1160,9 @@ st.markdown("---")
 
 # --- 8. ESTRUTURA DAS 6 ABAS PRINCIPAIS ---
 _kds_disponivel = kds_v1_access_allowed(CURRENT_IDENTITY.permissoes)
+_delivery_disponivel = delivery_v1_enabled() and delivery_v1_access_allowed(
+    CURRENT_IDENTITY.permissoes
+)
 
 _nomes_abas = [
     "🤖 Engenharia de Cardápio",
@@ -1174,6 +1179,8 @@ if _kds_disponivel:
     _nomes_abas.append("\U0001F373 KDS por Setor")
 if salao_v1_enabled():
     _nomes_abas.append("🪑 Mesas e Comandas")
+if _delivery_disponivel:
+    _nomes_abas.append("🛵 Delivery Próprio")
 if impressao_v1_enabled():
     _nomes_abas.append("🖨️ Impressão Operacional")
 
@@ -1195,6 +1202,11 @@ if _kds_disponivel:
 aba_salao = None
 if salao_v1_enabled():
     aba_salao = _abas[_indice_extra]
+    _indice_extra += 1
+
+aba_delivery = None
+if _delivery_disponivel:
+    aba_delivery = _abas[_indice_extra]
     _indice_extra += 1
 
 aba_impressao = None
@@ -1220,6 +1232,13 @@ if aba_salao is not None:
         render_salao(
             engine=engine,
             session_factory=SessionLocal,
+        )
+
+if aba_delivery is not None:
+    with aba_delivery:
+        render_delivery_v1(
+            session_factory=SessionLocal,
+            identidade=CURRENT_IDENTITY,
         )
 
 if aba_impressao is not None:
