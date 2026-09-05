@@ -104,17 +104,18 @@ def test_httpx_marketplace_transport_normaliza_falha_de_rede() -> None:
 
 
 def test_ifood_real_falha_fechado_quando_readiness_nao_libera() -> None:
-    with patch.dict(os.environ, {}, clear=True):
-        with pytest.raises(ErroMarketplace) as exc:
-            compor_ifood_http_real(segredos=_SegredosFake(), http=_HttpFake())
+    with patch.dict(os.environ, {}, clear=True), pytest.raises(ErroMarketplace) as exc:
+        compor_ifood_http_real(segredos=_SegredosFake(), http=_HttpFake())
 
     assert exc.value.codigo == "ifood_adapter_real_nao_habilitado"
 
 
 def test_registro_ifood_real_exige_provedor_de_segredos() -> None:
-    with patch.dict(os.environ, _env_ifood_real(), clear=True):
-        with pytest.raises(ErroMarketplace) as exc:
-            compor_adapters_marketplace_reais(http_ifood=_HttpFake())
+    with (
+        patch.dict(os.environ, _env_ifood_real(), clear=True),
+        pytest.raises(ErroMarketplace) as exc,
+    ):
+        compor_adapters_marketplace_reais(http_ifood=_HttpFake())
 
     assert exc.value.codigo == "ifood_segredos_nao_configurados"
 
