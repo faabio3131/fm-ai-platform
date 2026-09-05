@@ -61,10 +61,9 @@ class HttpxMarketplaceTransport:
                 if resposta.status_code < 400:
                     raise ErroMarketplace("marketplace_http_payload_invalido") from exc
             else:
-                if isinstance(bruto, Mapping):
-                    payload = bruto
-                elif isinstance(bruto, list) and all(
-                    isinstance(item, Mapping) for item in bruto
+                if isinstance(bruto, Mapping) or (
+                    isinstance(bruto, list)
+                    and all(isinstance(item, Mapping) for item in bruto)
                 ):
                     payload = bruto
                 elif resposta.status_code < 400:
