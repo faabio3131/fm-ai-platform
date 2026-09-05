@@ -178,8 +178,8 @@ def _seed_clientes(session: Session) -> None:
             endereco_formatado=endereco,
             cep=cep,
             place_id=f"place-f11f-{indice}",
-            latitude=Decimal("-23.5505") + Decimal(indice) / Decimal("10000"),
-            longitude=Decimal("-46.6333") - Decimal(indice) / Decimal("10000"),
+            latitude=Decimal("-23.5505") + Decimal(indice) / Decimal(10000),
+            longitude=Decimal("-46.6333") - Decimal(indice) / Decimal(10000),
             agora=AGORA.replace(microsecond=100 + indice),
         )
 
