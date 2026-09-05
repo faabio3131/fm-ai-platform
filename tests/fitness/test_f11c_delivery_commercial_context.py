@@ -3,7 +3,6 @@ from __future__ import annotations
 from ast import Attribute, Call, parse, walk
 from pathlib import Path
 
-
 _ROOT = Path(__file__).resolve().parents[2]
 _COMMERCIAL_FILES = (
     _ROOT / "application" / "delivery_contexto_comercial.py",
