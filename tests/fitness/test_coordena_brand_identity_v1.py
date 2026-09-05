@@ -23,6 +23,7 @@ MIGRATED_ACTIVE_SURFACES = (
     "pages/7_Integracoes_e_Credenciais.py",
     "pages/8_Atendimento_Garcom.py",
     "pages/9_Expedicao_Entrega.py",
+    "tests/e2e/fase5/admin-proprietario.spec.ts",
 )
 
 LEGACY_SKILL_PATHS = (
@@ -45,6 +46,12 @@ def test_migrated_active_surfaces_do_not_reintroduce_legacy_brand() -> None:
         assert "Coordena" in source or "PRODUCT_NAME" in source, path
         for token in LEGACY_COMMERCIAL_TOKENS:
             assert token not in source, f"{path}: legacy brand token {token!r}"
+
+
+def test_admin_browser_contract_uses_canonical_coordena_login_heading() -> None:
+    source = _text("tests/e2e/fase5/admin-proprietario.spec.ts")
+    assert "Acesso ao Coordena" in source
+    assert "Acesso ao Gerente AI" not in source
 
 
 def test_legacy_skill_identifiers_are_explicitly_compatibility_only() -> None:
