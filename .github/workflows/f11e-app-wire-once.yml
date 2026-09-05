@@ -1,0 +1,98 @@
+name: F11-E App Wire Once
+
+on:
+  push:
+    branches:
+      - feat/f11-e-ui-comercial-delivery
+    paths:
+      - .github/workflows/f11e-app-wire-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/f11-e-ui-comercial-delivery
+          fetch-depth: 0
+      - name: Aplicar integração comercial do Delivery no app.py
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("app.py")
+          text = path.read_text(encoding="utf-8")
+
+          replacements = [
+              (
+                  "from core.salao.flags import salao_v1_enabled\n"
+                  "from core.salao.ui_streamlit import render_salao\n",
+                  "from core.salao.flags import salao_v1_enabled\n"
+                  "from core.salao.ui_streamlit import render_salao\n"
+                  "from core.delivery.flags import delivery_v1_access_allowed, delivery_v1_enabled\n"
+                  "from core.delivery.ui_streamlit import render_delivery_v1\n",
+              ),
+              (
+                  "_kds_disponivel = kds_v1_access_allowed(CURRENT_IDENTITY.permissoes)\n\n_nomes_abas = [\n",
+                  "_kds_disponivel = kds_v1_access_allowed(CURRENT_IDENTITY.permissoes)\n"
+                  "_delivery_disponivel = delivery_v1_enabled() and delivery_v1_access_allowed(\n"
+                  "    CURRENT_IDENTITY.permissoes\n"
+                  ")\n\n_nomes_abas = [\n",
+              ),
+              (
+                  "if salao_v1_enabled():\n"
+                  "    _nomes_abas.append(\"🪑 Mesas e Comandas\")\n"
+                  "if impressao_v1_enabled():\n",
+                  "if salao_v1_enabled():\n"
+                  "    _nomes_abas.append(\"🪑 Mesas e Comandas\")\n"
+                  "if _delivery_disponivel:\n"
+                  "    _nomes_abas.append(\"🛵 Delivery Próprio\")\n"
+                  "if impressao_v1_enabled():\n",
+              ),
+              (
+                  "aba_impressao = None\n"
+                  "if impressao_v1_enabled():\n"
+                  "    aba_impressao = _abas[_indice_extra]\n",
+                  "aba_delivery = None\n"
+                  "if _delivery_disponivel:\n"
+                  "    aba_delivery = _abas[_indice_extra]\n"
+                  "    _indice_extra += 1\n\n"
+                  "aba_impressao = None\n"
+                  "if impressao_v1_enabled():\n"
+                  "    aba_impressao = _abas[_indice_extra]\n",
+              ),
+              (
+                  "if aba_impressao is not None:\n"
+                  "    with aba_impressao:\n"
+                  "        render_impressao_operacional(\n",
+                  "if aba_delivery is not None:\n"
+                  "    with aba_delivery:\n"
+                  "        render_delivery_v1(\n"
+                  "            session_factory=SessionLocal,\n"
+                  "            identidade=CURRENT_IDENTITY,\n"
+                  "        )\n\n"
+                  "if aba_impressao is not None:\n"
+                  "    with aba_impressao:\n"
+                  "        render_impressao_operacional(\n",
+              ),
+          ]
+
+          for index, (old, new) in enumerate(replacements, start=1):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"f11e_app_wire_pattern_{index}_count={count}")
+              text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding="utf-8")
+          PY
+      - name: Commitar transformação e remover mecanismo temporário
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/f11e-app-wire-once.yml
+          git add app.py
+          git commit -m "feat(f11-e): wire authenticated delivery surface into app"
+          git push origin HEAD:feat/f11-e-ui-comercial-delivery
