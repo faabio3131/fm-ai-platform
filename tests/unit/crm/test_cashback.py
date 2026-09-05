@@ -40,6 +40,8 @@ def test_movimento_cashback_exige_valor_positivo() -> None:
 
 
 def test_movimento_cashback_exige_timestamp_com_timezone() -> None:
+    instante_sem_timezone = datetime.fromisoformat("2026-09-05T20:00:00")
+
     with pytest.raises(ErroCRM, match="timestamp_sem_timezone"):
         MovimentoCashback(
             movimento_id="cbmov-1",
@@ -47,9 +49,9 @@ def test_movimento_cashback_exige_timestamp_com_timezone() -> None:
             unidade_id="unidade-1",
             cliente_id="cliente-1",
             tipo=TipoMovimentoCashback.CREDITO,
-            valor=Decimal("1"),
+            valor=Decimal(1),
             origem="teste",
             referencia="pedido://1",
-            ocorrido_em=datetime(2026, 9, 5, 20, 0),
+            ocorrido_em=instante_sem_timezone,
             idempotency_key="cashback-1",
         )
