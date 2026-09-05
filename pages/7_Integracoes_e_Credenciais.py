@@ -1,10 +1,11 @@
-"""Página comercial de Integrações e Credenciais do Kordena V1."""
+"""Página comercial de Integrações e Credenciais do Coordena V1."""
 
 from __future__ import annotations
 
 import streamlit as st
 from dotenv import load_dotenv
 
+from core.branding import PRODUCT_NAME
 from core.runtime import build_engine, load_runtime_settings
 from core.seguranca.permissoes import Permissao
 from infra.seguranca.session_guard import build_session_factory
@@ -21,7 +22,7 @@ from migrations.runner import assert_schema_current
 
 load_dotenv()
 st.set_page_config(
-    page_title="Integrações e Credenciais — Kordena",
+    page_title=f"Integrações e Credenciais — {PRODUCT_NAME}",
     page_icon="🔐",
     layout="wide",
 )
