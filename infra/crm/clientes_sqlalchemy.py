@@ -31,7 +31,7 @@ class LeitorClientesCRMSQLAlchemy:
     @staticmethod
     def _instante(valor: object) -> datetime:
         if not isinstance(valor, datetime):
-            raise RuntimeError("crm_cliente_criado_em_invalido")
+            raise TypeError("crm_cliente_criado_em_invalido")
         if valor.tzinfo is None or valor.utcoffset() is None:
             return valor.replace(tzinfo=timezone.utc)
         return valor.astimezone(timezone.utc)
