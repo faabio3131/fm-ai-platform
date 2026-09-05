@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKeyConstraint,
     Index,
+    Integer,
     MetaData,
     Numeric,
     String,
@@ -24,7 +25,7 @@ crm_cashback_saldos_v1 = Table(
     Column("unidade_id", String(64), primary_key=True),
     Column("cliente_id", String(64), primary_key=True),
     Column("saldo", Numeric(18, 2), nullable=False),
-    Column("versao", Numeric(18, 0), nullable=False),
+    Column("versao", Integer, nullable=False),
     ForeignKeyConstraint(
         ["tenant_id", "unidade_id", "cliente_id"],
         [
