@@ -64,7 +64,9 @@ async function iniciarCarrinho(page: Page) {
   await waitStable(page);
   await openDelivery(page);
   await expect(page.getByRole('heading', { name: /1\. Cardápio/ })).toBeVisible();
-  await expect(page.getByText('Burger Delivery F11-F', { exact: true }).first()).toBeVisible();
+  await expect(
+    page.getByText('Burger Delivery F11-F', { exact: true }).filter({ visible: true }).first(),
+  ).toBeVisible();
 }
 
 async function adicionarProduto(page: Page) {
