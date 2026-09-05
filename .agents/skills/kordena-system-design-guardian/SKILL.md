@@ -1,12 +1,15 @@
 ---
 name: kordena-system-design-guardian
-description: Governa decisões arquiteturais do Kordena/GERENTE AI. Use ao criar, alterar, integrar, refatorar ou revisar domínios, boundaries, bancos, migrations, multi-tenant/unidade, RBAC, eventos, integrações, IA, runtime ou qualquer mudança estrutural.
+description: Governa decisões arquiteturais do Coordena. O nome da skill é um identificador técnico legado preservado por compatibilidade. Use ao criar, alterar, integrar, refatorar ou revisar domínios, boundaries, bancos, migrations, multi-tenant/unidade, RBAC, eventos, integrações, IA, runtime ou qualquer mudança estrutural.
 metadata:
-  version: "1.0.1"
+  version: "1.0.2"
   project: "kordena-gerente-ai"
+  canonical_product: "coordena"
 ---
 
-# Kordena System Design Guardian
+# Coordena System Design Guardian
+
+> Compatibilidade: o diretório e o campo `name` ainda usam `kordena-system-design-guardian` como identificador técnico legado. A marca comercial canônica é **Coordena**.
 
 ## Objetivo
 
