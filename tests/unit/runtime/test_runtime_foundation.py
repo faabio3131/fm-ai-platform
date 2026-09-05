@@ -65,6 +65,7 @@ _EXPECTED_MIGRATIONS = (
     "0035_assistente_channel_runtime_v1",
     "0036_administracao_proprietario_v1",
     "0037_pdv_reconciliation_strategy_width_v1",
+    "0038_delivery_channel_state_v1",
 )
 
 
@@ -221,6 +222,7 @@ def test_sqlite_health_and_versioned_migration_are_idempotent(
         "crm_contatos_seguros_v1",
         "crm_cliente_legado_v1",
         "crm_consentimentos_v1",
+        "delivery_carrinhos_v1",
     ):
         assert table in tables
 
