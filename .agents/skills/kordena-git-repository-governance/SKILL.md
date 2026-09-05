@@ -1,12 +1,15 @@
 ---
 name: kordena-git-repository-governance
-description: Governa Git, branches, worktrees, commits, PRs, preservação e sincronização do Kordena/GERENTE AI. Use ao criar ou trocar branch, stagear, commitar, fazer push, reconciliar PRs, trabalhar com Work Cloud, GitHub ou VS Code físico, e sempre que houver worktree dirty.
+description: Governa Git, branches, worktrees, commits, PRs, preservação e sincronização do Coordena. O nome da skill é um identificador técnico legado preservado por compatibilidade. Use ao criar ou trocar branch, stagear, commitar, fazer push, reconciliar PRs, trabalhar com Work Cloud, GitHub ou VS Code físico, e sempre que houver worktree dirty.
 metadata:
-  version: "1.0.1"
+  version: "1.0.2"
   project: "kordena-gerente-ai"
+  canonical_product: "coordena"
 ---
 
-# Kordena Git & Repository Governance
+# Coordena Git & Repository Governance
+
+> Compatibilidade: o diretório e o campo `name` ainda usam `kordena-git-repository-governance` como identificador técnico legado. A marca comercial canônica é **Coordena**.
 
 ## Objetivo
 
@@ -116,9 +119,9 @@ Só considerar após:
 - branch publicada e SHA conferido;
 - reprodução/testes físicos quando exigidos;
 - PR revisada;
-- proprietário autorizar explicitamente.
+- autorização vigente do proprietário conforme `AGENTS.md`.
 
-Sem autorização, pare antes do merge.
+A autorização permanente registrada em `AGENTS.md` permite merge normal da PR canônica quando 100% dos gates aplicáveis estiverem verdes e reconciliados. Ela não autoriza deploy nem atos destrutivos/sensíveis.
 
 ## Relatório de operação Git
 
