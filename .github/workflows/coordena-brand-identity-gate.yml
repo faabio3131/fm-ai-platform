@@ -10,6 +10,7 @@ on:
       - 'pages/**'
       - '.agents/skills/**'
       - 'docs/migracao-identidade-coordena-v1.md'
+      - 'tests/e2e/fase5/admin-proprietario.spec.ts'
       - 'tests/fitness/test_coordena_brand_identity_v1.py'
       - '.github/workflows/coordena-brand-identity-gate.yml'
   workflow_dispatch:
