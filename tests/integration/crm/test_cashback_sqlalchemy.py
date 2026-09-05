@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import create_engine, insert
+from sqlalchemy import MetaData, Table, create_engine, insert
 from sqlalchemy.orm import Session
 
 from core.crm.cashback import ServicoCashback
@@ -23,11 +23,9 @@ def _engine():
         connection.exec_driver_sql("PRAGMA foreign_keys = ON")
         upgrade_crm_clientes_persistencia_v1(connection)
         upgrade_crm_cashback_ledger_v1(connection)
-        tabela = __import__(
-            "sqlalchemy"
-        ).Table(
+        tabela = Table(
             "crm_clientes_v1",
-            __import__("sqlalchemy").MetaData(),
+            MetaData(),
             autoload_with=connection,
         )
         connection.execute(
@@ -77,11 +75,16 @@ def test_credito_e_replay_sao_idempotentes() -> None:
         assert primeiro.idempotente is False
         assert replay.saldo == Decimal("10.00")
         assert replay.idempotente is True
-        assert len(servico.ledger.historico(
-            tenant_id=TENANT,
-            unidade_id=UNIDADE,
-            cliente_id=CLIENTE,
-        )) == 1
+        assert (
+            len(
+                servico.ledger.historico(
+                    tenant_id=TENANT,
+                    unidade_id=UNIDADE,
+                    cliente_id=CLIENTE,
+                )
+            )
+            == 1
+        )
 
 
 def test_reuso_da_idempotencia_com_semantica_diferente_falha() -> None:
@@ -111,11 +114,14 @@ def test_reuso_da_idempotencia_com_semantica_diferente_falha() -> None:
                 ocorrido_em=AGORA,
             )
 
-        assert servico.ledger.saldo(
-            tenant_id=TENANT,
-            unidade_id=UNIDADE,
-            cliente_id=CLIENTE,
-        ) == Decimal("10.00")
+        assert (
+            servico.ledger.saldo(
+                tenant_id=TENANT,
+                unidade_id=UNIDADE,
+                cliente_id=CLIENTE,
+            )
+            == Decimal("10.00")
+        )
 
 
 def test_debito_nunca_permite_saldo_negativo_e_replay_nao_duplica() -> None:
@@ -169,16 +175,24 @@ def test_debito_nunca_permite_saldo_negativo_e_replay_nao_duplica() -> None:
                 ocorrido_em=AGORA,
             )
 
-        assert servico.ledger.saldo(
-            tenant_id=TENANT,
-            unidade_id=UNIDADE,
-            cliente_id=CLIENTE,
-        ) == Decimal("3.00")
-        assert len(servico.ledger.historico(
-            tenant_id=TENANT,
-            unidade_id=UNIDADE,
-            cliente_id=CLIENTE,
-        )) == 2
+        assert (
+            servico.ledger.saldo(
+                tenant_id=TENANT,
+                unidade_id=UNIDADE,
+                cliente_id=CLIENTE,
+            )
+            == Decimal("3.00")
+        )
+        assert (
+            len(
+                servico.ledger.historico(
+                    tenant_id=TENANT,
+                    unidade_id=UNIDADE,
+                    cliente_id=CLIENTE,
+                )
+            )
+            == 2
+        )
 
 
 def test_migration_0039_e_idempotente_e_nao_faz_backfill() -> None:
@@ -190,8 +204,11 @@ def test_migration_0039_e_idempotente_e_nao_faz_backfill() -> None:
 
     with Session(engine) as session:
         repo = RepositorioCashbackSQLAlchemy(session)
-        assert repo.saldo(
-            tenant_id=TENANT,
-            unidade_id=UNIDADE,
-            cliente_id=CLIENTE,
-        ) == Decimal("0.00")
+        assert (
+            repo.saldo(
+                tenant_id=TENANT,
+                unidade_id=UNIDADE,
+                cliente_id=CLIENTE,
+            )
+            == Decimal("0.00")
+        )
