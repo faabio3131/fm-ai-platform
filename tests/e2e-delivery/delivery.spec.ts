@@ -59,8 +59,8 @@ test('cliente autenticado conclui jornada própria pelo checkout e entrega canô
   await page.getByRole('button', { name: /Confirmar pedido/ }).click();
 
   await expect(page.getByRole('heading', { name: /4\. Acompanhamento/ })).toBeVisible();
-  await expect(page.getByText(/Pedido: \*\*aguardando_confirmacao\*\*/)).toBeVisible();
-  await expect(page.getByText(/Entrega: \*\*aguardando_producao\*\*/)).toBeVisible();
+  await expect(page.getByText(/Pedido: aguardando_confirmacao/)).toBeVisible();
+  await expect(page.getByText(/Entrega: aguardando_producao/)).toBeVisible();
   await expect(page.getByText(/Total canônico/)).toBeVisible();
 });
 
@@ -87,12 +87,12 @@ test('pagamento na entrega permanece cancelável e reconcilia pedido e logístic
   await selecionarFormaPagamento(page, 'Pagamento na entrega');
   await page.getByRole('button', { name: /Confirmar pedido/ }).click();
   await expect(page.getByRole('heading', { name: /4\. Acompanhamento/ })).toBeVisible();
-  await expect(page.getByText(/Entrega: \*\*aguardando_producao\*\*/)).toBeVisible();
+  await expect(page.getByText(/Entrega: aguardando_producao/)).toBeVisible();
 
   await page.getByText('Cancelar pedido', { exact: true }).click();
   await page.getByLabel('Motivo').fill('Solicitação E2E do cliente');
   await page.getByRole('button', { name: /Cancelar no fluxo canônico/ }).click();
 
-  await expect(page.getByText(/Pedido: \*\*cancelado\*\*/)).toBeVisible();
-  await expect(page.getByText(/Entrega: \*\*cancelada\*\*/)).toBeVisible();
+  await expect(page.getByText(/Pedido: cancelado/)).toBeVisible();
+  await expect(page.getByText(/Entrega: cancelada/)).toBeVisible();
 });
