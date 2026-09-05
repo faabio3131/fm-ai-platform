@@ -97,6 +97,10 @@ jobs:
           echo "F11F_GERENTE_PASSWORD=F11F-Gerente-${GITHUB_RUN_ID}!" >> "$GITHUB_ENV"
           echo "F11F_GARCOM_PASSWORD=F11F-Garcom-${GITHUB_RUN_ID}!" >> "$GITHUB_ENV"
           echo "F11F_OTHER_GERENTE_PASSWORD=F11F-OutroTenant-${GITHUB_RUN_ID}!" >> "$GITHUB_ENV"
+          python - <<'PY' >> "$GITHUB_ENV"
+          from cryptography.fernet import Fernet
+          print(f"FM_AI_SECRET_MASTER_KEY={Fernet.generate_key().decode('ascii')}")
+          PY
 
       - name: Provar composicao comercial F11-F
         run: |
@@ -156,7 +160,19 @@ jobs:
             tests/integration/delivery
 
       - name: Regressao Python completa
-        run: pytest -q
+        run: |
+          unset FM_AI_ENV
+          unset DATABASE_URL
+          unset FM_AI_TENANT_ID
+          unset FM_AI_UNIDADE_ID
+          unset FM_AI_DELIVERY_V1
+          unset FM_AI_ADAPTER_ORDERS
+          unset FM_AI_ADAPTER_PAYMENTS
+          unset FM_AI_ADAPTER_DELIVERY
+          unset FM_AI_ADAPTER_ENTREGA
+          unset FM_AI_ADAPTER_AUTH
+          unset FM_AI_SECRET_MASTER_KEY
+          pytest -q
 
       - name: Preparar PostgreSQL comercial F11-F
         run: |
