@@ -10,6 +10,7 @@ import streamlit as st
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from core.branding import PRODUCT_NAME
 from core.runtime.config import RuntimeEnvironment, RuntimeSettings
 from core.seguranca.autenticacao import IdentidadeUsuario, ServicoAutenticacao
 from core.seguranca.erros import CredenciaisInvalidas, UsuarioInativo
@@ -233,7 +234,7 @@ def require_authentication(
         st.session_state[_SESSION_KEY] = identity
         return identity
 
-    st.title("🔐 Acesso ao Gerente AI")
+    st.title(f"🔐 Acesso ao {PRODUCT_NAME}")
     st.caption(
         "Entre com um usuário autorizado para a empresa e unidade configuradas."
     )
