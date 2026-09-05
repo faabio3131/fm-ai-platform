@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 async function login(page, email: string, password: string) {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
-  await expect(page.getByRole('heading', { name: /Acesso ao Gerente AI/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Acesso ao Coordena/ })).toBeVisible();
   await page.getByRole('textbox', { name: 'E-mail' }).fill(email);
   await page.getByLabel('Senha').fill(password);
   await page.getByRole('button', { name: 'Entrar' }).click();
