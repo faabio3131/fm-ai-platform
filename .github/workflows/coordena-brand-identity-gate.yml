@@ -1,0 +1,49 @@
+name: Coordena Brand Identity Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'AGENTS.md'
+      - 'core/branding.py'
+      - 'infra/streamlit_app/auth_ui.py'
+      - 'pages/**'
+      - '.agents/skills/**'
+      - 'docs/migracao-identidade-coordena-v1.md'
+      - 'tests/fitness/test_coordena_brand_identity_v1.py'
+      - '.github/workflows/coordena-brand-identity-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  brand-identity:
+    name: Coordena canonical identity
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install validation tooling
+        run: python -m pip install pytest ruff==0.16.1
+      - name: Compile migrated Python surfaces
+        run: >-
+          python -m py_compile core/branding.py
+          infra/streamlit_app/auth_ui.py
+          pages/6_Administracao_Proprietario.py
+          pages/7_Integracoes_e_Credenciais.py
+          pages/8_Atendimento_Garcom.py
+          pages/9_Expedicao_Entrega.py
+      - name: Ruff migrated Python surfaces
+        run: >-
+          ruff check core/branding.py
+          infra/streamlit_app/auth_ui.py
+          pages/6_Administracao_Proprietario.py
+          pages/7_Integracoes_e_Credenciais.py
+          pages/8_Atendimento_Garcom.py
+          pages/9_Expedicao_Entrega.py
+          tests/fitness/test_coordena_brand_identity_v1.py
+      - name: Coordena identity fitness gate
+        run: pytest -q tests/fitness/test_coordena_brand_identity_v1.py
