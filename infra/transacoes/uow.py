@@ -18,6 +18,9 @@ from core.eventos.modelos import EnvelopeMensagem
 from core.pagamentos.adaptador_sqlalchemy import RepositorioPagamentosSQLAlchemy
 from core.pedidos.adaptador_sqlalchemy import RepositorioPedidosSQLAlchemy
 from core.seguranca.auditoria import EventoAuditoria
+from infra.crm.cashback_sqlalchemy import RepositorioCashbackSQLAlchemy
+from infra.crm.cliente_legado_sqlalchemy import LeitorClienteLegadoCRMSQLAlchemy
+from infra.crm.consentimentos_sqlalchemy import RepositorioConsentimentosContextoSQLAlchemy
 from infra.eventos.adaptador_sqlalchemy import (
     RepositorioDLQSQLAlchemy,
     RepositorioInboxSQLAlchemy,
@@ -35,6 +38,9 @@ class RecursosTransacionaisV1:
         self.pedidos = RepositorioPedidosSQLAlchemy(session)
         self.pagamentos = RepositorioPagamentosSQLAlchemy(session)
         self.estoque = RepositorioLedgerSQLAlchemy(session)
+        self.cashback = RepositorioCashbackSQLAlchemy(session)
+        self.crm_cliente_legado = LeitorClienteLegadoCRMSQLAlchemy(session)
+        self.crm_consentimentos = RepositorioConsentimentosContextoSQLAlchemy(session)
         self.outbox = RepositorioOutboxSQLAlchemy(
             session, ao_adicionar=ConsumidorEventosCoreSQLAlchemy(session).consumir
         )
@@ -63,6 +69,18 @@ class UnitOfWorkV1:
         self.committed = False
         self._recursos: RecursosTransacionaisV1 | None = None
 
+    def _expor_recursos(self, recursos: RecursosTransacionaisV1) -> None:
+        self.pedidos = recursos.pedidos
+        self.pagamentos = recursos.pagamentos
+        self.estoque = recursos.estoque
+        self.cashback = recursos.cashback
+        self.crm_cliente_legado = recursos.crm_cliente_legado
+        self.crm_consentimentos = recursos.crm_consentimentos
+        self.outbox = recursos.outbox
+        self.inbox = recursos.inbox
+        self.dlq = recursos.dlq
+        self.auditoria = recursos.auditoria
+
     @classmethod
     def adotar_session(cls, session: Session) -> Self:
         """Faz a application boundary possuir commit/rollback de Session já aberta."""
@@ -70,13 +88,7 @@ class UnitOfWorkV1:
         uow = cls(lambda: session)
         uow.session = session
         uow._recursos = RecursosTransacionaisV1(session)
-        uow.pedidos = uow._recursos.pedidos
-        uow.pagamentos = uow._recursos.pagamentos
-        uow.estoque = uow._recursos.estoque
-        uow.outbox = uow._recursos.outbox
-        uow.inbox = uow._recursos.inbox
-        uow.dlq = uow._recursos.dlq
-        uow.auditoria = uow._recursos.auditoria
+        uow._expor_recursos(uow._recursos)
         uow.committed = False
         return uow
 
@@ -91,13 +103,7 @@ class UnitOfWorkV1:
             raise RuntimeError("UnitOfWorkV1 nao pode ser reutilizado enquanto aberto")
         self.session = self._session_factory()
         self._recursos = RecursosTransacionaisV1(self.session)
-        self.pedidos = self._recursos.pedidos
-        self.pagamentos = self._recursos.pagamentos
-        self.estoque = self._recursos.estoque
-        self.outbox = self._recursos.outbox
-        self.inbox = self._recursos.inbox
-        self.dlq = self._recursos.dlq
-        self.auditoria = self._recursos.auditoria
+        self._expor_recursos(self._recursos)
         self.committed = False
         return self
 
