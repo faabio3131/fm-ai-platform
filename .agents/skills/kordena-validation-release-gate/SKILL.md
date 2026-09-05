@@ -1,12 +1,15 @@
 ---
 name: kordena-validation-release-gate
-description: Define como provar mudanças e decidir gates no Kordena/GERENTE AI. Use ao testar, homologar, revisar regressões, comparar Work e VS Code físico, declarar pronto/aprovado, preparar release ou avaliar falhas conhecidas versus regressões novas.
+description: Define como provar mudanças e decidir gates no Coordena. O nome da skill é um identificador técnico legado preservado por compatibilidade. Use ao testar, homologar, revisar regressões, comparar Work e VS Code físico, declarar pronto/aprovado, preparar release ou avaliar falhas conhecidas versus regressões novas.
 metadata:
-  version: "1.0.1"
+  version: "1.0.2"
   project: "kordena-gerente-ai"
+  canonical_product: "coordena"
 ---
 
-# Kordena Validation & Release Gate
+# Coordena Validation & Release Gate
+
+> Compatibilidade: o diretório e o campo `name` ainda usam `kordena-validation-release-gate` como identificador técnico legado. A marca comercial canônica é **Coordena**.
 
 ## Objetivo
 
