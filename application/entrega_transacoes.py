@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from application.assistente_operational_notifications import (
     notificar_status_assistente_best_effort,
 )
+from application.entrega_composicao import validar_entregador_elegivel
 from core.entrega import (
     ChecklistExpedicao,
     Entrega,
@@ -80,6 +81,15 @@ class AplicacaoEntregaV1:
         self._session_factory = session_factory
         self._agora = agora or _agora_utc
 
+    def _notificar(self, resultado: T, *, contexto: ContextoExecucao) -> T:
+        if isinstance(resultado, Entrega):
+            notificar_status_assistente_best_effort(
+                session_factory=self._session_factory,
+                contexto=contexto,
+                pedido_id=resultado.pedido_id,
+            )
+        return resultado
+
     def _executar(
         self,
         acao: Callable[[ServicoEntrega], T],
@@ -98,13 +108,7 @@ class AplicacaoEntregaV1:
 
             uow.commit()
 
-        if isinstance(resultado, Entrega):
-            notificar_status_assistente_best_effort(
-                session_factory=self._session_factory,
-                contexto=contexto,
-                pedido_id=resultado.pedido_id,
-            )
-        return resultado
+        return self._notificar(resultado, contexto=contexto)
 
     def concluir_checklist(
         self,
@@ -135,6 +139,8 @@ class AplicacaoEntregaV1:
         contexto: ContextoExecucao,
         idempotency_key: str,
     ) -> Entrega:
+        """Primitive transacional preservado para compatibilidade interna/testes."""
+
         return self._executar(
             lambda servico: servico.atribuir(
                 entrega_id,
@@ -145,6 +151,35 @@ class AplicacaoEntregaV1:
             ),
             contexto=contexto,
         )
+
+    def atribuir_entregador_governado(
+        self,
+        entrega_id: str,
+        entregador_id: str,
+        *,
+        versao_esperada: int,
+        contexto: ContextoExecucao,
+        idempotency_key: str,
+    ) -> Entrega:
+        """Atribui somente identidade canônica elegível, revalidada na mesma UoW."""
+
+        with UnitOfWorkV1(self._session_factory) as uow:
+            session = _session_ativa(uow)
+            identidade = validar_entregador_elegivel(
+                session,
+                contexto=contexto,
+                entregador_id=entregador_id,
+            )
+            resultado = _servico(session, agora=self._agora).atribuir(
+                entrega_id,
+                identidade.usuario_id,
+                versao_esperada=versao_esperada,
+                contexto=contexto,
+                idempotency_key=idempotency_key,
+            )
+            uow.commit()
+
+        return self._notificar(resultado, contexto=contexto)
 
     def coletar(
         self,

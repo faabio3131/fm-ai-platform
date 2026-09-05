@@ -1,0 +1,348 @@
+name: Fase 10E Entrega Commercial Runtime E2E Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'app.py'
+      - 'application/entrega_*.py'
+      - 'application/kds_*.py'
+      - 'core/entrega/**'
+      - 'core/kds/**'
+      - 'core/estoque/**'
+      - 'core/pedidos/**'
+      - 'core/pagamentos/**'
+      - 'core/seguranca/**'
+      - 'infra/seguranca/**'
+      - 'infra/streamlit_app/auth_ui.py'
+      - 'migrations/**'
+      - 'pages/9_Expedicao_Entrega.py'
+      - 'scripts/seed_f10e_commercial_runtime.py'
+      - 'tests/e2e/f10e-commercial-entrega.spec.ts'
+      - 'playwright.f10e.config.ts'
+      - 'docs/commercial_runtime_readiness_v1.json'
+      - 'docs/inventario-fase10-expedicao-entregador-cutover-v1.md'
+      - '.github/workflows/fase10e-entrega-commercial-runtime-e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  f10e-commercial:
+    name: PostgreSQL + KDS + Expedição + Entregador + RBAC
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fm_ai_f10e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d fm_ai_f10e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      FM_AI_ENV: staging
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/fm_ai_f10e
+      FM_AI_TENANT_ID: tenant-f8e
+      FM_AI_UNIDADE_ID: unidade-f8e
+      FM_AI_KDS_V1: '1'
+      FM_AI_ENTREGA_V1: '1'
+      FM_AI_ADAPTER_ORDERS: sqlalchemy
+      FM_AI_ADAPTER_KDS: sqlalchemy
+      FM_AI_ADAPTER_AUTH: sqlalchemy
+      FM_AI_ADAPTER_DELIVERY: sqlalchemy
+      FM_AI_ADAPTER_ENTREGA: sqlalchemy
+      FM_AI_SECRET_MASTER_KEY: bW1scnZpQzlCS2Q1dXBlTXRyUkJlTGNXWGtIclc3WktoM3lrb3Q5WT0=
+      PYTHONUNBUFFERED: '1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+          npm ci
+
+      - name: Gerar credenciais efêmeras do gate
+        run: |
+          echo "F8E_COZINHA_EMAIL=cozinha-f10e@fm.ai" >> "$GITHUB_ENV"
+          echo "F8E_GARCOM_EMAIL=garcom-f10e@fm.ai" >> "$GITHUB_ENV"
+          echo "F8E_COZINHA_PASSWORD=F10E-Cozinha-${GITHUB_RUN_ID}!" >> "$GITHUB_ENV"
+          echo "F8E_GARCOM_PASSWORD=F10E-Garcom-${GITHUB_RUN_ID}!" >> "$GITHUB_ENV"
+          echo "F10E_EXPEDICAO_EMAIL=expedicao-f10e@fm.ai" >> "$GITHUB_ENV"
+          echo "F10E_ENTREGADOR_EMAIL=entregador-f10e@fm.ai" >> "$GITHUB_ENV"
+          echo "F10E_EXPEDICAO_PASSWORD=F10E-Expedicao-${GITHUB_RUN_ID}!" >> "$GITHUB_ENV"
+          echo "F10E_ENTREGADOR_PASSWORD=F10E-Entregador-${GITHUB_RUN_ID}!" >> "$GITHUB_ENV"
+
+      - name: Provar composição comercial F10-E
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          python - <<'PY'
+          from core.entrega.flags import entrega_v1_enabled
+          from core.kds.flags import kds_v1_enabled
+          from core.runtime.config import RuntimeEnvironment, load_runtime_settings
+          from core.seguranca import MATRIZ_PADRAO, Papel, Permissao
+
+          settings = load_runtime_settings()
+          assert settings.environment is RuntimeEnvironment.STAGING
+          assert settings.commercial
+          assert entrega_v1_enabled()
+          assert kds_v1_enabled()
+          assert Permissao.EXPEDICAO_OPERAR in MATRIZ_PADRAO[Papel.EXPEDICAO]
+          assert Permissao.EXPEDICAO_OPERAR in MATRIZ_PADRAO[Papel.ENTREGADOR]
+          assert Permissao.EXPEDICAO_OPERAR not in MATRIZ_PADRAO[Papel.GARCOM]
+          print("F10-E commercial composition ready")
+          PY
+
+      - name: Compile Ruff Mypy F10-E
+        run: |
+          python -m compileall -q \
+            scripts/seed_f10e_commercial_runtime.py \
+            application/entrega_composicao.py \
+            application/entrega_kds_handoff.py \
+            application/entrega_transacoes.py \
+            application/kds_transacoes.py \
+            core/entrega
+          ruff check \
+            scripts/seed_f10e_commercial_runtime.py \
+            application/entrega_composicao.py \
+            application/entrega_kds_handoff.py \
+            application/entrega_transacoes.py \
+            application/kds_transacoes.py \
+            core/entrega
+          mypy \
+            application/entrega_composicao.py \
+            application/entrega_kds_handoff.py \
+            application/entrega_transacoes.py \
+            application/kds_transacoes.py \
+            core/entrega
+
+      - name: Preparar PostgreSQL comercial F10-E
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          python -m scripts.seed_f10e_commercial_runtime
+          python -m scripts.migrate_v1
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, func, select
+          from sqlalchemy.orm import Session
+
+          from core.entrega.modelos_orm import EntregaORM, EventoEntregaORM
+          from core.kds.modelos_orm import ProducaoItemORM
+          from core.pagamentos.modelos_orm import PagamentoORM
+          from core.pedidos.modelos_orm import PedidoORM
+          from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
+          from core.seguranca import Papel
+          from migrations.runner import assert_schema_current
+
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          assert_schema_current(engine)
+          with Session(engine) as session:
+              pedido = session.get(PedidoORM, ("pedido-f8e", "tenant-f8e", "unidade-f8e"))
+              assert pedido is not None and pedido.status == "confirmado"
+              pagamento = session.get(PagamentoORM, ("pagamento-f8e", "tenant-f8e", "unidade-f8e"))
+              assert pagamento is not None and pagamento.status == "pago"
+              producoes = session.scalar(
+                  select(func.count()).select_from(ProducaoItemORM).where(
+                      ProducaoItemORM.tenant_id == "tenant-f8e",
+                      ProducaoItemORM.unidade_id == "unidade-f8e",
+                      ProducaoItemORM.pedido_id == "pedido-f8e",
+                  )
+              )
+              assert producoes == 0
+              entrega = session.get(EntregaORM, ("entrega-f10e", "tenant-f8e", "unidade-f8e"))
+              assert entrega is not None
+              assert entrega.status == "aguardando_producao"
+              assert entrega.versao == 1
+              assert entrega.producao_pronta_em is None
+              tipos = tuple(session.scalars(select(EventoEntregaORM.tipo)).all())
+              assert tipos == ("entrega.criada",)
+              repo = RepositorioIdentidadesSQLAlchemy(session)
+              exp = repo.obter_por_email(os.environ["F10E_EXPEDICAO_EMAIL"])
+              driver = repo.obter_por_email(os.environ["F10E_ENTREGADOR_EMAIL"])
+              assert exp is not None and Papel.EXPEDICAO in exp.papeis and exp.ativo
+              assert driver is not None and Papel.ENTREGADOR in driver.papeis and driver.ativo
+          print("F10-E PostgreSQL pre-browser ready")
+          PY
+
+      - name: Regressões Entrega F10-B/C/D
+        run: pytest -q tests/integration/entrega
+
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser COZINHA — KDS até PRONTO
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          npx playwright test -c playwright.f10e.config.ts --reporter=list --grep "COZINHA comercial"
+
+      - name: Evidência durável KDS → Expedição
+        run: |
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, select
+          from sqlalchemy.orm import Session
+
+          from core.entrega.modelos_orm import EntregaORM, EventoEntregaORM
+          from core.kds.modelos_orm import ProducaoItemORM
+          from core.pedidos.modelos_orm import PedidoORM
+
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          with Session(engine) as session:
+              pedido = session.get(PedidoORM, ("pedido-f8e", "tenant-f8e", "unidade-f8e"))
+              assert pedido is not None and pedido.status == "pronto"
+              producoes = tuple(session.scalars(select(ProducaoItemORM).where(
+                  ProducaoItemORM.tenant_id == "tenant-f8e",
+                  ProducaoItemORM.unidade_id == "unidade-f8e",
+                  ProducaoItemORM.pedido_id == "pedido-f8e",
+              )))
+              assert len(producoes) == 1 and producoes[0].status == "pronta"
+              entrega = session.get(EntregaORM, ("entrega-f10e", "tenant-f8e", "unidade-f8e"))
+              assert entrega is not None
+              assert entrega.status == "aguardando_expedicao"
+              assert entrega.producao_pronta_em is not None
+              assert entrega.versao == 2
+              tipos = tuple(session.scalars(select(EventoEntregaORM.tipo).where(
+                  EventoEntregaORM.entrega_id == "entrega-f10e"
+              ).order_by(EventoEntregaORM.versao_entrega)))
+              assert tipos == ("entrega.criada", "entrega.aguardando_expedicao")
+              print({"pedido": pedido.status, "kds": producoes[0].status, "entrega": entrega.status, "versao": entrega.versao})
+          PY
+
+      - name: Browser EXPEDIÇÃO — checklist e atribuição canônica
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          npx playwright test -c playwright.f10e.config.ts --reporter=list --grep "EXPEDICAO comercial"
+
+      - name: Evidência durável Expedição → Entregador
+        run: |
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, select
+          from sqlalchemy.orm import Session
+
+          from core.entrega.modelos_orm import EntregaORM, EventoEntregaORM
+
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          with Session(engine) as session:
+              entrega = session.get(EntregaORM, ("entrega-f10e", "tenant-f8e", "unidade-f8e"))
+              assert entrega is not None
+              assert entrega.status == "atribuida"
+              assert entrega.checklist_concluido_em is not None
+              assert entrega.atribuida_em is not None
+              assert entrega.entregador_id == "entregador-f10e"
+              assert entrega.versao == 4
+              tipos = tuple(session.scalars(select(EventoEntregaORM.tipo).where(
+                  EventoEntregaORM.entrega_id == "entrega-f10e"
+              ).order_by(EventoEntregaORM.versao_entrega)))
+              assert tipos[-2:] == ("entrega.aguardando_entregador", "entrega.atribuida")
+              print({"entrega": entrega.status, "entregador": entrega.entregador_id, "versao": entrega.versao})
+          PY
+
+      - name: Browser GARCOM — RBAC negativo
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          npx playwright test -c playwright.f10e.config.ts --reporter=list --grep "GARCOM autenticado"
+
+      - name: Evidência RBAC sem mutação indevida
+        run: |
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine
+          from sqlalchemy.orm import Session
+          from core.entrega.modelos_orm import EntregaORM
+
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          with Session(engine) as session:
+              entrega = session.get(EntregaORM, ("entrega-f10e", "tenant-f8e", "unidade-f8e"))
+              assert entrega is not None
+              assert entrega.status == "atribuida"
+              assert entrega.entregador_id == "entregador-f10e"
+              assert entrega.versao == 4
+          print("GARCOM RBAC sem mutacao indevida")
+          PY
+
+      - name: Browser ENTREGADOR — coleta, rota e entrega
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          npx playwright test -c playwright.f10e.config.ts --reporter=list --grep "ENTREGADOR comercial"
+
+      - name: Evidência PostgreSQL final F10-E
+        if: always()
+        run: |
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, select
+          from sqlalchemy.orm import Session
+
+          from core.entrega.modelos_orm import EntregaORM, EventoEntregaORM
+          from core.pedidos.modelos_orm import PedidoORM
+
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          with Session(engine) as session:
+              pedido = session.get(PedidoORM, ("pedido-f8e", "tenant-f8e", "unidade-f8e"))
+              assert pedido is not None and pedido.status == "pronto"
+              entrega = session.get(EntregaORM, ("entrega-f10e", "tenant-f8e", "unidade-f8e"))
+              assert entrega is not None
+              assert entrega.status == "entregue"
+              assert entrega.entregador_id == "entregador-f10e"
+              assert entrega.producao_pronta_em is not None
+              assert entrega.checklist_concluido_em is not None
+              assert entrega.atribuida_em is not None
+              assert entrega.coletada_em is not None
+              assert entrega.saiu_em is not None
+              assert entrega.entregue_em is not None
+              assert entrega.prova_entrega_ref == "proof://pedido-f8e"
+              assert entrega.versao == 7
+              tipos = tuple(session.scalars(select(EventoEntregaORM.tipo).where(
+                  EventoEntregaORM.entrega_id == "entrega-f10e"
+              ).order_by(EventoEntregaORM.versao_entrega)))
+              esperado = (
+                  "entrega.criada",
+                  "entrega.aguardando_expedicao",
+                  "entrega.aguardando_entregador",
+                  "entrega.atribuida",
+                  "entrega.coletada",
+                  "entrega.em_rota",
+                  "entrega.concluida",
+              )
+              assert tipos == esperado
+              print({
+                  "pedido": pedido.status,
+                  "entrega": entrega.status,
+                  "entregador": entrega.entregador_id,
+                  "versao": entrega.versao,
+                  "prova": entrega.prova_entrega_ref,
+                  "eventos": tipos,
+              })
+          PY
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f10e-playwright-report
+          path: playwright-report-f10e/
+          if-no-files-found: ignore

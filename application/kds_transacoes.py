@@ -15,11 +15,13 @@ from sqlalchemy.orm import Session
 from application.assistente_operational_notifications import (
     notificar_status_assistente_best_effort,
 )
+from application.entrega_kds_handoff import HandoffEntregaKDSV1
 from application.impressao_kds import IntegracaoImpressaoKDSV1
 from application.kds_runtime import (
     ResultadoKDSCanonico,
     ServicoKDSCanonico,
 )
+from core.dominio.enums import PedidoStatus
 from core.seguranca.contexto import ContextoExecucao
 from infra.transacoes.uow import UnitOfWorkV1
 
@@ -53,6 +55,33 @@ def _enfileirar_impressao_best_effort(
             extra={
                 "tenant_id": contexto.tenant_id,
                 "unidade_id": contexto.unidade_id,
+                "producao_id": resultado.item.producao_id,
+            },
+        )
+
+
+def _notificar_entrega_pedido_pronto_best_effort(
+    *,
+    session_factory: Callable[[], Session],
+    contexto: ContextoExecucao,
+    resultado: ResultadoKDSCanonico,
+) -> None:
+    if resultado.pedido_status is not PedidoStatus.PRONTO:
+        return
+    try:
+        HandoffEntregaKDSV1(session_factory).notificar_pedido_pronto(
+            contexto=contexto,
+            pedido_id=resultado.item.pedido_id,
+        )
+    except Exception:
+        # O Pedido/KDS já foi commitado. Logística é uma continuação
+        # retriável e nunca pode reabrir/rollbackar a transação autoritativa.
+        logger.exception(
+            "falha_handoff_entrega_kds_best_effort",
+            extra={
+                "tenant_id": contexto.tenant_id,
+                "unidade_id": contexto.unidade_id,
+                "pedido_id": resultado.item.pedido_id,
                 "producao_id": resultado.item.producao_id,
             },
         )
@@ -133,6 +162,11 @@ def transicionar_kds_v1(
 
         uow.commit()
 
+    _notificar_entrega_pedido_pronto_best_effort(
+        session_factory=session_factory,
+        contexto=contexto,
+        resultado=resultado,
+    )
     notificar_status_assistente_best_effort(
         session_factory=session_factory,
         contexto=contexto,

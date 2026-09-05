@@ -22,18 +22,20 @@ jobs:
           pip install pytest ruff==0.16.1 mypy==1.20.2
       - name: Ruff PR13
         run: >-
-          ruff check application/entrega_transacoes.py core/entrega
-          tests/unit/entrega tests/integration/entrega
+          ruff check application/entrega_transacoes.py application/entrega_composicao.py
+          core/entrega tests/unit/entrega tests/integration/entrega
           tests/fitness/test_af03_transaction_ownership.py
+          tests/fitness/test_f10d_entrega_driver_governance.py
           tests/e2e-entrega/app_entrega.py tests/e2e-entrega/seed_entrega.py
       - name: mypy PR13
         run: >-
-          mypy application/entrega_transacoes.py core/entrega
-          tests/unit/entrega tests/integration/entrega
+          mypy application/entrega_transacoes.py application/entrega_composicao.py
+          core/entrega tests/unit/entrega tests/integration/entrega
       - name: Testes focados PR13
         run: >-
           pytest -q tests/unit/entrega tests/integration/entrega
           tests/fitness/test_af03_transaction_ownership.py
+          tests/fitness/test_f10d_entrega_driver_governance.py
       - name: Suite Python completa
         run: pytest -q
 
