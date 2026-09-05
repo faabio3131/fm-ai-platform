@@ -51,6 +51,15 @@ async function selecionarCombo(combo: Locator, opcao: string) {
   await expect(combo).toHaveValue(opcao, { timeout: 15_000 });
 }
 
+async function expectMetric(page: Page, label: string, value: string) {
+  const metric = page
+    .locator('[data-testid="stMetric"]')
+    .filter({ hasText: label, visible: true })
+    .first();
+  await expect(metric).toBeVisible();
+  await expect(metric).toContainText(value);
+}
+
 async function selecionarCliente(page: Page, clienteId: string) {
   const combo = page.getByRole('combobox', { name: /Cliente CRM/ }).filter({ visible: true }).first();
   await selecionarCombo(combo, clienteId);
@@ -106,8 +115,7 @@ test('F11-F executa Delivery comercial no app.py e reconcilia cancelamento no Po
   await waitStable(page);
   await openDelivery(page);
   await expect(page.getByText(/Cupom reservado: R\$ 5\.00/)).toBeVisible();
-  await expect(page.getByText(/Total estimado/)).toBeVisible();
-  await expect(page.getByText('R$ 34.00', { exact: true })).toBeVisible();
+  await expectMetric(page, 'Total estimado', 'R$ 34.00');
 
   await page.getByRole('button', { name: /Confirmar pedido/ }).click();
   await waitStable(page);
@@ -115,8 +123,7 @@ test('F11-F executa Delivery comercial no app.py e reconcilia cancelamento no Po
   await expect(page.getByRole('heading', { name: /4\. Acompanhamento/ })).toBeVisible();
   await expect(page.getByText(/Pedido: aguardando_confirmacao/)).toBeVisible();
   await expect(page.getByText(/Entrega: aguardando_producao/)).toBeVisible();
-  await expect(page.getByText(/Total canônico/)).toBeVisible();
-  await expect(page.getByText('R$ 34.00', { exact: true })).toBeVisible();
+  await expectMetric(page, 'Total canônico', 'R$ 34.00');
 
   await page.getByText('Cancelar pedido', { exact: true }).click();
   await page.getByLabel('Motivo').fill('Solicitacao comercial F11-F');
