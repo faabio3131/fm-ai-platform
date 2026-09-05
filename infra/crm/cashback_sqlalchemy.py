@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal
+from typing import Any, cast
 
 from sqlalchemy import insert, select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
 from core.crm.cashback import MovimentoCashback, TipoMovimentoCashback
@@ -150,15 +152,18 @@ class RepositorioCashbackSQLAlchemy:
                 )
             )
         else:
-            resultado = self._session.execute(
-                update(crm_cashback_saldos_v1)
-                .where(
-                    crm_cashback_saldos_v1.c.tenant_id == movimento.tenant_id,
-                    crm_cashback_saldos_v1.c.unidade_id == movimento.unidade_id,
-                    crm_cashback_saldos_v1.c.cliente_id == movimento.cliente_id,
-                    crm_cashback_saldos_v1.c.versao == versao,
-                )
-                .values(saldo=novo_saldo, versao=versao + 1)
+            resultado = cast(
+                CursorResult[Any],
+                self._session.execute(
+                    update(crm_cashback_saldos_v1)
+                    .where(
+                        crm_cashback_saldos_v1.c.tenant_id == movimento.tenant_id,
+                        crm_cashback_saldos_v1.c.unidade_id == movimento.unidade_id,
+                        crm_cashback_saldos_v1.c.cliente_id == movimento.cliente_id,
+                        crm_cashback_saldos_v1.c.versao == versao,
+                    )
+                    .values(saldo=novo_saldo, versao=versao + 1)
+                ),
             )
             if resultado.rowcount != 1:
                 raise ErroCRM("conflito_concorrencia_cashback")
