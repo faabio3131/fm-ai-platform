@@ -13,6 +13,7 @@ from core.delivery.flags import delivery_v1_access_allowed
 from core.delivery.modelos import (
     CarrinhoDelivery,
     CotacaoEntrega,
+    EnderecoDelivery,
     ItemCarrinhoDelivery,
     StatusCarrinhoDelivery,
 )
@@ -55,7 +56,17 @@ def _carrinho() -> CarrinhoDelivery:
                 produto_versao=1,
             ),
         ),
-        endereco=SimpleNamespace(),  # type: ignore[arg-type]
+        endereco=EnderecoDelivery(
+            endereco_id="address://f11e",
+            cliente_ref="cliente-f11e",
+            cep="01001000",
+            logradouro="Rua Cliente",
+            numero="10",
+            bairro="Centro",
+            cidade="São Paulo",
+            uf="SP",
+            validado=True,
+        ),
         cotacao=CotacaoEntrega(
             area_id="centro",
             nome_area="Centro",
