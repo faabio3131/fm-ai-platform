@@ -16,7 +16,10 @@ from core.marketplaces import (
     StatusPedidoExterno,
 )
 from core.marketplaces.food99_partner import FOOD99_CAPACIDADES_PUBLICAS
-from core.marketplaces.keeta_partner import KEETA_CAPACIDADES_PUBLICAS, KeetaPartnerAdapter
+from core.marketplaces.keeta_partner import (
+    KEETA_CAPACIDADES_PUBLICAS,
+    KeetaPartnerAdapter,
+)
 
 
 class _AuthFake:
