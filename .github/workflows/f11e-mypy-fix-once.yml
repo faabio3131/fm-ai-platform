@@ -36,6 +36,10 @@ jobs:
                   "financeiro_resolvido_sqlalchemy(\n                        cast(Session, uow.session), tenant, unidade, pedido_ref\n                    )",
               ),
               (
+                  "financeiro_resolvido_sqlalchemy(\n                    uow.session, tenant, unidade, pedido_ref\n                )",
+                  "financeiro_resolvido_sqlalchemy(\n                    cast(Session, uow.session), tenant, unidade, pedido_ref\n                )",
+              ),
+              (
                   "pedido_cancelado_sqlalchemy(\n                        uow.session, tenant, unidade, pedido_ref\n                    )",
                   "pedido_cancelado_sqlalchemy(\n                        cast(Session, uow.session), tenant, unidade, pedido_ref\n                    )",
               ),
@@ -49,7 +53,7 @@ jobs:
               ),
           ]
 
-          expected_counts = [1, 1, 1, 1, 1]
+          expected_counts = [1, 1, 1, 1, 1, 1]
           for index, ((old, new), expected) in enumerate(
               zip(replacements, expected_counts, strict=True), start=1
           ):
