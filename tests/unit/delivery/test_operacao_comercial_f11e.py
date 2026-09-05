@@ -5,7 +5,10 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 from application.delivery_contexto_comercial import ContextoDeliveryComercialV1
-from application.delivery_operacao_comercial import _pedido_do_carrinho, _snapshot_endereco
+from application.delivery_operacao_comercial import (
+    _pedido_do_carrinho,
+    _snapshot_endereco,
+)
 from core.delivery.flags import delivery_v1_access_allowed
 from core.delivery.modelos import (
     CarrinhoDelivery,

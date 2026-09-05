@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 UI = ROOT / "core" / "delivery" / "ui_streamlit.py"
 APP = ROOT / "app.py"

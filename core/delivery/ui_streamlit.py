@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 
 from application.delivery_operacao_comercial import (
     ErroDeliveryComercial,
-    acompanhar_delivery_comercial,
     abrir_carrinho_delivery_comercial,
+    acompanhar_delivery_comercial,
     adicionar_item_delivery_comercial,
     cancelar_delivery_comercial,
     confirmar_delivery_comercial,
