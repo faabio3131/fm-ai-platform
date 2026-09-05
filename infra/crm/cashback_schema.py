@@ -16,11 +16,21 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 
-metadata = MetaData()
+CashbackCRMMetadata = MetaData()
+
+# Referência mínima para resolução das FKs durante DDL.
+# crm_clientes_v1 pertence à autoridade canônica Cliente/CRM e não é criada aqui.
+Table(
+    "crm_clientes_v1",
+    CashbackCRMMetadata,
+    Column("tenant_id", String(64), primary_key=True),
+    Column("unidade_id", String(64), primary_key=True),
+    Column("cliente_id", String(64), primary_key=True),
+)
 
 crm_cashback_saldos_v1 = Table(
     "crm_cashback_saldos_v1",
-    metadata,
+    CashbackCRMMetadata,
     Column("tenant_id", String(64), primary_key=True),
     Column("unidade_id", String(64), primary_key=True),
     Column("cliente_id", String(64), primary_key=True),
@@ -42,7 +52,7 @@ crm_cashback_saldos_v1 = Table(
 
 crm_cashback_movimentos_v1 = Table(
     "crm_cashback_movimentos_v1",
-    metadata,
+    CashbackCRMMetadata,
     Column("tenant_id", String(64), primary_key=True),
     Column("unidade_id", String(64), primary_key=True),
     Column("movimento_id", String(64), primary_key=True),
