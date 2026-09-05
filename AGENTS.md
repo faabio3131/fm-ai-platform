@@ -1,14 +1,22 @@
-# Kordena / GERENTE AI — instruções permanentes para agentes
+# Coordena — instruções permanentes para agentes
 
 Estas instruções são subordinadas às autoridades superiores do ambiente, às regras de segurança e às decisões explícitas do proprietário. Elas organizam a execução do projeto, mas não substituem essas autoridades.
+
+## Identidade canônica do produto
+
+- **Nome comercial canônico atual:** `Coordena`.
+- `Kordena`, `GERENTE AI`, `Gerente AI`, `F&M AI FOOD` e `AI Food` são nomes históricos/legados e não devem ser introduzidos em novas superfícies comerciais.
+- O slug técnico do repositório permanece `fm-ai-platform` nesta etapa; renomeá-lo exige migração própria de remotes, Actions, integrações e referências externas.
+- Identificadores técnicos históricos já existentes — nomes de skills, variáveis `FM_AI_*`, nomes de módulos, arquivos, migrations, tabelas, IDs de autoridade ou documentos históricos — permanecem válidos quando sua alteração puder quebrar compatibilidade ou proveniência. Não os renomeie por estética.
+- Toda migração estrutural desses identificadores exige inventário de consumidores, compatibilidade, testes e rollback próprios.
 
 ## Hierarquia de autoridade
 
 1. Instruções de sistema/plataforma e regras de segurança aplicáveis.
 2. Instrução, autorização ou decisão mais recente explicitamente aprovada pelo proprietário, inclusive o gate/tarefa atual.
 3. Estado real verificado nas fontes factuais adequadas: repositório local, GitHub, Supabase e demais sistemas oficiais acessíveis.
-4. **Documento Mestre** — `GERENTE_AI_V1_PROTOCOLO_MESTRE_DE_EXECUCAO` (Drive ID `1oCZpdvettJxo2udyoWTEE5h0X3clB9BQ`).
-5. **System Design Master** — `GERENTE AI V1.0 — SYSTEM DESIGN MASTER` (Drive ID `1QB-v7P7CchvUMuir3tGtHwnBSeQAo53TDdof6wtH_f0`).
+4. **Documento Mestre** — identificador histórico `GERENTE_AI_V1_PROTOCOLO_MESTRE_DE_EXECUCAO` (Drive ID `1oCZpdvettJxo2udyoWTEE5h0X3clB9BQ`).
+5. **System Design Master** — documento histórico `GERENTE AI V1.0 — SYSTEM DESIGN MASTER` (Drive ID `1QB-v7P7CchvUMuir3tGtHwnBSeQAo53TDdof6wtH_f0`).
 6. ADRs/decisões arquiteturais vigentes, inclusive ADRs corretivos adotados.
 7. Código, testes e documentação local.
 
@@ -22,11 +30,13 @@ Para fatos de Git, use a fonte correspondente ao objeto verificado:
 
 ## Skills do projeto
 
-Quando a tarefa corresponder ao escopo, use as Skills em `.agents/skills/`:
+Quando a tarefa corresponder ao escopo, use as Skills reais existentes em `.agents/skills/`:
 
 - `kordena-system-design-guardian`: arquitetura, autoridade de domínio, multi-tenant, migrations, segurança e impacto estrutural.
 - `kordena-validation-release-gate`: testes, fitness tests, regressão, homologação física e definição de pronto.
 - `kordena-git-repository-governance`: branches, commits, worktrees, PRs, preservação e sincronização Work/GitHub/VS Code.
+
+Os três nomes `kordena-*` acima são **identificadores técnicos legados de compatibilidade**, não a marca comercial atual. Até uma migração estrutural própria, preserve os paths e use **Coordena** no conteúdo humano/atual dessas skills.
 
 ## Princípios permanentes
 
