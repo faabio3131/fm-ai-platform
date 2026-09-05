@@ -1,0 +1,78 @@
+name: F11-E Mypy Fix Once
+
+on:
+  push:
+    branches:
+      - feat/f11-e-ui-comercial-delivery
+    paths:
+      - .github/workflows/f11e-mypy-fix-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/f11-e-ui-comercial-delivery
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Aplicar correções estritas dos erros mypy observados
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("application/delivery_operacao_comercial.py")
+          text = path.read_text(encoding="utf-8")
+
+          replacements = [
+              ('descontos=Dinheiro("0.00"),', 'descontos=Dinheiro(Decimal("0.00")),'),
+              (
+                  "financeiro_resolvido_sqlalchemy(\n                        uow.session, tenant, unidade, pedido_ref\n                    )",
+                  "financeiro_resolvido_sqlalchemy(\n                        cast(Session, uow.session), tenant, unidade, pedido_ref\n                    )",
+              ),
+              (
+                  "pedido_cancelado_sqlalchemy(\n                        uow.session, tenant, unidade, pedido_ref\n                    )",
+                  "pedido_cancelado_sqlalchemy(\n                        cast(Session, uow.session), tenant, unidade, pedido_ref\n                    )",
+              ),
+              (
+                  "pedido_cancelado_sqlalchemy(uow.session, tenant, unidade, pedido_ref)",
+                  "pedido_cancelado_sqlalchemy(\n                    cast(Session, uow.session), tenant, unidade, pedido_ref\n                )",
+              ),
+              (
+                  "ocorrido_em=evento.ocorrido_em,",
+                  "ocorrido_em=cast(datetime, evento.ocorrido_em),",
+              ),
+          ]
+
+          expected_counts = [1, 2, 1, 1, 1]
+          for index, ((old, new), expected) in enumerate(
+              zip(replacements, expected_counts, strict=True), start=1
+          ):
+              count = text.count(old)
+              if count != expected:
+                  raise SystemExit(
+                      f"f11e_mypy_pattern_{index}_count={count}_expected={expected}"
+                  )
+              text = text.replace(old, new)
+
+          path.write_text(text, encoding="utf-8")
+          PY
+      - name: Validar fachada corrigida
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements.txt
+          python -m pip install --disable-pip-version-check ruff==0.16.1 mypy==1.20.2
+          ruff check application/delivery_operacao_comercial.py application/delivery_contexto_comercial.py
+          mypy application/delivery_operacao_comercial.py application/delivery_contexto_comercial.py
+      - name: Commitar correção e remover mecanismo temporário
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/f11e-mypy-fix-once.yml
+          git add application/delivery_operacao_comercial.py
+          git commit -m "fix(f11-e): satisfy typed commercial facade contracts"
+          git push origin HEAD:feat/f11-e-ui-comercial-delivery
