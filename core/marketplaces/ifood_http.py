@@ -1,7 +1,7 @@
-"""Adapter iFood sobre contrato HTTP oficial, sem rede real nesta PR.
+"""Adapter iFood sobre contrato HTTP oficial e porta de transporte injetável.
 
-O transporte HTTP e o resolvedor de segredos são portas injetáveis. Testes usam
-fakes; nenhuma credencial ou chamada externa é executada pela PR18.
+A composição comercial de rede real vive em ``core.marketplaces.runtime``.
+Testes continuam injetando fakes, sem credenciais ou chamadas externas no CI.
 """
 
 from __future__ import annotations

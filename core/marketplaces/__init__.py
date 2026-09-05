@@ -35,6 +35,11 @@ from .modelos import (
     StatusPedidoExterno,
 )
 from .partner_transport import TransporteParceiroNormalizado
+from .runtime import (
+    HttpxMarketplaceTransport,
+    compor_adapters_marketplace_reais,
+    compor_ifood_http_real,
+)
 from .servicos import ServicoMarketplaces
 
 __all__ = [
@@ -48,6 +53,7 @@ __all__ = [
     "ErroMarketplaceTransitorio",
     "EventoMarketplaceExterno",
     "Food99PartnerAdapter",
+    "HttpxMarketplaceTransport",
     "IfoodHttpAdapter",
     "IfoodSandboxAdapter",
     "IfoodSandboxTransport",
@@ -66,6 +72,8 @@ __all__ = [
     "ServicoMarketplaces",
     "StatusPedidoExterno",
     "TransporteParceiroNormalizado",
+    "compor_adapters_marketplace_reais",
+    "compor_ifood_http_real",
     "food99_adapter_v1_enabled",
     "ifood_adapter_v1_enabled",
     "keeta_adapter_v1_enabled",
