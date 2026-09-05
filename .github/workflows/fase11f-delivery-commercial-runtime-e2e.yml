@@ -1,0 +1,395 @@
+name: Fase 11F Delivery Commercial Runtime E2E Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'app.py'
+      - 'application/delivery_*.py'
+      - 'application/checkout.py'
+      - 'application/catalogo_estoque_cutover.py'
+      - 'core/delivery/**'
+      - 'core/pedidos/**'
+      - 'core/pagamentos/**'
+      - 'core/estoque/**'
+      - 'core/entrega/**'
+      - 'core/seguranca/**'
+      - 'infra/delivery/**'
+      - 'infra/crm/**'
+      - 'infra/seguranca/**'
+      - 'infra/eventos/**'
+      - 'infra/streamlit_app/auth_ui.py'
+      - 'migrations/**'
+      - 'scripts/seed_f11f_commercial_runtime.py'
+      - 'scripts/prepare_f11f_resolved_benefit.py'
+      - 'tests/e2e/f11f-commercial-delivery.spec.ts'
+      - 'tests/fitness/test_f11f_delivery_commercial_runtime.py'
+      - 'playwright.f11f.config.ts'
+      - 'docs/f11f-delivery-commercial-runtime-e2e.md'
+      - 'docs/inventario-fase11-delivery-proprio-cutover-v1.md'
+      - '.github/workflows/fase11f-delivery-commercial-runtime-e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  f11f-commercial:
+    name: PostgreSQL + app.py + Delivery + RBAC + evidencia duravel
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fm_ai_f11f
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d fm_ai_f11f"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      FM_AI_ENV: staging
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/fm_ai_f11f
+      FM_AI_TENANT_ID: tenant-f11f-a
+      FM_AI_UNIDADE_ID: unidade-f11f-a
+      FM_AI_DELIVERY_V1: '1'
+      FM_AI_ADAPTER_ORDERS: sqlalchemy
+      FM_AI_ADAPTER_PAYMENTS: sqlalchemy
+      FM_AI_ADAPTER_DELIVERY: sqlalchemy
+      FM_AI_ADAPTER_ENTREGA: sqlalchemy
+      FM_AI_ADAPTER_AUTH: sqlalchemy
+      FM_AI_SECRET_MASTER_KEY: bW1scnZpQzlCS2Q1dXBlTXRyUkJlTGNXWGtIclc3WktoM3lrb3Q5WT0=
+      PYTHONUNBUFFERED: '1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+          npm ci
+
+      - name: Gerar credenciais efemeras F11-F
+        run: |
+          echo "F11F_GERENTE_EMAIL=gerente-f11f@fm.ai" >> "$GITHUB_ENV"
+          echo "F11F_GARCOM_EMAIL=garcom-f11f@fm.ai" >> "$GITHUB_ENV"
+          echo "F11F_OTHER_GERENTE_EMAIL=gerente-outro-tenant-f11f@fm.ai" >> "$GITHUB_ENV"
+          echo "F11F_GERENTE_PASSWORD=F11F-Gerente-${GITHUB_RUN_ID}!" >> "$GITHUB_ENV"
+          echo "F11F_GARCOM_PASSWORD=F11F-Garcom-${GITHUB_RUN_ID}!" >> "$GITHUB_ENV"
+          echo "F11F_OTHER_GERENTE_PASSWORD=F11F-OutroTenant-${GITHUB_RUN_ID}!" >> "$GITHUB_ENV"
+          python - <<'PY' >> "$GITHUB_ENV"
+          from cryptography.fernet import Fernet
+          print(f"FM_AI_SECRET_MASTER_KEY={Fernet.generate_key().decode('ascii')}")
+          PY
+
+      - name: Provar composicao comercial F11-F
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          python - <<'PY'
+          from core.delivery.flags import delivery_v1_access_allowed, delivery_v1_enabled
+          from core.runtime.config import RuntimeEnvironment, load_runtime_settings
+          from core.seguranca import MATRIZ_PADRAO, Papel
+
+          settings = load_runtime_settings()
+          assert settings.environment is RuntimeEnvironment.STAGING
+          assert settings.commercial
+          assert settings.tenant_id == "tenant-f11f-a"
+          assert settings.unidade_id == "unidade-f11f-a"
+          assert delivery_v1_enabled()
+          assert delivery_v1_access_allowed(MATRIZ_PADRAO[Papel.GERENTE])
+          assert not delivery_v1_access_allowed(MATRIZ_PADRAO[Papel.GARCOM])
+          print("F11-F commercial composition ready")
+          PY
+
+      - name: Compile Ruff Mypy F11-F
+        run: |
+          python -m compileall -q \
+            scripts/seed_f11f_commercial_runtime.py \
+            scripts/prepare_f11f_resolved_benefit.py \
+            application/delivery_contexto_comercial.py \
+            application/delivery_checkout_comercial.py \
+            application/delivery_operacao_comercial.py \
+            core/delivery \
+            infra/delivery
+          ruff check \
+            scripts/seed_f11f_commercial_runtime.py \
+            scripts/prepare_f11f_resolved_benefit.py \
+            tests/fitness/test_f11f_delivery_commercial_runtime.py \
+            application/delivery_contexto_comercial.py \
+            application/delivery_checkout_comercial.py \
+            application/delivery_operacao_comercial.py \
+            core/delivery \
+            infra/delivery
+          mypy \
+            scripts/seed_f11f_commercial_runtime.py \
+            scripts/prepare_f11f_resolved_benefit.py \
+            application/delivery_contexto_comercial.py \
+            application/delivery_checkout_comercial.py \
+            application/delivery_operacao_comercial.py \
+            core/delivery \
+            infra/delivery
+
+      - name: Regressao focada F11-B ate F11-F
+        run: |
+          pytest -q \
+            tests/fitness/test_f11b_delivery_commercial_state.py \
+            tests/fitness/test_f11c_delivery_commercial_context.py \
+            tests/fitness/test_f11d_delivery_checkout_beneficios.py \
+            tests/fitness/test_f11e_delivery_ui_comercial.py \
+            tests/fitness/test_f11f_delivery_commercial_runtime.py \
+            tests/integration/delivery
+
+      - name: Regressao Python completa
+        run: |
+          unset FM_AI_ENV
+          unset DATABASE_URL
+          unset FM_AI_TENANT_ID
+          unset FM_AI_UNIDADE_ID
+          unset FM_AI_DELIVERY_V1
+          unset FM_AI_ADAPTER_ORDERS
+          unset FM_AI_ADAPTER_PAYMENTS
+          unset FM_AI_ADAPTER_DELIVERY
+          unset FM_AI_ADAPTER_ENTREGA
+          unset FM_AI_ADAPTER_AUTH
+          unset FM_AI_SECRET_MASTER_KEY
+          pytest -q
+
+      - name: Preparar PostgreSQL comercial F11-F
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          python -m scripts.seed_f11f_commercial_runtime
+          python -m scripts.migrate_v1
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine
+          from sqlalchemy.orm import Session
+
+          from core.seguranca.autenticacao import ServicoAutenticacao
+          from core.seguranca.erros import CredenciaisInvalidas
+          from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
+          from migrations.runner import assert_schema_current
+
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          assert_schema_current(engine)
+          with Session(engine) as session:
+              auth = ServicoAutenticacao(RepositorioIdentidadesSQLAlchemy(session))
+              gerente = auth.autenticar(
+                  email=os.environ["F11F_GERENTE_EMAIL"],
+                  password=os.environ["F11F_GERENTE_PASSWORD"],
+              )
+              assert gerente.tenant_id == "tenant-f11f-a"
+              assert gerente.unidade_id == "unidade-f11f-a"
+
+              outro = auth.autenticar(
+                  email=os.environ["F11F_OTHER_GERENTE_EMAIL"],
+                  password=os.environ["F11F_OTHER_GERENTE_PASSWORD"],
+              )
+              assert outro.tenant_id == "tenant-f11f-b"
+              try:
+                  outro.no_escopo_ativo(
+                      tenant_id="tenant-f11f-a",
+                      unidade_id="unidade-f11f-a",
+                  )
+              except CredenciaisInvalidas:
+                  pass
+              else:
+                  raise AssertionError("identidade cross-tenant deveria falhar fechado")
+          print("F11-F schema, auth e isolamento pre-browser prontos")
+          PY
+
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser comercial Delivery F11-F
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          npx playwright test -c playwright.f11f.config.ts --reporter=list
+
+      - name: Evidencia PostgreSQL final F11-F
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          python - <<'PY'
+          import json
+          import os
+          from decimal import Decimal
+
+          from sqlalchemy import create_engine, text
+
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          with engine.connect() as connection:
+              carrinho = connection.execute(
+                  text(
+                      "select status, payload from delivery_carrinhos_v1 "
+                      "where tenant_id='tenant-f11f-a' and unidade_id='unidade-f11f-a' "
+                      "and cliente_ref='cliente-f11f-a' and status='confirmado'"
+                  )
+              ).mappings().one()
+              payload = carrinho["payload"]
+              if isinstance(payload, str):
+                  payload = json.loads(payload)
+              pedido_id = payload["pedido_id"]
+              assert pedido_id
+              assert payload["cupom_codigo"] == "F11F5"
+              assert Decimal(str(payload["desconto_cupom"])) == Decimal("5.00")
+
+              pedido = connection.execute(
+                  text(
+                      "select id, origem, canal, status, cliente_id, subtotal, descontos, taxas, total "
+                      "from pedidos_v1 where id=:pedido and tenant_id='tenant-f11f-a' "
+                      "and unidade_id='unidade-f11f-a'"
+                  ),
+                  {"pedido": pedido_id},
+              ).mappings().one()
+              assert pedido["origem"] == "delivery_proprio"
+              assert pedido["canal"] == "delivery_proprio"
+              assert pedido["status"] == "cancelado"
+              assert pedido["cliente_id"] == "cliente-f11f-a"
+              assert Decimal(str(pedido["subtotal"])) == Decimal("32.00")
+              assert Decimal(str(pedido["descontos"])) == Decimal("5.00")
+              assert Decimal(str(pedido["taxas"])) == Decimal("7.00")
+              assert Decimal(str(pedido["total"])) == Decimal("34.00")
+
+              pagamento = connection.execute(
+                  text(
+                      "select status, metodo, valor_previsto, recebimento_posterior "
+                      "from pagamentos_v1 where pedido_id=:pedido and tenant_id='tenant-f11f-a' "
+                      "and unidade_id='unidade-f11f-a'"
+                  ),
+                  {"pedido": pedido_id},
+              ).mappings().one()
+              assert pagamento["status"] == "cancelado"
+              assert pagamento["metodo"] == "pagamento_na_entrega"
+              assert Decimal(str(pagamento["valor_previsto"])) == Decimal("34.00")
+              assert pagamento["recebimento_posterior"] is True
+
+              reserva = connection.execute(
+                  text(
+                      "select status, resolvida_em from estoque_reservas_v1 "
+                      "where pedido_id=:pedido and tenant_id='tenant-f11f-a' "
+                      "and unidade_id='unidade-f11f-a'"
+                  ),
+                  {"pedido": pedido_id},
+              ).mappings().one()
+              assert reserva["status"] == "liberada"
+              assert reserva["resolvida_em"] is not None
+
+              saldo = connection.execute(
+                  text(
+                      "select saldo_fisico, saldo_reservado from estoque_saldos_v1 "
+                      "where tenant_id='tenant-f11f-a' and unidade_id='unidade-f11f-a' "
+                      "and insumo_id='legacy:insumo:11001'"
+                  )
+              ).mappings().one()
+              assert Decimal(str(saldo["saldo_fisico"])) == Decimal("30.000000")
+              assert Decimal(str(saldo["saldo_reservado"])) == Decimal("0.000000")
+
+              entrega = connection.execute(
+                  text(
+                      "select id, status, versao from entregas_v1 where pedido_id=:pedido "
+                      "and tenant_id='tenant-f11f-a' and unidade_id='unidade-f11f-a'"
+                  ),
+                  {"pedido": pedido_id},
+              ).mappings().one()
+              assert entrega["status"] == "cancelada"
+              assert entrega["versao"] == 2
+
+              eventos_entrega = tuple(
+                  connection.execute(
+                      text(
+                          "select tipo from eventos_entrega_v1 where entrega_id=:entrega "
+                          "and tenant_id='tenant-f11f-a' and unidade_id='unidade-f11f-a' "
+                          "order by versao_entrega"
+                      ),
+                      {"entrega": entrega["id"]},
+                  ).scalars()
+              )
+              assert eventos_entrega == ("entrega.criada", "entrega.cancelada")
+
+              beneficio = connection.execute(
+                  text(
+                      "select payload from event_outbox_v1 "
+                      "where aggregate_id=:pedido and tenant_id='tenant-f11f-a' "
+                      "and unidade_id='unidade-f11f-a' "
+                      "and event_type='delivery.beneficio.checkout.avaliado.v1'"
+                  ),
+                  {"pedido": pedido_id},
+              ).mappings().one()["payload"]
+              if isinstance(beneficio, str):
+                  beneficio = json.loads(beneficio)
+              assert beneficio["aceito"] is True
+              assert beneficio["motivo"] == "beneficio_aplicado"
+              assert Decimal(str(beneficio["beneficio_total"])) == Decimal("5.00")
+              assert Decimal(str(beneficio["total_depois"])) == Decimal("34.00")
+
+              auditoria = connection.execute(
+                  text(
+                      "select resultado, motivo, politica from fm_auditoria_v1 "
+                      "where recurso_id=:pedido and tenant_id='tenant-f11f-a' "
+                      "and unidade_id='unidade-f11f-a' "
+                      "and acao='avaliar_beneficio_delivery_checkout'"
+                  ),
+                  {"pedido": pedido_id},
+              ).mappings().one()
+              assert auditoria["resultado"] == "permitido"
+              assert auditoria["motivo"] == "beneficio_aplicado"
+              assert auditoria["politica"] == "f11-d-delivery-beneficios-v1"
+
+              fora = connection.execute(
+                  text(
+                      "select count(*) from pedidos_v1 where tenant_id='tenant-f11f-a' "
+                      "and unidade_id='unidade-f11f-a' and cliente_id='cliente-f11f-out'"
+                  )
+              ).scalar_one()
+              assert fora == 0
+
+              outro_tenant = connection.execute(
+                  text(
+                      "select tenant_id, unidade_padrao_id, ativo from fm_usuarios_v1 "
+                      "where email=:email"
+                  ),
+                  {"email": os.environ["F11F_OTHER_GERENTE_EMAIL"]},
+              ).mappings().one()
+              assert outro_tenant["tenant_id"] == "tenant-f11f-b"
+              assert outro_tenant["unidade_padrao_id"] == "unidade-f11f-b"
+              assert outro_tenant["ativo"] is True
+
+              print({
+                  "pedido": pedido_id,
+                  "pedido_status": pedido["status"],
+                  "total": str(pedido["total"]),
+                  "pagamento": pagamento["status"],
+                  "reserva": reserva["status"],
+                  "entrega": entrega["status"],
+                  "beneficio": beneficio["motivo"],
+                  "eventos_entrega": eventos_entrega,
+                  "cross_tenant": "fail_closed",
+              })
+          PY
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f11f-playwright-report
+          path: playwright-report-f11f/
+          if-no-files-found: ignore

@@ -7,14 +7,16 @@ async function selecionarCombo(combo: Locator, opcao: string) {
     return;
   }
   await expect(async () => {
-    await combo.focus();
-    await combo.press('ArrowDown');
-    await expect(combo).toHaveAttribute('aria-expanded', 'true', { timeout: 5_000 });
-  }).toPass({ timeout: 15_000 });
-  const listbox = combo.page().getByRole('listbox').filter({ visible: true }).last();
-  await expect(listbox).toBeVisible({ timeout: 5_000 });
-  await listbox.getByRole('option', { name: opcao, exact: true }).click();
-  await expect(combo).toHaveValue(opcao, { timeout: 15_000 });
+    await combo.click();
+    const option = combo
+      .page()
+      .getByRole('option', { name: opcao, exact: true })
+      .filter({ visible: true })
+      .last();
+    await expect(option).toBeVisible({ timeout: 5_000 });
+    await option.click();
+    await expect(combo).toHaveValue(opcao, { timeout: 5_000 });
+  }).toPass({ timeout: 20_000 });
 }
 
 async function selecionarCliente(page: Page, clienteId: string) {
