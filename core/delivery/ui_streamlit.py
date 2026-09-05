@@ -1,48 +1,35 @@
-"""Interface cliente do Delivery Próprio V1, isolada e test-only nesta PR."""
+"""Superfície comercial autenticada do Delivery Próprio V1."""
 
 from __future__ import annotations
 
-from decimal import Decimal
+from collections.abc import Callable
 from uuid import uuid4
 
 import streamlit as st
+from sqlalchemy.orm import Session
 
+from application.delivery_operacao_comercial import (
+    ErroDeliveryComercial,
+    acompanhar_delivery_comercial,
+    abrir_carrinho_delivery_comercial,
+    adicionar_item_delivery_comercial,
+    cancelar_delivery_comercial,
+    confirmar_delivery_comercial,
+    cotar_endereco_delivery_comercial,
+    listar_clientes_delivery_comercial,
+    obter_carrinho_delivery_comercial,
+    repetir_delivery_comercial,
+    resolver_contexto_jornada_delivery,
+)
 from core.pagamentos.modelos import MetodoPagamento
+from core.seguranca.autenticacao import IdentidadeUsuario
+from core.seguranca.permissoes import Permissao
 
 from .erros import ErroDelivery
-from .flags import delivery_v1_enabled
-from .modelos import EnderecoDelivery, EstagioCancelamento, StatusCarrinhoDelivery
-from .runtime_teste import RuntimeDeliveryTeste
+from .flags import delivery_v1_access_allowed, delivery_v1_enabled
+from .modelos import StatusCarrinhoDelivery
 
-
-def _runtime() -> RuntimeDeliveryTeste:
-    runtime = st.session_state.get("_delivery_runtime")
-    if isinstance(runtime, RuntimeDeliveryTeste):
-        return runtime
-    runtime = RuntimeDeliveryTeste()
-    st.session_state["_delivery_runtime"] = runtime
-    return runtime
-
-
-def _carrinho_atual(runtime: RuntimeDeliveryTeste):
-    carrinho_id = st.session_state.get("_delivery_carrinho_id")
-    if not isinstance(carrinho_id, str):
-        carrinho_id = f"cart-ui-{uuid4().hex[:12]}"
-        runtime.servico.abrir_carrinho(
-            carrinho_id=carrinho_id,
-            tenant_id="tenant-demo",
-            unidade_id="unidade-demo",
-            cliente_ref="cliente-demo",
-        )
-        st.session_state["_delivery_carrinho_id"] = carrinho_id
-    carrinho = runtime.carrinhos.obter(
-        tenant_id="tenant-demo",
-        unidade_id="unidade-demo",
-        carrinho_id=carrinho_id,
-    )
-    if carrinho is None:
-        raise ErroDelivery("carrinho_ui_ausente")
-    return carrinho
+SessionFactory = Callable[[], Session]
 
 
 def _executar(acao):
@@ -50,260 +37,301 @@ def _executar(acao):
         return acao()
     except ErroDelivery as exc:
         st.error(f"Não foi possível concluir: {exc.codigo}")
-        return None
+    except (ErroDeliveryComercial, PermissionError, LookupError, ValueError) as exc:
+        st.error(f"Não foi possível concluir: {exc}")
+    return None
 
 
-def render_delivery_v1(*, runtime: RuntimeDeliveryTeste | None = None) -> None:
-    """Renderiza a jornada completa do canal próprio em runtime seguro de teste."""
+def _limpar_jornada() -> None:
+    st.session_state.pop("_delivery_comercial_carrinho_id", None)
+    st.session_state.pop("_delivery_comercial_pedido_id", None)
+
+
+def render_delivery_v1(
+    *,
+    session_factory: SessionFactory,
+    identidade: IdentidadeUsuario,
+) -> None:
+    """Renderiza Delivery usando somente identidade e authorities comerciais reais."""
+
     if not delivery_v1_enabled():
         st.info("Delivery Próprio V1 está desabilitado neste ambiente.")
         return
-
-    runtime = runtime or _runtime()
-    carrinho = _carrinho_atual(runtime)
+    if not delivery_v1_access_allowed(identidade.permissoes):
+        st.error("Seu perfil não possui alçada para operar o Delivery Próprio.")
+        return
 
     st.header("🛵 Delivery Próprio")
     st.caption(
-        "Catálogo, carrinho, área de entrega, taxa/SLA, promoções, pagamento e tracking."
+        "Jornada comercial vinculada ao cliente, catálogo, Checkout, Estoque e Entrega canônicos."
+    )
+    st.caption(
+        f"Escopo ativo: {identidade.tenant_id} / {identidade.unidade_id} — "
+        "definido pela identidade autenticada."
     )
 
-    if carrinho.status is StatusCarrinhoDelivery.ABERTO:
-        st.subheader("1. Cardápio")
-        cols = st.columns(len(runtime.catalogo))
-        for col, produto in zip(cols, runtime.catalogo, strict=True):
-            with col:
-                st.markdown(f"**{produto.nome}**")
-                st.write(f"R$ {produto.preco:.2f}")
-                st.caption(f"Disponível: {produto.estoque_disponivel}")
-                if st.button(
-                    f"Adicionar {produto.nome}",
-                    key=f"delivery_add_{produto.produto_id}",
-                    use_container_width=True,
-                ):
-                    novo = _executar(
-                        lambda p=produto: runtime.servico.adicionar_item(
-                            tenant_id="tenant-demo",
-                            unidade_id="unidade-demo",
-                            carrinho_id=carrinho.carrinho_id,
-                            produto_id=p.produto_id,
-                            quantidade=1,
-                            expected_version=carrinho.versao,
-                            catalogo=runtime.catalogo,
-                        )
-                    )
-                    if novo is not None:
-                        st.session_state["_delivery_flash"] = f"{produto.nome} adicionado."
-                        st.rerun()
-
-        flash = st.session_state.pop("_delivery_flash", None)
-        if flash:
-            st.success(str(flash))
-
-        carrinho = _carrinho_atual(runtime)
-        st.subheader("2. Carrinho")
-        if not carrinho.itens:
-            st.info("Seu carrinho está vazio.")
-        else:
-            for item in carrinho.itens:
-                st.write(f"{item.quantidade}x {item.nome} — R$ {item.subtotal:.2f}")
-            st.metric("Subtotal", f"R$ {carrinho.subtotal:.2f}")
-
-        st.subheader("3. Endereço e entrega")
-        with st.form("delivery_endereco"):
-            cep = st.text_input("CEP", value="01001000")
-            logradouro = st.text_input("Logradouro", value="Praça da Sé")
-            numero = st.text_input("Número", value="100")
-            bairro = st.text_input("Bairro", value="Sé")
-            cidade = st.text_input("Cidade", value="São Paulo")
-            uf = st.text_input("UF", value="SP")
-            calcular = st.form_submit_button("Calcular entrega", type="primary")
-        if calcular:
-            endereco = _executar(
-                lambda: EnderecoDelivery(
-                    endereco_id=f"end-{carrinho.carrinho_id}",
-                    cliente_ref="cliente-demo",
-                    cep=cep,
-                    logradouro=logradouro,
-                    numero=numero,
-                    bairro=bairro,
-                    cidade=cidade,
-                    uf=uf,
-                )
-            )
-            if endereco is not None:
-                novo = _executar(
-                    lambda: runtime.servico.definir_endereco(
-                        tenant_id="tenant-demo",
-                        unidade_id="unidade-demo",
-                        carrinho_id=carrinho.carrinho_id,
-                        endereco=endereco,
-                        expected_version=carrinho.versao,
-                        areas=runtime.areas,
-                    )
-                )
-                if novo is not None:
-                    st.success(
-                        f"Entrega: R$ {novo.taxa_entrega:.2f} — "
-                        f"{novo.cotacao.sla_minutos}-{novo.cotacao.sla_maxutos} min"
-                    )
-                    st.rerun()
-
-        carrinho = _carrinho_atual(runtime)
-        if carrinho.cotacao:
-            st.success(
-                f"Área {carrinho.cotacao.nome_area}: taxa R$ {carrinho.taxa_entrega:.2f}, "
-                f"SLA {carrinho.cotacao.sla_minutos}-{carrinho.cotacao.sla_maxutos} min."
-            )
-
-        st.subheader("4. Benefícios")
-        col_cupom, col_cashback = st.columns(2)
-        with col_cupom:
-            with st.form("delivery_cupom"):
-                codigo = st.text_input("Cupom", value="BEMVINDO10")
-                aplicar = st.form_submit_button("Aplicar cupom")
-            if aplicar:
-                novo = _executar(
-                    lambda: runtime.servico.aplicar_cupom(
-                        tenant_id="tenant-demo",
-                        unidade_id="unidade-demo",
-                        carrinho_id=carrinho.carrinho_id,
-                        codigo=codigo,
-                        expected_version=carrinho.versao,
-                        cupons=runtime.cupons,
-                    )
-                )
-                if novo is not None:
-                    st.success(f"Cupom aplicado: -R$ {novo.desconto_cupom:.2f}")
-                    st.rerun()
-        carrinho = _carrinho_atual(runtime)
-        with col_cashback:
-            saldo = runtime.promocoes.saldo_cashback(
-                tenant_id="tenant-demo",
-                unidade_id="unidade-demo",
-                cliente_ref="cliente-demo",
-            )
-            st.caption(f"Cashback disponível: R$ {saldo:.2f}")
-            with st.form("delivery_cashback"):
-                valor = st.number_input(
-                    "Usar cashback (R$)", min_value=0.0, value=5.0, step=1.0
-                )
-                usar = st.form_submit_button("Reservar cashback")
-            if usar:
-                novo = _executar(
-                    lambda: runtime.servico.reservar_cashback(
-                        tenant_id="tenant-demo",
-                        unidade_id="unidade-demo",
-                        carrinho_id=carrinho.carrinho_id,
-                        valor_desejado=Decimal(str(valor)),
-                        expected_version=carrinho.versao,
-                    )
-                )
-                if novo is not None:
-                    st.success(f"Cashback reservado: R$ {novo.cashback_reservado:.2f}")
-                    st.rerun()
-
-        carrinho = _carrinho_atual(runtime)
-        st.subheader("5. Fechamento")
-        st.write(f"Desconto cupom: R$ {carrinho.desconto_cupom:.2f}")
-        st.write(f"Cashback: R$ {carrinho.cashback_reservado:.2f}")
-        st.metric("Total do pedido", f"R$ {carrinho.total:.2f}")
-        labels = {
-            "Pix": MetodoPagamento.PIX,
-            "Cartão de crédito": MetodoPagamento.CARTAO_CREDITO,
-            "Cartão de débito": MetodoPagamento.CARTAO_DEBITO,
-            "Pagamento na entrega": MetodoPagamento.PAGAMENTO_NA_ENTREGA,
-        }
-        metodo_label = st.selectbox("Forma de pagamento", list(labels))
-        if st.button("Confirmar pedido", type="primary", use_container_width=True):
-            idem = f"ui-confirm-{carrinho.carrinho_id}"
-            resultado = _executar(
-                lambda: runtime.servico.confirmar(
-                    tenant_id="tenant-demo",
-                    unidade_id="unidade-demo",
-                    carrinho_id=carrinho.carrinho_id,
-                    expected_version=carrinho.versao,
-                    metodo_pagamento=labels[metodo_label],
-                    idempotency_key=idem,
-                    catalogo=runtime.catalogo,
-                    areas=runtime.areas,
-                )
-            )
-            if resultado is not None:
-                st.session_state["_delivery_pedido_id"] = resultado.pedido.pedido_id
-                st.success("Pedido confirmado com segurança.")
-                st.rerun()
-
-    pedido_id = st.session_state.get("_delivery_pedido_id")
-    if isinstance(pedido_id, str):
-        pedido = runtime.pedidos.obter(
-            tenant_id="tenant-demo",
-            unidade_id="unidade-demo",
-            pedido_id=pedido_id,
+    clientes = _executar(
+        lambda: listar_clientes_delivery_comercial(
+            identidade=identidade,
+            session_factory=session_factory,
         )
-        if pedido is not None:
-            st.subheader("Pedido confirmado")
-            st.write(f"Pedido: `{pedido.pedido_id}`")
-            st.metric("Total", f"R$ {pedido.total:.2f}")
-            st.write(f"Pagamento: **{pedido.pagamento.status.value}**")
-            st.write(
-                "O canal nunca considera Pix/cartão pago sem confirmação da fonte financeira."
-            )
+    )
+    if not clientes:
+        st.warning("Nenhum cliente CRM disponível no escopo ativo para iniciar um delivery.")
+        return
 
-            st.subheader("Acompanhar pedido")
-            timeline = _executar(
-                lambda: runtime.servico.acompanhar(
-                    tenant_id="tenant-demo",
-                    unidade_id="unidade-demo",
-                    cliente_ref="cliente-demo",
-                    pedido_id=pedido.pedido_id,
+    cliente_ids = [cliente.cliente_id for cliente in clientes]
+    cliente_anterior = st.session_state.get("_delivery_comercial_cliente_id")
+    indice = cliente_ids.index(cliente_anterior) if cliente_anterior in cliente_ids else 0
+    cliente_id = st.selectbox(
+        "Cliente CRM",
+        cliente_ids,
+        index=indice,
+        key="_delivery_comercial_cliente_select",
+    )
+    if cliente_id != cliente_anterior:
+        st.session_state["_delivery_comercial_cliente_id"] = cliente_id
+        _limpar_jornada()
+
+    contexto = _executar(
+        lambda: resolver_contexto_jornada_delivery(
+            identidade=identidade,
+            cliente_id=cliente_id,
+            session_factory=session_factory,
+        )
+    )
+    if contexto is None:
+        return
+
+    st.info(
+        "📍 Endereço validado: "
+        f"{contexto.endereco.endereco_formatado} · CEP {contexto.endereco.cep}"
+    )
+
+    carrinho_id = st.session_state.get("_delivery_comercial_carrinho_id")
+    carrinho = None
+    if isinstance(carrinho_id, str):
+        carrinho = _executar(
+            lambda: obter_carrinho_delivery_comercial(
+                identidade=identidade,
+                cliente_id=cliente_id,
+                carrinho_id=carrinho_id,
+                session_factory=session_factory,
+            )
+        )
+
+    if carrinho is None:
+        if st.button("🛒 Iniciar novo pedido", type="primary"):
+            novo_id = f"cart-{uuid4().hex[:20]}"
+            novo = _executar(
+                lambda: abrir_carrinho_delivery_comercial(
+                    identidade=identidade,
+                    cliente_id=cliente_id,
+                    carrinho_id=novo_id,
+                    session_factory=session_factory,
                 )
             )
-            if timeline:
-                for evento in timeline:
-                    st.write(f"• {evento.status.value}: {evento.mensagem}")
-
-            if pedido.status.value != "cancelado":
-                with st.expander("Cancelar pedido"):
-                    motivo = st.text_input(
-                        "Motivo do cancelamento", value="Solicitação do cliente"
-                    )
-                    if st.button("Cancelar pedido agora"):
-                        resultado_cancel = _executar(
-                            lambda: runtime.servico.cancelar(
-                                tenant_id="tenant-demo",
-                                unidade_id="unidade-demo",
-                                cliente_ref="cliente-demo",
-                                pedido_id=pedido.pedido_id,
-                                estagio=EstagioCancelamento.ANTES_PRODUCAO,
-                                motivo=motivo,
-                                idempotency_key=f"ui-cancel-{pedido.pedido_id}",
-                            )
-                        )
-                        if resultado_cancel is not None:
-                            st.success(
-                                "Pedido cancelado. Benefícios reservados foram reconciliados."
-                            )
-                            st.rerun()
+            if novo is not None:
+                st.session_state["_delivery_comercial_carrinho_id"] = novo.carrinho_id
+                st.rerun()
+    else:
+        if carrinho.status is StatusCarrinhoDelivery.ABERTO:
+            st.subheader("1. Cardápio")
+            if not contexto.catalogo:
+                st.warning("Nenhum produto com ficha/estoque disponível para esta unidade.")
             else:
-                st.warning("Pedido cancelado.")
+                for produto in contexto.catalogo:
+                    col_nome, col_qtd, col_acao = st.columns([5, 2, 2])
+                    with col_nome:
+                        st.markdown(f"**{produto.nome}**")
+                        st.caption(
+                            f"R$ {produto.preco:.2f} · capacidade atual {produto.estoque_disponivel}"
+                        )
+                    with col_qtd:
+                        quantidade = st.number_input(
+                            "Qtd.",
+                            min_value=1,
+                            max_value=100,
+                            value=1,
+                            key=f"delivery_qtd_{produto.produto_id}",
+                        )
+                    with col_acao:
+                        if st.button(
+                            "Adicionar",
+                            key=f"delivery_add_{produto.produto_id}",
+                            use_container_width=True,
+                        ):
+                            novo = _executar(
+                                lambda p=produto, q=int(quantidade): adicionar_item_delivery_comercial(
+                                    identidade=identidade,
+                                    cliente_id=cliente_id,
+                                    carrinho_id=carrinho.carrinho_id,
+                                    produto_id=p.produto_id,
+                                    quantidade=q,
+                                    expected_version=carrinho.versao,
+                                    session_factory=session_factory,
+                                )
+                            )
+                            if novo is not None:
+                                st.success(f"{produto.nome} adicionado ao carrinho.")
+                                st.rerun()
 
-            if st.button("Repetir este pedido"):
-                novo_id = f"cart-repeat-{uuid4().hex[:10]}"
-                novo = _executar(
-                    lambda: runtime.servico.repetir(
-                        tenant_id="tenant-demo",
-                        unidade_id="unidade-demo",
-                        cliente_ref="cliente-demo",
-                        pedido_id=pedido.pedido_id,
-                        novo_carrinho_id=novo_id,
-                        catalogo=runtime.catalogo,
-                        areas=runtime.areas,
+            carrinho = obter_carrinho_delivery_comercial(
+                identidade=identidade,
+                cliente_id=cliente_id,
+                carrinho_id=carrinho.carrinho_id,
+                session_factory=session_factory,
+            )
+            if carrinho is None:
+                st.error("Carrinho indisponível no escopo ativo.")
+                return
+
+            st.subheader("2. Carrinho e entrega")
+            if not carrinho.itens:
+                st.info("O carrinho ainda está vazio.")
+            else:
+                for item in carrinho.itens:
+                    st.write(f"• {item.quantidade}x {item.nome} — R$ {item.subtotal:.2f}")
+                st.metric("Subtotal", f"R$ {carrinho.subtotal:.2f}")
+
+            if carrinho.endereco is None:
+                if st.button("📍 Calcular taxa e SLA no endereço validado"):
+                    cotado = _executar(
+                        lambda: cotar_endereco_delivery_comercial(
+                            identidade=identidade,
+                            cliente_id=cliente_id,
+                            carrinho_id=carrinho.carrinho_id,
+                            expected_version=carrinho.versao,
+                            session_factory=session_factory,
+                        )
+                    )
+                    if cotado is not None:
+                        st.rerun()
+            elif carrinho.cotacao is not None:
+                st.success(
+                    f"{carrinho.cotacao.nome_area}: taxa R$ {carrinho.taxa_entrega:.2f} · "
+                    f"SLA {carrinho.cotacao.sla_minutos}-{carrinho.cotacao.sla_maxutos} min"
+                )
+
+            st.subheader("3. Benefícios e fechamento")
+            st.caption(
+                "Cupom e cashback não são fabricados pela UI. Quando houver reserva válida, "
+                "o Checkout canônico avalia e aplica os valores já resolvidos pela política."
+            )
+            st.write(f"Cupom reservado: R$ {carrinho.desconto_cupom:.2f}")
+            st.write(f"Cashback reservado: R$ {carrinho.cashback_reservado:.2f}")
+            st.metric("Total estimado", f"R$ {carrinho.total:.2f}")
+
+            metodos = {
+                "Pix": MetodoPagamento.PIX,
+                "Cartão de crédito": MetodoPagamento.CARTAO_CREDITO,
+                "Cartão de débito": MetodoPagamento.CARTAO_DEBITO,
+                "Pagamento na entrega": MetodoPagamento.PAGAMENTO_NA_ENTREGA,
+            }
+            metodo_label = st.selectbox("Forma de pagamento", list(metodos))
+            pode_confirmar = {
+                Permissao.PEDIDO_ALTERAR,
+                Permissao.PAGAMENTO_REGISTRAR,
+            }.issubset(identidade.permissoes)
+            if not pode_confirmar:
+                st.warning(
+                    "Seu perfil pode montar e consultar o pedido, mas não possui alçada para finalizar o checkout."
+                )
+            if st.button(
+                "✅ Confirmar pedido",
+                type="primary",
+                use_container_width=True,
+                disabled=(
+                    not pode_confirmar
+                    or not carrinho.itens
+                    or carrinho.cotacao is None
+                ),
+            ):
+                chave = f"delivery-ui:{carrinho.carrinho_id}"
+                resultado = _executar(
+                    lambda: confirmar_delivery_comercial(
+                        identidade=identidade,
+                        cliente_id=cliente_id,
+                        carrinho_id=carrinho.carrinho_id,
+                        metodo_pagamento=metodos[metodo_label],
+                        idempotency_key=chave,
+                        session_factory=session_factory,
                     )
                 )
-                if novo is not None:
-                    st.session_state["_delivery_carrinho_id"] = novo.carrinho_id
-                    st.session_state.pop("_delivery_pedido_id", None)
-                    st.success(
-                        "Carrinho reconstruído com catálogo, preço, estoque, taxa e SLA atuais."
-                    )
+                if resultado is not None:
+                    st.session_state["_delivery_comercial_pedido_id"] = resultado.pedido_id
+                    st.success("Pedido criado no Checkout canônico e vinculado à Entrega V1.")
                     st.rerun()
+        else:
+            st.success("Carrinho já confirmado no fluxo comercial.")
+            if carrinho.pedido_id:
+                st.session_state["_delivery_comercial_pedido_id"] = carrinho.pedido_id
+
+    pedido_id = st.session_state.get("_delivery_comercial_pedido_id")
+    if not isinstance(pedido_id, str):
+        return
+
+    st.markdown("---")
+    st.subheader("4. Acompanhamento")
+    tracking = _executar(
+        lambda: acompanhar_delivery_comercial(
+            identidade=identidade,
+            cliente_id=cliente_id,
+            pedido_id=pedido_id,
+            session_factory=session_factory,
+        )
+    )
+    if tracking is None:
+        return
+    st.write(f"Pedido: `{tracking.pedido_id}`")
+    st.write(f"Pedido: **{tracking.status_pedido.value}**")
+    st.write(f"Entrega: **{tracking.status_entrega.value}**")
+    st.metric("Total canônico", f"R$ {tracking.total:.2f}")
+    if tracking.eventos:
+        with st.expander("Histórico logístico"):
+            for evento in tracking.eventos:
+                st.write(f"• {evento.ocorrido_em:%d/%m/%Y %H:%M} — {evento.tipo}")
+
+    col_cancelar, col_repetir = st.columns(2)
+    with col_cancelar:
+        if Permissao.PEDIDO_CANCELAR in identidade.permissoes:
+            with st.expander("Cancelar pedido"):
+                motivo = st.text_input(
+                    "Motivo",
+                    value="Solicitação do cliente",
+                    key="delivery_cancel_motivo",
+                )
+                if st.button("Cancelar no fluxo canônico", type="secondary"):
+                    cancelado = _executar(
+                        lambda: cancelar_delivery_comercial(
+                            identidade=identidade,
+                            cliente_id=cliente_id,
+                            pedido_id=pedido_id,
+                            motivo=motivo,
+                            idempotency_key=f"delivery-ui-cancel:{pedido_id}",
+                            session_factory=session_factory,
+                        )
+                    )
+                    if cancelado is not None:
+                        st.success("Pedido, reserva, obrigação pendente e entrega reconciliados.")
+                        st.rerun()
+        else:
+            st.caption("Cancelamento exige alçada de pedido.cancelar.")
+
+    with col_repetir:
+        if st.button("🔁 Repetir com preços/estoque atuais", use_container_width=True):
+            novo_id = f"cart-repeat-{uuid4().hex[:16]}"
+            repetido = _executar(
+                lambda: repetir_delivery_comercial(
+                    identidade=identidade,
+                    cliente_id=cliente_id,
+                    pedido_id=pedido_id,
+                    novo_carrinho_id=novo_id,
+                    session_factory=session_factory,
+                )
+            )
+            if repetido is not None:
+                st.session_state["_delivery_comercial_carrinho_id"] = repetido.carrinho_id
+                st.session_state.pop("_delivery_comercial_pedido_id", None)
+                st.success("Novo carrinho reconstruído com o estado comercial atual.")
+                st.rerun()
