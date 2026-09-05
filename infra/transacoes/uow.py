@@ -20,7 +20,9 @@ from core.pedidos.adaptador_sqlalchemy import RepositorioPedidosSQLAlchemy
 from core.seguranca.auditoria import EventoAuditoria
 from infra.crm.cashback_sqlalchemy import RepositorioCashbackSQLAlchemy
 from infra.crm.cliente_legado_sqlalchemy import LeitorClienteLegadoCRMSQLAlchemy
-from infra.crm.consentimentos_sqlalchemy import RepositorioConsentimentosContextoSQLAlchemy
+from infra.crm.consentimentos_sqlalchemy import (
+    RepositorioConsentimentosContextoSQLAlchemy,
+)
 from infra.eventos.adaptador_sqlalchemy import (
     RepositorioDLQSQLAlchemy,
     RepositorioInboxSQLAlchemy,
