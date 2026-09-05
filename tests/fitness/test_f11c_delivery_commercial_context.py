@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import ast
+from ast import Attribute, Call, parse, walk
 from pathlib import Path
 
 
@@ -33,11 +33,11 @@ def test_f11c_contexto_comercial_nao_depende_de_runtime_demo() -> None:
 
 def test_f11c_adapters_nao_controlam_transacao() -> None:
     for path in _COMMERCIAL_FILES:
-        tree = ast.parse(_source(path))
+        tree = parse(_source(path))
         chamadas = {
             node.func.attr
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            for node in walk(tree)
+            if isinstance(node, Call) and isinstance(node.func, Attribute)
         }
         assert "commit" not in chamadas, f"{path}: commit escondido no boundary"
         assert "rollback" not in chamadas, f"{path}: rollback escondido no boundary"
