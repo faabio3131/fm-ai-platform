@@ -43,6 +43,7 @@ def resolver_contexto_delivery_comercial(
     cliente_id: str,
     endereco_ref: str | None = None,
     master_key: str | None = None,
+    correlation_id: str | None = None,
 ) -> ContextoDeliveryComercialV1:
     """Resolve somente recursos pertencentes ao escopo autenticado.
 
@@ -57,7 +58,10 @@ def resolver_contexto_delivery_comercial(
     if not cliente_ref:
         raise ErroDelivery("cliente_delivery_obrigatorio")
 
-    contexto = identidade.contexto(origem="delivery-proprio-commercial-v1")
+    contexto = identidade.contexto(
+        origem="delivery-proprio-commercial-v1",
+        correlation_id=correlation_id,
+    )
     clientes = LeitorClientesCRMSQLAlchemy(session)
     cliente = clientes.obter(
         tenant_id=contexto.tenant_id,

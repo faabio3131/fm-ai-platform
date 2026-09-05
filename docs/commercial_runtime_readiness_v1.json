@@ -254,15 +254,16 @@
       }
     },
     "delivery_proprio": {
-      "status": "TEST_RUNTIME",
+      "status": "COMMERCIAL_CANDIDATE",
       "commercial_paths": [
         "core/delivery/ui_streamlit.py",
-        "core/delivery/runtime_teste.py"
+        "application/delivery_operacao_comercial.py",
+        "application/delivery_contexto_comercial.py",
+        "application/delivery_checkout_comercial.py",
+        "infra/delivery/carrinhos_sqlalchemy.py",
+        "app.py"
       ],
-      "code_blockers": [
-        "delivery_runtime_teste",
-        "delivery_demo_scope"
-      ],
+      "code_blockers": [],
       "external_blockers": [],
       "evidence": {
         "sha": null,
