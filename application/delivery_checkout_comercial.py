@@ -102,7 +102,7 @@ def preparar_checkout_com_beneficios_delivery(
     comando: ComandoCheckoutV1,
     contexto_delivery: ContextoDeliveryComercialV1,
     carrinho: CarrinhoDelivery,
-    politica: PoliticaBeneficiosDeliveryV1 = PoliticaBeneficiosDeliveryV1(),
+    politica: PoliticaBeneficiosDeliveryV1 | None = None,
 ) -> tuple[ComandoCheckoutV1, DecisaoBeneficiosDeliveryV1]:
     """Aplica somente benefícios já resolvidos pelo domínio Delivery.
 
@@ -110,6 +110,7 @@ def preparar_checkout_com_beneficios_delivery(
     quando a política recebida declarar o benefício como obrigatório.
     """
 
+    politica = politica or PoliticaBeneficiosDeliveryV1()
     pedido = comando.pedido
     escopo = contexto_delivery.contexto
     if (
@@ -268,10 +269,11 @@ def executar_checkout_delivery_comercial_em_transacao(
     contexto_delivery: ContextoDeliveryComercialV1,
     carrinho: CarrinhoDelivery,
     recursos: RecursosTransacionaisV1,
-    politica: PoliticaBeneficiosDeliveryV1 = PoliticaBeneficiosDeliveryV1(),
+    politica: PoliticaBeneficiosDeliveryV1 | None = None,
 ) -> CheckoutDeliveryComercialV1:
     """Converge benefícios e executa o Checkout V1 dentro da UoW do chamador."""
 
+    politica = politica or PoliticaBeneficiosDeliveryV1()
     comando_final, decisao = preparar_checkout_com_beneficios_delivery(
         comando=comando,
         contexto_delivery=contexto_delivery,
