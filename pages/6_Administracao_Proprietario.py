@@ -1,10 +1,11 @@
-"""Entrada protegida da área Administração / Proprietário do Kordena V1."""
+"""Entrada protegida da área Administração / Proprietário do Coordena V1."""
 
 from __future__ import annotations
 
 import streamlit as st
 from dotenv import load_dotenv
 
+from core.branding import PRODUCT_NAME
 from core.runtime import build_engine, load_runtime_settings
 from infra.seguranca.session_guard import build_session_factory
 from infra.streamlit_app.admin_proprietario import render_admin_proprietario
@@ -20,7 +21,7 @@ from migrations.runner import assert_schema_current
 
 load_dotenv()
 st.set_page_config(
-    page_title="Administração / Proprietário — Kordena",
+    page_title=f"Administração / Proprietário — {PRODUCT_NAME}",
     page_icon="🔐",
     layout="wide",
 )
