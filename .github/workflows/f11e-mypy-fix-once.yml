@@ -49,7 +49,7 @@ jobs:
               ),
           ]
 
-          expected_counts = [1, 2, 1, 1, 1]
+          expected_counts = [1, 1, 1, 1, 1]
           for index, ((old, new), expected) in enumerate(
               zip(replacements, expected_counts, strict=True), start=1
           ):
