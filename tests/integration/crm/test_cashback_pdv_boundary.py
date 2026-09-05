@@ -16,7 +16,9 @@ from infra.crm.cliente_legado_schema import crm_cliente_legado_v1
 from infra.legacy_schema import clientes
 from infra.transacoes.uow import RecursosTransacionaisV1
 from migrations.crm_cashback_ledger_v1 import upgrade_crm_cashback_ledger_v1
-from migrations.crm_cliente_legado_mapping_v1 import upgrade_crm_cliente_legado_mapping_v1
+from migrations.crm_cliente_legado_mapping_v1 import (
+    upgrade_crm_cliente_legado_mapping_v1,
+)
 from migrations.crm_clientes_persistencia_v1 import upgrade_crm_clientes_persistencia_v1
 
 TENANT = "tenant-f13b"
@@ -156,16 +158,19 @@ def test_resgate_e_ganho_sao_atomicos_e_replay_nao_duplica() -> None:
 
 def test_sem_mapping_crm_falha_fechado() -> None:
     engine = _engine(mapping=False)
-    with Session(engine) as session, session.begin():
-        with pytest.raises(CashbackPDVInvalido, match="cliente_legado_sem_mapping_crm"):
-            aplicar_cashback_pdv_em_transacao(
-                recursos=RecursosTransacionaisV1(session),
-                tenant_id=TENANT,
-                unidade_id=UNIDADE,
-                pedido_id="pedido-3",
-                entrada=_entrada(),
-                timestamp=AGORA,
-            )
+    with (
+        Session(engine) as session,
+        session.begin(),
+        pytest.raises(CashbackPDVInvalido, match="cliente_legado_sem_mapping_crm"),
+    ):
+        aplicar_cashback_pdv_em_transacao(
+            recursos=RecursosTransacionaisV1(session),
+            tenant_id=TENANT,
+            unidade_id=UNIDADE,
+            pedido_id="pedido-3",
+            entrada=_entrada(),
+            timestamp=AGORA,
+        )
 
 
 def test_saldo_legado_sem_regularizacao_nao_vira_fallback() -> None:
