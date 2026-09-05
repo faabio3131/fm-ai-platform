@@ -54,7 +54,7 @@ class CatalogoDeliverySQLAlchemy:
         )
         if not fichas:
             # Sem ficha não existe prova suficiente de capacidade de produção.
-            return Decimal("0")
+            return Decimal(0)
 
         capacidades: list[Decimal] = []
         for ficha in fichas:
