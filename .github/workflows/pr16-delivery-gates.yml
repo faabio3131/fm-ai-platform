@@ -27,15 +27,18 @@ jobs:
         run: >-
           ruff check core/delivery application/delivery_composicao.py
           application/delivery_contexto_comercial.py
+          application/delivery_checkout_comercial.py
           infra/delivery/carrinhos_sqlalchemy.py infra/delivery/catalogo_sqlalchemy.py
           infra/crm/clientes_sqlalchemy.py migrations/delivery_channel_state_v1.py
           tests/unit/delivery tests/integration/delivery
           tests/fitness/test_f11b_delivery_commercial_state.py
           tests/fitness/test_f11c_delivery_commercial_context.py
+          tests/fitness/test_f11d_delivery_checkout_beneficios.py
       - name: mypy PR16
         run: >-
           mypy core/delivery application/delivery_composicao.py
           application/delivery_contexto_comercial.py
+          application/delivery_checkout_comercial.py
           infra/delivery/carrinhos_sqlalchemy.py infra/delivery/catalogo_sqlalchemy.py
           infra/crm/clientes_sqlalchemy.py migrations/delivery_channel_state_v1.py
       - name: Testes focados PR16
@@ -43,6 +46,7 @@ jobs:
           pytest -q tests/unit/delivery tests/integration/delivery
           tests/fitness/test_f11b_delivery_commercial_state.py
           tests/fitness/test_f11c_delivery_commercial_context.py
+          tests/fitness/test_f11d_delivery_checkout_beneficios.py
       - name: Suite Python completa
         run: pytest -q
 
