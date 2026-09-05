@@ -59,6 +59,7 @@ from migrations.assistente_channel_runtime_v1 import (
     upgrade_assistente_channel_runtime_v1,
 )
 from migrations.client_payment_identity_v1 import upgrade_client_payment_identity_v1
+from migrations.crm_cashback_ledger_v1 import upgrade_crm_cashback_ledger_v1
 from migrations.crm_cliente_legado_mapping_v1 import (
     upgrade_crm_cliente_legado_mapping_v1,
 )
@@ -281,6 +282,7 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
         upgrade_delivery_channel_state_v1,
         revert_delivery_channel_state_v1,
     ),
+    Migration("0039_crm_cashback_ledger_v1", upgrade_crm_cashback_ledger_v1),
 )
 
 
