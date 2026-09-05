@@ -1,14 +1,19 @@
-"""Projeções legadas idempotentes de venda/cashback após liquidação canônica."""
+"""Projeções legadas idempotentes após liquidação canônica.
+
+Cashback não é calculado nem decidido aqui. A projeção recebe o saldo final da
+autoridade canônica e o replica somente para compatibilidade temporária.
+"""
 
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 from typing import Any, cast
 
 from sqlalchemy import insert, select, update
 from sqlalchemy.engine import CursorResult
 
+from application.crm_cashback_transacoes import ResultadoCashbackPDV
 from core.pdv.adaptadores_sqlalchemy import RepositorioPDVSQLAlchemy, TipoEfeitoCompat
 from core.pdv.modelos import EntradaPDV
 from infra.legacy_schema import clientes, vendas
@@ -27,6 +32,7 @@ def projetar_legado_em_transacao(
     pedido_id: str,
     entrada: EntradaPDV,
     timestamp: datetime,
+    cashback_canonico: ResultadoCashbackPDV | None,
 ) -> str:
     session = recursos.session
     pdv = RepositorioPDVSQLAlchemy(session)
@@ -67,7 +73,11 @@ def projetar_legado_em_transacao(
         )
 
     if entrada.cliente_id is None:
+        if cashback_canonico is not None:
+            raise ProjecaoLegadaInvalida("cashback_canonico_sem_cliente_legado")
         return venda_legada_id
+    if cashback_canonico is None:
+        raise ProjecaoLegadaInvalida("cashback_canonico_ausente")
 
     usado = pdv.buscar_efeito(
         tenant_id, unidade_id, pedido_id, TipoEfeitoCompat.CASHBACK_USADO
@@ -75,23 +85,17 @@ def projetar_legado_em_transacao(
     ganho = pdv.buscar_efeito(
         tenant_id, unidade_id, pedido_id, TipoEfeitoCompat.CASHBACK_GANHO
     )
-    if ganho and (not entrada.usar_cashback or usado):
-        return venda_legada_id
 
     linha = session.execute(
-        select(clientes.c.saldo_cashback, clientes.c.total_gasto)
+        select(clientes.c.total_gasto)
         .where(clientes.c.id == entrada.cliente_id)
         .with_for_update()
     ).first()
     if linha is None:
         raise ProjecaoLegadaInvalida("cliente legado não encontrado")
 
-    saldo = Decimal(str(linha.saldo_cashback or 0))
     total_gasto = Decimal(str(linha.total_gasto or 0))
-    if entrada.usar_cashback and usado is None:
-        if saldo < entrada.desconto_cashback.valor:
-            raise ProjecaoLegadaInvalida("saldo cashback legado divergente")
-        saldo -= entrada.desconto_cashback.valor
+    if cashback_canonico.cashback_usado > 0 and usado is None:
         pdv.registrar_efeito(
             tenant=tenant_id,
             unidade=unidade_id,
@@ -101,9 +105,6 @@ def projetar_legado_em_transacao(
             instante=timestamp,
         )
     if ganho is None:
-        saldo += (entrada.total.valor * Decimal("0.05")).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
         total_gasto += entrada.total.valor
         pdv.registrar_efeito(
             tenant=tenant_id,
@@ -113,11 +114,12 @@ def projetar_legado_em_transacao(
             chave=f"{entrada.idempotency_key}:cashback_gain",
             instante=timestamp,
         )
+
     session.execute(
         update(clientes)
         .where(clientes.c.id == entrada.cliente_id)
         .values(
-            saldo_cashback=float(saldo),
+            saldo_cashback=float(cashback_canonico.saldo),
             total_gasto=float(total_gasto),
             ultima_compra=timestamp.replace(tzinfo=None),
             status="Ativo",
