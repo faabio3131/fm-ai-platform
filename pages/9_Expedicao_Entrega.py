@@ -5,6 +5,7 @@ from __future__ import annotations
 import streamlit as st
 from dotenv import load_dotenv
 
+from core.branding import PRODUCT_NAME
 from core.entrega.flags import entrega_v1_enabled
 from core.entrega.ui_streamlit import render_entrega
 from core.runtime import build_engine, load_runtime_settings
@@ -15,7 +16,7 @@ from migrations.runner import assert_schema_current
 
 load_dotenv()
 st.set_page_config(
-    page_title="Expedição e Entrega — Kordena",
+    page_title=f"Expedição e Entrega — {PRODUCT_NAME}",
     page_icon="🛵",
     layout="wide",
 )
