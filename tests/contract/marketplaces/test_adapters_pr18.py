@@ -316,9 +316,12 @@ def test_parceiros_com_contrato_verificado_delegam_leitura_sem_inventar_payload(
         (PlataformaMarketplace.KEETA, KeetaPartnerAdapter),
     ],
 )
-def test_mutacoes_nao_documentadas_ficam_bloqueadas(plataforma, adapter_cls) -> None:
-    adapter = adapter_cls(TransporteParceiroFake(contrato_verificado=True))
-    with pytest.raises(ErroMarketplace, match="capacidade_nao_suportada:confirmar"):
-        adapter.confirmar(
-            _integracao(plataforma), "pedido-1", idempotency_key="idem"
-        )
+def test_mutacoes_open_delivery_delegam_apenas_com_contrato_verificado(
+    plataforma, adapter_cls
+) -> None:
+    transport = TransporteParceiroFake(contrato_verificado=True)
+    adapter = adapter_cls(transport)
+    adapter.confirmar(
+        _integracao(plataforma), "pedido-1", idempotency_key="idem"
+    )
+    assert transport.comandos == ["confirmar"]
