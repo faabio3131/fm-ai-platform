@@ -46,10 +46,14 @@ def test_f11f_prova_jornada_rbac_isolamento_e_evidencia_duravel() -> None:
         "Pagamento na entrega",
         "fora_da_area_de_entrega",
         "GARCOM",
-        "tenant-f11f-b",
+        "OTHER_GERENTE_EMAIL",
+        "E-mail ou senha inválidos, ou usuário sem acesso a esta unidade",
         "prepare_f11f_resolved_benefit",
     ):
         assert jornada in spec
+
+    assert "tenant-f11f-b" in workflow
+    assert "unidade-f11f-b" in workflow
 
 
 def test_f11f_seed_e_beneficio_sao_staging_only_e_nao_fabricam_autoridades_finais() -> None:
