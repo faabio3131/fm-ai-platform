@@ -129,10 +129,9 @@ class HttpxOpenDeliveryTransport:
                 if resposta.status_code < 400:
                     raise ErroMarketplace("opendelivery_http_payload_invalido") from exc
             else:
-                if isinstance(bruto, Mapping):
-                    payload = bruto
-                elif isinstance(bruto, list) and all(
-                    isinstance(item, Mapping) for item in bruto
+                if isinstance(bruto, Mapping) or (
+                    isinstance(bruto, list)
+                    and all(isinstance(item, Mapping) for item in bruto)
                 ):
                     payload = bruto
                 elif resposta.status_code < 400:
@@ -296,7 +295,9 @@ class OpenDeliveryPartnerTransport:
     ) -> None:
         if not evento_ids:
             return
-        desconhecidos = [evento_id for evento_id in evento_ids if evento_id not in self._ack_cache]
+        desconhecidos = [
+            evento_id for evento_id in evento_ids if evento_id not in self._ack_cache
+        ]
         if desconhecidos:
             raise ErroMarketplace("opendelivery_ack_evento_nao_cacheado")
         body: JsonArray = [self._ack_cache[evento_id] for evento_id in evento_ids]
@@ -402,7 +403,9 @@ class OpenDeliveryPartnerTransport:
         if comando == "confirmar":
             bruto = self._pedido_bruto(integracao, pedido_id_externo)
             criado = str(bruto.get("createdAt") or "").strip()
-            externo = str(bruto.get("orderExternalCode") or bruto.get("displayId") or "").strip()
+            externo = str(
+                bruto.get("orderExternalCode") or bruto.get("displayId") or ""
+            ).strip()
             if not criado or not externo:
                 raise ErroMarketplace("opendelivery_confirmacao_sem_metadados")
             resposta = self._request(
