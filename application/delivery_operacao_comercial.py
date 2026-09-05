@@ -409,7 +409,7 @@ def _pedido_do_carrinho(
         correlation_id=CorrelationId(contexto.correlation_id),
         idempotency_key=IdempotencyKey(idempotency_key),
         subtotal=subtotal,
-        descontos=Dinheiro("0.00"),
+        descontos=Dinheiro(Decimal("0.00")),
         taxas=taxas,
         total=Dinheiro(subtotal.valor + taxas.valor),
         itens=itens,
@@ -520,12 +520,12 @@ def confirmar_delivery_comercial(
                 repositorio_entrega,
                 financeiro_resolvido=lambda tenant, unidade, pedido_ref: (
                     financeiro_resolvido_sqlalchemy(
-                        uow.session, tenant, unidade, pedido_ref
+                        cast(Session, uow.session), tenant, unidade, pedido_ref
                     )
                 ),
                 pedido_cancelado=lambda tenant, unidade, pedido_ref: (
                     pedido_cancelado_sqlalchemy(
-                        uow.session, tenant, unidade, pedido_ref
+                        cast(Session, uow.session), tenant, unidade, pedido_ref
                     )
                 ),
                 agora=lambda: instante,
@@ -619,7 +619,7 @@ def acompanhar_delivery_comercial(
         eventos = tuple(
             EventoTrackingDeliveryComercial(
                 tipo=str(evento.tipo),
-                ocorrido_em=evento.ocorrido_em,
+                ocorrido_em=cast(datetime, evento.ocorrido_em),
                 status_entrega=str(evento.payload_seguro.get("status", entrega.status.value)),
             )
             for evento in repo.listar_eventos(
@@ -765,11 +765,13 @@ def cancelar_delivery_comercial(
             repo_entrega,
             financeiro_resolvido=lambda tenant, unidade, pedido_ref: (
                 financeiro_resolvido_sqlalchemy(
-                    uow.session, tenant, unidade, pedido_ref
+                    cast(Session, uow.session), tenant, unidade, pedido_ref
                 )
             ),
             pedido_cancelado=lambda tenant, unidade, pedido_ref: (
-                pedido_cancelado_sqlalchemy(uow.session, tenant, unidade, pedido_ref)
+                pedido_cancelado_sqlalchemy(
+                    cast(Session, uow.session), tenant, unidade, pedido_ref
+                )
             ),
             agora=lambda: instante,
         ).cancelar(
