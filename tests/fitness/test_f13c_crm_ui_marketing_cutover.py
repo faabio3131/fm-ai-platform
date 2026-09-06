@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 APP = Path("app.py")
 CRM_START = "# ABA 2: CRM E WHATSAPP"
 PDV_START = "# ABA 3: FRENTE DE CAIXA"
@@ -23,6 +22,7 @@ def test_f13c_crm_nao_regride_para_cashback_legado_ou_fake_whatsapp() -> None:
     assert "mock_whatsapp_send" not in crm
     assert "_enviar_whatsapp_control_plane" not in crm
     assert "RuntimeCRMTeste" not in crm
+    assert "runtime_teste" not in crm
     assert "creditar_cashback_manual" in crm
     assert "despachar_resgate_whatsapp_legado" in crm
     assert "_saldo_cashback_canonico_ui" in crm
@@ -51,3 +51,6 @@ def test_f13c_boundary_comercial_falha_fechado_sem_fallback_legado() -> None:
     assert "cliente_legado_sem_mapping_crm" in marketing
     assert "CanalMarketing.WHATSAPP" in marketing
     assert "FinalidadeMarketing.PROMOCOES" in marketing
+    assert "runtime_teste" not in marketing
+    assert "EnvioMarketingFake" not in marketing
+    assert "EnvioMarketingTeste" not in marketing
