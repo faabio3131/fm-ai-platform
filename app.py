@@ -102,6 +102,11 @@ from application.legacy_estoque_transacoes import AplicacaoLegacyEstoqueV1
 from application.legacy_gateway_teste_transacoes import AplicacaoLegacyGatewayTesteV1
 from application.legacy_cliente_e2e_transacoes import AplicacaoLegacyClienteE2EV1
 from application.legacy_bootstrap_transacoes import AplicacaoLegacyBootstrapV1
+from application.crm_cashback_comercial import (
+    consultar_saldo_cashback_legado,
+    creditar_cashback_manual,
+)
+from application.crm_marketing_comercial import despachar_resgate_whatsapp_legado
 
 from core.pdv.adaptadores_sqlalchemy import (
     LegacyPDVSQLAlchemyAdapter,
@@ -1128,6 +1133,27 @@ def _pix_status_confirmado(status: str) -> bool:
     }
 
 
+
+def _saldo_cashback_canonico_ui(legacy_cliente_id: int) -> tuple[float, str | None]:
+    try:
+        resultado = consultar_saldo_cashback_legado(
+            session_factory=SessionLocal,
+            tenant_id=CURRENT_IDENTITY.tenant_id,
+            unidade_id=CURRENT_IDENTITY.unidade_id,
+            legacy_cliente_id=int(legacy_cliente_id),
+        )
+        return float(resultado.saldo), None
+    except Exception as exc:
+        # Fail-closed: a UI jamais usa saldo legado como fallback.
+        return 0.0, str(exc)
+
+
+def _texto_saldo_cashback_canonico_ui(legacy_cliente_id: int) -> str:
+    saldo, erro = _saldo_cashback_canonico_ui(legacy_cliente_id)
+    if erro:
+        return "Regularização CRM necessária"
+    return formatar_moeda_br(saldo)
+
 # --- 6. BARRA LATERAL (SIDEBAR CORPORATIVA) ---
 with st.sidebar:
     if os.path.exists("logo.png"):
@@ -1273,7 +1299,7 @@ with aba1:
 with aba2:
     st.header("📢 CRM, Campanhas de Resgate ('Oi, Sumido') & Fidelidade Cashback")
     st.write(
-        "Engaje clientes inativos com cupons persuasivos gerados pela I.A. e administre saldos de cashback da sua base de consumidores."
+        "Engaje clientes inativos com campanhas consentidas e administre o cashback pela autoridade canônica CRM."
     )
 
     sub_crm1, sub_crm2 = st.tabs(
@@ -1287,8 +1313,8 @@ with aba2:
 
     with sub_crm1:
         st.subheader("🤖 Automação de Resgate com Inteligência Artificial")
-        st.write(
-            "A plataforma identifica clientes sem compras há mais de 15 dias e sugere abordagens personalizadas com cupons de desconto para disparar no WhatsApp."
+        st.caption(
+            "Disparos exigem vínculo CRM, consentimento WhatsApp/promocoes vigente e integração Meta homologada."
         )
 
         data_corte_inativos = datetime.now() - timedelta(days=15)
@@ -1307,6 +1333,7 @@ with aba2:
 
         if clientes_inativos:
             for cli in clientes_inativos:
+                saldo_cli, erro_saldo_cli = _saldo_cashback_canonico_ui(int(cli.id))
                 with st.container():
                     c_col1, c_col2, c_col3 = st.columns([2, 2, 3])
                     with c_col1:
@@ -1319,15 +1346,24 @@ with aba2:
                             f"🕒 Última compra: **{cli.ultima_compra.strftime('%d/%m/%Y')}**"
                         )
                         st.write(f"💰 Total acumulado: **R$ {cli.total_gasto:.2f}**")
-                        st.write(
-                            f"💳 Cashback disponível: **R$ {cli.saldo_cashback:.2f}**"
-                        )
+                        if erro_saldo_cli:
+                            st.caption("💳 Cashback: regularização CRM necessária")
+                        else:
+                            st.write(
+                                f"💳 Cashback disponível: **{formatar_moeda_br(saldo_cli)}**"
+                            )
 
-                    msg_resgate_padrao = f"Olá {cli.nome}! Sentimos muito a sua falta aqui no nosso estabelecimento. Preparamos um cupom exclusivo de 15% de desconto para você pedir seu hambúrguer favorito hoje!"
-
+                    msg_resgate_padrao = (
+                        f"Olá {cli.nome}! Sentimos sua falta. Preparamos um cupom "
+                        "exclusivo de 15% de desconto para você voltar hoje!"
+                    )
                     if GENAI_DISPONIVEL:
                         try:
-                            prompt_resg = f"Escreva uma mensagem curta, carinhosa e muito persuasiva de WhatsApp para resgatar o cliente '{cli.nome}', que não faz pedidos em nossa hamburgueria gourmet há semanas. Ofereça um cupom especial de 15% de desconto (CUPOM: VOLTA15). Sem clichês em excesso."
+                            prompt_resg = (
+                                "Escreva uma mensagem curta, carinhosa e persuasiva de "
+                                f"WhatsApp para resgatar o cliente '{cli.nome}'. Ofereça "
+                                "15% de desconto com o cupom VOLTA15. Sem clichês em excesso."
+                            )
                             resp_resg = generate_content(contents=prompt_resg)
                             if resp_resg and resp_resg.text:
                                 msg_resgate_padrao = resp_resg.text.strip()
@@ -1343,44 +1379,41 @@ with aba2:
                             type="primary",
                         ):
                             try:
-                                if is_test_mode():
-                                    envio = mock_whatsapp_send(
-                                        cli.whatsapp,
-                                        msg_resgate_padrao,
-                                    )
-                                    if not envio.get("ok"):
-                                        raise RuntimeError("envio_teste_falhou")
-                                else:
-                                    mensagem_id = _enviar_whatsapp_control_plane(
-                                        destinatario=cli.whatsapp,
-                                        texto=msg_resgate_padrao,
-                                        idempotency_key=(
-                                            f"crm-resgate-{cli.id}-"
-                                            f"{date.today().isoformat()}"
-                                        ),
-                                    )
-                                    if not mensagem_id:
-                                        raise RuntimeError("envio_sem_confirmacao")
-
-                                st.success(
-                                    f"✅ Campanha de resgate enviada com sucesso para o número {cli.whatsapp}!"
+                                chave_envio = (
+                                    f"crm-resgate-{cli.id}-{date.today().isoformat()}"
                                 )
+                                resultado_envio = despachar_resgate_whatsapp_legado(
+                                    session_factory=SessionLocal,
+                                    contexto=CURRENT_IDENTITY.contexto(
+                                        origem="app.crm.resgate"
+                                    ),
+                                    legacy_cliente_id=int(cli.id),
+                                    campanha_ref=f"resgate-{date.today().isoformat()}",
+                                    texto=msg_resgate_padrao,
+                                    idempotency_key=chave_envio,
+                                )
+                                if resultado_envio.enviado:
+                                    st.success(
+                                        f"✅ Campanha consentida enviada com sucesso para {cli.nome}."
+                                    )
+                                else:
+                                    st.warning(
+                                        "Campanha bloqueada: não existe consentimento "
+                                        "WhatsApp/promocoes vigente para este cliente."
+                                    )
                             except Exception:
                                 st.error(
-                                    "Não foi possível enviar a campanha pelo WhatsApp. "
-                                    "Verifique se a integração Meta/WhatsApp desta unidade "
-                                    "está configurada, habilitada e homologada."
+                                    "Não foi possível enviar a campanha. Verifique o vínculo CRM, "
+                                    "o consentimento e a integração Meta/WhatsApp homologada."
                                 )
         else:
             st.success(
-                "🎉 Excelente notícia! Nenhum cliente inativo há mais de 15 dias foi identificado no momento. Sua base está altamente engajada!"
+                "🎉 Nenhum cliente inativo há mais de 15 dias foi identificado no momento."
             )
 
     with sub_crm2:
         st.subheader("💳 Relatório Geral de Saldos de Cashback")
-        st.write(
-            "Acompanhe o saldo que cada cliente acumulou para utilizar como desconto em pedidos futuros na loja ou no delivery."
-        )
+        st.caption("O saldo exibido é derivado exclusivamente do ledger canônico CRM.")
 
         todos_clientes = db_crm_base.query(Cliente).all()
         if todos_clientes:
@@ -1392,7 +1425,7 @@ with aba2:
                         "Nome do Cliente": cl.nome,
                         "WhatsApp": cl.whatsapp,
                         "Total Gasto na Loja": f"R$ {cl.total_gasto:.2f}",
-                        "Saldo Cashback": f"R$ {cl.saldo_cashback:.2f}",
+                        "Saldo Cashback": _texto_saldo_cashback_canonico_ui(int(cl.id)),
                         "Status": cl.status,
                     }
                 )
@@ -1408,30 +1441,18 @@ with aba2:
                 st.markdown("### 🧪 Cadastro seguro de cliente para testes E2E")
                 nome_cliente_e2e = st.text_input("Nome do Cliente E2E")
                 whatsapp_cliente_e2e = st.text_input("WhatsApp do Cliente E2E")
-                email_cliente_e2e = st.text_input(
-                    "E-mail do Cliente E2E (opcional)"
-                )
-                documento_cliente_e2e = st.text_input(
-                    "CPF/CNPJ do Cliente E2E (opcional)"
-                )
+                email_cliente_e2e = st.text_input("E-mail do Cliente E2E (opcional)")
+                documento_cliente_e2e = st.text_input("CPF/CNPJ do Cliente E2E (opcional)")
                 if st.form_submit_button("💾 Salvar Cliente E2E", type="secondary"):
                     documento_normalizado = "".join(
-                        caractere
-                        for caractere in documento_cliente_e2e
-                        if caractere.isdigit()
+                        caractere for caractere in documento_cliente_e2e if caractere.isdigit()
                     )
-                    documento_valido = (
-                        not documento_normalizado
-                        or len(documento_normalizado) in {11, 14}
-                    )
+                    documento_valido = not documento_normalizado or len(documento_normalizado) in {11, 14}
                     email_normalizado = email_cliente_e2e.strip()
-
                     if not nome_cliente_e2e.strip() or not whatsapp_cliente_e2e.strip():
                         st.error("Nome e WhatsApp do cliente E2E são obrigatórios.")
                     elif not documento_valido:
-                        st.error(
-                            "CPF/CNPJ deve conter 11 ou 14 dígitos quando informado."
-                        )
+                        st.error("CPF/CNPJ deve conter 11 ou 14 dígitos quando informado.")
                     elif email_normalizado and (
                         "@" not in email_normalizado
                         or "." not in email_normalizado.rsplit("@", 1)[-1]
@@ -1439,22 +1460,14 @@ with aba2:
                         st.error("Informe um e-mail válido quando preencher o campo.")
                     else:
                         try:
-                            criado = AplicacaoLegacyClienteE2EV1(
-                                SessionLocal,
-                                Cliente,
-                            ).cadastrar(
+                            criado = AplicacaoLegacyClienteE2EV1(SessionLocal, Cliente).cadastrar(
                                 nome=nome_cliente_e2e,
                                 whatsapp=whatsapp_cliente_e2e,
                                 email=email_normalizado or None,
-                                documento_fiscal=(
-                                    documento_normalizado or None
-                                ),
+                                documento_fiscal=documento_normalizado or None,
                             )
-
                             if not criado:
-                                st.error(
-                                    "Cliente E2E já cadastrado com este WhatsApp."
-                                )
+                                st.error("Cliente E2E já cadastrado com este WhatsApp.")
                             else:
                                 st.success("Cliente E2E salvo com sucesso.")
                                 st.rerun()
@@ -1464,16 +1477,14 @@ with aba2:
         st.markdown("---")
         with st.form("form_ajustar_cashback"):
             st.markdown("### ➕ Creditar Saldo de Cashback Manualmente")
-            st.write(
-                "Utilize esta função para premiar clientes vips ou conceder bônus promocionais."
-            )
+            st.caption("O crédito é gravado no ledger e a coluna legada recebe somente a projeção final.")
             col_cb1, col_cb2 = st.columns(2)
             with col_cb1:
                 cli_escolhido = st.selectbox(
                     "Selecione o Cliente para o Crédito",
                     todos_clientes,
                     format_func=lambda x: (
-                        f"{x.nome} (Saldo Atual: {formatar_moeda_br(x.saldo_cashback)})"
+                        f"{x.nome} (Saldo Atual: {_texto_saldo_cashback_canonico_ui(int(x.id))})"
                     ),
                 )
             with col_cb2:
@@ -1485,29 +1496,29 @@ with aba2:
                     format="%.2f",
                 )
 
-            btn_add_cb = st.form_submit_button(
-                "💰 Confirmar Crédito de Cashback", type="primary"
-            )
-            if btn_add_cb and cli_escolhido:
-                db_cb = get_db()
+            if st.form_submit_button("💰 Confirmar Crédito de Cashback", type="primary") and cli_escolhido:
                 try:
-                    c_up = (
-                        db_cb.query(Cliente)
-                        .filter(Cliente.id == cli_escolhido.id)
-                        .first()
+                    from decimal import Decimal
+
+                    resultado_credito = creditar_cashback_manual(
+                        session_factory=SessionLocal,
+                        tenant_id=CURRENT_IDENTITY.tenant_id,
+                        unidade_id=CURRENT_IDENTITY.unidade_id,
+                        legacy_cliente_id=int(cli_escolhido.id),
+                        valor=Decimal(str(valor_add_cb)),
+                        referencia=f"crm-ui://bonus/{CURRENT_IDENTITY.usuario_id}",
+                        idempotency_key=f"crm-bonus-{cli_escolhido.id}-{uuid4()}",
                     )
-                    if c_up:
-                        c_up.saldo_cashback += valor_add_cb
-                        db_cb.commit()
-                        st.success(
-                            f"✅ Crédito de {formatar_moeda_br(valor_add_cb)} adicionado com sucesso ao saldo de **{c_up.nome}**!"
-                        )
-                        st.rerun()
-                except Exception as e:
-                    db_cb.rollback()
-                    st.error(f"Erro ao creditar cashback: {e}")
-                finally:
-                    db_cb.close()
+                    st.success(
+                        f"✅ Crédito de {formatar_moeda_br(valor_add_cb)} registrado no ledger. "
+                        f"Novo saldo: {formatar_moeda_br(float(resultado_credito.saldo))}."
+                    )
+                    st.rerun()
+                except Exception:
+                    st.error(
+                        "Não foi possível creditar cashback. O cliente precisa estar vinculado "
+                        "ao CRM e qualquer saldo legado anterior deve estar regularizado."
+                    )
 
     db_crm_base.close()
 
@@ -1678,13 +1689,24 @@ with aba3:
         usa_cashback_pdv = False
         desconto_cb_pdv = 0.0
 
-        if cliente_pdv and cliente_pdv.saldo_cashback > 0:
+        saldo_cashback_pdv = 0.0
+        erro_cashback_pdv = None
+        if cliente_pdv:
+            saldo_cashback_pdv, erro_cashback_pdv = _saldo_cashback_canonico_ui(
+                int(cliente_pdv.id)
+            )
+            if erro_cashback_pdv:
+                st.caption(
+                    "💳 Cashback indisponível até concluir o vínculo/regularização CRM deste cliente."
+                )
+
+        if cliente_pdv and saldo_cashback_pdv > 0:
             usa_cashback_pdv = st.checkbox(
-                f"💳 Utilizar Saldo de Cashback deste cliente (Disponível: {formatar_moeda_br(cliente_pdv.saldo_cashback)})",
+                f"💳 Utilizar Saldo de Cashback deste cliente (Disponível: {formatar_moeda_br(saldo_cashback_pdv)})",
                 key="pdv_usa_cashback",
             )
             if usa_cashback_pdv:
-                desconto_cb_pdv = min(total_bruto_pdv, cliente_pdv.saldo_cashback)
+                desconto_cb_pdv = min(total_bruto_pdv, saldo_cashback_pdv)
 
         total_final_pdv = max(0.0, total_bruto_pdv - desconto_cb_pdv)
 
@@ -2153,17 +2175,22 @@ with aba3:
                     )
                     st.stop()
 
-                if (
-                    cliente_db
-                    and usa_cashback_pdv
-                    and float(validacao_banco.desconto_cashback)
-                    > float(cliente_db.saldo_cashback or 0.0)
-                ):
-                    st.session_state["pdv_processando"] = False
-                    st.error(
-                        "Cashback não pode ser maior que o saldo disponível do cliente."
+                if cliente_db and usa_cashback_pdv:
+                    saldo_cashback_banco, erro_cashback_banco = _saldo_cashback_canonico_ui(
+                        int(cliente_db.id)
                     )
-                    st.stop()
+                    if erro_cashback_banco:
+                        st.session_state["pdv_processando"] = False
+                        st.error(
+                            "Cashback indisponível: conclua o vínculo/regularização CRM do cliente."
+                        )
+                        st.stop()
+                    if float(validacao_banco.desconto_cashback) > saldo_cashback_banco:
+                        st.session_state["pdv_processando"] = False
+                        st.error(
+                            "Cashback não pode ser maior que o saldo canônico disponível do cliente."
+                        )
+                        st.stop()
 
                 contexto_pdv = contexto_caixa_pdv_autenticado(
                     identidade=CURRENT_IDENTITY,
