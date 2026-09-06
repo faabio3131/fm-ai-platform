@@ -28,6 +28,7 @@ jobs:
           ruff check
           core/crm
           application/crm_cashback_transacoes.py
+          application/crm_cashback_comercial.py
           application/pdv_legacy_projection.py
           application/finalizacao_pagamento.py
           infra/crm/cashback_schema.py
@@ -42,6 +43,7 @@ jobs:
           mypy
           core/crm
           application/crm_cashback_transacoes.py
+          application/crm_cashback_comercial.py
           application/pdv_legacy_projection.py
           application/finalizacao_pagamento.py
           infra/crm/cashback_sqlalchemy.py
