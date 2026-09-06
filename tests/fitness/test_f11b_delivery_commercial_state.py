@@ -25,6 +25,10 @@ def test_f11b_repositorio_nao_controla_commit_ou_rollback() -> None:
     assert "expected_version" in source
 
 
-def test_f11b_migration_do_estado_delivery_e_ultima_e_oficial() -> None:
-    assert DEFAULT_MIGRATIONS[-1].version == "0038_delivery_channel_state_v1"
-    assert DEFAULT_MIGRATIONS[-1].revert is not None
+def test_f11b_migration_do_estado_delivery_permanece_oficial_e_reversivel() -> None:
+    migration = next(
+        item
+        for item in DEFAULT_MIGRATIONS
+        if item.version == "0038_delivery_channel_state_v1"
+    )
+    assert migration.revert is not None

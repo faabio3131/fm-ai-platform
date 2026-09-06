@@ -1,5 +1,12 @@
 """CRM e conversão consentida V1 — PR19."""
 
+from .cashback import (
+    MovimentoCashback,
+    PortaLedgerCashback,
+    ResultadoMovimentoCashback,
+    ServicoCashback,
+    TipoMovimentoCashback,
+)
 from .erros import ErroCRM
 from .flags import crm_v1_enabled
 from .modelos import (
@@ -34,12 +41,17 @@ __all__ = [
     "EtapaFunilCRM",
     "EventoFunilCRM",
     "FinalidadeMarketing",
+    "MovimentoCashback",
     "OrigemClienteCRM",
+    "PortaLedgerCashback",
     "ResultadoConversaoCRM",
     "ResultadoDespachoMarketing",
+    "ResultadoMovimentoCashback",
     "ResumoFunilCRM",
     "ServicoCRM",
+    "ServicoCashback",
     "StatusConsentimento",
     "TipoBeneficioCRM",
+    "TipoMovimentoCashback",
     "crm_v1_enabled",
 ]

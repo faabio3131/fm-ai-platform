@@ -275,17 +275,16 @@
       "status": "EXTERNAL_HOMOLOGATION_PENDING",
       "commercial_paths": [
         "core/marketplaces/ifood_http.py",
+        "core/marketplaces/runtime.py",
         "core/marketplaces/food99_partner.py",
         "core/marketplaces/keeta_partner.py"
       ],
-      "code_blockers": [
-        "ifood_transport_not_composed_for_real_network"
-      ],
+      "code_blockers": [],
       "external_blockers": [
         "ifood_99food_keeta_partner_homologation_pending"
       ],
       "evidence": {
-        "sha": null,
+        "sha": "e84c0a3e2e76b8fc1f696f32bfa16a58738d8067",
         "commercial_runtime_e2e": null,
         "physical_test": null
       }

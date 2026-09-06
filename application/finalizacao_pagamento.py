@@ -9,10 +9,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 
 from sqlalchemy import select
 
+from application.crm_cashback_transacoes import aplicar_cashback_pdv_em_transacao
 from application.order_result_orchestrator import (
     orquestrar_resultado_pagamento_em_transacao,
 )
@@ -54,6 +55,7 @@ def _atualizar_reconciliacao(
     venda_legada_id: str,
     valor_pedido: Decimal,
     cashback_usado: Decimal,
+    cashback_ganho: Decimal,
 ) -> None:
     row = recursos.session.scalar(
         select(ReconciliacaoPDVORM).where(
@@ -73,9 +75,7 @@ def _atualizar_reconciliacao(
     row.valor_venda_legada = valor_pedido
     row.estoque_estrategia = "canonico_reservado_aguardando_producao"
     row.cashback_usado = cashback_usado
-    row.cashback_ganho = (valor_pedido * Decimal(".05")).quantize(
-        Decimal(".01"), rounding=ROUND_HALF_UP
-    )
+    row.cashback_ganho = cashback_ganho
     row.status = "conciliado"
     row.divergencias = []
     recursos.session.flush()
@@ -155,6 +155,14 @@ def finalizar_pagamento_liquidado_em_transacao(
         raise FinalizacaoPagamentoInvalida("pendencia_pdv_de_outro_pedido")
 
     entrada = reconstruir_entrada(pendente)
+    cashback_canonico = aplicar_cashback_pdv_em_transacao(
+        recursos=recursos,
+        tenant_id=pagamento.tenant_id,
+        unidade_id=pagamento.unidade_id,
+        pedido_id=generico.pedido_id,
+        entrada=entrada,
+        timestamp=timestamp,
+    )
     venda_legada_id = projetar_legado_em_transacao(
         recursos=recursos,
         tenant_id=pagamento.tenant_id,
@@ -162,6 +170,7 @@ def finalizar_pagamento_liquidado_em_transacao(
         pedido_id=generico.pedido_id,
         entrada=entrada,
         timestamp=timestamp,
+        cashback_canonico=cashback_canonico,
     )
     RepositorioPDVSQLAlchemy(recursos.session).criar_link(
         tenant=pagamento.tenant_id,
@@ -180,9 +189,14 @@ def finalizar_pagamento_liquidado_em_transacao(
         venda_legada_id=venda_legada_id,
         valor_pedido=entrada.total.valor,
         cashback_usado=(
-            entrada.desconto_cashback.valor
-            if entrada.usar_cashback
-            else Decimal(0)
+            Decimal("0.00")
+            if cashback_canonico is None
+            else cashback_canonico.cashback_usado
+        ),
+        cashback_ganho=(
+            Decimal("0.00")
+            if cashback_canonico is None
+            else cashback_canonico.cashback_ganho
         ),
     )
     pendencias.marcar_finalizada(

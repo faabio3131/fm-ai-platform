@@ -1,8 +1,8 @@
-"""Adapter Keeta V1 sobre transporte parceiro validado.
+"""Adapter Keeta V1 sobre transporte Open Delivery validado.
 
-O site oficial confirma integração por API para pedidos/cardápio/serviços, porém
-os endpoints e payloads do parceiro não são públicos neste estágio. O adapter não
-inventa contrato: exige transporte previamente validado com a documentação Keeta.
+A Keeta publica OpenAPI baseada em Open Delivery, incluindo polling/webhook,
+consulta, confirmação, pronto, despacho, entrega e cancelamento. OAuth e
+assinatura permanecem fora do domínio, injetados pela camada de integração.
 """
 
 from __future__ import annotations
@@ -23,6 +23,10 @@ KEETA_CAPACIDADES_PUBLICAS = CapacidadesMarketplace(
     frozenset(
         {
             CapacidadeMarketplace.RECEBER_PEDIDO,
+            CapacidadeMarketplace.CONFIRMAR,
+            CapacidadeMarketplace.REJEITAR,
+            CapacidadeMarketplace.ATUALIZAR_STATUS,
+            CapacidadeMarketplace.CANCELAR,
             CapacidadeMarketplace.RECONCILIAR,
         }
     )
@@ -72,8 +76,13 @@ class KeetaPartnerAdapter:
         *,
         idempotency_key: str,
     ) -> None:
-        del integracao, pedido_id_externo, idempotency_key
-        self.capacidades.exigir(CapacidadeMarketplace.CONFIRMAR)
+        self._validar(integracao)
+        self.transport.executar_comando(
+            integracao,
+            pedido_id_externo,
+            comando="confirmar",
+            idempotency_key=idempotency_key,
+        )
 
     def rejeitar(
         self,
@@ -83,8 +92,14 @@ class KeetaPartnerAdapter:
         motivo: str,
         idempotency_key: str,
     ) -> None:
-        del integracao, pedido_id_externo, motivo, idempotency_key
-        self.capacidades.exigir(CapacidadeMarketplace.REJEITAR)
+        self._validar(integracao)
+        self.transport.executar_comando(
+            integracao,
+            pedido_id_externo,
+            comando="rejeitar",
+            motivo=motivo,
+            idempotency_key=idempotency_key,
+        )
 
     def atualizar_status(
         self,
@@ -94,8 +109,14 @@ class KeetaPartnerAdapter:
         status: StatusPedidoExterno,
         idempotency_key: str,
     ) -> None:
-        del integracao, pedido_id_externo, status, idempotency_key
-        self.capacidades.exigir(CapacidadeMarketplace.ATUALIZAR_STATUS)
+        self._validar(integracao)
+        self.transport.executar_comando(
+            integracao,
+            pedido_id_externo,
+            comando="atualizar_status",
+            status=status,
+            idempotency_key=idempotency_key,
+        )
 
     def cancelar(
         self,
@@ -105,5 +126,11 @@ class KeetaPartnerAdapter:
         motivo: str,
         idempotency_key: str,
     ) -> None:
-        del integracao, pedido_id_externo, motivo, idempotency_key
-        self.capacidades.exigir(CapacidadeMarketplace.CANCELAR)
+        self._validar(integracao)
+        self.transport.executar_comando(
+            integracao,
+            pedido_id_externo,
+            comando="cancelar",
+            motivo=motivo,
+            idempotency_key=idempotency_key,
+        )

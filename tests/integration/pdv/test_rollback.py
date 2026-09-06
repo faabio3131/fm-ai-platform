@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 from sqlalchemy import func, select
 
@@ -12,10 +14,12 @@ from core.pdv.roteamento import ModoPDV
 from core.pedidos.modelos_orm import PedidoORM
 from infra.eventos.modelos_orm import OutboxEventoORM
 from infra.seguranca.modelos_orm import EventoAuditoriaORM
+from infra.transacoes.uow import RecursosTransacionaisV1
 
 from .conftest import ClienteTeste, InsumoTeste, VendaTeste
 from .helpers import executar
 
+CLIENTE_CRM = "cliente-crm-pdv-1"
 PONTOS = (
     "after_checkout_canonico",
     "after_confirmacao",
@@ -36,6 +40,7 @@ def test_rollback_atomico_em_todos_os_pontos(fabrica, contexto, entrada, ponto):
     with pytest.raises(RuntimeError, match="falha"):
         executar(fabrica, contexto, entrada, ModoPDV.AUTHORITATIVE_CANARY, falhar)
     with fabrica() as s:
+        recursos = RecursosTransacionaisV1(s)
         assert s.scalar(select(func.count()).select_from(PedidoORM)) == 0
         assert s.scalar(select(func.count()).select_from(PagamentoORM)) == 0
         assert s.scalar(select(func.count()).select_from(VendaFinanceiraORM)) == 0
@@ -48,3 +53,15 @@ def test_rollback_atomico_em_todos_os_pontos(fabrica, contexto, entrada, ponto):
         assert s.scalar(select(func.count()).select_from(EfeitoCompatPDVORM)) == 0
         assert s.get(InsumoTeste, 1).saldo_atual == 10
         assert s.get(ClienteTeste, 1).saldo_cashback == 10
+        assert recursos.cashback.saldo(
+            tenant_id=contexto.tenant_id,
+            unidade_id=contexto.unidade_id,
+            cliente_id=CLIENTE_CRM,
+        ) == Decimal("10.00")
+        historico = recursos.cashback.historico(
+            tenant_id=contexto.tenant_id,
+            unidade_id=contexto.unidade_id,
+            cliente_id=CLIENTE_CRM,
+        )
+        assert len(historico) == 1
+        assert historico[0].origem == "regularizacao_governada"

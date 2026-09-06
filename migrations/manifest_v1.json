@@ -156,6 +156,10 @@
     {
       "version": "0038_delivery_channel_state_v1",
       "sha256": "d36ca67b65a0e59b18694625f28941e981ec531a91d434278e53e5baf8052fdd"
+    },
+    {
+      "version": "0039_crm_cashback_ledger_v1",
+      "sha256": "1349765bc568e5a89cafc2e12c117c560b29d0ba19e812adb3dfbe1e5ad38a13"
     }
   ]
 }

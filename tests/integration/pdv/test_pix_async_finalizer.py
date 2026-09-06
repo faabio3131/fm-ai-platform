@@ -17,6 +17,8 @@ from infra.transacoes.uow import RecursosTransacionaisV1
 from .conftest import ClienteTeste, InsumoTeste, VendaTeste
 from .helpers import executar
 
+CLIENTE_CRM = "cliente-crm-pdv-1"
+
 
 def test_pix_pago_assincrono_finaliza_tudo_e_replay_nao_duplica(
     fabrica, contexto, entrada
@@ -75,6 +77,7 @@ def test_pix_pago_assincrono_finaliza_tudo_e_replay_nao_duplica(
         session.commit()
 
     with fabrica() as session:
+        recursos = RecursosTransacionaisV1(session)
         pagamento_row = session.get(
             PagamentoORM,
             (pendente.pagamento_id, contexto.tenant_id, contexto.unidade_id),
@@ -103,8 +106,21 @@ def test_pix_pago_assincrono_finaliza_tudo_e_replay_nao_duplica(
         assert session.get(InsumoTeste, 1).saldo_atual == 10
         cliente = session.get(ClienteTeste, 1)
         assert cliente is not None
-        assert Decimal(str(cliente.saldo_cashback)) == Decimal("6.25")
+        saldo_canonico = recursos.cashback.saldo(
+            tenant_id=contexto.tenant_id,
+            unidade_id=contexto.unidade_id,
+            cliente_id=CLIENTE_CRM,
+        )
+        assert saldo_canonico == Decimal("6.25")
+        assert Decimal(str(cliente.saldo_cashback)) == saldo_canonico
         assert Decimal(str(cliente.total_gasto)) == Decimal("24.9")
+        assert len(
+            recursos.cashback.historico(
+                tenant_id=contexto.tenant_id,
+                unidade_id=contexto.unidade_id,
+                cliente_id=CLIENTE_CRM,
+            )
+        ) == 3
         trabalho = session.scalar(
             select(FinalizacaoPendentePDVORM).where(
                 FinalizacaoPendentePDVORM.pagamento_id == pendente.pagamento_id
@@ -131,6 +147,19 @@ def test_pix_pago_assincrono_finaliza_tudo_e_replay_nao_duplica(
         session.commit()
 
     with fabrica() as session:
+        recursos = RecursosTransacionaisV1(session)
         assert session.scalar(select(func.count()).select_from(VendaFinanceiraORM)) == 1
         assert session.scalar(select(func.count()).select_from(VendaTeste)) == 1
         assert session.get(InsumoTeste, 1).saldo_atual == 10
+        assert recursos.cashback.saldo(
+            tenant_id=contexto.tenant_id,
+            unidade_id=contexto.unidade_id,
+            cliente_id=CLIENTE_CRM,
+        ) == Decimal("6.25")
+        assert len(
+            recursos.cashback.historico(
+                tenant_id=contexto.tenant_id,
+                unidade_id=contexto.unidade_id,
+                cliente_id=CLIENTE_CRM,
+            )
+        ) == 3
