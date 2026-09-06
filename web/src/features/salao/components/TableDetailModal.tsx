@@ -90,6 +90,8 @@ export function TableDetailModal({
 
   async function submitOpen(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!mesa) return;
+
     const parsedPeople = Number.parseInt(quantidadePessoas, 10);
     await onOpenComanda({
       mesa_id: mesa.id,
