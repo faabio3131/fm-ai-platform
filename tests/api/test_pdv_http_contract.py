@@ -111,7 +111,7 @@ def _payload(quantidade: int = 1) -> dict[str, object]:
     return {
         "itens": [
             {
-                "produto_id": 1,
+                "produto_id": "legacy:produto:1",
                 "quantidade": quantidade,
                 "observacoes": "sem cebola",
             }
@@ -158,6 +158,7 @@ def test_checkout_pdv_cria_pedido_e_pagamento() -> None:
     assert body["idempotente"] is False
     assert body["comanda"]["status"] == "aguardando_confirmacao"
     assert body["comanda"]["total"] == "30.00"
+    assert body["comanda"]["itens"][0]["produto_id"] == "legacy:produto:1"
     assert body["pagamento"]["metodo"] == "dinheiro"
     assert body["pagamento"]["valor_previsto"] == "30.00"
 

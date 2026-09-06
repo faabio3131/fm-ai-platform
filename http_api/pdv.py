@@ -14,7 +14,12 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from application.checkout import CheckoutInvalido, ComandoCheckoutV1, executar_checkout_v1
+from application.checkout import (
+    CheckoutInvalido,
+    ComandoCheckoutV1,
+    ResultadoCheckoutV1,
+    executar_checkout_v1,
+)
 from core.dominio.dinheiro import Dinheiro
 from core.dominio.enums import CanalAtendimento, OrigemPedido, PedidoStatus
 from core.dominio.erros import ConflitoIdempotencia, ErroDominio, PermissaoNegada
@@ -32,7 +37,7 @@ from core.dominio.pedidos import ItemPedido, Pedido
 from core.dominio.tipos import QuantidadeItem
 from core.pagamentos.erros import ConcorrenciaPagamento, ConflitoIdempotenciaPagamento
 from core.pagamentos.modelos import MetodoPagamento
-from core.seguranca import AutorizarAcao, Permissao, ServicoAutenticacao
+from core.seguranca import AutorizarAcao, ContextoExecucao, Permissao, ServicoAutenticacao
 from core.seguranca.erros import CredenciaisInvalidas, ErroSeguranca
 from infra.legacy_product_scope import ErroEscopoLojaLegada, listar_produtos_legados
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
@@ -50,7 +55,7 @@ _METODOS_PDV = frozenset(
 
 
 class PDVCheckoutItemIn(BaseModel):
-    produto_id: int = Field(gt=0)
+    produto_id: str = Field(min_length=1, max_length=128)
     quantidade: int = Field(gt=0)
     observacoes: str | None = Field(default=None, max_length=500)
 
@@ -74,6 +79,40 @@ class PDVCatalogoOut(BaseModel):
     produtos: list[PDVProdutoOut]
 
 
+class PDVComandaItemOut(BaseModel):
+    produto_id: str | None
+    nome: str
+    quantidade: int
+    preco_unitario: str
+    subtotal: str
+    observacoes: str | None
+
+
+class PDVComandaOut(BaseModel):
+    pedido_id: str
+    status: str
+    itens: list[PDVComandaItemOut]
+    subtotal: str
+    descontos: str
+    total: str
+
+
+class PDVPagamentoOut(BaseModel):
+    id: str
+    status: str
+    metodo: str
+    valor_previsto: str
+    valor_pago: str
+    saldo: str
+
+
+class PDVCheckoutOut(BaseModel):
+    comanda: PDVComandaOut
+    pagamento: PDVPagamentoOut | None
+    idempotente: bool
+    correlation_id: str
+
+
 def _credenciais_basic(request: Request) -> tuple[str, str]:
     cabecalho = request.headers.get("authorization", "")
     esquema, _, valor = cabecalho.partition(" ")
@@ -87,7 +126,7 @@ def _credenciais_basic(request: Request) -> tuple[str, str]:
     return email, password
 
 
-def _contexto_pdv(request: Request, session: Session):
+def _contexto_pdv(request: Request, session: Session) -> ContextoExecucao:
     tenant_id = request.headers.get("x-tenant-id", "").strip()
     unidade_id = request.headers.get("x-unit-id", "").strip()
     if not tenant_id or not unidade_id:
@@ -162,10 +201,13 @@ def _catalogo_ativo(
             continue
         if preco.valor < 0:
             continue
+        nome = str(produto.get("nome", "")).strip()
+        if not nome:
+            continue
         produtos.append(
             {
                 "id": f"legacy:produto:{int(produto['id'])}",
-                "nome": str(produto.get("nome", "")).strip(),
+                "nome": nome,
                 "categoria": (
                     str(produto["categoria"]).strip()
                     if produto.get("categoria") is not None
@@ -174,7 +216,6 @@ def _catalogo_ativo(
                 "preco": str(preco.valor),
                 "disponivel": True,
                 "_preco": preco,
-                "_legacy_id": int(produto["id"]),
             }
         )
     return produtos
@@ -198,7 +239,7 @@ def _montar_pedido(
     *,
     payload: PDVCheckoutIn,
     session_factory: SessionFactory,
-    contexto,
+    contexto: ContextoExecucao,
     idempotency_key: str,
 ) -> Pedido:
     if payload.metodo_pagamento not in _METODOS_PDV:
@@ -206,7 +247,7 @@ def _montar_pedido(
 
     with session_factory() as session:
         catalogo = {
-            int(item["_legacy_id"]): item
+            str(item["id"]): item
             for item in _catalogo_ativo(
                 session,
                 tenant_id=contexto.tenant_id,
@@ -225,6 +266,8 @@ def _montar_pedido(
         if produto is None:
             raise ValueError("produto_indisponivel_ou_fora_do_escopo")
         preco = produto["_preco"]
+        if not isinstance(preco, Dinheiro):
+            raise ValueError("produto_com_preco_invalido")
         quantidade = QuantidadeItem(entrada.quantidade)
         item_subtotal = preco * quantidade.valor
         subtotal = subtotal + item_subtotal
@@ -311,7 +354,11 @@ def _semantica_pedido(pedido: Pedido) -> tuple[Any, ...]:
     )
 
 
-def _resposta_checkout(resultado, *, pedido_solicitado: Pedido) -> dict[str, Any]:
+def _resposta_checkout(
+    resultado: ResultadoCheckoutV1,
+    *,
+    pedido_solicitado: Pedido,
+) -> dict[str, Any]:
     persistido = resultado.aguardando_confirmacao.pedido
     if (
         resultado.pedido.idempotente
@@ -404,7 +451,7 @@ def build_pdv_router(*, session_factory: SessionFactory) -> APIRouter:
     router = APIRouter(prefix="/v1/pdv", tags=["pdv"])
 
     @router.get("/produtos", response_model=PDVCatalogoOut)
-    def listar_produtos(request: Request):
+    def listar_produtos(request: Request) -> dict[str, Any] | JSONResponse:
         try:
             with session_factory() as session:
                 contexto = _contexto_pdv(request, session)
@@ -426,8 +473,15 @@ def build_pdv_router(*, session_factory: SessionFactory) -> APIRouter:
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _erro_http(exc)
 
-    @router.post("/checkout")
-    def checkout(payload: PDVCheckoutIn, request: Request):
+    @router.post(
+        "/checkout",
+        response_model=PDVCheckoutOut,
+        status_code=status.HTTP_201_CREATED,
+    )
+    def checkout(
+        payload: PDVCheckoutIn,
+        request: Request,
+    ) -> JSONResponse:
         try:
             key = _idempotency_key(request)
             with session_factory() as session:
