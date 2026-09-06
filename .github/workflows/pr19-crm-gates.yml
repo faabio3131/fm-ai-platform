@@ -41,6 +41,7 @@ jobs:
           migrations/crm_cashback_ledger_v1.py
           tests/unit/crm
           tests/integration/crm
+          tests/fitness/test_f13c_crm_ui_marketing_cutover.py
       - name: mypy PR19
         run: >-
           mypy
@@ -56,6 +57,8 @@ jobs:
           infra/crm/marketing_whatsapp.py
           infra/transacoes/uow.py
           migrations/crm_cashback_ledger_v1.py
+      - name: Fitness F13-C — CRM UI / marketing / cashback authority
+        run: pytest -q tests/fitness/test_f13c_crm_ui_marketing_cutover.py
       - name: Testes focados PR19
         run: pytest -q tests/unit/crm tests/integration/crm
       - name: Suite Python completa
