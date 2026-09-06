@@ -74,7 +74,7 @@ class _GerenciadorSessaoOperacional:
     def _assinatura(self, session_id: str) -> str:
         digest = hmac.new(
             self._secret,
-            f"auth-session-v1:{session_id}".encode("utf-8"),
+            f"auth-session-v1:{session_id}".encode(),
             hashlib.sha256,
         ).digest()
         return base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
