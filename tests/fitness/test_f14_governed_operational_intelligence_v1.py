@@ -4,7 +4,7 @@ Certifica a fronteira de autoridade entre modelo, AIModelRouter e Gerente IA.
 Nenhum teste deste arquivo depende de provedor externo.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from dataclasses import asdict
 from datetime import datetime, timezone
@@ -120,6 +120,7 @@ def test_injecao_em_texto_livre_nao_altera_escopo_nem_executa_mutacao() -> None:
     auditoria = "\n".join(str(evento.para_dict()) for evento in runtime.auditoria.eventos)
     assert "sk_live_f14d_secret" not in auditoria
     assert "DROP TABLE pedidos" not in auditoria
+    assert "preview_sem_execucao" in auditoria
 
 
 class _ExecutorRoteamento:
