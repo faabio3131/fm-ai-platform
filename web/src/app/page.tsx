@@ -1,6 +1,7 @@
 "use client";
 
-import { Activity, Database, RefreshCw, ShieldCheck } from "lucide-react";
+import { Activity, Database, RefreshCw, ShieldCheck, ShoppingCart } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -84,13 +85,21 @@ export default function Home() {
               Streamlit legado.
             </p>
           </div>
-          <Badge variant="outline" className={badgeClass}>
-            {connection === "online"
-              ? "Backend online"
-              : connection === "offline"
-                ? "Backend offline"
-                : "Validando conexão"}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className={badgeClass}>
+              {connection === "online"
+                ? "Backend online"
+                : connection === "offline"
+                  ? "Backend offline"
+                  : "Validando conexão"}
+            </Badge>
+            <Button asChild className="h-10 rounded-xl">
+              <Link href="/pdv">
+                <ShoppingCart />
+                Abrir PDV Touch
+              </Link>
+            </Button>
+          </div>
         </header>
 
         <section className="grid gap-4 md:grid-cols-3">
