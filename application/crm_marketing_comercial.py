@@ -91,5 +91,4 @@ def despachar_resgate_whatsapp_legado(
             mensagem_id=mensagem_id if isinstance(mensagem_id, str) else None,
         )
     finally:
-        session.rollback()
         session.close()
