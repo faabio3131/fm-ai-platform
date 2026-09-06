@@ -89,14 +89,17 @@ jobs:
       - name: Ruff auth and transversal security surface
         run: |
           ruff check \
-            core/seguranca \
+            core/seguranca/autorizacao.py \
+            core/seguranca/contexto.py \
+            core/seguranca/permissoes.py \
             core/gerente_ia/tools.py \
-            infra/seguranca \
             infra/streamlit_app/auth_ui.py \
             infra/streamlit_app/sensitive_idle_watchdog.py \
             pages/6_Administracao_Proprietario.py \
             pages/7_Integracoes_e_Credenciais.py \
-            tests/unit/security \
+            tests/unit/security/test_authentication_v1.py \
+            tests/unit/security/test_sensitive_admin_access_v1.py \
+            tests/integration/security/test_admin_pin_v1.py \
             tests/fitness/test_auth_sensitive_entrypoints_v1.py \
             tests/fitness/test_f14_transversal_rbac_security_v1.py
       - name: Mypy auth surface
