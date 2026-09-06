@@ -1,0 +1,53 @@
+name: V1 Auth HTTP Foundation Gate
+
+on:
+  push:
+    branches:
+      - feat/v1-backend-auth-http-foundation
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'http_api/auth.py'
+      - 'http_api/app.py'
+      - 'tests/api/test_auth_http_contract.py'
+      - '.github/workflows/v1-auth-http-foundation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v1-auth-http-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  auth-http-contract:
+    name: Auth HTTP contract, static checks e regressao
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Compilar delta Auth HTTP
+        run: |
+          python -m py_compile \
+            http_api/auth.py \
+            http_api/app.py \
+            tests/api/test_auth_http_contract.py
+      - name: Ruff delta Auth HTTP
+        run: ruff check http_api/auth.py tests/api/test_auth_http_contract.py
+      - name: Mypy delta Auth HTTP
+        run: mypy http_api/auth.py tests/api/test_auth_http_contract.py
+      - name: Contrato HTTP Auth
+        run: pytest -q tests/api/test_auth_http_contract.py
+      - name: Regressao Python completa
+        run: pytest -q
