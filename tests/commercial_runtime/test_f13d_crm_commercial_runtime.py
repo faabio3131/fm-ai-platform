@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from application.crm_marketing_comercial import despachar_resgate_whatsapp_legado
 from core.crm.adapters import PortaEnvioMarketing
 from core.crm.cashback import ServicoCashback
+from core.crm.modelos import OrigemClienteCRM
 from core.dominio.dinheiro import Dinheiro
 from core.pdv.modelos import EntradaPDV
 from core.pdv.roteamento import ModoPDV
@@ -91,7 +92,7 @@ def _seed_cliente(factory: sessionmaker[Session]) -> None:
                     tenant_id=TENANT,
                     unidade_id=UNIDADE,
                     cliente_id=CLIENTE_CRM_ID,
-                    origem="regularizacao_legado",
+                    origem=OrigemClienteCRM.LEGADO_REGULARIZADO.value,
                     marketplace_origem=None,
                     criado_em=AGORA,
                     versao=1,

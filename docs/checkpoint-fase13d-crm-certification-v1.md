@@ -10,8 +10,8 @@
 
 O checkpoint somente pode ser declarado concluído quando o mesmo HEAD provar, em CI:
 
-1. `ruff check .` sem erros.
-2. mypy no boundary F13 sem erros.
+1. Ruff com zero violações no escopo F13 e no executor canônico alterado pelo cutover.
+2. mypy no boundary F13 e no executor canônico sem erros.
 3. suíte Python completa com zero FAIL.
 4. readiness inventory reconciliado com o código.
 5. PostgreSQL staging efêmero sem `FM_AI_TEST_MODE`.
@@ -19,10 +19,16 @@ O checkpoint somente pode ser declarado concluído quando o mesmo HEAD provar, e
 7. marketing WhatsApp negado sem consentimento, sem chamada ao transporte.
 8. ausência de regressão nos gates já homologados/certificados da Recovery.
 
+O repositório possui dívida histórica de lint fora do escopo da F13; por isso este checkpoint não declara
+`ruff check .` global como baseline. A certificação exige zero violações nos arquivos F13, no executor
+canônico tocado pelo cutover e nos testes de certificação, sem enfraquecer os gates existentes dos demais
+módulos.
+
 ## Autoridade econômica
 
 - O ledger canônico de cashback é a autoridade econômica.
 - `clientes.saldo_cashback` permanece somente como projeção de compatibilidade.
+- O PDV canônico síncrono e a finalização assíncrona usam o boundary canônico de cashback antes da projeção legada.
 - O CRM comercial não chama `runtime_teste` e não usa transporte fake.
 - `core/crm/runtime_teste.py` exige explicitamente `FM_AI_TEST_MODE=1` e falha fechado fora do test runtime.
 

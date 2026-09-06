@@ -9,9 +9,11 @@ from application.checkout import (
     confirmar_checkout_sem_obrigacao_financeira_em_transacao,
     executar_checkout_em_transacao,
 )
+from application.crm_cashback_transacoes import aplicar_cashback_pdv_em_transacao
 from application.order_result_orchestrator import (
     orquestrar_resultado_pagamento_em_transacao,
 )
+from application.pdv_legacy_projection import projetar_legado_em_transacao
 from core.dominio.dinheiro import Dinheiro
 from core.dominio.enums import PagamentoStatus
 from core.pagamentos.modelos import MetodoPagamento
@@ -158,7 +160,23 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
             self.fault("after_confirmacao_saldo_zero")
 
             venda = self.legado.criar_venda_uma_vez(entrada, instante=instante)
-            self.legado.aplicar_cashback_uma_vez(entrada, instante)
+            cashback_canonico = aplicar_cashback_pdv_em_transacao(
+                recursos=recursos,
+                tenant_id=self.contexto.tenant_id,
+                unidade_id=self.contexto.unidade_id,
+                pedido_id=str(pedido.id),
+                entrada=entrada,
+                timestamp=instante,
+            )
+            projetar_legado_em_transacao(
+                recursos=recursos,
+                tenant_id=self.contexto.tenant_id,
+                unidade_id=self.contexto.unidade_id,
+                pedido_id=str(pedido.id),
+                entrada=entrada,
+                timestamp=instante,
+                cashback_canonico=cashback_canonico,
+            )
             self.fault("after_projecoes_legadas")
             self.fault("before_reconciliacao")
             pdv.reconciliar(
@@ -294,7 +312,23 @@ class ExecutorAutoritativoCanonicoSQLAlchemy:
         self.fault("after_venda_financeira")
 
         venda = self.legado.criar_venda_uma_vez(entrada, instante=instante)
-        self.legado.aplicar_cashback_uma_vez(entrada, instante)
+        cashback_canonico = aplicar_cashback_pdv_em_transacao(
+            recursos=recursos,
+            tenant_id=self.contexto.tenant_id,
+            unidade_id=self.contexto.unidade_id,
+            pedido_id=str(pedido.id),
+            entrada=entrada,
+            timestamp=instante,
+        )
+        projetar_legado_em_transacao(
+            recursos=recursos,
+            tenant_id=self.contexto.tenant_id,
+            unidade_id=self.contexto.unidade_id,
+            pedido_id=str(pedido.id),
+            entrada=entrada,
+            timestamp=instante,
+            cashback_canonico=cashback_canonico,
+        )
         self.fault("after_projecoes_legadas")
 
         pdv.criar_link(
