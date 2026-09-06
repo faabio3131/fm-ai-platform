@@ -29,11 +29,14 @@ jobs:
           core/crm
           application/crm_cashback_transacoes.py
           application/crm_cashback_comercial.py
+          application/crm_marketing_comercial.py
           application/pdv_legacy_projection.py
           application/finalizacao_pagamento.py
           infra/crm/cashback_schema.py
           infra/crm/cashback_sqlalchemy.py
           infra/crm/cliente_legado_sqlalchemy.py
+          infra/crm/consentimentos_marketing_sqlalchemy.py
+          infra/crm/marketing_whatsapp.py
           infra/transacoes/uow.py
           migrations/crm_cashback_ledger_v1.py
           tests/unit/crm
@@ -44,10 +47,13 @@ jobs:
           core/crm
           application/crm_cashback_transacoes.py
           application/crm_cashback_comercial.py
+          application/crm_marketing_comercial.py
           application/pdv_legacy_projection.py
           application/finalizacao_pagamento.py
           infra/crm/cashback_sqlalchemy.py
           infra/crm/cliente_legado_sqlalchemy.py
+          infra/crm/consentimentos_marketing_sqlalchemy.py
+          infra/crm/marketing_whatsapp.py
           infra/transacoes/uow.py
           migrations/crm_cashback_ledger_v1.py
       - name: Testes focados PR19
