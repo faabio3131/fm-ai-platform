@@ -1,0 +1,126 @@
+name: Fase 13D CRM Commercial Runtime E2E Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app.py'
+      - 'application/crm_**'
+      - 'application/finalizacao_pagamento.py'
+      - 'application/pdv_legacy_projection.py'
+      - 'core/crm/**'
+      - 'core/pdv/**'
+      - 'infra/crm/**'
+      - 'infra/transacoes/**'
+      - 'migrations/**'
+      - 'scripts/check_commercial_runtime_readiness_v1.py'
+      - 'scripts/seed_f6d_commercial_runtime.py'
+      - 'docs/commercial_runtime_readiness_v1.json'
+      - 'tests/unit/crm/**'
+      - 'tests/integration/crm/**'
+      - 'tests/commercial_runtime/test_f13d_crm_commercial_runtime.py'
+      - 'tests/fitness/test_f13c_crm_ui_marketing_cutover.py'
+      - 'tests/fitness/test_commercial_runtime_readiness_v1.py'
+      - '.github/workflows/fase13d-crm-commercial-runtime-e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Ruff global + mypy F13 + regressao Python completa
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Ruff global
+        run: ruff check .
+      - name: mypy F13
+        run: >-
+          mypy
+          core/crm
+          application/crm_cashback_transacoes.py
+          application/crm_cashback_comercial.py
+          application/crm_marketing_comercial.py
+          application/pdv_legacy_projection.py
+          application/finalizacao_pagamento.py
+          infra/crm/cashback_sqlalchemy.py
+          infra/crm/cliente_legado_sqlalchemy.py
+          infra/crm/consentimentos_marketing_sqlalchemy.py
+          infra/crm/marketing_whatsapp.py
+          infra/transacoes/uow.py
+          migrations/crm_cashback_ledger_v1.py
+      - name: Readiness F13
+        run: python scripts/check_commercial_runtime_readiness_v1.py --verify-inventory
+      - name: Suite Python completa
+        run: pytest -q
+
+  f13d-commercial:
+    name: PostgreSQL staging sem test mode + cadeia CRM/PDV
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fm_ai_f13d
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d fm_ai_f13d"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      FM_AI_ENV: staging
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/fm_ai_f13d
+      FM_AI_TENANT_ID: tenant-f6d
+      FM_AI_UNIDADE_ID: unidade-f6d
+      FM_AI_PDV_MODE: authoritative_canary
+      FM_AI_PDV_COMMERCIAL_CANARY_ENABLED: '1'
+      FM_AI_PDV_TERMINAL_ID: caixa-f13d
+      FM_AI_PDV_ALLOWED_TERMINALS: caixa-f13d
+      FM_AI_SECRET_MASTER_KEY: bW1scnZpQzlCS2Q1dXBlTXRyUkJlTGNXWGtIclc3WktoM3lrb3Q5WT0=
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1
+      - name: Provar runtime comercial sem harness
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          python - <<'PY'
+          from core.runtime.config import RuntimeEnvironment, load_runtime_settings
+
+          settings = load_runtime_settings()
+          assert settings.environment is RuntimeEnvironment.STAGING
+          assert settings.commercial
+          print("F13-D staging sem FM_AI_TEST_MODE OK")
+          PY
+      - name: Preparar PostgreSQL comercial efemero
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          python -m scripts.seed_f6d_commercial_runtime
+      - name: Commercial Runtime E2E F13-D
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          pytest -q tests/commercial_runtime/test_f13d_crm_commercial_runtime.py
