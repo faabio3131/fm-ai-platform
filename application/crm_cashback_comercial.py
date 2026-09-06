@@ -121,7 +121,10 @@ def creditar_cashback_manual(
         )
 
         # Compatibilidade somente: replica o saldo final produzido pela autoridade.
-        uow.session.execute(
+        session = uow.session
+        if session is None:
+            raise RuntimeError("uow_session_indisponivel")
+        session.execute(
             update(clientes)
             .where(clientes.c.id == legacy_cliente_id)
             .values(saldo_cashback=float(resultado.saldo))
