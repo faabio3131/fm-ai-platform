@@ -1,0 +1,34 @@
+name: F13C App Cutover Executor
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.head_ref == 'recovery/v1-fase13c-crm-ui-marketing-cutover'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply deterministic F13-C patch
+        run: python scripts/f13c_apply_app_cutover.py
+      - name: Commit patched app only when changed
+        run: |
+          if git diff --quiet -- app.py; then
+            echo 'app.py already cut over'
+            exit 0
+          fi
+          git config user.name 'fm-ai-recovery-bot'
+          git config user.email '134972286+faabio3131@users.noreply.github.com'
+          git add app.py
+          git commit -m 'feat(f13c): cut over CRM UI and PDV cashback authority'
+          git push origin HEAD:${{ github.head_ref }}
