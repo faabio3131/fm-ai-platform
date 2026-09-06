@@ -4,6 +4,7 @@ import {
   Activity,
   ChefHat,
   Database,
+  LayoutGrid,
   RefreshCw,
   ShieldCheck,
   ShoppingCart,
@@ -104,6 +105,12 @@ export default function Home() {
               <Link href="/kds">
                 <ChefHat />
                 Abrir KDS Cozinha
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="h-10 rounded-xl">
+              <Link href="/salao">
+                <LayoutGrid />
+                Mapa de Salão
               </Link>
             </Button>
             <Button asChild className="h-10 rounded-xl">
