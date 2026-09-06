@@ -1,0 +1,103 @@
+name: V1 Salao HTTP Foundation Gate
+
+on:
+  push:
+    branches:
+      - feat/v1-backend-salao-http-foundation
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'http_api/app.py'
+      - 'http_api/salao.py'
+      - 'tests/api/test_salao_http_contract.py'
+      - '.github/workflows/v1-salao-http-foundation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v1-salao-http-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-contract:
+    name: Salao HTTP contract e regressao
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Ruff delta Salao HTTP
+        run: ruff check http_api/salao.py tests/api/test_salao_http_contract.py
+      - name: Mypy delta Salao HTTP
+        run: mypy http_api/salao.py tests/api/test_salao_http_contract.py
+      - name: Contrato HTTP Salao
+        run: pytest -q tests/api/test_salao_http_contract.py
+      - name: Regressao Python completa
+        run: pytest -q
+
+  postgres-schema:
+    name: Salao schema em PostgreSQL descartavel
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gerente_ai_salao_http
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d gerente_ai_salao_http"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      SALAO_POSTGRES_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/gerente_ai_salao_http
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Provar schema comercial de Salao no PostgreSQL
+        run: |
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, inspect
+          from migrations.runner import run_migrations
+
+          engine = create_engine(os.environ["SALAO_POSTGRES_URL"], future=True)
+          try:
+              run_migrations(engine)
+              tabelas = set(inspect(engine).get_table_names())
+              esperadas = {
+                  "mesas_v1",
+                  "comandas_v1",
+                  "comanda_participantes_v1",
+                  "comanda_pedidos_v1",
+                  "comanda_parcelas_fechamento_v1",
+                  "comanda_pagamentos_confirmados_v1",
+                  "eventos_salao_v1",
+              }
+              faltantes = sorted(esperadas - tabelas)
+              assert not faltantes, f"tabelas de Salao ausentes: {faltantes}"
+          finally:
+              engine.dispose()
+          PY
