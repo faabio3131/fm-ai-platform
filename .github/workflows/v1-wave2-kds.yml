@@ -10,11 +10,15 @@ on:
       - 'core/kds/**'
       - 'core/pedidos/**'
       - 'core/estados/**'
+      - 'http_api/kds.py'
+      - 'http_api/app.py'
+      - 'http_api/frontend_app.py'
       - 'infra/eventos/**'
       - 'infra/seguranca/**'
       - 'migrations/**'
       - 'tests/integration/wave2/**'
       - 'tests/integration/kds/**'
+      - 'tests/api/test_kds_http_contract.py'
       - 'tests/fitness/test_af03_transaction_ownership.py'
       - 'tests/fitness/transaction_ownership_baseline_v1.json'
       - 'tests/e2e-kds/**'
@@ -27,7 +31,7 @@ permissions:
 
 jobs:
   kds:
-    name: KDS-001 autoritativo e navegador
+    name: KDS-001 autoritativo, HTTP e navegador
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
@@ -50,17 +54,19 @@ jobs:
       - name: Compilar KDS
         run: >-
           python -m compileall -q application/kds_runtime.py application/kds_roteamento.py application/kds_transacoes.py
-          core/kds core/pedidos core/estados infra/eventos infra/seguranca migrations
-          tests/integration/wave2
+          core/kds core/pedidos core/estados http_api/kds.py http_api/app.py
+          infra/eventos infra/seguranca migrations tests/integration/wave2
+          tests/api/test_kds_http_contract.py
       - name: Ruff KDS
         run: >-
           ruff check application/kds_runtime.py application/kds_roteamento.py application/kds_transacoes.py
-          core/kds core/pedidos core/estados infra/eventos infra/seguranca
-          migrations/runner.py tests/integration/wave2
+          core/kds core/pedidos core/estados http_api/kds.py http_api/app.py
+          infra/eventos infra/seguranca migrations/runner.py tests/integration/wave2
+          tests/api/test_kds_http_contract.py
       - name: Mypy KDS
         run: >-
           mypy application/kds_runtime.py application/kds_roteamento.py application/kds_transacoes.py
-          core/kds core/pedidos core/estados infra/eventos infra/seguranca
+          core/kds core/pedidos core/estados http_api/kds.py infra/eventos infra/seguranca
           migrations/runner.py
       - name: Provas autoritativas KDS-001
         run: >-
@@ -68,6 +74,7 @@ jobs:
           tests/integration/wave2/test_kds_authoritative_runtime.py
           tests/integration/wave2/test_kds_transaction_ownership.py
           tests/integration/kds
+          tests/api/test_kds_http_contract.py
           tests/fitness/test_af03_transaction_ownership.py
       - name: Regressao Python completa
         run: pytest -q
