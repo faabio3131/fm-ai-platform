@@ -37,7 +37,12 @@ from core.dominio.pedidos import ItemPedido, Pedido
 from core.dominio.tipos import QuantidadeItem
 from core.pagamentos.erros import ConcorrenciaPagamento, ConflitoIdempotenciaPagamento
 from core.pagamentos.modelos import MetodoPagamento
-from core.seguranca import AutorizarAcao, ContextoExecucao, Permissao, ServicoAutenticacao
+from core.seguranca import (
+    AutorizarAcao,
+    ContextoExecucao,
+    Permissao,
+    ServicoAutenticacao,
+)
 from core.seguranca.erros import CredenciaisInvalidas, ErroSeguranca
 from infra.legacy_product_scope import ErroEscopoLojaLegada, listar_produtos_legados
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
@@ -267,7 +272,7 @@ def _montar_pedido(
             raise ValueError("produto_indisponivel_ou_fora_do_escopo")
         preco = produto["_preco"]
         if not isinstance(preco, Dinheiro):
-            raise ValueError("produto_com_preco_invalido")
+            raise TypeError("produto_com_preco_invalido")
         quantidade = QuantidadeItem(entrada.quantidade)
         item_subtotal = preco * quantidade.valor
         subtotal = subtotal + item_subtotal
