@@ -65,6 +65,9 @@ def _seed_cliente(factory: sessionmaker[Session]) -> None:
         connection = session.connection()
         clientes = Table("clientes", MetaData(), autoload_with=connection)
         crm_clientes = Table("crm_clientes_v1", MetaData(), autoload_with=connection)
+        crm_contatos = Table(
+            "crm_cliente_contatos_v1", MetaData(), autoload_with=connection
+        )
         mapping = Table("crm_cliente_legado_v1", MetaData(), autoload_with=connection)
 
         if session.execute(
@@ -96,6 +99,23 @@ def _seed_cliente(factory: sessionmaker[Session]) -> None:
                     marketplace_origem=None,
                     criado_em=AGORA,
                     versao=1,
+                )
+            )
+
+        if session.execute(
+            select(crm_contatos.c.cliente_id)
+            .where(crm_contatos.c.tenant_id == TENANT)
+            .where(crm_contatos.c.unidade_id == UNIDADE)
+            .where(crm_contatos.c.cliente_id == CLIENTE_CRM_ID)
+            .where(crm_contatos.c.canal == "whatsapp")
+        ).scalar_one_or_none() is None:
+            session.execute(
+                insert(crm_contatos).values(
+                    tenant_id=TENANT,
+                    unidade_id=UNIDADE,
+                    cliente_id=CLIENTE_CRM_ID,
+                    canal="whatsapp",
+                    referencia="contact://f13d/whatsapp",
                 )
             )
 
