@@ -319,21 +319,20 @@ def test_replay_financeiro_identico_retorna_idempotente_e_divergente_conflita() 
         assert repetido.transacao.transacao_id == primeiro.transacao.transacao_id
         uow.commit()
 
-    with UnitOfWorkV1(factory) as uow:
-        with pytest.raises(
-            ConflitoIdempotenciaPagamento,
-            match="conflito_idempotencia",
-        ):
-            confirmar_pagamento(
-                contexto=_contexto("corr-f14b-confirm-conflict"),
-                repositorio=uow.pagamentos,
-                pagamento_id=pagamento_id,
-                valor=Dinheiro(Decimal("30.00")),
-                metodo=MetodoPagamento.DINHEIRO,
-                idempotency_key="f14b:confirmacao:replay",
-                expected_version=2,
-                timestamp=AGORA + timedelta(seconds=3),
-            )
+    with UnitOfWorkV1(factory) as uow, pytest.raises(
+        ConflitoIdempotenciaPagamento,
+        match="conflito_idempotencia",
+    ):
+        confirmar_pagamento(
+            contexto=_contexto("corr-f14b-confirm-conflict"),
+            repositorio=uow.pagamentos,
+            pagamento_id=pagamento_id,
+            valor=Dinheiro(Decimal("30.00")),
+            metodo=MetodoPagamento.DINHEIRO,
+            idempotency_key="f14b:confirmacao:replay",
+            expected_version=2,
+            timestamp=AGORA + timedelta(seconds=3),
+        )
 
     with factory() as session:
         pagamento = session.scalar(
