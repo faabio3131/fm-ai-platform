@@ -1,6 +1,13 @@
 "use client";
 
-import { Activity, Database, RefreshCw, ShieldCheck, ShoppingCart } from "lucide-react";
+import {
+  Activity,
+  ChefHat,
+  Database,
+  RefreshCw,
+  ShieldCheck,
+  ShoppingCart,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -93,6 +100,12 @@ export default function Home() {
                   ? "Backend offline"
                   : "Validando conexão"}
             </Badge>
+            <Button asChild variant="outline" className="h-10 rounded-xl">
+              <Link href="/kds">
+                <ChefHat />
+                Abrir KDS Cozinha
+              </Link>
+            </Button>
             <Button asChild className="h-10 rounded-xl">
               <Link href="/pdv">
                 <ShoppingCart />
