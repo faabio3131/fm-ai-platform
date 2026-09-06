@@ -1,0 +1,100 @@
+name: F14-D Governed Operational Intelligence Gate
+
+on:
+  push:
+    branches:
+      - main
+      - "recovery/v1-fase14*"
+    paths:
+      - "core/ai_router.py"
+      - "core/gerente_ia/**"
+      - "core/seguranca/auditoria.py"
+      - "infra/ai_metering.py"
+      - "tests/unit/ai_router/**"
+      - "tests/unit/gerente_ia/**"
+      - "tests/fitness/test_f14_governed_operational_intelligence_v1.py"
+      - ".github/workflows/f14d-governed-operational-intelligence-gate.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "core/ai_router.py"
+      - "core/gerente_ia/**"
+      - "core/seguranca/auditoria.py"
+      - "infra/ai_metering.py"
+      - "tests/unit/ai_router/**"
+      - "tests/unit/gerente_ia/**"
+      - "tests/fitness/test_f14_governed_operational_intelligence_v1.py"
+      - ".github/workflows/f14d-governed-operational-intelligence-gate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Ruff F14-D + mypy + regressao Python completa
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Compilar fitness F14-D
+        run: >-
+          python -m py_compile
+          core/ai_router.py
+          core/gerente_ia/tools.py
+          core/gerente_ia/modelos.py
+          core/gerente_ia/servicos.py
+          tests/fitness/test_f14_governed_operational_intelligence_v1.py
+      - name: Ruff F14-D
+        run: >-
+          ruff check
+          core/ai_router.py
+          core/gerente_ia
+          core/seguranca/auditoria.py
+          infra/ai_metering.py
+          tests/unit/ai_router
+          tests/unit/gerente_ia
+          tests/fitness/test_f14_governed_operational_intelligence_v1.py
+      - name: Mypy F14-D
+        run: >-
+          mypy
+          core/ai_router.py
+          core/gerente_ia
+          core/seguranca/auditoria.py
+          infra/ai_metering.py
+      - name: Readiness comercial
+        run: python scripts/check_commercial_runtime_readiness_v1.py --verify-inventory
+      - name: Regressao Python completa
+        run: pytest -q
+
+  governed_ai:
+    name: AI router + HITL + tenant telemetry + injection fitness
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Revalidar AI Router herdado
+        run: pytest -q tests/unit/ai_router
+      - name: Revalidar Gerente IA herdado
+        run: pytest -q tests/unit/gerente_ia
+      - name: Fitness governado F14-D
+        run: pytest -q tests/fitness/test_f14_governed_operational_intelligence_v1.py
