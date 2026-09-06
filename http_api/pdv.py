@@ -264,7 +264,7 @@ def _montar_pedido(
     unidade = UnidadeId(contexto.unidade_id)
     pedido_id = PedidoId(_stable_id("pdv", key=idempotency_key, sufixo="pedido"))
     itens: list[ItemPedido] = []
-    subtotal = Dinheiro(0)
+    subtotal = Dinheiro(Decimal("0.00"))
 
     for indice, entrada in enumerate(payload.itens):
         produto = catalogo.get(entrada.produto_id)
@@ -328,7 +328,7 @@ def _montar_pedido(
         idempotency_key=IdempotencyKey(idempotency_key),
         subtotal=subtotal,
         descontos=desconto,
-        taxas=Dinheiro(0),
+        taxas=Dinheiro(Decimal("0.00")),
         total=subtotal - desconto,
         itens=tuple(itens),
         observacoes=(),
