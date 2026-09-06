@@ -1,9 +1,11 @@
 from dataclasses import replace
+from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
 from sqlalchemy import func, select
 
+from core.crm.cashback import ServicoCashback
 from core.dominio.dinheiro import Dinheiro
 from core.estoque.modelos_orm import ReservaEstoqueORM, SaldoEstoqueORM
 from core.pagamentos.modelos_orm import (
@@ -22,9 +24,12 @@ from core.pdv.roteamento import ModoPDV
 from core.pedidos.modelos_orm import PedidoORM
 from infra.eventos.modelos_orm import OutboxEventoORM
 from infra.seguranca.modelos_orm import EventoAuditoriaORM
+from infra.transacoes.uow import RecursosTransacionaisV1
 
 from .conftest import ClienteTeste, InsumoTeste, VendaTeste
 from .helpers import executar
+
+CLIENTE_CRM = "cliente-crm-pdv-1"
 
 
 def _entrada_saldo_zero(fabrica, entrada):
@@ -32,6 +37,22 @@ def _entrada_saldo_zero(fabrica, entrada):
         cliente = session.get(ClienteTeste, 1)
         assert cliente is not None
         cliente.saldo_cashback = 100
+        recursos = RecursosTransacionaisV1(session)
+        ServicoCashback(recursos.cashback).creditar(
+            tenant_id="tenant-teste",
+            unidade_id="unidade-teste",
+            cliente_id=CLIENTE_CRM,
+            valor=Decimal("90.00"),
+            origem="regularizacao_governada",
+            referencia="fixture://pdv/zero-total/f13d",
+            idempotency_key="fixture-pdv-zero-total-f13d:regularizacao-cashback",
+            ocorrido_em=datetime.now(timezone.utc),
+        )
+        assert recursos.cashback.saldo(
+            tenant_id="tenant-teste",
+            unidade_id="unidade-teste",
+            cliente_id=CLIENTE_CRM,
+        ) == Decimal("100.00")
         session.commit()
     return replace(
         entrada,
@@ -100,7 +121,14 @@ def test_saldo_zero_fica_canonico_sem_pagamento_ficticio(
 
         cliente = session.get(ClienteTeste, 1)
         assert cliente is not None
-        assert Decimal(str(cliente.saldo_cashback)) == Decimal("70.1")
+        recursos = RecursosTransacionaisV1(session)
+        saldo_canonico = recursos.cashback.saldo(
+            tenant_id="tenant-teste",
+            unidade_id="unidade-teste",
+            cliente_id=CLIENTE_CRM,
+        )
+        assert saldo_canonico == Decimal("70.10")
+        assert Decimal(str(cliente.saldo_cashback)) == saldo_canonico
         assert Decimal(str(cliente.total_gasto)) == Decimal("0.0")
         assert session.get(InsumoTeste, 1).saldo_atual == 10
 
@@ -147,4 +175,10 @@ def test_saldo_zero_rollback_atomico_sem_efeito_financeiro(
         cliente = session.get(ClienteTeste, 1)
         assert cliente is not None
         assert Decimal(str(cliente.saldo_cashback)) == Decimal("100.0")
+        recursos = RecursosTransacionaisV1(session)
+        assert recursos.cashback.saldo(
+            tenant_id="tenant-teste",
+            unidade_id="unidade-teste",
+            cliente_id=CLIENTE_CRM,
+        ) == Decimal("100.00")
         assert session.get(InsumoTeste, 1).saldo_atual == 10
