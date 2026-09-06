@@ -4,6 +4,7 @@ import os
 from datetime import datetime, timezone
 from decimal import Decimal
 
+import pytest
 from sqlalchemy import MetaData, Table, create_engine, insert, select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -20,6 +21,12 @@ from infra.crm.cashback_sqlalchemy import RepositorioCashbackSQLAlchemy
 from infra.transacoes.uow import RecursosTransacionaisV1
 from tests.integration.pdv.conftest import ClienteTeste
 from tests.integration.pdv.helpers import executar
+
+pytestmark = pytest.mark.skipif(
+    os.getenv("FM_AI_ENV") != "staging"
+    or not os.getenv("DATABASE_URL", "").startswith("postgresql"),
+    reason="F13-D commercial runtime exige staging com PostgreSQL efemero",
+)
 
 TENANT = "tenant-f6d"
 UNIDADE = "unidade-f6d"
