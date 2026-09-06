@@ -39,7 +39,7 @@ def _pedido(
         tenant_id=tenant_id,
         unidade_id=unidade_id,
         origem="pdv",
-        canal="balcao",
+        canal="pdv",
         status="enviado_producao",
         cliente_id=None,
         criado_em=AGORA,
