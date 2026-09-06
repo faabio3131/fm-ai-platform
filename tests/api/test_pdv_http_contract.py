@@ -33,20 +33,6 @@ def _infra():
         conn.execute(
             text(
                 """
-                CREATE TABLE IF NOT EXISTS produtos (
-                    id INTEGER PRIMARY KEY,
-                    loja_id INTEGER NOT NULL,
-                    nome VARCHAR(255) NOT NULL,
-                    categoria VARCHAR(255),
-                    preco_venda NUMERIC(12, 2),
-                    ativo BOOLEAN NOT NULL DEFAULT TRUE
-                )
-                """
-            )
-        )
-        conn.execute(
-            text(
-                """
                 INSERT INTO fm_unidade_loja_legacy_v1
                     (tenant_id, unidade_id, loja_id, ativo)
                 VALUES
@@ -59,11 +45,11 @@ def _infra():
             text(
                 """
                 INSERT INTO produtos
-                    (id, loja_id, nome, categoria, preco_venda, ativo)
+                    (id, loja_id, nome, categoria, preco_venda)
                 VALUES
-                    (1, 71, 'X-Bacon', 'Lanches', 30.00, TRUE),
-                    (2, 71, 'Produto inativo', 'Lanches', 10.00, FALSE),
-                    (3, 99, 'Outro escopo', 'Lanches', 99.00, TRUE)
+                    (1, '71', 'X-Bacon', 'Lanches', 30.00),
+                    (2, '71', 'Produto sem preco', 'Lanches', NULL),
+                    (3, '99', 'Outro escopo', 'Lanches', 99.00)
                 """
             )
         )
