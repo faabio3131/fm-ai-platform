@@ -12,7 +12,7 @@ from core.dominio.ids import (
     UnidadeId,
 )
 from core.dominio.tempo import FixedClock
-from core.eventos.erros import ConflitoInbox, ContextoTenantDivergente, DuplicataOutbox
+from core.eventos.erros import ConflitoInbox, DuplicataOutbox
 from core.eventos.modelos import (
     ClassificacaoErro,
     DeadLetter,
@@ -176,8 +176,9 @@ def test_handler_inexistente_resulta_em_dlq_imediata() -> None:
     assert dlq.listar()[0].motivo == "non_retryable"
 
 
-def test_contexto_tenant_unidade_correlation_causation_deve_coincidir() -> None:
-    proc, _, _, _ = processador(lambda _: None)
+def test_contexto_divergente_vai_para_dlq_sem_interromper_consumidor() -> None:
+    chamadas: list[EnvelopeMensagem] = []
+    proc, inbox, dlq, metricas = processador(chamadas.append)
     contexto = ContextoExecucao.sistema(
         identidade="worker",
         motivo="processar",
@@ -186,8 +187,15 @@ def test_contexto_tenant_unidade_correlation_causation_deve_coincidir() -> None:
         correlation_id="corr-1",
         solicitado_em=AGORA,
     )
-    with pytest.raises(ContextoTenantDivergente):
-        proc.processar(mensagem(), contexto)
+
+    resultado = proc.processar(mensagem(), contexto)
+
+    assert resultado.status is StatusProcessamento.DLQ
+    assert resultado.erro and resultado.erro.tipo == "ContextoTenantDivergente"
+    assert not chamadas
+    assert not inbox.historico()
+    assert dlq.listar()[0].motivo == "context_mismatch"
+    assert metricas.valor("messages_dlq") == 1
 
 
 def test_dlq_sanitiza_metadata_e_preserva_contexto() -> None:

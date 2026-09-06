@@ -1,12 +1,13 @@
 """Registro tipado e processador sincrono/idempotente de mensagens."""
 
 from collections.abc import Callable
+from datetime import datetime
 from typing import Protocol, TypeAlias
 
 from core.dominio.tempo import Clock
 from core.seguranca.contexto import ContextoExecucao
 
-from .erros import ContextoTenantDivergente, HandlerNaoEncontrado
+from .erros import ConflitoInbox, ContextoTenantDivergente, HandlerNaoEncontrado
 from .modelos import (
     DeadLetter,
     EnvelopeMensagem,
@@ -59,20 +60,58 @@ class ProcessadorMensagens:
         self._metricas = metricas
         self._clock = clock
 
-    def processar(
-        self, mensagem: EnvelopeMensagem, contexto: ContextoExecucao | None = None
-    ) -> ResultadoProcessamento:
-        agora = self._clock.agora()
-        self._metricas.incrementar("messages_received")
-        if contexto is not None and (
+    @staticmethod
+    def _contexto_divergente(
+        mensagem: EnvelopeMensagem, contexto: ContextoExecucao
+    ) -> bool:
+        return (
             contexto.tenant_id != str(mensagem.tenant_id)
             or contexto.unidade_id != str(mensagem.unidade_id)
             or contexto.correlation_id != str(mensagem.correlation_id)
             or contexto.causation_id
             != (str(mensagem.causation_id) if mensagem.causation_id else None)
-        ):
-            raise ContextoTenantDivergente()
-        registro = self._inbox.registrar(mensagem, agora)
+        )
+
+    def _enviar_dlq_imediata(
+        self,
+        mensagem: EnvelopeMensagem,
+        *,
+        erro_original: Exception,
+        motivo: str,
+        agora: datetime,
+    ) -> ResultadoProcessamento:
+        erro = normalizar_erro(erro_original)
+        self._metricas.incrementar("messages_failed")
+        self._dlq.adicionar(DeadLetter.criar(mensagem, motivo, erro, 0, agora))
+        self._metricas.incrementar("messages_dlq")
+        return ResultadoProcessamento(
+            StatusProcessamento.DLQ,
+            mensagem.event_id,
+            0,
+            erro=erro,
+        )
+
+    def processar(
+        self, mensagem: EnvelopeMensagem, contexto: ContextoExecucao | None = None
+    ) -> ResultadoProcessamento:
+        agora = self._clock.agora()
+        self._metricas.incrementar("messages_received")
+        if contexto is not None and self._contexto_divergente(mensagem, contexto):
+            return self._enviar_dlq_imediata(
+                mensagem,
+                erro_original=ContextoTenantDivergente(),
+                motivo="context_mismatch",
+                agora=agora,
+            )
+        try:
+            registro = self._inbox.registrar(mensagem, agora)
+        except ConflitoInbox as exc:
+            return self._enviar_dlq_imediata(
+                mensagem,
+                erro_original=exc,
+                motivo="inbox_conflict",
+                agora=agora,
+            )
         if self._inbox.ja_processada(mensagem.idempotency_key):
             self._metricas.incrementar("messages_duplicate")
             return ResultadoProcessamento(
