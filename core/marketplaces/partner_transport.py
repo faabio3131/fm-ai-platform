@@ -1,8 +1,9 @@
-"""Contrato normalizado para provedores sem especificação pública completa.
+"""Contrato normalizado para transportes parceiros de marketplace.
 
-PR18 não inventa endpoints, autenticação ou payloads de 99Food/Keeta. O adapter
-só pode operar quando um transporte parceiro, validado contra a documentação
-fornecida pela plataforma, é injetado explicitamente.
+99Food e Keeta publicam integração baseada em Open Delivery. Este protocolo
+mantém o domínio independente das particularidades de autenticação, assinatura,
+versão, URL e política de cancelamento de cada parceiro e só permite operação
+quando o transporte injetado declara o contrato como verificado.
 """
 
 from __future__ import annotations

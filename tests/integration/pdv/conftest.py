@@ -14,6 +14,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, sessionmaker
 
+from core.crm.cashback import ServicoCashback
 from core.dominio.dinheiro import Dinheiro
 from core.estoque.modelos_orm import StockBase
 from core.pagamentos.modelos_orm import PaymentsBase
@@ -22,9 +23,15 @@ from core.pdv.modelos_orm import PDVBase
 from core.pedidos.modelos_orm import OrdersBase
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import MATRIZ_PADRAO, Papel
+from infra.crm.cashback_sqlalchemy import RepositorioCashbackSQLAlchemy
 from infra.eventos.modelos_orm import EventBusBase
 from infra.gerente_ia.modelos_orm import CoreRuntimeBase
 from infra.seguranca.modelos_orm import SecurityBase
+from migrations.crm_cashback_ledger_v1 import upgrade_crm_cashback_ledger_v1
+from migrations.crm_cliente_legado_mapping_v1 import (
+    upgrade_crm_cliente_legado_mapping_v1,
+)
+from migrations.crm_clientes_persistencia_v1 import upgrade_crm_clientes_persistencia_v1
 from migrations.legacy_store_baseline_v1 import (
     upgrade_legacy_store_baseline_v1,
 )
@@ -91,6 +98,9 @@ def fabrica(tmp_path):
     with engine.begin() as connection:
         upgrade_legacy_store_baseline_v1(connection)
         upgrade_unit_legacy_store_mapping_v1(connection)
+        upgrade_crm_clientes_persistencia_v1(connection)
+        upgrade_crm_cliente_legado_mapping_v1(connection)
+        upgrade_crm_cashback_ledger_v1(connection)
         connection.execute(
             text(
                 "INSERT INTO lojas (id, nome_fantasia) "
@@ -112,6 +122,7 @@ def fabrica(tmp_path):
     SecurityBase.metadata.create_all(engine)
     PDVBase.metadata.create_all(engine)
     factory = sessionmaker(engine, expire_on_commit=False)
+    agora = datetime.now(timezone.utc)
     with factory() as session:
         session.add_all(
             [
@@ -128,6 +139,43 @@ def fabrica(tmp_path):
                 InsumoTeste(id=1, saldo_atual=10, loja_id=7),
                 FichaTeste(id=1, produto_id=1, insumo_id=1, quantidade_utilizada=1),
             ]
+        )
+        session.flush()
+        session.execute(
+            text(
+                """
+                INSERT INTO crm_clientes_v1
+                    (tenant_id, unidade_id, cliente_id, origem, marketplace_origem,
+                     criado_em, versao)
+                VALUES
+                    ('tenant-teste', 'unidade-teste', 'cliente-crm-pdv-1',
+                     'regularizacao_legado', NULL, :criado_em, 1)
+                """
+            ),
+            {"criado_em": agora.replace(tzinfo=None)},
+        )
+        session.execute(
+            text(
+                """
+                INSERT INTO crm_cliente_legado_v1
+                    (tenant_id, unidade_id, legacy_cliente_id, cliente_id,
+                     criado_por, correlation_id, criado_em)
+                VALUES
+                    ('tenant-teste', 'unidade-teste', 1, 'cliente-crm-pdv-1',
+                     'fixture-f13b', 'fixture-pdv-f13b', :criado_em)
+                """
+            ),
+            {"criado_em": agora.replace(tzinfo=None)},
+        )
+        ServicoCashback(RepositorioCashbackSQLAlchemy(session)).creditar(
+            tenant_id="tenant-teste",
+            unidade_id="unidade-teste",
+            cliente_id="cliente-crm-pdv-1",
+            valor=Decimal("10.00"),
+            origem="regularizacao_governada",
+            referencia="fixture://pdv/f13b",
+            idempotency_key="fixture-pdv-f13b:regularizacao-cashback",
+            ocorrido_em=agora,
         )
         session.commit()
     return factory

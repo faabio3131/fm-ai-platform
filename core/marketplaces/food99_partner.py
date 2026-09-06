@@ -1,8 +1,7 @@
-"""Adapter 99Food V1 sobre transporte parceiro validado.
+"""Adapter 99Food V1 sobre transporte Open Delivery validado.
 
-A Open Platform da 99Food é pública, mas o contrato técnico detalhado exige o
-portal JavaScript/parceria. Para não adivinhar endpoints ou payloads, este adapter
-opera apenas sobre um transporte explicitamente marcado como contrato verificado.
+A 99Food publica Open Platform, sandbox e aderência ao padrão de pedidos Open
+Delivery. Particularidades de autenticação/credenciais continuam fora do domínio.
 """
 
 from __future__ import annotations
@@ -23,6 +22,10 @@ FOOD99_CAPACIDADES_PUBLICAS = CapacidadesMarketplace(
     frozenset(
         {
             CapacidadeMarketplace.RECEBER_PEDIDO,
+            CapacidadeMarketplace.CONFIRMAR,
+            CapacidadeMarketplace.REJEITAR,
+            CapacidadeMarketplace.ATUALIZAR_STATUS,
+            CapacidadeMarketplace.CANCELAR,
             CapacidadeMarketplace.RECONCILIAR,
         }
     )
@@ -72,8 +75,13 @@ class Food99PartnerAdapter:
         *,
         idempotency_key: str,
     ) -> None:
-        del integracao, pedido_id_externo, idempotency_key
-        self.capacidades.exigir(CapacidadeMarketplace.CONFIRMAR)
+        self._validar(integracao)
+        self.transport.executar_comando(
+            integracao,
+            pedido_id_externo,
+            comando="confirmar",
+            idempotency_key=idempotency_key,
+        )
 
     def rejeitar(
         self,
@@ -83,8 +91,14 @@ class Food99PartnerAdapter:
         motivo: str,
         idempotency_key: str,
     ) -> None:
-        del integracao, pedido_id_externo, motivo, idempotency_key
-        self.capacidades.exigir(CapacidadeMarketplace.REJEITAR)
+        self._validar(integracao)
+        self.transport.executar_comando(
+            integracao,
+            pedido_id_externo,
+            comando="rejeitar",
+            motivo=motivo,
+            idempotency_key=idempotency_key,
+        )
 
     def atualizar_status(
         self,
@@ -94,8 +108,14 @@ class Food99PartnerAdapter:
         status: StatusPedidoExterno,
         idempotency_key: str,
     ) -> None:
-        del integracao, pedido_id_externo, status, idempotency_key
-        self.capacidades.exigir(CapacidadeMarketplace.ATUALIZAR_STATUS)
+        self._validar(integracao)
+        self.transport.executar_comando(
+            integracao,
+            pedido_id_externo,
+            comando="atualizar_status",
+            status=status,
+            idempotency_key=idempotency_key,
+        )
 
     def cancelar(
         self,
@@ -105,5 +125,11 @@ class Food99PartnerAdapter:
         motivo: str,
         idempotency_key: str,
     ) -> None:
-        del integracao, pedido_id_externo, motivo, idempotency_key
-        self.capacidades.exigir(CapacidadeMarketplace.CANCELAR)
+        self._validar(integracao)
+        self.transport.executar_comando(
+            integracao,
+            pedido_id_externo,
+            comando="cancelar",
+            motivo=motivo,
+            idempotency_key=idempotency_key,
+        )

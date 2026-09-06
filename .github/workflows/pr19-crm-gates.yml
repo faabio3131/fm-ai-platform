@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   crm:
-    name: CRM consentimento e conversão
+    name: CRM consentimento, conversão e cashback
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -24,9 +24,41 @@ jobs:
           pip install -r requirements.txt
           pip install pytest ruff==0.16.1 mypy==1.20.2
       - name: Ruff PR19
-        run: ruff check core/crm tests/unit/crm tests/integration/crm
+        run: >-
+          ruff check
+          core/crm
+          application/crm_cashback_transacoes.py
+          application/crm_cashback_comercial.py
+          application/crm_marketing_comercial.py
+          application/pdv_legacy_projection.py
+          application/finalizacao_pagamento.py
+          infra/crm/cashback_schema.py
+          infra/crm/cashback_sqlalchemy.py
+          infra/crm/cliente_legado_sqlalchemy.py
+          infra/crm/consentimentos_marketing_sqlalchemy.py
+          infra/crm/marketing_whatsapp.py
+          infra/transacoes/uow.py
+          migrations/crm_cashback_ledger_v1.py
+          tests/unit/crm
+          tests/integration/crm
+          tests/fitness/test_f13c_crm_ui_marketing_cutover.py
       - name: mypy PR19
-        run: mypy core/crm
+        run: >-
+          mypy
+          core/crm
+          application/crm_cashback_transacoes.py
+          application/crm_cashback_comercial.py
+          application/crm_marketing_comercial.py
+          application/pdv_legacy_projection.py
+          application/finalizacao_pagamento.py
+          infra/crm/cashback_sqlalchemy.py
+          infra/crm/cliente_legado_sqlalchemy.py
+          infra/crm/consentimentos_marketing_sqlalchemy.py
+          infra/crm/marketing_whatsapp.py
+          infra/transacoes/uow.py
+          migrations/crm_cashback_ledger_v1.py
+      - name: Fitness F13-C — CRM UI / marketing / cashback authority
+        run: pytest -q tests/fitness/test_f13c_crm_ui_marketing_cutover.py
       - name: Testes focados PR19
         run: pytest -q tests/unit/crm tests/integration/crm
       - name: Suite Python completa

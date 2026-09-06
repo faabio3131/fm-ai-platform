@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import os
 from dataclasses import replace
 from datetime import datetime
 from decimal import Decimal
@@ -27,6 +28,11 @@ from .modelos import (
     moeda,
 )
 from .servicos import ServicoCRM, _id
+
+
+def _require_test_mode() -> None:
+    if os.getenv("FM_AI_TEST_MODE") != "1":
+        raise RuntimeError("runtime_crm_teste_fora_do_test_mode")
 
 
 class HashIdentidadeHMACTeste:
@@ -374,8 +380,9 @@ class MemoriaBeneficiosCRM:
             return beneficio, False
 
 
-class EnvioMarketingFake:
+class EnvioMarketingTeste:
     def __init__(self) -> None:
+        _require_test_mode()
         self.envios: list[tuple[str, str, str]] = []
         self._idempotencia: set[str] = set()
 
@@ -394,6 +401,7 @@ class EnvioMarketingFake:
 
 class RuntimeCRMTeste:
     def __init__(self) -> None:
+        _require_test_mode()
         self.outbox = RepositorioOutboxEmMemoria()
         self.auditoria = RepositorioAuditoriaEmMemoria()
         self.clientes = MemoriaClientesCRM()
@@ -402,7 +410,7 @@ class RuntimeCRMTeste:
         self.funil = MemoriaFunilCRM()
         self.beneficios = MemoriaBeneficiosCRM()
         self.hash_identidade = HashIdentidadeHMACTeste()
-        self.envio = EnvioMarketingFake()
+        self.envio = EnvioMarketingTeste()
         self.servico = ServicoCRM(
             clientes=self.clientes,
             marketplace_clientes=self.marketplace_clientes,
