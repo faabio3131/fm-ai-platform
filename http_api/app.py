@@ -48,6 +48,7 @@ from core.seguranca.erros import (
     SegredoAusente,
 )
 from core.seguranca.segredos import ReferenceSecretStore, SecretStore
+from http_api.pdv import build_pdv_router
 from infra.integracoes.fabrica_adapters import FabricaAdaptersExternos
 from infra.pagamentos.pagbank_runtime import (
     CredencialPagBankNaoConfigurada,
@@ -131,6 +132,7 @@ def build_http_app(
         redoc_url=None,
         openapi_url=None if settings.commercial else "/openapi.json",
     )
+    app.include_router(build_pdv_router(session_factory=session_factory))
 
     @app.get("/healthz", include_in_schema=False)
     def healthz() -> JSONResponse:
