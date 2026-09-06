@@ -160,6 +160,10 @@
     {
       "version": "0039_crm_cashback_ledger_v1",
       "sha256": "1349765bc568e5a89cafc2e12c117c560b29d0ba19e812adb3dfbe1e5ad38a13"
+    },
+    {
+      "version": "0040_product_active_flag_v1",
+      "sha256": "9c1eea7940d40bcf27dcb227dbb75bda6f3ef8c6b775d759555e7e89f8bbe822"
     }
   ]
 }
