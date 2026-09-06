@@ -3,7 +3,8 @@ name: Auth RBAC Commercial Gate V1
 on:
   push:
     branches:
-      - "fix/v1-auth-streamlit-login-input"
+      - main
+      - "recovery/v1-fase14*"
     paths:
       - "infra/streamlit_app/auth_ui.py"
       - "infra/streamlit_app/sensitive_idle_watchdog.py"
@@ -11,13 +12,26 @@ on:
       - "pages/7_Integracoes_e_Credenciais.py"
       - "core/seguranca/**"
       - "infra/seguranca/**"
+      - "core/gerente_ia/**"
+      - "core/pdv/**"
+      - "core/kds/**"
+      - "core/salao/**"
+      - "core/crm/**"
+      - "core/pagamentos/**"
       - "tests/unit/security/**"
       - "tests/integration/security/**"
+      - "tests/unit/gerente_ia/**"
+      - "tests/unit/pdv/**"
+      - "tests/unit/kds/**"
+      - "tests/unit/salao/**"
+      - "tests/unit/crm/**"
+      - "tests/unit/payments/**"
       - "tests/fitness/test_auth_sensitive_entrypoints_v1.py"
+      - "tests/fitness/test_f14_transversal_rbac_security_v1.py"
       - ".github/workflows/auth-rbac-commercial-gate-v1.yml"
   pull_request:
     branches:
-      - "integration/kordena-v1-canonical-stab03"
+      - main
     paths:
       - "infra/streamlit_app/auth_ui.py"
       - "infra/streamlit_app/sensitive_idle_watchdog.py"
@@ -25,9 +39,22 @@ on:
       - "pages/7_Integracoes_e_Credenciais.py"
       - "core/seguranca/**"
       - "infra/seguranca/**"
+      - "core/gerente_ia/**"
+      - "core/pdv/**"
+      - "core/kds/**"
+      - "core/salao/**"
+      - "core/crm/**"
+      - "core/pagamentos/**"
       - "tests/unit/security/**"
       - "tests/integration/security/**"
+      - "tests/unit/gerente_ia/**"
+      - "tests/unit/pdv/**"
+      - "tests/unit/kds/**"
+      - "tests/unit/salao/**"
+      - "tests/unit/crm/**"
+      - "tests/unit/payments/**"
       - "tests/fitness/test_auth_sensitive_entrypoints_v1.py"
+      - "tests/fitness/test_f14_transversal_rbac_security_v1.py"
       - ".github/workflows/auth-rbac-commercial-gate-v1.yml"
   workflow_dispatch:
 
@@ -38,7 +65,7 @@ jobs:
   auth-rbac:
     name: Auth/RBAC commercial gate
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -50,17 +77,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest ruff==0.16.1 mypy==1.20.2
-      - name: Compile auth surface
+      - name: Compile auth and transversal security surface
         run: |
           python -m py_compile \
             infra/streamlit_app/auth_ui.py \
             infra/streamlit_app/sensitive_idle_watchdog.py \
             pages/6_Administracao_Proprietario.py \
             pages/7_Integracoes_e_Credenciais.py \
-            tests/fitness/test_auth_sensitive_entrypoints_v1.py
-      - name: Ruff auth surface
+            tests/fitness/test_auth_sensitive_entrypoints_v1.py \
+            tests/fitness/test_f14_transversal_rbac_security_v1.py
+      - name: Ruff auth and transversal security surface
         run: |
           ruff check \
+            core/seguranca/autorizacao.py \
+            core/seguranca/contexto.py \
+            core/seguranca/permissoes.py \
+            core/gerente_ia/tools.py \
             infra/streamlit_app/auth_ui.py \
             infra/streamlit_app/sensitive_idle_watchdog.py \
             pages/6_Administracao_Proprietario.py \
@@ -68,18 +100,21 @@ jobs:
             tests/unit/security/test_authentication_v1.py \
             tests/unit/security/test_sensitive_admin_access_v1.py \
             tests/integration/security/test_admin_pin_v1.py \
-            tests/fitness/test_auth_sensitive_entrypoints_v1.py
+            tests/fitness/test_auth_sensitive_entrypoints_v1.py \
+            tests/fitness/test_f14_transversal_rbac_security_v1.py
       - name: Mypy auth surface
         run: |
           mypy \
-            infra/streamlit_app/auth_ui.py \
-            infra/streamlit_app/sensitive_idle_watchdog.py \
             core/seguranca \
-            infra/seguranca
-      - name: Targeted auth and sensitive-area tests
+            infra/seguranca \
+            infra/streamlit_app/auth_ui.py \
+            infra/streamlit_app/sensitive_idle_watchdog.py
+      - name: Targeted auth and transversal RBAC tests
         run: |
           pytest -q \
-            tests/unit/security/test_authentication_v1.py \
-            tests/unit/security/test_sensitive_admin_access_v1.py \
-            tests/integration/security/test_admin_pin_v1.py \
-            tests/fitness/test_auth_sensitive_entrypoints_v1.py
+            tests/unit/security \
+            tests/integration/security \
+            tests/fitness/test_auth_sensitive_entrypoints_v1.py \
+            tests/fitness/test_f14_transversal_rbac_security_v1.py
+      - name: Full Python regression
+        run: pytest -q

@@ -1,0 +1,85 @@
+name: F14-C Canonical Events Resilience Gate
+
+on:
+  push:
+    branches:
+      - main
+      - "recovery/v1-fase14*"
+    paths:
+      - "core/eventos/**"
+      - "infra/eventos/**"
+      - "tests/unit/events/**"
+      - "tests/fitness/f14_canonical_events_resilience_v1.py"
+      - ".github/workflows/f14c-canonical-events-gate.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "core/eventos/**"
+      - "infra/eventos/**"
+      - "tests/unit/events/**"
+      - "tests/fitness/f14_canonical_events_resilience_v1.py"
+      - ".github/workflows/f14c-canonical-events-gate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Ruff F14-C + mypy + regressao Python completa
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Compilar fitness F14-C
+        run: >-
+          python -m py_compile
+          core/eventos/modelos.py
+          core/eventos/processador.py
+          tests/fitness/f14_canonical_events_resilience_v1.py
+      - name: Ruff F14-C
+        run: >-
+          ruff check
+          core/eventos
+          infra/eventos
+          tests/unit/events
+          tests/fitness/f14_canonical_events_resilience_v1.py
+      - name: Mypy F14-C
+        run: >-
+          mypy
+          core/eventos
+          infra/eventos
+      - name: Readiness comercial
+        run: python scripts/check_commercial_runtime_readiness_v1.py --verify-inventory
+      - name: Regressao Python completa
+        run: pytest -q
+
+  events:
+    name: Canonical envelope + idempotency + retry + DLQ
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Revalidar arquitetura de eventos herdada
+        run: pytest -q tests/unit/events
+      - name: Fitness canonico F14-C
+        run: pytest -q tests/fitness/f14_canonical_events_resilience_v1.py

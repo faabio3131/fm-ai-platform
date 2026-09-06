@@ -1,0 +1,154 @@
+name: F14-B Financial PostgreSQL Gate
+
+on:
+  push:
+    branches:
+      - main
+      - "recovery/v1-fase14*"
+    paths:
+      - "application/crm_cashback_transacoes.py"
+      - "application/finalizacao_pagamento.py"
+      - "core/crm/**"
+      - "core/pagamentos/**"
+      - "core/pdv/**"
+      - "infra/crm/cashback_schema.py"
+      - "infra/crm/cashback_sqlalchemy.py"
+      - "infra/transacoes/**"
+      - "migrations/**"
+      - "scripts/seed_f6d_commercial_runtime.py"
+      - "tests/fitness/f14_financial_idempotency_concurrency_v1.py"
+      - "tests/commercial_runtime/test_f13d_crm_commercial_runtime.py"
+      - ".github/workflows/f14b-financial-postgresql-gate.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "application/crm_cashback_transacoes.py"
+      - "application/finalizacao_pagamento.py"
+      - "core/crm/**"
+      - "core/pagamentos/**"
+      - "core/pdv/**"
+      - "infra/crm/cashback_schema.py"
+      - "infra/crm/cashback_sqlalchemy.py"
+      - "infra/transacoes/**"
+      - "migrations/**"
+      - "scripts/seed_f6d_commercial_runtime.py"
+      - "tests/fitness/f14_financial_idempotency_concurrency_v1.py"
+      - "tests/commercial_runtime/test_f13d_crm_commercial_runtime.py"
+      - ".github/workflows/f14b-financial-postgresql-gate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Ruff F14-B + mypy + regressao Python completa
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Compilar fitness F14-B
+        run: >-
+          python -m py_compile
+          tests/fitness/f14_financial_idempotency_concurrency_v1.py
+      - name: Ruff F14-B
+        run: >-
+          ruff check
+          core/pagamentos
+          core/pdv
+          core/crm
+          application/crm_cashback_transacoes.py
+          application/finalizacao_pagamento.py
+          infra/crm/cashback_schema.py
+          infra/crm/cashback_sqlalchemy.py
+          infra/transacoes/uow.py
+          tests/fitness/f14_financial_idempotency_concurrency_v1.py
+      - name: Mypy F14-B
+        run: >-
+          mypy
+          core/pagamentos
+          core/pdv
+          core/crm
+          application/crm_cashback_transacoes.py
+          application/finalizacao_pagamento.py
+          infra/crm/cashback_sqlalchemy.py
+          infra/transacoes/uow.py
+      - name: Readiness comercial
+        run: python scripts/check_commercial_runtime_readiness_v1.py --verify-inventory
+      - name: Regressao Python completa
+        run: pytest -q
+
+  postgresql:
+    name: PostgreSQL staging financeiro + PDV + cashback
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fm_ai_f14b
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d fm_ai_f14b"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      FM_AI_ENV: staging
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/fm_ai_f14b
+      FM_AI_TENANT_ID: tenant-f6d
+      FM_AI_UNIDADE_ID: unidade-f6d
+      FM_AI_PDV_MODE: authoritative_canary
+      FM_AI_PDV_COMMERCIAL_CANARY_ENABLED: "1"
+      FM_AI_PDV_TERMINAL_ID: caixa-f14b
+      FM_AI_PDV_ALLOWED_TERMINALS: caixa-f14b
+      FM_AI_SECRET_MASTER_KEY: bW1scnZpQzlCS2Q1dXBlTXRyUkJlTGNXWGtIclc3WktoM3lrb3Q5WT0=
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Provar staging PostgreSQL sem test mode
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          python - <<'PY'
+          from core.runtime.config import RuntimeEnvironment, load_runtime_settings
+
+          settings = load_runtime_settings()
+          assert settings.environment is RuntimeEnvironment.STAGING
+          assert settings.commercial
+          assert settings.database_url.startswith("postgresql")
+          print("F14-B staging PostgreSQL sem FM_AI_TEST_MODE OK")
+          PY
+      - name: Preparar PostgreSQL comercial efemero
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          python -m scripts.seed_f6d_commercial_runtime
+      - name: Fitness financeiro F14-B em PostgreSQL real
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          pytest -q tests/fitness/f14_financial_idempotency_concurrency_v1.py
+      - name: Revalidar isolamento comercial F13-D
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          pytest -q tests/commercial_runtime/test_f13d_crm_commercial_runtime.py

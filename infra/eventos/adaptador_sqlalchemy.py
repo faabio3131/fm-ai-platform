@@ -36,6 +36,11 @@ def _utc(value: object) -> datetime:
     return dt.astimezone(timezone.utc)
 
 
+def _payload_json(mensagem: EnvelopeMensagem) -> dict:
+    """Materializa o payload imutável como estrutura JSON profunda para persistência."""
+    return cast(dict, mensagem.para_dict()["payload"])
+
+
 def _envelope(
     row: OutboxEventoORM | InboxEventoORM | DeadLetterEventoORM,
 ) -> EnvelopeMensagem:
@@ -97,7 +102,7 @@ class RepositorioOutboxSQLAlchemy:
                 causation_id=str(mensagem.causation_id) if mensagem.causation_id else None,
                 idempotency_key=str(mensagem.idempotency_key),
                 occurred_at=mensagem.occurred_at,
-                payload=dict(mensagem.payload),
+                payload=_payload_json(mensagem),
                 version=mensagem.version,
                 status="pending",
                 attempts=0,
@@ -226,7 +231,7 @@ class RepositorioInboxSQLAlchemy:
                 correlation_id=str(mensagem.correlation_id),
                 causation_id=str(mensagem.causation_id) if mensagem.causation_id else None,
                 occurred_at=mensagem.occurred_at,
-                payload=dict(mensagem.payload),
+                payload=_payload_json(mensagem),
                 version=mensagem.version,
                 processed=False,
                 attempts=0,
@@ -294,7 +299,7 @@ class RepositorioDLQSQLAlchemy:
                 causation_id=str(message.causation_id) if message.causation_id else None,
                 idempotency_key=str(message.idempotency_key),
                 occurred_at=message.occurred_at,
-                payload=dict(message.payload),
+                payload=_payload_json(message),
                 version=message.version,
                 motivo=item.motivo,
                 erro_tipo=item.ultimo_erro.tipo,
