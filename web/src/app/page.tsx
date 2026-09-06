@@ -1,7 +1,7 @@
 "use client";
 
 import { Activity, Database, RefreshCw, ShieldCheck } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,28 @@ export default function Home() {
   const [health, setHealth] = useState<BackendHealthResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const validateBackend = useCallback(async () => {
+  useEffect(() => {
+    let cancelled = false;
+
+    void checkBackendHealth()
+      .then((result) => {
+        if (cancelled) return;
+        setHealth(result);
+        setConnection(result.health.ok ? "online" : "offline");
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        setHealth(null);
+        setConnection("offline");
+        setError(caught instanceof Error ? caught.message : "Falha desconhecida");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function validateBackend() {
     setConnection("checking");
     setError(null);
 
@@ -38,11 +59,7 @@ export default function Home() {
       setConnection("offline");
       setError(caught instanceof Error ? caught.message : "Falha desconhecida");
     }
-  }, []);
-
-  useEffect(() => {
-    void validateBackend();
-  }, [validateBackend]);
+  }
 
   const badgeClass =
     connection === "online"

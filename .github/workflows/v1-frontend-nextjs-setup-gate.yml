@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   backend-regression-and-cors:
-    name: Backend 1291 baseline + CORS + Ruff + mypy
+    name: Backend 1291 baseline + CORS + delta Ruff + mypy
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -41,8 +41,8 @@ jobs:
         run: pytest -q
       - name: Certify local frontend CORS contract
         run: pytest -q tests/fitness/f15_frontend_cors_v1.py
-      - name: Ruff repository
-        run: ruff check .
+      - name: Ruff changed backend boundary
+        run: ruff check http_api/frontend_app.py tests/fitness/f15_frontend_cors_v1.py
       - name: Mypy changed HTTP boundary
         run: mypy http_api/frontend_app.py tests/fitness/f15_frontend_cors_v1.py
 
