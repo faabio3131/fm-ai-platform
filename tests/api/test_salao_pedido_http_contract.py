@@ -8,7 +8,6 @@ from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-import http_api.salao as salao_http
 from core.pagamentos.modelos_orm import PagamentoORM
 from core.pedidos.modelos_orm import PedidoORM
 from core.runtime.config import RuntimeEnvironment, RuntimeSettings
@@ -146,16 +145,10 @@ def _payload(quantidade: int = 1, produto_id: str = "legacy:produto:1"):
     }
 
 
-def test_lancamento_cria_pedido_confirmado_e_vincula_comanda_atomicamente(
-    monkeypatch,
-) -> None:
+def test_lancamento_cria_pedido_confirmado_e_vincula_comanda_atomicamente() -> None:
     engine, client = _infra()
     comanda_id = _abrir(client)
 
-    def _rethrow(exc: Exception):
-        raise exc
-
-    monkeypatch.setattr(salao_http, "_erro_http", _rethrow)
     response = client.post(
         f"/v1/salao/comandas/{comanda_id}/pedidos",
         headers=_headers("salao-order-001"),
