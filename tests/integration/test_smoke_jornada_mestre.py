@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -39,7 +38,7 @@ from migrations.runner import run_migrations
 
 SESSION_SECRET = "smoke-jornada-mestre-secret-0123456789-abcdef"
 SENHA = "Senha-Segura-Smoke-Mestre-123"
-EMAIL = "gerente-smoke-mestre@example.com"
+EMAIL = "proprietario-smoke-mestre@example.com"
 USUARIO_ID = "usuario-smoke-jornada-mestre"
 TENANT = "tenant-smoke-jornada-mestre"
 UNIDADE = "unidade-smoke-jornada-mestre"
@@ -65,13 +64,13 @@ def _contexto_sistema() -> ContextoExecucao:
     )
 
 
-def _contexto_gerente() -> ContextoExecucao:
+def _contexto_proprietario() -> ContextoExecucao:
     return ContextoExecucao(
         tenant_id=TENANT,
         unidade_id=UNIDADE,
         usuario_id=USUARIO_ID,
-        papeis=frozenset({Papel.GERENTE}),
-        permissoes=MATRIZ_PADRAO[Papel.GERENTE],
+        papeis=frozenset({Papel.ADMINISTRADOR}),
+        permissoes=MATRIZ_PADRAO[Papel.ADMINISTRADOR],
         correlation_id="corr:smoke-jornada-mestre:fechamento",
         solicitado_em=_agora(),
         origem="smoke_jornada_mestre",
@@ -79,12 +78,8 @@ def _contexto_gerente() -> ContextoExecucao:
     )
 
 
-def _headers_salao(idempotency_key: str | None = None) -> dict[str, str]:
-    auth = base64.b64encode(f"{EMAIL}:{SENHA}".encode()).decode()
+def _headers_operacionais(idempotency_key: str | None = None) -> dict[str, str]:
     headers = {
-        "Authorization": f"Basic {auth}",
-        "X-Tenant-ID": TENANT,
-        "X-Unit-ID": UNIDADE,
         "X-Correlation-ID": "corr-smoke-jornada-mestre-http",
     }
     if idempotency_key is not None:
@@ -93,7 +88,7 @@ def _headers_salao(idempotency_key: str | None = None) -> dict[str, str]:
 
 
 def test_smoke_jornada_mestre_integrada(monkeypatch) -> None:
-    """Prova uma jornada real única na mesma app, engine e banco do restaurante."""
+    """Prova SSO, step-up, catálogo, Salão, pagamento e fechamento no mesmo banco."""
 
     monkeypatch.setenv("FM_AI_SESSION_SECRET", SESSION_SECRET)
     engine = create_engine(
@@ -134,7 +129,7 @@ def test_smoke_jornada_mestre_integrada(monkeypatch) -> None:
             password=SENHA,
             tenant_id=TENANT,
             unidade_padrao_id=UNIDADE,
-            papeis=(Papel.GERENTE,),
+            papeis=(Papel.ADMINISTRADOR,),
             unidades_permitidas=(UNIDADE,),
         )
         session.commit()
@@ -165,8 +160,25 @@ def test_smoke_jornada_mestre_integrada(monkeypatch) -> None:
     assert me.json()["usuario_id"] == USUARIO_ID
     assert me.json()["tenant_id"] == TENANT
     assert me.json()["unidade_ativa_id"] == UNIDADE
+    assert "admin.acessar" in me.json()["permissoes"]
     assert "configuracao.alterar" in me.json()["permissoes"]
     assert "comanda.fechar" in me.json()["permissoes"]
+
+    admin_inicial = client.get("/v1/auth/admin-status")
+    assert admin_inicial.status_code == 200
+    assert admin_inicial.json()["permitido"] is True
+    assert admin_inicial.json()["elevado"] is False
+
+    step_up = client.post(
+        "/v1/auth/admin-step-up",
+        json={"senha": SENHA},
+    )
+    assert step_up.status_code == 200
+    assert step_up.json()["ok"] is True
+
+    admin_elevado = client.get("/v1/auth/admin-status")
+    assert admin_elevado.status_code == 200
+    assert admin_elevado.json()["elevado"] is True
 
     produto = client.post(
         "/v1/catalogo/produtos",
@@ -188,7 +200,7 @@ def test_smoke_jornada_mestre_integrada(monkeypatch) -> None:
 
     abertura = client.post(
         "/v1/salao/comandas/abrir",
-        headers=_headers_salao("smoke-mestre:comanda:abrir:001"),
+        headers=_headers_operacionais("smoke-mestre:comanda:abrir:001"),
         json={"mesa_id": MESA_ID},
     )
     assert abertura.status_code == 201
@@ -197,7 +209,7 @@ def test_smoke_jornada_mestre_integrada(monkeypatch) -> None:
 
     lancamento = client.post(
         f"/v1/salao/comandas/{comanda_id}/pedidos",
-        headers=_headers_salao("smoke-mestre:pedido:001"),
+        headers=_headers_operacionais("smoke-mestre:pedido:001"),
         json={
             "itens": [
                 {
@@ -217,12 +229,12 @@ def test_smoke_jornada_mestre_integrada(monkeypatch) -> None:
 
     conta = client.post(
         f"/v1/salao/comandas/{comanda_id}/solicitar-conta",
-        headers=_headers_salao("smoke-mestre:conta:001"),
+        headers=_headers_operacionais("smoke-mestre:conta:001"),
     )
     assert conta.status_code == 200
     assert conta.json()["comanda"]["status_comanda"] == "CONTA_SOLICITADA"
 
-    contexto = _contexto_gerente()
+    contexto = _contexto_proprietario()
     with factory() as session:
         repositorio_salao = RepositorioSalaoSQLAlchemy(session)
         servico_salao = ServicoSalao(repositorio_salao, agora=_agora)
