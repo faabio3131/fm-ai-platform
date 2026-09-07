@@ -197,10 +197,7 @@ def _comanda_out(comanda: Comanda) -> SalaoComandaOut:
 
 
 def _produto_legado_id(valor: str) -> int:
-    normalizado = valor.strip()
-    prefixo = "legacy:produto:"
-    if normalizado.startswith(prefixo):
-        normalizado = normalizado[len(prefixo) :]
+    normalizado = valor.strip().removeprefix("legacy:produto:")
     try:
         produto_id = int(normalizado)
     except (TypeError, ValueError) as exc:
