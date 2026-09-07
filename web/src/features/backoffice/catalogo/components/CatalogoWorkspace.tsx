@@ -70,9 +70,13 @@ export function CatalogoWorkspace() {
   }, []);
 
   useEffect(() => {
-    if (auth.status === "authenticated") {
+    if (auth.status !== "authenticated") return;
+
+    const timeoutId = window.setTimeout(() => {
       void carregar();
-    }
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [auth.status, auth.unitId, carregar]);
 
   const unidadeAtiva = useMemo(

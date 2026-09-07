@@ -57,11 +57,17 @@ export function NovoProdutoModal({
   const [submitting, setSubmitting] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
+  const handleClose = () => {
+    setErro(null);
+    onClose();
+  };
+
   useEffect(() => {
     if (!open) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !submitting) {
+        setErro(null);
         onClose();
       }
     };
@@ -69,12 +75,6 @@ export function NovoProdutoModal({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose, open, submitting]);
-
-  useEffect(() => {
-    if (open) {
-      setErro(null);
-    }
-  }, [open]);
 
   if (!open) return null;
 
@@ -104,7 +104,7 @@ export function NovoProdutoModal({
       setCategoria("");
       setPreco("");
       setAtivo(true);
-      onClose();
+      handleClose();
     } catch (error: unknown) {
       setErro(mensagemErro(error));
     } finally {
@@ -116,7 +116,7 @@ export function NovoProdutoModal({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md"
       onMouseDown={(event) => {
-        if (event.currentTarget === event.target && !submitting) onClose();
+        if (event.currentTarget === event.target && !submitting) handleClose();
       }}
     >
       <div
@@ -143,7 +143,7 @@ export function NovoProdutoModal({
             type="button"
             aria-label="Fechar cadastro"
             disabled={submitting}
-            onClick={onClose}
+            onClick={handleClose}
             className="rounded-xl border border-white/10 p-2 text-slate-400 transition hover:bg-white/[0.06] hover:text-white active:scale-[0.98] disabled:opacity-50"
           >
             <X className="size-4" />
@@ -234,7 +234,7 @@ export function NovoProdutoModal({
             <button
               type="button"
               disabled={submitting}
-              onClick={onClose}
+              onClick={handleClose}
               className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm font-medium text-slate-300 transition hover:bg-white/[0.07] active:scale-[0.98] disabled:opacity-50"
             >
               Cancelar
