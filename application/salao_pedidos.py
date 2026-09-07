@@ -78,14 +78,29 @@ def lancar_pedido_salao_v1(
             outbox=uow.outbox,
             auditoria=uow.auditoria,
         )
-        if criado.idempotente and _semantica_pedido(criado.pedido) != _semantica_pedido(
-            pedido
-        ):
-            raise ConflitoIdempotencia(
-                "payload divergente para a mesma idempotency_key"
+        if criado.idempotente:
+            if _semantica_pedido(criado.pedido) != _semantica_pedido(pedido):
+                raise ConflitoIdempotencia(
+                    "payload divergente para a mesma idempotency_key"
+                )
+            comanda = ServicoSalao(
+                RepositorioSalaoSQLAlchemy(uow.session),
+                agora=lambda: pedido.criado_em,
+            ).vincular_pedido(
+                contexto,
+                comanda_id=comanda_id,
+                pedido_id=str(criado.pedido.id),
+                expected_version=expected_comanda_version,
+                idempotency_key=f"{chave}:comanda",
+            )
+            uow.commit()
+            return ResultadoLancamentoPedidoSalao(
+                pedido=criado.pedido,
+                comanda=comanda,
+                idempotente=True,
             )
 
-        aguardando = transicionar_pedido(
+        transicionar_pedido(
             tenant_id=TenantId(contexto.tenant_id),
             unidade_id=UnidadeId(contexto.unidade_id),
             pedido_id=PedidoId(str(pedido.id)),
@@ -115,7 +130,6 @@ def lancar_pedido_salao_v1(
             precondicoes={"dados_confirmados": True},
             motivo="lançamento confirmado pelo operador do salão",
         )
-        _ = aguardando
 
         comanda = ServicoSalao(
             RepositorioSalaoSQLAlchemy(uow.session),
@@ -132,5 +146,5 @@ def lancar_pedido_salao_v1(
         return ResultadoLancamentoPedidoSalao(
             pedido=confirmado.pedido,
             comanda=comanda,
-            idempotente=criado.idempotente,
+            idempotente=False,
         )
