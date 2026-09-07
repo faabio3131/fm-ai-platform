@@ -76,6 +76,14 @@ export interface SalaoProduto {
   disponivel: boolean;
 }
 
+interface CatalogoProduto {
+  id: string;
+  nome: string;
+  categoria: string | null;
+  preco: number;
+  ativo: boolean;
+}
+
 export interface LancamentoPedidoItemPayload {
   produto_id: string;
   quantidade: number;
@@ -202,14 +210,23 @@ export async function fetchFloorMap(): Promise<SalaoFloorMap> {
 }
 
 export async function fetchProdutosSalao(): Promise<SalaoProduto[]> {
-  const response = await fetch(`${API_BASE_URL}/v1/pdv/produtos`, {
-    method: "GET",
-    headers: buildHeaders(),
-    cache: "no-store",
-  });
+  const response = await fetch(
+    `${API_BASE_URL}/v1/catalogo/produtos?apenas_ativos=true`,
+    {
+      method: "GET",
+      headers: buildHeaders(),
+      cache: "no-store",
+    },
+  );
   if (response.status !== 200) throw await readApiError(response);
-  const body = (await response.json()) as { produtos: SalaoProduto[] };
-  return body.produtos;
+  const produtos = (await response.json()) as CatalogoProduto[];
+  return produtos.map((produto) => ({
+    id: `legacy:produto:${produto.id}`,
+    nome: produto.nome,
+    categoria: produto.categoria,
+    preco: String(produto.preco),
+    disponivel: produto.ativo,
+  }));
 }
 
 export async function openComanda(
