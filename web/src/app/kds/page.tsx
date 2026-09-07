@@ -1,5 +1,5 @@
-import { KDSWorkspace } from "@/features/kds/components/KDSWorkspace";
+import { KDSUnifiedWorkspace } from "@/features/kds/components/KDSUnifiedWorkspace";
 
 export default function KDSPage() {
-  return <KDSWorkspace />;
+  return <KDSUnifiedWorkspace />;
 }
