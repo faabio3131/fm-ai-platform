@@ -120,6 +120,7 @@ export class SalaoApiError extends Error {
 
 let activeSession: SalaoSessionContext | null = null;
 
+/** Compatibilidade legada/M2M. O browser comercial usa fm_ai_session. */
 export function configureSalaoSession(context: SalaoSessionContext): void {
   const email = context.email.trim();
   const tenantId = context.tenantId.trim();
@@ -143,17 +144,6 @@ export function clearSalaoSession(): void {
   activeSession = null;
 }
 
-function requireSession(): SalaoSessionContext {
-  if (!activeSession) {
-    throw new SalaoApiError(
-      "Sessão operacional do Salão não configurada.",
-      401,
-      "salao_session_missing",
-    );
-  }
-  return activeSession;
-}
-
 function encodeBasicCredentials(email: string, password: string): string {
   const bytes = new TextEncoder().encode(`${email}:${password}`);
   let binary = "";
@@ -165,14 +155,19 @@ function buildHeaders(options?: {
   idempotencyKey?: string;
   json?: boolean;
 }): Headers {
-  const session = requireSession();
   const headers = new Headers({
     Accept: "application/json",
-    Authorization: `Basic ${encodeBasicCredentials(session.email, session.password)}`,
-    "X-Tenant-ID": session.tenantId,
-    "X-Unit-ID": session.unitId,
     "X-Correlation-ID": crypto.randomUUID(),
   });
+
+  if (activeSession) {
+    headers.set(
+      "Authorization",
+      `Basic ${encodeBasicCredentials(activeSession.email, activeSession.password)}`,
+    );
+    headers.set("X-Tenant-ID", activeSession.tenantId);
+    headers.set("X-Unit-ID", activeSession.unitId);
+  }
 
   if (options?.idempotencyKey) {
     headers.set("Idempotency-Key", options.idempotencyKey);
@@ -204,6 +199,7 @@ export async function fetchFloorMap(): Promise<SalaoFloorMap> {
     method: "GET",
     headers: buildHeaders(),
     cache: "no-store",
+    credentials: "include",
   });
   if (response.status !== 200) throw await readApiError(response);
   return (await response.json()) as SalaoFloorMap;
@@ -216,6 +212,7 @@ export async function fetchProdutosSalao(): Promise<SalaoProduto[]> {
       method: "GET",
       headers: buildHeaders(),
       cache: "no-store",
+      credentials: "include",
     },
   );
   if (response.status !== 200) throw await readApiError(response);
@@ -238,6 +235,7 @@ export async function openComanda(
     headers: buildHeaders({ idempotencyKey, json: true }),
     body: JSON.stringify(payload),
     cache: "no-store",
+    credentials: "include",
   });
   if (response.status !== 200 && response.status !== 201) {
     throw await readApiError(response);
@@ -254,6 +252,7 @@ export async function fetchComandaDetails(
       method: "GET",
       headers: buildHeaders(),
       cache: "no-store",
+      credentials: "include",
     },
   );
   if (response.status !== 200) throw await readApiError(response);
@@ -272,6 +271,7 @@ export async function launchOrder(
       headers: buildHeaders({ idempotencyKey, json: true }),
       body: JSON.stringify(payload),
       cache: "no-store",
+      credentials: "include",
     },
   );
   if (response.status !== 200 && response.status !== 201) {
@@ -290,6 +290,7 @@ export async function requestBill(
       method: "POST",
       headers: buildHeaders({ idempotencyKey }),
       cache: "no-store",
+      credentials: "include",
     },
   );
   if (response.status !== 200) throw await readApiError(response);
