@@ -1,5 +1,5 @@
-import { SalaoWorkspace } from "@/features/salao/components/SalaoWorkspace";
+import { SalaoUnifiedWorkspace } from "@/features/salao/components/SalaoUnifiedWorkspace";
 
 export default function SalaoPage() {
-  return <SalaoWorkspace />;
+  return <SalaoUnifiedWorkspace />;
 }
