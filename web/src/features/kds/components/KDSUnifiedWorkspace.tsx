@@ -69,26 +69,30 @@ export function KDSUnifiedWorkspace() {
   useEffect(() => {
     if (auth.status !== "authenticated" || !allowed || !auth.unitId) return;
     let cancelled = false;
-    clearKdsSession();
-    kdsActions.reset();
-    setReady(false);
-    setError(null);
+    const timeoutId = window.setTimeout(() => {
+      if (cancelled) return;
+      clearKdsSession();
+      kdsActions.reset();
+      setReady(false);
+      setError(null);
 
-    void Promise.all([fetchKdsSectors(), fetchKdsQueue()])
-      .then(([setores, queue]) => {
-        if (cancelled) return;
-        kdsActions.setSectors(setores);
-        kdsActions.setQueue(queue);
-        kdsActions.setSector(null);
-        setReady(true);
-      })
-      .catch((caught: unknown) => {
-        if (cancelled) return;
-        setError(errorMessage(caught, "Falha ao abrir a estação KDS."));
-      });
+      void Promise.all([fetchKdsSectors(), fetchKdsQueue()])
+        .then(([setores, queue]) => {
+          if (cancelled) return;
+          kdsActions.setSectors(setores);
+          kdsActions.setQueue(queue);
+          kdsActions.setSector(null);
+          setReady(true);
+        })
+        .catch((caught: unknown) => {
+          if (cancelled) return;
+          setError(errorMessage(caught, "Falha ao abrir a estação KDS."));
+        });
+    }, 0);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timeoutId);
     };
   }, [auth.status, auth.unitId, allowed]);
 
