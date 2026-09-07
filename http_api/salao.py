@@ -5,8 +5,8 @@ from __future__ import annotations
 import base64
 from collections.abc import Callable
 from datetime import datetime, timezone
-from decimal import Decimal
-from uuid import uuid4
+from decimal import Decimal, InvalidOperation
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from fastapi import APIRouter, Header, Request, status
 from fastapi.responses import JSONResponse
@@ -15,7 +15,22 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from application.salao_pedidos import lancar_pedido_salao_v1
 from application.salao_transacoes import AplicacaoSalaoV1
+from core.dominio.dinheiro import Dinheiro
+from core.dominio.enums import CanalAtendimento, OrigemPedido
+from core.dominio.erros import ConflitoIdempotencia
+from core.dominio.ids import (
+    CorrelationId,
+    IdempotencyKey,
+    PedidoId,
+    PedidoItemId,
+    ProdutoId,
+    TenantId,
+    UnidadeId,
+)
+from core.dominio.pedidos import ItemPedido, Pedido
+from core.dominio.tipos import QuantidadeItem
 from core.pedidos.modelos_orm import ItemPedidoORM
 from core.salao import (
     Comanda,
@@ -28,9 +43,11 @@ from core.salao.modelos_orm import EventoSalaoORM
 from core.seguranca.autenticacao import ServicoAutenticacao
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.erros import CredenciaisInvalidas, ErroSeguranca
+from infra.legacy_product_scope import ErroEscopoLojaLegada, obter_produto_por_id_legado
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 
 SessionFactory = Callable[[], Session]
+_MAX_IDEMPOTENCY_KEY = 96
 
 
 class SalaoMesaOut(BaseModel):
@@ -58,6 +75,16 @@ class AbrirComandaIn(BaseModel):
     mesa_id: str = Field(min_length=1, max_length=64)
     responsavel_nome: str | None = Field(default=None, min_length=1, max_length=120)
     quantidade_pessoas: int | None = Field(default=None, ge=1, le=1000)
+
+
+class LancamentoPedidoItemIn(BaseModel):
+    produto_id: str = Field(min_length=1, max_length=128)
+    quantidade: int = Field(gt=0, le=1000)
+    observacao: str | None = Field(default=None, max_length=500)
+
+
+class LancamentoPedidoIn(BaseModel):
+    itens: list[LancamentoPedidoItemIn] = Field(min_length=1, max_length=200)
 
 
 class SalaoComandaOut(BaseModel):
@@ -95,6 +122,12 @@ class SalaoPedidoOut(BaseModel):
 
 class SalaoComandaDetalheOut(SalaoComandaOut):
     pedidos: list[SalaoPedidoOut]
+
+
+class SalaoLancamentoPedidoOut(BaseModel):
+    idempotente: bool
+    comanda: SalaoComandaOut
+    pedido: SalaoPedidoOut
 
 
 class _RecursoSalaoNaoEncontrado(Exception):
@@ -163,6 +196,129 @@ def _comanda_out(comanda: Comanda) -> SalaoComandaOut:
     )
 
 
+def _produto_legado_id(valor: str) -> int:
+    normalizado = valor.strip()
+    prefixo = "legacy:produto:"
+    if normalizado.startswith(prefixo):
+        normalizado = normalizado[len(prefixo) :]
+    try:
+        produto_id = int(normalizado)
+    except (TypeError, ValueError) as exc:
+        raise _RecursoSalaoNaoEncontrado("produto_indisponivel") from exc
+    if produto_id <= 0:
+        raise _RecursoSalaoNaoEncontrado("produto_indisponivel")
+    return produto_id
+
+
+def _stable_id(prefixo: str, *, key: str, sufixo: str) -> str:
+    valor = uuid5(NAMESPACE_URL, f"fm-ai-salao-v1:{key}:{sufixo}")
+    return f"{prefixo}-{valor}"
+
+
+def _montar_pedido_salao(
+    *,
+    payload: LancamentoPedidoIn,
+    contexto: ContextoExecucao,
+    session_factory: SessionFactory,
+    idempotency_key: str,
+) -> Pedido:
+    tenant = TenantId(contexto.tenant_id)
+    unidade = UnidadeId(contexto.unidade_id)
+    itens: list[ItemPedido] = []
+    subtotal = Dinheiro(Decimal("0.00"))
+
+    with session_factory() as session:
+        for indice, entrada in enumerate(payload.itens):
+            produto_id = _produto_legado_id(entrada.produto_id)
+            row = obter_produto_por_id_legado(
+                session,
+                tenant_id=contexto.tenant_id,
+                unidade_id=contexto.unidade_id,
+                produto_id=produto_id,
+            )
+            if row is None:
+                raise _RecursoSalaoNaoEncontrado("produto_indisponivel")
+            produto = dict(row._mapping)
+            if not bool(produto.get("ativo", True)):
+                raise _RecursoSalaoNaoEncontrado("produto_indisponivel")
+            nome = str(produto.get("nome") or "").strip()
+            preco_bruto = produto.get("preco_venda")
+            if not nome or preco_bruto is None:
+                raise _RecursoSalaoNaoEncontrado("produto_indisponivel")
+            try:
+                preco = Dinheiro(Decimal(str(preco_bruto)))
+            except (InvalidOperation, ValueError) as exc:
+                raise _RecursoSalaoNaoEncontrado("produto_indisponivel") from exc
+            if preco.valor < 0:
+                raise _RecursoSalaoNaoEncontrado("produto_indisponivel")
+
+            quantidade = QuantidadeItem(entrada.quantidade)
+            item_subtotal = preco * quantidade.valor
+            subtotal = subtotal + item_subtotal
+            itens.append(
+                ItemPedido(
+                    id=PedidoItemId(
+                        _stable_id(
+                            "item",
+                            key=idempotency_key,
+                            sufixo=f"{indice}:{produto_id}",
+                        )
+                    ),
+                    tenant_id=tenant,
+                    unidade_id=unidade,
+                    produto_id=ProdutoId(f"legacy:produto:{produto_id}"),
+                    nome_produto=nome,
+                    quantidade=quantidade,
+                    preco_unitario=preco,
+                    subtotal=item_subtotal,
+                    observacao=(
+                        entrada.observacao.strip() if entrada.observacao else None
+                    ),
+                )
+            )
+
+    agora = datetime.now(timezone.utc)
+    return Pedido.novo(
+        id=PedidoId(_stable_id("salao", key=idempotency_key, sufixo="pedido")),
+        tenant_id=tenant,
+        unidade_id=unidade,
+        origem=OrigemPedido.SALAO,
+        canal=CanalAtendimento.SALAO,
+        cliente_id=None,
+        criado_em=agora,
+        atualizado_em=agora,
+        versao=1,
+        correlation_id=CorrelationId(contexto.correlation_id),
+        idempotency_key=IdempotencyKey(idempotency_key),
+        subtotal=subtotal,
+        descontos=Dinheiro(Decimal("0.00")),
+        taxas=Dinheiro(Decimal("0.00")),
+        total=subtotal,
+        itens=tuple(itens),
+        observacoes=(),
+    )
+
+
+def _pedido_out(pedido: Pedido) -> SalaoPedidoOut:
+    return SalaoPedidoOut(
+        pedido_id=str(pedido.id),
+        valor=pedido.total.valor,
+        criado_em=pedido.criado_em,
+        itens=[
+            SalaoItemPedidoOut(
+                id=str(item.id),
+                pedido_id=str(pedido.id),
+                nome=item.nome_produto,
+                quantidade=item.quantidade.valor,
+                preco_unitario=item.preco_unitario.valor,
+                subtotal=item.subtotal.valor,
+                observacao=item.observacao,
+            )
+            for item in pedido.itens
+        ],
+    )
+
+
 def _erro_http(exc: Exception) -> JSONResponse:
     if isinstance(exc, CredenciaisInvalidas):
         return JSONResponse(
@@ -179,16 +335,25 @@ def _erro_http(exc: Exception) -> JSONResponse:
             status_code=status.HTTP_404_NOT_FOUND,
             content={"erro": exc.codigo},
         )
-    if isinstance(exc, IntegrityError):
+    if isinstance(exc, (ConflitoIdempotencia, IntegrityError)):
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT,
             content={"erro": "conflito_transacional"},
+        )
+    if isinstance(exc, ErroEscopoLojaLegada):
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"erro": "catalogo_indisponivel_no_escopo"},
         )
     if isinstance(exc, ErroSalao):
         codigo = exc.codigo
         if codigo.startswith("seguranca.") or "permiss" in codigo:
             http_status = status.HTTP_403_FORBIDDEN
-        elif codigo in {"recurso_indisponivel", "comanda_indisponivel"}:
+        elif codigo in {
+            "recurso_indisponivel",
+            "comanda_indisponivel",
+            "pedido_indisponivel",
+        }:
             http_status = status.HTTP_404_NOT_FOUND
         elif codigo.endswith("_concorrente") or codigo in {
             "conflito_idempotencia",
@@ -202,6 +367,11 @@ def _erro_http(exc: Exception) -> JSONResponse:
         else:
             http_status = status.HTTP_400_BAD_REQUEST
         return JSONResponse(status_code=http_status, content={"erro": codigo})
+    if isinstance(exc, ValueError):
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"erro": str(exc) or "requisicao_invalida"},
+        )
     return JSONResponse(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         content={"erro": "salao_indisponivel"},
@@ -307,6 +477,63 @@ def build_salao_router(*, session_factory: SessionFactory) -> APIRouter:
             return JSONResponse(
                 status_code=(
                     status.HTTP_200_OK if replay else status.HTTP_201_CREATED
+                ),
+                content=body.model_dump(mode="json"),
+            )
+        except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
+            return _erro_http(exc)
+
+    @router.post(
+        "/comandas/{comanda_id}/pedidos",
+        response_model=SalaoLancamentoPedidoOut,
+    )
+    def lancar_pedido(
+        comanda_id: str,
+        payload: LancamentoPedidoIn,
+        request: Request,
+        idempotency_key: str = Header(
+            ...,
+            alias="Idempotency-Key",
+            min_length=1,
+            max_length=_MAX_IDEMPOTENCY_KEY,
+        ),
+    ) -> JSONResponse:
+        try:
+            with session_factory() as session:
+                contexto = _contexto_salao(request, session)
+                comanda = RepositorioSalaoSQLAlchemy(session).obter_comanda(
+                    contexto.tenant_id,
+                    contexto.unidade_id,
+                    comanda_id,
+                )
+                if comanda is None:
+                    raise _RecursoSalaoNaoEncontrado("comanda_indisponivel")
+                expected_version = comanda.versao
+
+            pedido = _montar_pedido_salao(
+                payload=payload,
+                contexto=contexto,
+                session_factory=session_factory,
+                idempotency_key=idempotency_key,
+            )
+            resultado = lancar_pedido_salao_v1(
+                session_factory=session_factory,
+                contexto=contexto,
+                comanda_id=comanda_id,
+                pedido=pedido,
+                expected_comanda_version=expected_version,
+                idempotency_key=idempotency_key,
+            )
+            body = SalaoLancamentoPedidoOut(
+                idempotente=resultado.idempotente,
+                comanda=_comanda_out(resultado.comanda),
+                pedido=_pedido_out(resultado.pedido),
+            )
+            return JSONResponse(
+                status_code=(
+                    status.HTTP_200_OK
+                    if resultado.idempotente
+                    else status.HTTP_201_CREATED
                 ),
                 content=body.model_dump(mode="json"),
             )
