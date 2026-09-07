@@ -121,7 +121,17 @@ def build_catalogo_router(
             exigir_escrita
             and Permissao.CONFIGURACAO_ALTERAR not in identidade.permissoes
         ):
-            raise PermissionError("permissao insuficiente")
+            raise PermissionError("seguranca.permissao_insuficiente")
+
+        # Browser/sessão assinada: mutações administrativas exigem a barreira
+        # Proprietário. Basic legado permanece compatível para testes e M2M.
+        if exigir_escrita and auth_runtime.token_request(request) is not None:
+            if Permissao.ADMIN_ACESSAR not in identidade.permissoes:
+                raise PermissionError("seguranca.admin_acesso_exigido")
+            _, elevado, _ = auth_runtime.admin_status(request)
+            if not elevado:
+                raise PermissionError("seguranca.admin_step_up_exigido")
+
         return identidade.contexto(
             origem="catalogo_http_v1",
             correlation_id=request.headers.get("x-correlation-id") or None,
@@ -284,10 +294,10 @@ def build_catalogo_router(
                 status.HTTP_401_UNAUTHORIZED,
                 CredenciaisInvalidas.codigo,
             )
-        except PermissionError:
+        except PermissionError as exc:
             return _erro(
                 status.HTTP_403_FORBIDDEN,
-                "seguranca.permissao_insuficiente",
+                str(exc) or "seguranca.permissao_insuficiente",
             )
         except ConflitoIdempotenciaCatalogo:
             return _erro(
@@ -359,10 +369,10 @@ def build_catalogo_router(
                 status.HTTP_401_UNAUTHORIZED,
                 CredenciaisInvalidas.codigo,
             )
-        except PermissionError:
+        except PermissionError as exc:
             return _erro(
                 status.HTTP_403_FORBIDDEN,
-                "seguranca.permissao_insuficiente",
+                str(exc) or "seguranca.permissao_insuficiente",
             )
         except (ReferenciaSegredoInvalida, SegredoAusente):
             return _erro(
