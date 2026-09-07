@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from application.salao_pedidos import lancar_pedido_salao_v1
 from application.salao_transacoes import AplicacaoSalaoV1
 from core.dominio.dinheiro import Dinheiro
-from core.dominio.enums import CanalAtendimento, OrigemPedido
+from core.dominio.enums import CanalAtendimento, OrigemPedido, PedidoStatus
 from core.dominio.erros import ConflitoIdempotencia
 from core.dominio.ids import (
     CorrelationId,
@@ -281,6 +281,7 @@ def _montar_pedido_salao(
         unidade_id=unidade,
         origem=OrigemPedido.SALAO,
         canal=CanalAtendimento.SALAO,
+        status=PedidoStatus.RASCUNHO,
         cliente_id=None,
         criado_em=agora,
         atualizado_em=agora,
