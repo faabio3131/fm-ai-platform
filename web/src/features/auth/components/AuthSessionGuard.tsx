@@ -10,7 +10,7 @@ import {
   useAuthStore,
 } from "@/features/auth/store/auth-store";
 
-const PROTECTED_PREFIXES = ["/pdv", "/kds", "/salao"] as const;
+const PROTECTED_PREFIXES = ["/pdv", "/kds", "/salao", "/admin"] as const;
 
 function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(
