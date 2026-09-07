@@ -94,35 +94,39 @@ export function SalaoUnifiedWorkspace() {
   useEffect(() => {
     if (auth.status !== "authenticated" || !allowed || !auth.unitId) return;
     let cancelled = false;
-    clearSalaoSession();
-    setLoading(true);
-    setError(null);
-    setFloorMap(EMPTY_MAP);
-    setProdutos([]);
-    setSelectedMesa(null);
-    setSelectedComanda(null);
-    setDetails(null);
-    setModalOpen(false);
-    openKeyRef.current = null;
-    orderKeyRef.current = null;
-    billKeyRef.current = null;
+    const timeoutId = window.setTimeout(() => {
+      if (cancelled) return;
+      clearSalaoSession();
+      setLoading(true);
+      setError(null);
+      setFloorMap(EMPTY_MAP);
+      setProdutos([]);
+      setSelectedMesa(null);
+      setSelectedComanda(null);
+      setDetails(null);
+      setModalOpen(false);
+      openKeyRef.current = null;
+      orderKeyRef.current = null;
+      billKeyRef.current = null;
 
-    void Promise.all([fetchFloorMap(), fetchProdutosSalao()])
-      .then(([nextMap, nextProducts]) => {
-        if (cancelled) return;
-        setFloorMap(nextMap);
-        setProdutos(nextProducts);
-      })
-      .catch((caught: unknown) => {
-        if (cancelled) return;
-        setError(errorMessage(caught, "Falha ao abrir o Salão com a sessão atual."));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      void Promise.all([fetchFloorMap(), fetchProdutosSalao()])
+        .then(([nextMap, nextProducts]) => {
+          if (cancelled) return;
+          setFloorMap(nextMap);
+          setProdutos(nextProducts);
+        })
+        .catch((caught: unknown) => {
+          if (cancelled) return;
+          setError(errorMessage(caught, "Falha ao abrir o Salão com a sessão atual."));
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }, 0);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timeoutId);
     };
   }, [auth.status, auth.unitId, allowed]);
 
