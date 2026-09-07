@@ -67,6 +67,7 @@ _EXPECTED_MIGRATIONS = (
     "0037_pdv_reconciliation_strategy_width_v1",
     "0038_delivery_channel_state_v1",
     "0039_crm_cashback_ledger_v1",
+    "0040_product_active_flag_v1",
 )
 
 

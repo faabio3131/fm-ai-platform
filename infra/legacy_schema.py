@@ -7,6 +7,7 @@ versionada, sem depender do ``Base.metadata.create_all`` do módulo Streamlit.
 from __future__ import annotations
 
 from sqlalchemy import (
+    Boolean,
     Column,
     DateTime,
     Float,
@@ -53,6 +54,7 @@ produtos = Table(
     Column("custo_total_cmv", Float),
     Column("margem_exibicao", String),
     Column("imagem_path", String, nullable=True),
+    Column("ativo", Boolean, nullable=False, server_default=text("TRUE")),
 )
 
 insumos = Table(

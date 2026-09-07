@@ -153,25 +153,31 @@ class _GerenciadorSessaoOperacional:
             self._sessions.pop(session_id, None)
 
 
-def build_auth_router(
-    *,
-    session_factory: SessionFactory,
-    settings: RuntimeSettings,
-    secret_store: SecretStore,
-) -> APIRouter:
-    router = APIRouter(prefix="/v1/auth", tags=["auth"])
-    gerenciador: _GerenciadorSessaoOperacional | None = None
-    gerenciador_lock = threading.Lock()
+class AuthSessionRuntime:
+    """Runtime de sessão compartilhado pelos routers HTTP do mesmo app."""
 
-    def _obter_gerenciador() -> _GerenciadorSessaoOperacional:
-        nonlocal gerenciador
-        with gerenciador_lock:
-            if gerenciador is None:
-                secret = secret_store.resolve(_SESSION_SECRET_REFERENCE).reveal()
-                gerenciador = _GerenciadorSessaoOperacional(secret)
-            return gerenciador
+    def __init__(
+        self,
+        *,
+        session_factory: SessionFactory,
+        secret_store: SecretStore,
+    ) -> None:
+        self._session_factory = session_factory
+        self._secret_store = secret_store
+        self._gerenciador: _GerenciadorSessaoOperacional | None = None
+        self._gerenciador_lock = threading.Lock()
 
-    def _token_request(request: Request) -> str | None:
+    def _obter_gerenciador(self) -> _GerenciadorSessaoOperacional:
+        with self._gerenciador_lock:
+            if self._gerenciador is None:
+                secret = self._secret_store.resolve(
+                    _SESSION_SECRET_REFERENCE
+                ).reveal()
+                self._gerenciador = _GerenciadorSessaoOperacional(secret)
+            return self._gerenciador
+
+    @staticmethod
+    def token_request(request: Request) -> str | None:
         authorization = request.headers.get("authorization", "").strip()
         if authorization:
             esquema, _, valor = authorization.partition(" ")
@@ -179,6 +185,71 @@ def build_auth_router(
                 return valor.strip() or None
         cookie = request.cookies.get(_SESSION_COOKIE)
         return cookie.strip() if cookie else None
+
+    def _carregar_identidade(
+        self,
+        sessao: _SessaoOperacional,
+    ) -> IdentidadeUsuario:
+        with self._session_factory() as session:
+            identidade = RepositorioIdentidadesSQLAlchemy(
+                session
+            ).obter_por_id(usuario_id=sessao.usuario_id)
+        if (
+            identidade is None
+            or not identidade.ativo
+            or identidade.email != sessao.email
+            or identidade.tenant_id != sessao.tenant_id
+        ):
+            raise _SessaoInvalida("sessao invalida")
+        try:
+            return identidade.no_escopo_ativo(
+                tenant_id=sessao.tenant_id,
+                unidade_id=sessao.unidade_ativa_id,
+            )
+        except CredenciaisInvalidas as exc:
+            raise _SessaoInvalida("sessao invalida") from exc
+
+    def sessao_autenticada(
+        self,
+        request: Request,
+    ) -> tuple[_GerenciadorSessaoOperacional, _SessaoOperacional, IdentidadeUsuario]:
+        token = self.token_request(request)
+        if token is None:
+            raise _SessaoInvalida("sessao ausente")
+        manager = self._obter_gerenciador()
+        sessao = manager.resolver(token)
+        try:
+            identidade = self._carregar_identidade(sessao)
+        except _SessaoInvalida:
+            manager.invalidar(token)
+            raise
+        return manager, sessao, identidade
+
+    def resolver_identidade(
+        self,
+        request: Request,
+    ) -> IdentidadeUsuario | None:
+        if self.token_request(request) is None:
+            return None
+        try:
+            _, _, identidade = self.sessao_autenticada(request)
+            return identidade
+        except _SessaoInvalida as exc:
+            raise CredenciaisInvalidas("credenciais invalidas") from exc
+
+
+def build_auth_router(
+    *,
+    session_factory: SessionFactory,
+    settings: RuntimeSettings,
+    secret_store: SecretStore,
+    runtime: AuthSessionRuntime | None = None,
+) -> APIRouter:
+    router = APIRouter(prefix="/v1/auth", tags=["auth"])
+    runtime = runtime or AuthSessionRuntime(
+        session_factory=session_factory,
+        secret_store=secret_store,
+    )
 
     def _aplicar_cookie(response: Response, token: str) -> None:
         response.set_cookie(
@@ -203,26 +274,6 @@ def build_auth_router(
     def _erro(http_status: int, codigo: str) -> JSONResponse:
         return JSONResponse(status_code=http_status, content={"erro": codigo})
 
-    def _carregar_identidade(sessao: _SessaoOperacional) -> IdentidadeUsuario:
-        with session_factory() as session:
-            identidade = RepositorioIdentidadesSQLAlchemy(session).obter_por_id(
-                usuario_id=sessao.usuario_id
-            )
-        if (
-            identidade is None
-            or not identidade.ativo
-            or identidade.email != sessao.email
-            or identidade.tenant_id != sessao.tenant_id
-        ):
-            raise _SessaoInvalida("sessao invalida")
-        try:
-            return identidade.no_escopo_ativo(
-                tenant_id=sessao.tenant_id,
-                unidade_id=sessao.unidade_ativa_id,
-            )
-        except CredenciaisInvalidas as exc:
-            raise _SessaoInvalida("sessao invalida") from exc
-
     def _operador(
         identidade: IdentidadeUsuario,
         *,
@@ -242,21 +293,6 @@ def build_auth_router(
             )
         return resumo
 
-    def _sessao_autenticada(
-        request: Request,
-    ) -> tuple[_GerenciadorSessaoOperacional, _SessaoOperacional, IdentidadeUsuario]:
-        token = _token_request(request)
-        if token is None:
-            raise _SessaoInvalida("sessao ausente")
-        manager = _obter_gerenciador()
-        sessao = manager.resolver(token)
-        try:
-            identidade = _carregar_identidade(sessao)
-        except _SessaoInvalida:
-            manager.invalidar(token)
-            raise
-        return manager, sessao, identidade
-
     @router.post("/login")
     def login(payload: LoginIn) -> JSONResponse:
         try:
@@ -264,7 +300,7 @@ def build_auth_router(
                 identidade = ServicoAutenticacao(
                     RepositorioIdentidadesSQLAlchemy(session)
                 ).autenticar(email=payload.email, password=payload.senha)
-            manager = _obter_gerenciador()
+            manager = runtime._obter_gerenciador()
             sessao, token = manager.criar(identidade)
             identidade_ativa = identidade.no_escopo_ativo(
                 tenant_id=sessao.tenant_id,
@@ -290,7 +326,7 @@ def build_auth_router(
     @router.get("/me")
     def me(request: Request) -> JSONResponse:
         try:
-            _, _, identidade = _sessao_autenticada(request)
+            _, _, identidade = runtime.sessao_autenticada(request)
             return JSONResponse(
                 status_code=status.HTTP_200_OK,
                 content=_operador(identidade, incluir_permissoes=True),
@@ -309,7 +345,7 @@ def build_auth_router(
     @router.get("/unidades")
     def unidades(request: Request) -> JSONResponse:
         try:
-            _, _, identidade = _sessao_autenticada(request)
+            _, _, identidade = runtime.sessao_autenticada(request)
             content = [
                 {"id": unidade_id, "codigo": None, "nome": None}
                 for unidade_id in sorted(identidade.unidades_permitidas)
@@ -332,7 +368,7 @@ def build_auth_router(
         request: Request,
     ) -> JSONResponse:
         try:
-            manager, sessao, identidade = _sessao_autenticada(request)
+            manager, sessao, identidade = runtime.sessao_autenticada(request)
         except _SessaoInvalida:
             return _erro(
                 status.HTTP_401_UNAUTHORIZED,
@@ -375,10 +411,10 @@ def build_auth_router(
 
     @router.post("/logout")
     def logout(request: Request) -> JSONResponse:
-        token = _token_request(request)
+        token = runtime.token_request(request)
         if token is not None:
             try:
-                _obter_gerenciador().invalidar(token)
+                runtime._obter_gerenciador().invalidar(token)
             except (ReferenciaSegredoInvalida, SegredoAusente, _SegredoSessaoInseguro):
                 pass
         response = JSONResponse(

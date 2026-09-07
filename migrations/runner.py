@@ -96,6 +96,7 @@ from migrations.migration_history_integrity_v1 import (
 from migrations.pdv_reconciliation_strategy_width_v1 import (
     upgrade_pdv_reconciliation_strategy_width_v1,
 )
+from migrations.product_active_flag_v1 import upgrade_product_active_flag_v1
 from migrations.product_unit_scope_compat_v1 import upgrade_product_unit_scope_compat_v1
 from migrations.unit_legacy_store_mapping_v1 import upgrade_unit_legacy_store_mapping_v1
 
@@ -283,6 +284,7 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
         revert_delivery_channel_state_v1,
     ),
     Migration("0039_crm_cashback_ledger_v1", upgrade_crm_cashback_ledger_v1),
+    Migration("0040_product_active_flag_v1", upgrade_product_active_flag_v1),
 )
 
 

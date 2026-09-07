@@ -48,7 +48,8 @@ from core.seguranca.erros import (
     SegredoAusente,
 )
 from core.seguranca.segredos import ReferenceSecretStore, SecretStore
-from http_api.auth import build_auth_router
+from http_api.auth import AuthSessionRuntime, build_auth_router
+from http_api.catalogo import build_catalogo_router
 from http_api.kds import build_kds_router
 from http_api.pdv import build_pdv_router
 from http_api.salao import build_salao_router
@@ -135,11 +136,22 @@ def build_http_app(
         redoc_url=None,
         openapi_url=None if settings.commercial else "/openapi.json",
     )
+    auth_runtime = AuthSessionRuntime(
+        session_factory=session_factory,
+        secret_store=secret_store,
+    )
     app.include_router(
         build_auth_router(
             session_factory=session_factory,
             settings=settings,
             secret_store=secret_store,
+            runtime=auth_runtime,
+        )
+    )
+    app.include_router(
+        build_catalogo_router(
+            session_factory=session_factory,
+            auth_runtime=auth_runtime,
         )
     )
     app.include_router(build_kds_router(session_factory=session_factory))
