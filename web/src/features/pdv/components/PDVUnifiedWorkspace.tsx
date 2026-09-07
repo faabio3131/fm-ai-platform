@@ -51,11 +51,13 @@ export function PDVUnifiedWorkspace() {
 
   useEffect(() => {
     if (auth.status !== "authenticated" || !allowed || !auth.unitId) return;
-    cartActions.reset();
-    setCheckoutOpen(false);
-    void loadCatalog();
-    // A unidade ativa é autoridade do cookie; trocar unidade força reload.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const timeoutId = window.setTimeout(() => {
+      cartActions.reset();
+      setCheckoutOpen(false);
+      void loadCatalog();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [auth.status, auth.unitId, allowed]);
 
   if (auth.status === "authenticated" && !allowed) {
