@@ -43,24 +43,27 @@ export function AdminStepUpGuard({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (auth.status !== "authenticated" || !auth.unitId) return;
     let cancelled = false;
-    setLoading(true);
-    setStatus(null);
-    setSenha("");
-    setError(null);
+    const timeoutId = window.setTimeout(() => {
+      setLoading(true);
+      setStatus(null);
+      setSenha("");
+      setError(null);
 
-    void getAdminStepUpStatus()
-      .then((nextStatus) => {
-        if (!cancelled) setStatus(nextStatus);
-      })
-      .catch((caught: unknown) => {
-        if (!cancelled) setError(errorMessage(caught));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      void getAdminStepUpStatus()
+        .then((nextStatus) => {
+          if (!cancelled) setStatus(nextStatus);
+        })
+        .catch((caught: unknown) => {
+          if (!cancelled) setError(errorMessage(caught));
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }, 0);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timeoutId);
     };
   }, [auth.status, auth.unitId]);
 
