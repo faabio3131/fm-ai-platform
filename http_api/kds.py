@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 from collections.abc import Callable
 from datetime import datetime
 from typing import Literal
@@ -18,10 +17,10 @@ from application.kds_transacoes import transicionar_kds_v1
 from core.kds.erros import ErroKDS
 from core.kds.modelos import ItemFilaKDS, ProducaoItem, SetorProducao
 from core.pedidos.modelos_orm import ItemPedidoORM
-from core.seguranca.autenticacao import ServicoAutenticacao
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.erros import CredenciaisInvalidas, ErroSeguranca
-from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
+from http_api.auth import AuthSessionRuntime
+from http_api.operational_auth import obter_identidade_operacional
 
 SessionFactory = Callable[[], Session]
 DestinoKDS = Literal[
@@ -111,33 +110,17 @@ class KDSTransicaoOut(BaseModel):
     atualizado_em: datetime
 
 
-def _credenciais_basic(request: Request) -> tuple[str, str]:
-    cabecalho = request.headers.get("authorization", "")
-    esquema, _, valor = cabecalho.partition(" ")
-    if esquema.casefold() != "basic" or not valor:
-        raise CredenciaisInvalidas("credenciais invalidas")
-    try:
-        decodificado = base64.b64decode(valor, validate=True).decode("utf-8")
-        email, password = decodificado.split(":", 1)
-    except (ValueError, UnicodeDecodeError) as exc:
-        raise CredenciaisInvalidas("credenciais invalidas") from exc
-    return email, password
-
-
-def _contexto_kds(request: Request, session: Session) -> ContextoExecucao:
-    tenant_id = request.headers.get("x-tenant-id", "").strip()
-    unidade_id = request.headers.get("x-unit-id", "").strip()
-    if not tenant_id or not unidade_id:
-        raise CredenciaisInvalidas("credenciais invalidas")
-
-    email, password = _credenciais_basic(request)
-    identidade = ServicoAutenticacao(
-        RepositorioIdentidadesSQLAlchemy(session)
-    ).autenticar(email=email, password=password)
-    identidade = identidade.no_escopo_ativo(
-        tenant_id=tenant_id,
-        unidade_id=unidade_id,
-    )
+def _contexto_kds(
+    request: Request,
+    session: Session,
+    *,
+    auth_runtime: AuthSessionRuntime | None,
+) -> ContextoExecucao:
+    identidade = obter_identidade_operacional(
+        request,
+        session,
+        auth_runtime=auth_runtime,
+    ).identidade
     return identidade.contexto(
         origem="kds_http_v1",
         correlation_id=request.headers.get("x-correlation-id") or None,
@@ -254,14 +237,22 @@ def _item_fila_out(
     )
 
 
-def build_kds_router(*, session_factory: SessionFactory) -> APIRouter:
+def build_kds_router(
+    *,
+    session_factory: SessionFactory,
+    auth_runtime: AuthSessionRuntime | None = None,
+) -> APIRouter:
     router = APIRouter(prefix="/v1/kds", tags=["kds"])
 
     @router.get("/setores", response_model=KDSSetoresOut)
     def listar_setores(request: Request) -> KDSSetoresOut | JSONResponse:
         try:
             with session_factory() as session:
-                contexto = _contexto_kds(request, session)
+                contexto = _contexto_kds(
+                    request,
+                    session,
+                    auth_runtime=auth_runtime,
+                )
                 setores = ServicoKDSCanonico(session).listar_setores(contexto)
                 return KDSSetoresOut(setores=[_setor_out(setor) for setor in setores])
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
@@ -274,7 +265,11 @@ def build_kds_router(*, session_factory: SessionFactory) -> APIRouter:
     ) -> KDSFilaOut | JSONResponse:
         try:
             with session_factory() as session:
-                contexto = _contexto_kds(request, session)
+                contexto = _contexto_kds(
+                    request,
+                    session,
+                    auth_runtime=auth_runtime,
+                )
                 canonico = ServicoKDSCanonico(session)
                 setores = canonico.listar_setores(contexto)
                 if setor_id is not None and not any(
@@ -325,7 +320,11 @@ def build_kds_router(*, session_factory: SessionFactory) -> APIRouter:
     ) -> KDSTransicaoOut | JSONResponse:
         try:
             with session_factory() as session:
-                contexto = _contexto_kds(request, session)
+                contexto = _contexto_kds(
+                    request,
+                    session,
+                    auth_runtime=auth_runtime,
+                )
                 atual = ServicoKDSCanonico(session).kds_repo.obter_producao(
                     contexto.tenant_id,
                     contexto.unidade_id,

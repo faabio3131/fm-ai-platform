@@ -87,6 +87,7 @@ export class PdvApiError extends Error {
 
 let activeSession: PdvSessionContext | null = null;
 
+/** Compatibilidade legada/M2M. O browser comercial não deve chamar esta função. */
 export function configurePdvSession(context: PdvSessionContext): void {
   const email = context.email.trim();
   const tenantId = context.tenantId.trim();
@@ -112,13 +113,6 @@ export function hasPdvSession(): boolean {
   return activeSession !== null;
 }
 
-function requireSession(): PdvSessionContext {
-  if (!activeSession) {
-    throw new PdvApiError("Sessão operacional do PDV não configurada.", 401, "pdv_session_missing");
-  }
-  return activeSession;
-}
-
 function encodeBasicCredentials(email: string, password: string): string {
   const bytes = new TextEncoder().encode(`${email}:${password}`);
   let binary = "";
@@ -131,14 +125,19 @@ function encodeBasicCredentials(email: string, password: string): string {
 }
 
 function buildHeaders(options?: { idempotencyKey?: string }): Headers {
-  const session = requireSession();
   const headers = new Headers({
     Accept: "application/json",
-    Authorization: `Basic ${encodeBasicCredentials(session.email, session.password)}`,
-    "X-Tenant-ID": session.tenantId,
-    "X-Unit-ID": session.unitId,
     "X-Correlation-ID": crypto.randomUUID(),
   });
+
+  if (activeSession) {
+    headers.set(
+      "Authorization",
+      `Basic ${encodeBasicCredentials(activeSession.email, activeSession.password)}`,
+    );
+    headers.set("X-Tenant-ID", activeSession.tenantId);
+    headers.set("X-Unit-ID", activeSession.unitId);
+  }
 
   if (options?.idempotencyKey) {
     headers.set("Idempotency-Key", options.idempotencyKey);
@@ -172,6 +171,7 @@ export async function fetchCatalog(): Promise<CatalogItem[]> {
     method: "GET",
     headers: buildHeaders(),
     cache: "no-store",
+    credentials: "include",
   });
 
   if (response.status !== 200) {
@@ -194,6 +194,7 @@ export async function submitCheckout(
     headers,
     body: JSON.stringify(payload),
     cache: "no-store",
+    credentials: "include",
   });
 
   if (response.status !== 200 && response.status !== 201) {

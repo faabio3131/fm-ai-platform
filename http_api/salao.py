@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 from collections.abc import Callable
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -40,11 +39,11 @@ from core.salao import (
     StatusMesa,
 )
 from core.salao.modelos_orm import EventoSalaoORM
-from core.seguranca.autenticacao import ServicoAutenticacao
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.erros import CredenciaisInvalidas, ErroSeguranca
+from http_api.auth import AuthSessionRuntime
+from http_api.operational_auth import obter_identidade_operacional
 from infra.legacy_product_scope import ErroEscopoLojaLegada, obter_produto_por_id_legado
-from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 
 SessionFactory = Callable[[], Session]
 _MAX_IDEMPOTENCY_KEY = 96
@@ -136,33 +135,17 @@ class _RecursoSalaoNaoEncontrado(Exception):
         super().__init__(codigo)
 
 
-def _credenciais_basic(request: Request) -> tuple[str, str]:
-    cabecalho = request.headers.get("authorization", "")
-    esquema, _, valor = cabecalho.partition(" ")
-    if esquema.casefold() != "basic" or not valor:
-        raise CredenciaisInvalidas("credenciais invalidas")
-    try:
-        decodificado = base64.b64decode(valor, validate=True).decode("utf-8")
-        email, password = decodificado.split(":", 1)
-    except (ValueError, UnicodeDecodeError) as exc:
-        raise CredenciaisInvalidas("credenciais invalidas") from exc
-    return email, password
-
-
-def _contexto_salao(request: Request, session: Session) -> ContextoExecucao:
-    tenant_id = request.headers.get("x-tenant-id", "").strip()
-    unidade_id = request.headers.get("x-unit-id", "").strip()
-    if not tenant_id or not unidade_id:
-        raise CredenciaisInvalidas("credenciais invalidas")
-
-    email, password = _credenciais_basic(request)
-    identidade = ServicoAutenticacao(
-        RepositorioIdentidadesSQLAlchemy(session)
-    ).autenticar(email=email, password=password)
-    identidade = identidade.no_escopo_ativo(
-        tenant_id=tenant_id,
-        unidade_id=unidade_id,
-    )
+def _contexto_salao(
+    request: Request,
+    session: Session,
+    *,
+    auth_runtime: AuthSessionRuntime | None,
+) -> ContextoExecucao:
+    identidade = obter_identidade_operacional(
+        request,
+        session,
+        auth_runtime=auth_runtime,
+    ).identidade
     return identidade.contexto(
         origem="salao_http_v1",
         correlation_id=request.headers.get("x-correlation-id") or None,
@@ -376,14 +359,22 @@ def _erro_http(exc: Exception) -> JSONResponse:
     )
 
 
-def build_salao_router(*, session_factory: SessionFactory) -> APIRouter:
+def build_salao_router(
+    *,
+    session_factory: SessionFactory,
+    auth_runtime: AuthSessionRuntime | None = None,
+) -> APIRouter:
     router = APIRouter(prefix="/v1/salao", tags=["salao"])
 
     @router.get("/mapa", response_model=SalaoMapaOut)
     def listar_mapa(request: Request) -> SalaoMapaOut | JSONResponse:
         try:
             with session_factory() as session:
-                contexto = _contexto_salao(request, session)
+                contexto = _contexto_salao(
+                    request,
+                    session,
+                    auth_runtime=auth_runtime,
+                )
                 snapshot = ServicoSalao(
                     RepositorioSalaoSQLAlchemy(session),
                     agora=lambda: datetime.now(timezone.utc),
@@ -426,7 +417,11 @@ def build_salao_router(*, session_factory: SessionFactory) -> APIRouter:
     ) -> JSONResponse:
         try:
             with session_factory() as session:
-                contexto = _contexto_salao(request, session)
+                contexto = _contexto_salao(
+                    request,
+                    session,
+                    auth_runtime=auth_runtime,
+                )
                 repositorio = RepositorioSalaoSQLAlchemy(session)
                 evento = _evento_por_chave(session, contexto, idempotency_key)
                 mesa = repositorio.obter_mesa(
@@ -498,7 +493,11 @@ def build_salao_router(*, session_factory: SessionFactory) -> APIRouter:
     ) -> JSONResponse:
         try:
             with session_factory() as session:
-                contexto = _contexto_salao(request, session)
+                contexto = _contexto_salao(
+                    request,
+                    session,
+                    auth_runtime=auth_runtime,
+                )
                 comanda = RepositorioSalaoSQLAlchemy(session).obter_comanda(
                     contexto.tenant_id,
                     contexto.unidade_id,
@@ -545,7 +544,11 @@ def build_salao_router(*, session_factory: SessionFactory) -> APIRouter:
     ) -> SalaoComandaDetalheOut | JSONResponse:
         try:
             with session_factory() as session:
-                contexto = _contexto_salao(request, session)
+                contexto = _contexto_salao(
+                    request,
+                    session,
+                    auth_runtime=auth_runtime,
+                )
                 repositorio = RepositorioSalaoSQLAlchemy(session)
                 ServicoSalao(
                     repositorio,
@@ -623,7 +626,11 @@ def build_salao_router(*, session_factory: SessionFactory) -> APIRouter:
     ) -> SalaoMutacaoComandaOut | JSONResponse:
         try:
             with session_factory() as session:
-                contexto = _contexto_salao(request, session)
+                contexto = _contexto_salao(
+                    request,
+                    session,
+                    auth_runtime=auth_runtime,
+                )
                 repositorio = RepositorioSalaoSQLAlchemy(session)
                 comanda = repositorio.obter_comanda(
                     contexto.tenant_id,

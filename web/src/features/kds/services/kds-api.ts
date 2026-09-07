@@ -107,6 +107,7 @@ export class KdsApiError extends Error {
 
 let activeSession: KdsSessionContext | null = null;
 
+/** Compatibilidade legada/M2M. O browser comercial usa fm_ai_session. */
 export function configureKdsSession(context: KdsSessionContext): void {
   const email = context.email.trim();
   const tenantId = context.tenantId.trim();
@@ -128,13 +129,6 @@ export function clearKdsSession(): void {
   activeSession = null;
 }
 
-function requireSession(): KdsSessionContext {
-  if (!activeSession) {
-    throw new KdsApiError("Sessão operacional do KDS não configurada.", 401, "kds_session_missing");
-  }
-  return activeSession;
-}
-
 function encodeBasicCredentials(email: string, password: string): string {
   const bytes = new TextEncoder().encode(`${email}:${password}`);
   let binary = "";
@@ -143,14 +137,19 @@ function encodeBasicCredentials(email: string, password: string): string {
 }
 
 function buildHeaders(options?: { idempotencyKey?: string }): Headers {
-  const session = requireSession();
   const headers = new Headers({
     Accept: "application/json",
-    Authorization: `Basic ${encodeBasicCredentials(session.email, session.password)}`,
-    "X-Tenant-ID": session.tenantId,
-    "X-Unit-ID": session.unitId,
     "X-Correlation-ID": crypto.randomUUID(),
   });
+
+  if (activeSession) {
+    headers.set(
+      "Authorization",
+      `Basic ${encodeBasicCredentials(activeSession.email, activeSession.password)}`,
+    );
+    headers.set("X-Tenant-ID", activeSession.tenantId);
+    headers.set("X-Unit-ID", activeSession.unitId);
+  }
 
   if (options?.idempotencyKey) {
     headers.set("Idempotency-Key", options.idempotencyKey);
@@ -179,6 +178,7 @@ export async function fetchKdsSectors(): Promise<KdsSector[]> {
     method: "GET",
     headers: buildHeaders(),
     cache: "no-store",
+    credentials: "include",
   });
   if (response.status !== 200) throw await readApiError(response);
   return ((await response.json()) as KdsSectorsResponse).setores;
@@ -190,6 +190,7 @@ export async function fetchKdsQueue(setorId?: string): Promise<KdsQueueResponse>
     method: "GET",
     headers: buildHeaders(),
     cache: "no-store",
+    credentials: "include",
   });
   if (response.status !== 200) throw await readApiError(response);
   return (await response.json()) as KdsQueueResponse;
@@ -206,6 +207,7 @@ export async function transitionKds(
     headers,
     body: JSON.stringify(payload),
     cache: "no-store",
+    credentials: "include",
   });
   if (response.status !== 200) throw await readApiError(response);
   return (await response.json()) as KdsTransitionResponse;

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 from collections.abc import Callable
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -37,15 +36,11 @@ from core.dominio.pedidos import ItemPedido, Pedido
 from core.dominio.tipos import QuantidadeItem
 from core.pagamentos.erros import ConcorrenciaPagamento, ConflitoIdempotenciaPagamento
 from core.pagamentos.modelos import MetodoPagamento
-from core.seguranca import (
-    AutorizarAcao,
-    ContextoExecucao,
-    Permissao,
-    ServicoAutenticacao,
-)
+from core.seguranca import AutorizarAcao, ContextoExecucao, Permissao
 from core.seguranca.erros import CredenciaisInvalidas, ErroSeguranca
+from http_api.auth import AuthSessionRuntime
+from http_api.operational_auth import obter_identidade_operacional
 from infra.legacy_product_scope import ErroEscopoLojaLegada, listar_produtos_legados
-from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 
 SessionFactory = Callable[[], Session]
 _MAX_IDEMPOTENCY_KEY = 96
@@ -118,33 +113,18 @@ class PDVCheckoutOut(BaseModel):
     correlation_id: str
 
 
-def _credenciais_basic(request: Request) -> tuple[str, str]:
-    cabecalho = request.headers.get("authorization", "")
-    esquema, _, valor = cabecalho.partition(" ")
-    if esquema.casefold() != "basic" or not valor:
-        raise CredenciaisInvalidas("credenciais invalidas")
-    try:
-        decodificado = base64.b64decode(valor, validate=True).decode("utf-8")
-        email, password = decodificado.split(":", 1)
-    except (ValueError, UnicodeDecodeError) as exc:
-        raise CredenciaisInvalidas("credenciais invalidas") from exc
-    return email, password
-
-
-def _contexto_pdv(request: Request, session: Session) -> ContextoExecucao:
-    tenant_id = request.headers.get("x-tenant-id", "").strip()
-    unidade_id = request.headers.get("x-unit-id", "").strip()
-    if not tenant_id or not unidade_id:
-        raise ValueError("x_tenant_id_e_x_unit_id_obrigatorios")
-
-    email, password = _credenciais_basic(request)
-    identidade = ServicoAutenticacao(
-        RepositorioIdentidadesSQLAlchemy(session)
-    ).autenticar(email=email, password=password)
-    identidade = identidade.no_escopo_ativo(
-        tenant_id=tenant_id,
-        unidade_id=unidade_id,
+def _contexto_pdv(
+    request: Request,
+    session: Session,
+    *,
+    auth_runtime: AuthSessionRuntime | None,
+) -> ContextoExecucao:
+    resolvida = obter_identidade_operacional(
+        request,
+        session,
+        auth_runtime=auth_runtime,
     )
+    identidade = resolvida.identidade
     contexto = identidade.contexto(
         origem="pdv_http_v1",
         correlation_id=request.headers.get("x-correlation-id") or None,
@@ -153,8 +133,8 @@ def _contexto_pdv(request: Request, session: Session) -> ContextoExecucao:
         contexto=contexto,
         permissao=Permissao.PDV_OPERAR,
         recurso="pdv",
-        tenant_recurso=tenant_id,
-        unidade_recurso=unidade_id,
+        tenant_recurso=contexto.tenant_id,
+        unidade_recurso=contexto.unidade_id,
     )
     if not decisao.autorizado:
         raise PermissaoNegada(decisao.codigo)
@@ -452,14 +432,22 @@ def _erro_http(exc: Exception) -> JSONResponse:
     )
 
 
-def build_pdv_router(*, session_factory: SessionFactory) -> APIRouter:
+def build_pdv_router(
+    *,
+    session_factory: SessionFactory,
+    auth_runtime: AuthSessionRuntime | None = None,
+) -> APIRouter:
     router = APIRouter(prefix="/v1/pdv", tags=["pdv"])
 
     @router.get("/produtos", response_model=PDVCatalogoOut)
     def listar_produtos(request: Request) -> dict[str, Any] | JSONResponse:
         try:
             with session_factory() as session:
-                contexto = _contexto_pdv(request, session)
+                contexto = _contexto_pdv(
+                    request,
+                    session,
+                    auth_runtime=auth_runtime,
+                )
                 catalogo = _catalogo_ativo(
                     session,
                     tenant_id=contexto.tenant_id,
@@ -490,7 +478,11 @@ def build_pdv_router(*, session_factory: SessionFactory) -> APIRouter:
         try:
             key = _idempotency_key(request)
             with session_factory() as session:
-                contexto = _contexto_pdv(request, session)
+                contexto = _contexto_pdv(
+                    request,
+                    session,
+                    auth_runtime=auth_runtime,
+                )
             pedido = _montar_pedido(
                 payload=payload,
                 session_factory=session_factory,

@@ -24,6 +24,7 @@ from core.seguranca.erros import (
     ReferenciaSegredoInvalida,
     SegredoAusente,
 )
+from core.seguranca.permissoes import Permissao
 from core.seguranca.segredos import SecretStore
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 
@@ -32,6 +33,7 @@ SessionFactory = Callable[[], Session]
 _SESSION_COOKIE = "fm_ai_session"
 _SESSION_SECRET_REFERENCE = "env:FM_AI_SESSION_SECRET"
 _SESSION_TTL_SECONDS = 8 * 60 * 60
+_ADMIN_STEP_UP_TTL_SECONDS = 15 * 60
 _MIN_SESSION_SECRET_BYTES = 32
 
 
@@ -44,6 +46,10 @@ class SelecionarUnidadeIn(BaseModel):
     unidade_id: str = Field(min_length=1, max_length=64)
 
 
+class AdminStepUpIn(BaseModel):
+    senha: str = Field(min_length=1, max_length=1024)
+
+
 @dataclass(frozen=True)
 class _SessaoOperacional:
     session_id: str
@@ -52,6 +58,7 @@ class _SessaoOperacional:
     tenant_id: str
     unidade_ativa_id: str
     expira_em: datetime
+    admin_elevado_ate: datetime | None = None
 
 
 class _SessaoInvalida(ValueError):
@@ -135,6 +142,29 @@ class _GerenciadorSessaoOperacional:
             sessao,
             session_id=secrets.token_urlsafe(32),
             unidade_ativa_id=unidade_id,
+            admin_elevado_ate=None,
+        )
+        with self._lock:
+            corrente = self._sessions.get(sessao.session_id)
+            if corrente != sessao:
+                raise _SessaoInvalida("sessao invalida")
+            self._sessions.pop(sessao.session_id, None)
+            self._sessions[atualizada.session_id] = atualizada
+        return atualizada, self._token(atualizada.session_id)
+
+    def elevar_admin(
+        self,
+        sessao: _SessaoOperacional,
+    ) -> tuple[_SessaoOperacional, str]:
+        agora = datetime.now(timezone.utc)
+        elevado_ate = min(
+            sessao.expira_em,
+            agora + timedelta(seconds=_ADMIN_STEP_UP_TTL_SECONDS),
+        )
+        atualizada = replace(
+            sessao,
+            session_id=secrets.token_urlsafe(32),
+            admin_elevado_ate=elevado_ate,
         )
         with self._lock:
             corrente = self._sessions.get(sessao.session_id)
@@ -237,6 +267,20 @@ class AuthSessionRuntime:
         except _SessaoInvalida as exc:
             raise CredenciaisInvalidas("credenciais invalidas") from exc
 
+    def admin_status(
+        self,
+        request: Request,
+    ) -> tuple[IdentidadeUsuario, bool, datetime | None]:
+        _, sessao, identidade = self.sessao_autenticada(request)
+        permitido = Permissao.ADMIN_ACESSAR in identidade.permissoes
+        agora = datetime.now(timezone.utc)
+        elevado = bool(
+            permitido
+            and sessao.admin_elevado_ate is not None
+            and sessao.admin_elevado_ate > agora
+        )
+        return identidade, elevado, sessao.admin_elevado_ate if elevado else None
+
 
 def build_auth_router(
     *,
@@ -313,15 +357,9 @@ def build_auth_router(
             _aplicar_cookie(response, token)
             return response
         except (ReferenciaSegredoInvalida, SegredoAusente, _SegredoSessaoInseguro):
-            return _erro(
-                status.HTTP_503_SERVICE_UNAVAILABLE,
-                "auth.sessao_indisponivel",
-            )
+            return _erro(status.HTTP_503_SERVICE_UNAVAILABLE, "auth.sessao_indisponivel")
         except ErroSeguranca:
-            return _erro(
-                status.HTTP_401_UNAUTHORIZED,
-                CredenciaisInvalidas.codigo,
-            )
+            return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
 
     @router.get("/me")
     def me(request: Request) -> JSONResponse:
@@ -332,15 +370,9 @@ def build_auth_router(
                 content=_operador(identidade, incluir_permissoes=True),
             )
         except _SessaoInvalida:
-            return _erro(
-                status.HTTP_401_UNAUTHORIZED,
-                CredenciaisInvalidas.codigo,
-            )
+            return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
         except (ReferenciaSegredoInvalida, SegredoAusente, _SegredoSessaoInseguro):
-            return _erro(
-                status.HTTP_503_SERVICE_UNAVAILABLE,
-                "auth.sessao_indisponivel",
-            )
+            return _erro(status.HTTP_503_SERVICE_UNAVAILABLE, "auth.sessao_indisponivel")
 
     @router.get("/unidades")
     def unidades(request: Request) -> JSONResponse:
@@ -352,15 +384,9 @@ def build_auth_router(
             ]
             return JSONResponse(status_code=status.HTTP_200_OK, content=content)
         except _SessaoInvalida:
-            return _erro(
-                status.HTTP_401_UNAUTHORIZED,
-                CredenciaisInvalidas.codigo,
-            )
+            return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
         except (ReferenciaSegredoInvalida, SegredoAusente, _SegredoSessaoInseguro):
-            return _erro(
-                status.HTTP_503_SERVICE_UNAVAILABLE,
-                "auth.sessao_indisponivel",
-            )
+            return _erro(status.HTTP_503_SERVICE_UNAVAILABLE, "auth.sessao_indisponivel")
 
     @router.post("/select-unit")
     def selecionar_unidade(
@@ -370,15 +396,9 @@ def build_auth_router(
         try:
             manager, sessao, identidade = runtime.sessao_autenticada(request)
         except _SessaoInvalida:
-            return _erro(
-                status.HTTP_401_UNAUTHORIZED,
-                CredenciaisInvalidas.codigo,
-            )
+            return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
         except (ReferenciaSegredoInvalida, SegredoAusente, _SegredoSessaoInseguro):
-            return _erro(
-                status.HTTP_503_SERVICE_UNAVAILABLE,
-                "auth.sessao_indisponivel",
-            )
+            return _erro(status.HTTP_503_SERVICE_UNAVAILABLE, "auth.sessao_indisponivel")
 
         try:
             identidade_ativa = identidade.no_escopo_ativo(
@@ -386,10 +406,7 @@ def build_auth_router(
                 unidade_id=payload.unidade_id,
             )
         except CredenciaisInvalidas:
-            return _erro(
-                status.HTTP_403_FORBIDDEN,
-                "seguranca.recurso_indisponivel",
-            )
+            return _erro(status.HTTP_403_FORBIDDEN, "seguranca.recurso_indisponivel")
 
         try:
             _, novo_token = manager.trocar_unidade(
@@ -397,10 +414,7 @@ def build_auth_router(
                 unidade_id=identidade_ativa.unidade_id,
             )
         except _SessaoInvalida:
-            return _erro(
-                status.HTTP_401_UNAUTHORIZED,
-                CredenciaisInvalidas.codigo,
-            )
+            return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
 
         response = JSONResponse(
             status_code=status.HTTP_200_OK,
@@ -408,6 +422,56 @@ def build_auth_router(
         )
         _aplicar_cookie(response, novo_token)
         return response
+
+    @router.get("/admin-status")
+    def admin_status(request: Request) -> JSONResponse:
+        try:
+            identidade, elevado, expira_em = runtime.admin_status(request)
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "permitido": Permissao.ADMIN_ACESSAR in identidade.permissoes,
+                    "elevado": elevado,
+                    "expira_em": expira_em.isoformat() if expira_em else None,
+                },
+            )
+        except _SessaoInvalida:
+            return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
+        except (ReferenciaSegredoInvalida, SegredoAusente, _SegredoSessaoInseguro):
+            return _erro(status.HTTP_503_SERVICE_UNAVAILABLE, "auth.sessao_indisponivel")
+
+    @router.post("/admin-step-up")
+    def admin_step_up(payload: AdminStepUpIn, request: Request) -> JSONResponse:
+        try:
+            manager, sessao, identidade = runtime.sessao_autenticada(request)
+            if Permissao.ADMIN_ACESSAR not in identidade.permissoes:
+                return _erro(status.HTTP_403_FORBIDDEN, "seguranca.permissao_insuficiente")
+
+            with session_factory() as session:
+                confirmada = ServicoAutenticacao(
+                    RepositorioIdentidadesSQLAlchemy(session)
+                ).autenticar(email=identidade.email, password=payload.senha)
+            if confirmada.usuario_id != identidade.usuario_id:
+                return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
+
+            elevada, novo_token = manager.elevar_admin(sessao)
+            response = JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "ok": True,
+                    "expira_em": elevada.admin_elevado_ate.isoformat()
+                    if elevada.admin_elevado_ate
+                    else None,
+                },
+            )
+            _aplicar_cookie(response, novo_token)
+            return response
+        except CredenciaisInvalidas:
+            return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
+        except _SessaoInvalida:
+            return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
+        except (ReferenciaSegredoInvalida, SegredoAusente, _SegredoSessaoInseguro):
+            return _erro(status.HTTP_503_SERVICE_UNAVAILABLE, "auth.sessao_indisponivel")
 
     @router.post("/logout")
     def logout(request: Request) -> JSONResponse:

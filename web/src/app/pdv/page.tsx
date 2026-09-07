@@ -1,5 +1,5 @@
-import { PDVTouchWorkspace } from "@/features/pdv/components/PDVTouchWorkspace";
+import { PDVUnifiedWorkspace } from "@/features/pdv/components/PDVUnifiedWorkspace";
 
 export default function PDVPage() {
-  return <PDVTouchWorkspace />;
+  return <PDVUnifiedWorkspace />;
 }

@@ -22,6 +22,17 @@ export interface LogoutResult {
   ok: boolean;
 }
 
+export interface AdminStepUpStatus {
+  permitido: boolean;
+  elevado: boolean;
+  expira_em: string | null;
+}
+
+export interface AdminStepUpResult {
+  ok: boolean;
+  expira_em: string | null;
+}
+
 export class AuthApiError extends Error {
   constructor(
     message: string,
@@ -96,6 +107,17 @@ export async function selectUnit(unidadeId: string): Promise<{ unidade_ativa_id:
   return authRequest<{ unidade_ativa_id: string }>("/v1/auth/select-unit", {
     method: "POST",
     body: JSON.stringify({ unidade_id: unidadeId }),
+  });
+}
+
+export async function getAdminStepUpStatus(): Promise<AdminStepUpStatus> {
+  return authRequest<AdminStepUpStatus>("/v1/auth/admin-status", { method: "GET" });
+}
+
+export async function elevateAdminSession(senha: string): Promise<AdminStepUpResult> {
+  return authRequest<AdminStepUpResult>("/v1/auth/admin-step-up", {
+    method: "POST",
+    body: JSON.stringify({ senha }),
   });
 }
 

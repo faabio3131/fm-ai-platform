@@ -154,9 +154,24 @@ def build_http_app(
             auth_runtime=auth_runtime,
         )
     )
-    app.include_router(build_kds_router(session_factory=session_factory))
-    app.include_router(build_pdv_router(session_factory=session_factory))
-    app.include_router(build_salao_router(session_factory=session_factory))
+    app.include_router(
+        build_kds_router(
+            session_factory=session_factory,
+            auth_runtime=auth_runtime,
+        )
+    )
+    app.include_router(
+        build_pdv_router(
+            session_factory=session_factory,
+            auth_runtime=auth_runtime,
+        )
+    )
+    app.include_router(
+        build_salao_router(
+            session_factory=session_factory,
+            auth_runtime=auth_runtime,
+        )
+    )
 
     @app.get("/healthz", include_in_schema=False)
     def healthz() -> JSONResponse:
