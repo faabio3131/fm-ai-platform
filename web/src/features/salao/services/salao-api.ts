@@ -68,6 +68,38 @@ export interface SalaoComandaDetails extends SalaoComanda {
   pedidos: SalaoPedido[];
 }
 
+export interface SalaoProduto {
+  id: string;
+  nome: string;
+  categoria: string | null;
+  preco: string;
+  disponivel: boolean;
+}
+
+interface CatalogoProduto {
+  id: string;
+  nome: string;
+  categoria: string | null;
+  preco: number;
+  ativo: boolean;
+}
+
+export interface LancamentoPedidoItemPayload {
+  produto_id: string;
+  quantidade: number;
+  observacao?: string | null;
+}
+
+export interface LancamentoPedidoPayload {
+  itens: LancamentoPedidoItemPayload[];
+}
+
+export interface SalaoLancamentoPedido {
+  idempotente: boolean;
+  comanda: SalaoComanda;
+  pedido: SalaoPedido;
+}
+
 export interface SalaoSessionContext {
   email: string;
   password: string;
@@ -177,6 +209,26 @@ export async function fetchFloorMap(): Promise<SalaoFloorMap> {
   return (await response.json()) as SalaoFloorMap;
 }
 
+export async function fetchProdutosSalao(): Promise<SalaoProduto[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/v1/catalogo/produtos?apenas_ativos=true`,
+    {
+      method: "GET",
+      headers: buildHeaders(),
+      cache: "no-store",
+    },
+  );
+  if (response.status !== 200) throw await readApiError(response);
+  const produtos = (await response.json()) as CatalogoProduto[];
+  return produtos.map((produto) => ({
+    id: `legacy:produto:${produto.id}`,
+    nome: produto.nome,
+    categoria: produto.categoria,
+    preco: String(produto.preco),
+    disponivel: produto.ativo,
+  }));
+}
+
 export async function openComanda(
   payload: OpenComandaPayload,
   idempotencyKey = crypto.randomUUID(),
@@ -206,6 +258,26 @@ export async function fetchComandaDetails(
   );
   if (response.status !== 200) throw await readApiError(response);
   return (await response.json()) as SalaoComandaDetails;
+}
+
+export async function launchOrder(
+  id: string,
+  payload: LancamentoPedidoPayload,
+  idempotencyKey = crypto.randomUUID(),
+): Promise<SalaoLancamentoPedido> {
+  const response = await fetch(
+    `${API_BASE_URL}/v1/salao/comandas/${encodeURIComponent(id)}/pedidos`,
+    {
+      method: "POST",
+      headers: buildHeaders({ idempotencyKey, json: true }),
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    },
+  );
+  if (response.status !== 200 && response.status !== 201) {
+    throw await readApiError(response);
+  }
+  return (await response.json()) as SalaoLancamentoPedido;
 }
 
 export async function requestBill(

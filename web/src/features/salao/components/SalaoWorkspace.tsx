@@ -28,14 +28,18 @@ import {
   configureSalaoSession,
   fetchComandaDetails,
   fetchFloorMap,
+  fetchProdutosSalao,
+  launchOrder,
   openComanda,
   requestBill,
   SalaoApiError,
+  type LancamentoPedidoPayload,
   type OpenComandaPayload,
   type SalaoComandaDetails,
   type SalaoComandaMapa,
   type SalaoFloorMap,
   type SalaoMesa,
+  type SalaoProduto,
 } from "@/features/salao/services/salao-api";
 
 function errorMessage(caught: unknown, fallback: string): string {
@@ -53,18 +57,21 @@ export function SalaoWorkspace() {
   const [refreshing, setRefreshing] = useState(false);
   const [mutationBusy, setMutationBusy] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [productsLoading, setProductsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [tenantId, setTenantId] = useState("");
   const [unitId, setUnitId] = useState("");
   const [floorMap, setFloorMap] = useState<SalaoFloorMap>(EMPTY_MAP);
+  const [produtos, setProdutos] = useState<SalaoProduto[]>([]);
   const [selectedMesa, setSelectedMesa] = useState<SalaoMesa | null>(null);
   const [selectedComanda, setSelectedComanda] =
     useState<SalaoComandaMapa | null>(null);
   const [details, setDetails] = useState<SalaoComandaDetails | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const openKeyRef = useRef<string | null>(null);
+  const orderKeyRef = useRef<string | null>(null);
   const billKeyRef = useRef<string | null>(null);
 
   async function refreshMap(silent = false): Promise<SalaoFloorMap> {
@@ -82,19 +89,38 @@ export function SalaoWorkspace() {
     }
   }
 
+  async function refreshProducts(): Promise<SalaoProduto[]> {
+    setProductsLoading(true);
+    try {
+      const nextProducts = await fetchProdutosSalao();
+      setProdutos(nextProducts);
+      return nextProducts;
+    } catch (caught) {
+      setError(errorMessage(caught, "Falha ao carregar o cardápio operacional."));
+      throw caught;
+    } finally {
+      setProductsLoading(false);
+    }
+  }
+
   async function connect(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
     setError(null);
     try {
       configureSalaoSession({ email, password, tenantId, unitId });
-      const nextMap = await fetchFloorMap();
+      const [nextMap, nextProducts] = await Promise.all([
+        fetchFloorMap(),
+        fetchProdutosSalao(),
+      ]);
       setFloorMap(nextMap);
+      setProdutos(nextProducts);
       setConnected(true);
       setPassword("");
     } catch (caught) {
       clearSalaoSession();
       setFloorMap(EMPTY_MAP);
+      setProdutos([]);
       setError(errorMessage(caught, "Falha ao abrir a sessão operacional do Salão."));
     } finally {
       setLoading(false);
@@ -105,6 +131,7 @@ export function SalaoWorkspace() {
     clearSalaoSession();
     setConnected(false);
     setFloorMap(EMPTY_MAP);
+    setProdutos([]);
     setSelectedMesa(null);
     setSelectedComanda(null);
     setDetails(null);
@@ -112,6 +139,7 @@ export function SalaoWorkspace() {
     setError(null);
     setPassword("");
     openKeyRef.current = null;
+    orderKeyRef.current = null;
     billKeyRef.current = null;
   }
 
@@ -122,13 +150,18 @@ export function SalaoWorkspace() {
     setModalOpen(true);
     setError(null);
     openKeyRef.current = null;
+    orderKeyRef.current = null;
     billKeyRef.current = null;
 
     if (!comanda) return;
 
     setDetailLoading(true);
     try {
-      setDetails(await fetchComandaDetails(comanda.id));
+      const [nextDetails] = await Promise.all([
+        fetchComandaDetails(comanda.id),
+        produtos.length ? Promise.resolve(produtos) : refreshProducts(),
+      ]);
+      setDetails(nextDetails);
     } catch (caught) {
       setError(errorMessage(caught, "Falha ao carregar a comanda selecionada."));
       if (caught instanceof SalaoApiError && caught.status === 404) {
@@ -148,12 +181,14 @@ export function SalaoWorkspace() {
     try {
       const result = await openComanda(payload, idempotencyKey);
       openKeyRef.current = null;
-      const [nextMap, nextDetails] = await Promise.all([
+      const [nextMap, nextDetails, nextProducts] = await Promise.all([
         fetchFloorMap(),
         fetchComandaDetails(result.comanda.id),
+        fetchProdutosSalao(),
       ]);
       setFloorMap(nextMap);
       setDetails(nextDetails);
+      setProdutos(nextProducts);
       setSelectedComanda(
         nextMap.comandas.find((item) => item.id === result.comanda.id) ?? null,
       );
@@ -171,8 +206,47 @@ export function SalaoWorkspace() {
     }
   }
 
+  async function handleLaunchOrder(payload: LancamentoPedidoPayload) {
+    const comandaId = details?.id ?? selectedComanda?.id;
+    if (!comandaId) return;
+
+    setMutationBusy(true);
+    setError(null);
+    const idempotencyKey = orderKeyRef.current ?? crypto.randomUUID();
+    orderKeyRef.current = idempotencyKey;
+
+    try {
+      await launchOrder(comandaId, payload, idempotencyKey);
+      orderKeyRef.current = null;
+      const [nextMap, nextDetails, nextProducts] = await Promise.all([
+        fetchFloorMap(),
+        fetchComandaDetails(comandaId),
+        fetchProdutosSalao(),
+      ]);
+      setFloorMap(nextMap);
+      setDetails(nextDetails);
+      setProdutos(nextProducts);
+      setSelectedComanda(
+        nextMap.comandas.find((item) => item.id === comandaId) ?? selectedComanda,
+      );
+    } catch (caught) {
+      if (caught instanceof SalaoApiError && caught.status === 409) {
+        await refreshMap(true).catch(() => undefined);
+        setError(
+          "A comanda mudou em outro terminal ou a tentativa conflitou. O estado foi atualizado antes de uma nova tentativa.",
+        );
+      } else {
+        setError(errorMessage(caught, "Falha ao lançar o pedido na comanda."));
+      }
+      throw caught;
+    } finally {
+      setMutationBusy(false);
+    }
+  }
+
   async function handleRequestBill() {
-    if (!selectedComanda) return;
+    const comandaId = details?.id ?? selectedComanda?.id;
+    if (!comandaId) return;
 
     setMutationBusy(true);
     setError(null);
@@ -180,17 +254,16 @@ export function SalaoWorkspace() {
     billKeyRef.current = idempotencyKey;
 
     try {
-      await requestBill(selectedComanda.id, idempotencyKey);
+      await requestBill(comandaId, idempotencyKey);
       billKeyRef.current = null;
       const [nextMap, nextDetails] = await Promise.all([
         fetchFloorMap(),
-        fetchComandaDetails(selectedComanda.id),
+        fetchComandaDetails(comandaId),
       ]);
       setFloorMap(nextMap);
       setDetails(nextDetails);
       setSelectedComanda(
-        nextMap.comandas.find((item) => item.id === selectedComanda.id) ??
-          selectedComanda,
+        nextMap.comandas.find((item) => item.id === comandaId) ?? selectedComanda,
       );
     } catch (caught) {
       if (caught instanceof SalaoApiError && caught.status === 409) {
@@ -213,6 +286,7 @@ export function SalaoWorkspace() {
       setSelectedComanda(null);
       setDetails(null);
       openKeyRef.current = null;
+      orderKeyRef.current = null;
       billKeyRef.current = null;
     }
   }
@@ -358,10 +432,10 @@ export function SalaoWorkspace() {
                 type="button"
                 variant="outline"
                 className="h-11 rounded-xl border-slate-600 bg-slate-900 text-slate-100 hover:bg-slate-700"
-                onClick={() => void refreshMap()}
-                disabled={refreshing}
+                onClick={() => void Promise.all([refreshMap(), refreshProducts()])}
+                disabled={refreshing || productsLoading}
               >
-                <RefreshCw className={refreshing ? "animate-spin" : ""} />
+                <RefreshCw className={refreshing || productsLoading ? "animate-spin" : ""} />
                 <span className="hidden sm:inline">Atualizar</span>
               </Button>
               <Button
@@ -403,7 +477,7 @@ export function SalaoWorkspace() {
             <div>
               <h2 className="font-black text-white">Mesas da unidade</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Toque em uma mesa para abrir a comanda ou consultar o extrato.
+                Toque em uma mesa para abrir a comanda, lançar itens ou consultar o extrato.
               </p>
             </div>
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
@@ -419,7 +493,7 @@ export function SalaoWorkspace() {
         </section>
 
         <footer className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-2 text-xs text-slate-500">
-          <span>Salão HTTP Foundation · isolamento tenant/unidade</span>
+          <span>Salão HTTP Foundation · pedidos canônicos · isolamento tenant/unidade</span>
           <Button asChild variant="ghost" size="sm" className="text-slate-400 hover:bg-slate-800 hover:text-white">
             <Link href="/">
               <ArrowLeft />
@@ -435,10 +509,13 @@ export function SalaoWorkspace() {
         mesa={selectedMesa}
         comanda={selectedComanda}
         details={details}
+        produtos={produtos}
         loading={detailLoading}
+        productsLoading={productsLoading}
         busy={mutationBusy}
         onOpenChange={handleModalOpenChange}
         onOpenComanda={handleOpenComanda}
+        onLaunchOrder={handleLaunchOrder}
         onRequestBill={handleRequestBill}
       />
     </main>
