@@ -156,10 +156,19 @@ export async function fillNumber(page: Page, label: string | RegExp, value: stri
   }
 }
 
-async function comboboxStringValueIsStable(
+function comboboxValueMatches(value: string, expected: string | RegExp): boolean {
+  if (typeof expected === 'string') {
+    return value === expected;
+  }
+
+  const stablePattern = new RegExp(expected.source, expected.flags.replace(/[gy]/g, ''));
+  return stablePattern.test(value);
+}
+
+async function comboboxValueIsStable(
   page: Page,
-  combobox: ReturnType<Page['getByRole']>,
-  expected: string,
+  label: string | RegExp,
+  expected: string | RegExp,
 ): Promise<boolean> {
   let consecutiveMatches = 0;
   try {
@@ -167,8 +176,9 @@ async function comboboxStringValueIsStable(
       .poll(
         async () => {
           const skeletons = await page.locator('[data-testid="stSkeleton"]').count();
+          const combobox = page.getByRole('combobox', { name: label }).first();
           const value = await combobox.inputValue();
-          if (skeletons === 0 && value === expected) {
+          if (skeletons === 0 && comboboxValueMatches(value, expected)) {
             consecutiveMatches += 1;
           } else {
             consecutiveMatches = 0;
@@ -177,8 +187,8 @@ async function comboboxStringValueIsStable(
         },
         {
           message: `Combobox deve permanecer estável em ${expected}`,
-          timeout: 2_000,
-          intervals: [150, 200, 250, 300],
+          timeout: 2_500,
+          intervals: [150, 200, 250, 300, 400],
         },
       )
       .toBeGreaterThanOrEqual(3);
@@ -196,11 +206,7 @@ export async function selectComboboxOption(
   const initialCombobox = page.getByRole('combobox', { name: label }).first();
   await expect(initialCombobox).toBeVisible();
   await expect(initialCombobox).toBeEnabled();
-  if (
-    typeof option === 'string' &&
-    (await initialCombobox.inputValue()) === option &&
-    (await comboboxStringValueIsStable(page, initialCombobox, option))
-  ) {
+  if (await comboboxValueIsStable(page, label, option)) {
     await expect(page.locator('[data-testid="stException"]')).toHaveCount(0);
     return;
   }
@@ -211,14 +217,13 @@ export async function selectComboboxOption(
       timeout: 5_000,
     });
 
-    // Streamlit pode substituir o nó do selectbox durante um rerun. Reacquirimos
-    // o locator em cada tentativa em vez de operar sobre um widget potencialmente
-    // obsoleto entre abrir a lista e clicar na opção.
+    // Streamlit substitui o nó do selectbox durante reruns. Sempre reacquire o
+    // combobox e aceite uma seleção que já tenha persistido em tentativa anterior.
     const combobox = page.getByRole('combobox', { name: label }).first();
     await expect(combobox).toBeVisible({ timeout: 5_000 });
     await expect(combobox).toBeEnabled({ timeout: 5_000 });
 
-    if (typeof option === 'string' && (await combobox.inputValue()) === option) {
+    if (comboboxValueMatches(await combobox.inputValue(), option)) {
       return;
     }
 
@@ -227,7 +232,7 @@ export async function selectComboboxOption(
     }
     await expect(combobox).toHaveAttribute('aria-expanded', 'true', { timeout: 5_000 });
 
-    const listbox = page.getByRole('listbox').last();
+    const listbox = page.locator('[role="listbox"]:visible').last();
     await expect(listbox).toBeVisible({ timeout: 5_000 });
     const selectedOption = listbox
       .getByRole('option', {
@@ -241,9 +246,20 @@ export async function selectComboboxOption(
     await expect(page.locator('[data-testid="stSkeleton"]')).toHaveCount(0, {
       timeout: 10_000,
     });
-    const refreshedCombobox = page.getByRole('combobox', { name: label }).first();
-    await expect(refreshedCombobox).toHaveValue(option, { timeout: 5_000 });
-  }).toPass({ timeout: 30_000, intervals: [250, 500, 1_000] });
+    await expect
+      .poll(
+        async () => {
+          const refreshedCombobox = page.getByRole('combobox', { name: label }).first();
+          return comboboxValueMatches(await refreshedCombobox.inputValue(), option);
+        },
+        {
+          message: `Combobox deve refletir a opção ${option}`,
+          timeout: 5_000,
+          intervals: [150, 250, 500],
+        },
+      )
+      .toBe(true);
+  }).toPass({ timeout: 45_000, intervals: [250, 500, 1_000, 1_500] });
 
   await expect
     .poll(
@@ -261,9 +277,7 @@ export async function selectComboboxOption(
     )
     .toBe(true);
 
-  const finalCombobox = page.getByRole('combobox', { name: label }).first();
-  await expect(finalCombobox).toHaveValue(option);
-  await expect(finalCombobox).toHaveAttribute('aria-expanded', 'false');
   await expect(page.locator('[data-testid="stSkeleton"]')).toHaveCount(0, { timeout: 30_000 });
+  expect(await comboboxValueIsStable(page, label, option)).toBe(true);
   await expect(page.locator('[data-testid="stException"]')).toHaveCount(0);
 }

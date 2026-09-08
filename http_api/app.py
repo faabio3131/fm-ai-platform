@@ -115,6 +115,7 @@ def build_http_app(
     planejador_llm_factory: Callable[[Session], PlanejadorLLM] | None = None,
     whatsapp_secret_store_factory: Callable[[Session], SecretStore] | None = None,
     whatsapp_runtime: RuntimeCanalWhatsAppV1 | None = None,
+    auth_runtime: AuthSessionRuntime | None = None,
 ) -> FastAPI:
     settings = settings or load_runtime_settings()
     engine = engine or build_engine(settings)
@@ -136,7 +137,7 @@ def build_http_app(
         redoc_url=None,
         openapi_url=None if settings.commercial else "/openapi.json",
     )
-    auth_runtime = AuthSessionRuntime(
+    auth_runtime = auth_runtime or AuthSessionRuntime(
         session_factory=session_factory,
         secret_store=secret_store,
     )
