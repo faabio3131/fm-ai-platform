@@ -128,6 +128,7 @@ Cada PR do WEB-PARITY-V1 deve: (a) citar IDs WP afetados; (b) atualizar este inv
 - **Smoke manual concluido:** PDV -> Home -> Salao -> Home -> KDS -> Home sem segundo login; troca `unidade-auth-a` -> `unidade-auth-b` preservou a sessao; logout invalidou a sessao e exigiu novo login para reentrada.
 - O `403 catalogo_indisponivel_no_escopo` observado apos trocar para `unidade-auth-b` foi classificado separadamente como gap de provisionamento/homologacao da unidade, mantendo a fronteira fail-closed de isolamento.
 - **WP-003 e WP-004 promovidos para MIGRADO somente apos os gates automaticos e o Smoke manual concluirem com sucesso.**
+- **UX follow-up nao bloqueante:** o card inferior "Unidade operacional" e informativo; o seletor oficial fica na topbar. Tornar o card inferior tambem acionavel pode ser refinado depois sem alterar a regra de sessao.
 
 ---
 **Regra de mudanca:** este documento e vivo e versionado por baseline. Qualquer nova descoberta deve atualizar a linha correspondente antes de iniciar implementacao que dependa dela. A arquitetura visual premium so reabre depois do Gate de Paridade Web.
