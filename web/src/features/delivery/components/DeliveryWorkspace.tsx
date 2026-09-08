@@ -23,6 +23,7 @@ import {
   confirmDeliveryOrder,
   DeliveryApiError,
   getDeliveryContext,
+  getDeliveryRoute,
   getDeliveryTracking,
   listDeliveryClients,
   openDeliveryCart,
@@ -30,6 +31,7 @@ import {
   type DeliveryCart,
   type DeliveryClient,
   type DeliveryContext,
+  type DeliveryRoute,
   type DeliveryTracking,
 } from "@/features/delivery/services/delivery-api";
 
@@ -97,6 +99,7 @@ export function DeliveryWorkspace() {
   const [clients, setClients] = useState<DeliveryClient[]>([]);
   const [clientId, setClientId] = useState("");
   const [context, setContext] = useState<DeliveryContext | null>(null);
+  const [route, setRoute] = useState<DeliveryRoute | null>(null);
   const [cart, setCart] = useState<DeliveryCart | null>(null);
   const [tracking, setTracking] = useState<DeliveryTracking | null>(null);
   const [paymentMethod, setPaymentMethod] = useState("pix");
@@ -127,6 +130,7 @@ export function DeliveryWorkspace() {
   async function selectClient(value: string) {
     setClientId(value);
     setContext(null);
+    setRoute(null);
     setCart(null);
     setTracking(null);
     setNotice(null);
@@ -148,6 +152,7 @@ export function DeliveryWorkspace() {
     setActionBusy(true);
     setNotice(null);
     setTracking(null);
+    setRoute(null);
     try {
       const result = await openDeliveryCart(clientId, `web-${crypto.randomUUID()}`);
       setCart(result);
@@ -181,12 +186,18 @@ export function DeliveryWorkspace() {
     setActionBusy(true);
     setNotice(null);
     try {
+      const mapsRoute = await getDeliveryRoute(clientId);
       const result = await quoteDelivery(clientId, cart.carrinho_id, cart.versao);
+      setRoute(mapsRoute);
       setCart(result);
       setError(null);
-      setNotice("Taxa e SLA calculados pela política da unidade.");
+      setNotice(
+        `Rota Google Maps validada (${mapsRoute.distancia_km.toLocaleString("pt-BR", {
+          maximumFractionDigits: 1,
+        })} km, ETA ${mapsRoute.eta_minutos} min). Taxa e SLA aplicados pela política da unidade.`,
+      );
     } catch (caught) {
-      setError(errorMessage(caught, "Não foi possível calcular a entrega."));
+      setError(errorMessage(caught, "Não foi possível validar a rota e calcular a entrega."));
     } finally {
       setActionBusy(false);
     }
@@ -346,6 +357,25 @@ export function DeliveryWorkspace() {
                 </div>
               ) : null}
 
+              {route ? (
+                <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                  <div className="flex items-start gap-3">
+                    <MapPin className="mt-0.5 size-5 text-blue-600" />
+                    <div>
+                      <p className="text-sm font-bold text-blue-950">Rota Google Maps validada</p>
+                      <p className="mt-1 text-sm text-blue-800">
+                        {route.distancia_km.toLocaleString("pt-BR", {
+                          maximumFractionDigits: 1,
+                        })} km · ETA {route.eta_minutos} min
+                      </p>
+                      <p className="mt-2 text-xs leading-5 text-blue-700">
+                        {route.origem_endereco} → {route.destino_endereco}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               <Button
                 className="mt-4 w-full"
                 onClick={() => void startCart()}
@@ -388,7 +418,7 @@ export function DeliveryWorkspace() {
                   onClick={() => void calculateQuote()}
                   disabled={!cart.itens.length || actionBusy}
                 >
-                  <Truck className="size-4" /> Calcular taxa e SLA
+                  <Truck className="size-4" /> Validar rota, taxa e SLA
                 </Button>
                 <label className="mt-4 block text-sm font-bold text-slate-700" htmlFor="delivery-payment">Forma de pagamento</label>
                 <select

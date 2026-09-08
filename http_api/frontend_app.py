@@ -21,6 +21,7 @@ from http_api.app import build_http_app
 from http_api.auth import AuthSessionRuntime
 from http_api.central_pedidos import build_central_pedidos_router
 from http_api.delivery import build_delivery_router
+from http_api.delivery_maps import build_delivery_maps_router
 from http_api.entrega import build_entrega_router
 from infra.seguranca.session_guard import build_session_factory
 
@@ -75,6 +76,7 @@ def build_frontend_http_app(
 ) -> FastAPI:
     """Constrói o HTTP ingress canônico + fronteiras WEB-PARITY para Next.js."""
 
+    delivery_maps_resolver = kwargs.pop("delivery_maps_resolver", None)
     resolved_settings = settings or load_runtime_settings()
 
     engine = kwargs.get("engine") or build_engine(resolved_settings)
@@ -105,4 +107,11 @@ def build_frontend_http_app(
                 auth_runtime=auth_runtime,
             )
         )
+    app.include_router(
+        build_delivery_maps_router(
+            session_factory=session_factory,
+            auth_runtime=auth_runtime,
+            route_resolver=delivery_maps_resolver,
+        )
+    )
     return _configure_frontend_cors(app, settings=resolved_settings)
