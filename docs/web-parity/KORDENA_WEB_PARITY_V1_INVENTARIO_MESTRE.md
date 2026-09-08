@@ -1,8 +1,8 @@
 # Kordena V1 - Inventario Mestre de Paridade Web (WEB-PARITY-V1)
 
 **Baseline auditada:** `main @ 22bf22c05641fb4340c48f65d39514dc37d649fe`  
-**Data:** 07/09/2026  
-**Versao do inventario:** 1.0 - Onda 0  
+**Data:** 08/09/2026  
+**Versao do inventario:** 1.1 - Onda 1 certificada  
 **Status:** DOCUMENTO MESTRE DE EXECUCAO
 
 ## 1. Regra constitucional deste inventario
@@ -10,17 +10,19 @@ Uma capacidade so pode ser marcada como **MIGRADO** quando a cadeia necessaria e
 
 ## 2. Diagnostico executivo
 - Capacidades inventariadas: **33**.
-- Totalmente migradas: **6** (18.2% das linhas inventariadas, contagem nao ponderada).
-- PARCIAL: **6**.
-- GAP WEB: **1**.
+- Totalmente migradas: **8** (24.2% das linhas inventariadas, contagem nao ponderada).
+- PARCIAL: **5**.
+- GAP WEB: **0**.
 - GAP HTTP/WEB: **17**.
 - A VERIFICAR: **3**.
-- A atual pagina `/` e um harness tecnico de "Frontend foundation status" e nao o dashboard de produto.
+- A rota `/` agora usa Home/Dashboard comercial real dentro do Shell Corporativo Unificado; o antigo harness tecnico foi realocado para `/admin/system-health`.
 - Visual Premium permanece bloqueado ate a paridade funcional Web da V1 atingir 100% das capacidades obrigatorias.
 
 ## 3. O que foi migrado
 - **WP-001 - Login / SSO corporativo**: /login.
-- **WP-002 - Escopo tenant/unidade + troca de unidade**: Login/seletor de unidade.
+- **WP-002 - Escopo tenant/unidade + troca de unidade**: sessao assinada + seletor no Shell.
+- **WP-003 - Roteamento por perfil e permissao**: navegacao corporativa central filtrada por RBAC.
+- **WP-004 - Home / Dashboard / Shell corporativo**: Shell persistente + dashboard real em `/`.
 - **WP-005 - PDV Touch**: /pdv.
 - **WP-006 - Salao / Mesas / Comandas**: /salao.
 - **WP-007 - KDS / Cozinha**: /kds.
@@ -31,9 +33,9 @@ Uma capacidade so pode ser marcada como **MIGRADO** quando a cadeia necessaria e
 | ID | Capacidade | Evidencia backend/legado | HTTP atual | Next.js atual | Status | Proxima acao obrigatoria |
 |---|---|---|---|---|---|---|
 | WP-001 | Login / SSO corporativo | http_api/auth.py; web/src/features/auth | Contrato dedicado e cookie assinado | /login | MIGRADO | Preservar e incluir no Smoke Mestre. |
-| WP-002 | Escopo tenant/unidade + troca de unidade | http_api/auth.py; operational_auth.py; auth feature | Sessao assinada governa tenant/unidade | Login/seletor de unidade | MIGRADO | Levar seletor/status para o Shell Unificado. |
-| WP-003 | Roteamento por perfil e permissao | Seguranca/RBAC + guards Web | Parcialmente aplicado por rotas | Sem navegacao central por perfil | PARCIAL | Centralizar navegacao/autorizacao no Shell; impedir links invisiveis/inacessiveis. |
-| WP-004 | Home / Dashboard / Shell corporativo | web/src/app/page.tsx | Somente health/status | / = Frontend foundation status | GAP WEB | Substituir harness por Shell Unificado e dashboard real. |
+| WP-002 | Escopo tenant/unidade + troca de unidade | http_api/auth.py; operational_auth.py; auth feature | Sessao assinada governa tenant/unidade | Seletor/status no Shell | MIGRADO | Preservar em todos os novos modulos e fixtures. |
+| WP-003 | Roteamento por perfil e permissao | Seguranca/RBAC + guards Web + module registry | Sessao e permissoes governam a superficie Web | Shell central filtra navegacao por permissao | MIGRADO | Preservar o registry como fonte unica para novos modulos e testes. |
+| WP-004 | Home / Dashboard / Shell corporativo | UnifiedAppShell + DashboardHome | Health tecnico preservado fora da Home comercial | `/` = dashboard real; Shell persistente nas rotas autenticadas | MIGRADO | Preservar Shell em todos os WPs seguintes; refinamento estetico fica para Visual Premium. |
 | WP-005 | PDV Touch | core/pdv; application; http_api/pdv.py | Router dedicado, sessao Web | /pdv | MIGRADO | Manter; semear dados homologacao e incluir fluxo completo de pagamento. |
 | WP-006 | Salao / Mesas / Comandas | core/salao; application; http_api/salao.py | Router dedicado, sessao Web | /salao | MIGRADO | Manter; semear mesas/comandas e certificar jornada operacional. |
 | WP-007 | KDS / Cozinha | core/kds; application; http_api/kds.py | Router dedicado, sessao Web | /kds | MIGRADO | Manter; semear estacoes/pedidos e certificar estados. |
@@ -68,15 +70,14 @@ Uma capacidade so pode ser marcada como **MIGRADO** quando a cadeia necessaria e
 O `app.py` legado comprova abas para Engenharia de Cardapio, CRM/Resgate/Cashback, PDV/Pix, Estoque/Validades, Dashboard Financeiro, Assistente de Atendimento e AI FinOps, com abas condicionais para Central de Pedidos, KDS, Mesas/Comandas, Delivery Proprio e Impressao Operacional. As paginas separadas comprovam ainda Administracao/Proprietario, Integracoes e Credenciais, Atendimento do Garcom e Expedicao/Entrega.
 
 ## 6. Gaps arquiteturais que o resgate deve corrigir
-1. **Shell ausente:** nao existe navegacao corporativa unificada por papel/permissao.
-2. **Contratos HTTP incompletos:** varios dominios maduros ainda nao possuem API first-class, session-aware, adequada ao Next.js.
-3. **E2E legado nao garante paridade Next.js:** testes de Delivery, Entrega, Garcom, Mica/Assistente e Order Center comprovam fluxo historico, mas nao a nova Web.
-4. **Dados de homologacao insuficientes:** PDV, Salao e KDS abriram na Web, mas vazios; o Smoke Mestre precisa de fixture comercial coerente.
-5. **Identidade do assistente:** a UI nova deve usar o nome configurado por tenant, nunca fixar "Mica" como nome de produto.
+1. **Contratos HTTP incompletos:** varios dominios maduros ainda nao possuem API first-class, session-aware, adequada ao Next.js.
+2. **E2E legado nao garante paridade Next.js:** testes de Delivery, Entrega, Garcom, Mica/Assistente e Order Center comprovam fluxo historico, mas nao a nova Web.
+3. **Dados de homologacao insuficientes:** PDV, Salao e KDS abrem na Web, mas fixtures ainda sao incompletas. No Smoke da Onda 1, `unidade-auth-b` preservou a sessao corretamente, porem o catalogo respondeu `403 catalogo_indisponivel_no_escopo` por ausencia/invalidade do vinculo seguro com a loja legada. O comportamento fail-closed deve ser preservado; o gap e de provisionamento/homologacao.
+4. **Identidade do assistente:** a UI nova deve usar o nome configurado por tenant, nunca fixar "Mica" como nome de produto.
 
 ## 7. Ordem Mestre de Execucao
 ### Onda 1 - Shell Corporativo Unificado
-Substituir o harness `/`; criar sidebar/topbar; unidade ativa; operador; perfil; logout; troca de unidade; navegacao governada; separacao Chao de Fabrica x Proprietario; reutilizar step-up.
+**CERTIFICADA.** Shell persistente, Home real, unidade ativa, operador, logout, troca de unidade, navegacao governada por RBAC, separacao Operacao x Proprietario e step-up administrativo preservado.
 ### Onda 2 - Coracao operacional faltante
 Central de Pedidos -> Delivery -> Expedicao/Entrega -> Marketplaces -> Garcom, sempre fechando Core/Application -> HTTP -> Next -> RBAC -> testes antes do proximo bloco.
 ### Onda 3 - Retaguarda completa
@@ -122,8 +123,11 @@ Cada PR do WEB-PARITY-V1 deve: (a) citar IDs WP afetados; (b) atualizar este inv
 
 ## 11. Registro de execucao
 - **08/09/2026 - WP-003 + WP-004 iniciados** na branch `feat/web-parity-v1-wp003-wp004-shell-dashboard`, a partir da baseline certificada `22bf22c05641fb4340c48f65d39514dc37d649fe`.
-- O candidato implementa Shell persistente, navegacao filtrada por RBAC, troca de unidade, logout, Home comercial real, fail-closed para todas as rotas Web nao publicas e realocacao do health harness para `/admin/system-health`.
-- **WP-003 permanece PARCIAL e WP-004 permanece GAP WEB ate concluir lint, build/typecheck, regressao automatizada e Smoke manual no navegador.** Nenhum status foi promovido antecipadamente.
+- O candidato implementou Shell persistente, navegacao filtrada por RBAC, troca de unidade, logout, Home comercial real, fail-closed para todas as rotas Web nao publicas e realocacao do health harness para `/admin/system-health`.
+- **Matriz automatizada da PR #115: 15/15 workflows SUCCESS**, incluindo lint, production build/typecheck, regressao backend e gates comerciais existentes.
+- **Smoke manual concluido:** PDV -> Home -> Salao -> Home -> KDS -> Home sem segundo login; troca `unidade-auth-a` -> `unidade-auth-b` preservou a sessao; logout invalidou a sessao e exigiu novo login para reentrada.
+- O `403 catalogo_indisponivel_no_escopo` observado apos trocar para `unidade-auth-b` foi classificado separadamente como gap de provisionamento/homologacao da unidade, mantendo a fronteira fail-closed de isolamento.
+- **WP-003 e WP-004 promovidos para MIGRADO somente apos os gates automaticos e o Smoke manual concluirem com sucesso.**
 
 ---
 **Regra de mudanca:** este documento e vivo e versionado por baseline. Qualquer nova descoberta deve atualizar a linha correspondente antes de iniciar implementacao que dependa dela. A arquitetura visual premium so reabre depois do Gate de Paridade Web.
