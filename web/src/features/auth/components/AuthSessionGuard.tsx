@@ -10,11 +10,11 @@ import {
   useAuthStore,
 } from "@/features/auth/store/auth-store";
 
-const PROTECTED_PREFIXES = ["/pdv", "/kds", "/salao", "/admin"] as const;
+const PUBLIC_PATHS = ["/login"] as const;
 
 function isProtectedPath(pathname: string): boolean {
-  return PROTECTED_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  return !PUBLIC_PATHS.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
   );
 }
 
@@ -58,7 +58,7 @@ export function AuthSessionGuard({ children }: { children: ReactNode }) {
           <ShieldAlert className="mb-4 size-8 text-amber-400" />
           <h1 className="text-lg font-semibold">Não foi possível validar sua sessão</h1>
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            O acesso operacional permanece bloqueado até o servidor confirmar sua identidade.
+            O acesso permanece bloqueado até o servidor confirmar sua identidade e o escopo da unidade.
           </p>
           <Button
             className="mt-5 w-full"
