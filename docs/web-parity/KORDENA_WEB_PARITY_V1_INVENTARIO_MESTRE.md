@@ -1,0 +1,134 @@
+# Kordena V1 - Inventario Mestre de Paridade Web (WEB-PARITY-V1)
+
+**Baseline auditada:** `main @ 22bf22c05641fb4340c48f65d39514dc37d649fe`  
+**Data:** 08/09/2026  
+**Versao do inventario:** 1.1 - Onda 1 certificada  
+**Status:** DOCUMENTO MESTRE DE EXECUCAO
+
+## 1. Regra constitucional deste inventario
+Uma capacidade so pode ser marcada como **MIGRADO** quando a cadeia necessaria estiver comprovada: dominio/core preservado, application/infra utilizavel, contrato HTTP Web adequado, interface Next.js, isolamento tenant/unidade + RBAC/step-up quando aplicavel e teste suficiente. Existir no backend ou ter E2E legado **nao** significa estar migrado para a nova Web.
+
+## 2. Diagnostico executivo
+- Capacidades inventariadas: **33**.
+- Totalmente migradas: **8** (24.2% das linhas inventariadas, contagem nao ponderada).
+- PARCIAL: **5**.
+- GAP WEB: **0**.
+- GAP HTTP/WEB: **17**.
+- A VERIFICAR: **3**.
+- A rota `/` agora usa Home/Dashboard comercial real dentro do Shell Corporativo Unificado; o antigo harness tecnico foi realocado para `/admin/system-health`.
+- Visual Premium permanece bloqueado ate a paridade funcional Web da V1 atingir 100% das capacidades obrigatorias.
+
+## 3. O que foi migrado
+- **WP-001 - Login / SSO corporativo**: /login.
+- **WP-002 - Escopo tenant/unidade + troca de unidade**: sessao assinada + seletor no Shell.
+- **WP-003 - Roteamento por perfil e permissao**: navegacao corporativa central filtrada por RBAC.
+- **WP-004 - Home / Dashboard / Shell corporativo**: Shell persistente + dashboard real em `/`.
+- **WP-005 - PDV Touch**: /pdv.
+- **WP-006 - Salao / Mesas / Comandas**: /salao.
+- **WP-007 - KDS / Cozinha**: /kds.
+- **WP-021 - Step-up administrativo / reautenticacao**: Guard de /admin.
+
+## 4. Matriz mestre de paridade
+
+| ID | Capacidade | Evidencia backend/legado | HTTP atual | Next.js atual | Status | Proxima acao obrigatoria |
+|---|---|---|---|---|---|---|
+| WP-001 | Login / SSO corporativo | http_api/auth.py; web/src/features/auth | Contrato dedicado e cookie assinado | /login | MIGRADO | Preservar e incluir no Smoke Mestre. |
+| WP-002 | Escopo tenant/unidade + troca de unidade | http_api/auth.py; operational_auth.py; auth feature | Sessao assinada governa tenant/unidade | Seletor/status no Shell | MIGRADO | Preservar em todos os novos modulos e fixtures. |
+| WP-003 | Roteamento por perfil e permissao | Seguranca/RBAC + guards Web + module registry | Sessao e permissoes governam a superficie Web | Shell central filtra navegacao por permissao | MIGRADO | Preservar o registry como fonte unica para novos modulos e testes. |
+| WP-004 | Home / Dashboard / Shell corporativo | UnifiedAppShell + DashboardHome | Health tecnico preservado fora da Home comercial | `/` = dashboard real; Shell persistente nas rotas autenticadas | MIGRADO | Preservar Shell em todos os WPs seguintes; refinamento estetico fica para Visual Premium. |
+| WP-005 | PDV Touch | core/pdv; application; http_api/pdv.py | Router dedicado, sessao Web | /pdv | MIGRADO | Manter; semear dados homologacao e incluir fluxo completo de pagamento. |
+| WP-006 | Salao / Mesas / Comandas | core/salao; application; http_api/salao.py | Router dedicado, sessao Web | /salao | MIGRADO | Manter; semear mesas/comandas e certificar jornada operacional. |
+| WP-007 | KDS / Cozinha | core/kds; application; http_api/kds.py | Router dedicado, sessao Web | /kds | MIGRADO | Manter; semear estacoes/pedidos e certificar estados. |
+| WP-008 | Atendimento do Garcom mobile/tablet | core/garcom; application/garcom_transacoes.py; pages/8_Atendimento_Garcom.py | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar contrato HTTP session-aware e rota /garcom (ou experiencia responsiva equivalente definida no Shell). |
+| WP-009 | Central de Pedidos omnichannel | core/central_pedidos; application/central_pedidos_transacoes.py; E2E legado | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar read/write model HTTP e /pedidos como centro omnichannel. |
+| WP-010 | Delivery Proprio | core/delivery; application/delivery_*; infra/delivery; E2E legado | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar contrato HTTP e /delivery: fila, pedido, checkout, despacho e status. |
+| WP-011 | Expedicao / Entrega | core/entrega; application/entrega_*; pages/9_Expedicao_Entrega.py | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar contrato HTTP e /entrega ou submodulo de /delivery com RBAC Expedicao/Entregador. |
+| WP-012 | Marketplaces / pedidos externos | core/marketplaces; infra adapters; tests/e2e-marketplace | Sem console/contrato Web de operacao identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Expor ingestao/monitoramento first-class e integrar a /pedidos. |
+| WP-013 | Catalogo administrativo basico | core/catalogo + http_api/catalogo.py | Router dedicado com protecao admin | /admin/catalogo | PARCIAL | Expandir para paridade com engenharia de cardapio e configuracoes de produto. |
+| WP-014 | Engenharia de Cardapio + Ficha Tecnica | application/legacy_cardapio_transacoes.py; app.py legado | Catalogo HTTP nao cobre paridade completa confirmada | Sem rota Next.js equivalente completa | GAP HTTP/WEB | Inventariar operacoes de ficha; criar endpoints e /cardapio ou area admin correspondente. |
+| WP-015 | Estoque / Almoxarifado / Validades | core/estoque; application/catalogo_estoque_cutover.py; legacy_estoque; app.py | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar API de insumos, saldos, movimentos, reservas, perdas e validade; certificar lote/FEFO antes de prometer. |
+| WP-016 | CRM / Clientes / Cashback | core/crm; infra/crm; application/crm_cashback_* | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar contratos CRM e telas de clientes, historico, saldo e cashback. |
+| WP-017 | Marketing / Resgate / Campanhas | application/crm_marketing_comercial.py; campanhas_governadas.py; infra/crm | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar area de campanhas/consentimento com governanca e auditoria. |
+| WP-018 | Dashboard Financeiro / Indicadores | app.py legado; application/administracao_proprietario.py | Sem read model Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Expor painel executivo/financeiro session-aware e integrar ao Proprietario. |
+| WP-019 | AI FinOps | core/ai_cost.py; ai_finops.py; application/ai_finops_dashboard.py | Sem contrato Web first-class identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Expor metricas/custos com permissao e dashboard no Backoffice. |
+| WP-020 | Area Proprietario / Backoffice completo | application/administracao_proprietario.py; infra/streamlit_app/admin_proprietario.py | Somente partes expostas pela API atual | /admin existe, mas somente catalogo funcional | PARCIAL | Migrar 7 areas legadas: executivo, empresa/unidades, financeiro, impressao, usuarios, integracoes, auditoria. |
+| WP-021 | Step-up administrativo / reautenticacao | PR #114; auth + AdminStepUpGuard | Sessao elevada 15 min, revogada em troca/logout | Guard de /admin | MIGRADO | Preservar como barreira unica; reutilizar em todas mutacoes sensiveis. |
+| WP-022 | Empresa / Matriz / Filiais / Unidades | core/administracao; administracao_proprietario; UI legada | Sem endpoints Web first-class confirmados | Sem tela Next.js | GAP HTTP/WEB | Criar /admin/empresa e /admin/unidades sob step-up/RBAC. |
+| WP-023 | Usuarios / Papeis / Permissoes | core/seguranca + admin proprietario legado | Sem console HTTP Web dedicado confirmado | Sem tela Next.js | GAP HTTP/WEB | Criar gestao de usuarios e RBAC com auditoria e protecao anti-escalada. |
+| WP-024 | Parametros Financeiros | administracao_proprietario; pagamentos | Web atual cobre operacao PDV, nao configuracao completa | Sem tela administrativa Next.js | GAP HTTP/WEB | Criar parametros financeiros nao secretos no Backoffice; segredos ficam em Credenciais. |
+| WP-025 | Impressao Operacional / Configuracao | core/impressao; application/impressao_*; E2E legado | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar configuracao e operacao Web sem quebrar KDS/PDV. |
+| WP-026 | Integracoes e Credenciais | core/integracoes; application/integracoes_admin_transacoes.py; infra/streamlit_app/integracoes_admin.py | Webhooks/healthchecks existem; console session-aware nao | Nenhuma rota Next.js | GAP HTTP/WEB | Criar /admin/credenciais e /admin/integracoes com cofre, step-up, healthcheck e homologacao. |
+| WP-027 | Assistente de Atendimento - operacao/governanca | core/assistente_atendimento; application/assistente_*; WhatsApp webhook; E2E legado | Identidade GET/PUT e webhooks existem; parte usa Basic legado | Nenhuma rota Next.js | PARCIAL | Criar HTTP session-aware e /atendimento ou /admin/ia; nome exibido deve vir da identidade configurada. |
+| WP-028 | Gerente IA | core/gerente_ia; application/gerente_ia_* | /v1/core/tools, confirmar, perguntar; Basic legado | Nenhuma rota Next.js | PARCIAL | Criar facade session-aware, UI conversacional/decisao e trilha de confirmacao. |
+| WP-029 | Pagamentos / PIX / Provedores | core/pagamentos; application/pagbank.py; webhook PagBank; PDV | Operacao existe; configuracao/observabilidade Web incompletas | Pagamento aparece no PDV, sem console provedor | PARCIAL | Certificar checkout Web + conciliacao; mover configuracao de provedores para Credenciais. |
+| WP-030 | Cardapio Digital publico / Autosservico | Delivery checkout e cardapio legado sugerem componentes, mas escopo publico nao certificado | Nao confirmado | Nao confirmado | A VERIFICAR | Auditar requisito V1 oficial e codigo antes de criar rota publica. |
+| WP-031 | Fiscal / NFC-e / SAT / emissao fiscal | Nenhuma evidencia suficiente nesta auditoria para declarar capacidade V1 | Nao confirmado | Nao confirmado | A VERIFICAR | Conferir Plano Mestre V1 e repositorio; nao implementar nem prometer sem evidencia. |
+| WP-032 | Notificacoes internas | core/notificacoes_internas; application/notificacoes_internas.py | Sem contrato Web dedicado identificado | Sem UI dedicada | A VERIFICAR | Decidir se exige centro de notificacoes Web ou permanece servico transversal. |
+| WP-033 | Auditoria / Historico administrativo | admin proprietario legado; repositorios de auditoria | Sem tela/contrato Web de consulta confirmado | Sem tela Next.js | GAP HTTP/WEB | Criar consulta auditavel no Backoffice, sem expor segredos. |
+
+## 5. Capacidades historicas comprovadas na UI Streamlit
+O `app.py` legado comprova abas para Engenharia de Cardapio, CRM/Resgate/Cashback, PDV/Pix, Estoque/Validades, Dashboard Financeiro, Assistente de Atendimento e AI FinOps, com abas condicionais para Central de Pedidos, KDS, Mesas/Comandas, Delivery Proprio e Impressao Operacional. As paginas separadas comprovam ainda Administracao/Proprietario, Integracoes e Credenciais, Atendimento do Garcom e Expedicao/Entrega.
+
+## 6. Gaps arquiteturais que o resgate deve corrigir
+1. **Contratos HTTP incompletos:** varios dominios maduros ainda nao possuem API first-class, session-aware, adequada ao Next.js.
+2. **E2E legado nao garante paridade Next.js:** testes de Delivery, Entrega, Garcom, Mica/Assistente e Order Center comprovam fluxo historico, mas nao a nova Web.
+3. **Dados de homologacao insuficientes:** PDV, Salao e KDS abrem na Web, mas fixtures ainda sao incompletas. No Smoke da Onda 1, `unidade-auth-b` preservou a sessao corretamente, porem o catalogo respondeu `403 catalogo_indisponivel_no_escopo` por ausencia/invalidade do vinculo seguro com a loja legada. O comportamento fail-closed deve ser preservado; o gap e de provisionamento/homologacao.
+4. **Identidade do assistente:** a UI nova deve usar o nome configurado por tenant, nunca fixar "Mica" como nome de produto.
+
+## 7. Ordem Mestre de Execucao
+### Onda 1 - Shell Corporativo Unificado
+**CERTIFICADA.** Shell persistente, Home real, unidade ativa, operador, logout, troca de unidade, navegacao governada por RBAC, separacao Operacao x Proprietario e step-up administrativo preservado.
+### Onda 2 - Coracao operacional faltante
+Central de Pedidos -> Delivery -> Expedicao/Entrega -> Marketplaces -> Garcom, sempre fechando Core/Application -> HTTP -> Next -> RBAC -> testes antes do proximo bloco.
+### Onda 3 - Retaguarda completa
+Cardapio/Ficha Tecnica -> Estoque -> CRM/Cashback -> Marketing -> Financeiro -> Empresa/Unidades -> Usuarios/Permissoes -> Impressao -> Auditoria.
+### Onda 4 - IA e Integracoes
+Assistente de Atendimento -> Gerente IA -> AI FinOps -> Integracoes/Credenciais -> Pagamentos/provedores e healthchecks administrativos.
+### Onda 5 - Certificacao de Paridade
+Smoke Mestre completo e Gate de Paridade Web. Nenhuma linha obrigatoria pode permanecer PARCIAL, GAP ou A VERIFICAR para declarar V1 Web concluida.
+
+## 8. Gate obrigatorio por PR
+Cada PR do WEB-PARITY-V1 deve: (a) citar IDs WP afetados; (b) atualizar este inventario; (c) preservar regras de negocio no Core/Application; (d) usar sessao assinada e RBAC/step-up; (e) adicionar/atualizar testes; (f) manter lint, typecheck/build e regressao verdes; (g) nao promover para MIGRADO sem evidencias da cadeia inteira.
+
+## 9. Definition of Done de uma capacidade
+- Dominio/core identificado e preservado.
+- Application/infra reutilizada, sem duplicar regra de negocio no React.
+- HTTP first-class session-aware, tenant/unit safe, idempotente quando aplicavel.
+- RBAC e step-up aplicados conforme risco.
+- Rota Next.js completa com loading/error/empty states.
+- Fixture de homologacao e testes unitarios/HTTP/E2E suficientes.
+- Smoke manual no navegador concluido.
+- Linha WP atualizada para MIGRADO.
+
+## 10. Evidencias principais auditadas
+- `web/src/app/`
+- `web/src/features/`
+- `web/src/app/admin/`
+- `http_api/`
+- `http_api/app.py`
+- `core/`
+- `application/`
+- `infra/delivery/`
+- `infra/assistente_atendimento/`
+- `infra/crm/`
+- `infra/gerente_ia/`
+- `infra/integracoes/`
+- `core/estoque/modelos.py`
+- `app.py`
+- `pages/`
+- `infra/streamlit_app/admin_proprietario.py`
+- `infra/streamlit_app/integracoes_admin.py`
+- `tests/`
+- `tests/e2e/`
+
+## 11. Registro de execucao
+- **08/09/2026 - WP-003 + WP-004 iniciados** na branch `feat/web-parity-v1-wp003-wp004-shell-dashboard`, a partir da baseline certificada `22bf22c05641fb4340c48f65d39514dc37d649fe`.
+- O candidato implementou Shell persistente, navegacao filtrada por RBAC, troca de unidade, logout, Home comercial real, fail-closed para todas as rotas Web nao publicas e realocacao do health harness para `/admin/system-health`.
+- **Matriz automatizada da PR #115: 15/15 workflows SUCCESS**, incluindo lint, production build/typecheck, regressao backend e gates comerciais existentes.
+- **Smoke manual concluido:** PDV -> Home -> Salao -> Home -> KDS -> Home sem segundo login; troca `unidade-auth-a` -> `unidade-auth-b` preservou a sessao; logout invalidou a sessao e exigiu novo login para reentrada.
+- O `403 catalogo_indisponivel_no_escopo` observado apos trocar para `unidade-auth-b` foi classificado separadamente como gap de provisionamento/homologacao da unidade, mantendo a fronteira fail-closed de isolamento.
+- **WP-003 e WP-004 promovidos para MIGRADO somente apos os gates automaticos e o Smoke manual concluirem com sucesso.**
+- **UX follow-up nao bloqueante:** o card inferior "Unidade operacional" e informativo; o seletor oficial fica na topbar. Tornar o card inferior tambem acionavel pode ser refinado depois sem alterar a regra de sessao.
+
+---
+**Regra de mudanca:** este documento e vivo e versionado por baseline. Qualquer nova descoberta deve atualizar a linha correspondente antes de iniciar implementacao que dependa dela. A arquitetura visual premium so reabre depois do Gate de Paridade Web.
