@@ -122,7 +122,9 @@ function OrderRow({
     >
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-bold text-slate-950">{order.pedido_id}</p>
+          <p className="truncate text-sm font-bold text-slate-950">
+            {order.pedido_id}
+          </p>
           {order.possui_alerta ? (
             <AlertTriangle className="size-4 shrink-0 text-amber-500" />
           ) : null}
@@ -234,13 +236,7 @@ export function OrdersCenterWorkspace() {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [
-    auth.status,
-    auth.unitId,
-    allowed,
-    appliedFilters,
-    refreshOrders,
-  ]);
+  }, [auth.status, auth.unitId, allowed, appliedFilters, refreshOrders]);
 
   const totalPages = useMemo(() => {
     if (!orders || orders.total === 0) return 1;
@@ -360,16 +356,28 @@ export function OrdersCenterWorkspace() {
               </p>
             </div>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="border-slate-700 bg-slate-900 text-white hover:bg-slate-800 hover:text-white"
-            onClick={() => void refreshAll()}
-            disabled={loading || detailLoading}
-          >
-            <RefreshCw className={loading ? "animate-spin" : ""} />
-            Atualizar
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button
+              type="button"
+              variant="outline"
+              className="border-slate-700 bg-slate-900 text-white hover:bg-slate-800 hover:text-white"
+              onClick={() => void refreshAll()}
+              disabled={loading || detailLoading}
+            >
+              <RefreshCw className={loading ? "animate-spin" : ""} />
+              Atualizar
+            </Button>
+            <Button
+              asChild
+              variant="ghost"
+              className="text-slate-300 hover:bg-slate-800 hover:text-white"
+            >
+              <Link href="/">
+                <ChevronLeft />
+                Dashboard
+              </Link>
+            </Button>
+          </div>
         </header>
 
         <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -463,9 +471,7 @@ export function OrdersCenterWorkspace() {
                 variant="outline"
                 size="sm"
                 disabled={loading || page <= 1}
-                onClick={() =>
-                  void refreshOrders(page - 1, appliedFilters)
-                }
+                onClick={() => void refreshOrders(page - 1, appliedFilters)}
               >
                 <ChevronLeft />
                 Anterior
@@ -478,9 +484,7 @@ export function OrdersCenterWorkspace() {
                 variant="outline"
                 size="sm"
                 disabled={loading || page >= totalPages}
-                onClick={() =>
-                  void refreshOrders(page + 1, appliedFilters)
-                }
+                onClick={() => void refreshOrders(page + 1, appliedFilters)}
               >
                 Próxima
                 <ChevronRight />
