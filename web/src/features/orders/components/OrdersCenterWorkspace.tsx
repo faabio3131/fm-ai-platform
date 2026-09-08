@@ -3,6 +3,7 @@
 import {
   AlertTriangle,
   Ban,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   CircleDollarSign,
@@ -20,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/features/auth/store/auth-store";
 import {
   cancelOrder,
+  confirmOrder,
   getOrderDetail,
   listOrders,
   OrdersApiError,
@@ -281,6 +283,32 @@ export function OrdersCenterWorkspace() {
         await refreshAll();
       } else {
         setError(errorMessage(caught, "Não foi possível avançar o pedido."));
+      }
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function handleConfirmOrder() {
+    if (!detail || !canAlterOrder) return;
+    setActionBusy(true);
+    setNotice(null);
+    try {
+      const result = await confirmOrder(
+        detail.resumo.pedido_id,
+        detail.resumo.versao,
+      );
+      setNotice("Pedido confirmado. Agora ele pode ser roteado para a produção.");
+      await refreshOrders(page, appliedFilters);
+      await openDetail(result.pedido_id);
+    } catch (caught) {
+      if (caught instanceof OrdersApiError && caught.status === 409) {
+        setError(
+          "O pedido mudou em outro terminal. A Central foi atualizada; revise o estado antes de repetir a ação.",
+        );
+        await refreshAll();
+      } else {
+        setError(errorMessage(caught, "Não foi possível confirmar o pedido."));
       }
     } finally {
       setActionBusy(false);
@@ -635,6 +663,18 @@ export function OrdersCenterWorkspace() {
                   >
                     <Send />
                     Enviar para confirmação
+                  </Button>
+                ) : null}
+
+                {detail.resumo.status === "aguardando_confirmacao" &&
+                canAlterOrder ? (
+                  <Button
+                    className="w-full"
+                    disabled={actionBusy}
+                    onClick={() => void handleConfirmOrder()}
+                  >
+                    <CheckCircle2 />
+                    Confirmar pedido
                   </Button>
                 ) : null}
 

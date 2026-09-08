@@ -182,6 +182,26 @@ export async function sendOrderToConfirmation(
   return (await response.json()) as OrderCenterTransition;
 }
 
+export async function confirmOrder(
+  orderId: string,
+  expectedVersion: number,
+): Promise<OrderCenterTransition> {
+  const requestHeaders = headers(crypto.randomUUID());
+  requestHeaders.set("Content-Type", "application/json");
+  const response = await fetch(
+    `${API_BASE_URL}/v1/pedidos/${encodeURIComponent(orderId)}/confirmar`,
+    {
+      method: "POST",
+      headers: requestHeaders,
+      credentials: "include",
+      cache: "no-store",
+      body: JSON.stringify({ versao_esperada: expectedVersion }),
+    },
+  );
+  if (response.status !== 200) throw await apiError(response);
+  return (await response.json()) as OrderCenterTransition;
+}
+
 export async function cancelOrder(
   orderId: string,
   expectedVersion: number,
