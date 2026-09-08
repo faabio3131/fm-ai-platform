@@ -2,8 +2,8 @@
 
 Mantém o ``build_http_app`` como autoridade das rotas já promovidas e adiciona
 as fronteiras WEB-PARITY em certificação usando exatamente o mesmo engine,
-session factory e secret store da sessão autenticada. A política CORS local
-continua restrita a desenvolvimento/teste; ambientes comerciais permanecem
+session factory, secret store e runtime de sessão autenticada. A política CORS
+local continua restrita a desenvolvimento/teste; ambientes comerciais permanecem
 fail-closed para origens localhost.
 """
 
@@ -81,19 +81,21 @@ def build_frontend_http_app(
         commercial=resolved_settings.commercial,
     )
     secret_store = kwargs.get("secret_store") or ReferenceSecretStore()
+    auth_runtime = kwargs.get("auth_runtime") or AuthSessionRuntime(
+        session_factory=session_factory,
+        secret_store=secret_store,
+    )
 
     kwargs["engine"] = engine
     kwargs["session_factory"] = session_factory
     kwargs["secret_store"] = secret_store
+    kwargs["auth_runtime"] = auth_runtime
 
     app = build_http_app(settings=resolved_settings, **kwargs)
     app.include_router(
         build_central_pedidos_router(
             session_factory=session_factory,
-            auth_runtime=AuthSessionRuntime(
-                session_factory=session_factory,
-                secret_store=secret_store,
-            ),
+            auth_runtime=auth_runtime,
         )
     )
     return _configure_frontend_cors(app, settings=resolved_settings)
