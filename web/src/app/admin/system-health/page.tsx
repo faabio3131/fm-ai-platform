@@ -25,6 +25,27 @@ export default function SystemHealthPage() {
   const [health, setHealth] = useState<BackendHealthResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    void checkBackendHealth()
+      .then((result) => {
+        if (cancelled) return;
+        setHealth(result);
+        setConnection(result.health.ok ? "online" : "offline");
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        setHealth(null);
+        setConnection("offline");
+        setError(caught instanceof Error ? caught.message : "Falha desconhecida");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   async function validateBackend(): Promise<void> {
     setConnection("checking");
     setError(null);
@@ -39,10 +60,6 @@ export default function SystemHealthPage() {
       setError(caught instanceof Error ? caught.message : "Falha desconhecida");
     }
   }
-
-  useEffect(() => {
-    void validateBackend();
-  }, []);
 
   const badgeClass =
     connection === "online"
