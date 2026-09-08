@@ -53,6 +53,16 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     allPermissions: ["pedido.visualizar"],
   },
   {
+    id: "delivery",
+    label: "Delivery Próprio",
+    description: "Pedidos do canal próprio, cotação, checkout e acompanhamento.",
+    href: "/delivery",
+    group: "operacao",
+    icon: "pdv",
+    available: true,
+    allPermissions: ["cliente.visualizar", "pedido.visualizar"],
+  },
+  {
     id: "kds",
     label: "KDS Cozinha",
     description: "Fila de produção e acompanhamento da cozinha.",
@@ -61,6 +71,16 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     icon: "kds",
     available: true,
     allPermissions: ["producao.visualizar"],
+  },
+  {
+    id: "entrega",
+    label: "Expedição e Entrega",
+    description: "Checklist, entregadores, custódia, rota e prova de entrega.",
+    href: "/entrega",
+    group: "operacao",
+    icon: "salao",
+    available: true,
+    allPermissions: ["expedicao.operar"],
   },
   {
     id: "catalogo",
