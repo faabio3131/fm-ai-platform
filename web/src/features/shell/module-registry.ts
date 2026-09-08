@@ -1,0 +1,106 @@
+export type ShellModuleGroup = "operacao" | "proprietario";
+
+export type ShellModuleIcon =
+  | "dashboard"
+  | "pdv"
+  | "salao"
+  | "kds"
+  | "catalogo"
+  | "saude";
+
+export interface ShellModuleDefinition {
+  id: string;
+  label: string;
+  description: string;
+  href: string;
+  group: ShellModuleGroup;
+  icon: ShellModuleIcon;
+  available: boolean;
+  allPermissions?: readonly string[];
+  anyPermissions?: readonly string[];
+}
+
+export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
+  {
+    id: "pdv",
+    label: "PDV Touch",
+    description: "Balcão, caixa e finalização de pedidos.",
+    href: "/pdv",
+    group: "operacao",
+    icon: "pdv",
+    available: true,
+    allPermissions: ["pdv.operar"],
+  },
+  {
+    id: "salao",
+    label: "Salão",
+    description: "Mesas, comandas e atendimento do salão.",
+    href: "/salao",
+    group: "operacao",
+    icon: "salao",
+    available: true,
+    allPermissions: ["pedido.visualizar"],
+    anyPermissions: ["mesa.abrir", "comanda.alterar"],
+  },
+  {
+    id: "kds",
+    label: "KDS Cozinha",
+    description: "Fila de produção e acompanhamento da cozinha.",
+    href: "/kds",
+    group: "operacao",
+    icon: "kds",
+    available: true,
+    allPermissions: ["producao.visualizar"],
+  },
+  {
+    id: "catalogo",
+    label: "Catálogo",
+    description: "Produtos e disponibilidade do cardápio.",
+    href: "/admin/catalogo",
+    group: "proprietario",
+    icon: "catalogo",
+    available: true,
+    allPermissions: ["admin.acessar"],
+  },
+  {
+    id: "saude-sistema",
+    label: "Saúde do sistema",
+    description: "Conectividade e diagnóstico técnico protegido.",
+    href: "/admin/system-health",
+    group: "proprietario",
+    icon: "saude",
+    available: true,
+    allPermissions: ["admin.acessar"],
+  },
+] as const;
+
+export function canAccessShellModule(
+  permissions: readonly string[],
+  module: ShellModuleDefinition,
+): boolean {
+  const permissionSet = new Set(permissions);
+  const allAllowed = (module.allPermissions ?? []).every((permission) =>
+    permissionSet.has(permission),
+  );
+  const anyRequired = module.anyPermissions ?? [];
+  const anyAllowed =
+    anyRequired.length === 0 ||
+    anyRequired.some((permission) => permissionSet.has(permission));
+
+  return allAllowed && anyAllowed;
+}
+
+export function availableShellModules(
+  permissions: readonly string[],
+): ShellModuleDefinition[] {
+  return SHELL_MODULES.filter(
+    (module) => module.available && canAccessShellModule(permissions, module),
+  );
+}
+
+export function isShellModuleActive(
+  pathname: string,
+  module: ShellModuleDefinition,
+): boolean {
+  return pathname === module.href || pathname.startsWith(`${module.href}/`);
+}
