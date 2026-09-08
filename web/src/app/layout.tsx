@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { AuthSessionGuard } from "@/features/auth/components/AuthSessionGuard";
+import { UnifiedAppShell } from "@/features/shell/components/UnifiedAppShell";
 
 import "./globals.css";
 
@@ -17,7 +18,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body>
-        <AuthSessionGuard>{children}</AuthSessionGuard>
+        <AuthSessionGuard>
+          <UnifiedAppShell>{children}</UnifiedAppShell>
+        </AuthSessionGuard>
       </body>
     </html>
   );
