@@ -39,27 +39,6 @@ export interface DeliveryContext {
   }>;
 }
 
-export interface DeliveryRoute {
-  cliente_id: string;
-  provedor: "google_maps";
-  origem_endereco: string;
-  destino_endereco: string;
-  distancia_metros: number;
-  distancia_km: number;
-  eta_minutos: number;
-  polyline_codificada: string;
-  origem: {
-    latitude: number;
-    longitude: number;
-    versao: number;
-  };
-  destino: {
-    latitude: number;
-    longitude: number;
-    endereco_ref: string;
-  };
-}
-
 export interface DeliveryCart {
   carrinho_id: string;
   cliente_id: string;
@@ -189,10 +168,6 @@ export async function listDeliveryClients(): Promise<DeliveryClient[]> {
 
 export function getDeliveryContext(clientId: string): Promise<DeliveryContext> {
   return getJson(`/v1/delivery/clientes/${encodeURIComponent(clientId)}/contexto`);
-}
-
-export function getDeliveryRoute(clientId: string): Promise<DeliveryRoute> {
-  return getJson(`/v1/delivery/clientes/${encodeURIComponent(clientId)}/rota`);
 }
 
 export function openDeliveryCart(clientId: string, cartId: string): Promise<DeliveryCart> {
