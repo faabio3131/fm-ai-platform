@@ -108,11 +108,13 @@ export function UnifiedAppShell({ children }: { children: ReactNode }) {
     if (pathname === "/login" || auth.status !== "authenticated") return;
 
     let cancelled = false;
-    setUnitLoadError(false);
 
     void getUnits()
       .then((nextUnits) => {
-        if (!cancelled) setUnits(nextUnits);
+        if (!cancelled) {
+          setUnits(nextUnits);
+          setUnitLoadError(false);
+        }
       })
       .catch(() => {
         if (!cancelled) setUnitLoadError(true);
