@@ -43,6 +43,16 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     anyPermissions: ["mesa.abrir", "comanda.alterar"],
   },
   {
+    id: "pedidos",
+    label: "Central de Pedidos",
+    description: "Visão unificada de pedidos, canais, alertas e situação financeira.",
+    href: "/pedidos",
+    group: "operacao",
+    icon: "dashboard",
+    available: true,
+    allPermissions: ["pedido.visualizar"],
+  },
+  {
     id: "kds",
     label: "KDS Cozinha",
     description: "Fila de produção e acompanhamento da cozinha.",
