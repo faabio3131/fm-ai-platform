@@ -213,7 +213,7 @@ def build_entrega_router(
 ) -> APIRouter:
     router = APIRouter(prefix="/v1/entregas", tags=["entregas"])
 
-    @router.get("")
+    @router.get("", response_model=dict[str, Any])
     def listar_entregas(request: Request) -> dict[str, Any] | JSONResponse:
         try:
             with session_factory() as session:
@@ -227,7 +227,7 @@ def build_entrega_router(
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _erro_http(exc)
 
-    @router.get("/entregadores-elegiveis")
+    @router.get("/entregadores-elegiveis", response_model=dict[str, Any])
     def listar_entregadores(request: Request) -> dict[str, Any] | JSONResponse:
         try:
             with session_factory() as session:
@@ -250,7 +250,7 @@ def build_entrega_router(
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _erro_http(exc)
 
-    @router.get("/{entrega_id}")
+    @router.get("/{entrega_id}", response_model=dict[str, Any])
     def detalhar_entrega(
         entrega_id: str,
         request: Request,
@@ -272,7 +272,7 @@ def build_entrega_router(
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _erro_http(exc)
 
-    @router.post("/{entrega_id}/checklist")
+    @router.post("/{entrega_id}/checklist", response_model=dict[str, Any])
     def concluir_checklist(
         entrega_id: str,
         payload: EntregaChecklistIn,
@@ -302,7 +302,7 @@ def build_entrega_router(
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _erro_http(exc)
 
-    @router.post("/{entrega_id}/atribuir")
+    @router.post("/{entrega_id}/atribuir", response_model=dict[str, Any])
     def atribuir_entregador(
         entrega_id: str,
         payload: EntregaAtribuirIn,
@@ -327,7 +327,7 @@ def build_entrega_router(
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _erro_http(exc)
 
-    @router.post("/{entrega_id}/coletar")
+    @router.post("/{entrega_id}/coletar", response_model=dict[str, Any])
     def coletar(
         entrega_id: str,
         payload: EntregaVersaoIn,
@@ -351,7 +351,7 @@ def build_entrega_router(
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _erro_http(exc)
 
-    @router.post("/{entrega_id}/sair-em-rota")
+    @router.post("/{entrega_id}/sair-em-rota", response_model=dict[str, Any])
     def sair_em_rota(
         entrega_id: str,
         payload: EntregaVersaoIn,
@@ -375,7 +375,7 @@ def build_entrega_router(
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _erro_http(exc)
 
-    @router.post("/{entrega_id}/confirmar")
+    @router.post("/{entrega_id}/confirmar", response_model=dict[str, Any])
     def confirmar_entrega(
         entrega_id: str,
         payload: EntregaConfirmarIn,
@@ -404,7 +404,7 @@ def build_entrega_router(
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _erro_http(exc)
 
-    @router.post("/{entrega_id}/tentativa-falha")
+    @router.post("/{entrega_id}/tentativa-falha", response_model=dict[str, Any])
     def registrar_tentativa_falha(
         entrega_id: str,
         payload: EntregaTentativaFalhaIn,

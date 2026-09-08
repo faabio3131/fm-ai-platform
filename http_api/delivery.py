@@ -17,8 +17,8 @@ from sqlalchemy.orm import Session
 
 from application.delivery_operacao_comercial import (
     ErroDeliveryComercial,
-    acompanhar_delivery_comercial,
     abrir_carrinho_delivery_comercial,
+    acompanhar_delivery_comercial,
     adicionar_item_delivery_comercial,
     cancelar_delivery_comercial,
     confirmar_delivery_comercial,
@@ -241,7 +241,7 @@ def build_delivery_router(
 ) -> APIRouter:
     router = APIRouter(prefix="/v1/delivery", tags=["delivery"])
 
-    @router.get("/clientes")
+    @router.get("/clientes", response_model=dict[str, Any])
     def listar_clientes(request: Request) -> dict[str, Any] | JSONResponse:
         try:
             with session_factory() as session:
@@ -258,7 +258,7 @@ def build_delivery_router(
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _erro_http(exc)
 
-    @router.get("/clientes/{cliente_id}/contexto")
+    @router.get("/clientes/{cliente_id}/contexto", response_model=dict[str, Any])
     def obter_contexto(
         cliente_id: str,
         request: Request,
@@ -279,7 +279,7 @@ def build_delivery_router(
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _erro_http(exc)
 
-    @router.post("/carrinhos")
+    @router.post("/carrinhos", response_model=dict[str, Any])
     def abrir_carrinho(
         payload: DeliveryAbrirCarrinhoIn,
         request: Request,
@@ -301,7 +301,7 @@ def build_delivery_router(
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _erro_http(exc)
 
-    @router.get("/clientes/{cliente_id}/carrinhos/{carrinho_id}")
+    @router.get("/clientes/{cliente_id}/carrinhos/{carrinho_id}", response_model=dict[str, Any])
     def obter_carrinho(
         cliente_id: str,
         carrinho_id: str,
@@ -329,7 +329,7 @@ def build_delivery_router(
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _erro_http(exc)
 
-    @router.post("/clientes/{cliente_id}/carrinhos/{carrinho_id}/itens")
+    @router.post("/clientes/{cliente_id}/carrinhos/{carrinho_id}/itens", response_model=dict[str, Any])
     def adicionar_item(
         cliente_id: str,
         carrinho_id: str,
@@ -356,7 +356,7 @@ def build_delivery_router(
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _erro_http(exc)
 
-    @router.post("/clientes/{cliente_id}/carrinhos/{carrinho_id}/cotacao")
+    @router.post("/clientes/{cliente_id}/carrinhos/{carrinho_id}/cotacao", response_model=dict[str, Any])
     def cotar_endereco(
         cliente_id: str,
         carrinho_id: str,
@@ -381,7 +381,7 @@ def build_delivery_router(
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _erro_http(exc)
 
-    @router.post("/clientes/{cliente_id}/carrinhos/{carrinho_id}/confirmar")
+    @router.post("/clientes/{cliente_id}/carrinhos/{carrinho_id}/confirmar", response_model=dict[str, Any])
     def confirmar_pedido(
         cliente_id: str,
         carrinho_id: str,
@@ -413,7 +413,7 @@ def build_delivery_router(
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _erro_http(exc)
 
-    @router.get("/clientes/{cliente_id}/pedidos/{pedido_id}")
+    @router.get("/clientes/{cliente_id}/pedidos/{pedido_id}", response_model=dict[str, Any])
     def acompanhar_pedido(
         cliente_id: str,
         pedido_id: str,
@@ -436,7 +436,7 @@ def build_delivery_router(
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _erro_http(exc)
 
-    @router.post("/clientes/{cliente_id}/pedidos/{pedido_id}/cancelar")
+    @router.post("/clientes/{cliente_id}/pedidos/{pedido_id}/cancelar", response_model=dict[str, Any])
     def cancelar_pedido(
         cliente_id: str,
         pedido_id: str,
