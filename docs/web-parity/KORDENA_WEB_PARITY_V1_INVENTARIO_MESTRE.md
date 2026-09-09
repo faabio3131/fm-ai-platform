@@ -2,7 +2,7 @@
 
 **Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`  
 **Data:** 08/09/2026  
-**Versao do inventario:** 1.5 - WP-017 em implementação candidata
+**Versao do inventario:** 1.6 - WP-018 em implementação candidata
 **Status:** DOCUMENTO MESTRE DE EXECUCAO
 
 ## 1. Regra constitucional deste inventario
@@ -11,9 +11,9 @@ Uma capacidade so pode ser marcada como **MIGRADO** quando a cadeia necessaria e
 ## 2. Diagnostico executivo
 - Capacidades inventariadas: **33**.
 - Totalmente migradas: **9** (27.3% das linhas inventariadas, contagem nao ponderada).
-- PARCIAL: **9**.
+- PARCIAL: **10**.
 - GAP WEB: **0**.
-- GAP HTTP/WEB: **12**.
+- GAP HTTP/WEB: **11**.
 - A VERIFICAR: **3**.
 - A rota `/` usa Home/Dashboard comercial real dentro do Shell Corporativo Unificado; o antigo harness tecnico permanece em `/admin/system-health`.
 - A Central de Pedidos omnichannel esta certificada na nova Web em `/pedidos`, com sessao assinada, RBAC, fila unificada, detalhe, financeiro, timeline e mutacao governada.
@@ -51,7 +51,7 @@ Uma capacidade so pode ser marcada como **MIGRADO** quando a cadeia necessaria e
 | WP-015 | Estoque / Almoxarifado / Validades | core/estoque; application/legacy_estoque_transacoes.py; application/legacy_estoque_forecasting.py; application/legacy_estoque_leitura_visual.py; app.py adaptado | Router de Estoque cobre gestao/lote, forecasting/alertas e leitura visual reutilizando os mesmos boundaries | `/admin/estoque` representa gestao, forecasting e leitor de nota/rotulo | PARCIAL | Preservar a implementacao candidata e aguardar certificacao integrada; lote fisico/FEFO continuam fora do escopo. |
 | WP-016 | CRM / Clientes / Cashback | core/crm; infra/crm; application/crm_cashback_* | Router session-aware lista clientes escopados, saldo/historico do ledger e credito manual pelo boundary existente | `/admin/crm` no Shell Proprietario, governada por `admin.acessar` + `cliente.visualizar` e step-up nas mutacoes | PARCIAL | Preservar a implementacao candidata e aguardar certificacao integrada; campanhas sao representadas separadamente no WP-017. |
 | WP-017 | Marketing / Resgate / Campanhas | application/crm_marketing_comercial.py; campanhas_governadas.py; infra/crm; app.py adaptado | Router CRM session-aware lista oportunidades escopadas e delega o despacho ao boundary canônico com consentimento e idempotencia preservados | `/admin/crm` representa resgate sem criar segunda area CRM, sob Shell Proprietario e step-up | PARCIAL | Preservar a implementacao candidata e aguardar certificacao integrada; nao corrigir nem ampliar regras de campanha nesta fase. |
-| WP-018 | Dashboard Financeiro / Indicadores | app.py legado; application/administracao_proprietario.py | Sem read model Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Expor painel executivo/financeiro session-aware e integrar ao Proprietario. |
+| WP-018 | Dashboard Financeiro / Indicadores | app.py legado; application/administracao_proprietario.py | Router administrativo session-aware serializa diretamente `painel_executivo()` para o escopo autorizado | `/admin/dashboard` no Shell Proprietario, governada por `admin.acessar` + `financeiro.visualizar` | PARCIAL | Preservar a implementacao candidata e aguardar certificacao integrada; parametros financeiros permanecem no WP-024. |
 | WP-019 | AI FinOps | core/ai_cost.py; ai_finops.py; application/ai_finops_dashboard.py | Sem contrato Web first-class identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Expor metricas/custos com permissao e dashboard no Backoffice. |
 | WP-020 | Area Proprietario / Backoffice completo | application/administracao_proprietario.py; infra/streamlit_app/admin_proprietario.py | Somente partes expostas pela API atual | /admin existe, mas somente catalogo funcional | PARCIAL | Migrar 7 areas legadas: executivo, empresa/unidades, financeiro, impressao, usuarios, integracoes, auditoria. |
 | WP-021 | Step-up administrativo / reautenticacao | PR #114; auth + AdminStepUpGuard | Sessao elevada 15 min, revogada em troca/logout | Guard de /admin | MIGRADO | Preservar como barreira unica; reutilizar em todas mutacoes sensiveis. |
@@ -139,6 +139,7 @@ Cada PR do WEB-PARITY-V1 deve: (a) citar IDs WP afetados; (b) atualizar este inv
 - **WP-013/WP-014/WP-015 em implementacao candidata parcial:** o Catalogo existente foi preservado e ampliado com a superficie manual de Ficha Tecnica e a importacao Gemini reutilizavel em `application/legacy_cardapio_gemini.py` (`9871814`). Estoque/Almoxarifado/Validades preservou a gestao manual/lote e passou a reutilizar os boundaries de forecasting/alertas (`96e551d`) e leitura visual de nota/rotulo (`c910153`) no Streamlit e no HTTP/Web. Os tres commits estao publicados na Draft PR #118 com remote HEAD confirmado em `c91015319207fa955cd381af74912c41e547e075`. Nenhuma promocao para MIGRADO foi realizada; Smoke Mestre e certificacao integrada permanecem adiados.
 - **09/09/2026 - WP-016 em implementacao candidata parcial:** CRM/Clientes/Cashback ganhou contrato HTTP session-aware e rota `/admin/crm`, reutilizando os leitores CRM e o ledger canônico para consulta e `application/crm_cashback_comercial.py` para crédito manual governado. O checkpoint `0c4e5b3dc0ef8f76145dc7d1c65bb00d2ee66046` está publicado na Draft PR #118; campanhas/resgate permanecem exclusivamente no WP-017. Nenhuma promocao para MIGRADO foi realizada; Smoke Mestre e certificacao integrada permanecem adiados.
 - **09/09/2026 - WP-017 em implementacao candidata parcial:** a selecao de clientes inativos, o prompt Gemini, o fallback e os identificadores diarios de campanha foram extraidos mecanicamente de `app.py` para `application/crm_marketing_comercial.py`. Streamlit e HTTP reutilizam o mesmo boundary; `/admin/crm` ganhou a superficie de resgate sem duplicar o CRM. O checkpoint `d03bf1adae93d3a800d00a968afbdf8f7973519a` está publicado na Draft PR #118, com tenant/unidade, RBAC, step-up, consentimento e idempotencia preservados. Nenhuma promocao para MIGRADO foi realizada; Smoke Mestre e certificacao integrada permanecem adiados.
+- **09/09/2026 - WP-018 em implementacao candidata parcial:** o read model existente `AplicacaoAdministracaoProprietarioV1.painel_executivo()` foi exposto por HTTP session-aware e materializado em `/admin/dashboard`, com item unico no Shell Proprietario e sem alterar `core/`, `application/` ou `infra/`. O checkpoint `46eb468a3a04fe1679da1b481265e2ed228666ec` está publicado na Draft PR #118; tenant/unidade e as permissoes `admin.acessar` + `financeiro.visualizar` permanecem governantes. Nenhuma promocao para MIGRADO foi realizada; Smoke Mestre e certificacao integrada permanecem adiados.
 - **UX follow-up nao bloqueante:** o card inferior "Unidade operacional" e informativo; o seletor oficial fica na topbar. Tornar o card inferior tambem acionavel pode ser refinado depois sem alterar a regra de sessao.
 
 ---
