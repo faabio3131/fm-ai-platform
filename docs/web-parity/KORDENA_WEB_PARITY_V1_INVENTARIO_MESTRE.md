@@ -2,7 +2,7 @@
 
 **Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`  
 **Data:** 08/09/2026  
-**Versao do inventario:** 1.8 - checkpoint documental WP-030 / WP-031 / WP-032
+**Versao do inventario:** 1.9 - WP-020 publicado e WP-013 reconciliado
 **Status:** DOCUMENTO MESTRE DE EXECUCAO
 
 ## 1. Regra constitucional deste inventario
@@ -11,7 +11,8 @@ Uma capacidade so pode ser marcada como **MIGRADO** quando a cadeia necessaria e
 ## 2. Diagnostico executivo
 - Capacidades inventariadas: **33**.
 - Totalmente migradas: **9** (27.3% das linhas inventariadas, contagem nao ponderada).
-- PARCIAL: **11**.
+- PARCIAL: **9**.
+- IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO: **2** (WP-013 e WP-020).
 - GAP WEB: **0**.
 - GAP HTTP/WEB: **10**.
 - GAP HTTP/WEB/PÚBLICO: **1** (WP-030, obrigatória para V1.0).
@@ -49,14 +50,14 @@ Uma capacidade so pode ser marcada como **MIGRADO** quando a cadeia necessaria e
 | WP-010 | Delivery Proprio | core/delivery; application/delivery_*; infra/delivery; E2E legado | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar contrato HTTP e /delivery: fila, pedido, checkout, despacho e status. |
 | WP-011 | Expedicao / Entrega | core/entrega; application/entrega_*; pages/9_Expedicao_Entrega.py | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar contrato HTTP e integrar expedicao/entrega a /delivery com RBAC Expedicao/Entregador. |
 | WP-012 | Marketplaces / pedidos externos | core/marketplaces; infra adapters; tests/e2e-marketplace | Sem console/contrato Web de operacao identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Expor ingestao/monitoramento first-class e integrar a /pedidos e /delivery. |
-| WP-013 | Catalogo administrativo basico | core/catalogo + http_api/catalogo.py | Router dedicado com protecao admin | /admin/catalogo | PARCIAL | Expandir para paridade com engenharia de cardapio e configuracoes de produto. |
+| WP-013 | Catálogo administrativo básico | Catálogo existente + WP-014; auditoria de app.py::render_cadastro_ficha_tecnica | Router dedicado e boundaries existentes | `/admin/catalogo` cobre as capacidades originais junto a WP-014 | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Reconciliação exclusivamente documental; sem código novo. Diferença de interação de preço registrada nas pendências para certificação. |
 | WP-014 | Engenharia de Cardapio + Ficha Tecnica | application/legacy_cardapio_transacoes.py; application/legacy_cardapio_gemini.py; app.py adaptado | Router de Catalogo cobre ficha manual e importacao Gemini por texto/imagem/PDF, reutilizando o mesmo boundary | `/admin/catalogo` representa ficha e importacao automatica | PARCIAL | Preservar a implementacao candidata e aguardar certificacao integrada; nao corrigir nem melhorar a regra nesta fase. |
 | WP-015 | Estoque / Almoxarifado / Validades | core/estoque; application/legacy_estoque_transacoes.py; application/legacy_estoque_forecasting.py; application/legacy_estoque_leitura_visual.py; app.py adaptado | Router de Estoque cobre gestao/lote, forecasting/alertas e leitura visual reutilizando os mesmos boundaries | `/admin/estoque` representa gestao, forecasting e leitor de nota/rotulo | PARCIAL | Preservar a implementacao candidata e aguardar certificacao integrada; lote fisico/FEFO continuam fora do escopo. |
 | WP-016 | CRM / Clientes / Cashback | core/crm; infra/crm; application/crm_cashback_* | Router session-aware lista clientes escopados, saldo/historico do ledger e credito manual pelo boundary existente | `/admin/crm` no Shell Proprietario, governada por `admin.acessar` + `cliente.visualizar` e step-up nas mutacoes | PARCIAL | Preservar a implementacao candidata e aguardar certificacao integrada; campanhas sao representadas separadamente no WP-017. |
 | WP-017 | Marketing / Resgate / Campanhas | application/crm_marketing_comercial.py; campanhas_governadas.py; infra/crm; app.py adaptado | Router CRM session-aware lista oportunidades escopadas e delega o despacho ao boundary canônico com consentimento e idempotencia preservados | `/admin/crm` representa resgate sem criar segunda area CRM, sob Shell Proprietario e step-up | PARCIAL | Preservar a implementacao candidata e aguardar certificacao integrada; nao corrigir nem ampliar regras de campanha nesta fase. |
 | WP-018 | Dashboard Financeiro / Indicadores | app.py legado; application/administracao_proprietario.py | Router administrativo session-aware serializa diretamente `painel_executivo()` para o escopo autorizado | `/admin/dashboard` no Shell Proprietario, governada por `admin.acessar` + `financeiro.visualizar` | PARCIAL | Preservar a implementacao candidata e aguardar certificacao integrada; parametros financeiros permanecem no WP-024. |
 | WP-019 | AI FinOps | core/ai_finops.py; application/ai_finops_dashboard.py; infra/ai_finops_read_model.py | Router session-aware consulta somente agregados por período e reutiliza a síntese determinística, sem projector ou chamada de IA | `/admin/ai-finops` no Shell Proprietario, governada por `admin.acessar` | PARCIAL | Preservar a implementacao candidata e aguardar certificacao integrada; nao estimar custos desconhecidos. |
-| WP-020 | Area Proprietario / Backoffice completo | application/administracao_proprietario.py; infra/streamlit_app/admin_proprietario.py | Somente partes expostas pela API atual | /admin existe, mas somente catalogo funcional | PARCIAL | Migrar 7 areas legadas: executivo, empresa/unidades, financeiro, impressao, usuarios, integracoes, auditoria. |
+| WP-020 | Área Proprietário / Backoffice | Centro Administrativo legado; application/administracao_proprietario.registrar_acesso; registry e guards existentes | `/v1/admin/acesso` delega auditoria à autoridade original com sessão e step-up | `/admin` no Shell Proprietário; links RBAC para módulos existentes sem duplicação | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Implementação `7935987981a78fe0ee8088020c30efd494d9e62e` publicada; preservar contêiner e governança. Áreas filhas pendentes continuam em seus próprios WPs. |
 | WP-021 | Step-up administrativo / reautenticacao | PR #114; auth + AdminStepUpGuard | Sessao elevada 15 min, revogada em troca/logout | Guard de /admin | MIGRADO | Preservar como barreira unica; reutilizar em todas mutacoes sensiveis. |
 | WP-022 | Empresa / Matriz / Filiais / Unidades | core/administracao; administracao_proprietario; UI legada | Sem endpoints Web first-class confirmados | Sem tela Next.js | GAP HTTP/WEB | Criar /admin/empresa e /admin/unidades sob step-up/RBAC. |
 | WP-023 | Usuarios / Papeis / Permissoes | core/seguranca + admin proprietario legado | Sem console HTTP Web dedicado confirmado | Sem tela Next.js | GAP HTTP/WEB | Criar gestao de usuarios e RBAC com auditoria e protecao anti-escalada. |
@@ -127,6 +128,7 @@ Cada PR do WEB-PARITY-V1 deve: (a) citar IDs WP afetados; (b) atualizar este inv
 - `tests/e2e/`
 
 ## 11. Registro de execucao
+- **09/09/2026 - WP-020 publicado:** implementação `7935987981a78fe0ee8088020c30efd494d9e62e`, local = remoto após push/fetch. Landing `/admin`, registry único e auditoria via Application existente; Application/Core/Infra intactos. 51 testes Python, 2 testes Node, Ruff/mypy direcionados, lint/typecheck/build frontend e diff check aprovados. WP-013 reconciliado somente em documentação como capacidades representadas por `/admin/catalogo` + WP-014; diferença preexistente de interação registrada. Evidências em `WP020_WP022_CICLO_2X2.md`; sem certificação integrada, Smoke Mestre, merge ou deploy.
 - **09/09/2026 - Checkpoint documental do ciclo WP-020 + WP-022:** por decisão explícita do proprietário, WP-030 e WP-032 são obrigatórias para V1.0 e permanecem pendentes; WP-031 é backlog futuro, fora desta migração. Este checkpoint não implementa essas capacidades. Base inicial confirmada local/remoto: `d261a94e854334d9fdf9c073e8af73f557f31114`, PR #118 OPEN/DRAFT. Este ciclo termina após WP-022; sem WP-023, Smoke Mestre, certificação integrada, merge ou deploy.
 - **08/09/2026 - WP-003 + WP-004 iniciados** na branch `feat/web-parity-v1-wp003-wp004-shell-dashboard`, a partir da baseline certificada `22bf22c05641fb4340c48f65d39514dc37d649fe`.
 - O candidato implementou Shell persistente, navegacao filtrada por RBAC, troca de unidade, logout, Home comercial real, fail-closed para todas as rotas Web nao publicas e realocacao do health harness para `/admin/system-health`.
