@@ -7,6 +7,7 @@ export type ShellModuleIcon =
   | "kds"
   | "catalogo"
   | "estoque"
+  | "crm"
   | "saude";
 
 export interface ShellModuleDefinition {
@@ -102,6 +103,16 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     icon: "estoque",
     available: true,
     allPermissions: ["admin.acessar", "estoque.visualizar"],
+  },
+  {
+    id: "crm",
+    label: "CRM e Cashback",
+    description: "Clientes, histórico e fidelidade da unidade.",
+    href: "/admin/crm",
+    group: "proprietario",
+    icon: "crm",
+    available: true,
+    allPermissions: ["admin.acessar", "cliente.visualizar"],
   },
   {
     id: "saude-sistema",

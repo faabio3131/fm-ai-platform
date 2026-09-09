@@ -20,6 +20,7 @@ from core.seguranca.segredos import ReferenceSecretStore
 from http_api.app import build_http_app
 from http_api.auth import AuthSessionRuntime
 from http_api.central_pedidos import build_central_pedidos_router
+from http_api.crm import build_crm_router
 from http_api.delivery import build_delivery_router
 from http_api.entrega import build_entrega_router
 from infra.seguranca.session_guard import build_session_factory
@@ -96,6 +97,7 @@ def build_frontend_http_app(
     app = build_http_app(settings=resolved_settings, **kwargs)
     for router_builder in (
         build_central_pedidos_router,
+        build_crm_router,
         build_delivery_router,
         build_entrega_router,
     ):

@@ -11,6 +11,7 @@ import {
   Package,
   ShieldCheck,
   ShoppingCart,
+  Users,
   Warehouse,
 } from "lucide-react";
 import Link from "next/link";
@@ -43,6 +44,7 @@ const iconByName: Record<ShellModuleIcon, typeof LayoutDashboard> = {
   kds: ChefHat,
   catalogo: Package,
   estoque: Warehouse,
+  crm: Users,
   saude: Activity,
 };
 
