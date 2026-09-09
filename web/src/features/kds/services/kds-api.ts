@@ -65,6 +65,24 @@ export interface KdsQueueResponse {
   motivo_degradacao: string | null;
 }
 
+export interface KdsPendingRoutingItem {
+  pedido_id: string;
+  pedido_item_id: string;
+  nome_produto: string;
+  quantidade: string;
+  status_pedido: string;
+}
+
+interface KdsPendingRoutingResponse {
+  itens: KdsPendingRoutingItem[];
+}
+
+export interface KdsRoutePayload {
+  pedido_item_id: string;
+  setor_id: string;
+  prioridade: number;
+}
+
 interface KdsSectorsResponse {
   setores: KdsSector[];
 }
@@ -194,6 +212,34 @@ export async function fetchKdsQueue(setorId?: string): Promise<KdsQueueResponse>
   });
   if (response.status !== 200) throw await readApiError(response);
   return (await response.json()) as KdsQueueResponse;
+}
+
+export async function fetchKdsPendingRouting(): Promise<KdsPendingRoutingItem[]> {
+  const response = await fetch(`${API_BASE_URL}/v1/kds/roteamento-pendente`, {
+    method: "GET",
+    headers: buildHeaders(),
+    cache: "no-store",
+    credentials: "include",
+  });
+  if (response.status !== 200) throw await readApiError(response);
+  return ((await response.json()) as KdsPendingRoutingResponse).itens;
+}
+
+export async function routeKdsPending(
+  payload: KdsRoutePayload,
+): Promise<KdsTransitionResponse> {
+  const requestHeaders = buildHeaders({ idempotencyKey: crypto.randomUUID() });
+  requestHeaders.set("Content-Type", "application/json");
+
+  const response = await fetch(`${API_BASE_URL}/v1/kds/rotear`, {
+    method: "POST",
+    headers: requestHeaders,
+    body: JSON.stringify(payload),
+    cache: "no-store",
+    credentials: "include",
+  });
+  if (response.status !== 200) throw await readApiError(response);
+  return (await response.json()) as KdsTransitionResponse;
 }
 
 export async function transitionKds(

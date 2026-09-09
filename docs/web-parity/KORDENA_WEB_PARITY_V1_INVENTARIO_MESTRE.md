@@ -1,8 +1,8 @@
 # Kordena V1 - Inventario Mestre de Paridade Web (WEB-PARITY-V1)
 
-**Baseline auditada:** `main @ 22bf22c05641fb4340c48f65d39514dc37d649fe`  
+**Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`  
 **Data:** 08/09/2026  
-**Versao do inventario:** 1.1 - Onda 1 certificada  
+**Versao do inventario:** 1.2 - Onda 2 / WP-009 certificada  
 **Status:** DOCUMENTO MESTRE DE EXECUCAO
 
 ## 1. Regra constitucional deste inventario
@@ -10,12 +10,13 @@ Uma capacidade so pode ser marcada como **MIGRADO** quando a cadeia necessaria e
 
 ## 2. Diagnostico executivo
 - Capacidades inventariadas: **33**.
-- Totalmente migradas: **8** (24.2% das linhas inventariadas, contagem nao ponderada).
+- Totalmente migradas: **9** (27.3% das linhas inventariadas, contagem nao ponderada).
 - PARCIAL: **5**.
 - GAP WEB: **0**.
-- GAP HTTP/WEB: **17**.
+- GAP HTTP/WEB: **16**.
 - A VERIFICAR: **3**.
-- A rota `/` agora usa Home/Dashboard comercial real dentro do Shell Corporativo Unificado; o antigo harness tecnico foi realocado para `/admin/system-health`.
+- A rota `/` usa Home/Dashboard comercial real dentro do Shell Corporativo Unificado; o antigo harness tecnico permanece em `/admin/system-health`.
+- A Central de Pedidos omnichannel esta certificada na nova Web em `/pedidos`, com sessao assinada, RBAC, fila unificada, detalhe, financeiro, timeline e mutacao governada.
 - Visual Premium permanece bloqueado ate a paridade funcional Web da V1 atingir 100% das capacidades obrigatorias.
 
 ## 3. O que foi migrado
@@ -26,6 +27,7 @@ Uma capacidade so pode ser marcada como **MIGRADO** quando a cadeia necessaria e
 - **WP-005 - PDV Touch**: /pdv.
 - **WP-006 - Salao / Mesas / Comandas**: /salao.
 - **WP-007 - KDS / Cozinha**: /kds.
+- **WP-009 - Central de Pedidos omnichannel**: /pedidos.
 - **WP-021 - Step-up administrativo / reautenticacao**: Guard de /admin.
 
 ## 4. Matriz mestre de paridade
@@ -39,11 +41,11 @@ Uma capacidade so pode ser marcada como **MIGRADO** quando a cadeia necessaria e
 | WP-005 | PDV Touch | core/pdv; application; http_api/pdv.py | Router dedicado, sessao Web | /pdv | MIGRADO | Manter; semear dados homologacao e incluir fluxo completo de pagamento. |
 | WP-006 | Salao / Mesas / Comandas | core/salao; application; http_api/salao.py | Router dedicado, sessao Web | /salao | MIGRADO | Manter; semear mesas/comandas e certificar jornada operacional. |
 | WP-007 | KDS / Cozinha | core/kds; application; http_api/kds.py | Router dedicado, sessao Web | /kds | MIGRADO | Manter; semear estacoes/pedidos e certificar estados. |
-| WP-008 | Atendimento do Garcom mobile/tablet | core/garcom; application/garcom_transacoes.py; pages/8_Atendimento_Garcom.py | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar contrato HTTP session-aware e rota /garcom (ou experiencia responsiva equivalente definida no Shell). |
-| WP-009 | Central de Pedidos omnichannel | core/central_pedidos; application/central_pedidos_transacoes.py; E2E legado | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar read/write model HTTP e /pedidos como centro omnichannel. |
+| WP-008 | Atendimento do Garcom mobile/tablet | core/garcom; application/garcom_transacoes.py; pages/8_Atendimento_Garcom.py | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar contrato HTTP session-aware e rota /garcom touch-first. |
+| WP-009 | Central de Pedidos omnichannel | core/central_pedidos; application/central_pedidos_transacoes.py; http_api/central_pedidos.py | Router first-class session-aware com leitura, detalhe e comandos idempotentes | /pedidos com fila unificada, detalhe, financeiro, timeline e acoes governadas | MIGRADO | Preservar no Smoke Mestre e integrar os proximos canais sem duplicar regra de negocio. |
 | WP-010 | Delivery Proprio | core/delivery; application/delivery_*; infra/delivery; E2E legado | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar contrato HTTP e /delivery: fila, pedido, checkout, despacho e status. |
-| WP-011 | Expedicao / Entrega | core/entrega; application/entrega_*; pages/9_Expedicao_Entrega.py | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar contrato HTTP e /entrega ou submodulo de /delivery com RBAC Expedicao/Entregador. |
-| WP-012 | Marketplaces / pedidos externos | core/marketplaces; infra adapters; tests/e2e-marketplace | Sem console/contrato Web de operacao identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Expor ingestao/monitoramento first-class e integrar a /pedidos. |
+| WP-011 | Expedicao / Entrega | core/entrega; application/entrega_*; pages/9_Expedicao_Entrega.py | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar contrato HTTP e integrar expedicao/entrega a /delivery com RBAC Expedicao/Entregador. |
+| WP-012 | Marketplaces / pedidos externos | core/marketplaces; infra adapters; tests/e2e-marketplace | Sem console/contrato Web de operacao identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Expor ingestao/monitoramento first-class e integrar a /pedidos e /delivery. |
 | WP-013 | Catalogo administrativo basico | core/catalogo + http_api/catalogo.py | Router dedicado com protecao admin | /admin/catalogo | PARCIAL | Expandir para paridade com engenharia de cardapio e configuracoes de produto. |
 | WP-014 | Engenharia de Cardapio + Ficha Tecnica | application/legacy_cardapio_transacoes.py; app.py legado | Catalogo HTTP nao cobre paridade completa confirmada | Sem rota Next.js equivalente completa | GAP HTTP/WEB | Inventariar operacoes de ficha; criar endpoints e /cardapio ou area admin correspondente. |
 | WP-015 | Estoque / Almoxarifado / Validades | core/estoque; application/catalogo_estoque_cutover.py; legacy_estoque; app.py | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar API de insumos, saldos, movimentos, reservas, perdas e validade; certificar lote/FEFO antes de prometer. |
@@ -71,15 +73,15 @@ O `app.py` legado comprova abas para Engenharia de Cardapio, CRM/Resgate/Cashbac
 
 ## 6. Gaps arquiteturais que o resgate deve corrigir
 1. **Contratos HTTP incompletos:** varios dominios maduros ainda nao possuem API first-class, session-aware, adequada ao Next.js.
-2. **E2E legado nao garante paridade Next.js:** testes de Delivery, Entrega, Garcom, Mica/Assistente e Order Center comprovam fluxo historico, mas nao a nova Web.
+2. **E2E legado nao garante paridade Next.js:** testes de Delivery, Entrega, Garcom, Assistente e Order Center comprovam fluxo historico, mas nao a nova Web.
 3. **Dados de homologacao insuficientes:** PDV, Salao e KDS abrem na Web, mas fixtures ainda sao incompletas. No Smoke da Onda 1, `unidade-auth-b` preservou a sessao corretamente, porem o catalogo respondeu `403 catalogo_indisponivel_no_escopo` por ausencia/invalidade do vinculo seguro com a loja legada. O comportamento fail-closed deve ser preservado; o gap e de provisionamento/homologacao.
-4. **Identidade do assistente:** a UI nova deve usar o nome configurado por tenant, nunca fixar "Mica" como nome de produto.
+4. **Identidade do assistente:** a UI nova deve usar o nome configurado por tenant, nunca fixar nome historico como nome de produto.
 
 ## 7. Ordem Mestre de Execucao
 ### Onda 1 - Shell Corporativo Unificado
 **CERTIFICADA.** Shell persistente, Home real, unidade ativa, operador, logout, troca de unidade, navegacao governada por RBAC, separacao Operacao x Proprietario e step-up administrativo preservado.
 ### Onda 2 - Coracao operacional faltante
-Central de Pedidos -> Delivery -> Expedicao/Entrega -> Marketplaces -> Garcom, sempre fechando Core/Application -> HTTP -> Next -> RBAC -> testes antes do proximo bloco.
+**WP-009 CERTIFICADA.** Central de Pedidos concluida e integrada a `main`. Proxima sequencia obrigatoria: WP-010 Delivery -> WP-011 Expedicao/Entrega -> WP-012 Marketplaces -> WP-008 Garcom, sempre fechando Core/Application -> HTTP -> Next -> RBAC -> testes antes do proximo bloco.
 ### Onda 3 - Retaguarda completa
 Cardapio/Ficha Tecnica -> Estoque -> CRM/Cashback -> Marketing -> Financeiro -> Empresa/Unidades -> Usuarios/Permissoes -> Impressao -> Auditoria.
 ### Onda 4 - IA e Integracoes
@@ -128,6 +130,11 @@ Cada PR do WEB-PARITY-V1 deve: (a) citar IDs WP afetados; (b) atualizar este inv
 - **Smoke manual concluido:** PDV -> Home -> Salao -> Home -> KDS -> Home sem segundo login; troca `unidade-auth-a` -> `unidade-auth-b` preservou a sessao; logout invalidou a sessao e exigiu novo login para reentrada.
 - O `403 catalogo_indisponivel_no_escopo` observado apos trocar para `unidade-auth-b` foi classificado separadamente como gap de provisionamento/homologacao da unidade, mantendo a fronteira fail-closed de isolamento.
 - **WP-003 e WP-004 promovidos para MIGRADO somente apos os gates automaticos e o Smoke manual concluirem com sucesso.**
+- **08/09/2026 - WP-009 Central de Pedidos certificada** na PR #116, HEAD `f88f127a69b548d7b3b53cc9abe306ed7a2d2700`, apos smoke funcional completo e **22/22 workflows SUCCESS**.
+- O smoke WP-009 comprovou sessao unica, fila unificada, leitura de pedido criado no PDV, detalhe, financeiro, alertas, timeline e cancelamento governado com atualizacao de versao e evento `pedido.cancelado`; o atalho `Dashboard` foi incluido no cabecalho antes da certificacao final.
+- A falha intermitente do E2E legado CRM/cashback foi estabilizada no helper Playwright de combobox antes da matriz final, sem relaxar gates nem regras de negocio.
+- **PR #116 integrada a `main` no merge commit `5a17b0c8a1cb6dad576ce5b089166748b138900c`.**
+- **08/09/2026 - Bloco WP-010 + WP-011 iniciado** na branch sequencial `feat/web-parity-v1-wp010-wp011-delivery-entrega`, criada diretamente da `main` certificada apos o merge da PR #116.
 - **UX follow-up nao bloqueante:** o card inferior "Unidade operacional" e informativo; o seletor oficial fica na topbar. Tornar o card inferior tambem acionavel pode ser refinado depois sem alterar a regra de sessao.
 
 ---

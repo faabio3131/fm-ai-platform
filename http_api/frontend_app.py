@@ -20,6 +20,8 @@ from core.seguranca.segredos import ReferenceSecretStore
 from http_api.app import build_http_app
 from http_api.auth import AuthSessionRuntime
 from http_api.central_pedidos import build_central_pedidos_router
+from http_api.delivery import build_delivery_router
+from http_api.entrega import build_entrega_router
 from infra.seguranca.session_guard import build_session_factory
 
 DEV_FRONTEND_ORIGINS: tuple[str, ...] = (
@@ -92,10 +94,15 @@ def build_frontend_http_app(
     kwargs["auth_runtime"] = auth_runtime
 
     app = build_http_app(settings=resolved_settings, **kwargs)
-    app.include_router(
-        build_central_pedidos_router(
-            session_factory=session_factory,
-            auth_runtime=auth_runtime,
+    for router_builder in (
+        build_central_pedidos_router,
+        build_delivery_router,
+        build_entrega_router,
+    ):
+        app.include_router(
+            router_builder(
+                session_factory=session_factory,
+                auth_runtime=auth_runtime,
+            )
         )
-    )
     return _configure_frontend_cors(app, settings=resolved_settings)
