@@ -97,6 +97,16 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     allPermissions: ["admin.acessar"],
   },
   {
+    id: "empresa",
+    label: "Empresa e Unidades",
+    description: "Cadastro da empresa, matriz, filiais e unidades.",
+    href: "/admin/empresa",
+    group: "proprietario",
+    icon: "dashboard",
+    available: true,
+    allPermissions: ["admin.acessar", "configuracao.alterar"],
+  },
+  {
     id: "indicadores",
     label: "Indicadores",
     description: "Visão executiva, financeiro e operação consolidada.",

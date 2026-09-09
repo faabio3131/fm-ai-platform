@@ -30,3 +30,25 @@ Original auditado: `app.py::render_cadastro_ficha_tecnica` e aba de Engenharia d
 - Frontend: `npm.cmd run lint`, `tsc.cmd --noEmit` e `npm.cmd run build` aprovados; rota `/admin` presente no build. A primeira tentativa de lint detectou imports CommonJS no novo teste; corrigidos para ES Modules e revalidados sem relaxar regras.
 - `git diff --check` aprovado; Core, Infra e Application sem alterações. Dependências locais instaladas sem alterar manifests/lockfiles; artefatos gerados pelo build não integram o checkpoint.
 - Situação: implementação candidata tecnicamente validada neste ambiente local; certificação integrada e Smoke Mestre adiados. Não é homologação final da V1.
+
+## WP-022 — auditoria e decisão anterior ao código
+
+- Entrada liberada após checkpoint WP-020 documental `c91d0a7ef371c056ba1404f307e12a8f990f6d5d` confirmado local/remoto e árvore limpa.
+- Original: `_render_empresa_unidades` em `infra/streamlit_app/admin_proprietario.py`. Empresa: nome, moeda, timezone, ativa e versão. Unidade: ID estável, código, nome fantasia, tipo matriz/filial/unidade, documento fiscal, telefone, email, descrição de endereço/horários, ativa e versão. Não há parent/hierarquia adicional.
+- Operações existentes: `obter_empresa`, `listar_unidades`, `atualizar_empresa`, `atualizar_unidade` e **`criar_unidade`**, com formulário original de criação; portanto criação faz parte da migração, sem nova capacidade. O formulário de criação original contém apenas ID/código/nome/tipo/endereço/horários; contatos e estado são editados depois.
+- Autoridade: `AplicacaoAdministracaoProprietarioV1`, `core/administracao` e repositório administrativo existente. `registrar_acesso` inicializa o cadastro como no original. A aplicação exige admin + configuração; atualização da empresa e criação são exclusivas do administrador do tenant. Gerente com autorização administrativa explícita só administra suas unidades; gerente padrão não entra. Administrador pode administrar as unidades do seu tenant por regra já existente, sem alterar a unidade ativa.
+- Solução: DTOs e adaptação HTTP dos campos do formulário, serialização das leituras e rota única `/admin/empresa`; item no Shell Proprietário e landing WP-020, com `admin.acessar` + `configuracao.alterar`. Sem novo domínio, facade, regra ou Application.
+- Contexto e proteção: reutilizar sessão assinada/step-up WP-020. DTOs rejeitam campos extras de tenant/escopo; IDs cadastrais de unidades são recursos sujeitos à autoridade Application, jamais substituem o contexto. Web não chama troca de unidade como parte da administração.
+- Persistência/UoW/auditoria/membership e concorrência por versão permanecem exclusivamente nas autoridades originais. ID repetido continua recusado; versão obsoleta continua falhando. Sem idempotência ou política de retry nova. Sem schema/migrations; fresh/upgrade intactos. Rollback dos adapters, sem reversão destrutiva dos dados.
+- Provas: HTTP com Application/repositório reais e dois tenants; administrador, gerente padrão e gerente explicitamente autorizado com unidade limitada; spoofing em headers/query/body, step-up e troca operacional, criação/edição/replay de versão/auditoria; fitness para ausência de regra paralela; regressão WP-020 e administração original; Ruff/mypy, lint/typecheck/build e diff check.
+- STOP esperado: implementação + documentos publicados e SHA confirmado; não iniciar WP-023.
+
+## WP-022 — prova técnica do candidato
+
+- 28 testes aprovados: contratos novos de Empresa/Unidades, fitness do boundary, contratos WP-020, integração administrativa original e modelos administrativos originais. Banco SQLite descartável com migrations existentes e autoridades reais; dois tenants, unidade homônima entre tenants e gerente explicitamente limitado a uma unidade.
+- 12 testes adicionais aprovados: contratos de autenticação e step-up existentes, incluindo revogação na troca operacional. Total direcionado: **40 testes Python**.
+- 3 testes Node de navegação aprovados, incluindo `admin.acessar` + `configuracao.alterar` para Empresa/Unidades.
+- Ruff e mypy `--follow-imports=silent` direcionados aprovados. Frontend lint, `tsc.cmd --noEmit --incremental false`, build de produção com `/admin/empresa` e diff check aprovados.
+- A primeira execução identificou erro introduzido no adapter ao tratar `ErroSeguranca` como `ValueError` genérico. A precedência foi corrigida no HTTP e o conjunto foi repetido com sucesso, preservando respostas 401/403. Nenhuma correção funcional preexistente foi incorporada.
+- Core/Infra/Application sem alterações desde o SHA inicial. Não houve extração Application, migration, provider, regra, matriz RBAC, política de sessão ou idempotência nova. Artefatos gerados pelo build foram retirados do diff após conferência de proveniência.
+- RESULTADO DO GATE TÉCNICO: APROVADO. Situação funcional: implementação presente, aguarda certificação. Estado técnico/PR: candidato da PR #118 Draft, sujeito ao checkpoint remoto obrigatório. Estado operacional: não homologado para release; Smoke Mestre, certificação integrada, merge e deploy não executados.

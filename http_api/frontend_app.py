@@ -19,6 +19,7 @@ from core.runtime.config import RuntimeSettings
 from core.seguranca.segredos import ReferenceSecretStore
 from http_api.admin_backoffice import build_admin_backoffice_router
 from http_api.admin_dashboard import build_admin_dashboard_router
+from http_api.admin_empresa import build_admin_empresa_router
 from http_api.ai_finops import build_ai_finops_router
 from http_api.app import build_http_app
 from http_api.auth import AuthSessionRuntime
@@ -101,6 +102,7 @@ def build_frontend_http_app(
     for router_builder in (
         build_admin_backoffice_router,
         build_admin_dashboard_router,
+        build_admin_empresa_router,
         build_ai_finops_router,
         build_central_pedidos_router,
         build_crm_router,

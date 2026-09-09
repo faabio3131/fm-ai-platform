@@ -34,3 +34,12 @@ test("rota filha não marca a landing como página ativa", () => {
   assert.equal(isShellModuleActive("/admin/catalogo", catalogo), true);
   assert.equal(isShellModuleActive("/admin/catalogo/123", catalogo), true);
 });
+
+test("empresa exige admin e configuração no registry único", () => {
+  for (const permissions of [[], ["admin.acessar"], ["configuracao.alterar"]]) {
+    assert.ok(!availableShellModules(permissions).some(m => m.href === "/admin/empresa"));
+  }
+  const modulos = availableShellModules(["admin.acessar", "configuracao.alterar"]);
+  assert.equal(modulos.filter(m => m.href === "/admin/empresa").length, 1);
+  assert.equal(modulos.find(m => m.href === "/admin/empresa").group, "proprietario");
+});
