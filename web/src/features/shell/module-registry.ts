@@ -9,6 +9,7 @@ export type ShellModuleIcon =
   | "estoque"
   | "crm"
   | "financeiro"
+  | "ai"
   | "saude";
 
 export interface ShellModuleDefinition {
@@ -94,6 +95,16 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     icon: "financeiro",
     available: true,
     allPermissions: ["admin.acessar", "financeiro.visualizar"],
+  },
+  {
+    id: "ai-finops",
+    label: "AI FinOps",
+    description: "Uso, custo, eficiência e mix dos modelos de IA.",
+    href: "/admin/ai-finops",
+    group: "proprietario",
+    icon: "ai",
+    available: true,
+    allPermissions: ["admin.acessar"],
   },
   {
     id: "catalogo",

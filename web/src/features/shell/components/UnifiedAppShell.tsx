@@ -2,6 +2,7 @@
 
 import {
   Activity,
+  BrainCircuit,
   Building2,
   ChefHat,
   CircleGauge,
@@ -46,6 +47,7 @@ const iconByName: Record<ShellModuleIcon, typeof LayoutDashboard> = {
   estoque: Warehouse,
   crm: Users,
   financeiro: CircleGauge,
+  ai: BrainCircuit,
   saude: Activity,
 };
 

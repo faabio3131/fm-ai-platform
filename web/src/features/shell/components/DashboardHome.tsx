@@ -3,6 +3,7 @@
 import {
   Activity,
   ArrowRight,
+  BrainCircuit,
   ChefHat,
   CircleGauge,
   LayoutGrid,
@@ -39,6 +40,7 @@ const iconByName: Record<ShellModuleIcon, typeof ShoppingCart> = {
   estoque: Warehouse,
   crm: Users,
   financeiro: CircleGauge,
+  ai: BrainCircuit,
   saude: Activity,
 };
 
