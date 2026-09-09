@@ -87,6 +87,16 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     allPermissions: ["expedicao.operar"],
   },
   {
+    id: "backoffice",
+    label: "Centro Administrativo",
+    description: "Acesso às áreas de administração do estabelecimento.",
+    href: "/admin",
+    group: "proprietario",
+    icon: "dashboard",
+    available: true,
+    allPermissions: ["admin.acessar"],
+  },
+  {
     id: "indicadores",
     label: "Indicadores",
     description: "Visão executiva, financeiro e operação consolidada.",
@@ -176,5 +186,6 @@ export function isShellModuleActive(
   pathname: string,
   module: ShellModuleDefinition,
 ): boolean {
-  return pathname === module.href || pathname.startsWith(`${module.href}/`);
+  return pathname === module.href ||
+    (module.href !== "/admin" && pathname.startsWith(`${module.href}/`));
 }
