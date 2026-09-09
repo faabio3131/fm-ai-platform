@@ -52,3 +52,10 @@ Original auditado: `app.py::render_cadastro_ficha_tecnica` e aba de Engenharia d
 - A primeira execução identificou erro introduzido no adapter ao tratar `ErroSeguranca` como `ValueError` genérico. A precedência foi corrigida no HTTP e o conjunto foi repetido com sucesso, preservando respostas 401/403. Nenhuma correção funcional preexistente foi incorporada.
 - Core/Infra/Application sem alterações desde o SHA inicial. Não houve extração Application, migration, provider, regra, matriz RBAC, política de sessão ou idempotência nova. Artefatos gerados pelo build foram retirados do diff após conferência de proveniência.
 - RESULTADO DO GATE TÉCNICO: APROVADO. Situação funcional: implementação presente, aguarda certificação. Estado técnico/PR: candidato da PR #118 Draft, sujeito ao checkpoint remoto obrigatório. Estado operacional: não homologado para release; Smoke Mestre, certificação integrada, merge e deploy não executados.
+
+## Publicações confirmadas e STOP
+
+- WP-020 implementação: `7935987981a78fe0ee8088020c30efd494d9e62e`; checkpoint documental: `c91d0a7ef371c056ba1404f307e12a8f990f6d5d`. Ambos publicados, seguidos de fetch e conferência local = remoto.
+- WP-022 implementação: `152ccc6260530503f3d3af87c07fbe750285c2b5`, publicada e confirmada por fetch, local = remoto e árvore limpa antes deste fechamento documental.
+- Inventário/checklist reconciliados: WP-020 e WP-022 = IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO. WP-013 somente documental; WP-030/032 obrigatórios pendentes e WP-031 backlog futuro fora da migração.
+- Escopo encerrado após publicação deste documento e confirmação final do SHA remoto. Próximo ciclo apenas planejado: WP-023 + WP-024. Nenhum deles iniciado. Não houve merge, deploy, rebase, force push, Smoke Mestre, certificação integrada ou Visual Premium.

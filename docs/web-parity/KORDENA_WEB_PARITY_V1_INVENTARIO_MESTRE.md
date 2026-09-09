@@ -2,7 +2,7 @@
 
 **Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`  
 **Data:** 08/09/2026  
-**Versao do inventario:** 1.9 - WP-020 publicado e WP-013 reconciliado
+**Versao do inventario:** 2.0 - ciclo WP-020 + WP-022 publicado; certificação adiada
 **Status:** DOCUMENTO MESTRE DE EXECUCAO
 
 ## 1. Regra constitucional deste inventario
@@ -12,9 +12,9 @@ Uma capacidade so pode ser marcada como **MIGRADO** quando a cadeia necessaria e
 - Capacidades inventariadas: **33**.
 - Totalmente migradas: **9** (27.3% das linhas inventariadas, contagem nao ponderada).
 - PARCIAL: **9**.
-- IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO: **2** (WP-013 e WP-020).
+- IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO: **3** (WP-013, WP-020 e WP-022).
 - GAP WEB: **0**.
-- GAP HTTP/WEB: **10**.
+- GAP HTTP/WEB: **9**.
 - GAP HTTP/WEB/PÚBLICO: **1** (WP-030, obrigatória para V1.0).
 - GAP HTTP/WEB ADMINISTRATIVO: **1** (WP-032, obrigatória para V1.0).
 - BACKLOG FUTURO: **1** (WP-031, fora da migração conservativa Web V1 atual).
@@ -59,7 +59,7 @@ Uma capacidade so pode ser marcada como **MIGRADO** quando a cadeia necessaria e
 | WP-019 | AI FinOps | core/ai_finops.py; application/ai_finops_dashboard.py; infra/ai_finops_read_model.py | Router session-aware consulta somente agregados por período e reutiliza a síntese determinística, sem projector ou chamada de IA | `/admin/ai-finops` no Shell Proprietario, governada por `admin.acessar` | PARCIAL | Preservar a implementacao candidata e aguardar certificacao integrada; nao estimar custos desconhecidos. |
 | WP-020 | Área Proprietário / Backoffice | Centro Administrativo legado; application/administracao_proprietario.registrar_acesso; registry e guards existentes | `/v1/admin/acesso` delega auditoria à autoridade original com sessão e step-up | `/admin` no Shell Proprietário; links RBAC para módulos existentes sem duplicação | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Implementação `7935987981a78fe0ee8088020c30efd494d9e62e` publicada; preservar contêiner e governança. Áreas filhas pendentes continuam em seus próprios WPs. |
 | WP-021 | Step-up administrativo / reautenticacao | PR #114; auth + AdminStepUpGuard | Sessao elevada 15 min, revogada em troca/logout | Guard de /admin | MIGRADO | Preservar como barreira unica; reutilizar em todas mutacoes sensiveis. |
-| WP-022 | Empresa / Matriz / Filiais / Unidades | core/administracao; administracao_proprietario; UI legada | Sem endpoints Web first-class confirmados | Sem tela Next.js | GAP HTTP/WEB | Criar /admin/empresa e /admin/unidades sob step-up/RBAC. |
+| WP-022 | Empresa / Matriz / Filiais / Unidades | core/administracao + AplicacaoAdministracaoProprietarioV1; formulário original de empresa/unidades | Consulta, edição e criação original via `/v1/admin/empresa` e `/v1/admin/unidades`, com sessão/step-up e autoridade Application | Rota única `/admin/empresa`, no Shell Proprietário e landing WP-020; `admin.acessar` + `configuracao.alterar` | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Implementação `152ccc6260530503f3d3af87c07fbe750285c2b5` publicada; preservar tenant, unidades administráveis, concorrência, auditoria e membership originais. Administração separada da troca operacional. |
 | WP-023 | Usuarios / Papeis / Permissoes | core/seguranca + admin proprietario legado | Sem console HTTP Web dedicado confirmado | Sem tela Next.js | GAP HTTP/WEB | Criar gestao de usuarios e RBAC com auditoria e protecao anti-escalada. |
 | WP-024 | Parametros Financeiros | administracao_proprietario; pagamentos | Web atual cobre operacao PDV, nao configuracao completa | Sem tela administrativa Next.js | GAP HTTP/WEB | Criar parametros financeiros nao secretos no Backoffice; segredos ficam em Credenciais. |
 | WP-025 | Impressao Operacional / Configuracao | core/impressao; application/impressao_*; E2E legado | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar configuracao e operacao Web sem quebrar KDS/PDV. |
@@ -128,6 +128,7 @@ Cada PR do WEB-PARITY-V1 deve: (a) citar IDs WP afetados; (b) atualizar este inv
 - `tests/e2e/`
 
 ## 11. Registro de execucao
+- **09/09/2026 - WP-022 publicado e ciclo encerrado:** implementação `152ccc6260530503f3d3af87c07fbe750285c2b5`, local = remoto após push/fetch. Consulta, edição e criação existentes em `/admin/empresa`, sem alteração de Application/Core/Infra. 40 testes Python, 3 testes Node, Ruff/mypy direcionados, lint/typecheck/build frontend e diff check aprovados. Evidência e auditoria em `WP020_WP022_CICLO_2X2.md`. WP-020 teve checkpoint documental final confirmado em `c91d0a7ef371c056ba1404f307e12a8f990f6d5d`. STOP após este checkpoint documental; WP-023 + WP-024 apenas planejados para próximo ciclo. PR #118 permanece Draft; sem merge, deploy, Smoke Mestre ou certificação integrada.
 - **09/09/2026 - WP-020 publicado:** implementação `7935987981a78fe0ee8088020c30efd494d9e62e`, local = remoto após push/fetch. Landing `/admin`, registry único e auditoria via Application existente; Application/Core/Infra intactos. 51 testes Python, 2 testes Node, Ruff/mypy direcionados, lint/typecheck/build frontend e diff check aprovados. WP-013 reconciliado somente em documentação como capacidades representadas por `/admin/catalogo` + WP-014; diferença preexistente de interação registrada. Evidências em `WP020_WP022_CICLO_2X2.md`; sem certificação integrada, Smoke Mestre, merge ou deploy.
 - **09/09/2026 - Checkpoint documental do ciclo WP-020 + WP-022:** por decisão explícita do proprietário, WP-030 e WP-032 são obrigatórias para V1.0 e permanecem pendentes; WP-031 é backlog futuro, fora desta migração. Este checkpoint não implementa essas capacidades. Base inicial confirmada local/remoto: `d261a94e854334d9fdf9c073e8af73f557f31114`, PR #118 OPEN/DRAFT. Este ciclo termina após WP-022; sem WP-023, Smoke Mestre, certificação integrada, merge ou deploy.
 - **08/09/2026 - WP-003 + WP-004 iniciados** na branch `feat/web-parity-v1-wp003-wp004-shell-dashboard`, a partir da baseline certificada `22bf22c05641fb4340c48f65d39514dc37d649fe`.
