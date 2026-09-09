@@ -2,7 +2,7 @@
 
 **Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`  
 **Data:** 08/09/2026  
-**Versao do inventario:** 1.2 - Onda 2 / WP-009 certificada  
+**Versao do inventario:** 1.3 - WP-014/WP-015 em implementação candidata
 **Status:** DOCUMENTO MESTRE DE EXECUCAO
 
 ## 1. Regra constitucional deste inventario
@@ -11,9 +11,9 @@ Uma capacidade so pode ser marcada como **MIGRADO** quando a cadeia necessaria e
 ## 2. Diagnostico executivo
 - Capacidades inventariadas: **33**.
 - Totalmente migradas: **9** (27.3% das linhas inventariadas, contagem nao ponderada).
-- PARCIAL: **5**.
+- PARCIAL: **7**.
 - GAP WEB: **0**.
-- GAP HTTP/WEB: **16**.
+- GAP HTTP/WEB: **14**.
 - A VERIFICAR: **3**.
 - A rota `/` usa Home/Dashboard comercial real dentro do Shell Corporativo Unificado; o antigo harness tecnico permanece em `/admin/system-health`.
 - A Central de Pedidos omnichannel esta certificada na nova Web em `/pedidos`, com sessao assinada, RBAC, fila unificada, detalhe, financeiro, timeline e mutacao governada.
@@ -47,8 +47,8 @@ Uma capacidade so pode ser marcada como **MIGRADO** quando a cadeia necessaria e
 | WP-011 | Expedicao / Entrega | core/entrega; application/entrega_*; pages/9_Expedicao_Entrega.py | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar contrato HTTP e integrar expedicao/entrega a /delivery com RBAC Expedicao/Entregador. |
 | WP-012 | Marketplaces / pedidos externos | core/marketplaces; infra adapters; tests/e2e-marketplace | Sem console/contrato Web de operacao identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Expor ingestao/monitoramento first-class e integrar a /pedidos e /delivery. |
 | WP-013 | Catalogo administrativo basico | core/catalogo + http_api/catalogo.py | Router dedicado com protecao admin | /admin/catalogo | PARCIAL | Expandir para paridade com engenharia de cardapio e configuracoes de produto. |
-| WP-014 | Engenharia de Cardapio + Ficha Tecnica | application/legacy_cardapio_transacoes.py; app.py legado | Catalogo HTTP nao cobre paridade completa confirmada | Sem rota Next.js equivalente completa | GAP HTTP/WEB | Inventariar operacoes de ficha; criar endpoints e /cardapio ou area admin correspondente. |
-| WP-015 | Estoque / Almoxarifado / Validades | core/estoque; application/catalogo_estoque_cutover.py; legacy_estoque; app.py | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar API de insumos, saldos, movimentos, reservas, perdas e validade; certificar lote/FEFO antes de prometer. |
+| WP-014 | Engenharia de Cardapio + Ficha Tecnica | application/legacy_cardapio_transacoes.py; application/legacy_cardapio_gemini.py; app.py adaptado | Router de Catalogo cobre ficha manual e importacao Gemini por texto/imagem/PDF, reutilizando o mesmo boundary | `/admin/catalogo` representa ficha e importacao automatica | PARCIAL | Preservar a implementacao candidata e aguardar certificacao integrada; nao corrigir nem melhorar a regra nesta fase. |
+| WP-015 | Estoque / Almoxarifado / Validades | core/estoque; application/legacy_estoque_transacoes.py; application/legacy_estoque_forecasting.py; application/legacy_estoque_leitura_visual.py; app.py adaptado | Router de Estoque cobre gestao/lote, forecasting/alertas e leitura visual reutilizando os mesmos boundaries | `/admin/estoque` representa gestao, forecasting e leitor de nota/rotulo | PARCIAL | Preservar a implementacao candidata e aguardar certificacao integrada; lote fisico/FEFO continuam fora do escopo. |
 | WP-016 | CRM / Clientes / Cashback | core/crm; infra/crm; application/crm_cashback_* | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar contratos CRM e telas de clientes, historico, saldo e cashback. |
 | WP-017 | Marketing / Resgate / Campanhas | application/crm_marketing_comercial.py; campanhas_governadas.py; infra/crm | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar area de campanhas/consentimento com governanca e auditoria. |
 | WP-018 | Dashboard Financeiro / Indicadores | app.py legado; application/administracao_proprietario.py | Sem read model Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Expor painel executivo/financeiro session-aware e integrar ao Proprietario. |
@@ -136,7 +136,7 @@ Cada PR do WEB-PARITY-V1 deve: (a) citar IDs WP afetados; (b) atualizar este inv
 - **PR #116 integrada a `main` no merge commit `5a17b0c8a1cb6dad576ce5b089166748b138900c`.**
 - **08/09/2026 - Bloco WP-010 + WP-011 iniciado** na branch sequencial `feat/web-parity-v1-wp010-wp011-delivery-entrega`, criada diretamente da `main` certificada apos o merge da PR #116.
 - **09/09/2026 - Migracao conservativa total iniciada** na branch `feat/web-parity-v1-total-original-migration`, criada exatamente de `731f6db17ec46a8173d10dd29897c8c623e52f16`; a tentativa Codex anterior de WP-014/WP-015 foi descartada integralmente.
-- **WP-013/WP-014/WP-015 em implementacao candidata parcial:** o Catálogo existente foi preservado e ampliado com a superfície manual de Ficha Técnica; Estoque/Almoxarifado/Validades recebeu router HTTP session-aware e rota `/admin/estoque`, reutilizando somente as autoridades originais. Importação de cardápio por IA, leitura visual de nota/rótulo e forecasting/alertas permanecem bloqueados porque a lógica original está acoplada ao `app.py` e ainda não existe boundary reutilizável em `application/`; duplicá-la no HTTP violaria a regra constitucional desta migração. Nenhuma promoção para MIGRADO foi realizada; certificação integrada permanece adiada.
+- **WP-013/WP-014/WP-015 em implementacao candidata parcial:** o Catalogo existente foi preservado e ampliado com a superficie manual de Ficha Tecnica e a importacao Gemini reutilizavel em `application/legacy_cardapio_gemini.py` (`9871814`). Estoque/Almoxarifado/Validades preservou a gestao manual/lote e passou a reutilizar os boundaries de forecasting/alertas (`96e551d`) e leitura visual de nota/rotulo (`c910153`) no Streamlit e no HTTP/Web. Os tres commits estao publicados na Draft PR #118 com remote HEAD confirmado em `c91015319207fa955cd381af74912c41e547e075`. Nenhuma promocao para MIGRADO foi realizada; Smoke Mestre e certificacao integrada permanecem adiados.
 - **UX follow-up nao bloqueante:** o card inferior "Unidade operacional" e informativo; o seletor oficial fica na topbar. Tornar o card inferior tambem acionavel pode ser refinado depois sem alterar a regra de sessao.
 
 ---
