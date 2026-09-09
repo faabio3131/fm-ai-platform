@@ -7,6 +7,9 @@ CRM_MARKETING_SOURCE = Path("application/crm_marketing_comercial.py").read_text(
     encoding="utf-8"
 )
 CRM_SERVICE_SOURCE = Path("core/crm/servicos.py").read_text(encoding="utf-8")
+FORECASTING_SOURCE = Path("application/legacy_estoque_forecasting.py").read_text(
+    encoding="utf-8"
+)
 
 
 def test_whatsapp_comercial_nao_usa_http_ou_token_legado() -> None:
@@ -64,9 +67,14 @@ def test_forecasting_comercial_usa_control_plane_e_sanitiza_falhas() -> None:
         1,
     )[0]
 
-    assert "_enviar_whatsapp_control_plane(" in trecho
+    assert (
+        "enviar_whatsapp_control_plane=_enviar_whatsapp_control_plane" in trecho
+    )
     assert "requests.post(" not in trecho
     assert "config_meta" not in trecho
-    assert "except Exception:" in trecho
-    assert "except Exception as" not in trecho
-    assert "Verifique as integrações Gemini e Meta/WhatsApp desta unidade." in trecho
+    assert "except Exception:" in FORECASTING_SOURCE
+    assert "except Exception as" not in FORECASTING_SOURCE
+    assert (
+        "Verifique as integrações Gemini e Meta/WhatsApp desta unidade."
+        in FORECASTING_SOURCE
+    )

@@ -104,3 +104,7 @@ export function aplicarLeituraEstoque(
     body: JSON.stringify({ itens }),
   });
 }
+
+export function executarForecastingAlertas(): Promise<{ mensagem: string }> {
+  return request("/v1/estoque/forecasting-alertas", { method: "POST" });
+}

@@ -160,6 +160,7 @@ def build_http_app(
         build_estoque_router(
             session_factory=session_factory,
             auth_runtime=auth_runtime,
+            whatsapp_secret_store_factory=whatsapp_secret_store_factory,
         )
     )
     app.include_router(

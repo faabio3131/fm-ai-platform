@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import date, datetime
 from typing import Any, cast
 
 from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from application.legacy_estoque_forecasting import AplicacaoForecastingEstoqueV1
 from application.legacy_estoque_transacoes import AplicacaoLegacyEstoqueV1
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.erros import (
@@ -21,16 +23,22 @@ from core.seguranca.erros import (
     SegredoAusente,
 )
 from core.seguranca.permissoes import Permissao
+from core.seguranca.segredos import SecretStore
+from gemini_config import generate_content as real_generate_content
 from http_api.auth import AuthSessionRuntime
 from http_api.operational_auth import obter_identidade_operacional
+from infra.integracoes.fabrica_adapters import FabricaAdaptersExternos
 from infra.legacy_expiration_alert import status_validade_legado
 from infra.legacy_product_scope import (
     ErroEscopoLojaLegada,
     listar_insumos_legados,
     obter_insumo_por_id_legado,
 )
+from infra.legacy_schema import contatos_gerenciais
+from test_mode import is_test_mode, mock_generate_content, mock_whatsapp_send
 
 SessionFactory = Callable[[], Session]
+generate_content = mock_generate_content if is_test_mode() else real_generate_content
 
 
 class InsumoCreateIn(BaseModel):
@@ -92,9 +100,11 @@ def build_estoque_router(
     *,
     session_factory: SessionFactory,
     auth_runtime: AuthSessionRuntime,
+    whatsapp_secret_store_factory: Callable[[Session], SecretStore],
 ) -> APIRouter:
     router = APIRouter(prefix="/v1/estoque", tags=["estoque"])
     aplicacao = AplicacaoLegacyEstoqueV1(session_factory)
+    aplicacao_forecasting = AplicacaoForecastingEstoqueV1()
 
     def _identidade(request: Request) -> tuple[IdentidadeUsuario, str]:
         with session_factory() as session:
@@ -237,6 +247,63 @@ def build_estoque_router(
             return JSONResponse(
                 status_code=status.HTTP_200_OK,
                 content={"processados": total, "itens": _listar(contexto)},
+            )
+        except Exception as exc:  # noqa: BLE001 - fronteira HTTP fail-closed
+            return _tratar_erro(exc)
+
+    @router.post("/forecasting-alertas")
+    def executar_forecasting_alertas(request: Request) -> JSONResponse:
+        try:
+            contexto = _contexto(
+                request,
+                permissao=Permissao.ESTOQUE_AJUSTAR,
+                exigir_step_up=True,
+            )
+            with session_factory() as session:
+
+                def listar_destinatarios_legados() -> Sequence[Any]:
+                    return session.execute(
+                        select(contatos_gerenciais).where(
+                            contatos_gerenciais.c.receber_alertas_estoque == 1
+                        )
+                    ).all()
+
+                def enviar_whatsapp_control_plane(
+                    *,
+                    destinatario: str,
+                    texto: str,
+                    idempotency_key: str,
+                ) -> str:
+                    with session_factory() as session_integracao:
+                        adapter = FabricaAdaptersExternos(
+                            session=session_integracao,
+                            secret_store=whatsapp_secret_store_factory(
+                                session_integracao
+                            ),
+                        ).meta(
+                            contexto=contexto,
+                            configuracao_id="mensageria.whatsapp--meta",
+                        )
+                        return adapter.enviar_whatsapp(
+                            destinatario=destinatario,
+                            texto=texto,
+                            idempotency_key=idempotency_key,
+                        )
+
+                resultado = aplicacao_forecasting.executar(
+                    session,
+                    tenant_id=contexto.tenant_id,
+                    unidade_id=contexto.unidade_id,
+                    contexto_notificacoes=lambda: contexto,
+                    generate_content=generate_content,
+                    is_test_mode=is_test_mode(),
+                    mock_whatsapp_send=mock_whatsapp_send,
+                    listar_destinatarios_legados=listar_destinatarios_legados,
+                    enviar_whatsapp_control_plane=enviar_whatsapp_control_plane,
+                )
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={"mensagem": resultado},
             )
         except Exception as exc:  # noqa: BLE001 - fronteira HTTP fail-closed
             return _tratar_erro(exc)

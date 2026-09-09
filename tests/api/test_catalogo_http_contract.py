@@ -518,3 +518,40 @@ def test_estoque_nao_expoe_insumo_de_outra_unidade() -> None:
     assert [item["id"] for item in unidade_b.json()["itens"]] == ["21"]
     assert exclusao_cruzada.status_code == 404
     assert exclusao_cruzada.json() == {"erro": "estoque.insumo_nao_encontrado"}
+
+
+def test_estoque_executa_forecasting_e_alertas_pelo_boundary(monkeypatch) -> None:
+    chamadas: list[str] = []
+
+    def gerar(*, contents):
+        chamadas.append(contents)
+        return mock_generate_content(contents=contents)
+
+    monkeypatch.setattr("http_api.estoque.generate_content", gerar)
+    monkeypatch.setattr("http_api.estoque.is_test_mode", lambda: True)
+    engine, _, client = _infra(monkeypatch)
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO contatos_gerenciais "
+                "(id, nome, whatsapp, cargo, receber_alertas_estoque) "
+                "VALUES (91, 'Gestor Estoque', '5511999999999', 'Gerente', 1)"
+            )
+        )
+
+    response = client.post(
+        "/v1/estoque/forecasting-alertas",
+        headers=_headers(),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "mensagem": (
+            "🚀 Análise concluída com sucesso! 1 alertas preditivos "
+            "(Estoque/Validade) disparados para 1 gestores via WhatsApp."
+        )
+    }
+    assert len(chamadas) == 1
+    assert "Você é o assistente de inteligência preditiva" in chamadas[0]
+    assert "- Carne: Saldo Atual = 10.0 kg, Mínimo = 2.0" in chamadas[0]
+    assert "- Pão: Saldo Atual = 50.0 un, Mínimo = 10.0" in chamadas[0]

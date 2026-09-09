@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BrainCircuit,
   CalendarClock,
   LoaderCircle,
   PackagePlus,
@@ -15,6 +16,7 @@ import { useAuthStore } from "@/features/auth/store/auth-store";
 import {
   aplicarLeituraEstoque,
   criarInsumo,
+  executarForecastingAlertas,
   excluirInsumo,
   EstoqueApiError,
   listarEstoque,
@@ -59,6 +61,7 @@ export function EstoqueWorkspace() {
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [resultadoForecasting, setResultadoForecasting] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -149,6 +152,35 @@ export function EstoqueWorkspace() {
             {aviso}
           </div>
         ) : null}
+
+        <section className="rounded-2xl border border-violet-400/20 bg-violet-500/5 p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="flex items-center gap-2 font-bold text-white">
+                <BrainCircuit className="size-5 text-violet-300" /> Forecasting preditivo e alertas
+              </h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Analise estoque e validades e dispare os alertas configurados da unidade.
+              </p>
+            </div>
+            <Button
+              type="button"
+              disabled={busy}
+              onClick={() => void operar(async () => {
+                const resultado = await executarForecastingAlertas();
+                setResultadoForecasting(resultado.mensagem);
+              })}
+            >
+              {busy ? <LoaderCircle className="animate-spin" /> : <BrainCircuit />}
+              Executar varredura agora
+            </Button>
+          </div>
+          {resultadoForecasting ? (
+            <p className="mt-4 rounded-xl border border-violet-300/20 bg-slate-950/50 p-3 text-sm text-slate-200">
+              {resultadoForecasting}
+            </p>
+          ) : null}
+        </section>
 
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(340px,1fr)]">
           <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
