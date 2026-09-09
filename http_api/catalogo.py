@@ -10,9 +10,10 @@ from typing import Any
 
 from fastapi import APIRouter, Header, Query, Request, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
+from application.legacy_cardapio_gemini import AplicacaoImportacaoCardapioGeminiV1
 from application.legacy_cardapio_transacoes import (
     AplicacaoLegacyCardapioV1,
     ConflitoIdempotenciaCatalogo,
@@ -25,6 +26,7 @@ from core.seguranca.erros import (
     SegredoAusente,
 )
 from core.seguranca.permissoes import Permissao
+from gemini_config import generate_content as real_generate_content
 from http_api.auth import AuthSessionRuntime
 from infra.legacy_product_scope import (
     ErroEscopoLojaLegada,
@@ -35,8 +37,10 @@ from infra.legacy_product_scope import (
     obter_produto_por_id_legado,
 )
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
+from test_mode import is_test_mode, mock_generate_content
 
 SessionFactory = Callable[[], Session]
+generate_content = mock_generate_content if is_test_mode() else real_generate_content
 
 
 class ProdutoCreateIn(BaseModel):
@@ -65,6 +69,10 @@ class PratoComFichaCreateIn(BaseModel):
     descricao_bruta: str = Field(default="", max_length=4000)
     ativo: bool = True
     itens_ficha: list[FichaTecnicaItemIn] = Field(min_length=1, max_length=100)
+
+
+class ImportacaoCardapioTextoIn(BaseModel):
+    texto_cardapio: str
 
 
 def _erro(http_status: int, codigo: str) -> JSONResponse:
@@ -124,6 +132,7 @@ def build_catalogo_router(
 ) -> APIRouter:
     router = APIRouter(prefix="/v1/catalogo", tags=["catalogo"])
     aplicacao = AplicacaoLegacyCardapioV1(session_factory)
+    importacao_gemini = AplicacaoImportacaoCardapioGeminiV1(aplicacao)
 
     def _identidade(request: Request) -> IdentidadeUsuario:
         identidade_sessao = auth_runtime.resolver_identidade(request)
@@ -183,6 +192,88 @@ def build_catalogo_router(
                 tenant_id=contexto.tenant_id,
                 unidade_id=contexto.unidade_id,
                 produto_id=parsed,
+            )
+
+    @router.post("/importacoes-gemini")
+    async def importar_cardapio_gemini(request: Request) -> JSONResponse:
+        try:
+            contexto = _contexto(request, exigir_escrita=True)
+            content_type = (
+                request.headers.get("content-type", "")
+                .partition(";")[0]
+                .strip()
+                .casefold()
+            )
+            texto_cardapio = ""
+            arquivo_bytes: bytes | None = None
+            arquivo_mime: str | None = None
+
+            if content_type == "application/json":
+                try:
+                    payload = ImportacaoCardapioTextoIn.model_validate(
+                        await request.json()
+                    )
+                except (json.JSONDecodeError, ValidationError):
+                    return _erro(
+                        status.HTTP_400_BAD_REQUEST,
+                        "catalogo.importacao_gemini_entrada_invalida",
+                    )
+                texto_cardapio = payload.texto_cardapio
+                if not texto_cardapio.strip():
+                    return _erro(
+                        status.HTTP_400_BAD_REQUEST,
+                        "catalogo.importacao_gemini_entrada_invalida",
+                    )
+            elif content_type in {
+                "application/pdf",
+                "image/jpeg",
+                "image/png",
+            }:
+                arquivo_bytes = await request.body()
+                arquivo_mime = content_type
+                if not arquivo_bytes:
+                    return _erro(
+                        status.HTTP_400_BAD_REQUEST,
+                        "catalogo.importacao_gemini_entrada_invalida",
+                    )
+            else:
+                return _erro(
+                    status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                    "catalogo.importacao_gemini_tipo_invalido",
+                )
+
+            qtd_cadastrados = importacao_gemini.importar(
+                contexto,
+                generate_content=generate_content,
+                texto_cardapio=texto_cardapio,
+                arquivo_bytes=arquivo_bytes,
+                arquivo_mime=arquivo_mime,
+            )
+            return JSONResponse(
+                status_code=status.HTTP_201_CREATED,
+                content={"qtd_cadastrados": qtd_cadastrados},
+            )
+        except CredenciaisInvalidas:
+            return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
+        except PermissionError as exc:
+            return _erro(
+                status.HTTP_403_FORBIDDEN,
+                str(exc) or "seguranca.permissao_insuficiente",
+            )
+        except (ReferenciaSegredoInvalida, SegredoAusente):
+            return _erro(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "auth.sessao_indisponivel",
+            )
+        except ErroEscopoLojaLegada:
+            return _erro(
+                status.HTTP_409_CONFLICT,
+                "catalogo.escopo_indisponivel",
+            )
+        except Exception:  # noqa: BLE001 - falha do provider é traduzida no boundary HTTP
+            return _erro(
+                status.HTTP_502_BAD_GATEWAY,
+                "catalogo.importacao_gemini_falhou",
             )
 
     @router.get("/produtos")

@@ -57,6 +57,10 @@ export interface CriarPratoComFichaPayload {
   itens_ficha: Array<{ insumo_id: number; quantidade: number }>;
 }
 
+export interface ResultadoImportacaoCardapioGemini {
+  qtd_cadastrados: number;
+}
+
 export class CatalogoApiError extends Error {
   constructor(
     message: string,
@@ -183,5 +187,24 @@ export function criarPratoComFicha(
     method: "POST",
     headers: { "Idempotency-Key": crypto.randomUUID() },
     body: JSON.stringify(payload),
+  });
+}
+
+export function importarCardapioGeminiPorTexto(
+  textoCardapio: string,
+): Promise<ResultadoImportacaoCardapioGemini> {
+  return catalogoRequest("/v1/catalogo/importacoes-gemini", {
+    method: "POST",
+    body: JSON.stringify({ texto_cardapio: textoCardapio }),
+  });
+}
+
+export function importarCardapioGeminiPorArquivo(
+  arquivo: File,
+): Promise<ResultadoImportacaoCardapioGemini> {
+  return catalogoRequest("/v1/catalogo/importacoes-gemini", {
+    method: "POST",
+    headers: { "Content-Type": arquivo.type },
+    body: arquivo,
   });
 }

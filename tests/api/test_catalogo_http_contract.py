@@ -12,6 +12,7 @@ from core.seguranca.permissoes import Papel
 from http_api.app import build_http_app
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 from migrations.runner import run_migrations
+from test_mode import mock_generate_content
 
 SESSION_SECRET = "catalogo-http-session-secret-0123456789-abcdef"
 SENHA = "Senha-Segura-Catalogo-123"
@@ -370,6 +371,59 @@ def test_catalogo_cria_prato_e_ficha_atomicamente_e_idempotente() -> None:
         ).scalar_one()
     assert int(total_produtos) == 1
     assert int(total_fichas) == 2
+
+
+def test_catalogo_importa_cardapio_gemini_por_texto_no_escopo(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "http_api.catalogo.generate_content",
+        mock_generate_content,
+    )
+    engine, _, client = _infra(monkeypatch)
+
+    response = client.post(
+        "/v1/catalogo/importacoes-gemini",
+        headers=_headers(),
+        json={"texto_cardapio": "Burger IA Teste 31,90"},
+    )
+
+    assert response.status_code == 201
+    assert response.json() == {"qtd_cadastrados": 2}
+    with engine.begin() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT nome, loja_id, preco_venda, custo_total_cmv "
+                "FROM produtos WHERE nome LIKE '%IA Teste' ORDER BY nome"
+            )
+        ).all()
+    assert [(row.nome, row.loja_id) for row in rows] == [
+        ("Batata IA Teste", "71"),
+        ("Burger IA Teste", "71"),
+    ]
+    assert float(rows[0].preco_venda) == 18.5
+    assert float(rows[0].custo_total_cmv) == 5.92
+    assert float(rows[1].preco_venda) == 31.9
+    assert float(rows[1].custo_total_cmv) == 10.21
+
+
+def test_catalogo_importacao_gemini_exige_entrada_e_permissao() -> None:
+    _, _, client = _infra()
+
+    sem_entrada = client.post(
+        "/v1/catalogo/importacoes-gemini",
+        headers=_headers(),
+        json={"texto_cardapio": "   "},
+    )
+    sem_credenciais = client.post(
+        "/v1/catalogo/importacoes-gemini",
+        json={"texto_cardapio": "Burger"},
+    )
+
+    assert sem_entrada.status_code == 400
+    assert sem_entrada.json() == {
+        "erro": "catalogo.importacao_gemini_entrada_invalida"
+    }
+    assert sem_credenciais.status_code == 401
+    assert sem_credenciais.json() == {"erro": "seguranca.credenciais_invalidas"}
 
 
 def test_catalogo_rejeita_ficha_com_insumo_de_outra_unidade_e_faz_rollback() -> None:

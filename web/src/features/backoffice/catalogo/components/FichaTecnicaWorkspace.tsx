@@ -1,11 +1,13 @@
 "use client";
 
-import { BookOpen, LoaderCircle, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { BookOpen, LoaderCircle, Plus, RefreshCw, Sparkles, Trash2, Upload } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
   criarPratoComFicha,
+  importarCardapioGeminiPorArquivo,
+  importarCardapioGeminiPorTexto,
   listarInsumosFicha,
   obterFichaProduto,
   type CatalogoFicha,
@@ -31,10 +33,12 @@ export function FichaTecnicaWorkspace({
   produtos,
   categorias,
   onCreated,
+  onImported,
 }: {
   produtos: CatalogoProduto[];
   categorias: string[];
   onCreated: (produto: CatalogoProduto) => void;
+  onImported: () => void;
 }) {
   const [insumos, setInsumos] = useState<CatalogoInsumoFicha[]>([]);
   const [itens, setItens] = useState<ItemReceita[]>([]);
@@ -48,6 +52,10 @@ export function FichaTecnicaWorkspace({
   const [aviso, setAviso] = useState<string | null>(null);
   const [produtoConsultaId, setProdutoConsultaId] = useState("");
   const [fichaConsultada, setFichaConsultada] = useState<CatalogoFicha | null>(null);
+  const [fonteImportacao, setFonteImportacao] = useState<"arquivo" | "texto">("arquivo");
+  const [textoCardapio, setTextoCardapio] = useState("");
+  const [arquivoCardapio, setArquivoCardapio] = useState<File | null>(null);
+  const [importando, setImportando] = useState(false);
 
   const carregarInsumos = useCallback(async () => {
     setLoading(true);
@@ -148,8 +156,84 @@ export function FichaTecnicaWorkspace({
     }
   }
 
+  async function importarCardapio() {
+    if (fonteImportacao === "arquivo" && !arquivoCardapio) {
+      setErro("Envie uma imagem ou um PDF do cardápio.");
+      return;
+    }
+    if (fonteImportacao === "texto" && !textoCardapio.trim()) {
+      setErro("Cole o texto do cardápio.");
+      return;
+    }
+
+    setImportando(true);
+    setErro(null);
+    setAviso(null);
+    try {
+      const resultado = fonteImportacao === "arquivo"
+        ? await importarCardapioGeminiPorArquivo(arquivoCardapio as File)
+        : await importarCardapioGeminiPorTexto(textoCardapio);
+      setAviso(
+        `${resultado.qtd_cadastrados} pratos foram extraídos pelo Gemini e salvos diretamente no cardápio.`,
+      );
+      onImported();
+    } catch {
+      setErro("Não foi possível processar o cardápio com IA.");
+    } finally {
+      setImportando(false);
+    }
+  }
+
   return (
-    <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(340px,1fr)]">
+    <>
+      <section className="mt-6 rounded-2xl border border-white/10 bg-zinc-900/70 p-5">
+        <div>
+          <h2 className="flex items-center gap-2 text-lg font-bold text-white">
+            <Sparkles className="size-5 text-violet-300" /> Importação automática via Gemini
+          </h2>
+          <p className="mt-1 text-sm text-slate-400">
+            Carregue o cardápio oficial para extrair e cadastrar os pratos no menu.
+          </p>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button type="button" variant={fonteImportacao === "arquivo" ? "default" : "outline"} onClick={() => setFonteImportacao("arquivo")}>
+            <Upload /> Imagem ou PDF
+          </Button>
+          <Button type="button" variant={fonteImportacao === "texto" ? "default" : "outline"} onClick={() => setFonteImportacao("texto")}>
+            <BookOpen /> Colar texto
+          </Button>
+        </div>
+
+        {fonteImportacao === "arquivo" ? (
+          <label className="mt-4 block text-xs font-semibold text-slate-400">
+            Arquivo do cardápio
+            <input
+              type="file"
+              accept="image/png,image/jpeg,application/pdf"
+              onChange={(event) => setArquivoCardapio(event.target.files?.[0] ?? null)}
+              className="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-violet-500/20 file:px-3 file:py-1 file:text-violet-200"
+            />
+          </label>
+        ) : (
+          <label className="mt-4 block text-xs font-semibold text-slate-400">
+            Texto do cardápio
+            <textarea
+              value={textoCardapio}
+              onChange={(event) => setTextoCardapio(event.target.value)}
+              rows={5}
+              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+            />
+          </label>
+        )}
+
+        <Button type="button" className="mt-4" onClick={() => void importarCardapio()} disabled={importando}>
+          {importando ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
+          Processar Cardápio com IA
+        </Button>
+      </section>
+
+      <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(340px,1fr)]">
       <form onSubmit={(event) => void salvar(event)} className="rounded-2xl border border-white/10 bg-zinc-900/70 p-5">
         <div className="mb-5 flex items-start justify-between gap-3">
           <div>
@@ -261,6 +345,7 @@ export function FichaTecnicaWorkspace({
           </div>
         ) : null}
       </div>
-    </section>
+      </section>
+    </>
   );
 }

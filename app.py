@@ -95,8 +95,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.exc import SQLAlchemyError
-import io
 
+from application.legacy_cardapio_gemini import AplicacaoImportacaoCardapioGeminiV1
 from application.legacy_cardapio_transacoes import AplicacaoLegacyCardapioV1
 from application.legacy_estoque_transacoes import AplicacaoLegacyEstoqueV1
 from application.legacy_gateway_teste_transacoes import AplicacaoLegacyGatewayTesteV1
@@ -145,11 +145,6 @@ from infra.gerente_ia.persistencia_sqlalchemy import (
     RepositorioIdentidadeAssistenteSQLAlchemy,
 )
 from infra.streamlit_app.ai_finops import render_ai_finops_dashboard
-
-try:
-    import pypdf
-except ImportError:
-    pass
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA E ESTILIZAÇÃO ---
 st.set_page_config(
@@ -340,6 +335,9 @@ def render_cadastro_ficha_tecnica(
     db_session, Insumo, Produto, FichaTecnica, client=None, GENAI_DISPONIVEL=False
 ):
     application_cardapio = AplicacaoLegacyCardapioV1(SessionLocal)
+    application_importacao_gemini = AplicacaoImportacaoCardapioGeminiV1(
+        application_cardapio
+    )
     contexto_cardapio = CURRENT_IDENTITY.contexto(
         origem="app.legacy_cardapio"
     )
@@ -564,99 +562,20 @@ def render_cadastro_ficha_tecnica(
 
             with st.spinner("🤖 O Gemini está analisando o cardápio real..."):
                 try:
-                    prompt = """
-                    Você é um especialista em ERP gastronômico. Analise o cardápio fornecido e extraia todos os produtos/pratos cadastráveis.
-                    Retorne EXATAMENTE um JSON no seguinte formato (sem formatação markdown ```json, apenas a string json pura):
-                    [
-                        {
-                            "nome": "Nome do Prato",
-                            "categoria": "Hambúrgueres",
-                            "preco": 39.90,
-                            "ingredientes": "Descrição ou ingredientes"
-                        }
-                    ]
-                    """
-
                     if arquivo_upload:
                         bytes_data = arquivo_upload.getvalue()
                         mime = arquivo_upload.type
-                        try:
-                            from google.genai import types
 
-                            part_arquivo = types.Part.from_bytes(
-                                data=bytes_data, mime_type=mime
-                            )
-                            contents = [part_arquivo, prompt]
-                            response = generate_content(contents=contents)
-                        except Exception as api_err:
-                            if mime == "application/pdf":
-                                st.warning(
-                                    "⚠️ API rejeitou o arquivo direto. Extraindo texto via PyPDF em contingência..."
-                                )
-                                leitor_pdf = pypdf.PdfReader(io.BytesIO(bytes_data))
-                                texto_extraido = ""
-                                for pagina in leitor_pdf.pages:
-                                    texto_extraido += pagina.extract_text() + "\n"
-
-                                response = generate_content(
-                                    contents=f"{prompt}\n\nTexto extraído do PDF:\n{texto_extraido}"
-                                )
-                            else:
-                                raise api_err
-                    else:
-                        response = generate_content(
-                            contents=f"{prompt}\n\n{texto_cardapio}"
-                        )
-
-                    texto_limpo = (
-                        response.text.strip().replace("```json", "").replace("```", "")
-                    )
-                    produtos_extraidos = json.loads(texto_limpo)
-
-                    produtos_para_salvar = []
-
-                    for prod in produtos_extraidos:
-                        cmv_est = round(
-                            float(
-                                prod.get(
-                                    "preco",
-                                    0,
-                                )
-                            )
-                            * 0.32,
-                            2,
-                        )
-
-                        produtos_para_salvar.append(
-                            {
-                                "nome": prod.get("nome"),
-                                "categoria": prod.get(
-                                    "categoria",
-                                    "Geral",
-                                ),
-                                "preco_venda": float(
-                                    prod.get(
-                                        "preco",
-                                        0,
-                                    )
-                                ),
-                                "custo_total_cmv": cmv_est,
-                                "descricao_bruta": prod.get(
-                                    "ingredientes",
-                                    "",
-                                ),
-                            }
-                        )
-
-                    db_session.close()
-
-                    qtd_cadastrados = (
-                        application_cardapio.importar_produtos(
-                            contexto_cardapio,
-                            produtos=tuple(
-                                produtos_para_salvar
-                            ),
-                        )
+                    qtd_cadastrados = application_importacao_gemini.importar(
+                        contexto_cardapio,
+                        generate_content=generate_content,
+                        texto_cardapio=texto_cardapio,
+                        arquivo_bytes=(bytes_data if arquivo_upload else None),
+                        arquivo_mime=(mime if arquivo_upload else None),
+                        ao_ativar_contingencia_pdf=lambda: st.warning(
+                            "⚠️ API rejeitou o arquivo direto. Extraindo texto via PyPDF em contingência..."
+                        ),
+                        antes_de_persistir=db_session.close,
                     )
                     st.success(
                         f"🎉 Sucesso! **{qtd_cadastrados} pratos** foram extraídos pelo Gemini e salvos diretamente no cardápio!"

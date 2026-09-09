@@ -257,6 +257,7 @@ export function CatalogoWorkspace() {
             produtos={produtos}
             categorias={categorias}
             onCreated={handleCreated}
+            onImported={() => void carregar(true)}
           />
         ) : null}
       </div>
