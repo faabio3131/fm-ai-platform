@@ -124,7 +124,7 @@ def _infra(monkeypatch) -> TestClient:
                 unidade_id=UNIDADE,
                 pedido_id=PEDIDO_ID,
                 comanda_id=None,
-                status="pendente",
+                status="aguardando_entrega",
                 metodo="pagamento_na_entrega",
                 valor_previsto=Decimal("47.00"),
                 valor_pago=Decimal("0.00"),
