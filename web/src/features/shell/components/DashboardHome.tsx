@@ -8,6 +8,7 @@ import {
   Package,
   ShieldCheck,
   ShoppingCart,
+  Warehouse,
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
@@ -33,6 +34,7 @@ const iconByName: Record<ShellModuleIcon, typeof ShoppingCart> = {
   salao: LayoutGrid,
   kds: ChefHat,
   catalogo: Package,
+  estoque: Warehouse,
   saude: Activity,
 };
 

@@ -135,6 +135,8 @@ Cada PR do WEB-PARITY-V1 deve: (a) citar IDs WP afetados; (b) atualizar este inv
 - A falha intermitente do E2E legado CRM/cashback foi estabilizada no helper Playwright de combobox antes da matriz final, sem relaxar gates nem regras de negocio.
 - **PR #116 integrada a `main` no merge commit `5a17b0c8a1cb6dad576ce5b089166748b138900c`.**
 - **08/09/2026 - Bloco WP-010 + WP-011 iniciado** na branch sequencial `feat/web-parity-v1-wp010-wp011-delivery-entrega`, criada diretamente da `main` certificada apos o merge da PR #116.
+- **09/09/2026 - Migracao conservativa total iniciada** na branch `feat/web-parity-v1-total-original-migration`, criada exatamente de `731f6db17ec46a8173d10dd29897c8c623e52f16`; a tentativa Codex anterior de WP-014/WP-015 foi descartada integralmente.
+- **WP-013/WP-014/WP-015 em implementacao candidata parcial:** o Catálogo existente foi preservado e ampliado com a superfície manual de Ficha Técnica; Estoque/Almoxarifado/Validades recebeu router HTTP session-aware e rota `/admin/estoque`, reutilizando somente as autoridades originais. Importação de cardápio por IA, leitura visual de nota/rótulo e forecasting/alertas permanecem bloqueados porque a lógica original está acoplada ao `app.py` e ainda não existe boundary reutilizável em `application/`; duplicá-la no HTTP violaria a regra constitucional desta migração. Nenhuma promoção para MIGRADO foi realizada; certificação integrada permanece adiada.
 - **UX follow-up nao bloqueante:** o card inferior "Unidade operacional" e informativo; o seletor oficial fica na topbar. Tornar o card inferior tambem acionavel pode ser refinado depois sem alterar a regra de sessao.
 
 ---

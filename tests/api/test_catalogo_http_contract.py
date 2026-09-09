@@ -62,6 +62,34 @@ def _infra(monkeypatch=None):
                 """
             )
         )
+        conn.execute(
+            text(
+                """
+                INSERT INTO insumos
+                    (id, loja_id, nome, unidade_medida, saldo_atual,
+                     estoque_minimo, custo_unitario, data_validade,
+                     dias_alerta_vencimento)
+                VALUES
+                    (11, 71, 'Carne', 'kg', 10.0, 2.0, 30.0,
+                     '2026-12-31', 15),
+                    (12, 71, 'Pão', 'un', 50.0, 10.0, 1.5,
+                     '2026-10-01', 10),
+                    (21, 72, 'Queijo', 'kg', 5.0, 1.0, 40.0,
+                     '2026-11-15', 15)
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO fichas_tecnicas
+                    (id, produto_id, insumo_id, quantidade_utilizada)
+                VALUES
+                    (31, 1, 11, 0.18),
+                    (32, 1, 12, 1.0)
+                """
+            )
+        )
 
     with factory() as session:
         RepositorioIdentidadesSQLAlchemy(session).criar_usuario(
@@ -273,3 +301,166 @@ def test_catalogo_rejeita_ausencia_de_credenciais() -> None:
 
     assert response.status_code == 401
     assert response.json() == {"erro": "seguranca.credenciais_invalidas"}
+
+
+def test_catalogo_expoe_insumos_e_ficha_somente_da_unidade() -> None:
+    _, _, client = _infra()
+
+    insumos = client.get("/v1/catalogo/insumos-ficha", headers=_headers())
+    ficha = client.get("/v1/catalogo/produtos/1/ficha", headers=_headers())
+
+    assert insumos.status_code == 200
+    assert [item["id"] for item in insumos.json()] == ["11", "12"]
+    assert all(item["id"] != "21" for item in insumos.json())
+    assert ficha.status_code == 200
+    assert ficha.json()["produto"]["id"] == "1"
+    assert [item["insumo_id"] for item in ficha.json()["itens"]] == ["11", "12"]
+
+
+def test_catalogo_cria_prato_e_ficha_atomicamente_e_idempotente() -> None:
+    engine, _, client = _infra()
+    headers = _headers(key="catalogo-ficha-idempotente-001")
+    payload = {
+        "nome": "Burger com ficha",
+        "categoria": "Lanches",
+        "preco": 42.0,
+        "custo_total_cmv": 6.9,
+        "margem_exibicao": "83.6%",
+        "descricao_bruta": "Carne e pão",
+        "ativo": True,
+        "itens_ficha": [
+            {"insumo_id": 11, "quantidade": 0.18},
+            {"insumo_id": 12, "quantidade": 1.0},
+        ],
+    }
+
+    primeiro = client.post(
+        "/v1/catalogo/pratos-com-ficha",
+        headers=headers,
+        json=payload,
+    )
+    replay = client.post(
+        "/v1/catalogo/pratos-com-ficha",
+        headers=headers,
+        json=payload,
+    )
+
+    assert primeiro.status_code == 201
+    assert replay.status_code == 200
+    assert replay.json() == primeiro.json()
+
+    produto_id = int(primeiro.json()["id"])
+    ficha = client.get(
+        f"/v1/catalogo/produtos/{produto_id}/ficha",
+        headers=_headers(),
+    )
+    assert ficha.status_code == 200
+    assert len(ficha.json()["itens"]) == 2
+
+    with engine.begin() as conn:
+        total_produtos = conn.execute(
+            text("SELECT COUNT(*) FROM produtos WHERE nome = 'Burger com ficha'")
+        ).scalar_one()
+        total_fichas = conn.execute(
+            text(
+                "SELECT COUNT(*) FROM fichas_tecnicas "
+                "WHERE produto_id = :produto_id"
+            ),
+            {"produto_id": produto_id},
+        ).scalar_one()
+    assert int(total_produtos) == 1
+    assert int(total_fichas) == 2
+
+
+def test_catalogo_rejeita_ficha_com_insumo_de_outra_unidade_e_faz_rollback() -> None:
+    engine, _, client = _infra()
+
+    response = client.post(
+        "/v1/catalogo/pratos-com-ficha",
+        headers=_headers(key="catalogo-ficha-cross-unit"),
+        json={
+            "nome": "Prato inválido",
+            "categoria": "Teste",
+            "preco": 10.0,
+            "custo_total_cmv": 1.0,
+            "margem_exibicao": "90%",
+            "descricao_bruta": "",
+            "ativo": True,
+            "itens_ficha": [{"insumo_id": 21, "quantidade": 1.0}],
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {"erro": "catalogo.escopo_indisponivel"}
+    with engine.begin() as conn:
+        total = conn.execute(
+            text("SELECT COUNT(*) FROM produtos WHERE nome = 'Prato inválido'")
+        ).scalar_one()
+    assert int(total) == 0
+
+
+def test_estoque_lista_cria_aplica_leitura_e_exclui_no_escopo() -> None:
+    _, _, client = _infra()
+
+    inicial = client.get("/v1/estoque/insumos", headers=_headers())
+    criado = client.post(
+        "/v1/estoque/insumos",
+        headers=_headers(),
+        json={
+            "nome": "Tomate",
+            "unidade_medida": "kg",
+            "saldo_atual": 4.0,
+            "estoque_minimo": 1.0,
+            "custo_unitario": 8.0,
+            "data_fabricacao": None,
+            "data_validade": "2026-10-20",
+            "dias_alerta_vencimento": 15,
+        },
+    )
+    leitura = client.post(
+        "/v1/estoque/leituras",
+        headers=_headers(),
+        json={
+            "itens": [
+                {
+                    "nome": "Tomate",
+                    "quantidade": 2.0,
+                    "unidade": "kg",
+                    "data_validade": "2026-10-25",
+                }
+            ]
+        },
+    )
+    removido = client.delete(
+        f"/v1/estoque/insumos/{criado.json()['id']}",
+        headers=_headers(),
+    )
+
+    assert inicial.status_code == 200
+    assert [item["id"] for item in inicial.json()["itens"]] == ["11", "12"]
+    assert criado.status_code == 201
+    assert criado.json()["saldo_atual"] == 4.0
+    assert leitura.status_code == 200
+    tomate = next(item for item in leitura.json()["itens"] if item["nome"] == "Tomate")
+    assert tomate["saldo_atual"] == 6.0
+    assert removido.status_code == 200
+    assert removido.json() == {"ok": True}
+
+
+def test_estoque_nao_expoe_insumo_de_outra_unidade() -> None:
+    _, _, client = _infra()
+
+    unidade_a = client.get("/v1/estoque/insumos", headers=_headers())
+    unidade_b = client.get(
+        "/v1/estoque/insumos",
+        headers=_headers(unidade_id=UNIDADE_B),
+    )
+    exclusao_cruzada = client.delete(
+        "/v1/estoque/insumos/21",
+        headers=_headers(),
+    )
+
+    assert all(item["id"] != "21" for item in unidade_a.json()["itens"])
+    assert [item["id"] for item in unidade_b.json()["itens"]] == ["21"]
+    assert exclusao_cruzada.status_code == 404
+    assert exclusao_cruzada.json() == {"erro": "estoque.insumo_nao_encontrado"}

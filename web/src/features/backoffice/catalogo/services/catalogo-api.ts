@@ -20,6 +20,43 @@ export interface AtualizarProdutoPayload {
   ativo?: boolean;
 }
 
+export interface CatalogoInsumoFicha {
+  id: string;
+  nome: string;
+  unidade_medida: string;
+  custo_unitario: number;
+  data_validade: string | null;
+}
+
+export interface CatalogoFichaItem {
+  id: string;
+  insumo_id: string;
+  insumo_nome: string;
+  quantidade: number;
+  unidade_medida: string;
+  custo_unitario: number;
+  custo_item: number;
+}
+
+export interface CatalogoFicha {
+  produto: CatalogoProduto;
+  custo_total_cmv: number;
+  margem_exibicao: string;
+  descricao_bruta: string;
+  itens: CatalogoFichaItem[];
+}
+
+export interface CriarPratoComFichaPayload {
+  nome: string;
+  categoria: string;
+  preco: number;
+  custo_total_cmv: number;
+  margem_exibicao: string;
+  descricao_bruta: string;
+  ativo: boolean;
+  itens_ficha: Array<{ insumo_id: number; quantidade: number }>;
+}
+
 export class CatalogoApiError extends Error {
   constructor(
     message: string,
@@ -126,4 +163,25 @@ export async function atualizarProduto(
       body: JSON.stringify(payload),
     },
   );
+}
+
+export function listarInsumosFicha(): Promise<CatalogoInsumoFicha[]> {
+  return catalogoRequest("/v1/catalogo/insumos-ficha", { method: "GET" });
+}
+
+export function obterFichaProduto(produtoId: string): Promise<CatalogoFicha> {
+  return catalogoRequest(
+    `/v1/catalogo/produtos/${encodeURIComponent(produtoId)}/ficha`,
+    { method: "GET" },
+  );
+}
+
+export function criarPratoComFicha(
+  payload: CriarPratoComFichaPayload,
+): Promise<CatalogoProduto> {
+  return catalogoRequest("/v1/catalogo/pratos-com-ficha", {
+    method: "POST",
+    headers: { "Idempotency-Key": crypto.randomUUID() },
+    body: JSON.stringify(payload),
+  });
 }

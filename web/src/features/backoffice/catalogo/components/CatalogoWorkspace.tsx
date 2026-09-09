@@ -14,6 +14,7 @@ import {
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { CatalogoTable } from "@/features/backoffice/catalogo/components/CatalogoTable";
+import { FichaTecnicaWorkspace } from "@/features/backoffice/catalogo/components/FichaTecnicaWorkspace";
 import { NovoProdutoModal } from "@/features/backoffice/catalogo/components/NovoProdutoModal";
 import {
   CatalogoApiError,
@@ -250,6 +251,14 @@ export function CatalogoWorkspace() {
             onToggleAtivo={(produto, ativo) => void handleToggleAtivo(produto, ativo)}
           />
         )}
+
+        {!loading ? (
+          <FichaTecnicaWorkspace
+            produtos={produtos}
+            categorias={categorias}
+            onCreated={handleCreated}
+          />
+        ) : null}
       </div>
 
       <NovoProdutoModal

@@ -6,6 +6,7 @@ export type ShellModuleIcon =
   | "salao"
   | "kds"
   | "catalogo"
+  | "estoque"
   | "saude";
 
 export interface ShellModuleDefinition {
@@ -91,6 +92,16 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     icon: "catalogo",
     available: true,
     allPermissions: ["admin.acessar"],
+  },
+  {
+    id: "estoque",
+    label: "Estoque e Validades",
+    description: "Almoxarifado, insumos, saldos, custos e vencimentos.",
+    href: "/admin/estoque",
+    group: "proprietario",
+    icon: "estoque",
+    available: true,
+    allPermissions: ["admin.acessar", "estoque.visualizar"],
   },
   {
     id: "saude-sistema",

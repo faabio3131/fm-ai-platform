@@ -11,6 +11,7 @@ import {
   Package,
   ShieldCheck,
   ShoppingCart,
+  Warehouse,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -41,6 +42,7 @@ const iconByName: Record<ShellModuleIcon, typeof LayoutDashboard> = {
   salao: LayoutGrid,
   kds: ChefHat,
   catalogo: Package,
+  estoque: Warehouse,
   saude: Activity,
 };
 
