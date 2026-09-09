@@ -8,6 +8,7 @@ export type ShellModuleIcon =
   | "catalogo"
   | "estoque"
   | "crm"
+  | "financeiro"
   | "saude";
 
 export interface ShellModuleDefinition {
@@ -83,6 +84,16 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     icon: "salao",
     available: true,
     allPermissions: ["expedicao.operar"],
+  },
+  {
+    id: "indicadores",
+    label: "Indicadores",
+    description: "Visão executiva, financeiro e operação consolidada.",
+    href: "/admin/dashboard",
+    group: "proprietario",
+    icon: "financeiro",
+    available: true,
+    allPermissions: ["admin.acessar", "financeiro.visualizar"],
   },
   {
     id: "catalogo",

@@ -45,6 +45,7 @@ const iconByName: Record<ShellModuleIcon, typeof LayoutDashboard> = {
   catalogo: Package,
   estoque: Warehouse,
   crm: Users,
+  financeiro: CircleGauge,
   saude: Activity,
 };
 

@@ -4,6 +4,7 @@ import {
   Activity,
   ArrowRight,
   ChefHat,
+  CircleGauge,
   LayoutGrid,
   Package,
   ShieldCheck,
@@ -37,6 +38,7 @@ const iconByName: Record<ShellModuleIcon, typeof ShoppingCart> = {
   catalogo: Package,
   estoque: Warehouse,
   crm: Users,
+  financeiro: CircleGauge,
   saude: Activity,
 };
 

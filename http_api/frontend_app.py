@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.runtime import build_engine, load_runtime_settings
 from core.runtime.config import RuntimeSettings
 from core.seguranca.segredos import ReferenceSecretStore
+from http_api.admin_dashboard import build_admin_dashboard_router
 from http_api.app import build_http_app
 from http_api.auth import AuthSessionRuntime
 from http_api.central_pedidos import build_central_pedidos_router
@@ -96,6 +97,7 @@ def build_frontend_http_app(
 
     app = build_http_app(settings=resolved_settings, **kwargs)
     for router_builder in (
+        build_admin_dashboard_router,
         build_central_pedidos_router,
         build_crm_router,
         build_delivery_router,
