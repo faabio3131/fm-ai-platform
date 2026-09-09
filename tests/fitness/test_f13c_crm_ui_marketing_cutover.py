@@ -24,7 +24,7 @@ def test_f13c_crm_nao_regride_para_cashback_legado_ou_fake_whatsapp() -> None:
     assert "RuntimeCRMTeste" not in crm
     assert "runtime_teste" not in crm
     assert "creditar_cashback_manual" in crm
-    assert "despachar_resgate_whatsapp_legado" in crm
+    assert "despachar_resgate_cliente_inativo" in crm
     assert "_saldo_cashback_canonico_ui" in crm
 
 

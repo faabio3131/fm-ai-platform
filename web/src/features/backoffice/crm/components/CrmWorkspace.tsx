@@ -5,8 +5,10 @@ import {
   ArrowUpCircle,
   BadgeDollarSign,
   LoaderCircle,
+  MessageCircle,
   RefreshCw,
   Search,
+  Send,
   Users,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
@@ -18,9 +20,12 @@ import {
   consultarCashback,
   creditarCashback,
   CrmApiError,
+  despacharResgate,
   listarClientesCrm,
+  listarResgatesInativos,
   type CashbackDetalhe,
   type CrmCliente,
+  type ResgateClienteInativo,
 } from "@/features/backoffice/crm/services/crm-api";
 
 function moeda(valor: string | number | null): string {
@@ -52,12 +57,14 @@ function mensagemErro(error: unknown): string {
 export function CrmWorkspace() {
   const auth = useAuthStore();
   const [clientes, setClientes] = useState<CrmCliente[]>([]);
+  const [resgates, setResgates] = useState<ResgateClienteInativo[]>([]);
   const [saldoTotal, setSaldoTotal] = useState("0.00");
   const [selecionado, setSelecionado] = useState<string | null>(null);
   const [detalhe, setDetalhe] = useState<CashbackDetalhe | null>(null);
   const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [resgateEmEnvio, setResgateEmEnvio] = useState<number | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
@@ -75,8 +82,12 @@ export function CrmWorkspace() {
     setLoading(true);
     setErro(null);
     try {
-      const resumo = await listarClientesCrm();
+      const [resumo, oportunidades] = await Promise.all([
+        listarClientesCrm(),
+        listarResgatesInativos(),
+      ]);
       setClientes(resumo.itens);
+      setResgates(oportunidades.itens);
       setSaldoTotal(resumo.saldo_total);
       const proximoSelecionado = resumo.itens[0]?.cliente_id ?? null;
       setSelecionado(proximoSelecionado);
@@ -84,6 +95,7 @@ export function CrmWorkspace() {
       else setDetalhe(null);
     } catch (error) {
       setClientes([]);
+      setResgates([]);
       setDetalhe(null);
       setErro(mensagemErro(error));
     } finally {
@@ -140,6 +152,28 @@ export function CrmWorkspace() {
     }
   }
 
+  async function enviarResgate(oportunidade: ResgateClienteInativo) {
+    if (resgateEmEnvio !== null) return;
+    setResgateEmEnvio(oportunidade.legacy_cliente_id);
+    setErro(null);
+    setAviso(null);
+    try {
+      const resultado = await despacharResgate(
+        oportunidade.legacy_cliente_id,
+        oportunidade.mensagem_sugerida,
+      );
+      if (resultado.enviado) {
+        setAviso(`Campanha de resgate enviada para ${oportunidade.nome}.`);
+      } else {
+        setErro(`Envio não realizado: ${resultado.motivo}.`);
+      }
+    } catch (error) {
+      setErro(mensagemErro(error));
+    } finally {
+      setResgateEmEnvio(null);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-slate-950 p-4 text-slate-100 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-[1500px] space-y-6">
@@ -153,7 +187,11 @@ export function CrmWorkspace() {
               Clientes escopados, histórico e saldo produzidos pelas autoridades canônicas do CRM.
             </p>
           </div>
-          <Button variant="outline" onClick={() => void carregar()} disabled={loading || busy}>
+          <Button
+            variant="outline"
+            onClick={() => void carregar()}
+            disabled={loading || busy || resgateEmEnvio !== null}
+          >
             <RefreshCw className={loading ? "animate-spin" : ""} />
             Atualizar
           </Button>
@@ -170,6 +208,67 @@ export function CrmWorkspace() {
 
         {erro ? <Feedback tone="error">{erro}</Feedback> : null}
         {aviso ? <Feedback tone="success">{aviso}</Feedback> : null}
+
+        <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
+          <div className="flex items-center gap-2 border-b border-slate-800 px-5 py-4">
+            <MessageCircle className="size-5 text-violet-400" />
+            <div>
+              <h2 className="font-bold">Marketing · Resgate de clientes inativos</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Oportunidades e mensagens produzidas pela autoridade de CRM para a unidade ativa.
+              </p>
+            </div>
+          </div>
+          {loading ? (
+            <div className="flex min-h-36 items-center justify-center gap-2 text-sm text-slate-400">
+              <LoaderCircle className="size-5 animate-spin" /> Carregando oportunidades…
+            </div>
+          ) : resgates.length === 0 ? (
+            <p className="p-5 text-sm text-slate-400">
+              Nenhum cliente elegível para resgate nesta unidade.
+            </p>
+          ) : (
+            <div className="grid gap-4 p-5 lg:grid-cols-2">
+              {resgates.map((oportunidade) => (
+                <article
+                  key={oportunidade.cliente_id}
+                  className="rounded-xl border border-slate-800 bg-slate-950/70 p-4"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-white">{oportunidade.nome}</p>
+                      <p className="mt-1 truncate text-xs text-slate-500">
+                        {oportunidade.whatsapp} · {oportunidade.status}
+                      </p>
+                    </div>
+                    <p className="shrink-0 text-sm font-bold text-emerald-300">
+                      {moeda(oportunidade.total_gasto)}
+                    </p>
+                  </div>
+                  <p className="mt-3 text-xs text-slate-500">
+                    Última compra: {dataHora(oportunidade.ultima_compra)}
+                  </p>
+                  <p className="mt-3 rounded-lg border border-violet-500/20 bg-violet-500/10 p-3 text-sm text-violet-100">
+                    {oportunidade.mensagem_sugerida}
+                  </p>
+                  <Button
+                    type="button"
+                    className="mt-4 w-full"
+                    disabled={resgateEmEnvio !== null}
+                    onClick={() => void enviarResgate(oportunidade)}
+                  >
+                    {resgateEmEnvio === oportunidade.legacy_cliente_id ? (
+                      <LoaderCircle className="animate-spin" />
+                    ) : (
+                      <Send />
+                    )}
+                    Disparar campanha WhatsApp
+                  </Button>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
 
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,1fr)]">
           <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">

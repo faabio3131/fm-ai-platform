@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
@@ -278,3 +280,93 @@ def test_credito_manual_falha_sem_mapping_legado(monkeypatch) -> None:
 
     assert response.status_code == 409
     assert response.json() == {"erro": "cliente_legado_sem_mapping_crm"}
+
+
+def test_resgates_http_reutiliza_boundary_e_preserva_escopo_da_sessao(
+    monkeypatch,
+) -> None:
+    _, client = _infra(monkeypatch)
+    monkeypatch.setattr(
+        "http_api.crm.generate_content",
+        lambda **_: SimpleNamespace(text="Mensagem Gemini WP-017"),
+    )
+    _login(client)
+
+    response = client.get(
+        "/v1/crm/resgates/inativos",
+        headers={"X-Tenant-ID": "tenant-spoof", "X-Unit-ID": UNIDADE_B},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "itens": [
+            {
+                "legacy_cliente_id": 1,
+                "cliente_id": "cliente-a",
+                "nome": "Ana Cliente",
+                "whatsapp": "5511999000001",
+                "ultima_compra": "2026-08-20T00:00:00",
+                "total_gasto": 120.0,
+                "status": "Ativo",
+                "mensagem_sugerida": "Mensagem Gemini WP-017",
+            }
+        ]
+    }
+
+
+def test_despacho_resgate_http_exige_step_up_e_delega_ao_boundary(
+    monkeypatch,
+) -> None:
+    _, client = _infra(monkeypatch)
+    chamadas = []
+
+    def despachar_fake(**kwargs):
+        chamadas.append(kwargs)
+        return SimpleNamespace(
+            cliente_id="cliente-a",
+            enviado=True,
+            motivo="enviado",
+            mensagem_id="msg-http-wp017",
+        )
+
+    monkeypatch.setattr(
+        "http_api.crm.despachar_resgate_cliente_inativo",
+        despachar_fake,
+    )
+    _login(client)
+
+    sem_step_up = client.post(
+        "/v1/crm/resgates/1/despachar",
+        json={"texto": "Mensagem sugerida pela autoridade."},
+    )
+    assert sem_step_up.status_code == 403
+    assert sem_step_up.json() == {"erro": "seguranca.admin_step_up_exigido"}
+    assert chamadas == []
+
+    assert (
+        client.post("/v1/auth/admin-step-up", json={"senha": SENHA}).status_code
+        == 200
+    )
+    response = client.post(
+        "/v1/crm/resgates/1/despachar",
+        headers={
+            "X-Tenant-ID": "tenant-spoof",
+            "X-Unit-ID": UNIDADE_B,
+            "X-Correlation-ID": "corr-http-wp017",
+        },
+        json={"texto": "Mensagem sugerida pela autoridade."},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "cliente_id": "cliente-a",
+        "enviado": True,
+        "motivo": "enviado",
+        "mensagem_id": "msg-http-wp017",
+    }
+    assert len(chamadas) == 1
+    assert chamadas[0]["legacy_cliente_id"] == 1
+    assert chamadas[0]["texto"] == "Mensagem sugerida pela autoridade."
+    assert chamadas[0]["contexto"].tenant_id == TENANT
+    assert chamadas[0]["contexto"].unidade_id == UNIDADE_A
+    assert chamadas[0]["contexto"].correlation_id == "corr-http-wp017"

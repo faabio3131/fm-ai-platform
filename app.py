@@ -106,7 +106,10 @@ from application.crm_cashback_comercial import (
     consultar_saldo_cashback_legado,
     creditar_cashback_manual,
 )
-from application.crm_marketing_comercial import despachar_resgate_whatsapp_legado
+from application.crm_marketing_comercial import (
+    despachar_resgate_cliente_inativo,
+    preparar_resgates_clientes_inativos,
+)
 
 from core.pdv.adaptadores_sqlalchemy import (
     LegacyPDVSQLAlchemyAdapter,
@@ -1059,14 +1062,12 @@ with aba2:
             "Disparos exigem vínculo CRM, consentimento WhatsApp/promocoes vigente e integração Meta homologada."
         )
 
-        data_corte_inativos = datetime.now() - timedelta(days=15)
-        clientes_inativos = (
-            db_crm_base.query(Cliente)
-            .filter(
-                (Cliente.ultima_compra <= data_corte_inativos)
-                | (Cliente.status == "Inativo")
-            )
-            .all()
+        clientes_inativos = preparar_resgates_clientes_inativos(
+            session_factory=SessionLocal,
+            tenant_id=CURRENT_IDENTITY.tenant_id,
+            unidade_id=CURRENT_IDENTITY.unidade_id,
+            genai_disponivel=GENAI_DISPONIVEL,
+            generate_content=generate_content,
         )
 
         st.markdown(
@@ -1075,7 +1076,9 @@ with aba2:
 
         if clientes_inativos:
             for cli in clientes_inativos:
-                saldo_cli, erro_saldo_cli = _saldo_cashback_canonico_ui(int(cli.id))
+                saldo_cli, erro_saldo_cli = _saldo_cashback_canonico_ui(
+                    cli.legacy_cliente_id
+                )
                 with st.container():
                     c_col1, c_col2, c_col3 = st.columns([2, 2, 3])
                     with c_col1:
@@ -1095,44 +1098,22 @@ with aba2:
                                 f"💳 Cashback disponível: **{formatar_moeda_br(saldo_cli)}**"
                             )
 
-                    msg_resgate_padrao = (
-                        f"Olá {cli.nome}! Sentimos sua falta. Preparamos um cupom "
-                        "exclusivo de 15% de desconto para você voltar hoje!"
-                    )
-                    if GENAI_DISPONIVEL:
-                        try:
-                            prompt_resg = (
-                                "Escreva uma mensagem curta, carinhosa e persuasiva de "
-                                f"WhatsApp para resgatar o cliente '{cli.nome}'. Ofereça "
-                                "15% de desconto com o cupom VOLTA15. Sem clichês em excesso."
-                            )
-                            resp_resg = generate_content(contents=prompt_resg)
-                            if resp_resg and resp_resg.text:
-                                msg_resgate_padrao = resp_resg.text.strip()
-                        except Exception:
-                            pass
-
                     with c_col3:
                         st.markdown("🤖 **Sugestão de Abordagem I.A.:**")
-                        st.info(f'"{msg_resgate_padrao}"')
+                        st.info(f'"{cli.mensagem_sugerida}"')
                         if st.button(
                             f"🚀 Disparar Campanha WhatsApp para {cli.nome}",
-                            key=f"btn_zap_resgate_{cli.id}",
+                            key=f"btn_zap_resgate_{cli.legacy_cliente_id}",
                             type="primary",
                         ):
                             try:
-                                chave_envio = (
-                                    f"crm-resgate-{cli.id}-{date.today().isoformat()}"
-                                )
-                                resultado_envio = despachar_resgate_whatsapp_legado(
+                                resultado_envio = despachar_resgate_cliente_inativo(
                                     session_factory=SessionLocal,
                                     contexto=CURRENT_IDENTITY.contexto(
                                         origem="app.crm.resgate"
                                     ),
-                                    legacy_cliente_id=int(cli.id),
-                                    campanha_ref=f"resgate-{date.today().isoformat()}",
-                                    texto=msg_resgate_padrao,
-                                    idempotency_key=chave_envio,
+                                    legacy_cliente_id=cli.legacy_cliente_id,
+                                    texto=cli.mensagem_sugerida,
                                 )
                                 if resultado_envio.enviado:
                                     st.success(

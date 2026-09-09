@@ -16,23 +16,34 @@ from application.crm_cashback_comercial import (
     CashbackComercialInvalido,
     creditar_cashback_manual,
 )
+from application.crm_marketing_comercial import (
+    despachar_resgate_cliente_inativo,
+    preparar_resgates_clientes_inativos,
+)
 from core.crm.erros import ErroCRM
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.erros import CredenciaisInvalidas, ErroSeguranca
 from core.seguranca.permissoes import Permissao
+from gemini_config import generate_content as real_generate_content
 from http_api.auth import AuthSessionRuntime
 from http_api.operational_auth import obter_identidade_operacional
 from infra.crm.cashback_sqlalchemy import RepositorioCashbackSQLAlchemy
 from infra.crm.cliente_legado_schema import crm_cliente_legado_v1
 from infra.crm.clientes_sqlalchemy import LeitorClientesCRMSQLAlchemy
 from infra.legacy_schema import clientes as clientes_legados
+from test_mode import is_test_mode, mock_generate_content
 
 SessionFactory = Callable[[], Session]
 _MAX_IDEMPOTENCY_KEY = 96
+generate_content = mock_generate_content if is_test_mode() else real_generate_content
 
 
 class CreditoCashbackIn(BaseModel):
     valor: Decimal = Field(gt=0)
+
+
+class DespachoResgateIn(BaseModel):
+    texto: str
 
 
 def _erro(http_status: int, codigo: str) -> JSONResponse:
@@ -166,6 +177,23 @@ def _movimento_out(movimento: Any) -> dict[str, Any]:
         "origem": movimento.origem,
         "referencia": movimento.referencia,
         "ocorrido_em": movimento.ocorrido_em.isoformat(),
+    }
+
+
+def _resgate_out(oportunidade: Any) -> dict[str, Any]:
+    return {
+        "legacy_cliente_id": oportunidade.legacy_cliente_id,
+        "cliente_id": oportunidade.cliente_id,
+        "nome": oportunidade.nome,
+        "whatsapp": oportunidade.whatsapp,
+        "ultima_compra": (
+            oportunidade.ultima_compra.isoformat()
+            if oportunidade.ultima_compra is not None
+            else None
+        ),
+        "total_gasto": oportunidade.total_gasto,
+        "status": oportunidade.status,
+        "mensagem_sugerida": oportunidade.mensagem_sugerida,
     }
 
 
@@ -303,6 +331,75 @@ def build_crm_router(
                 "cliente_id": resultado.cliente_id,
                 "legacy_cliente_id": resultado.legacy_cliente_id,
                 "saldo": str(resultado.saldo),
+            }
+        except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
+            return _tratar_erro(exc)
+
+    @router.get("/resgates/inativos", response_model=None)
+    def listar_resgates_inativos(
+        request: Request,
+    ) -> dict[str, Any] | JSONResponse:
+        try:
+            with session_factory() as session:
+                identidade, _ = _identidade(
+                    request,
+                    session,
+                    auth_runtime=auth_runtime,
+                )
+            _exigir(
+                identidade,
+                Permissao.CLIENTE_VISUALIZAR,
+                Permissao.CAMPANHA_CRIAR,
+            )
+            oportunidades = preparar_resgates_clientes_inativos(
+                session_factory=session_factory,
+                tenant_id=identidade.tenant_id,
+                unidade_id=identidade.unidade_id,
+                genai_disponivel=True,
+                generate_content=generate_content,
+            )
+            return {"itens": [_resgate_out(item) for item in oportunidades]}
+        except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
+            return _tratar_erro(exc)
+
+    @router.post("/resgates/{legacy_cliente_id}/despachar", response_model=None)
+    def despachar_resgate(
+        legacy_cliente_id: int,
+        payload: DespachoResgateIn,
+        request: Request,
+    ) -> dict[str, Any] | JSONResponse:
+        try:
+            with session_factory() as session:
+                identidade, modo = _identidade(
+                    request,
+                    session,
+                    auth_runtime=auth_runtime,
+                )
+            _exigir(
+                identidade,
+                Permissao.CLIENTE_VISUALIZAR,
+                Permissao.CAMPANHA_CRIAR,
+                Permissao.CAMPANHA_APROVAR,
+            )
+            if modo == "session":
+                _exigir(identidade, Permissao.ADMIN_ACESSAR)
+                _, elevado, _ = auth_runtime.admin_status(request)
+                if not elevado:
+                    raise PermissionError("seguranca.admin_step_up_exigido")
+            resultado = despachar_resgate_cliente_inativo(
+                session_factory=session_factory,
+                contexto=identidade.contexto(
+                    origem="crm_http_v1.resgate",
+                    correlation_id=request.headers.get("x-correlation-id") or None,
+                ),
+                legacy_cliente_id=legacy_cliente_id,
+                texto=payload.texto,
+            )
+            return {
+                "cliente_id": resultado.cliente_id,
+                "enviado": resultado.enviado,
+                "motivo": resultado.motivo,
+                "mensagem_id": resultado.mensagem_id,
             }
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _tratar_erro(exc)

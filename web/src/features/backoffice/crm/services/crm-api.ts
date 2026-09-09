@@ -35,6 +35,28 @@ export interface CashbackDetalhe {
   movimentos: CashbackMovimento[];
 }
 
+export interface ResgateClienteInativo {
+  legacy_cliente_id: number;
+  cliente_id: string;
+  nome: string;
+  whatsapp: string;
+  ultima_compra: string | null;
+  total_gasto: number;
+  status: string;
+  mensagem_sugerida: string;
+}
+
+export interface ResgatesClientesInativos {
+  itens: ResgateClienteInativo[];
+}
+
+export interface ResultadoDespachoResgate {
+  cliente_id: string;
+  enviado: boolean;
+  motivo: string;
+  mensagem_id: string | null;
+}
+
 export class CrmApiError extends Error {
   constructor(
     message: string,
@@ -97,4 +119,18 @@ export function creditarCashback(
       body: JSON.stringify({ valor }),
     },
   );
+}
+
+export function listarResgatesInativos(): Promise<ResgatesClientesInativos> {
+  return request("/v1/crm/resgates/inativos");
+}
+
+export function despacharResgate(
+  legacyClienteId: number,
+  texto: string,
+): Promise<ResultadoDespachoResgate> {
+  return request(`/v1/crm/resgates/${legacyClienteId}/despachar`, {
+    method: "POST",
+    body: JSON.stringify({ texto }),
+  });
 }
