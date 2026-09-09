@@ -6,6 +6,7 @@ import {
   LoaderCircle,
   PackagePlus,
   RefreshCw,
+  ScanLine,
   Trash2,
   Warehouse,
 } from "lucide-react";
@@ -15,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/features/auth/store/auth-store";
 import {
   aplicarLeituraEstoque,
+  aplicarLeituraVisualEstoque,
   criarInsumo,
   executarForecastingAlertas,
   excluirInsumo,
@@ -62,6 +64,8 @@ export function EstoqueWorkspace() {
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [resultadoForecasting, setResultadoForecasting] = useState<string | null>(null);
+  const [arquivoLeituraVisual, setArquivoLeituraVisual] = useState<File | null>(null);
+  const [itensLeituraVisual, setItensLeituraVisual] = useState<unknown>(null);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -179,6 +183,43 @@ export function EstoqueWorkspace() {
             <p className="mt-4 rounded-xl border border-violet-300/20 bg-slate-950/50 p-3 text-sm text-slate-200">
               {resultadoForecasting}
             </p>
+          ) : null}
+        </section>
+
+        <section className="rounded-2xl border border-sky-400/20 bg-sky-500/5 p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <label className="block flex-1 text-xs font-semibold text-slate-400">
+              <span className="flex items-center gap-2 text-base font-bold text-white">
+                <ScanLine className="size-5 text-sky-300" /> Leitor de nota fiscal ou rótulo
+              </span>
+              <span className="mt-1 block text-sm font-normal text-slate-400">
+                Envie uma foto para ler nome, quantidade e datas de validade.
+              </span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png"
+                onChange={(event) => setArquivoLeituraVisual(event.target.files?.[0] ?? null)}
+                className="mt-3 block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-sky-500/20 file:px-3 file:py-1 file:text-sky-200"
+              />
+            </label>
+            <Button
+              type="button"
+              disabled={busy || !arquivoLeituraVisual}
+              onClick={() => void operar(async () => {
+                if (!arquivoLeituraVisual) return;
+                const resultado = await aplicarLeituraVisualEstoque(arquivoLeituraVisual);
+                setItensLeituraVisual(resultado.itens_lidos);
+                setAviso("Leitura concluída! Validades salvas no banco de dados.");
+              })}
+            >
+              {busy ? <LoaderCircle className="animate-spin" /> : <ScanLine />}
+              Processar leitura com IA
+            </Button>
+          </div>
+          {itensLeituraVisual !== null ? (
+            <pre className="mt-4 overflow-x-auto rounded-xl border border-sky-300/20 bg-slate-950/70 p-3 text-xs text-slate-300">
+              {JSON.stringify(itensLeituraVisual, null, 2)}
+            </pre>
           ) : null}
         </section>
 

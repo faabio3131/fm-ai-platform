@@ -67,7 +67,9 @@ async function apiError(response: Response): Promise<EstoqueApiError> {
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
-  if (init.body) headers.set("Content-Type", "application/json");
+  if (init.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -107,4 +109,18 @@ export function aplicarLeituraEstoque(
 
 export function executarForecastingAlertas(): Promise<{ mensagem: string }> {
   return request("/v1/estoque/forecasting-alertas", { method: "POST" });
+}
+
+export function aplicarLeituraVisualEstoque(
+  arquivo: File,
+): Promise<{
+  processados: number;
+  itens_lidos: unknown;
+  itens: EstoqueInsumo[];
+}> {
+  return request("/v1/estoque/leituras-visuais", {
+    method: "POST",
+    headers: { "Content-Type": arquivo.type },
+    body: arquivo,
+  });
 }

@@ -80,10 +80,8 @@ from pdv_utils import (
 )
 
 from datetime import datetime, timedelta, date
-import json
 from dotenv import load_dotenv
 import pandas as pd  # type: ignore[import-untyped]
-from PIL import Image
 from sqlalchemy import (
     Column,
     DateTime,
@@ -99,6 +97,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from application.legacy_cardapio_gemini import AplicacaoImportacaoCardapioGeminiV1
 from application.legacy_cardapio_transacoes import AplicacaoLegacyCardapioV1
 from application.legacy_estoque_forecasting import AplicacaoForecastingEstoqueV1
+from application.legacy_estoque_leitura_visual import AplicacaoLeituraVisualEstoqueV1
 from application.legacy_estoque_transacoes import AplicacaoLegacyEstoqueV1
 from application.legacy_gateway_teste_transacoes import AplicacaoLegacyGatewayTesteV1
 from application.legacy_cliente_e2e_transacoes import AplicacaoLegacyClienteE2EV1
@@ -2227,78 +2226,17 @@ with aba4:
                     "🤖 O Gemini está lendo os produtos e as datas de validade..."
                 ):
                     try:
-                        img_pil = Image.open(arquivo_nf_cad)
-                        prompt_ocr = """Você é um auditor de estoque. Analise esta imagem.
-                        Extraia os itens e retorne APENAS um array JSON válido no formato: 
-                        [{"nome": "Produto", "unidade": "kg", "quantidade": 5.0, "valor_unitario": 12.50, "data_validade": "YYYY-MM-DD"}]
-                        Se não encontrar a validade na imagem, preencha o campo data_validade com null.
-                        Retorne EXCLUSIVAMENTE o JSON puro (sem markdown)."""
-
-                        resp_cad = generate_content(contents=[prompt_ocr, img_pil])
-                        texto_ocr = (
-                            resp_cad.text.strip()
-                            .replace("```json", "")
-                            .replace("```", "")
-                            .strip()
+                        resultado_leitura = AplicacaoLeituraVisualEstoqueV1(
+                            application_estoque
+                        ).executar(
+                            contexto_estoque,
+                            fonte_imagem=arquivo_nf_cad,
+                            generate_content=generate_content,
                         )
-                        itens_lidos = json.loads(texto_ocr)
-
-                        itens_para_aplicar = []
-
-                        for item in itens_lidos:
-                            nome_l = str(
-                                item.get(
-                                    "nome",
-                                    "",
-                                )
-                            ).strip()
-                            qtd_l = float(
-                                item.get(
-                                    "quantidade",
-                                    0.0,
-                                )
-                            )
-                            val_str = item.get(
-                                "data_validade"
-                            )
-
-                            val_obj = None
-
-                            if val_str:
-                                try:
-                                    val_obj = datetime.strptime(
-                                        val_str,
-                                        "%Y-%m-%d",
-                                    )
-                                except ValueError:
-                                    pass
-
-                            if nome_l and qtd_l > 0:
-                                itens_para_aplicar.append(
-                                    {
-                                        "nome":
-                                            nome_l,
-                                        "quantidade":
-                                            qtd_l,
-                                        "unidade":
-                                            item.get(
-                                                "unidade",
-                                                "un",
-                                            ),
-                                        "data_validade":
-                                            val_obj,
-                                    }
-                                )
-
-                        if itens_para_aplicar:
-                            application_estoque.aplicar_lote_leitura(
-                                contexto_estoque,
-                                itens=itens_para_aplicar,
-                            )
                         st.success(
                             "🎉 Leitura concluída! Validades salvas no banco de dados."
                         )
-                        st.json(itens_lidos)
+                        st.json(resultado_leitura.itens_lidos)
                     except Exception as e:
                         st.error(f"❌ Erro na leitura: {e}")
 

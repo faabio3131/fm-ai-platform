@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 from collections.abc import Callable, Sequence
 from datetime import date, datetime
 from typing import Any, cast
@@ -14,6 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from application.legacy_estoque_forecasting import AplicacaoForecastingEstoqueV1
+from application.legacy_estoque_leitura_visual import AplicacaoLeituraVisualEstoqueV1
 from application.legacy_estoque_transacoes import AplicacaoLegacyEstoqueV1
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.erros import (
@@ -105,6 +107,7 @@ def build_estoque_router(
     router = APIRouter(prefix="/v1/estoque", tags=["estoque"])
     aplicacao = AplicacaoLegacyEstoqueV1(session_factory)
     aplicacao_forecasting = AplicacaoForecastingEstoqueV1()
+    aplicacao_leitura_visual = AplicacaoLeituraVisualEstoqueV1(aplicacao)
 
     def _identidade(request: Request) -> tuple[IdentidadeUsuario, str]:
         with session_factory() as session:
@@ -307,6 +310,61 @@ def build_estoque_router(
             )
         except Exception as exc:  # noqa: BLE001 - fronteira HTTP fail-closed
             return _tratar_erro(exc)
+
+    @router.post("/leituras-visuais")
+    async def aplicar_leitura_visual(request: Request) -> JSONResponse:
+        try:
+            contexto = _contexto(
+                request,
+                permissao=Permissao.ESTOQUE_AJUSTAR,
+                exigir_step_up=True,
+            )
+            content_type = (
+                request.headers.get("content-type", "")
+                .partition(";")[0]
+                .strip()
+                .casefold()
+            )
+            if content_type not in {"image/jpeg", "image/png"}:
+                return _erro(
+                    status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                    "estoque.leitura_visual_tipo_invalido",
+                )
+            arquivo = await request.body()
+            if not arquivo:
+                return _erro(
+                    status.HTTP_400_BAD_REQUEST,
+                    "estoque.leitura_visual_arquivo_obrigatorio",
+                )
+
+            resultado = aplicacao_leitura_visual.executar(
+                contexto,
+                fonte_imagem=io.BytesIO(arquivo),
+                generate_content=generate_content,
+            )
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "processados": resultado.processados,
+                    "itens_lidos": resultado.itens_lidos,
+                    "itens": _listar(contexto),
+                },
+            )
+        except (
+            CredenciaisInvalidas,
+            PermissionError,
+            ErroSeguranca,
+            ReferenciaSegredoInvalida,
+            SegredoAusente,
+            ErroEscopoLojaLegada,
+            IntegrityError,
+        ) as exc:
+            return _tratar_erro(exc)
+        except Exception:  # noqa: BLE001 - erro do provider/imagem sanitizado
+            return _erro(
+                status.HTTP_502_BAD_GATEWAY,
+                "estoque.leitura_visual_falhou",
+            )
 
     @router.delete("/insumos/{insumo_id}")
     def excluir_insumo(insumo_id: str, request: Request) -> JSONResponse:
