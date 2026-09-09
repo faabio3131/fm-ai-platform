@@ -2,7 +2,7 @@
 
 **Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`  
 **Data:** 08/09/2026  
-**Versao do inventario:** 1.7 - WP-019 em implementação candidata
+**Versao do inventario:** 1.8 - checkpoint documental WP-030 / WP-031 / WP-032
 **Status:** DOCUMENTO MESTRE DE EXECUCAO
 
 ## 1. Regra constitucional deste inventario
@@ -14,7 +14,10 @@ Uma capacidade so pode ser marcada como **MIGRADO** quando a cadeia necessaria e
 - PARCIAL: **11**.
 - GAP WEB: **0**.
 - GAP HTTP/WEB: **10**.
-- A VERIFICAR: **3**.
+- GAP HTTP/WEB/PÚBLICO: **1** (WP-030, obrigatória para V1.0).
+- GAP HTTP/WEB ADMINISTRATIVO: **1** (WP-032, obrigatória para V1.0).
+- BACKLOG FUTURO: **1** (WP-031, fora da migração conservativa Web V1 atual).
+- A VERIFICAR: **0**.
 - A rota `/` usa Home/Dashboard comercial real dentro do Shell Corporativo Unificado; o antigo harness tecnico permanece em `/admin/system-health`.
 - A Central de Pedidos omnichannel esta certificada na nova Web em `/pedidos`, com sessao assinada, RBAC, fila unificada, detalhe, financeiro, timeline e mutacao governada.
 - Visual Premium permanece bloqueado ate a paridade funcional Web da V1 atingir 100% das capacidades obrigatorias.
@@ -63,9 +66,9 @@ Uma capacidade so pode ser marcada como **MIGRADO** quando a cadeia necessaria e
 | WP-027 | Assistente de Atendimento - operacao/governanca | core/assistente_atendimento; application/assistente_*; WhatsApp webhook; E2E legado | Identidade GET/PUT e webhooks existem; parte usa Basic legado | Nenhuma rota Next.js | PARCIAL | Criar HTTP session-aware e /atendimento ou /admin/ia; nome exibido deve vir da identidade configurada. |
 | WP-028 | Gerente IA | core/gerente_ia; application/gerente_ia_* | /v1/core/tools, confirmar, perguntar; Basic legado | Nenhuma rota Next.js | PARCIAL | Criar facade session-aware, UI conversacional/decisao e trilha de confirmacao. |
 | WP-029 | Pagamentos / PIX / Provedores | core/pagamentos; application/pagbank.py; webhook PagBank; PDV | Operacao existe; configuracao/observabilidade Web incompletas | Pagamento aparece no PDV, sem console provedor | PARCIAL | Certificar checkout Web + conciliacao; mover configuracao de provedores para Credenciais. |
-| WP-030 | Cardapio Digital publico / Autosservico | Delivery checkout e cardapio legado sugerem componentes, mas escopo publico nao certificado | Nao confirmado | Nao confirmado | A VERIFICAR | Auditar requisito V1 oficial e codigo antes de criar rota publica. |
-| WP-031 | Fiscal / NFC-e / SAT / emissao fiscal | Nenhuma evidencia suficiente nesta auditoria para declarar capacidade V1 | Nao confirmado | Nao confirmado | A VERIFICAR | Conferir Plano Mestre V1 e repositorio; nao implementar nem prometer sem evidencia. |
-| WP-032 | Notificacoes internas | core/notificacoes_internas; application/notificacoes_internas.py | Sem contrato Web dedicado identificado | Sem UI dedicada | A VERIFICAR | Decidir se exige centro de notificacoes Web ou permanece servico transversal. |
+| WP-030 | Cardápio Digital público / Autosserviço | Reutilizar futuramente Catálogo, Pedido/Checkout, Delivery, Central de Pedidos e Pagamentos | GAP HTTP/WEB/PÚBLICO | PENDENTE DE IMPLANTAÇÃO | OBRIGATÓRIA PARA V1.0 | Implantar em ciclo futuro; sem segundo catálogo/pedido/checkout, domínio paralelo ou totem/hardware. |
+| WP-031 | Fiscal / NFC-e / SAT | Classificação aprovada pelo proprietário neste ciclo | Fora do escopo | Fora do escopo | BACKLOG FUTURO | FORA DA MIGRAÇÃO CONSERVATIVA WEB V1 ATUAL; não criar NFC-e, SAT, provider fiscal ou novo domínio fiscal. |
+| WP-032 | Notificações Internas | DOMÍNIO CANÔNICO EXISTENTE: core/notificacoes_internas; application/notificacoes_internas | GAP HTTP/WEB ADMINISTRATIVO | PENDENTE | OBRIGATÓRIA PARA V1.0 | Futuramente expor configuração de destinatários, preferências e alertas; sem inbox, feed, lido/não lido, badge ou central genérica de mensagens. |
 | WP-033 | Auditoria / Historico administrativo | admin proprietario legado; repositorios de auditoria | Sem tela/contrato Web de consulta confirmado | Sem tela Next.js | GAP HTTP/WEB | Criar consulta auditavel no Backoffice, sem expor segredos. |
 
 ## 5. Capacidades historicas comprovadas na UI Streamlit
@@ -124,6 +127,7 @@ Cada PR do WEB-PARITY-V1 deve: (a) citar IDs WP afetados; (b) atualizar este inv
 - `tests/e2e/`
 
 ## 11. Registro de execucao
+- **09/09/2026 - Checkpoint documental do ciclo WP-020 + WP-022:** por decisão explícita do proprietário, WP-030 e WP-032 são obrigatórias para V1.0 e permanecem pendentes; WP-031 é backlog futuro, fora desta migração. Este checkpoint não implementa essas capacidades. Base inicial confirmada local/remoto: `d261a94e854334d9fdf9c073e8af73f557f31114`, PR #118 OPEN/DRAFT. Este ciclo termina após WP-022; sem WP-023, Smoke Mestre, certificação integrada, merge ou deploy.
 - **08/09/2026 - WP-003 + WP-004 iniciados** na branch `feat/web-parity-v1-wp003-wp004-shell-dashboard`, a partir da baseline certificada `22bf22c05641fb4340c48f65d39514dc37d649fe`.
 - O candidato implementou Shell persistente, navegacao filtrada por RBAC, troca de unidade, logout, Home comercial real, fail-closed para todas as rotas Web nao publicas e realocacao do health harness para `/admin/system-health`.
 - **Matriz automatizada da PR #115: 15/15 workflows SUCCESS**, incluindo lint, production build/typecheck, regressao backend e gates comerciais existentes.
