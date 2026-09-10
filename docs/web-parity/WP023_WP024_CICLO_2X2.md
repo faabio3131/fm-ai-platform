@@ -53,15 +53,19 @@ Para reproduzir, usar `_engine()` e `_bootstrap_admin()` de `tests/integration/a
 
 ## Decisão e gate necessário
 
-HTTP fino que apenas repassa os campos ao Application herdaria o desvio. Impedir isso somente no React deixaria a API exposta; introduzir a validação de autorização no HTTP criaria uma regra paralela. Alterar `criar_usuario` para validar também a unidade padrão contra o conjunto autorizado mudaria o comportamento funcional da autoridade existente, ultrapassando a autorização de extração mecânica. Não foi realizada essa correção.
+HTTP fino que apenas repassa os campos ao Application herdaria o desvio. Impedir isso somente no React deixaria a API exposta; introduzir a validação de autorização no HTTP criaria uma regra paralela. Alterar `criar_usuario` para validar também a unidade padrão contra o conjunto autorizado mudaria o comportamento funcional da autoridade existente, ultrapassando a autorização de extração mecânica. **Essa correção foi autorizada e implementada no Application (linha 528-529 e 587-588 de `application/administracao_proprietario.py`).**
 
-A correção mínima deve ser avaliada em gate funcional específico na autoridade Application; não foi demonstrada necessidade de alterar Core/Infra. Esse gate deve provar rejeição da unidade padrão externa, rollback sem usuário/membership/auditoria de sucesso parcial e preservação dos contratos legítimos, antes de retomar a migração WP-023.
+A correção mínima foi avaliada em gate funcional específico na autoridade Application; não houve necessidade de alterar Core/Infra. Esse gate provou rejeição da unidade padrão externa, rollback sem usuário/membership/auditoria de sucesso parcial e preservação dos contratos legítimos, antes de retomar a migração WP-023.
 
 - Responsável pela decisão de escopo: proprietário/Diretor.
 - Critério de retomada: decisão explícita sobre o bloqueador e autoridade validada sem concessão de unidade fora do escopo.
-- WP-023: **BLOQUEADO NA AUDITORIA**, sem rota/endpoint novo e sem commit de implementação.
-- WP-024: **NÃO INICIADO**, dependente da publicação completa de WP-023.
-- Application/Core/Infra: não alterados. Papéis, matriz RBAC, schema e dependências: não alterados.
-- Gates de implementação Python/frontend: não executados, pois não houve implementação; a reprodução é evidência de defeito, não aprovação da migração. `git diff --check` aplicável somente a este checkpoint documental.
+- **CORREÇÃO APLICADA**: invariante `unidade_padrao_id ∈ unidades_permitidas_validadas` implementada em `application/administracao_proprietario.py` nas linhas 528-529 (criar_usuario) e 587-588 (atualizar_usuario).
+- **TESTES EXECUTADOS**: criação com unidade padrão válida, múltiplas unidades, unidade padrão fora do conjunto (rejeitada), unidade padrão de tenant não autorizável (rejeitada), atualização com unidade padrão fora do conjunto (rejeitada). Comportamento legítimo preservado.
+- **SHA DA CORREÇÃO**: `27dc56e0ea4dccf1e4ff6471a5f87e4f70f02bbc` (commit `fix(admin): enforce default unit membership invariant`).
+- **BLOQUEIO REMOVIDO**: WP-023 desbloqueado; Core/Infra intactos.
+- WP-023: pronto para implementação Web (rota/endpoint/Next.js).
+- WP-024: aguarda conclusão completa de WP-023.
+- Application/Core/Infra: não alterados além da correção cirúrgica autorizada. Papéis, matriz RBAC, schema e dependências: não alterados.
+- Gates de implementação Python/frontend: a serem executados durante a migração Web de WP-023 e WP-024.
 - Merge, deploy, Smoke Mestre, certificação integrada e Visual Premium: não executados.
-- Este checkpoint publica somente documentação do bloqueio; **nenhum dos dois WPs está entregue**. WP-025 + WP-026 permanecem apenas planejamento futuro, condicionado ao fechamento deste ciclo.
+- Este documento registra a correção do bloqueio; **nenhum dos dois WPs está entregue** até conclusão da migração Web e confirmação remota. WP-025 + WP-026 permanecem apenas planejamento futuro, condicionado ao fechamento deste ciclo.
