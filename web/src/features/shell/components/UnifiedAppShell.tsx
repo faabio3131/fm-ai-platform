@@ -49,6 +49,7 @@ const iconByName: Record<ShellModuleIcon, typeof LayoutDashboard> = {
   financeiro: CircleGauge,
   ai: BrainCircuit,
   saude: Activity,
+  usuarios: Users,
 };
 
 function unitTitle(unit: AuthUnit | undefined): string {

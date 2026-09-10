@@ -10,7 +10,8 @@ export type ShellModuleIcon =
   | "crm"
   | "financeiro"
   | "ai"
-  | "saude";
+  | "saude"
+  | "usuarios";
 
 export interface ShellModuleDefinition {
   id: string;
@@ -165,6 +166,16 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     icon: "saude",
     available: true,
     allPermissions: ["admin.acessar"],
+  },
+  {
+    id: "usuarios",
+    label: "Usuários e Permissões",
+    description: "Cadastro, papéis, unidades permitidas e unidade padrão.",
+    href: "/admin/usuarios",
+    group: "proprietario",
+    icon: "usuarios",
+    available: true,
+    allPermissions: ["admin.acessar", "usuario.gerenciar"],
   },
 ] as const;
 

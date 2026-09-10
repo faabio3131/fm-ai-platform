@@ -42,6 +42,7 @@ const iconByName: Record<ShellModuleIcon, typeof ShoppingCart> = {
   financeiro: CircleGauge,
   ai: BrainCircuit,
   saude: Activity,
+  usuarios: Users,
 };
 
 function ModuleCard({ module }: { module: ShellModuleDefinition }) {
