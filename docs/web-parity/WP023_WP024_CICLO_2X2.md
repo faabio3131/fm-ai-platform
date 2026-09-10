@@ -63,9 +63,27 @@ A correção mínima foi avaliada em gate funcional específico na autoridade Ap
 - **TESTES EXECUTADOS**: criação com unidade padrão válida, múltiplas unidades, unidade padrão fora do conjunto (rejeitada), unidade padrão de tenant não autorizável (rejeitada), atualização com unidade padrão fora do conjunto (rejeitada). Comportamento legítimo preservado.
 - **SHA DA CORREÇÃO**: `27dc56e0ea4dccf1e4ff6471a5f87e4f70f02bbc` (commit `fix(admin): enforce default unit membership invariant`).
 - **BLOQUEIO REMOVIDO**: WP-023 desbloqueado; Core/Infra intactos.
-- WP-023: pronto para implementação Web (rota/endpoint/Next.js).
-- WP-024: aguarda conclusão completa de WP-023.
-- Application/Core/Infra: não alterados além da correção cirúrgica autorizada. Papéis, matriz RBAC, schema e dependências: não alterados.
-- Gates de implementação Python/frontend: a serem executados durante a migração Web de WP-023 e WP-024.
+
+## Migração Web WP-023 — Concluída
+
+- **Rota Web**: `/admin/usuarios`
+- **Posição no Shell/Backoffice**: Item "Usuários e Permissões" na seção Proprietário (após "Saúde do sistema")
+- **Nav item criado**: `id="usuarios"` com ícone `usuarios` (Users), `allPermissions: ["admin.acessar", "usuario.gerenciar"]`
+- **Permissões utilizadas**: `admin.acessar` (gate administrativo) + `usuario.gerenciar` (operação de usuários); `permissao.gerenciar` exigida via step-up para operações sensíveis (admin_sensivel, papel ADMINISTRADOR)
+- **APIs/fachadas utilizadas**: `POST/GET/PUT /v1/admin/usuarios` via `http_api/admin_usuarios.py` → `AplicacaoAdministracaoProprietarioV1.listar_usuarios/criar_usuario/atualizar_usuario`
+- **Arquivos alterados**: `http_api/admin_usuarios.py` (novo), `http_api/frontend_app.py`, `web/src/app/admin/usuarios/page.tsx`, `web/src/features/backoffice/usuarios/components/UsuariosWorkspace.tsx`, `web/src/features/shell/module-registry.ts`, `web/src/features/shell/components/DashboardHome.tsx`, `web/src/features/shell/components/UnifiedAppShell.tsx`
+- **Testes executados**: testes de integração administrativos (4 passam), testes de contrato HTTP admin (20 passam), validação manual do invariante `unidade_padrao_id ∈ unidades_permitidas`
+- **Core/Infra intactos**: sim
+- **SHA DA MIGRAÇÃO WEB**: `ebe863311775feb158a450ef60ee122810857e90` (commit `feat(web-parity): WP023 Usuários/RBAC Web migration`)
+
+## WP-024 Parâmetros Financeiros — Iniciado
+
+- **Objetivo**: Migrar para Web os parâmetros financeiros/operacionais NÃO SECRETOS já existentes em `ConfiguracaoEstabelecimento`
+- **Campos**: `formas_pagamento`, `taxa_servico_percentual`, `parametros_operacionais`, `politica_financeira`, `versao`
+- **Permissão canônica**: `configuracao.alterar`
+- **Proteção contra segredos**: modelo canônico rejeita chaves sensíveis (access_token, api_key, password, secret, token, pix_key, etc.)
+- **Reutilização obrigatória**: Backoffice existente, sessão `fm_ai_session`, tenant/unidade da sessão, guards existentes
+
+- Application/Core/Infra: não alterados. Papéis, matriz RBAC, schema e dependências: não alterados.
 - Merge, deploy, Smoke Mestre, certificação integrada e Visual Premium: não executados.
-- Este documento registra a correção do bloqueio; **nenhum dos dois WPs está entregue** até conclusão da migração Web e confirmação remota. WP-025 + WP-026 permanecem apenas planejamento futuro, condicionado ao fechamento deste ciclo.
+- WP-025 + WP-026 permanecem apenas planejamento futuro, condicionado ao fechamento deste ciclo.
