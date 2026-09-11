@@ -23,6 +23,17 @@ export interface Unidade {
   versao: number;
 }
 
+export interface ConfiguracaoFinanceira {
+  tenant_id: string;
+  unidade_id: string;
+  formas_pagamento: string[];
+  taxa_servico_percentual: string;
+  parametros_operacionais: Record<string, unknown>;
+  politica_financeira: Record<string, unknown>;
+  versao: number;
+  atualizado_em: string | null;
+}
+
 export interface CadastroEmpresa {
   empresa: Empresa;
   unidades: Unidade[];
@@ -62,4 +73,13 @@ export function salvarUnidade(unidadeId: string, unidade: Omit<Unidade, "unidade
 
 export function criarUnidade(unidade: Pick<Unidade, "unidade_id" | "codigo" | "nome_fantasia" | "tipo" | "endereco" | "horarios">): Promise<Unidade> {
   return request("/unidades", "POST", unidade);
+}
+
+export async function obterConfiguracao(unidadeId: string): Promise<ConfiguracaoFinanceira> {
+  await request("/acesso", "POST");
+  return request<ConfiguracaoFinanceira>(`/configuracao/${encodeURIComponent(unidadeId)}`);
+}
+
+export function salvarConfiguracao(unidadeId: string, config: Omit<ConfiguracaoFinanceira, "tenant_id" | "unidade_id" | "atualizado_em">): Promise<ConfiguracaoFinanceira> {
+  return request(`/configuracao/${encodeURIComponent(unidadeId)}`, "PUT", config);
 }

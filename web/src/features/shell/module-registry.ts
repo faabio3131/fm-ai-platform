@@ -11,7 +11,8 @@ export type ShellModuleIcon =
   | "financeiro"
   | "ai"
   | "saude"
-  | "usuarios";
+  | "usuarios"
+  | "configuracao";
 
 export interface ShellModuleDefinition {
   id: string;
@@ -176,6 +177,16 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     icon: "usuarios",
     available: true,
     allPermissions: ["admin.acessar", "usuario.gerenciar"],
+  },
+  {
+    id: "configuracao",
+    label: "Parâmetros Financeiros",
+    description: "Formas de pagamento, taxa de serviço e parâmetros operacionais por unidade.",
+    href: "/admin/configuracao",
+    group: "proprietario",
+    icon: "configuracao",
+    available: true,
+    allPermissions: ["admin.acessar", "configuracao.alterar"],
   },
 ] as const;
 

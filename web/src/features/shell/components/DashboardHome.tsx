@@ -10,6 +10,7 @@ import {
   Package,
   ShieldCheck,
   ShoppingCart,
+  SlidersHorizontal,
   Users,
   Warehouse,
 } from "lucide-react";
@@ -43,6 +44,7 @@ const iconByName: Record<ShellModuleIcon, typeof ShoppingCart> = {
   ai: BrainCircuit,
   saude: Activity,
   usuarios: Users,
+  configuracao: SlidersHorizontal,
 };
 
 function ModuleCard({ module }: { module: ShellModuleDefinition }) {

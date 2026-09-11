@@ -12,6 +12,7 @@ import {
   Package,
   ShieldCheck,
   ShoppingCart,
+  SlidersHorizontal,
   Users,
   Warehouse,
 } from "lucide-react";
@@ -50,6 +51,7 @@ const iconByName: Record<ShellModuleIcon, typeof LayoutDashboard> = {
   ai: BrainCircuit,
   saude: Activity,
   usuarios: Users,
+  configuracao: SlidersHorizontal,
 };
 
 function unitTitle(unit: AuthUnit | undefined): string {
