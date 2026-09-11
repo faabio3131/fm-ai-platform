@@ -28,6 +28,11 @@ const FORMAS_PAGAMENTO_DISPONIVEIS = [
 
 type FormaPagamento = typeof FORMAS_PAGAMENTO_DISPONIVEIS[number];
 
+interface UnidadeResumo {
+  unidade_id: string;
+  nome_fantasia: string;
+}
+
 interface ConfiguracaoWorkspaceState {
   configuracoes: Record<string, ConfiguracaoFinanceira>;
   unidades: { unidade_id: string; nome_fantasia: string }[];
@@ -72,7 +77,7 @@ export function ConfiguracaoWorkspace() {
         const data = await res.json();
         setState((s) => ({
           ...s,
-          unidades: data.unidades.map((u: any) => ({
+          unidades: data.unidades.map((u: UnidadeResumo) => ({
             unidade_id: u.unidade_id,
             nome_fantasia: u.nome_fantasia,
           })),
@@ -143,7 +148,7 @@ export function ConfiguracaoWorkspace() {
     }));
   }, []);
 
-  const handleChange = useCallback((field: string, value: any) => {
+  const handleChange = useCallback((field: string, value: unknown) => {
     setState((s) => ({ ...s, form: { ...s.form, [field]: value } }));
   }, []);
 

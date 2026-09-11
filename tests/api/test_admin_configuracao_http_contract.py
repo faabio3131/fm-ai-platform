@@ -1,19 +1,23 @@
 from __future__ import annotations
 
 from decimal import Decimal
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from core.runtime.config import RuntimeEnvironment, RuntimeSettings
-from core.seguranca.permissoes import Papel
-from http_api.frontend_app import build_frontend_http_app
-from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
-from infra.administracao.repositorio_sqlalchemy import RepositorioAdministracaoSQLAlchemy
-from migrations.runner import run_migrations
 from application.administracao_proprietario import AplicacaoAdministracaoProprietarioV1
 from core.administracao import ConfiguracaoEstabelecimento
+from core.runtime.config import RuntimeEnvironment, RuntimeSettings
+from core.seguranca.contexto import ContextoExecucao
+from core.seguranca.permissoes import Papel
+from http_api.frontend_app import build_frontend_http_app
+from infra.administracao.repositorio_sqlalchemy import (
+    RepositorioAdministracaoSQLAlchemy,
+)
+from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
+from migrations.runner import run_migrations
 
 SESSION_SECRET = "admin-config-session-secret-0123456789"
 SENHA = "Senha-Segura-Config-123"
@@ -79,7 +83,7 @@ def _login(client: TestClient, *, elevar: bool = True) -> None:
         assert response.status_code == 200
 
 
-def _contexto_admin(factory) -> "ContextoExecucao":
+def _contexto_admin(factory) -> ContextoExecucao:
     with factory() as session:
         repo = RepositorioIdentidadesSQLAlchemy(session)
         identidade = repo.obter_por_email(ADMIN_EMAIL)
