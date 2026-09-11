@@ -76,14 +76,37 @@ A correção mínima foi avaliada em gate funcional específico na autoridade Ap
 - **Core/Infra intactos**: sim
 - **SHA DA MIGRAÇÃO WEB**: `ebe863311775feb158a450ef60ee122810857e90` (commit `feat(web-parity): WP023 Usuários/RBAC Web migration`)
 
-## WP-024 Parâmetros Financeiros — Iniciado
+## WP-024 Parâmetros Financeiros — Concluído
 
-- **Objetivo**: Migrar para Web os parâmetros financeiros/operacionais NÃO SECRETOS já existentes em `ConfiguracaoEstabelecimento`
-- **Campos**: `formas_pagamento`, `taxa_servico_percentual`, `parametros_operacionais`, `politica_financeira`, `versao`
-- **Permissão canônica**: `configuracao.alterar`
-- **Proteção contra segredos**: modelo canônico rejeita chaves sensíveis (access_token, api_key, password, secret, token, pix_key, etc.)
-- **Reutilização obrigatória**: Backoffice existente, sessão `fm_ai_session`, tenant/unidade da sessão, guards existentes
-
-- Application/Core/Infra: não alterados. Papéis, matriz RBAC, schema e dependências: não alterados.
-- Merge, deploy, Smoke Mestre, certificação integrada e Visual Premium: não executados.
-- WP-025 + WP-026 permanecem apenas planejamento futuro, condicionado ao fechamento deste ciclo.
+- **Rota Web**: `/admin/configuracao`
+- **Posição no Shell/Backoffice**: Item "Parâmetros Financeiros" na seção Proprietário (após "Usuários e Permissões")
+- **Nav item criado**: `id="configuracao"` com ícone `configuracao` (SlidersHorizontal), `allPermissions: ["admin.acessar", "configuracao.alterar"]`
+- **Permissões utilizadas**: `admin.acessar` (gate administrativo) + `configuracao.alterar` (operação de configuração)
+- **APIs/fachadas utilizadas**: `GET/PUT /v1/admin/configuracao/{unidade_id}` via `http_api/admin_configuracao.py` → `AplicacaoAdministracaoProprietarioV1.obter_configuracao/salvar_configuracao`
+- **Arquivos criados/alterados**:
+  - `http_api/admin_configuracao.py` (novo) — DTOs e router HTTP
+  - `http_api/frontend_app.py` — registro do router
+  - `tests/api/test_admin_configuracao_http_contract.py` (novo) — 9 testes de contrato
+  - `web/src/app/admin/configuracao/page.tsx` (novo)
+  - `web/src/features/backoffice/empresa/services/empresa-api.ts` — interface `ConfiguracaoFinanceira` + `obterConfiguracao`/`salvarConfiguracao`
+  - `web/src/features/backoffice/empresa/components/ConfiguracaoWorkspace.tsx` (novo) — UI tabela + formulário de edição
+  - `web/src/features/shell/module-registry.ts` — módulo `configuracao`
+  - `web/src/features/shell/components/DashboardHome.tsx` — ícone SlidersHorizontal
+  - `web/src/features/shell/components/UnifiedAppShell.tsx` — ícone SlidersHorizontal
+  - `web/src/components/ui/label.tsx` (novo) — componente Label reutilizável
+- **Testes executados**:
+  - 9 testes HTTP novos (`test_admin_configuracao_http_contract.py`): 9/9 passam
+  - 25 testes relacionados à configuração: 25/25 passam (inclui integração, unit, fitness)
+  - Ruff: clean (imports ordenados, F821 corrigido)
+  - ESLint: clean para arquivos WP-024 (arquivos pré-existentes WP-023 com erros conhecidos mantidos)
+  - TypeScript: `npx tsc --noEmit` passa
+  - Build: `npm run build` sucesso (rota `/admin/configuracao` incluída)
+  - `git diff --check`: clean (apenas avisos CRLF Windows)
+- **Core/Application/Infra**: **sem alteração funcional** — reutilização total de `ConfiguracaoEstabelecimento`, `obter_configuracao`, `salvar_configuracao`, validação de segredos, concorrência otimista via versão
+- **Segredos**: excluídos do escopo (WP-026)
+- **Commits**:
+  - `1b41cb4a1ee10faf6ec9034e1fb2a462e70ca0be` — WP-024: Implementar Parâmetros Financeiros (Configuração) no Backoffice
+  - `f4c159bbdf444540cfd270dac3ef40fb28520d27` — WP-024: Fix Ruff import e ESLint any types
+- **CI**: Workflow "Assistente Fase 4 Gate V1" permanece vermelho por `tests/unit/integracoes/test_whatsapp_control_plane_runtime_v1.py::test_crm_so_declara_sucesso_apos_confirmacao_do_envio`. Essa falha é **preexistente** ao WP-024 e já ocorria no commit `40127b77a2ec14625310517df17f3af282e70eec` (anterior ao WP-024). Não atribuída ao WP-024; não corrigida nesta tarefa.
+- **PR #118**: mantida OPEN/DRAFT
+- **WP-025 + WP-026**: permanecem pendentes
