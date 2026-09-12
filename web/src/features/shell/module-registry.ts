@@ -12,7 +12,8 @@ export type ShellModuleIcon =
   | "ai"
   | "saude"
   | "usuarios"
-  | "configuracao";
+  | "configuracao"
+  | "impressao";
 
 export interface ShellModuleDefinition {
   id: string;
@@ -187,6 +188,17 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     icon: "configuracao",
     available: true,
     allPermissions: ["admin.acessar", "configuracao.alterar"],
+  },
+  {
+    id: "impressao",
+    label: "Impressão Operacional",
+    description: "Spool de impressão, status e reimpressão por setor.",
+    href: "/admin/impressao",
+    group: "proprietario",
+    icon: "impressao",
+    available: true,
+    allPermissions: ["admin.acessar"],
+    anyPermissions: ["producao.visualizar", "impressao.reimprimir"],
   },
 ] as const;
 

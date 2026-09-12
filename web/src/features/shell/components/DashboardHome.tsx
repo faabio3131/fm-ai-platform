@@ -8,6 +8,7 @@ import {
   CircleGauge,
   LayoutGrid,
   Package,
+  Printer,
   ShieldCheck,
   ShoppingCart,
   SlidersHorizontal,
@@ -45,6 +46,7 @@ const iconByName: Record<ShellModuleIcon, typeof ShoppingCart> = {
   saude: Activity,
   usuarios: Users,
   configuracao: SlidersHorizontal,
+  impressao: Printer,
 };
 
 function ModuleCard({ module }: { module: ShellModuleDefinition }) {

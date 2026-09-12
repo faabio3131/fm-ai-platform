@@ -10,6 +10,7 @@ import {
   LayoutGrid,
   LogOut,
   Package,
+  Printer,
   ShieldCheck,
   ShoppingCart,
   SlidersHorizontal,
@@ -52,6 +53,7 @@ const iconByName: Record<ShellModuleIcon, typeof LayoutDashboard> = {
   saude: Activity,
   usuarios: Users,
   configuracao: SlidersHorizontal,
+  impressao: Printer,
 };
 
 function unitTitle(unit: AuthUnit | undefined): string {
