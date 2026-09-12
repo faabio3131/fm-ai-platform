@@ -80,10 +80,8 @@ from pdv_utils import (
 )
 
 from datetime import datetime, timedelta, date
-import json
 from dotenv import load_dotenv
 import pandas as pd  # type: ignore[import-untyped]
-from PIL import Image
 from sqlalchemy import (
     Column,
     DateTime,
@@ -95,9 +93,11 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.exc import SQLAlchemyError
-import io
 
+from application.legacy_cardapio_gemini import AplicacaoImportacaoCardapioGeminiV1
 from application.legacy_cardapio_transacoes import AplicacaoLegacyCardapioV1
+from application.legacy_estoque_forecasting import AplicacaoForecastingEstoqueV1
+from application.legacy_estoque_leitura_visual import AplicacaoLeituraVisualEstoqueV1
 from application.legacy_estoque_transacoes import AplicacaoLegacyEstoqueV1
 from application.legacy_gateway_teste_transacoes import AplicacaoLegacyGatewayTesteV1
 from application.legacy_cliente_e2e_transacoes import AplicacaoLegacyClienteE2EV1
@@ -106,7 +106,10 @@ from application.crm_cashback_comercial import (
     consultar_saldo_cashback_legado,
     creditar_cashback_manual,
 )
-from application.crm_marketing_comercial import despachar_resgate_whatsapp_legado
+from application.crm_marketing_comercial import (
+    despachar_resgate_cliente_inativo,
+    preparar_resgates_clientes_inativos,
+)
 
 from core.pdv.adaptadores_sqlalchemy import (
     LegacyPDVSQLAlchemyAdapter,
@@ -145,11 +148,6 @@ from infra.gerente_ia.persistencia_sqlalchemy import (
     RepositorioIdentidadeAssistenteSQLAlchemy,
 )
 from infra.streamlit_app.ai_finops import render_ai_finops_dashboard
-
-try:
-    import pypdf
-except ImportError:
-    pass
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA E ESTILIZAÇÃO ---
 st.set_page_config(
@@ -340,6 +338,9 @@ def render_cadastro_ficha_tecnica(
     db_session, Insumo, Produto, FichaTecnica, client=None, GENAI_DISPONIVEL=False
 ):
     application_cardapio = AplicacaoLegacyCardapioV1(SessionLocal)
+    application_importacao_gemini = AplicacaoImportacaoCardapioGeminiV1(
+        application_cardapio
+    )
     contexto_cardapio = CURRENT_IDENTITY.contexto(
         origem="app.legacy_cardapio"
     )
@@ -564,99 +565,20 @@ def render_cadastro_ficha_tecnica(
 
             with st.spinner("🤖 O Gemini está analisando o cardápio real..."):
                 try:
-                    prompt = """
-                    Você é um especialista em ERP gastronômico. Analise o cardápio fornecido e extraia todos os produtos/pratos cadastráveis.
-                    Retorne EXATAMENTE um JSON no seguinte formato (sem formatação markdown ```json, apenas a string json pura):
-                    [
-                        {
-                            "nome": "Nome do Prato",
-                            "categoria": "Hambúrgueres",
-                            "preco": 39.90,
-                            "ingredientes": "Descrição ou ingredientes"
-                        }
-                    ]
-                    """
-
                     if arquivo_upload:
                         bytes_data = arquivo_upload.getvalue()
                         mime = arquivo_upload.type
-                        try:
-                            from google.genai import types
 
-                            part_arquivo = types.Part.from_bytes(
-                                data=bytes_data, mime_type=mime
-                            )
-                            contents = [part_arquivo, prompt]
-                            response = generate_content(contents=contents)
-                        except Exception as api_err:
-                            if mime == "application/pdf":
-                                st.warning(
-                                    "⚠️ API rejeitou o arquivo direto. Extraindo texto via PyPDF em contingência..."
-                                )
-                                leitor_pdf = pypdf.PdfReader(io.BytesIO(bytes_data))
-                                texto_extraido = ""
-                                for pagina in leitor_pdf.pages:
-                                    texto_extraido += pagina.extract_text() + "\n"
-
-                                response = generate_content(
-                                    contents=f"{prompt}\n\nTexto extraído do PDF:\n{texto_extraido}"
-                                )
-                            else:
-                                raise api_err
-                    else:
-                        response = generate_content(
-                            contents=f"{prompt}\n\n{texto_cardapio}"
-                        )
-
-                    texto_limpo = (
-                        response.text.strip().replace("```json", "").replace("```", "")
-                    )
-                    produtos_extraidos = json.loads(texto_limpo)
-
-                    produtos_para_salvar = []
-
-                    for prod in produtos_extraidos:
-                        cmv_est = round(
-                            float(
-                                prod.get(
-                                    "preco",
-                                    0,
-                                )
-                            )
-                            * 0.32,
-                            2,
-                        )
-
-                        produtos_para_salvar.append(
-                            {
-                                "nome": prod.get("nome"),
-                                "categoria": prod.get(
-                                    "categoria",
-                                    "Geral",
-                                ),
-                                "preco_venda": float(
-                                    prod.get(
-                                        "preco",
-                                        0,
-                                    )
-                                ),
-                                "custo_total_cmv": cmv_est,
-                                "descricao_bruta": prod.get(
-                                    "ingredientes",
-                                    "",
-                                ),
-                            }
-                        )
-
-                    db_session.close()
-
-                    qtd_cadastrados = (
-                        application_cardapio.importar_produtos(
-                            contexto_cardapio,
-                            produtos=tuple(
-                                produtos_para_salvar
-                            ),
-                        )
+                    qtd_cadastrados = application_importacao_gemini.importar(
+                        contexto_cardapio,
+                        generate_content=generate_content,
+                        texto_cardapio=texto_cardapio,
+                        arquivo_bytes=(bytes_data if arquivo_upload else None),
+                        arquivo_mime=(mime if arquivo_upload else None),
+                        ao_ativar_contingencia_pdf=lambda: st.warning(
+                            "⚠️ API rejeitou o arquivo direto. Extraindo texto via PyPDF em contingência..."
+                        ),
+                        antes_de_persistir=db_session.close,
                     )
                     st.success(
                         f"🎉 Sucesso! **{qtd_cadastrados} pratos** foram extraídos pelo Gemini e salvos diretamente no cardápio!"
@@ -672,200 +594,23 @@ def executar_forecasting_e_alertar(
     tenant_id: str,
     unidade_id: str,
 ):
-    from core.notificacoes_internas.flags import (
-        internal_notifications_v1_enabled,
-    )
-    from infra.legacy_product_scope import listar_insumos_legados
-
-    insumos = listar_insumos_legados(
+    return AplicacaoForecastingEstoqueV1().executar(
         db_session,
         tenant_id=tenant_id,
         unidade_id=unidade_id,
-    )
-    usar_diretorio_canonico = internal_notifications_v1_enabled()
-    contexto_notificacoes = None
-    diretorio_notificacoes = None
-
-    if usar_diretorio_canonico:
-        try:
-            from infra.notificacoes_internas import (
-                RepositorioNotificacoesInternasSQLAlchemy,
-            )
-
-            contexto_notificacoes = CURRENT_IDENTITY.contexto(
-                origem="app.forecasting.notificacoes_internas"
-            )
-            if (
-                contexto_notificacoes.tenant_id != tenant_id
-                or contexto_notificacoes.unidade_id != unidade_id
-            ):
-                raise PermissionError(
-                    "escopo do forecasting diverge da identidade ativa"
-                )
-            diretorio_notificacoes = (
-                RepositorioNotificacoesInternasSQLAlchemy(db_session)
-            )
-            destinatarios = diretorio_notificacoes.listar_alertas_estoque(
-                contexto=contexto_notificacoes
-            )
-        except Exception:
-            return (
-                "❌ Não foi possível resolver os destinatários de alertas "
-                "da unidade ativa."
-            )
-        if not destinatarios:
-            return (
-                "⚠️ Nenhum destinatário interno está configurado para "
-                "receber alertas nesta unidade."
-            )
-    else:
-        destinatarios = (
+        contexto_notificacoes=lambda: CURRENT_IDENTITY.contexto(
+            origem="app.forecasting.notificacoes_internas"
+        ),
+        generate_content=generate_content,
+        is_test_mode=is_test_mode(),
+        mock_whatsapp_send=mock_whatsapp_send,
+        listar_destinatarios_legados=lambda: (
             db_session.query(ContatoGerencial)
             .filter(ContatoGerencial.receber_alertas_estoque == 1)
             .all()
-        )
-        if not destinatarios:
-            return (
-                "⚠️ Nenhum gerente ou administrador está configurado "
-                "para receber alertas na Aba 4."
-            )
-
-    resumo_estoque = ""
-    for i in insumos:
-        val_info = (
-            f", Validade: {i.data_validade.strftime('%d/%m/%Y')} "
-            f"(Aviso {i.dias_alerta_vencimento} dias antes)"
-            if i.data_validade
-            else ""
-        )
-        resumo_estoque += (
-            f"- {i.nome}: Saldo Atual = {i.saldo_atual} "
-            f"{i.unidade_medida}, Mínimo = {i.estoque_minimo}"
-            f"{val_info}\n"
-        )
-
-    prompt_forecast = f"""
-    Você é o assistente de inteligência preditiva de um ERP gastronômico de alta performance.
-    Analise o estado atual do almoxarifado abaixo e determine se há algum ingrediente com risco iminente de esgotamento OU próximo da data de validade com base no ritmo operacional:
-    {resumo_estoque}
-
-    Retorne APENAS um array JSON puro (sem markdown) com os insumos em risco crítico (quantidade ou validade):
-    [
-      {{"insumo": "Nome do Insumo", "previsao_esgotamento": "Sábado às 20h ou Vence em 5 dias", "mensagem_alerta": "Estoque crítico! / Sugestão de Promoção!"}}
-    ]
-    Se nenhum item estiver em risco, retorne um array vazio [].
-    """
-
-    try:
-        resp = generate_content(contents=prompt_forecast)
-        texto_limpo = (
-            resp.text.strip().replace("```json", "").replace("```", "").strip()
-        )
-        alertas_ia = json.loads(texto_limpo)
-
-        if not alertas_ia:
-            return (
-                "✅ Estoque operacional seguro e validades sob controle. "
-                "Nenhum alerta preditivo gerado."
-            )
-
-        total_enviados = 0
-        if usar_diretorio_canonico:
-            assert contexto_notificacoes is not None
-            assert diretorio_notificacoes is not None
-
-            from application.notificacoes_internas import (
-                despachar_alerta_estoque,
-            )
-            from infra.notificacoes_internas import (
-                EntregaWhatsAppNotificacaoInterna,
-            )
-
-            def _sender_teste(
-                destinatario: str,
-                texto: str,
-                idempotency_key: str,
-            ) -> str:
-                envio = mock_whatsapp_send(destinatario, texto)
-                if not envio["ok"]:
-                    raise RuntimeError("falha simulada de WhatsApp")
-                return f"mock:{idempotency_key}"
-
-            entrega = EntregaWhatsAppNotificacaoInterna(
-                session=db_session,
-                diretorio=diretorio_notificacoes,
-                sender=_sender_teste if is_test_mode() else None,
-            )
-            for alerta in alertas_ia:
-                texto_msg = (
-                    "🚨 *ALERTA PREDITIVO DE ESTOQUE (F&M AI FOOD)* 🚨\n\n"
-                    f"Item: *{alerta['insumo']}*\n"
-                    f"Risco/Previsão: *{alerta['previsao_esgotamento']}*\n"
-                    f"Status: {alerta['mensagem_alerta']}\n\n"
-                    "*Acesse o painel para reposição ou criar promoção de queima.*"
-                )
-                resultados = despachar_alerta_estoque(
-                    contexto=contexto_notificacoes,
-                    diretorio=diretorio_notificacoes,
-                    entrega=entrega,
-                    alerta=alerta,
-                    texto=texto_msg,
-                    data_referencia=date.today(),
-                )
-                total_enviados += sum(
-                    1 for resultado in resultados if resultado.enviado
-                )
-            if total_enviados == 0:
-                return (
-                    "❌ Os alertas foram gerados, mas nenhum destinatário "
-                    "da unidade recebeu a notificação."
-                )
-        else:
-            for alerta in alertas_ia:
-                texto_msg = (
-                    "🚨 *ALERTA PREDITIVO DE ESTOQUE (F&M AI FOOD)* 🚨\n\n"
-                    f"Item: *{alerta['insumo']}*\n"
-                    f"Risco/Previsão: *{alerta['previsao_esgotamento']}*\n"
-                    f"Status: {alerta['mensagem_alerta']}\n\n"
-                    "*Acesse o painel para reposição ou criar promoção de queima.*"
-                )
-                for contato in destinatarios:
-                    if is_test_mode():
-                        envio_mock = mock_whatsapp_send(
-                            contato.whatsapp,
-                            texto_msg,
-                        )
-                        if envio_mock["ok"]:
-                            total_enviados += 1
-                    else:
-                        from infra.integracoes.idempotencia_alertas import (
-                            chave_idempotencia_alerta_estoque,
-                        )
-
-                        mensagem_id = _enviar_whatsapp_control_plane(
-                            destinatario=contato.whatsapp,
-                            texto=texto_msg,
-                            idempotency_key=(
-                                chave_idempotencia_alerta_estoque(
-                                    contato_id=contato.id,
-                                    alerta=alerta,
-                                    data_referencia=date.today(),
-                                )
-                            ),
-                        )
-                        if mensagem_id:
-                            total_enviados += 1
-
-        return (
-            f"🚀 Análise concluída com sucesso! {len(alertas_ia)} alertas "
-            f"preditivos (Estoque/Validade) disparados para "
-            f"{total_enviados} gestores via WhatsApp."
-        )
-    except Exception:
-        return (
-            "❌ Não foi possível concluir o forecasting ou enviar os alertas. "
-            "Verifique as integrações Gemini e Meta/WhatsApp desta unidade."
-        )
+        ),
+        enviar_whatsapp_control_plane=_enviar_whatsapp_control_plane,
+    )
 
 
 # Inicialização legada governada pela camada Application.
@@ -1317,14 +1062,12 @@ with aba2:
             "Disparos exigem vínculo CRM, consentimento WhatsApp/promocoes vigente e integração Meta homologada."
         )
 
-        data_corte_inativos = datetime.now() - timedelta(days=15)
-        clientes_inativos = (
-            db_crm_base.query(Cliente)
-            .filter(
-                (Cliente.ultima_compra <= data_corte_inativos)
-                | (Cliente.status == "Inativo")
-            )
-            .all()
+        clientes_inativos = preparar_resgates_clientes_inativos(
+            session_factory=SessionLocal,
+            tenant_id=CURRENT_IDENTITY.tenant_id,
+            unidade_id=CURRENT_IDENTITY.unidade_id,
+            genai_disponivel=GENAI_DISPONIVEL,
+            generate_content=generate_content,
         )
 
         st.markdown(
@@ -1333,7 +1076,9 @@ with aba2:
 
         if clientes_inativos:
             for cli in clientes_inativos:
-                saldo_cli, erro_saldo_cli = _saldo_cashback_canonico_ui(int(cli.id))
+                saldo_cli, erro_saldo_cli = _saldo_cashback_canonico_ui(
+                    cli.legacy_cliente_id
+                )
                 with st.container():
                     c_col1, c_col2, c_col3 = st.columns([2, 2, 3])
                     with c_col1:
@@ -1353,44 +1098,22 @@ with aba2:
                                 f"💳 Cashback disponível: **{formatar_moeda_br(saldo_cli)}**"
                             )
 
-                    msg_resgate_padrao = (
-                        f"Olá {cli.nome}! Sentimos sua falta. Preparamos um cupom "
-                        "exclusivo de 15% de desconto para você voltar hoje!"
-                    )
-                    if GENAI_DISPONIVEL:
-                        try:
-                            prompt_resg = (
-                                "Escreva uma mensagem curta, carinhosa e persuasiva de "
-                                f"WhatsApp para resgatar o cliente '{cli.nome}'. Ofereça "
-                                "15% de desconto com o cupom VOLTA15. Sem clichês em excesso."
-                            )
-                            resp_resg = generate_content(contents=prompt_resg)
-                            if resp_resg and resp_resg.text:
-                                msg_resgate_padrao = resp_resg.text.strip()
-                        except Exception:
-                            pass
-
                     with c_col3:
                         st.markdown("🤖 **Sugestão de Abordagem I.A.:**")
-                        st.info(f'"{msg_resgate_padrao}"')
+                        st.info(f'"{cli.mensagem_sugerida}"')
                         if st.button(
                             f"🚀 Disparar Campanha WhatsApp para {cli.nome}",
-                            key=f"btn_zap_resgate_{cli.id}",
+                            key=f"btn_zap_resgate_{cli.legacy_cliente_id}",
                             type="primary",
                         ):
                             try:
-                                chave_envio = (
-                                    f"crm-resgate-{cli.id}-{date.today().isoformat()}"
-                                )
-                                resultado_envio = despachar_resgate_whatsapp_legado(
+                                resultado_envio = despachar_resgate_cliente_inativo(
                                     session_factory=SessionLocal,
                                     contexto=CURRENT_IDENTITY.contexto(
                                         origem="app.crm.resgate"
                                     ),
-                                    legacy_cliente_id=int(cli.id),
-                                    campanha_ref=f"resgate-{date.today().isoformat()}",
-                                    texto=msg_resgate_padrao,
-                                    idempotency_key=chave_envio,
+                                    legacy_cliente_id=cli.legacy_cliente_id,
+                                    texto=cli.mensagem_sugerida,
                                 )
                                 if resultado_envio.enviado:
                                     st.success(
@@ -2484,78 +2207,17 @@ with aba4:
                     "🤖 O Gemini está lendo os produtos e as datas de validade..."
                 ):
                     try:
-                        img_pil = Image.open(arquivo_nf_cad)
-                        prompt_ocr = """Você é um auditor de estoque. Analise esta imagem.
-                        Extraia os itens e retorne APENAS um array JSON válido no formato: 
-                        [{"nome": "Produto", "unidade": "kg", "quantidade": 5.0, "valor_unitario": 12.50, "data_validade": "YYYY-MM-DD"}]
-                        Se não encontrar a validade na imagem, preencha o campo data_validade com null.
-                        Retorne EXCLUSIVAMENTE o JSON puro (sem markdown)."""
-
-                        resp_cad = generate_content(contents=[prompt_ocr, img_pil])
-                        texto_ocr = (
-                            resp_cad.text.strip()
-                            .replace("```json", "")
-                            .replace("```", "")
-                            .strip()
+                        resultado_leitura = AplicacaoLeituraVisualEstoqueV1(
+                            application_estoque
+                        ).executar(
+                            contexto_estoque,
+                            fonte_imagem=arquivo_nf_cad,
+                            generate_content=generate_content,
                         )
-                        itens_lidos = json.loads(texto_ocr)
-
-                        itens_para_aplicar = []
-
-                        for item in itens_lidos:
-                            nome_l = str(
-                                item.get(
-                                    "nome",
-                                    "",
-                                )
-                            ).strip()
-                            qtd_l = float(
-                                item.get(
-                                    "quantidade",
-                                    0.0,
-                                )
-                            )
-                            val_str = item.get(
-                                "data_validade"
-                            )
-
-                            val_obj = None
-
-                            if val_str:
-                                try:
-                                    val_obj = datetime.strptime(
-                                        val_str,
-                                        "%Y-%m-%d",
-                                    )
-                                except ValueError:
-                                    pass
-
-                            if nome_l and qtd_l > 0:
-                                itens_para_aplicar.append(
-                                    {
-                                        "nome":
-                                            nome_l,
-                                        "quantidade":
-                                            qtd_l,
-                                        "unidade":
-                                            item.get(
-                                                "unidade",
-                                                "un",
-                                            ),
-                                        "data_validade":
-                                            val_obj,
-                                    }
-                                )
-
-                        if itens_para_aplicar:
-                            application_estoque.aplicar_lote_leitura(
-                                contexto_estoque,
-                                itens=itens_para_aplicar,
-                            )
                         st.success(
                             "🎉 Leitura concluída! Validades salvas no banco de dados."
                         )
-                        st.json(itens_lidos)
+                        st.json(resultado_leitura.itens_lidos)
                     except Exception as e:
                         st.error(f"❌ Erro na leitura: {e}")
 

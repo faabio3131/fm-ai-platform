@@ -50,6 +50,7 @@ from core.seguranca.erros import (
 from core.seguranca.segredos import ReferenceSecretStore, SecretStore
 from http_api.auth import AuthSessionRuntime, build_auth_router
 from http_api.catalogo import build_catalogo_router
+from http_api.estoque import build_estoque_router
 from http_api.kds import build_kds_router
 from http_api.pdv import build_pdv_router
 from http_api.salao import build_salao_router
@@ -153,6 +154,13 @@ def build_http_app(
         build_catalogo_router(
             session_factory=session_factory,
             auth_runtime=auth_runtime,
+        )
+    )
+    app.include_router(
+        build_estoque_router(
+            session_factory=session_factory,
+            auth_runtime=auth_runtime,
+            whatsapp_secret_store_factory=whatsapp_secret_store_factory,
         )
     )
     app.include_router(

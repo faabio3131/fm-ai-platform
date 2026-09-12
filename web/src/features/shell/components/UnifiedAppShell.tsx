@@ -2,6 +2,7 @@
 
 import {
   Activity,
+  BrainCircuit,
   Building2,
   ChefHat,
   CircleGauge,
@@ -9,8 +10,12 @@ import {
   LayoutGrid,
   LogOut,
   Package,
+  Printer,
   ShieldCheck,
   ShoppingCart,
+  SlidersHorizontal,
+  Users,
+  Warehouse,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -41,7 +46,14 @@ const iconByName: Record<ShellModuleIcon, typeof LayoutDashboard> = {
   salao: LayoutGrid,
   kds: ChefHat,
   catalogo: Package,
+  estoque: Warehouse,
+  crm: Users,
+  financeiro: CircleGauge,
+  ai: BrainCircuit,
   saude: Activity,
+  usuarios: Users,
+  configuracao: SlidersHorizontal,
+  impressao: Printer,
 };
 
 function unitTitle(unit: AuthUnit | undefined): string {

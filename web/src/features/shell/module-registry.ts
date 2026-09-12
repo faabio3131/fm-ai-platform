@@ -6,7 +6,14 @@ export type ShellModuleIcon =
   | "salao"
   | "kds"
   | "catalogo"
-  | "saude";
+  | "estoque"
+  | "crm"
+  | "financeiro"
+  | "ai"
+  | "saude"
+  | "usuarios"
+  | "configuracao"
+  | "impressao";
 
 export interface ShellModuleDefinition {
   id: string;
@@ -83,6 +90,46 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     allPermissions: ["expedicao.operar"],
   },
   {
+    id: "backoffice",
+    label: "Centro Administrativo",
+    description: "Acesso às áreas de administração do estabelecimento.",
+    href: "/admin",
+    group: "proprietario",
+    icon: "dashboard",
+    available: true,
+    allPermissions: ["admin.acessar"],
+  },
+  {
+    id: "empresa",
+    label: "Empresa e Unidades",
+    description: "Cadastro da empresa, matriz, filiais e unidades.",
+    href: "/admin/empresa",
+    group: "proprietario",
+    icon: "dashboard",
+    available: true,
+    allPermissions: ["admin.acessar", "configuracao.alterar"],
+  },
+  {
+    id: "indicadores",
+    label: "Indicadores",
+    description: "Visão executiva, financeiro e operação consolidada.",
+    href: "/admin/dashboard",
+    group: "proprietario",
+    icon: "financeiro",
+    available: true,
+    allPermissions: ["admin.acessar", "financeiro.visualizar"],
+  },
+  {
+    id: "ai-finops",
+    label: "AI FinOps",
+    description: "Uso, custo, eficiência e mix dos modelos de IA.",
+    href: "/admin/ai-finops",
+    group: "proprietario",
+    icon: "ai",
+    available: true,
+    allPermissions: ["admin.acessar"],
+  },
+  {
     id: "catalogo",
     label: "Catálogo",
     description: "Produtos e disponibilidade do cardápio.",
@@ -93,6 +140,26 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     allPermissions: ["admin.acessar"],
   },
   {
+    id: "estoque",
+    label: "Estoque e Validades",
+    description: "Almoxarifado, insumos, saldos, custos e vencimentos.",
+    href: "/admin/estoque",
+    group: "proprietario",
+    icon: "estoque",
+    available: true,
+    allPermissions: ["admin.acessar", "estoque.visualizar"],
+  },
+  {
+    id: "crm",
+    label: "CRM e Cashback",
+    description: "Clientes, histórico e fidelidade da unidade.",
+    href: "/admin/crm",
+    group: "proprietario",
+    icon: "crm",
+    available: true,
+    allPermissions: ["admin.acessar", "cliente.visualizar"],
+  },
+  {
     id: "saude-sistema",
     label: "Saúde do sistema",
     description: "Conectividade e diagnóstico técnico protegido.",
@@ -101,6 +168,37 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     icon: "saude",
     available: true,
     allPermissions: ["admin.acessar"],
+  },
+  {
+    id: "usuarios",
+    label: "Usuários e Permissões",
+    description: "Cadastro, papéis, unidades permitidas e unidade padrão.",
+    href: "/admin/usuarios",
+    group: "proprietario",
+    icon: "usuarios",
+    available: true,
+    allPermissions: ["admin.acessar", "usuario.gerenciar"],
+  },
+  {
+    id: "configuracao",
+    label: "Parâmetros Financeiros",
+    description: "Formas de pagamento, taxa de serviço e parâmetros operacionais por unidade.",
+    href: "/admin/configuracao",
+    group: "proprietario",
+    icon: "configuracao",
+    available: true,
+    allPermissions: ["admin.acessar", "configuracao.alterar"],
+  },
+  {
+    id: "impressao",
+    label: "Impressão Operacional",
+    description: "Spool de impressão, status e reimpressão por setor.",
+    href: "/admin/impressao",
+    group: "proprietario",
+    icon: "impressao",
+    available: true,
+    allPermissions: ["admin.acessar"],
+    anyPermissions: ["producao.visualizar", "impressao.reimprimir"],
   },
 ] as const;
 
@@ -132,5 +230,6 @@ export function isShellModuleActive(
   pathname: string,
   module: ShellModuleDefinition,
 ): boolean {
-  return pathname === module.href || pathname.startsWith(`${module.href}/`);
+  return pathname === module.href ||
+    (module.href !== "/admin" && pathname.startsWith(`${module.href}/`));
 }

@@ -3,11 +3,17 @@
 import {
   Activity,
   ArrowRight,
+  BrainCircuit,
   ChefHat,
+  CircleGauge,
   LayoutGrid,
   Package,
+  Printer,
   ShieldCheck,
   ShoppingCart,
+  SlidersHorizontal,
+  Users,
+  Warehouse,
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
@@ -33,7 +39,14 @@ const iconByName: Record<ShellModuleIcon, typeof ShoppingCart> = {
   salao: LayoutGrid,
   kds: ChefHat,
   catalogo: Package,
+  estoque: Warehouse,
+  crm: Users,
+  financeiro: CircleGauge,
+  ai: BrainCircuit,
   saude: Activity,
+  usuarios: Users,
+  configuracao: SlidersHorizontal,
+  impressao: Printer,
 };
 
 function ModuleCard({ module }: { module: ShellModuleDefinition }) {
