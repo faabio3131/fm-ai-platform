@@ -79,10 +79,57 @@ A migração Web consistiu exclusivamente em expor essa autoridade via HTTP fino
 
 ## WP-026 — Integrações/Credenciais
 
-**STATUS: PENDENTE — NÃO INICIADO**
+**STATUS: CONCLUÍDO / MIGRADO**
 
-Não escrever implementação futura como concluída.
-Não antecipar decisões técnicas ainda não auditadas.
+### Autoridade original encontrada
+
+`CATALOGO_V1` (core/integracoes/catalogo.py), `AplicacaoIntegracoesAdminV1` (application/integracoes_admin_transacoes.py), `ServicoConfiguracoesExternas` (core/integracoes/servicos.py), `FabricaAdaptersExternos` + healthchecks canônicos (infra/integracoes/). As autoridades Application/Core/Infra existentes fornecem as capacidades canônicas necessárias ao escopo efetivamente migrado no WP-026:
+- listar integrações do catálogo + configurações salvas (escopo tenant/unidade)
+- salvar/atualizar configuração com concorrência otimista (versão esperada)
+- healthchecks por provedor (Gemini, Google Maps, Mercado Pago, Meta)
+- homologação restrita a Administrador
+- cofre de segredos criptografado (`EncryptedSQLAlchemySecretStore`)
+- auditoria canônica
+
+Nenhuma alteração de implementação ocorreu antes da reprodução.
+
+### Migração Web WP-026 — Concluída
+
+- **Rota Web**: `/admin/integracoes`
+- **Posição no Shell/Backoffice**: Item "Integrações" na seção Proprietário
+- **Nav item**: `id="integracoes"` com ícone de integração
+- **Permissões**: `admin.acessar` (gate administrativo) + `integracao.gerenciar` (operações)
+- **APIs/fachadas utilizadas** (exatamente 4 endpoints):
+  - `GET /v1/admin/integracoes` → lista catálogo + configurações + prontidão
+  - `PUT /v1/admin/integracoes/{config_id}` → `AplicacaoIntegracoesAdminV1.salvar_configuracao()` com `versao_esperada=payload.versao`
+  - `POST /v1/admin/integracoes/{config_id}/healthcheck` → healthcheck por provedor canônico
+  - `POST /v1/admin/integracoes/{config_id}/homologar` → `AplicacaoIntegracoesAdminV1.homologar()` (somente Administrador + step-up)
+- **Arquivos criados/alterados**:
+  - `http_api/admin_integracoes.py` (novo) — DTOs e router HTTP (4 endpoints)
+  - `http_api/frontend_app.py` — registro do router
+  - `tests/api/test_admin_integracoes_http_contract.py` (novo) — 19 testes de contrato HTTP
+  - `web/src/app/admin/integracoes/page.tsx` (novo)
+  - `web/src/features/backoffice/integracoes/services/integracoes-api.ts` (novo)
+  - `web/src/features/backoffice/integracoes/components/IntegracoesWorkspace.tsx` (novo)
+  - `web/src/features/shell/module-registry.ts` — módulo `integracoes`
+  - `web/src/features/shell/components/DashboardHome.tsx` — ícone
+  - `web/src/features/shell/components/UnifiedAppShell.tsx` — ícone
+- **Testes executados**:
+  - 19 testes HTTP (`test_admin_integracoes_http_contract.py`): 19/19 passam (inclui `test_concorrencia_versionamento_preservados` provando 409 `versao_configuracao_divergente` com stale version)
+  - Ruff: clean
+  - ESLint: 0 errors / 0 warnings nos arquivos WP-026
+  - TypeScript: `npx tsc --noEmit` passa
+  - Build: `npm run build` sucesso (rota `/admin/integracoes` incluída)
+  - `git diff --check`: clean
+- **Core/Application/Infra**: **sem alteração funcional** — reutilização total das autoridades canônicas
+- **Enxugamento cirúrgico aplicado**:
+  - Removido helper morto `_configuracao_salva_out` (instanciava `ServicoConfiguracoesExternas` com `None` + `type: ignore`)
+  - Extraído helper local `_criar_servico_e_vault(session, master_key)` para eliminar repetição nos 4 endpoints
+  - Bug de concorrência otimista corrigido: PUT agora usa `payload.versao` do contrato do cliente (era recalculado do DB, invalidando proteção)
+- **Redução de complexidade**: eliminação de código morto + DRY local sem nova abstração arquitetural
+- **Commit funcional**: `8f10f42da90b19eb3dd82962f2327ebb9c417e82` (head funcional WP-026)
+- **CI**: Workflow "Assistente Fase 4 Gate V1" permanece vermelho por `tests/unit/integracoes/test_whatsapp_control_plane_runtime_v1.py::test_crm_so_declara_sucesso_apos_confirmacao_do_envio`. Essa falha é **preexistente** ao WP-026 e já ocorria antes do WP-026. Não atribuída ao WP-026; não corrigida nesta tarefa.
+- **PR #118**: mantida OPEN/DRAFT
 
 ## Gate final documental
 
