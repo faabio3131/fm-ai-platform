@@ -8,6 +8,7 @@ import {
   CircleGauge,
   LayoutDashboard,
   LayoutGrid,
+  Link as LinkIcon,
   LogOut,
   Package,
   Printer,
@@ -54,6 +55,7 @@ const iconByName: Record<ShellModuleIcon, typeof LayoutDashboard> = {
   usuarios: Users,
   configuracao: SlidersHorizontal,
   impressao: Printer,
+  integracoes: LinkIcon,
 };
 
 function unitTitle(unit: AuthUnit | undefined): string {

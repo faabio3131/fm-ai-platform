@@ -7,6 +7,7 @@ import {
   ChefHat,
   CircleGauge,
   LayoutGrid,
+  Link as LinkIcon,
   Package,
   Printer,
   ShieldCheck,
@@ -47,6 +48,7 @@ const iconByName: Record<ShellModuleIcon, typeof ShoppingCart> = {
   usuarios: Users,
   configuracao: SlidersHorizontal,
   impressao: Printer,
+  integracoes: LinkIcon,
 };
 
 function ModuleCard({ module }: { module: ShellModuleDefinition }) {

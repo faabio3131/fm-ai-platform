@@ -13,7 +13,8 @@ export type ShellModuleIcon =
   | "saude"
   | "usuarios"
   | "configuracao"
-  | "impressao";
+  | "impressao"
+  | "integracoes";
 
 export interface ShellModuleDefinition {
   id: string;
@@ -199,6 +200,16 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     available: true,
     allPermissions: ["admin.acessar"],
     anyPermissions: ["producao.visualizar", "impressao.reimprimir"],
+  },
+  {
+    id: "integracoes",
+    label: "Integrações e Credenciais",
+    description: "Provedores externos, cofre de segredos, healthchecks e homologação.",
+    href: "/admin/integracoes",
+    group: "proprietario",
+    icon: "integracoes",
+    available: true,
+    allPermissions: ["admin.acessar", "integracao.gerenciar"],
   },
 ] as const;
 
