@@ -1,0 +1,58 @@
+name: Web Parity WP028-WP030 Gate
+
+on:
+  pull_request:
+    branches:
+      - feat/web-parity-v1-wp010-wp011-delivery-entrega
+
+permissions:
+  contents: read
+
+jobs:
+  wp028-gerente-ia:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Compile WP028
+        run: |
+          python -m py_compile application/gerente_ia_web.py http_api/gerente_ia_web.py
+      - name: Ruff WP028
+        run: |
+          ruff check application/gerente_ia_web.py http_api/gerente_ia_web.py tests/api/test_gerente_ia_web_http_contract.py
+      - name: Mypy WP028
+        run: |
+          mypy application/gerente_ia_web.py http_api/gerente_ia_web.py
+      - name: Test WP028 and Gerente IA regressions
+        run: |
+          pytest -q tests/api/test_gerente_ia_web_http_contract.py tests/unit/gerente_ia
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm ci
+      - name: ESLint WP028
+        working-directory: web
+        run: |
+          npx eslint src/app/gerente-ia/page.tsx src/features/gerente-ia/components/GerenteIAWorkspace.tsx src/features/gerente-ia/services/gerente-ia-api.ts src/features/shell/module-registry.ts
+      - name: TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+      - name: Diff whitespace gate
+        run: git diff --check origin/${{ github.base_ref }}...HEAD
