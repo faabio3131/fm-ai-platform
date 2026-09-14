@@ -172,8 +172,8 @@ export function ConfiguracaoWorkspace() {
 
     try {
       parametros_operacionais = JSON.parse(state.form.parametros_operacionais);
-      politica_financeira = JSON.stringify(state.form.politica_financeira) === "{}" 
-        ? {} 
+      politica_financeira = JSON.stringify(state.form.politica_financeira) === "{}"
+        ? {}
         : JSON.parse(state.form.politica_financeira);
     } catch {
       setState((s) => ({ ...s, erro: "JSON inválido em parâmetros operacionais ou política financeira" }));
