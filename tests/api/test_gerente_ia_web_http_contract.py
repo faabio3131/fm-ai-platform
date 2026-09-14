@@ -58,7 +58,7 @@ class AuthFake:
     def __init__(self, identidade: IdentidadeFake | None) -> None:
         self.identidade = identidade
 
-    def resolver_identidade(self, request):  # noqa: ANN001
+    def resolver_identidade(self, request):
         return self.identidade
 
 
@@ -88,7 +88,7 @@ class AppFake:
         )
         return IdentidadeAssistenteFake(), chamada, resultado
 
-    def executar_tool(self, *, contexto: ContextoExecucao, chamada):  # noqa: ANN001
+    def executar_tool(self, *, contexto: ContextoExecucao, chamada):
         self._capturar(contexto)
         agora = datetime.now(timezone.utc)
         impacto = RegistroGerencial("pedido", (("prioridade", "alta"),))
