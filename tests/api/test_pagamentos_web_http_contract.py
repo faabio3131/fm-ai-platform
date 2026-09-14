@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from decimal import Decimal
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -151,7 +150,7 @@ def test_pagamento_inexistente_retorna_404(monkeypatch) -> None:
 
 
 def test_reconciliacao_exige_confirmacao_e_delega_uma_vez(monkeypatch) -> None:
-    client, fake = _client(monkeypatch, frozenset({Permissao.FINANCEIRO_VISUALIZAR}))
+    client, _ = _client(monkeypatch, frozenset({Permissao.FINANCEIRO_VISUALIZAR}))
     assert client.post("/v1/pagamentos/pay-1/reconciliar-pagbank").status_code == 403
     client, fake = _client(
         monkeypatch,
