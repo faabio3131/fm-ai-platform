@@ -32,7 +32,7 @@ def test_crm_so_declara_sucesso_apos_confirmacao_do_envio() -> None:
         'f"🚀 Disparar Campanha WhatsApp para {cli.nome}"', 1
     )[1].split("with sub_crm2:", 1)[0]
 
-    assert "despachar_resgate_whatsapp_legado(" in trecho
+    assert "despachar_resgate_cliente_inativo(" in trecho
     assert "_enviar_whatsapp_control_plane(" not in trecho
     assert "resultado_envio.enviado" in trecho
     assert "st.success(" in trecho
@@ -40,6 +40,7 @@ def test_crm_so_declara_sucesso_apos_confirmacao_do_envio() -> None:
     assert "except Exception:" in trecho
     assert "st.error(" in trecho
 
+    assert "return despachar_resgate_whatsapp_legado(" in CRM_MARKETING_SOURCE
     assert "ServicoCRM(" in CRM_MARKETING_SOURCE
     assert "LeitorConsentimentosMarketingSQLAlchemy" in CRM_MARKETING_SOURCE
     assert "servico.despachar_marketing(" in CRM_MARKETING_SOURCE
