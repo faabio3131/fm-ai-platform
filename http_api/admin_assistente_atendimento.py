@@ -17,6 +17,7 @@ from application.assistente_atendimento_admin import (
 )
 from core.assistente_atendimento.modelos import ConfiguracaoIdentidadeAssistente
 from core.gerente_ia.erros import ErroGerenteIA
+from core.seguranca.erros import ErroSeguranca
 from http_api.admin_backoffice import contexto_backoffice
 from http_api.admin_dashboard import _tratar_erro
 from http_api.auth import AuthSessionRuntime
@@ -124,6 +125,8 @@ def _detalhe_out(conversa: ConversaDetalheAdmin) -> ConversaDetalheOut:
 
 
 def _erro_assistente(exc: Exception) -> JSONResponse:
+    if isinstance(exc, (ErroSeguranca, PermissionError)):
+        return _tratar_erro(exc)
     if isinstance(exc, ErroGerenteIA):
         if exc.codigo == "configuracao_assistente_desatualizada":
             return JSONResponse(

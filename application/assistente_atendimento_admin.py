@@ -27,7 +27,9 @@ from infra.assistente_atendimento.canal_estado_sqlalchemy import (
     EstadoCanalPersistido,
 )
 from infra.assistente_atendimento.canal_schema import assistente_canal_conversas_v1
-from infra.gerente_ia.persistencia_sqlalchemy import RepositorioIdentidadeAssistenteSQLAlchemy
+from infra.gerente_ia.persistencia_sqlalchemy import (
+    RepositorioIdentidadeAssistenteSQLAlchemy,
+)
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
 from infra.transacoes.uow import UnitOfWorkV1
 
@@ -82,7 +84,7 @@ def _estado_runtime_handoff(
     payload = deepcopy(state)
     resultado = payload.get("resultado")
     if not isinstance(resultado, dict):
-        raise RuntimeError("estado_canal_sem_resultado_para_handoff")
+        raise TypeError("estado_canal_sem_resultado_para_handoff")
 
     resultado["estado"] = EstadoAtendimento.HANDOFF_HUMANO.value
     resultado["handoff_motivo"] = motivo
