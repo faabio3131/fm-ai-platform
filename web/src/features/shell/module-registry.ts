@@ -14,7 +14,8 @@ export type ShellModuleIcon =
   | "usuarios"
   | "configuracao"
   | "impressao"
-  | "integracoes";
+  | "integracoes"
+  | "assistente";
 
 export interface ShellModuleDefinition {
   id: string;
@@ -210,6 +211,16 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     icon: "integracoes",
     available: true,
     allPermissions: ["admin.acessar", "integracao.gerenciar"],
+  },
+  {
+    id: "assistente-atendimento",
+    label: "Assistente de Atendimento",
+    description: "Identidade configurável, monitoramento de conversas e handoff humano.",
+    href: "/admin/assistente-atendimento",
+    group: "proprietario",
+    icon: "assistente",
+    available: true,
+    allPermissions: ["admin.acessar", "atendimento.visualizar"],
   },
 ] as const;
 

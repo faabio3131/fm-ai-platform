@@ -17,6 +17,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.runtime import build_engine, load_runtime_settings
 from core.runtime.config import RuntimeSettings
 from core.seguranca.segredos import ReferenceSecretStore
+from http_api.admin_assistente_atendimento import (
+    build_admin_assistente_atendimento_router,
+)
 from http_api.admin_backoffice import build_admin_backoffice_router
 from http_api.admin_configuracao import build_admin_configuracao_router
 from http_api.admin_dashboard import build_admin_dashboard_router
@@ -108,6 +111,7 @@ def build_frontend_http_app(
         build_admin_configuracao_router,
         build_admin_impressao_router,
         build_admin_integracoes_router,
+        build_admin_assistente_atendimento_router,
         build_admin_dashboard_router,
         build_admin_empresa_router,
         build_admin_usuarios_router,

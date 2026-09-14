@@ -2,6 +2,7 @@
 
 import {
   Activity,
+  Bot,
   BrainCircuit,
   Building2,
   ChefHat,
@@ -56,6 +57,7 @@ const iconByName: Record<ShellModuleIcon, typeof LayoutDashboard> = {
   configuracao: SlidersHorizontal,
   impressao: Printer,
   integracoes: LinkIcon,
+  assistente: Bot,
 };
 
 function unitTitle(unit: AuthUnit | undefined): string {

@@ -33,3 +33,12 @@ class PortaHandoffAssistente(Protocol):
         motivo: str,
         metadata_segura: dict[str, str | int | bool] | None = None,
     ) -> None: ...
+
+
+class PortaEstadoCanalAssistente(Protocol):
+    def obter_por_conversa(
+        self,
+        *,
+        contexto: ContextoExecucao,
+        conversa_id: str,
+    ) -> "EstadoCanalPersistido | None": ...

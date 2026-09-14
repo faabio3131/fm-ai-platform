@@ -138,6 +138,21 @@ class EncryptedSQLAlchemyChannelStateStore:
         ).mappings().all()
         return tuple(self._modelo(row) for row in rows)
 
+    def obter_por_conversa(
+        self,
+        *,
+        contexto: ContextoExecucao,
+        conversa_id: str,
+    ) -> EstadoCanalPersistido | None:
+        row = self._session.execute(
+            select(assistente_canal_conversas_v1).where(
+                assistente_canal_conversas_v1.c.tenant_id == contexto.tenant_id,
+                assistente_canal_conversas_v1.c.unidade_id == contexto.unidade_id,
+                assistente_canal_conversas_v1.c.conversa_id == conversa_id,
+            )
+        ).mappings().one_or_none()
+        return self._modelo(row) if row is not None else None
+
     def salvar(
         self,
         *,

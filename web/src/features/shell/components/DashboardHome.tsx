@@ -3,6 +3,7 @@
 import {
   Activity,
   ArrowRight,
+  Bot,
   BrainCircuit,
   ChefHat,
   CircleGauge,
@@ -49,6 +50,7 @@ const iconByName: Record<ShellModuleIcon, typeof ShoppingCart> = {
   configuracao: SlidersHorizontal,
   impressao: Printer,
   integracoes: LinkIcon,
+  assistente: Bot,
 };
 
 function ModuleCard({ module }: { module: ShellModuleDefinition }) {

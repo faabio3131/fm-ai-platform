@@ -53,6 +53,8 @@ class Permissao(StrEnum):
     GERENTE_IA_PREPARAR_ACAO = "gerente_ia.preparar_acao"
     GERENTE_IA_EXECUTAR_ACAO = "gerente_ia.executar_acao"
     GERENTE_IA_APROVAR_CAMPANHA = "gerente_ia.aprovar_campanha"
+    ATENDIMENTO_VISUALIZAR = "atendimento.visualizar"
+    ATENDIMENTO_GERENCIAR = "atendimento.gerenciar"
 
 
 class Papel(StrEnum):
