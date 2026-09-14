@@ -34,6 +34,7 @@ from http_api.central_pedidos import build_central_pedidos_router
 from http_api.crm import build_crm_router
 from http_api.delivery import build_delivery_router
 from http_api.entrega import build_entrega_router
+from http_api.gerente_ia_web import build_gerente_ia_web_router
 from infra.seguranca.session_guard import build_session_factory
 
 DEV_FRONTEND_ORIGINS: tuple[str, ...] = (
@@ -127,4 +128,11 @@ def build_frontend_http_app(
                 auth_runtime=auth_runtime,
             )
         )
+    app.include_router(
+        build_gerente_ia_web_router(
+            session_factory=session_factory,
+            auth_runtime=auth_runtime,
+            secret_store=secret_store,
+        )
+    )
     return _configure_frontend_cors(app, settings=resolved_settings)
