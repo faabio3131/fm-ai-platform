@@ -102,6 +102,16 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     allPermissions: ["gerente_ia.consultar"],
   },
   {
+    id: "pagamentos",
+    label: "Pagamentos e PIX",
+    description: "Ledger financeiro, status de PIX e reconciliação PagBank governada.",
+    href: "/pagamentos",
+    group: "operacao",
+    icon: "financeiro",
+    available: true,
+    allPermissions: ["financeiro.visualizar"],
+  },
+  {
     id: "backoffice",
     label: "Centro Administrativo",
     description: "Acesso às áreas de administração do estabelecimento.",
