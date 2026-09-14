@@ -92,6 +92,16 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     allPermissions: ["expedicao.operar"],
   },
   {
+    id: "gerente-ia",
+    label: "Gerente IA",
+    description: "Consultas gerenciais, decisões assistidas e confirmações governadas.",
+    href: "/gerente-ia",
+    group: "operacao",
+    icon: "ai",
+    available: true,
+    allPermissions: ["gerente_ia.consultar"],
+  },
+  {
     id: "backoffice",
     label: "Centro Administrativo",
     description: "Acesso às áreas de administração do estabelecimento.",
