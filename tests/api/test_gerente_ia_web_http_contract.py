@@ -139,11 +139,7 @@ def _client(monkeypatch, permissoes: frozenset[Permissao] | None):
 
 def test_rotas_wp028_expostas(monkeypatch) -> None:
     client, _ = _client(monkeypatch, frozenset({Permissao.GERENTE_IA_CONSULTAR}))
-    paths = {
-        route.path
-        for route in client.app.routes
-        if hasattr(route, "path")
-    }
+    paths = set(client.app.openapi()["paths"])
     assert "/v1/gerente-ia/perguntar" in paths
     assert "/v1/gerente-ia/tools" in paths
     assert "/v1/gerente-ia/confirmar" in paths
