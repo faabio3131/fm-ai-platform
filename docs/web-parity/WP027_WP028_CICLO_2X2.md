@@ -1,23 +1,30 @@
-# Ciclo WP-027 + WP-028 — Encerramento documental do WP-027
+# Ciclo WP-027 + WP-028 — Encerramento documental
 
 ## Autoridade e pré-flight
 
-O WP-027 foi executado como migração conservativa da superfície Web do Assistente de Atendimento, preservando as autoridades existentes de domínio, runtime de canal, identidade configurável, handoff e segurança. O WP-028 permaneceu fora de execução durante todo o ciclo.
+O WP-027 foi executado como migração conservativa da superfície Web do Assistente de Atendimento, preservando as autoridades existentes de domínio, runtime de canal, identidade configurável, handoff e segurança. Em seguida, o WP-028 foi executado como migração conservativa da superfície Web operacional do Gerente IA, reutilizando integralmente o runtime, tools, previews, confirmação humana, fingerprint, idempotência, RBAC e demais autoridades canônicas já existentes.
 
 - Branch oficial: `feat/web-parity-v1-total-original-migration`.
 - PR: `#118`, mantida OPEN/DRAFT e não mergeada.
 - Head funcional final do WP-027: `80a38497d7bf969c7e94b286f43349e1d383ff26`.
 - Snapshot de handoff local preservado em `1347a6aacc2870921dc3ad65b5f73d0b7d57378a`.
-- Correção estrutural principal: `8ecf05bf54928465ce8f9d63bcdfab025ae8513f`.
-- Correções finais de certificação: `80a38497d7bf969c7e94b286f43349e1d383ff26`.
+- Correção estrutural principal WP-027: `8ecf05bf54928465ce8f9d63bcdfab025ae8513f`.
+- Correções finais de certificação WP-027: `80a38497d7bf969c7e94b286f43349e1d383ff26`.
+- Commit de integração do Gerente IA ao shell operacional: `1db1b8295dc796079af581b29e46bc9e87aa4ce1`.
+- Teste HTTP assinado do WP-028: `4926ed313f58c23b0d5dea772f091c3c211d932c`.
+- Gate dedicado WP-028: `1861eb26e6682368994e3c2e6a034c1060769602`.
+- Correções de contrato/CI do WP-028: `4762407afff9e35882e6c982e176269baf31cf01`, `619b02f96a839247d1f0633d01c6bf33967ba2c2`, `5255b13e35c55ddd53d38d8dce886503fe68d114`, `4818af8b9a5e958b83e3ba236a3028d55685bea8`.
+- Correção final de whitespace que bloqueava `git diff --check`: `04bcfe31cf4c46d3dabf6e341747ed7a0b8cb96d`.
 
-## Autoridade original encontrada
+## WP-027 — Assistente de Atendimento
+
+### Autoridade original encontrada
 
 O domínio já possuía runtime operacional do Assistente de Atendimento, estado de canal WhatsApp cifrado, identidade configurável por tenant/unidade, handoff auditável e integração com os fluxos operacionais existentes. A migração não criou um segundo Assistente, segundo webhook, segunda memória de conversa ou segunda política de atendimento.
 
 A identidade pública permanece configurável por tenant/unidade; nenhum nome fixo de bot foi introduzido na Web.
 
-## Migração Web WP-027 — Concluída
+### Migração Web WP-027 — Concluída
 
 - **Rota Web**: `/admin/assistente-atendimento`.
 - **Posição no Shell/Backoffice**: módulo "Assistente de Atendimento" na área Proprietário.
@@ -32,54 +39,87 @@ A identidade pública permanece configurável por tenant/unidade; nenhum nome fi
 - **Segurança HTTP**: erros de segurança voltam ao tratador canônico antes do tratamento genérico de `ValueError`, preservando `401/403` em vez de degradar para `400`.
 - **Frontend**: cliente tipado, workspace React, página Next, constantes de estado e integração no Shell; nenhuma regra de negócio crítica foi movida para React.
 
-## Arquivos principais do WP-027
+### Certificação WP-027
 
-- `application/assistente_atendimento_admin.py`
-- `core/seguranca/permissoes.py`
-- `http_api/admin_assistente_atendimento.py`
-- `http_api/frontend_app.py`
-- `infra/assistente_atendimento/canal_estado_sqlalchemy.py`
-- `tests/api/test_admin_assistente_atendimento_http_contract.py`
-- `web/src/app/admin/assistente-atendimento/page.tsx`
-- `web/src/features/backoffice/assistente-atendimento/constants.ts`
-- `web/src/features/backoffice/assistente-atendimento/services/assistente-atendimento-api.ts`
-- `web/src/features/backoffice/assistente-atendimento/components/AssistenteAtendimentoWorkspace.tsx`
-- `web/src/features/shell/module-registry.ts`
-- `web/src/features/shell/components/DashboardHome.tsx`
-- `web/src/features/shell/components/UnifiedAppShell.tsx`
-
-## Certificação local
-
-Executada no worktree `C:\fm-ai-platform-pr118-web-parity` sobre o head funcional `80a38497d7bf969c7e94b286f43349e1d383ff26`:
-
-- `python -m py_compile` dos arquivos Python do WP-027: aprovado.
-- Ruff dirigido aos arquivos WP-027: **All checks passed**.
-- `tests/api/test_admin_assistente_atendimento_http_contract.py`: **6/6 PASS**.
-- regressão `tests/unit/assistente_atendimento/` + AF-09 RBAC + Assistente Commercial Cutover: **75/75 PASS**.
-- ESLint dirigido aos arquivos Web do WP-027: aprovado.
-- `npx tsc --noEmit`: aprovado.
-- `npm run build`: aprovado; rota `/admin/assistente-atendimento` presente no build Next.js.
+- `python -m py_compile`: aprovado.
+- Ruff dirigido: aprovado.
+- HTTP WP-027: **6/6 PASS**.
+- regressão Assistente/RBAC: **75/75 PASS**.
+- ESLint: aprovado.
+- TypeScript: aprovado.
+- Next production build: aprovado.
 - `git diff --check`: aprovado.
-- resíduo local `WP027_HANDOFF_COMPLETO.md`: mantido propositalmente fora do Git.
 
-## CI da PR #118 no head funcional
+**STATUS WP-027: MIGRADO / CONCLUÍDO.**
 
-No head `80a38497d7bf969c7e94b286f43349e1d383ff26`:
+## Gate Zero antes do WP-028
 
-- **Commercial Runtime Readiness V1**: SUCCESS.
-- **PR Superseded Runs Cleanup**: SUCCESS.
-- **Assistente Fase 4 Gate V1**: compile PASS; Ruff PASS; suíte alvo terminou com **151 PASS / 1 FAIL / 58 warnings**.
-
-A única falha é `tests/unit/integracoes/test_whatsapp_control_plane_runtime_v1.py::test_crm_so_declara_sucesso_apos_confirmacao_do_envio`, que exige a presença textual de `despachar_resgate_whatsapp_legado(` em um trecho do CRM legado. Esta falha é preexistente ao WP-027 e já estava presente nos checkpoints anteriores; não foi introduzida nem corrigida pelo WP-027 para evitar contaminação de escopo.
-
-## Estado final do WP-027
-
-**STATUS: MIGRADO / CONCLUÍDO.**
-
-A superfície Web administrativa do Assistente de Atendimento está implementada, escopada, governada e certificada nos gates específicos do WP-027. A falha global remanescente do workflow Assistente Fase 4 é dívida preexistente e registrada, não bloqueador atribuído ao WP-027.
+A dívida histórica `tests/unit/integracoes/test_whatsapp_control_plane_runtime_v1.py::test_crm_so_declara_sucesso_apos_confirmacao_do_envio` foi reavaliada antes do WP-028. O teste ainda verificava presença textual do boundary legado, enquanto o fluxo já delegava ao boundary canônico da Application. O teste foi atualizado para validar a autoridade correta, preservando consentimento, despacho governado e comportamento comercial. Após a correção, o workflow **Assistente Fase 4 Gate V1** voltou a SUCCESS e deixou de existir exceção de CI preexistente para este ciclo.
 
 ## WP-028 — Gerente IA
 
-**STATUS: NÃO INICIADO NESTE CICLO.**
+### Autoridade canônica preservada
 
-Nenhuma façade Web, UI, regra, prompt, política, permissão ou inteligência do Gerente IA foi alterada durante o fechamento do WP-027. O WP-028 deverá começar somente a partir de novo pré-flight e auditoria da autoridade existente.
+O WP-028 reutiliza o Gerente IA existente, incluindo:
+
+- `ServicoGerenteIA` e runtime canônico;
+- allowlist de tools já existente;
+- `PreviewAcao` para operações mutáveis;
+- confirmação humana explícita;
+- fingerprint do preview;
+- idempotency key;
+- RBAC `gerente_ia.consultar` e `gerente_ia.executar_acao`;
+- tenant/unidade obtidos exclusivamente da sessão assinada;
+- identidade pública configurável do assistente.
+
+Não foi criado segundo motor IA, segundo roteador, segundo sistema de tools, prompt alternativo ou política paralela de autonomia.
+
+### Superfície Web implementada
+
+- **Rota Web**: `/gerente-ia`.
+- **Posição**: shell operacional, não área `/admin`, preservando o fato de que Gerente não recebe automaticamente `admin.acessar`.
+- **HTTP**:
+  - `POST /v1/gerente-ia/perguntar`;
+  - `POST /v1/gerente-ia/tools`;
+  - `POST /v1/gerente-ia/confirmar`.
+- **Application Web**: façade sobre as autoridades existentes; nenhuma inteligência ou política crítica foi reconstruída no HTTP/React.
+- **Sessão**: `fm_ai_session` / `AuthSessionRuntime` permanecem autoridade do contexto.
+- **Anti-spoofing**: `X-Tenant-ID` e `X-Unit-ID` enviados pelo cliente não substituem tenant/unidade da sessão.
+- **Tools mutáveis**: retornam preview; a ação só é efetivada no endpoint de confirmação com permissão apropriada, fingerprint e idempotência preservados.
+- **Frontend**: página Next, workspace conversacional, cliente tipado e registro no Shell operacional.
+
+### Arquivos principais WP-028
+
+- `application/gerente_ia_web.py`
+- `http_api/gerente_ia_web.py`
+- `tests/api/test_gerente_ia_web_http_contract.py`
+- `web/src/app/gerente-ia/page.tsx`
+- `web/src/features/gerente-ia/components/GerenteIAWorkspace.tsx`
+- `web/src/features/gerente-ia/services/gerente-ia-api.ts`
+- `web/src/features/shell/module-registry.ts`
+- `.github/workflows/web-parity-wp028-wp030-gate.yml`
+
+### Certificação final WP-028
+
+No head `04bcfe31cf4c46d3dabf6e341747ed7a0b8cb96d`:
+
+- `py_compile`: PASS;
+- Ruff: **All checks passed**;
+- mypy: **Success: no issues found**;
+- testes HTTP + regressão Gerente IA: **15/15 PASS**;
+- ESLint: PASS;
+- TypeScript: PASS;
+- Next production build: PASS, incluindo rota `/gerente-ia`;
+- `git diff --check`: PASS após remoção dos dois trailing whitespaces preexistentes em `ConfiguracaoWorkspace.tsx`;
+- **Commercial Runtime Readiness V1**: SUCCESS;
+- **Assistente Fase 4 Gate V1**: SUCCESS;
+- **PR Superseded Runs Cleanup**: SUCCESS;
+- **Web Parity WP028-WP030 Gate**: SUCCESS.
+
+Não restou gate vermelho no WP-028.
+
+**STATUS WP-028: MIGRADO / CONCLUÍDO / 100% VERDE.**
+
+## Próximo bloco
+
+O próximo bloco autorizado é **WP-029 — Pagamentos / PIX / Provedores**. Ele só deve avançar preservando o checkout, webhook, reconciliação, ledger, idempotência e demais autoridades financeiras já existentes, sem criar segundo fluxo de pagamentos.
