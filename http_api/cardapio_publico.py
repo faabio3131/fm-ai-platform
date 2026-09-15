@@ -13,9 +13,9 @@ from sqlalchemy.orm import Session
 from application.administracao_proprietario import AplicacaoAdministracaoProprietarioV1
 from application.cardapio_publico import (
     ItemAutosservicoV1,
+    configurar_publicacao as configurar_publicacao_application,
     executar_autosservico_publico,
     resolver_cardapio_publico,
-    salvar_publicacao,
 )
 from application.cardapio_publico import (
     consultar_publicacao as consultar_publicacao_application,
@@ -128,16 +128,14 @@ def build_cardapio_publico_router(
                 contexto=contexto,
                 unidade_id=unidade_id,
             )
-            with session_factory() as session:
-                publicacao = salvar_publicacao(
-                    session=session,
-                    tenant_id=escopo.tenant_id,
-                    unidade_id=escopo.unidade_id,
-                    slug=payload.slug,
-                    publicada=payload.publicada,
-                    versao_esperada=payload.versao,
-                )
-                session.commit()
+            publicacao = configurar_publicacao_application(
+                session_factory=session_factory,
+                tenant_id=escopo.tenant_id,
+                unidade_id=escopo.unidade_id,
+                slug=payload.slug,
+                publicada=payload.publicada,
+                versao_esperada=payload.versao,
+            )
             return _publicacao_out(unidade_id=unidade_id, publicacao=publicacao)
         except Exception as exc:  # noqa: BLE001 - boundary fail-closed
             return _erro_admin(exc)
