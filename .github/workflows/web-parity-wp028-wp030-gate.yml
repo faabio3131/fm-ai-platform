@@ -45,7 +45,7 @@ jobs:
       - name: ESLint WP028-WP030
         working-directory: web
         run: |
-          npx eslint src/app/gerente-ia/page.tsx src/features/gerente-ia/components/GerenteIAWorkspace.tsx src/features/gerente-ia/services/gerente-ia-api.ts src/app/pagamentos/page.tsx src/features/pagamentos/components/PagamentosWorkspace.tsx src/features/pagamentos/services/pagamentos-api.ts src/features/shell/module-registry.ts
+          npx eslint src/app/gerente-ia/page.tsx src/features/gerente-ia/components/GerenteIAWorkspace.tsx src/features/gerente-ia/services/gerente-ia-api.ts src/app/pagamentos/page.tsx src/features/pagamentos/components/PagamentosWorkspace.tsx src/features/pagamentos/services/pagamentos-api.ts src/features/shell/module-registry.ts src/features/auth/components/AuthSessionGuard.tsx src/features/shell/components/UnifiedAppShell.tsx 'src/app/cardapio/[publicId]/[slug]/page.tsx' src/features/cardapio-publico/components/CardapioPublicoWorkspace.tsx src/features/cardapio-publico/services/cardapio-publico-api.ts src/features/backoffice/empresa/components/CardapioPublicoAdmin.tsx src/features/backoffice/empresa/components/EmpresaWorkspace.tsx
       - name: TypeScript
         working-directory: web
         run: npx tsc --noEmit
