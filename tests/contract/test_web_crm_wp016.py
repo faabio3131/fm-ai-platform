@@ -11,7 +11,6 @@ def _read(relative: str) -> str:
 
 def test_wp016_crm_reuses_session_aware_canonical_boundary() -> None:
     router = _read("http_api/crm.py")
-    canonical_app = _read("http_api/app.py")
     frontend_app = _read("http_api/frontend_app.py")
     api = _read("web/src/features/backoffice/crm/services/crm-api.ts")
 
@@ -24,7 +23,9 @@ def test_wp016_crm_reuses_session_aware_canonical_boundary() -> None:
     assert "seguranca.admin_step_up_exigido" in router
     assert "creditar_cashback_manual" in router
     assert "RepositorioCashbackSQLAlchemy" in router
-    assert "build_crm_router" in canonical_app
+    assert "from http_api.crm import build_crm_router" in frontend_app
+    assert "build_crm_router," in frontend_app
+    assert "app.include_router(" in frontend_app
     assert "app = build_http_app(settings=resolved_settings, **kwargs)" in frontend_app
     assert 'credentials: "include"' in api
     assert "/v1/crm/clientes" in api
