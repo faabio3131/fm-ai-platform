@@ -101,10 +101,10 @@ export function FichaTecnicaWorkspace({
         unidadeExibicao: insumo.unidade_medida === "kg" ? "g" : insumo.unidade_medida,
       },
     ]);
-    if (preco === 0) {
-      const novoCmv = cmv + custo;
-      setPreco(Number((margem < 100 ? novoCmv / (1 - margem / 100) : novoCmv * (1 + margem / 100)).toFixed(2)));
-    }
+  }
+
+  function aplicarPrecoSugerido() {
+    setPreco(Number(sugestao.toFixed(2)));
   }
 
   async function salvar(event: FormEvent<HTMLFormElement>) {
@@ -313,7 +313,19 @@ export function FichaTecnicaWorkspace({
           <div className="rounded-xl bg-slate-950/60 p-3"><p className="text-xs text-slate-500">CMV</p><p className="mt-1 font-bold text-white">{moeda(cmv)}</p></div>
           <label className="text-xs font-semibold text-slate-400">Margem desejada (%)<input type="number" min="5" max="300" step="5" value={margem} onChange={(event) => setMargem(Number(event.target.value))} className="mt-1 h-10 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white" /></label>
           <label className="text-xs font-semibold text-slate-400">Preço final (R$)<input type="number" min="0" step="0.01" value={preco} onChange={(event) => setPreco(Number(event.target.value))} className="mt-1 h-10 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white" /></label>
-          <div className="rounded-xl bg-slate-950/60 p-3"><p className="text-xs text-slate-500">Sugestão / margem real</p><p className="mt-1 font-bold text-white">{moeda(sugestao)} · {margemReal.toFixed(1)}%</p></div>
+          <div className="rounded-xl bg-slate-950/60 p-3">
+            <p className="text-xs text-slate-500">Sugestão / margem real</p>
+            <p className="mt-1 font-bold text-white">{moeda(sugestao)} · {margemReal.toFixed(1)}%</p>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-2 w-full"
+              onClick={aplicarPrecoSugerido}
+              disabled={itens.length === 0 || sugestao <= 0}
+            >
+              Aplicar preço sugerido
+            </Button>
+          </div>
         </div>
 
         <Button type="submit" className="mt-5 w-full" disabled={busy || itens.length === 0 || preco < 0}>
