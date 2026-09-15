@@ -16,7 +16,13 @@ from sqlalchemy.orm import Session
 
 from core.crm.adapters import PortaEnvioMarketing
 from core.crm.erros import ErroCRM
-from core.dominio.ids import CorrelationId, EventoId, IdempotencyKey, TenantId, UnidadeId
+from core.dominio.ids import (
+    CorrelationId,
+    EventoId,
+    IdempotencyKey,
+    TenantId,
+    UnidadeId,
+)
 from core.eventos.erros import DuplicataOutbox
 from core.eventos.modelos import EnvelopeMensagem
 from core.seguranca.contexto import ContextoExecucao
