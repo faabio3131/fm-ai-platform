@@ -45,6 +45,7 @@ from infra.cardapio_publico.repositorio_sqlalchemy import (
     RepositorioCardapioPublicoSQLAlchemy,
 )
 from infra.delivery.catalogo_sqlalchemy import CatalogoDeliverySQLAlchemy
+from infra.transacoes.uow import UnitOfWorkV1
 
 _SLUG_INVALIDO = re.compile(r"[^a-z0-9]+")
 
@@ -115,23 +116,22 @@ def configurar_publicacao(
     publicada: bool,
     versao_esperada: int,
 ) -> PublicacaoCardapioPersistida:
-    """Persiste a configuracao publica com ownership transacional da Application."""
+    """Persiste configuracao publica pelo owner transacional canônico da Application."""
 
-    with session_factory() as session:
-        try:
-            publicacao = salvar_publicacao(
-                session=session,
-                tenant_id=tenant_id,
-                unidade_id=unidade_id,
-                slug=slug,
-                publicada=publicada,
-                versao_esperada=versao_esperada,
-            )
-            session.commit()
-            return publicacao
-        except Exception:
-            session.rollback()
-            raise
+    with UnitOfWorkV1(session_factory) as uow:
+        session = uow.session
+        if session is None:
+            raise RuntimeError("cardapio_publico.uow_sem_session")
+        publicacao = salvar_publicacao(
+            session=session,
+            tenant_id=tenant_id,
+            unidade_id=unidade_id,
+            slug=slug,
+            publicada=publicada,
+            versao_esperada=versao_esperada,
+        )
+        uow.commit()
+        return publicacao
 
 
 def resolver_cardapio_publico(
