@@ -47,14 +47,29 @@ def _criar_identidade(
 
 
 def _seed_catalogo_primario(session) -> None:
-    session.execute(text("INSERT INTO lojas (id, nome_fantasia) VALUES (101, 'Loja Cardapio HTTP')"))
+    session.execute(
+        text(
+            "INSERT INTO lojas (id, nome_fantasia) VALUES "
+            "(101, 'Loja Cardapio HTTP'), "
+            "(102, 'Loja Filial HTTP'), "
+            "(103, 'Loja Cliente B HTTP')"
+        )
+    )
     session.execute(
         text(
             "INSERT INTO fm_unidade_loja_legacy_v1 "
-            "(tenant_id, unidade_id, loja_id, ativo) "
-            "VALUES (:tenant, :unidade, 101, TRUE)"
+            "(tenant_id, unidade_id, loja_id, ativo) VALUES "
+            "(:tenant, :unidade, 101, TRUE), "
+            "(:tenant, :filial, 102, TRUE), "
+            "(:tenant_b, :unidade_b, 103, TRUE)"
         ),
-        {"tenant": TENANT, "unidade": UNIDADE},
+        {
+            "tenant": TENANT,
+            "unidade": UNIDADE,
+            "filial": FILIAL,
+            "tenant_b": TENANT_B,
+            "unidade_b": UNIDADE_B,
+        },
     )
     session.execute(
         text(
@@ -257,6 +272,8 @@ def test_matriz_filial_e_segundo_cliente_sao_configuraveis_e_isolados(monkeypatc
     assert publico_filial.json()["unidade"] == "Filial Norte"
     assert publico_b.json()["empresa"] == "Empresa Independente"
     assert publico_b.json()["unidade"] == "Loja B"
+    assert publico_filial.json()["itens"] == []
+    assert publico_b.json()["itens"] == []
     for resposta in (publico_matriz, publico_filial, publico_b):
         assert resposta.status_code == 200
         assert "tenant_id" not in resposta.json()
