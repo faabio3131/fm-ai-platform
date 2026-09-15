@@ -1,0 +1,112 @@
+name: Web Parity Phase 1 WP016 Certification
+
+on:
+  pull_request:
+    branches:
+      - feat/web-parity-v1-wp010-wp011-delivery-entrega
+    paths:
+      - '.github/workflows/web-parity-phase1-wp016-certification.yml'
+      - 'application/crm_cashback_comercial.py'
+      - 'application/crm_cashback_transacoes.py'
+      - 'http_api/crm.py'
+      - 'infra/crm/**'
+      - 'web/src/app/admin/crm/**'
+      - 'web/src/features/backoffice/crm/**'
+      - 'tests/api/test_crm_http_contract.py'
+      - 'tests/contract/test_web_crm_wp016.py'
+      - 'tests/integration/crm/test_cashback_comercial.py'
+      - 'tests/integration/crm/test_cashback_pdv_boundary.py'
+      - 'docs/web-parity/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wp016-certification:
+    name: CRM + Clientes + Cashback integrated certification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+
+      - name: Compile WP016 canonical surface
+        run: |
+          python -m py_compile \
+            application/crm_cashback_comercial.py \
+            application/crm_cashback_transacoes.py \
+            http_api/crm.py
+
+      - name: Ruff WP016
+        run: |
+          ruff check \
+            application/crm_cashback_comercial.py \
+            application/crm_cashback_transacoes.py \
+            http_api/crm.py \
+            tests/api/test_crm_http_contract.py \
+            tests/contract/test_web_crm_wp016.py \
+            tests/integration/crm/test_cashback_comercial.py \
+            tests/integration/crm/test_cashback_pdv_boundary.py
+
+      - name: Mypy WP016
+        run: |
+          mypy \
+            application/crm_cashback_comercial.py \
+            application/crm_cashback_transacoes.py \
+            http_api/crm.py
+
+      - name: CRM cashback targeted matrix
+        run: |
+          pytest -q \
+            tests/api/test_crm_http_contract.py \
+            tests/contract/test_web_crm_wp016.py \
+            tests/integration/crm/test_cashback_comercial.py \
+            tests/integration/crm/test_cashback_pdv_boundary.py
+
+      - name: Full Python regression
+        run: pytest -q
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: ESLint WP016
+        working-directory: web
+        run: |
+          npx eslint \
+            src/app/admin/crm/page.tsx \
+            src/features/backoffice/crm/components/CrmWorkspace.tsx \
+            src/features/backoffice/crm/services/crm-api.ts
+
+      - name: TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Backoffice navigation test
+        working-directory: web
+        run: node --test tests/backoffice-navigation.test.mjs
+
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+
+      - name: Diff whitespace gate
+        run: git diff --check origin/${{ github.base_ref }}...HEAD
