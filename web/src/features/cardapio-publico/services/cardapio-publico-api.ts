@@ -26,6 +26,14 @@ export interface PublicacaoCardapio {
   versao: number;
 }
 
+export interface ResultadoCheckoutPublico {
+  pedido_id: string;
+  status: string;
+  total: string;
+  pagamento_id: string | null;
+  pagamento_status: string | null;
+}
+
 async function lerErro(response: Response, fallback: string): Promise<never> {
   let mensagem = fallback;
   try {
@@ -45,6 +53,23 @@ export async function carregarCardapioPublico(publicId: string): Promise<Cardapi
   });
   if (!response.ok) return lerErro(response, "Cardápio indisponível no momento.");
   return await response.json() as CardapioPublico;
+}
+
+export async function finalizarCheckoutPublico(
+  publicId: string,
+  payload: {
+    itens: { produto_id: string; quantidade: number }[];
+    metodo_pagamento: string;
+    idempotency_key: string;
+  },
+): Promise<ResultadoCheckoutPublico> {
+  const response = await fetch(`${API_BASE_URL}/v1/publico/cardapio/${encodeURIComponent(publicId)}/checkout`, {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) return lerErro(response, "Não foi possível enviar o pedido.");
+  return await response.json() as ResultadoCheckoutPublico;
 }
 
 export async function obterPublicacaoCardapio(unidadeId: string): Promise<PublicacaoCardapio> {
