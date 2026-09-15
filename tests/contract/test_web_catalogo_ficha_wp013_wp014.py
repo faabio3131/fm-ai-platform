@@ -11,6 +11,7 @@ def _read(relative: str) -> str:
 
 def test_wp013_catalogo_reuses_session_aware_canonical_http_boundary() -> None:
     router = _read("http_api/catalogo.py")
+    canonical_app = _read("http_api/app.py")
     frontend_app = _read("http_api/frontend_app.py")
     api = _read("web/src/features/backoffice/catalogo/services/catalogo-api.ts")
 
@@ -19,7 +20,8 @@ def test_wp013_catalogo_reuses_session_aware_canonical_http_boundary() -> None:
     assert "Permissao.ADMIN_ACESSAR" in router
     assert "auth_runtime.admin_status(request)" in router
     assert "seguranca.admin_step_up_exigido" in router
-    assert "build_catalogo_router" in frontend_app
+    assert "build_catalogo_router" in canonical_app
+    assert "app = build_http_app(settings=resolved_settings, **kwargs)" in frontend_app
     assert 'credentials: "include"' in api
     assert "/v1/catalogo" in api
 
