@@ -1,9 +1,9 @@
 # Kordena V1 - Inventário Mestre de Paridade Web (WEB-PARITY-V1)
 
-**Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`  
-**Data original:** 08/09/2026  
-**Reconciliação:** 15/09/2026  
-**Versão do inventário:** 2.2 — reconciliação pós-certificação WP-030  
+**Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`
+**Data original:** 08/09/2026
+**Reconciliação:** 15/09/2026
+**Versão do inventário:** 2.2 — reconciliação pós-certificação WP-030
 **Status:** DOCUMENTO MESTRE DE EXECUÇÃO
 
 ## 1. Regra constitucional deste inventário
