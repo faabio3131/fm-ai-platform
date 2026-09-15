@@ -1,8 +1,8 @@
 # WP-010 + WP-011 — Certificação Integrada
 
-Data da certificação: 2026-09-15  
-Branch: `feat/web-parity-v1-total-original-migration`  
-Base preservada: `feat/web-parity-v1-wp010-wp011-delivery-entrega`  
+Data da certificação: 2026-09-15
+Branch: `feat/web-parity-v1-total-original-migration`
+Base preservada: `feat/web-parity-v1-wp010-wp011-delivery-entrega`
 SHA técnico certificado antes deste registro: `b93a7867d9069937a20222d38f942b81adfab0bd`
 
 ## Status
@@ -22,8 +22,8 @@ Nenhum teste foi removido, afrouxado ou convertido em exceção de baseline para
 
 ## Evidência do gate WP-010/WP-011
 
-Workflow: `Web Parity Phase 1 WP010-WP011 Certification`  
-Run: `35014317666`  
+Workflow: `Web Parity Phase 1 WP010-WP011 Certification`
+Run: `35014317666`
 Job: `104533790861`
 
 Resultado integral: **SUCCESS**.
