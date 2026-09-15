@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  wp028-wp029:
+  wp028-wp030:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -24,25 +24,25 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest ruff==0.16.1 mypy==1.20.2
-      - name: Compile WP028-WP029
+      - name: Compile WP028-WP030
         run: |
-          python -m py_compile application/gerente_ia_web.py http_api/gerente_ia_web.py application/pagamentos_web.py http_api/pagamentos_web.py
-      - name: Ruff WP028-WP029
+          python -m py_compile application/gerente_ia_web.py http_api/gerente_ia_web.py application/pagamentos_web.py http_api/pagamentos_web.py application/cardapio_publico.py http_api/cardapio_publico.py infra/cardapio_publico/modelos_orm.py infra/cardapio_publico/repositorio_sqlalchemy.py migrations/cardapio_publico_identity_v1.py migrations/runner.py
+      - name: Ruff WP028-WP030
         run: |
-          ruff check application/gerente_ia_web.py http_api/gerente_ia_web.py tests/api/test_gerente_ia_web_http_contract.py application/pagamentos_web.py http_api/pagamentos_web.py tests/api/test_pagamentos_web_http_contract.py
-      - name: Mypy WP028-WP029
+          ruff check application/gerente_ia_web.py http_api/gerente_ia_web.py tests/api/test_gerente_ia_web_http_contract.py application/pagamentos_web.py http_api/pagamentos_web.py tests/api/test_pagamentos_web_http_contract.py application/cardapio_publico.py http_api/cardapio_publico.py infra/cardapio_publico/modelos_orm.py infra/cardapio_publico/repositorio_sqlalchemy.py migrations/cardapio_publico_identity_v1.py migrations/runner.py tests/api/test_cardapio_publico_http_contract.py
+      - name: Mypy WP028-WP030
         run: |
-          mypy application/gerente_ia_web.py http_api/gerente_ia_web.py application/pagamentos_web.py http_api/pagamentos_web.py
-      - name: Test WP028-WP029 and payment regressions
+          mypy application/gerente_ia_web.py http_api/gerente_ia_web.py application/pagamentos_web.py http_api/pagamentos_web.py application/cardapio_publico.py http_api/cardapio_publico.py infra/cardapio_publico/modelos_orm.py infra/cardapio_publico/repositorio_sqlalchemy.py migrations/cardapio_publico_identity_v1.py
+      - name: Test WP028-WP030 and payment regressions
         run: |
-          pytest -q tests/api/test_gerente_ia_web_http_contract.py tests/unit/gerente_ia tests/api/test_pagamentos_web_http_contract.py tests/unit/payments tests/unit/integracoes/test_pagbank_v1.py tests/unit/integracoes/test_pix_runtime_v1.py tests/unit/test_pdv_pix_checkout_reset_v1.py
+          pytest -q tests/api/test_gerente_ia_web_http_contract.py tests/unit/gerente_ia tests/api/test_pagamentos_web_http_contract.py tests/unit/payments tests/unit/integracoes/test_pagbank_v1.py tests/unit/integracoes/test_pix_runtime_v1.py tests/unit/test_pdv_pix_checkout_reset_v1.py tests/api/test_cardapio_publico_http_contract.py
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
       - name: Install Web dependencies
         working-directory: web
         run: npm install --no-audit --no-fund
-      - name: ESLint WP028-WP029
+      - name: ESLint WP028-WP030
         working-directory: web
         run: |
           npx eslint src/app/gerente-ia/page.tsx src/features/gerente-ia/components/GerenteIAWorkspace.tsx src/features/gerente-ia/services/gerente-ia-api.ts src/app/pagamentos/page.tsx src/features/pagamentos/components/PagamentosWorkspace.tsx src/features/pagamentos/services/pagamentos-api.ts src/features/shell/module-registry.ts
