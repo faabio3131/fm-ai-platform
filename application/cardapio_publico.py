@@ -17,7 +17,11 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from application.checkout import ComandoCheckoutV1, ResultadoCheckoutV1, executar_checkout_v1
+from application.checkout import (
+    ComandoCheckoutV1,
+    ResultadoCheckoutV1,
+    executar_checkout_v1,
+)
 from core.delivery.modelos import ProdutoDelivery
 from core.dominio.dinheiro import Dinheiro
 from core.dominio.enums import CanalAtendimento, OrigemPedido, PedidoStatus
