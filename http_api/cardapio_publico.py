@@ -13,12 +13,12 @@ from sqlalchemy.orm import Session
 from application.administracao_proprietario import AplicacaoAdministracaoProprietarioV1
 from application.cardapio_publico import (
     ItemAutosservicoV1,
-    consultar_publicacao as consultar_publicacao_application,
-)
-from application.cardapio_publico import (
     executar_autosservico_publico,
     resolver_cardapio_publico,
     salvar_publicacao,
+)
+from application.cardapio_publico import (
+    consultar_publicacao as consultar_publicacao_application,
 )
 from core.pagamentos.modelos import MetodoPagamento
 from core.seguranca.erros import ErroSeguranca
