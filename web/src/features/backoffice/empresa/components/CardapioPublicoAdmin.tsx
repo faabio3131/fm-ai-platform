@@ -25,7 +25,7 @@ export function CardapioPublicoAdmin({ unidades }: { unidades: UnidadePublicavel
   const [publicacao, setPublicacao] = useState<PublicacaoCardapio | null>(null);
   const [slug, setSlug] = useState("");
   const [publicada, setPublicada] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(unidades.length > 0);
   const [saving, setSaving] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -36,14 +36,8 @@ export function CardapioPublicoAdmin({ unidades }: { unidades: UnidadePublicavel
   );
 
   useEffect(() => {
-    if (!unidadeId) {
-      setPublicacao(null);
-      return;
-    }
+    if (!unidadeId) return;
     let cancelado = false;
-    setLoading(true);
-    setErro(null);
-    setAviso(null);
     void obterPublicacaoCardapio(unidadeId)
       .then((dados) => {
         if (cancelado) return;
@@ -52,13 +46,23 @@ export function CardapioPublicoAdmin({ unidades }: { unidades: UnidadePublicavel
         setPublicada(dados.publicada);
       })
       .catch((error) => {
-        if (!cancelado) setErro(error instanceof Error ? error.message : "Não foi possível carregar a publicação.");
+        if (!cancelado) {
+          setErro(error instanceof Error ? error.message : "Não foi possível carregar a publicação.");
+        }
       })
       .finally(() => {
         if (!cancelado) setLoading(false);
       });
     return () => { cancelado = true; };
   }, [unidade?.nome_fantasia, unidadeId]);
+
+  function selecionarUnidade(proximaUnidadeId: string) {
+    setUnidadeId(proximaUnidadeId);
+    setPublicacao(null);
+    setLoading(true);
+    setErro(null);
+    setAviso(null);
+  }
 
   async function salvar() {
     if (!unidadeId || !publicacao || saving) return;
@@ -95,10 +99,6 @@ export function CardapioPublicoAdmin({ unidades }: { unidades: UnidadePublicavel
 
   if (unidades.length === 0) return null;
 
-  const linkCompleto = publicacao?.url_publica
-    ? (typeof window === "undefined" ? publicacao.url_publica : new URL(publicacao.url_publica, window.location.origin).toString())
-    : null;
-
   return <section className="space-y-4 rounded-xl border border-emerald-500/20 bg-slate-900 p-5">
     <div>
       <h2 className="text-xl font-semibold">Cardápio Digital público</h2>
@@ -106,7 +106,7 @@ export function CardapioPublicoAdmin({ unidades }: { unidades: UnidadePublicavel
     </div>
 
     <label className="block text-sm text-slate-300">Unidade publicada
-      <select value={unidadeId} onChange={(event) => setUnidadeId(event.target.value)} disabled={loading || saving} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 p-2 text-white">
+      <select value={unidadeId} onChange={(event) => selecionarUnidade(event.target.value)} disabled={loading || saving} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 p-2 text-white">
         {unidades.map((item) => <option key={item.unidade_id} value={item.unidade_id}>{item.nome_fantasia} · {item.tipo}</option>)}
       </select>
     </label>
@@ -119,10 +119,10 @@ export function CardapioPublicoAdmin({ unidades }: { unidades: UnidadePublicavel
 
       <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={publicada} onChange={(event) => setPublicada(event.target.checked)} disabled={saving} />Cardápio disponível publicamente</label>
 
-      {linkCompleto ? <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+      {publicacao.url_publica ? <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Link da unidade</p>
-        <p className="mt-2 break-all text-sm text-emerald-300">{linkCompleto}</p>
-        <div className="mt-3 flex flex-wrap gap-2"><Button type="button" variant="outline" size="sm" onClick={() => void copiarLink()}>Copiar link</Button><a href={publicacao.url_publica ?? undefined} target="_blank" rel="noreferrer" className="inline-flex items-center rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800">Abrir cardápio</a></div>
+        <p className="mt-2 break-all text-sm text-emerald-300">{publicacao.url_publica}</p>
+        <div className="mt-3 flex flex-wrap gap-2"><Button type="button" variant="outline" size="sm" onClick={() => void copiarLink()}>Copiar link</Button><a href={publicacao.url_publica} target="_blank" rel="noreferrer" className="inline-flex items-center rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800">Abrir cardápio</a></div>
       </div> : <p className="text-sm text-slate-500">O endereço público seguro será criado na primeira vez que esta configuração for salva.</p>}
 
       {erro ? <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-100">{erro}</p> : null}
