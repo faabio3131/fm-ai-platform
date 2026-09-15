@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuthStore } from "@/features/auth/store/auth-store";
+import { CardapioPublicoAdmin } from "@/features/backoffice/empresa/components/CardapioPublicoAdmin";
 import {
   abrirCadastroEmpresa, criarUnidade, salvarEmpresa, salvarUnidade,
   type CadastroEmpresa, type Unidade,
@@ -163,6 +164,7 @@ function CadastroWorkspace() {
           </form> : null}
         </>}
       </section>
+      <CardapioPublicoAdmin unidades={cadastro.unidades} />
       <details className="rounded-xl border border-slate-800 bg-slate-900 p-5">
         <summary className="cursor-pointer font-semibold">Cadastrar nova filial/unidade</summary>
         <form className="mt-4" onSubmit={novaUnidade}><fieldset disabled={busy} className="space-y-4">
