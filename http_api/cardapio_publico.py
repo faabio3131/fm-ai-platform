@@ -13,9 +13,11 @@ from sqlalchemy.orm import Session
 from application.administracao_proprietario import AplicacaoAdministracaoProprietarioV1
 from application.cardapio_publico import (
     ItemAutosservicoV1,
-    configurar_publicacao as configurar_publicacao_application,
     executar_autosservico_publico,
     resolver_cardapio_publico,
+)
+from application.cardapio_publico import (
+    configurar_publicacao as configurar_publicacao_application,
 )
 from application.cardapio_publico import (
     consultar_publicacao as consultar_publicacao_application,
