@@ -106,6 +106,34 @@ def salvar_publicacao(
     )
 
 
+def configurar_publicacao(
+    *,
+    session_factory: Callable[[], Session],
+    tenant_id: str,
+    unidade_id: str,
+    slug: str,
+    publicada: bool,
+    versao_esperada: int,
+) -> PublicacaoCardapioPersistida:
+    """Persiste a configuracao publica com ownership transacional da Application."""
+
+    with session_factory() as session:
+        try:
+            publicacao = salvar_publicacao(
+                session=session,
+                tenant_id=tenant_id,
+                unidade_id=unidade_id,
+                slug=slug,
+                publicada=publicada,
+                versao_esperada=versao_esperada,
+            )
+            session.commit()
+            return publicacao
+        except Exception:
+            session.rollback()
+            raise
+
+
 def resolver_cardapio_publico(
     *, session: Session, public_id: str
 ) -> CardapioPublicoV1 | None:
