@@ -21,6 +21,7 @@ from infra.crm.clientes_sqlalchemy import LeitorClientesCRMSQLAlchemy
 from infra.crm.consentimentos_marketing_sqlalchemy import (
     LeitorConsentimentosMarketingSQLAlchemy,
 )
+from infra.crm.marketing_idempotencia import EnvioMarketingIdempotenteSQLAlchemy
 from infra.crm.marketing_whatsapp import EnvioWhatsAppMarketingComercial
 from infra.legacy_schema import clientes as clientes_legados
 
@@ -200,11 +201,18 @@ def despachar_resgate_whatsapp_legado(
         if vinculo is None:
             raise MarketingCRMComercialInvalido("cliente_legado_sem_mapping_crm")
 
-        transporte = envio or EnvioWhatsAppMarketingComercial(
+        transporte_base = envio or EnvioWhatsAppMarketingComercial(
             session=session,
             contexto=contexto,
             campanha_ref=campanha_ref,
             texto=texto,
+        )
+        transporte = EnvioMarketingIdempotenteSQLAlchemy(
+            session=session,
+            contexto=contexto,
+            cliente_id=vinculo.cliente_id,
+            texto=texto,
+            transporte=transporte_base,
         )
         nao_usado = cast(Any, object())
         servico = ServicoCRM(
@@ -228,12 +236,18 @@ def despachar_resgate_whatsapp_legado(
             idempotency_key=idempotency_key,
             envio=transporte,
         )
-        mensagem_id = getattr(transporte, "mensagem_id", None)
+        if transporte.acionado:
+            return ResultadoMarketingCRMComercial(
+                cliente_id=vinculo.cliente_id,
+                enviado=transporte.enviado,
+                motivo=transporte.motivo,
+                mensagem_id=transporte.mensagem_id,
+            )
         return ResultadoMarketingCRMComercial(
             cliente_id=vinculo.cliente_id,
             enviado=resultado.enviado,
             motivo=resultado.motivo,
-            mensagem_id=mensagem_id if isinstance(mensagem_id, str) else None,
+            mensagem_id=None,
         )
     finally:
         session.close()

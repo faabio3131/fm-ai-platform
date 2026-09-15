@@ -14,6 +14,7 @@ from application.crm_marketing_comercial import (
 from core.seguranca.contexto import ContextoExecucao
 from infra.crm.cliente_legado_schema import crm_cliente_legado_v1
 from infra.crm.consentimentos_schema import crm_consentimentos_v1
+from infra.eventos.modelos_orm import EventBusBase
 from infra.legacy_schema import clientes
 from migrations.crm_cliente_legado_mapping_v1 import (
     upgrade_crm_cliente_legado_mapping_v1,
@@ -48,6 +49,21 @@ class EnvioCaptura:
         )
 
 
+class EnvioFalha:
+    def __init__(self) -> None:
+        self.chamadas = 0
+
+    def enviar(
+        self,
+        *,
+        referencia_contato: str,
+        campanha_ref: str,
+        idempotency_key: str,
+    ) -> None:
+        self.chamadas += 1
+        raise RuntimeError("resultado_externo_incerto")
+
+
 def _contexto() -> ContextoExecucao:
     return ContextoExecucao(
         tenant_id=TENANT,
@@ -67,6 +83,7 @@ def _fabrica():
     with engine.begin() as connection:
         connection.exec_driver_sql("PRAGMA foreign_keys = ON")
         clientes.create(connection, checkfirst=True)
+        EventBusBase.metadata.create_all(bind=connection, checkfirst=True)
         upgrade_crm_clientes_persistencia_v1(connection)
         upgrade_crm_cliente_legado_mapping_v1(connection)
         upgrade_crm_consentimentos_historico_v1(connection)
@@ -379,7 +396,7 @@ def test_resgate_sem_gemini_usa_mensagem_padrao_sem_chamar_provider() -> None:
     )
 
 
-def test_despacho_resgate_preserva_campanha_e_idempotencia_diarias(
+def test_despacho_resgate_replay_diario_nao_duplica_transporte(
     monkeypatch,
 ) -> None:
     engine, fabrica = _fabrica()
@@ -392,7 +409,14 @@ def test_despacho_resgate_preserva_campanha_e_idempotencia_diarias(
             return cls(2026, 9, 9)
 
     monkeypatch.setattr(marketing, "date", DataFixa)
-    resultado = despachar_resgate_cliente_inativo(
+    primeiro = despachar_resgate_cliente_inativo(
+        session_factory=fabrica,
+        contexto=_contexto(),
+        legacy_cliente_id=LEGACY_ID,
+        texto="Mensagem preservada.",
+        envio=envio,
+    )
+    segundo = despachar_resgate_cliente_inativo(
         session_factory=fabrica,
         contexto=_contexto(),
         legacy_cliente_id=LEGACY_ID,
@@ -400,7 +424,11 @@ def test_despacho_resgate_preserva_campanha_e_idempotencia_diarias(
         envio=envio,
     )
 
-    assert resultado.enviado
+    assert primeiro.enviado
+    assert primeiro.motivo == "enviado"
+    assert segundo.enviado
+    assert segundo.motivo == "idempotente"
+    assert segundo.mensagem_id == "teste-msg-1"
     assert envio.chamadas == [
         (
             "contact://f13c-marketing",
@@ -408,3 +436,36 @@ def test_despacho_resgate_preserva_campanha_e_idempotencia_diarias(
             f"crm-resgate-{LEGACY_ID}-2026-09-09",
         )
     ]
+
+
+def test_resultado_externo_incerto_fica_reservado_e_nao_reenvia() -> None:
+    engine, fabrica = _fabrica()
+    _consentir(engine, status="concedido", instante=AGORA, chave="incerto")
+    falha = EnvioFalha()
+
+    with pytest.raises(RuntimeError, match="resultado_externo_incerto"):
+        despachar_resgate_whatsapp_legado(
+            session_factory=fabrica,
+            contexto=_contexto(),
+            legacy_cliente_id=LEGACY_ID,
+            campanha_ref="resgate-incerto",
+            texto="Mensagem incerta.",
+            idempotency_key="envio-incerto-1",
+            envio=falha,
+        )
+
+    replay = EnvioCaptura()
+    resultado = despachar_resgate_whatsapp_legado(
+        session_factory=fabrica,
+        contexto=_contexto(),
+        legacy_cliente_id=LEGACY_ID,
+        campanha_ref="resgate-incerto",
+        texto="Mensagem incerta.",
+        idempotency_key="envio-incerto-1",
+        envio=replay,
+    )
+
+    assert falha.chamadas == 1
+    assert replay.chamadas == []
+    assert not resultado.enviado
+    assert resultado.motivo == "marketing_despacho_ja_reservado"
