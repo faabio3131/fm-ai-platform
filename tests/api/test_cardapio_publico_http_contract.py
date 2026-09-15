@@ -8,7 +8,9 @@ from sqlalchemy.pool import StaticPool
 from core.runtime.config import RuntimeEnvironment, RuntimeSettings
 from core.seguranca.permissoes import Papel
 from http_api.frontend_app import build_frontend_http_app
-from infra.administracao.repositorio_sqlalchemy import RepositorioAdministracaoSQLAlchemy
+from infra.administracao.repositorio_sqlalchemy import (
+    RepositorioAdministracaoSQLAlchemy,
+)
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 from migrations.runner import run_migrations
 
