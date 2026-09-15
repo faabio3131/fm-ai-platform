@@ -12,9 +12,15 @@ from sqlalchemy.orm import Session
 
 from application.administracao_proprietario import AplicacaoAdministracaoProprietarioV1
 from application.cardapio_publico import (
+    ItemAutosservicoV1,
     consultar_publicacao as consultar_publicacao_application,
 )
-from application.cardapio_publico import resolver_cardapio_publico, salvar_publicacao
+from application.cardapio_publico import (
+    executar_autosservico_publico,
+    resolver_cardapio_publico,
+    salvar_publicacao,
+)
+from core.pagamentos.modelos import MetodoPagamento
 from core.seguranca.erros import ErroSeguranca
 from http_api.admin_backoffice import contexto_backoffice
 from http_api.admin_dashboard import _tratar_erro
@@ -27,6 +33,19 @@ class PublicacaoCardapioIn(BaseModel):
     slug: str = Field(min_length=3, max_length=120)
     publicada: bool
     versao: int = Field(ge=0)
+
+
+class ItemAutosservicoIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    produto_id: str = Field(min_length=1, max_length=160)
+    quantidade: int = Field(ge=1, le=100)
+
+
+class CheckoutAutosservicoIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    itens: list[ItemAutosservicoIn] = Field(min_length=1, max_length=100)
+    metodo_pagamento: MetodoPagamento
+    idempotency_key: str = Field(min_length=8, max_length=120)
 
 
 def _publicacao_out(
@@ -157,6 +176,50 @@ def build_cardapio_publico_router(
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 content={"erro": "cardapio_publico_indisponivel"},
+            )
+
+    @router.post("/v1/publico/cardapio/{public_id}/checkout", response_model=None)
+    def checkout_publico(
+        public_id: str, payload: CheckoutAutosservicoIn
+    ) -> dict[str, Any] | JSONResponse:
+        try:
+            resultado = executar_autosservico_publico(
+                session_factory=session_factory,
+                public_id=public_id,
+                itens=tuple(
+                    ItemAutosservicoV1(
+                        produto_id=item.produto_id,
+                        quantidade=item.quantidade,
+                    )
+                    for item in payload.itens
+                ),
+                metodo_pagamento=payload.metodo_pagamento,
+                idempotency_key=payload.idempotency_key,
+            )
+            pedido = resultado.checkout.aguardando_confirmacao.pedido
+            pagamento = resultado.checkout.pagamento
+            return {
+                "pedido_id": str(pedido.id),
+                "status": pedido.status.value,
+                "total": str(pedido.total.valor),
+                "pagamento_id": (
+                    pagamento.pagamento.id if pagamento is not None else None
+                ),
+                "pagamento_status": (
+                    pagamento.pagamento.status.value if pagamento is not None else None
+                ),
+            }
+        except LookupError:
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content={"erro": "cardapio_publico_indisponivel"},
+            )
+        except (ValueError, TypeError) as exc:
+            return JSONResponse(status_code=400, content={"erro": str(exc)})
+        except Exception:  # noqa: BLE001 - boundary publica nao vaza detalhes internos
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"erro": "checkout_publico_indisponivel"},
             )
 
     return router
