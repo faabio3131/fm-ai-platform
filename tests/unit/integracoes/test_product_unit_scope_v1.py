@@ -24,35 +24,13 @@ def test_app_publicado_eleva_writes_de_cardapio_para_application() -> None:
 
     assert atualizado == APP_SOURCE
 
-    assert (
-        'loja_id = Column(String(64), nullable=True, index=True)'
-        not in atualizado
-    )
-
-    assert (
-        "loja_id=CURRENT_IDENTITY.unidade_id"
-        not in atualizado
-    )
-
-    assert (
-        "inserir_produto_legado("
-        not in atualizado
-    )
-
-    assert (
-        "inserir_ficha_tecnica_legada("
-        not in atualizado
-    )
-
-    assert (
-        "application_cardapio.salvar_prato_com_ficha("
-        in atualizado
-    )
-
-    assert (
-        "application_cardapio.importar_produtos("
-        in atualizado
-    )
+    assert 'loja_id = Column(String(64), nullable=True, index=True)' not in atualizado
+    assert "loja_id=CURRENT_IDENTITY.unidade_id" not in atualizado
+    assert "inserir_produto_legado(" not in atualizado
+    assert "inserir_ficha_tecnica_legada(" not in atualizado
+    assert "application_cardapio.salvar_prato_com_ficha(" in atualizado
+    assert "AplicacaoImportacaoCardapioGeminiV1" in atualizado
+    assert "application_importacao_gemini.importar(" in atualizado
 
 
 def test_patch_e_idempotente() -> None:
