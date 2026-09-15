@@ -12,41 +12,42 @@ from sqlalchemy.orm import Session
 
 from application.administracao_proprietario import AplicacaoAdministracaoProprietarioV1
 from application.cardapio_publico import (
-    aplicar_publicacao_na_configuracao,
-    publicacao_da_configuracao,
-    resolver_cardapio_publico,
+    consultar_publicacao as consultar_publicacao_application,
 )
+from application.cardapio_publico import resolver_cardapio_publico, salvar_publicacao
 from core.seguranca.erros import ErroSeguranca
 from http_api.admin_backoffice import contexto_backoffice
 from http_api.admin_dashboard import _tratar_erro
 from http_api.auth import AuthSessionRuntime
+from infra.cardapio_publico.repositorio_sqlalchemy import PublicacaoCardapioPersistida
 
 
 class PublicacaoCardapioIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     slug: str = Field(min_length=3, max_length=120)
     publicada: bool
-    versao: int = Field(ge=1)
+    versao: int = Field(ge=0)
 
 
-def _publicacao_out(*, config: Any, base_path: str = "/cardapio") -> dict[str, Any]:
-    publicacao = publicacao_da_configuracao(config)
+def _publicacao_out(
+    *, unidade_id: str, publicacao: PublicacaoCardapioPersistida | None
+) -> dict[str, Any]:
     if publicacao is None:
         return {
-            "unidade_id": config.unidade_id,
+            "unidade_id": unidade_id,
             "public_id": None,
             "slug": None,
             "publicada": False,
             "url_publica": None,
-            "versao": config.versao,
+            "versao": 0,
         }
     return {
-        "unidade_id": config.unidade_id,
+        "unidade_id": unidade_id,
         "public_id": publicacao.public_id,
         "slug": publicacao.slug,
         "publicada": publicacao.publicada,
-        "url_publica": f"{base_path}/{publicacao.public_id}/{publicacao.slug}",
-        "versao": config.versao,
+        "url_publica": f"/cardapio/{publicacao.public_id}/{publicacao.slug}",
+        "versao": publicacao.versao,
     }
 
 
@@ -78,11 +79,17 @@ def build_cardapio_publico_router(
                 auth_runtime=auth_runtime,
                 origem="cardapio_publico_http_v1.consultar",
             )
-            config = admin.obter_configuracao(
+            escopo = admin.obter_configuracao(
                 contexto=contexto,
                 unidade_id=unidade_id,
             )
-            return _publicacao_out(config=config)
+            with session_factory() as session:
+                publicacao = consultar_publicacao_application(
+                    session=session,
+                    tenant_id=escopo.tenant_id,
+                    unidade_id=escopo.unidade_id,
+                )
+            return _publicacao_out(unidade_id=unidade_id, publicacao=publicacao)
         except Exception as exc:  # noqa: BLE001 - boundary fail-closed
             return _erro_admin(exc)
 
@@ -98,23 +105,21 @@ def build_cardapio_publico_router(
                 auth_runtime=auth_runtime,
                 origem="cardapio_publico_http_v1.configurar",
             )
-            atual = admin.obter_configuracao(
+            escopo = admin.obter_configuracao(
                 contexto=contexto,
                 unidade_id=unidade_id,
             )
-            if atual.versao != payload.versao:
-                raise RuntimeError("configuracao_estabelecimento_concorrente")
-            nova = aplicar_publicacao_na_configuracao(
-                config=atual,
-                slug=payload.slug,
-                publicada=payload.publicada,
-            )
-            salva = admin.salvar_configuracao(
-                contexto=contexto,
-                configuracao=nova,
-                versao_esperada=payload.versao,
-            )
-            return _publicacao_out(config=salva)
+            with session_factory() as session:
+                publicacao = salvar_publicacao(
+                    session=session,
+                    tenant_id=escopo.tenant_id,
+                    unidade_id=escopo.unidade_id,
+                    slug=payload.slug,
+                    publicada=payload.publicada,
+                    versao_esperada=payload.versao,
+                )
+                session.commit()
+            return _publicacao_out(unidade_id=unidade_id, publicacao=publicacao)
         except Exception as exc:  # noqa: BLE001 - boundary fail-closed
             return _erro_admin(exc)
 
