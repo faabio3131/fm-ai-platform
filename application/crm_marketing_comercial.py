@@ -164,81 +164,76 @@ def despachar_resgate_cliente_inativo(
     texto: str,
     envio: PortaEnvioMarketing | None = None,
 ) -> ResultadoMarketingCRMComercial:
-    """Valida ownership + consentimento antes de qualquer envio externo."""
+    """Preserva os identificadores diários e delega ao despacho consentido."""
 
-    mensagem = texto.strip()
-    if not mensagem:
-        raise MarketingCRMComercialInvalido("Mensagem de resgate vazia.")
+    data_atual = date.today().isoformat()  # noqa: DTZ011
+    return despachar_resgate_whatsapp_legado(
+        session_factory=session_factory,
+        contexto=contexto,
+        legacy_cliente_id=legacy_cliente_id,
+        campanha_ref=f"resgate-{data_atual}",
+        texto=texto,
+        idempotency_key=f"crm-resgate-{legacy_cliente_id}-{data_atual}",
+        envio=envio,
+    )
+
+
+def despachar_resgate_whatsapp_legado(
+    *,
+    session_factory: Callable[[], Session],
+    contexto: ContextoExecucao,
+    legacy_cliente_id: int,
+    campanha_ref: str,
+    texto: str,
+    idempotency_key: str,
+    envio: PortaEnvioMarketing | None = None,
+) -> ResultadoMarketingCRMComercial:
+    """Despacha somente após mapping CRM + consentimento WhatsApp/promoções vigente."""
 
     session = session_factory()
     try:
-        leitor_mapping = LeitorClienteLegadoCRMSQLAlchemy(session)
-        mapping = leitor_mapping.obter_por_legado(
-            contexto.tenant_id,
-            contexto.unidade_id,
-            int(legacy_cliente_id),
+        vinculo = LeitorClienteLegadoCRMSQLAlchemy(session).resolver(
+            tenant_id=contexto.tenant_id,
+            unidade_id=contexto.unidade_id,
+            legacy_cliente_id=legacy_cliente_id,
         )
-        if mapping is None:
-            raise MarketingCRMComercialInvalido(
-                "Cliente legado ainda não possui vínculo CRM governado."
-            )
+        if vinculo is None:
+            raise MarketingCRMComercialInvalido("cliente_legado_sem_mapping_crm")
 
-        cliente = LeitorClientesCRMSQLAlchemy(session).obter_por_id(
-            contexto.tenant_id,
-            mapping.cliente_id,
+        transporte = envio or EnvioWhatsAppMarketingComercial(
+            session=session,
+            contexto=contexto,
+            campanha_ref=campanha_ref,
+            texto=texto,
         )
-        if cliente is None:
-            raise MarketingCRMComercialInvalido("Cliente CRM vinculado não encontrado.")
-
-        contatos = [contato for contato in cliente.contatos if contato.canal == "whatsapp"]
-        if len(contatos) != 1:
-            raise MarketingCRMComercialInvalido(
-                "Cliente CRM precisa de exatamente um WhatsApp canônico para marketing."
-            )
-        contato = contatos[0]
-
-        hoje = date.today()
-        leitor_consentimento = LeitorConsentimentosMarketingSQLAlchemy(session)
-        consentimentos = leitor_consentimento.listar_por_cliente(
-            contexto.tenant_id,
-            mapping.cliente_id,
-        )
-        vigente = next(
-            (
-                consentimento
-                for consentimento in consentimentos
-                if consentimento.canal is CanalMarketing.WHATSAPP
-                and consentimento.finalidade is FinalidadeMarketing.PROMOCOES
-                and consentimento.permitido
-                and consentimento.vigente_em(hoje)
-            ),
-            None,
-        )
-        if vigente is None:
-            raise MarketingCRMComercialInvalido(
-                "Envio bloqueado: consentimento WhatsApp/promocoes ausente ou não vigente."
-            )
-
-        adapter = envio or EnvioWhatsAppMarketingComercial()
+        nao_usado = cast(Any, object())
         servico = ServicoCRM(
-            clientes=LeitorClientesCRMSQLAlchemy(session),
-            consentimentos=leitor_consentimento,
-            envio_marketing=adapter,
+            clientes=cast(Any, LeitorClientesCRMSQLAlchemy(session)),
+            marketplace_clientes=nao_usado,
+            consentimentos=cast(
+                Any, LeitorConsentimentosMarketingSQLAlchemy(session)
+            ),
+            funil=nao_usado,
+            beneficios=nao_usado,
+            hash_identidade=nao_usado,
+            auditoria=None,
         )
-        mensagem_id = servico.enviar_marketing(
-            contexto,
-            cliente_id=mapping.cliente_id,
-            contato_id=contato.contato_id,
+        resultado = servico.despachar_marketing(
+            tenant_id=contexto.tenant_id,
+            unidade_id=contexto.unidade_id,
+            cliente_id=vinculo.cliente_id,
             canal=CanalMarketing.WHATSAPP,
             finalidade=FinalidadeMarketing.PROMOCOES,
-            mensagem=mensagem,
-            data_referencia=hoje,
+            campanha_ref=campanha_ref,
+            idempotency_key=idempotency_key,
+            envio=transporte,
         )
+        mensagem_id = getattr(transporte, "mensagem_id", None)
         return ResultadoMarketingCRMComercial(
-            cliente_id=mapping.cliente_id,
-            enviado=True,
-            motivo="enviado",
-            mensagem_id=mensagem_id,
+            cliente_id=vinculo.cliente_id,
+            enviado=resultado.enviado,
+            motivo=resultado.motivo,
+            mensagem_id=mensagem_id if isinstance(mensagem_id, str) else None,
         )
     finally:
         session.close()
