@@ -222,8 +222,8 @@ def executar_autosservico_publico(
         correlation_id=CorrelationId(_id_deterministico("cor", raiz)),
         idempotency_key=IdempotencyKey(raiz),
         subtotal=total,
-        descontos=Dinheiro(0),
-        taxas=Dinheiro(0),
+        descontos=Dinheiro(Decimal("0.00")),
+        taxas=Dinheiro(Decimal("0.00")),
         total=total,
         itens=tuple(itens_pedido),
     )
