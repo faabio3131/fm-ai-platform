@@ -106,7 +106,8 @@ class RepositorioCardapioPublicoSQLAlchemy:
                 atualizado_em=instante,
             )
         )
-        if resultado.rowcount != 1:
+        rowcount = getattr(resultado, "rowcount", None)
+        if rowcount != 1:
             raise RuntimeError("cardapio_publico_concorrente")
         self._session.flush()
         atualizado = self._session.get(PublicacaoCardapioORM, atual.public_id)
