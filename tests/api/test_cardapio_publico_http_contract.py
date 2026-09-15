@@ -85,15 +85,17 @@ def test_publicacao_configuravel_gera_identidade_publica_estavel(monkeypatch) ->
     assert inicial.status_code == 200
     assert inicial.json()["public_id"] is None
     assert inicial.json()["publicada"] is False
+    assert inicial.json()["versao"] == 0
 
     criada = client.put(
         f"/v1/admin/cardapio-publico/{UNIDADE}",
-        json={"slug": "Matriz Centro", "publicada": True, "versao": 1},
+        json={"slug": "Matriz Centro", "publicada": True, "versao": 0},
     )
     assert criada.status_code == 200
     payload = criada.json()
     assert payload["slug"] == "matriz-centro"
     assert payload["publicada"] is True
+    assert payload["versao"] == 1
     assert len(payload["public_id"]) == 32
     assert payload["url_publica"].endswith(f"/{payload['public_id']}/matriz-centro")
 
@@ -104,6 +106,7 @@ def test_publicacao_configuravel_gera_identidade_publica_estavel(monkeypatch) ->
     assert alterada.status_code == 200
     assert alterada.json()["public_id"] == payload["public_id"]
     assert alterada.json()["slug"] == "loja-centro"
+    assert alterada.json()["versao"] == 2
 
 
 def test_cardapio_publico_resolve_escopo_sem_expor_ids_internos(monkeypatch) -> None:
@@ -111,7 +114,7 @@ def test_cardapio_publico_resolve_escopo_sem_expor_ids_internos(monkeypatch) -> 
     _login(client)
     configurada = client.put(
         f"/v1/admin/cardapio-publico/{UNIDADE}",
-        json={"slug": "Matriz Centro", "publicada": True, "versao": 1},
+        json={"slug": "Matriz Centro", "publicada": True, "versao": 0},
     )
     public_id = configurada.json()["public_id"]
 
@@ -137,7 +140,7 @@ def test_cardapio_nao_publicado_e_id_invalido_nao_vazam_escopo(monkeypatch) -> N
     _login(client)
     configurada = client.put(
         f"/v1/admin/cardapio-publico/{UNIDADE}",
-        json={"slug": "Matriz Centro", "publicada": False, "versao": 1},
+        json={"slug": "Matriz Centro", "publicada": False, "versao": 0},
     )
     public_id = configurada.json()["public_id"]
     client.post("/v1/auth/logout")
@@ -156,17 +159,17 @@ def test_slug_invalido_e_concorrencia_sao_rejeitados(monkeypatch) -> None:
 
     invalido = client.put(
         f"/v1/admin/cardapio-publico/{UNIDADE}",
-        json={"slug": "!!!", "publicada": True, "versao": 1},
+        json={"slug": "!!!", "publicada": True, "versao": 0},
     )
     assert invalido.status_code == 400
 
     primeira = client.put(
         f"/v1/admin/cardapio-publico/{UNIDADE}",
-        json={"slug": "Matriz Centro", "publicada": True, "versao": 1},
+        json={"slug": "Matriz Centro", "publicada": True, "versao": 0},
     )
     assert primeira.status_code == 200
     stale = client.put(
         f"/v1/admin/cardapio-publico/{UNIDADE}",
-        json={"slug": "Outra Loja", "publicada": True, "versao": 1},
+        json={"slug": "Outra Loja", "publicada": True, "versao": 0},
     )
     assert stale.status_code == 409
