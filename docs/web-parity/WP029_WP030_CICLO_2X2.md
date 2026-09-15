@@ -61,7 +61,7 @@ WP-029 está certificado como **MIGRADO / 100% VERDE** no HEAD funcional `9d082a
 
 ## WP-030 — Cardápio Digital público / Autosserviço
 
-**Status neste checkpoint: PENDENTE DE IMPLEMENTAÇÃO / auditoria de autoridade iniciável somente após o fechamento documental do WP-029.**
+**Status atual: BLOQUEADO POR DECISÃO DE PRODUTO/SEGURANÇA SOBRE IDENTIDADE PÚBLICA DO ESTABELECIMENTO/UNIDADE. Nenhuma implementação funcional foi iniciada.**
 
 Escopo constitucional já registrado:
 
@@ -71,7 +71,28 @@ Escopo constitucional já registrado:
 - não introduzir domínio fiscal;
 - a superfície pública não pode confiar em tenant/unidade arbitrários enviados pelo navegador.
 
-Antes de qualquer implementação, o WP-030 deve auditar o mecanismo canônico de identificação pública do estabelecimento/unidade. Se essa autoridade pública segura não existir ou exigir decisão de produto/segurança, a execução deve parar e pedir decisão ao proprietário em vez de inventar uma nova política.
+### Auditoria de autoridade realizada
+
+A auditoria posterior ao fechamento verde do WP-029 confirmou:
+
+1. `http_api/catalogo.py` é uma superfície autenticada. As leituras de produtos/categorias resolvem identidade pela sessão assinada ou, apenas por compatibilidade legada/M2M, por Basic + `X-Tenant-ID` + `X-Unit-ID`. Portanto essa fronteira não é uma autoridade pública anônima reutilizável.
+2. `http_api/delivery.py` também exige identidade operacional autenticada. O próprio boundary documenta que tenant/unidade nunca são aceitos livremente e vêm da sessão assinada ou Basic legado.
+3. `application/delivery_contexto_comercial.py` deriva tenant/unidade exclusivamente da `IdentidadeUsuario` autenticada antes de consultar cliente, endereço, catálogo e política de entrega.
+4. `infra/delivery/catalogo_sqlalchemy.py` já fornece a projeção canônica de catálogo/disponibilidade por tenant/unidade e deve ser reutilizada, mas pressupõe que o escopo confiável já tenha sido resolvido.
+5. `application/checkout.py` é a autoridade canônica de checkout e exige `ContextoExecucao` cujo tenant/unidade coincidem com o pedido. Ele pode ser reutilizado por um futuro canal público somente depois que existir uma forma segura e auditável de resolver esse escopo.
+6. `core/administracao/modelos.py` e `infra/administracao/modelos_orm.py` possuem `tenant_id`, `unidade_id` e `codigo` administrativo. O `codigo` é único apenas dentro do tenant; não existe nos modelos um `slug_publico`, `public_token`, domínio/host público ou outro identificador global explicitamente classificado como autoridade pública.
+7. O Streamlit legado (`app.py`) exige autenticação antes das superfícies operacionais; não há nele jornada pública de autosserviço que possa ser migrada mecanicamente.
+8. O HTTP canônico possui webhooks externos que incluem tenant/unidade na URL, mas a confiança é estabelecida por credenciais/assinaturas específicas do provedor (Meta/WhatsApp e PagBank). Esses mecanismos não constituem um resolvedor público genérico reutilizável para Cardápio Digital.
+9. O inventário mestre continua classificando WP-030 como `GAP HTTP/WEB/PÚBLICO` e manda reutilizar futuramente Catálogo, Pedido/Checkout, Delivery, Central de Pedidos e Pagamentos; não define qual identificador público seleciona o estabelecimento/unidade.
+10. A árvore atual não contém módulo/rota dedicada de cardápio público nem autoridade explícita de `slug`/token público a ser preservada.
+
+### Conclusão arquitetural
+
+A regra de negócio posterior ao resolvedor está suficientemente definida e possui autoridades reutilizáveis. O bloqueio não é falta de código de catálogo/checkout: é a ausência de uma decisão canônica de **como um visitante anônimo seleciona uma unidade sem transformar IDs internos ou headers arbitrários em autoridade de escopo**.
+
+Criar autonomamente um novo slug, token público, domínio por tenant, tabela de aliases ou outra política de resolução mudaria a arquitetura de exposição pública e a política de segurança. Isso está fora da autorização de correção técnica do ciclo.
+
+Consequentemente, conforme a missão, a execução deve parar antes do código do WP-030 e solicitar decisão do proprietário. WP-031/WP-032/WP-033 não podem ser iniciados enquanto WP-030 não estiver concluído e 100% verde.
 
 ## No-go
 
@@ -79,4 +100,5 @@ Antes de qualquer implementação, o WP-030 deve auditar o mecanismo canônico d
 - sem deploy/produção;
 - sem force push/rebase/reset destrutivo;
 - sem segredo real no Git;
+- nenhum tenant/unidade interno será promovido silenciosamente a identificador público;
 - WP-031 Fiscal permanece backlog futuro e não deve ser implementado por este ciclo.
