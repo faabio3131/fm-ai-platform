@@ -15,7 +15,10 @@ def test_wp013_catalogo_reuses_session_aware_canonical_http_boundary() -> None:
     api = _read("web/src/features/backoffice/catalogo/services/catalogo-api.ts")
 
     assert 'APIRouter(prefix="/v1/catalogo"' in router
-    assert "obter_identidade_operacional" in router
+    assert "auth_runtime.resolver_identidade(request)" in router
+    assert "Permissao.ADMIN_ACESSAR" in router
+    assert "auth_runtime.admin_status(request)" in router
+    assert "seguranca.admin_step_up_exigido" in router
     assert "build_catalogo_router" in frontend_app
     assert 'credentials: "include"' in api
     assert "/v1/catalogo" in api
