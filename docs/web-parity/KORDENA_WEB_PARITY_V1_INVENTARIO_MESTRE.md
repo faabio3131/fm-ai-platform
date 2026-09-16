@@ -3,7 +3,7 @@
 **Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`
 **Data original:** 08/09/2026
 **Reconciliação:** 16/09/2026
-**Versão do inventário:** 2.3 — reconciliação pós-certificação WP-013 a WP-017
+**Versão do inventário:** 2.4 — inclusão formal do WP-031 Fiscal na V1
 **Status:** DOCUMENTO MESTRE DE EXECUÇÃO
 
 ## 1. Regra constitucional deste inventário
@@ -19,13 +19,13 @@ Existir no backend, possuir UI candidata ou ter E2E legado **não** significa es
 - IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO: **6** — WP-010, WP-011, WP-018, WP-019, WP-020 e WP-022.
 - GAP HTTP/WEB ainda sem superfície certificada: **3** — WP-008, WP-012 e WP-033.
 - GAP HTTP/WEB ADMINISTRATIVO obrigatório para V1.0: **1** — WP-032.
-- BACKLOG FUTURO fora da migração conservativa Web V1: **1** — WP-031.
+- BLOCO FISCAL obrigatório para V1.0: **1** — WP-031.
 - GAP HTTP/WEB/PÚBLICO: **0** — WP-030 foi concluído e certificado.
 - A VERIFICAR: **0**.
 
 A rota `/` usa Home/Dashboard comercial real dentro do Shell Corporativo Unificado. A Central de Pedidos está certificada em `/pedidos`. O Cardápio Digital público/autosserviço foi certificado em `/cardapio/{publicId}/{slug}`, com administração da publicação por unidade em `/admin/empresa`.
 
-A retaguarda WP-013 a WP-017 está agora formalmente certificada. A Arquitetura Visual Premium permanece bloqueada até a paridade funcional/certificação das capacidades obrigatórias remanescentes ser encerrada.
+A retaguarda WP-013 a WP-017 está agora formalmente certificada. O WP-031 Fiscal integra oficialmente a Kordena V1 e deve ser concluído em fase própria antes da Arquitetura Visual Premium. A Arquitetura Visual Premium permanece bloqueada até a paridade funcional, a certificação das capacidades obrigatórias e o bloco fiscal da V1 serem encerrados.
 
 ## 3. Capacidades já migradas/preservadas
 
@@ -86,7 +86,7 @@ A retaguarda WP-013 a WP-017 está agora formalmente certificada. A Arquitetura 
 | WP-028 | Gerente IA | core/gerente_ia + runtime/tools canônicos | façade session-aware certificada | `/gerente-ia` | MIGRADO | Preservar preview/confirmação/idempotência. |
 | WP-029 | Pagamentos / PIX / Provedores | core/pagamentos + PagBank/reconciliação/runtime | Observabilidade/conciliação certificadas | `/pagamentos` | MIGRADO | Preservar checkout/ledger/PIX/webhook canônicos. |
 | WP-030 | Cardápio Digital público / Autosserviço | Catálogo Delivery + checkout canônico + publicação dedicada por unidade | identidade pública + catálogo + checkout públicos certificados | `/cardapio/{publicId}/{slug}` | MIGRADO | Preservar `public_id` opaco, configuração por unidade e checkout único. |
-| WP-031 | Fiscal / NFC-e / SAT | decisão do proprietário | Fora do escopo | — | BACKLOG FUTURO | Não implementar nesta migração; sem novo domínio fiscal. |
+| WP-031 | Fiscal / NFC-e / SAT | decisão do proprietário | Sem superfície fiscal certificada | — | OBRIGATÓRIA PARA V1.0 / PENDENTE | Executar fase fiscal própria da V1 antes da Arquitetura Visual Premium; não declarar V1 concluída sem sua certificação. |
 | WP-032 | Notificações Internas | core/notificacoes_internas + application/notificacoes_internas | GAP administrativo | — | OBRIGATÓRIA PARA V1.0 / PENDENTE | Expor destinatários, preferências e alertas; sem inbox/feed/badge genérico. |
 | WP-033 | Auditoria / Histórico administrativo | repositórios de auditoria existentes | Sem consulta Web certificada | — | GAP HTTP/WEB | Criar consulta Backoffice read-only, tenant-safe e sem segredos. |
 
@@ -99,7 +99,7 @@ O `app.py` legado comprova abas para Engenharia de Cardápio, CRM/Resgate/Cashba
 1. **Implementados mas não certificados integralmente no estado mestre:** WP-010, WP-011, WP-018, WP-019, WP-020 e WP-022. Não reconstruir; executar/reconciliar ciclo de certificação e corrigir apenas gaps comprovados.
 2. **Ainda sem superfície Web certificada:** WP-008, WP-012 e WP-033.
 3. **Obrigatório V1.0 ainda pendente:** WP-032 — Notificações Internas.
-4. **Backlog futuro deliberado:** WP-031 — Fiscal/NFC-e/SAT, fora desta migração.
+4. **Bloco Fiscal obrigatório da V1.0:** WP-031 — Fiscal/NFC-e/SAT. Executar em fase própria antes da Arquitetura Visual Premium; não relegar à V2.
 5. **Dados de homologação:** escopos sem vínculo seguro com loja legada devem continuar fail-closed; o provisionamento é requisito de ambiente, não motivo para enfraquecer isolamento.
 6. **Identidade do assistente:** permanece configurável por tenant/unidade; nenhum nome fixo histórico deve virar identidade de produto.
 
@@ -120,12 +120,15 @@ WP-027, WP-028 e WP-029 estão migrados. WP-019 possui implementação presente 
 ### Onda pública
 WP-030 **CERTIFICADO / 100% VERDE** no HEAD funcional `c74595637deb6e31a578e95975445d34064a6b07`.
 
+### Onda Fiscal — obrigatória na V1
+WP-031 — Fiscal / NFC-e / SAT integra oficialmente a Kordena V1. Deve possuir fase própria de implementação, integração, testes e certificação depois do fechamento das pendências funcionais obrigatórias e **antes da Arquitetura Visual Premium**. A V1 não pode ser declarada 100% concluída enquanto o WP-031 estiver pendente.
+
 ### Próximos blocos formais
-- WP-031: somente auditoria/no-op de backlog futuro; não implementar Fiscal.
 - WP-032: implementar superfície administrativa de Notificações Internas.
 - WP-033: implementar consulta administrativa de Auditoria/Histórico sem segredos.
+- WP-031: executar a fase fiscal obrigatória da V1 antes da etapa final de Arquitetura Visual Premium.
 
-Antes de declarar a Web V1 100%, executar auditoria/certificação das implementações históricas ainda marcadas como aguardando certificação e concluir WP-008/WP-012/WP-032/WP-033 conforme o inventário.
+Antes de declarar a Web V1 100%, executar auditoria/certificação das implementações históricas ainda marcadas como aguardando certificação e concluir WP-008/WP-012/WP-032/WP-033 e o bloco fiscal WP-031 conforme o inventário.
 
 ## 8. Gate obrigatório por PR
 
@@ -175,7 +178,7 @@ Cada PR do WEB-PARITY-V1 deve: (a) citar IDs WP afetados; (b) atualizar este inv
 - No mesmo HEAD: `Web Parity WP028-WP030 Gate`, `Commercial Runtime Readiness V1`, `PR Superseded Runs Cleanup` e `Assistente Fase 4 Gate V1` concluíram SUCCESS.
 - A auditoria retrospectiva encontrou estados mestres antigos para WP-024 a WP-029; eles foram reconciliados como MIGRADO conforme checklist/documentos posteriores.
 - WP-008, WP-012, WP-032 e WP-033 permaneceram funcionalmente pendentes na Web.
-- WP-031 permaneceu BACKLOG FUTURO, sem implementação Fiscal autorizada.
+- Na reconciliação de 15/09/2026, WP-031 ainda constava como BACKLOG FUTURO; essa classificação foi posteriormente substituída pela decisão formal de incluí-lo na V1.
 - PR #118 permaneceu OPEN/DRAFT e não mergeada; sem deploy/produção.
 
 ## 12. Registro de reconciliação de 16/09/2026
@@ -188,8 +191,8 @@ Cada PR do WEB-PARITY-V1 deve: (a) citar IDs WP afetados; (b) atualizar este inv
 - O ownership de commit/rollback foi mantido no `UnitOfWorkV1`; o fitness gate AF03 permaneceu intacto e verde.
 - WP-018, WP-019, WP-020 e WP-022 não foram promovidos por associação; permanecem aguardando certificação própria.
 - WP-008, WP-012, WP-032 e WP-033 continuam funcionalmente pendentes na Web.
-- WP-031 continua BACKLOG FUTURO, sem implementação Fiscal autorizada.
+- **Decisão formal do proprietário:** WP-031 deixa de ser backlog futuro e passa a integrar obrigatoriamente a Kordena V1 como bloco fiscal próprio, a ser concluído e certificado antes da Arquitetura Visual Premium.
 - Nenhuma V2 foi iniciada.
 
 ---
-**Regra de mudança:** este documento é vivo e versionado por baseline. Qualquer nova descoberta deve atualizar a linha correspondente antes de iniciar implementação que dependa dela. A arquitetura visual premium só reabre depois do Gate de Paridade Web e da certificação das capacidades obrigatórias.
+**Regra de mudança:** este documento é vivo e versionado por baseline. Qualquer nova descoberta deve atualizar a linha correspondente antes de iniciar implementação que dependa dela. A Arquitetura Visual Premium só reabre depois do Gate de Paridade Web, da certificação das capacidades obrigatórias e da conclusão/certificação do WP-031 Fiscal da V1.
