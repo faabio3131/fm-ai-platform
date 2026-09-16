@@ -2,8 +2,8 @@
 
 **Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`
 **Data original:** 08/09/2026
-**Reconciliação:** 15/09/2026
-**Versão do inventário:** 2.2 — reconciliação pós-certificação WP-030
+**Reconciliação:** 16/09/2026
+**Versão do inventário:** 2.3 — reconciliação pós-certificação WP-013 a WP-017
 **Status:** DOCUMENTO MESTRE DE EXECUÇÃO
 
 ## 1. Regra constitucional deste inventário
@@ -15,8 +15,8 @@ Existir no backend, possuir UI candidata ou ter E2E legado **não** significa es
 ## 2. Diagnóstico executivo reconciliado
 
 - Capacidades inventariadas: **33**.
-- Totalmente migradas/preservadas: **17** — WP-001 a WP-007, WP-009, WP-021, WP-023 a WP-030.
-- IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO: **11** — WP-010, WP-011, WP-013 a WP-020 e WP-022.
+- Totalmente migradas/preservadas: **22** — WP-001 a WP-007, WP-009, WP-013 a WP-017, WP-021, WP-023 a WP-030.
+- IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO: **6** — WP-010, WP-011, WP-018, WP-019, WP-020 e WP-022.
 - GAP HTTP/WEB ainda sem superfície certificada: **3** — WP-008, WP-012 e WP-033.
 - GAP HTTP/WEB ADMINISTRATIVO obrigatório para V1.0: **1** — WP-032.
 - BACKLOG FUTURO fora da migração conservativa Web V1: **1** — WP-031.
@@ -25,7 +25,7 @@ Existir no backend, possuir UI candidata ou ter E2E legado **não** significa es
 
 A rota `/` usa Home/Dashboard comercial real dentro do Shell Corporativo Unificado. A Central de Pedidos está certificada em `/pedidos`. O Cardápio Digital público/autosserviço foi certificado em `/cardapio/{publicId}/{slug}`, com administração da publicação por unidade em `/admin/empresa`.
 
-A Arquitetura Visual Premium permanece bloqueada até a paridade funcional/certificação das capacidades obrigatórias remanescentes ser encerrada.
+A retaguarda WP-013 a WP-017 está agora formalmente certificada. A Arquitetura Visual Premium permanece bloqueada até a paridade funcional/certificação das capacidades obrigatórias remanescentes ser encerrada.
 
 ## 3. Capacidades já migradas/preservadas
 
@@ -37,6 +37,11 @@ A Arquitetura Visual Premium permanece bloqueada até a paridade funcional/certi
 - **WP-006 — Salão / Mesas / Comandas**: `/salao`.
 - **WP-007 — KDS / Cozinha**: `/kds`.
 - **WP-009 — Central de Pedidos omnichannel**: `/pedidos`.
+- **WP-013 — Catálogo administrativo básico**: `/admin/catalogo`.
+- **WP-014 — Engenharia de Cardápio + Ficha Técnica**: `/admin/catalogo`.
+- **WP-015 — Estoque / Almoxarifado / Validades**: `/admin/estoque`.
+- **WP-016 — CRM / Clientes / Cashback**: `/admin/crm`.
+- **WP-017 — Marketing / Resgate / Campanhas**: `/admin/crm`.
 - **WP-021 — Step-up administrativo / reautenticação**: guard de `/admin`.
 - **WP-023 — Usuários / Papéis / Permissões**: `/admin/usuarios`.
 - **WP-024 — Parâmetros Financeiros**: `/admin/configuracao`.
@@ -60,14 +65,14 @@ A Arquitetura Visual Premium permanece bloqueada até a paridade funcional/certi
 | WP-007 | KDS / Cozinha | core/kds + application | Router session-aware | `/kds` | MIGRADO | Preservar. |
 | WP-008 | Atendimento do Garçom mobile/tablet | core/garcom + application/garcom_transacoes.py | Sem superfície Web certificada | — | GAP HTTP/WEB | Criar contrato session-aware e rota touch-first sem duplicar domínio. |
 | WP-009 | Central de Pedidos omnichannel | core/central_pedidos + application | HTTP first-class certificado | `/pedidos` | MIGRADO | Preservar e integrar canais futuros nela. |
-| WP-010 | Delivery Próprio | core/delivery + application + infra/delivery | Implementação candidata presente | `/delivery` | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Executar certificação integrada/Smoke Mestre; não reconstruir. |
-| WP-011 | Expedição / Entrega | core/entrega + application | Implementação candidata presente | `/entrega` | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Executar certificação integrada/Smoke Mestre; não reconstruir. |
+| WP-010 | Delivery Próprio | core/delivery + application + infra/delivery | Implementação candidata presente | `/delivery` | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Reconciliar/certificar em ciclo próprio sem reconstruir. |
+| WP-011 | Expedição / Entrega | core/entrega + application | Implementação candidata presente | `/entrega` | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Reconciliar/certificar em ciclo próprio sem reconstruir. |
 | WP-012 | Marketplaces / pedidos externos | core/marketplaces + adapters | Sem superfície Web certificada | — | GAP HTTP/WEB | Migrar sem criar segunda Central de Pedidos. |
-| WP-013 | Catálogo administrativo básico | catálogo existente + WP-014 | Capacidades presentes em `/admin/catalogo` | `/admin/catalogo` | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Certificação integrada; reconciliação comportamental de preço já registrada. |
-| WP-014 | Engenharia de Cardápio + Ficha Técnica | legacy_cardapio_transacoes + legacy_cardapio_gemini | Boundary Web presente | `/admin/catalogo` | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Certificar sem alterar regra original. |
-| WP-015 | Estoque / Almoxarifado / Validades | core/estoque + boundaries legados governados | HTTP/Web presentes | `/admin/estoque` | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Certificar; lote físico/FEFO seguem fora do escopo atual. |
-| WP-016 | CRM / Clientes / Cashback | core/crm + application/crm_cashback_comercial | HTTP session-aware presente | `/admin/crm` | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Certificação integrada. |
-| WP-017 | Marketing / Resgate / Campanhas | application/crm_marketing_comercial + infra/crm | Boundary governado presente | `/admin/crm` | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Certificação integrada; preservar consentimento/idempotência. |
+| WP-013 | Catálogo administrativo básico | catálogo existente + WP-014 | Boundary Web certificado | `/admin/catalogo` | MIGRADO | Preservar catálogo canônico, sessão e step-up. |
+| WP-014 | Engenharia de Cardápio + Ficha Técnica | legacy_cardapio_transacoes + legacy_cardapio_gemini | Ficha/Gemini/preço sugerido certificados | `/admin/catalogo` | MIGRADO | Preservar regra original e aplicação explícita do preço sugerido. |
+| WP-015 | Estoque / Almoxarifado / Validades | core/estoque + boundaries legados governados | HTTP/Web certificados | `/admin/estoque` | MIGRADO | Preservar; lote físico/FEFO seguem fora do escopo atual. |
+| WP-016 | CRM / Clientes / Cashback | core/crm + application/crm_cashback_comercial + ledger canônico | HTTP session-aware certificado | `/admin/crm` | MIGRADO | Preservar ledger, mapping, isolamento e step-up. |
+| WP-017 | Marketing / Resgate / Campanhas | application/crm_marketing_comercial + infra/crm + Outbox V1 + UnitOfWorkV1 | Boundary governado e replay-safe certificado | `/admin/crm` | MIGRADO | Preservar consentimento, escopo e proteção at-most-once do efeito externo. |
 | WP-018 | Dashboard Financeiro / Indicadores | administracao_proprietario.painel_executivo | HTTP read model presente | `/admin/dashboard` | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Certificação integrada. |
 | WP-019 | AI FinOps | core/ai_finops + read model | HTTP read-only presente | `/admin/ai-finops` | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Certificação integrada; não inventar custos. |
 | WP-020 | Área Proprietário / Backoffice | registrar_acesso + registry/guards | Landing/auditoria presentes | `/admin` | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Certificação integrada/Smoke Mestre. |
@@ -91,7 +96,7 @@ O `app.py` legado comprova abas para Engenharia de Cardápio, CRM/Resgate/Cashba
 
 ## 6. Gaps e pendências que ainda devem ser fechados
 
-1. **Implementados mas não certificados integralmente:** WP-010, WP-011, WP-013 a WP-020 e WP-022. Não reconstruir; executar ciclo de certificação/Smoke Mestre e corrigir apenas gaps comprovados.
+1. **Implementados mas não certificados integralmente no estado mestre:** WP-010, WP-011, WP-018, WP-019, WP-020 e WP-022. Não reconstruir; executar/reconciliar ciclo de certificação e corrigir apenas gaps comprovados.
 2. **Ainda sem superfície Web certificada:** WP-008, WP-012 e WP-033.
 3. **Obrigatório V1.0 ainda pendente:** WP-032 — Notificações Internas.
 4. **Backlog futuro deliberado:** WP-031 — Fiscal/NFC-e/SAT, fora desta migração.
@@ -104,13 +109,13 @@ O `app.py` legado comprova abas para Engenharia de Cardápio, CRM/Resgate/Cashba
 **CERTIFICADA.**
 
 ### Onda 2 — Coração operacional
-WP-009 certificado. WP-010 e WP-011 possuem implementação candidata e aguardam certificação integrada. WP-012 e WP-008 ainda requerem migração Web.
+WP-009 certificado. WP-010 e WP-011 permanecem em reconciliação/certificação mestre própria. WP-012 e WP-008 ainda requerem migração Web.
 
 ### Onda 3 — Retaguarda
-WP-013 a WP-020 e WP-022 possuem implementação presente aguardando certificação integrada. WP-021 e WP-023 a WP-026 estão migrados.
+WP-013, WP-014, WP-015, WP-016 e WP-017 estão **MIGRADOS / CERTIFICADOS / 100% VERDES**. WP-018, WP-019, WP-020 e WP-022 possuem implementação presente aguardando certificação integrada. WP-021 e WP-023 a WP-026 estão migrados.
 
 ### Onda 4 — IA e Integrações
-WP-027, WP-028, WP-029 estão migrados. WP-019 possui implementação presente aguardando certificação integrada.
+WP-027, WP-028 e WP-029 estão migrados. WP-019 possui implementação presente aguardando certificação integrada.
 
 ### Onda pública
 WP-030 **CERTIFICADO / 100% VERDE** no HEAD funcional `c74595637deb6e31a578e95975445d34064a6b07`.
@@ -150,6 +155,11 @@ Cada PR do WEB-PARITY-V1 deve: (a) citar IDs WP afetados; (b) atualizar este inv
 - `infra/`
 - `migrations/`
 - `tests/`
+- `docs/web-parity/WP010_WP011_CERTIFICACAO_INTEGRADA.md`
+- `docs/web-parity/WP013_WP014_CERTIFICACAO_INTEGRADA.md`
+- `docs/web-parity/WP015_CERTIFICACAO_INTEGRADA.md`
+- `docs/web-parity/WP016_CRM_CASHBACK_CERTIFICACAO.md`
+- `docs/web-parity/WP017_MARKETING_RESGATE_CERTIFICACAO.md`
 - `docs/web-parity/WP020_WP022_CICLO_2X2.md`
 - `docs/web-parity/WP023_WP024_CICLO_2X2.md`
 - `docs/web-parity/WP025_WP026_CICLO_2X2.md`
@@ -164,10 +174,22 @@ Cada PR do WEB-PARITY-V1 deve: (a) citar IDs WP afetados; (b) atualizar este inv
 - Certificação funcional WP-030 no HEAD `c74595637deb6e31a578e95975445d34064a6b07`: **61 passed, 0 failed**, Ruff PASS, mypy PASS, ESLint PASS, TypeScript PASS, Next production build PASS, `git diff --check` PASS.
 - No mesmo HEAD: `Web Parity WP028-WP030 Gate`, `Commercial Runtime Readiness V1`, `PR Superseded Runs Cleanup` e `Assistente Fase 4 Gate V1` concluíram SUCCESS.
 - A auditoria retrospectiva encontrou estados mestres antigos para WP-024 a WP-029; eles foram reconciliados como MIGRADO conforme checklist/documentos posteriores.
-- A auditoria também confirmou pendência legítima de certificação para WP-010, WP-011, WP-013 a WP-020 e WP-022. Esses itens **não** foram promovidos artificialmente.
-- WP-008, WP-012, WP-032 e WP-033 permanecem funcionalmente pendentes na Web.
-- WP-031 permanece BACKLOG FUTURO, sem implementação Fiscal autorizada.
-- PR #118 permanece OPEN/DRAFT e não mergeada; sem deploy/produção.
+- WP-008, WP-012, WP-032 e WP-033 permaneceram funcionalmente pendentes na Web.
+- WP-031 permaneceu BACKLOG FUTURO, sem implementação Fiscal autorizada.
+- PR #118 permaneceu OPEN/DRAFT e não mergeada; sem deploy/produção.
+
+## 12. Registro de reconciliação de 16/09/2026
+
+- WP-013 e WP-014 foram reconciliados como MIGRADO/CERTIFICADO conforme `WP013_WP014_CERTIFICACAO_INTEGRADA.md`; a matriz direcionada ficou 23/23 e a divergência histórica do preço sugerido foi corrigida sem criar catálogo paralelo.
+- WP-015 foi reconciliado como MIGRADO/CERTIFICADO conforme `WP015_CERTIFICACAO_INTEGRADA.md`; gate técnico `3daaddf7b97236ba0b80c13f0e36c91025f22a0c`, 10/10 direcionados e 1503 PASS / 5 SKIP / 0 FAIL.
+- WP-016 foi reconciliado como MIGRADO/CERTIFICADO conforme `WP016_CRM_CASHBACK_CERTIFICACAO.md`; gate técnico `d0fe8480c58449c54024c2dbb1fd9ca6b8747746`, 17/17 direcionados e 1505 PASS / 5 SKIP / 0 FAIL.
+- WP-017 foi corrigido e certificado no HEAD técnico `f059abe30e69cc1981188a76c040b99dba59874a`: 22/22 direcionados, 1506 PASS / 5 SKIP / 0 FAIL, Ruff/mypy/ESLint/TypeScript/build/diff verdes.
+- A idempotência de marketing passou a reutilizar a Outbox V1 como ledger durável do efeito externo, com reserva persistida antes do POST; replay e resultado externo incerto não geram retry automático perigoso.
+- O ownership de commit/rollback foi mantido no `UnitOfWorkV1`; o fitness gate AF03 permaneceu intacto e verde.
+- WP-018, WP-019, WP-020 e WP-022 não foram promovidos por associação; permanecem aguardando certificação própria.
+- WP-008, WP-012, WP-032 e WP-033 continuam funcionalmente pendentes na Web.
+- WP-031 continua BACKLOG FUTURO, sem implementação Fiscal autorizada.
+- Nenhuma V2 foi iniciada.
 
 ---
 **Regra de mudança:** este documento é vivo e versionado por baseline. Qualquer nova descoberta deve atualizar a linha correspondente antes de iniciar implementação que dependa dela. A arquitetura visual premium só reabre depois do Gate de Paridade Web e da certificação das capacidades obrigatórias.
