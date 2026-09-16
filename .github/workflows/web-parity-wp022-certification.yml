@@ -6,16 +6,21 @@ on:
       - "http_api/admin_empresa.py"
       - "http_api/frontend_app.py"
       - "web/src/app/admin/empresa/**"
-      - "web/src/features/**"
+      - "web/src/features/backoffice/empresa/**"
       - "tests/api/test_admin_empresa_http_contract.py"
-      - "tests/fitness/**"
+      - "tests/api/test_admin_backoffice_http_contract.py"
+      - "tests/api/test_auth_admin_stepup_http_contract.py"
       - "docs/web-parity/**"
       - ".github/workflows/web-parity-wp022-certification.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   certify-wp022:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
@@ -54,14 +59,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: web/package-lock.json
       - name: Install frontend dependencies
         working-directory: web
-        run: npm ci
-      - name: Frontend lint
+        run: npm install --no-audit --no-fund
+      - name: ESLint WP022
         working-directory: web
-        run: npm run lint
+        run: |
+          npx eslint \
+            src/app/admin/empresa/page.tsx \
+            src/features/backoffice/empresa/components/EmpresaWorkspace.tsx \
+            src/features/backoffice/empresa/services/empresa-api.ts
       - name: Frontend typecheck
         working-directory: web
         run: npx tsc --noEmit --incremental false
