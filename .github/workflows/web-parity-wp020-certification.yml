@@ -1,0 +1,102 @@
+name: Web Parity WP020 Certification
+
+on:
+  pull_request:
+    branches:
+      - feat/web-parity-v1-wp010-wp011-delivery-entrega
+    paths:
+      - '.github/workflows/web-parity-wp020-certification.yml'
+      - 'http_api/admin_backoffice.py'
+      - 'http_api/frontend_app.py'
+      - 'web/src/app/admin/**'
+      - 'web/src/features/backoffice/components/BackofficeHome.tsx'
+      - 'web/src/features/shell/**'
+      - 'tests/api/test_admin_backoffice_http_contract.py'
+      - 'tests/api/test_auth_admin_stepup_http_contract.py'
+      - 'web/tests/backoffice-navigation.test.mjs'
+      - 'docs/web-parity/WP020_BACKOFFICE_CERTIFICACAO.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wp020-certification:
+    name: Owner Backoffice integrated certification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+
+      - name: Compile WP020 surface
+        run: |
+          python -m py_compile \
+            http_api/admin_backoffice.py \
+            http_api/frontend_app.py
+
+      - name: Ruff WP020
+        run: |
+          ruff check \
+            http_api/admin_backoffice.py \
+            http_api/frontend_app.py \
+            tests/api/test_admin_backoffice_http_contract.py \
+            tests/api/test_auth_admin_stepup_http_contract.py
+
+      - name: Mypy WP020
+        run: |
+          mypy --follow-imports=silent \
+            http_api/admin_backoffice.py \
+            http_api/frontend_app.py
+
+      - name: WP020 targeted matrix
+        run: |
+          pytest -q \
+            tests/api/test_admin_backoffice_http_contract.py \
+            tests/api/test_auth_admin_stepup_http_contract.py
+
+      - name: Full Python regression
+        run: pytest -q
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: ESLint WP020
+        working-directory: web
+        run: |
+          npx eslint \
+            src/app/admin/page.tsx \
+            src/features/backoffice/components/BackofficeHome.tsx
+
+      - name: TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Backoffice navigation test
+        working-directory: web
+        run: node --test tests/backoffice-navigation.test.mjs
+
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+
+      - name: Diff whitespace gate
+        run: git diff --check origin/${{ github.base_ref }}...HEAD
