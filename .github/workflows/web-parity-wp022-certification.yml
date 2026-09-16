@@ -1,0 +1,51 @@
+name: Web Parity WP022 Certification
+
+on:
+  pull_request:
+    paths:
+      - "http_api/admin_empresa.py"
+      - "http_api/frontend_app.py"
+      - "web/src/app/admin/empresa/**"
+      - "web/src/features/**"
+      - "tests/api/test_admin_empresa_http_contract.py"
+      - "tests/fitness/**"
+      - "docs/web-parity/**"
+      - ".github/workflows/web-parity-wp022-certification.yml"
+  workflow_dispatch:
+
+jobs:
+  certify-wp022:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+      - name: WP022 HTTP contract and security regression
+        run: pytest -q tests/api/test_admin_empresa_http_contract.py tests/api/test_admin_backoffice_http_contract.py tests/api/test_auth_admin_stepup_http_contract.py
+      - name: Full Python regression
+        run: pytest -q
+      - name: Ruff
+        run: ruff check .
+      - name: Mypy
+        run: mypy http_api/admin_empresa.py http_api/frontend_app.py --follow-imports=silent
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: web
+        run: npm ci
+      - name: Frontend lint
+        working-directory: web
+        run: npm run lint
+      - name: Frontend typecheck
+        working-directory: web
+        run: npx tsc --noEmit --incremental false
+      - name: Frontend build
+        working-directory: web
+        run: npm run build
