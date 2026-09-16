@@ -8,6 +8,7 @@ incerto não são reenviados automaticamente.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
 
@@ -44,7 +45,7 @@ def _digest(valor: str) -> str:
 
 
 class EnvioMarketingIdempotenteSQLAlchemy:
-    """Decorator do transporte que garante at-most-once por chave e escopo."""
+    """Decorator do transporte com ledger durável e UoW possuído pela aplicação."""
 
     def __init__(
         self,
@@ -54,6 +55,8 @@ class EnvioMarketingIdempotenteSQLAlchemy:
         cliente_id: str,
         texto: str,
         transporte: PortaEnvioMarketing,
+        persistir: Callable[[], None],
+        reverter: Callable[[], None],
     ) -> None:
         if not cliente_id.strip() or not texto.strip():
             raise ValueError("marketing_despacho_invalido")
@@ -62,6 +65,8 @@ class EnvioMarketingIdempotenteSQLAlchemy:
         self._cliente_id = cliente_id.strip()
         self._conteudo_hash = _digest(texto.strip())
         self._transporte = transporte
+        self._persistir = persistir
+        self._reverter = reverter
         self.acionado = False
         self.enviado = False
         self.motivo = ""
@@ -169,10 +174,10 @@ class EnvioMarketingIdempotenteSQLAlchemy:
                 .where(OutboxEventoORM.event_id == str(mensagem.event_id))
                 .values(status=_STATUS_RESERVADO)
             )
-            self._session.commit()
+            self._persistir()
             return None
         except DuplicataOutbox:
-            self._session.rollback()
+            self._reverter()
             existente = self._existente(chave_ledger)
             if existente is None:
                 raise ErroCRM("conflito_idempotencia_marketing")
@@ -211,9 +216,9 @@ class EnvioMarketingIdempotenteSQLAlchemy:
             )
         )
         if getattr(resultado, "rowcount", 0) != 1:
-            self._session.rollback()
+            self._reverter()
             raise ErroCRM("marketing_despacho_reserva_perdida")
-        self._session.commit()
+        self._persistir()
 
     def enviar(
         self,
@@ -238,7 +243,7 @@ class EnvioMarketingIdempotenteSQLAlchemy:
                 idempotency_key=idempotency_key,
             )
         except Exception:
-            self._session.rollback()
+            self._reverter()
             raise
 
         mensagem_id = getattr(self._transporte, "mensagem_id", None)

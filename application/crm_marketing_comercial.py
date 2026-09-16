@@ -24,6 +24,7 @@ from infra.crm.consentimentos_marketing_sqlalchemy import (
 from infra.crm.marketing_idempotencia import EnvioMarketingIdempotenteSQLAlchemy
 from infra.crm.marketing_whatsapp import EnvioWhatsAppMarketingComercial
 from infra.legacy_schema import clientes as clientes_legados
+from infra.transacoes.uow import UnitOfWorkV1
 
 
 class MarketingCRMComercialInvalido(ErroCRM):
@@ -192,6 +193,14 @@ def despachar_resgate_whatsapp_legado(
     """Despacha somente após mapping CRM + consentimento WhatsApp/promoções vigente."""
 
     session = session_factory()
+    uow = UnitOfWorkV1.adotar_session(session)
+
+    def persistir_despacho() -> None:
+        uow.commit()
+
+    def reverter_despacho() -> None:
+        uow.rollback()
+
     try:
         vinculo = LeitorClienteLegadoCRMSQLAlchemy(session).resolver(
             tenant_id=contexto.tenant_id,
@@ -213,6 +222,8 @@ def despachar_resgate_whatsapp_legado(
             cliente_id=vinculo.cliente_id,
             texto=texto,
             transporte=transporte_base,
+            persistir=persistir_despacho,
+            reverter=reverter_despacho,
         )
         nao_usado = cast(Any, object())
         servico = ServicoCRM(
