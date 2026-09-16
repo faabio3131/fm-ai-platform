@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Save, X, Edit } from "lucide-react";
 
 import { useAuthStore } from "@/features/auth/store/auth-store";
@@ -80,10 +80,10 @@ export function UsuariosWorkspace() {
         headers: { Accept: "application/json" },
       });
       if (res.ok) {
-        const data = await res.json();
+        const data = (await res.json()) as { unidades: Unidade[] };
         setState((s) => ({
           ...s,
-          unidades: data.unidades.map((u: any) => ({
+          unidades: data.unidades.map((u) => ({
             unidade_id: u.unidade_id,
             codigo: u.codigo,
             nome_fantasia: u.nome_fantasia,
@@ -154,7 +154,7 @@ export function UsuariosWorkspace() {
     setState((s) => ({ ...s, dialogOpen: false, editing: null, erro: null }));
   }, []);
 
-  const handleChange = useCallback((field: string, value: any) => {
+  const handleChange = useCallback((field: string, value: string | boolean) => {
     setState((s) => ({ ...s, form: { ...s.form, [field]: value } }));
   }, []);
 
@@ -239,8 +239,14 @@ export function UsuariosWorkspace() {
   }, [state.editing, state.form, handleCloseDialog, fetchUsuarios]);
 
   useEffect(() => {
-    fetchUnidades();
-    fetchUsuarios();
+    if (!auth.tenantId || !auth.unitId) return;
+
+    const timeoutId = window.setTimeout(() => {
+      void fetchUnidades();
+      void fetchUsuarios();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [fetchUnidades, fetchUsuarios, auth.tenantId, auth.unitId]);
 
   const inputClass = "mt-1 border-slate-700 bg-slate-950 text-white";
@@ -458,7 +464,7 @@ export function UsuariosWorkspace() {
                 <option value="false">Não</option>
               </select>
               <p className="mt-1 text-xs text-slate-400">
-                Requer permissão "permissao.gerenciar" e step-up administrativo.
+                Requer permissão &quot;permissao.gerenciar&quot; e step-up administrativo.
               </p>
             </label>
 

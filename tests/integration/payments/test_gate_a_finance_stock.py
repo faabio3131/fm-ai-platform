@@ -127,7 +127,7 @@ def test_gate_a_fluxo_real_prova_zero_dupla_baixa_e_zero_dupla_venda() -> None:
         AGORA,
         (
             ItemSnapshotFicha(
-                "produto", "item-1", "farinha", Decimal("2"), Decimal("2"), "kg"
+                "produto", "item-1", "farinha", Decimal(2), Decimal(2), "kg"
             ),
         ),
     )
