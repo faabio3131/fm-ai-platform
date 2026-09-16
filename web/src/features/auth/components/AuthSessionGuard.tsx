@@ -10,7 +10,7 @@ import {
   useAuthStore,
 } from "@/features/auth/store/auth-store";
 
-const PUBLIC_PATHS = ["/login"] as const;
+const PUBLIC_PATHS = ["/login", "/cardapio"] as const;
 
 function isProtectedPath(pathname: string): boolean {
   return !PUBLIC_PATHS.some(
@@ -25,10 +25,10 @@ export function AuthSessionGuard({ children }: { children: ReactNode }) {
   const protectedPath = isProtectedPath(pathname);
 
   useEffect(() => {
-    if (auth.status === "idle") {
+    if (protectedPath && auth.status === "idle") {
       void refreshAuthSession().catch(() => undefined);
     }
-  }, [auth.status]);
+  }, [auth.status, protectedPath]);
 
   useEffect(() => {
     if (protectedPath && auth.status === "unauthenticated") {

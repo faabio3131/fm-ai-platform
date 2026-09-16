@@ -9,6 +9,7 @@ requests
 fastapi
 uvicorn
 httpx
+email-validator
 pillow
 pypdf
 cryptography

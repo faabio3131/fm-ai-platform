@@ -58,6 +58,7 @@ from migrations.ai_finops_read_model_v1 import (
 from migrations.assistente_channel_runtime_v1 import (
     upgrade_assistente_channel_runtime_v1,
 )
+from migrations.cardapio_publico_identity_v1 import upgrade_cardapio_publico_identity_v1
 from migrations.client_payment_identity_v1 import upgrade_client_payment_identity_v1
 from migrations.crm_cashback_ledger_v1 import upgrade_crm_cashback_ledger_v1
 from migrations.crm_cliente_legado_mapping_v1 import (
@@ -285,6 +286,7 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     ),
     Migration("0039_crm_cashback_ledger_v1", upgrade_crm_cashback_ledger_v1),
     Migration("0040_product_active_flag_v1", upgrade_product_active_flag_v1),
+    Migration("0041_cardapio_publico_identity_v1", upgrade_cardapio_publico_identity_v1),
 )
 
 

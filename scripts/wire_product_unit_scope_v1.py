@@ -28,7 +28,8 @@ def aplicar(texto: str) -> str:
     if (
         "AplicacaoLegacyCardapioV1" in texto
         and "application_cardapio.salvar_prato_com_ficha(" in texto
-        and "application_cardapio.importar_produtos(" in texto
+        and "AplicacaoImportacaoCardapioGeminiV1" in texto
+        and "application_importacao_gemini.importar(" in texto
     ):
         return texto
 

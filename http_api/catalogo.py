@@ -10,9 +10,10 @@ from typing import Any
 
 from fastapi import APIRouter, Header, Query, Request, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
+from application.legacy_cardapio_gemini import AplicacaoImportacaoCardapioGeminiV1
 from application.legacy_cardapio_transacoes import (
     AplicacaoLegacyCardapioV1,
     ConflitoIdempotenciaCatalogo,
@@ -25,15 +26,21 @@ from core.seguranca.erros import (
     SegredoAusente,
 )
 from core.seguranca.permissoes import Permissao
+from gemini_config import generate_content as real_generate_content
 from http_api.auth import AuthSessionRuntime
 from infra.legacy_product_scope import (
     ErroEscopoLojaLegada,
+    listar_fichas_produto_legadas,
+    listar_insumos_legados,
     listar_produtos_legados,
+    obter_insumo_por_id_legado,
     obter_produto_por_id_legado,
 )
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
+from test_mode import is_test_mode, mock_generate_content
 
 SessionFactory = Callable[[], Session]
+generate_content = mock_generate_content if is_test_mode() else real_generate_content
 
 
 class ProdutoCreateIn(BaseModel):
@@ -46,6 +53,26 @@ class ProdutoCreateIn(BaseModel):
 class ProdutoPatchIn(BaseModel):
     preco: float | None = Field(default=None, ge=0)
     ativo: bool | None = None
+
+
+class FichaTecnicaItemIn(BaseModel):
+    insumo_id: int = Field(gt=0)
+    quantidade: float = Field(gt=0)
+
+
+class PratoComFichaCreateIn(BaseModel):
+    nome: str = Field(min_length=1, max_length=240)
+    categoria: str = Field(min_length=1, max_length=160)
+    preco: float = Field(ge=0)
+    custo_total_cmv: float = Field(ge=0)
+    margem_exibicao: str = Field(min_length=1, max_length=80)
+    descricao_bruta: str = Field(default="", max_length=4000)
+    ativo: bool = True
+    itens_ficha: list[FichaTecnicaItemIn] = Field(min_length=1, max_length=100)
+
+
+class ImportacaoCardapioTextoIn(BaseModel):
+    texto_cardapio: str
 
 
 def _erro(http_status: int, codigo: str) -> JSONResponse:
@@ -76,7 +103,7 @@ def _dto_produto(row: Any) -> dict[str, object]:
     }
 
 
-def _fingerprint(payload: ProdutoCreateIn) -> str:
+def _fingerprint(payload: BaseModel) -> str:
     normalizado = json.dumps(
         payload.model_dump(mode="json"),
         ensure_ascii=False,
@@ -86,6 +113,18 @@ def _fingerprint(payload: ProdutoCreateIn) -> str:
     return hashlib.sha256(normalizado.encode("utf-8")).hexdigest()
 
 
+def _dto_insumo_ficha(row: Any) -> dict[str, object]:
+    mapping = row._mapping
+    validade = mapping.get("data_validade")
+    return {
+        "id": str(mapping["id"]),
+        "nome": str(mapping.get("nome") or ""),
+        "unidade_medida": str(mapping.get("unidade_medida") or "un"),
+        "custo_unitario": float(mapping.get("custo_unitario") or 0.0),
+        "data_validade": validade.isoformat() if validade is not None else None,
+    }
+
+
 def build_catalogo_router(
     *,
     session_factory: SessionFactory,
@@ -93,6 +132,7 @@ def build_catalogo_router(
 ) -> APIRouter:
     router = APIRouter(prefix="/v1/catalogo", tags=["catalogo"])
     aplicacao = AplicacaoLegacyCardapioV1(session_factory)
+    importacao_gemini = AplicacaoImportacaoCardapioGeminiV1(aplicacao)
 
     def _identidade(request: Request) -> IdentidadeUsuario:
         identidade_sessao = auth_runtime.resolver_identidade(request)
@@ -152,6 +192,88 @@ def build_catalogo_router(
                 tenant_id=contexto.tenant_id,
                 unidade_id=contexto.unidade_id,
                 produto_id=parsed,
+            )
+
+    @router.post("/importacoes-gemini")
+    async def importar_cardapio_gemini(request: Request) -> JSONResponse:
+        try:
+            contexto = _contexto(request, exigir_escrita=True)
+            content_type = (
+                request.headers.get("content-type", "")
+                .partition(";")[0]
+                .strip()
+                .casefold()
+            )
+            texto_cardapio = ""
+            arquivo_bytes: bytes | None = None
+            arquivo_mime: str | None = None
+
+            if content_type == "application/json":
+                try:
+                    payload = ImportacaoCardapioTextoIn.model_validate(
+                        await request.json()
+                    )
+                except (json.JSONDecodeError, ValidationError):
+                    return _erro(
+                        status.HTTP_400_BAD_REQUEST,
+                        "catalogo.importacao_gemini_entrada_invalida",
+                    )
+                texto_cardapio = payload.texto_cardapio
+                if not texto_cardapio.strip():
+                    return _erro(
+                        status.HTTP_400_BAD_REQUEST,
+                        "catalogo.importacao_gemini_entrada_invalida",
+                    )
+            elif content_type in {
+                "application/pdf",
+                "image/jpeg",
+                "image/png",
+            }:
+                arquivo_bytes = await request.body()
+                arquivo_mime = content_type
+                if not arquivo_bytes:
+                    return _erro(
+                        status.HTTP_400_BAD_REQUEST,
+                        "catalogo.importacao_gemini_entrada_invalida",
+                    )
+            else:
+                return _erro(
+                    status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                    "catalogo.importacao_gemini_tipo_invalido",
+                )
+
+            qtd_cadastrados = importacao_gemini.importar(
+                contexto,
+                generate_content=generate_content,
+                texto_cardapio=texto_cardapio,
+                arquivo_bytes=arquivo_bytes,
+                arquivo_mime=arquivo_mime,
+            )
+            return JSONResponse(
+                status_code=status.HTTP_201_CREATED,
+                content={"qtd_cadastrados": qtd_cadastrados},
+            )
+        except CredenciaisInvalidas:
+            return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
+        except PermissionError as exc:
+            return _erro(
+                status.HTTP_403_FORBIDDEN,
+                str(exc) or "seguranca.permissao_insuficiente",
+            )
+        except (ReferenciaSegredoInvalida, SegredoAusente):
+            return _erro(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "auth.sessao_indisponivel",
+            )
+        except ErroEscopoLojaLegada:
+            return _erro(
+                status.HTTP_409_CONFLICT,
+                "catalogo.escopo_indisponivel",
+            )
+        except Exception:  # noqa: BLE001 - falha do provider é traduzida no boundary HTTP
+            return _erro(
+                status.HTTP_502_BAD_GATEWAY,
+                "catalogo.importacao_gemini_falhou",
             )
 
     @router.get("/produtos")
@@ -237,6 +359,109 @@ def build_catalogo_router(
                 "catalogo.escopo_indisponivel",
             )
 
+    @router.get("/insumos-ficha")
+    def listar_insumos_para_ficha(request: Request) -> JSONResponse:
+        try:
+            contexto = _contexto(request, exigir_escrita=False)
+            with session_factory() as session:
+                rows = listar_insumos_legados(
+                    session,
+                    tenant_id=contexto.tenant_id,
+                    unidade_id=contexto.unidade_id,
+                )
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content=[_dto_insumo_ficha(row) for row in rows],
+            )
+        except CredenciaisInvalidas:
+            return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
+        except (ReferenciaSegredoInvalida, SegredoAusente):
+            return _erro(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "auth.sessao_indisponivel",
+            )
+        except ErroEscopoLojaLegada:
+            return _erro(
+                status.HTTP_409_CONFLICT,
+                "catalogo.escopo_indisponivel",
+            )
+
+    @router.get("/produtos/{produto_id}/ficha")
+    def obter_ficha_produto(produto_id: str, request: Request) -> JSONResponse:
+        try:
+            contexto = _contexto(request, exigir_escrita=False)
+            try:
+                parsed_id = int(produto_id)
+            except (TypeError, ValueError):
+                return _erro(
+                    status.HTTP_404_NOT_FOUND,
+                    "catalogo.produto_nao_encontrado",
+                )
+
+            produto = _produto_scoped(contexto=contexto, produto_id=produto_id)
+            if produto is None:
+                return _erro(
+                    status.HTTP_404_NOT_FOUND,
+                    "catalogo.produto_nao_encontrado",
+                )
+
+            itens: list[dict[str, object]] = []
+            with session_factory() as session:
+                fichas = listar_fichas_produto_legadas(
+                    session,
+                    tenant_id=contexto.tenant_id,
+                    unidade_id=contexto.unidade_id,
+                    produto_id=parsed_id,
+                )
+                for ficha in fichas:
+                    insumo = obter_insumo_por_id_legado(
+                        session,
+                        tenant_id=contexto.tenant_id,
+                        unidade_id=contexto.unidade_id,
+                        insumo_id=int(ficha.insumo_id),
+                    )
+                    if insumo is None:
+                        raise ErroEscopoLojaLegada(
+                            "insumo da ficha fora do escopo autenticado"
+                        )
+                    quantidade = float(ficha.quantidade_utilizada or 0.0)
+                    custo_unitario = float(insumo.custo_unitario or 0.0)
+                    itens.append(
+                        {
+                            "id": str(ficha.id),
+                            "insumo_id": str(insumo.id),
+                            "insumo_nome": str(insumo.nome or ""),
+                            "quantidade": quantidade,
+                            "unidade_medida": str(insumo.unidade_medida or "un"),
+                            "custo_unitario": custo_unitario,
+                            "custo_item": quantidade * custo_unitario,
+                        }
+                    )
+
+            mapping = produto._mapping
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "produto": _dto_produto(produto),
+                    "custo_total_cmv": float(mapping.get("custo_total_cmv") or 0.0),
+                    "margem_exibicao": str(mapping.get("margem_exibicao") or ""),
+                    "descricao_bruta": str(mapping.get("descricao_bruta") or ""),
+                    "itens": itens,
+                },
+            )
+        except CredenciaisInvalidas:
+            return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
+        except (ReferenciaSegredoInvalida, SegredoAusente):
+            return _erro(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "auth.sessao_indisponivel",
+            )
+        except ErroEscopoLojaLegada:
+            return _erro(
+                status.HTTP_409_CONFLICT,
+                "catalogo.escopo_indisponivel",
+            )
+
     @router.post("/produtos")
     def criar_produto(
         payload: ProdutoCreateIn,
@@ -294,6 +519,85 @@ def build_catalogo_router(
                 status.HTTP_401_UNAUTHORIZED,
                 CredenciaisInvalidas.codigo,
             )
+        except PermissionError as exc:
+            return _erro(
+                status.HTTP_403_FORBIDDEN,
+                str(exc) or "seguranca.permissao_insuficiente",
+            )
+        except ConflitoIdempotenciaCatalogo:
+            return _erro(
+                status.HTTP_409_CONFLICT,
+                "catalogo.idempotencia_conflitante",
+            )
+        except (ReferenciaSegredoInvalida, SegredoAusente):
+            return _erro(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "auth.sessao_indisponivel",
+            )
+        except ErroEscopoLojaLegada:
+            return _erro(
+                status.HTTP_409_CONFLICT,
+                "catalogo.escopo_indisponivel",
+            )
+
+    @router.post("/pratos-com-ficha")
+    def criar_prato_com_ficha(
+        payload: PratoComFichaCreateIn,
+        request: Request,
+        idempotency_key: str | None = Header(
+            default=None,
+            alias="Idempotency-Key",
+        ),
+    ) -> JSONResponse:
+        try:
+            contexto = _contexto(request, exigir_escrita=True)
+            key = (idempotency_key or "").strip()
+            if not key or len(key) > 128:
+                return _erro(
+                    status.HTTP_400_BAD_REQUEST,
+                    "catalogo.idempotency_key_invalida",
+                )
+
+            resultado = aplicacao.salvar_prato_com_ficha_idempotente(
+                contexto,
+                valores_produto={
+                    "nome": payload.nome.strip(),
+                    "categoria": payload.categoria.strip(),
+                    "preco_venda": payload.preco,
+                    "custo_total_cmv": payload.custo_total_cmv,
+                    "margem_exibicao": payload.margem_exibicao.strip(),
+                    "descricao_bruta": payload.descricao_bruta.strip(),
+                    "ativo": payload.ativo,
+                },
+                itens_ficha=tuple(
+                    {
+                        "insumo_id": item.insumo_id,
+                        "quantidade": item.quantidade,
+                    }
+                    for item in payload.itens_ficha
+                ),
+                idempotency_key=key,
+                request_fingerprint=_fingerprint(payload),
+            )
+            produto = _produto_scoped(
+                contexto=contexto,
+                produto_id=str(resultado.produto_id),
+            )
+            if produto is None:
+                return _erro(
+                    status.HTTP_503_SERVICE_UNAVAILABLE,
+                    "catalogo.persistencia_inconsistente",
+                )
+            return JSONResponse(
+                status_code=(
+                    status.HTTP_200_OK
+                    if resultado.idempotente
+                    else status.HTTP_201_CREATED
+                ),
+                content=_dto_produto(produto),
+            )
+        except CredenciaisInvalidas:
+            return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
         except PermissionError as exc:
             return _erro(
                 status.HTTP_403_FORBIDDEN,
