@@ -18,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -27,14 +29,28 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Compile WP022 surface
+        run: |
+          python -m py_compile \
+            http_api/admin_empresa.py \
+            http_api/frontend_app.py
+      - name: Ruff WP022
+        run: |
+          ruff check \
+            http_api/admin_empresa.py \
+            http_api/frontend_app.py \
+            tests/api/test_admin_empresa_http_contract.py \
+            tests/api/test_admin_backoffice_http_contract.py \
+            tests/api/test_auth_admin_stepup_http_contract.py
+      - name: Mypy WP022
+        run: |
+          mypy --follow-imports=silent \
+            http_api/admin_empresa.py \
+            http_api/frontend_app.py
       - name: WP022 HTTP contract and security regression
         run: pytest -q tests/api/test_admin_empresa_http_contract.py tests/api/test_admin_backoffice_http_contract.py tests/api/test_auth_admin_stepup_http_contract.py
       - name: Full Python regression
         run: pytest -q
-      - name: Ruff
-        run: ruff check .
-      - name: Mypy
-        run: mypy http_api/admin_empresa.py http_api/frontend_app.py --follow-imports=silent
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -52,3 +68,5 @@ jobs:
       - name: Frontend build
         working-directory: web
         run: npm run build
+      - name: Diff whitespace gate
+        run: git diff --check origin/${{ github.base_ref }}...HEAD
