@@ -93,6 +93,10 @@ def build_ai_finops_router(
                 ).identidade
             if Permissao.ADMIN_ACESSAR not in identidade.permissoes:
                 raise PermissionError("administracao_sem_acesso")
+            if Permissao.FINANCEIRO_VISUALIZAR not in identidade.permissoes:
+                raise PermissionError(
+                    "administracao_sem_permissao:financeiro.visualizar"
+                )
             buckets = AIFinOpsSQLAlchemyReadModel(session_factory).listar(
                 tenant_id=identidade.tenant_id,
                 unidade_id=identidade.unidade_id,
