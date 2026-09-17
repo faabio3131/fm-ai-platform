@@ -1,0 +1,34 @@
+name: Kordena V1 State Ledger Governance
+
+on:
+  pull_request:
+    paths:
+      - 'docs/web-parity/**'
+      - 'scripts/validate_kordena_v1_state_ledger.py'
+      - '.github/workflows/kordena-v1-state-ledger.yml'
+  push:
+    branches:
+      - feat/web-parity-v1-total-original-migration
+    paths:
+      - 'docs/web-parity/**'
+      - 'scripts/validate_kordena_v1_state_ledger.py'
+      - '.github/workflows/kordena-v1-state-ledger.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  state-ledger:
+    name: Canonical state consistency
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate canonical Kordena V1 state
+        run: python scripts/validate_kordena_v1_state_ledger.py
+      - name: Diff whitespace gate
+        run: git diff --check HEAD~1..HEAD
