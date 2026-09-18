@@ -1,12 +1,12 @@
 # WP-008 — EVIDÊNCIA DE IMPLEMENTAÇÃO
 
-**Produto:** Kordena V1  
-**Work Package:** WP-008 — Atendimento do Garçom mobile/tablet  
-**Estado:** IMPLEMENTED_UNCERTIFIED  
-**Data:** 18/09/2026  
-**PR:** #118  
-**Branch:** `feat/web-parity-v1-total-original-migration`  
-**HEAD inicial:** `50adcc6021f39a6ff99ce7b057defe5ec205c66f`  
+**Produto:** Kordena V1
+**Work Package:** WP-008 — Atendimento do Garçom mobile/tablet
+**Estado:** IMPLEMENTED_UNCERTIFIED
+**Data:** 18/09/2026
+**PR:** #118
+**Branch:** `feat/web-parity-v1-total-original-migration`
+**HEAD inicial:** `50adcc6021f39a6ff99ce7b057defe5ec205c66f`
 **SHA de implementação testado:** `3c59dff6e4460d743f50214c6e79cdc886a2fdd5`
 
 ## Escopo implementado
@@ -37,8 +37,8 @@ Foram implementados:
 
 ## Evidência de testes
 
-Workflow dedicado: **Web Parity WP008 Implementation Gates**  
-Run: **35305972483**  
+Workflow dedicado: **Web Parity WP008 Implementation Gates**
+Run: **35305972483**
 SHA: `3c59dff6e4460d743f50214c6e79cdc886a2fdd5`
 
 Resultados:
