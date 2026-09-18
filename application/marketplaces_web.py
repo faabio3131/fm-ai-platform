@@ -9,8 +9,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from core.dominio.tempo import SystemClock
-from core.eventos.observabilidade import ColetorMetricasEmMemoria
 from core.eventos.modelos import DeadLetter, EnvelopeMensagem, ErroNormalizado
+from core.eventos.observabilidade import ColetorMetricasEmMemoria
 from core.eventos.repositorios import (
     RegistroInbox,
     RepositorioDLQ,
