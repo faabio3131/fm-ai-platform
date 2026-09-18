@@ -15,6 +15,7 @@ on:
       - 'tests/api/test_admin_notificacoes_http_contract.py'
       - 'web/tests/wp032-notificacoes-navigation.test.mjs'
       - '.github/workflows/web-parity-wp032-notificacoes.yml'
+      - 'docs/web-parity/**'
   workflow_dispatch:
 
 permissions:

@@ -1,10 +1,10 @@
 # WP-012 — Certificação técnica Marketplaces Web
 
-**Data:** 18/09/2026  
-**Branch:** `feat/web-parity-v1-total-original-migration`  
-**PR:** #118  
-**SHA certificado:** `e4ce2c1e2e315811425535c5ca74b5a56570050b`  
-**Workflow:** `Web Parity WP012 Marketplaces`  
+**Data:** 18/09/2026
+**Branch:** `feat/web-parity-v1-total-original-migration`
+**PR:** #118
+**SHA certificado:** `e4ce2c1e2e315811425535c5ca74b5a56570050b`
+**Workflow:** `Web Parity WP012 Marketplaces`
 **Run:** `35369209616` — **SUCCESS**
 
 ## Escopo certificado
