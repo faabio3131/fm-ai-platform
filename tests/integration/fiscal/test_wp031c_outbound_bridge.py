@@ -225,7 +225,7 @@ def test_wp031c_venda_criada_publica_contrato_fiscal_minimo() -> None:
         papeis=frozenset({Papel.GERENTE}),
         permissoes=frozenset(Permissao),
         correlation_id="corr-fiscal",
-        timestamp=AGORA,
+        solicitado_em=AGORA,
         origem="wp031c-test",
         unidades_permitidas=frozenset({"unidade-a"}),
     )
