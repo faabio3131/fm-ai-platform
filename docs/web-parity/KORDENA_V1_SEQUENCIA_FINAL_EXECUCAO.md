@@ -23,7 +23,7 @@
    - `core/marketplaces`, Central/Pedido canônicos, isolamento tenant/unidade, transaction ownership e migration `0042` preservados.
    - Homologação externa de provider continua dependente de evidência real; não é inferida pela certificação técnica interna.
 
-4. **WP-032 — implantar Web de Notificações Internas**
+4. **WP-032 — implantar Web de Notificações Internas — CONCLUÍDO**
    - Reutilizar `core/notificacoes_internas`, `application/notificacoes_internas.py` e `infra/notificacoes_internas`.
    - Escopo: destinatários, preferências e alertas administrativos.
    - Não criar inbox/feed/badge genérico fora do escopo.
@@ -55,9 +55,9 @@
 ## Estado CURRENT no congelamento
 
 - 33 Work Packages oficiais.
-- 29 `CERTIFIED`.
+- 31 `CERTIFIED`.
 - 1 `IMPLEMENTED_UNCERTIFIED`: WP-008.
-- 3 `PENDING`: WP-031, WP-032 e WP-033.
+- 1 `PENDING`: WP-031 Fiscal (deliberadamente fora desta rodada).
 - WP-008 gate de implementação: SUCCESS.
 - PR #118 permanece OPEN/DRAFT e não mergeada.
 
@@ -65,3 +65,10 @@
 ## Exceção operacional do ciclo autônomo atual
 
 Por decisão explícita do proprietário, o ciclo em execução após a certificação do WP-012 segue **WP-032 → WP-033 → Auditoria Mestre não fiscal → Gate Mestre não fiscal**. O **WP-031 Fiscal permanece PENDING e deliberadamente fora desta rodada**, assim como o **Visual Premium**. Esta exceção não remove o Fiscal da V1 final; apenas o reserva para rodada própria posterior.
+
+
+## Checkpoint pré-Auditoria Mestre — 18/09/2026
+
+- WP-032 certificado: SHA `c94d17ed85183c51ace803b5a97ecda84cbf447f`, run `35373830703` SUCCESS.
+- WP-033 certificado: SHA `01d5f7695cd72ab67cb7107c13c9e004de74f3d1`, run `35376561635` SUCCESS.
+- Próximo passo: Auditoria Mestre não fiscal, incluindo reavaliação do WP-008 e recuperação de evidências históricas faltantes.

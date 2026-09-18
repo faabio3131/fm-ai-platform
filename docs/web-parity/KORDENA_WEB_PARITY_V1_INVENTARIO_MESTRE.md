@@ -3,7 +3,7 @@
 **Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`
 **Data original:** 08/09/2026
 **Reconciliação:** 18/09/2026
-**Versão do inventário:** 2.7 — WP-012 certificado + sequência autônoma não fiscal
+**Versão do inventário:** 2.8 — WP-032/WP-033 certificados + pré-auditoria mestre
 **Status:** DOCUMENTO MESTRE DE EXECUÇÃO
 
 ## 1. Regra constitucional deste inventário
@@ -15,10 +15,10 @@ Existir no backend, possuir UI candidata ou ter E2E legado **não** significa es
 ## 2. Diagnóstico executivo reconciliado
 
 - Capacidades inventariadas: **33**.
-- Estado canônico atual no ledger: **29 CERTIFIED**, **1 IMPLEMENTED_UNCERTIFIED** e **3 PENDING**.
+- Estado canônico atual no ledger: **31 CERTIFIED**, **1 IMPLEMENTED_UNCERTIFIED** e **1 PENDING**.
 - **WP-008** está implementado em `/garcom`; o gate de implementação do HEAD `9daaacc9ef4754558ad570bd568a316367b9260d` concluiu SUCCESS. Permanece `IMPLEMENTED_UNCERTIFIED` até certificação integral posterior.
 - **WP-018** foi certificado em `/admin/dashboard` no SHA `b7a64b2dc5a47763a86fded903a15fd2be2cc23d`.
-- **WP-012** está tecnicamente certificado; **WP-032** e **WP-033** são os gaps Web funcionais restantes.
+- **WP-012**, **WP-032** e **WP-033** estão tecnicamente certificados; o único WP deliberadamente pendente nesta rodada é **WP-031 Fiscal**.
 - **WP-031 Fiscal** permanece PENDING na PR #118; o módulo já pronto deve ser localizado, provado como autoridade e apenas implantado/integrado, sem reconstrução.
 - GAP HTTP/WEB/PÚBLICO: **0** — WP-030 foi concluído e certificado.
 - A VERIFICAR: **0**.
@@ -235,3 +235,10 @@ Cada PR do WEB-PARITY-V1 deve: (a) citar IDs WP afetados; (b) atualizar este inv
 - Compile, Ruff, mypy, manifest, matriz dirigida, regressão Python completa, ESLint, TypeScript, testes Web, Next build e diff check: **SUCCESS**.
 - Certificação é técnica/interna da integração Web. Nenhuma homologação real de iFood, Keeta, 99Food ou outro provider é declarada sem evidência externa.
 - Próximo bloco autorizado neste ciclo não fiscal: **WP-032 — Notificações Internas Web**.
+
+
+## 16. Certificação WP-032 e WP-033 — 18/09/2026
+
+- **WP-032 — Notificações Internas Web:** CERTIFIED no SHA `c94d17ed85183c51ace803b5a97ecda84cbf447f`; run `35373830703` SUCCESS. Reutiliza diretório SQL cifrado e serviço canônico, sessão assinada, RBAC, step-up nas mutações, isolamento tenant/unidade e payload mascarado. Não cria inbox/feed/badge paralelo.
+- **WP-033 — Auditoria Web:** CERTIFIED no SHA `01d5f7695cd72ab67cb7107c13c9e004de74f3d1`; run `35376561635` SUCCESS. Reutiliza `RepositorioAuditoriaSQLAlchemy`, consulta read-only scoped à unidade ativa, exige `admin.acessar` + `auditoria.visualizar` + step-up e não expõe metadata interna/segredos.
+- Próxima etapa autorizada: **Auditoria Mestre V1 não fiscal + Audit & Fix + Gate Mestre Final**.

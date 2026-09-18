@@ -3,7 +3,7 @@
   "product": "Kordena V1",
   "authority": "canonical-state-ledger",
   "branch": "feat/web-parity-v1-total-original-migration",
-  "reconciled_from_head": "e4ce2c1e2e315811425535c5ca74b5a56570050b",
+  "reconciled_from_head": "01d5f7695cd72ab67cb7107c13c9e004de74f3d1",
   "rules": {
     "allowed_states": [
       "PENDING",
@@ -297,13 +297,23 @@
     },
     "WP-032": {
       "name": "Notificacoes Internas",
-      "state": "PENDING",
-      "reason": "obrigatorio para V1.0; dominio canonico existe, GAP HTTP/WEB administrativo"
+      "state": "CERTIFIED",
+      "certified_sha": "c94d17ed85183c51ace803b5a97ecda84cbf447f",
+      "evidence": [
+        "WP032_NOTIFICACOES_INTERNAS_WEB_CERTIFICACAO.md",
+        "Web Parity WP032 Notificacoes run 35373830703 — SUCCESS"
+      ],
+      "reason": "superficie Web/HTTP administrativa certificada sobre o diretorio canonico cifrado; sem inbox/feed/badge paralelo"
     },
     "WP-033": {
       "name": "Auditoria / Historico administrativo",
-      "state": "PENDING",
-      "reason": "GAP HTTP/WEB; consulta read-only tenant-safe sem segunda auditoria"
+      "state": "CERTIFIED",
+      "certified_sha": "01d5f7695cd72ab67cb7107c13c9e004de74f3d1",
+      "evidence": [
+        "WP033_AUDITORIA_WEB_CERTIFICACAO.md",
+        "Web Parity WP033 Auditoria run 35376561635 — SUCCESS"
+      ],
+      "reason": "consulta Web read-only certificada sobre RepositorioAuditoriaSQLAlchemy; tenant/unit scoped e payload minimizado"
     }
   }
 }
