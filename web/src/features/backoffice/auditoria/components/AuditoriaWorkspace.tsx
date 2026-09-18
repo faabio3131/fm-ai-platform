@@ -30,7 +30,6 @@ export function AuditoriaWorkspace() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     void listarAuditoria(pagina, {
       acao,
       resultado,
@@ -147,7 +146,7 @@ export function AuditoriaWorkspace() {
               type="button"
               variant="outline"
               disabled={loading || pagina <= 1}
-              onClick={() => setPagina((value) => Math.max(1, value - 1))}
+              onClick={() => { setLoading(true); setPagina((value) => Math.max(1, value - 1)); }}
             >
               Anterior
             </Button>
@@ -156,7 +155,7 @@ export function AuditoriaWorkspace() {
               type="button"
               variant="outline"
               disabled={loading || !dados.tem_mais}
-              onClick={() => setPagina((value) => value + 1)}
+              onClick={() => { setLoading(true); setPagina((value) => value + 1); }}
             >
               Próxima
             </Button>
