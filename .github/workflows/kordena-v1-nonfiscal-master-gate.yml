@@ -1,0 +1,104 @@
+name: Kordena V1 Non-Fiscal Master Gate
+
+on:
+  push:
+    branches:
+      - feat/web-parity-v1-total-original-migration
+    paths:
+      - 'application/**'
+      - 'core/**'
+      - 'infra/**'
+      - 'http_api/**'
+      - 'migrations/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'web/**'
+      - 'docs/web-parity/**'
+      - '.github/workflows/kordena-v1-nonfiscal-master-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  master-nonfiscal:
+    name: V1 non-fiscal master certification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+
+      - name: Compile canonical V1 surfaces
+        run: |
+          python -m compileall -q application core infra http_api migrations scripts
+
+      - name: Ruff audited Web-parity surfaces
+        run: |
+          ruff check             application/garcom_fechamento.py             application/garcom_transacoes.py             application/notificacoes_internas_admin.py             application/auditoria_web.py             http_api/garcom_web.py             http_api/admin_usuarios.py             http_api/admin_configuracao.py             http_api/admin_impressao.py             http_api/admin_integracoes.py             http_api/admin_assistente_atendimento.py             http_api/admin_notificacoes.py             http_api/admin_auditoria.py             http_api/frontend_app.py             core/seguranca/permissoes.py             tests/api/test_admin_configuracao_http_contract.py             tests/api/test_admin_impressao_http_contract.py             tests/api/test_admin_integracoes_http_contract.py             tests/api/test_admin_assistente_atendimento_http_contract.py             tests/api/test_admin_notificacoes_http_contract.py             tests/api/test_admin_auditoria_http_contract.py
+
+      - name: Mypy audited Web-parity surfaces
+        run: |
+          mypy             application/garcom_fechamento.py             application/garcom_transacoes.py             application/notificacoes_internas_admin.py             application/auditoria_web.py             http_api/garcom_web.py             http_api/admin_usuarios.py             http_api/admin_configuracao.py             http_api/admin_impressao.py             http_api/admin_integracoes.py             http_api/admin_assistente_atendimento.py             http_api/admin_notificacoes.py             http_api/admin_auditoria.py             http_api/frontend_app.py
+
+      - name: Validate canonical state ledger
+        run: python scripts/validate_kordena_v1_state_ledger.py
+
+      - name: WP008 independent certification matrix
+        run: |
+          pytest -q             tests/unit/garcom             tests/integration/garcom             tests/integration/salao             tests/api/test_auth_http_contract.py             tests/api/test_operational_session_sso_http_contract.py             tests/api/test_salao_http_contract.py             tests/api/test_salao_pedido_http_contract.py             tests/api/test_pdv_http_contract.py
+
+      - name: WP023-WP027 administration certification matrix
+        run: |
+          pytest -q             tests/api/test_admin_backoffice_http_contract.py             tests/api/test_admin_configuracao_http_contract.py             tests/api/test_admin_impressao_http_contract.py             tests/api/test_admin_integracoes_http_contract.py             tests/api/test_admin_assistente_atendimento_http_contract.py             tests/unit/administracao             tests/integration/administracao             tests/unit/impressao             tests/integration/impressao             tests/unit/integracoes             tests/integration/integracoes             tests/unit/assistente_atendimento
+
+      - name: WP032-WP033 certification matrix
+        run: |
+          pytest -q             tests/api/test_admin_notificacoes_http_contract.py             tests/api/test_admin_auditoria_http_contract.py
+
+      - name: Security and RBAC regression
+        run: |
+          pytest -q             tests/unit/security             tests/integration/security             tests/fitness/test_auth_sensitive_entrypoints_v1.py             tests/fitness/test_f14_transversal_rbac_security_v1.py
+
+      - name: Full Python regression
+        run: pytest -q
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: Full Web ESLint
+        working-directory: web
+        run: npm run lint
+
+      - name: Full Web TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Full Web node tests
+        working-directory: web
+        run: node --test tests/*.test.mjs
+
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+
+      - name: Diff whitespace against main
+        run: git diff --check origin/main...HEAD
