@@ -254,6 +254,16 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     allPermissions: ["admin.acessar", "notificacao_interna.gerenciar"],
   },
   {
+    id: "auditoria",
+    label: "Auditoria",
+    description: "Trilha de ações e decisões administrativas da unidade.",
+    href: "/admin/auditoria",
+    group: "proprietario",
+    icon: "saude",
+    available: true,
+    allPermissions: ["admin.acessar", "auditoria.visualizar"],
+  },
+  {
     id: "assistente-atendimento",
     label: "Assistente de Atendimento",
     description: "Identidade configurável, monitoramento de conversas e handoff humano.",
