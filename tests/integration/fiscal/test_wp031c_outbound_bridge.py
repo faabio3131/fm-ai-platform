@@ -118,7 +118,7 @@ class _LineResolver:
             FiscalLineSnapshot(
                 line_number=1,
                 product=product,
-                quantity=Decimal("1"),
+                quantity=Decimal(1),
                 unit_price=Money(pedido.total.valor),
                 gross_amount=Money(pedido.total.valor),
                 tax_decision=decision,
