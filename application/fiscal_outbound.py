@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Protocol
 
@@ -40,7 +41,7 @@ class FiscalIssuerResolver(Protocol):
         self,
         *,
         scope: ExecutionScope,
-        issued_at: object,
+        issued_at: datetime,
     ) -> FiscalProfile: ...
 
 
@@ -50,7 +51,7 @@ class FiscalOrderLineResolver(Protocol):
         *,
         scope: ExecutionScope,
         pedido: Pedido,
-        issued_at: object,
+        issued_at: datetime,
     ) -> tuple[FiscalLineSnapshot, ...]: ...
 
 
