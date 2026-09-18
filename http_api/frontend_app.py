@@ -36,8 +36,8 @@ from http_api.central_pedidos import build_central_pedidos_router
 from http_api.crm import build_crm_router
 from http_api.delivery import build_delivery_router
 from http_api.entrega import build_entrega_router
-from http_api.gerente_ia_web import build_gerente_ia_web_router
 from http_api.garcom_web import build_garcom_web_router
+from http_api.gerente_ia_web import build_gerente_ia_web_router
 from http_api.marketplaces_web import build_marketplaces_web_router
 from http_api.pagamentos_web import build_pagamentos_web_router
 from infra.seguranca.session_guard import build_session_factory
