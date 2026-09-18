@@ -244,6 +244,16 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     allPermissions: ["admin.acessar", "integracao.gerenciar"],
   },
   {
+    id: "notificacoes",
+    label: "Notificações Internas",
+    description: "Destinatários e preferências dos alertas internos da unidade.",
+    href: "/admin/notificacoes",
+    group: "proprietario",
+    icon: "assistente",
+    available: true,
+    allPermissions: ["admin.acessar", "notificacao_interna.gerenciar"],
+  },
+  {
     id: "assistente-atendimento",
     label: "Assistente de Atendimento",
     description: "Identidade configurável, monitoramento de conversas e handoff humano.",
