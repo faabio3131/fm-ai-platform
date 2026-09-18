@@ -103,6 +103,9 @@ def build_admin_dashboard_router(
                 raise PermissionError(
                     "administracao_sem_permissao:financeiro.visualizar"
                 )
+            _, elevado, _ = auth_runtime.admin_status(request)
+            if not elevado:
+                raise PermissionError("seguranca.admin_step_up_exigido")
             unidades = tuple(unidade_id or (identidade.unidade_id,))
             painel = AplicacaoAdministracaoProprietarioV1(
                 session_factory

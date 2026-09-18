@@ -71,6 +71,12 @@ def _login(client: TestClient, email: str = ADMIN_EMAIL) -> None:
     assert response.status_code == 200
 
 
+def _step_up(client: TestClient) -> None:
+    response = client.post("/v1/auth/admin-step-up", json={"senha": SENHA})
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+
+
 def _painel():
     return SimpleNamespace(
         tenant_id=TENANT,
@@ -112,6 +118,19 @@ def test_painel_executivo_exige_sessao_e_permissoes(monkeypatch) -> None:
     assert sem_permissao.json() == {"erro": "administracao_sem_acesso"}
 
 
+def test_painel_executivo_exige_step_up_administrativo(monkeypatch) -> None:
+    client = _infra(monkeypatch)
+    _login(client)
+
+    sem_step_up = client.get("/v1/admin/painel-executivo")
+    assert sem_step_up.status_code == 403
+    assert sem_step_up.json() == {"erro": "seguranca.admin_step_up_exigido"}
+
+    _step_up(client)
+    com_step_up = client.get("/v1/admin/painel-executivo")
+    assert com_step_up.status_code != 403
+
+
 def test_painel_executivo_reutiliza_application_e_escopo_ativo(
     monkeypatch,
 ) -> None:
@@ -131,6 +150,7 @@ def test_painel_executivo_reutiliza_application_e_escopo_ativo(
         AplicacaoFake,
     )
     _login(client)
+    _step_up(client)
 
     response = client.get(
         "/v1/admin/painel-executivo",
@@ -189,6 +209,7 @@ def test_painel_executivo_encaminha_multiplas_unidades_ao_boundary(
         AplicacaoFake,
     )
     _login(client)
+    _step_up(client)
 
     response = client.get(
         "/v1/admin/painel-executivo"
