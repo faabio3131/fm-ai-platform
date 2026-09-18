@@ -42,8 +42,32 @@ export function NotificacoesWorkspace() {
   }, []);
 
   useEffect(() => {
-    void carregar();
-  }, [carregar]);
+    let cancelled = false;
+    void listarDestinatarios()
+      .then((nextItems) => {
+        if (!cancelled) {
+          setItems(nextItems);
+          setErro(null);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setErro(
+            error instanceof Error
+              ? error.message
+              : "Falha ao carregar destinatários.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function salvar(): Promise<void> {
     setSaving(true);
