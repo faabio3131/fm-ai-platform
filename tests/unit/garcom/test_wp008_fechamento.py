@@ -223,7 +223,7 @@ def test_modo_hibrido_aceita_mesa_e_no_caixa_rejeita_mesa() -> None:
     )
     assert destino is DestinoRecebimento.MESA
 
-    with pytest.raises(ErroSalao, match="destino_recebimento_nao_permitido"):
+    with pytest.raises(ErroSalao) as exc_info:
         app.definir_destino(
             _contexto(Papel.GARCOM, unidade_id=OUTRA, usuario_id="garcom-1"),
             comanda_id="comanda-b",
@@ -231,6 +231,7 @@ def test_modo_hibrido_aceita_mesa_e_no_caixa_rejeita_mesa() -> None:
             expected_version=2,
             idempotency_key="wp008-destino-b",
         )
+    assert exc_info.value.codigo == "destino_recebimento_nao_permitido"
 
 
 def test_isolamento_unidade_e_concorrencia_permanecem_fail_closed() -> None:
@@ -244,7 +245,7 @@ def test_isolamento_unidade_e_concorrencia_permanecem_fail_closed() -> None:
     assert outra.couvert_artistico == Decimal("0.00")
     assert outra.taxa_servico_percentual == Decimal("5.00")
 
-    with pytest.raises(ErroSalao, match="comanda_concorrente"):
+    with pytest.raises(ErroSalao) as exc_info:
         app.consolidar_componentes(
             _contexto(Papel.GARCOM, usuario_id="garcom-1"),
             comanda_id="comanda-a",
@@ -252,3 +253,4 @@ def test_isolamento_unidade_e_concorrencia_permanecem_fail_closed() -> None:
             expected_version=1,
             idempotency_key="wp008-stale",
         )
+    assert exc_info.value.codigo == "comanda_concorrente"
