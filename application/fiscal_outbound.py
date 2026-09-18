@@ -194,7 +194,7 @@ class KordenaFiscalOutboundBridge:
             )
         net_amount = sum(
             (line.net_amount.amount for line in lines),
-            Decimal("0"),
+            Decimal(0),
         )
         if net_amount != sale_amount:
             raise FiscalOutboundBridgeError(
