@@ -58,6 +58,7 @@ from infra.marketplaces.repositorio_sqlalchemy import (
 )
 from infra.seguranca.modelos_orm import CredencialReferenciaORM
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
+from infra.transacoes.uow import UnitOfWorkV1
 
 SessionFactory = Callable[[], Session]
 SERVICO_MARKETPLACE = "marketplace.pedidos"
@@ -233,9 +234,9 @@ class _DLQMarketplaceSQLAlchemy(RepositorioDLQ):
 class _AdapterCommitAntesAck:
     """Garante durabilidade do inbox/Pedido antes do ACK ao parceiro."""
 
-    def __init__(self, delegate: MarketplaceAdapter, session: Session) -> None:
+    def __init__(self, delegate: MarketplaceAdapter, uow: UnitOfWorkV1) -> None:
         self._delegate = delegate
-        self._session = session
+        self._uow = uow
 
     @property
     def plataforma(self):
@@ -253,7 +254,7 @@ class _AdapterCommitAntesAck:
         integracao: IntegracaoMarketplace,
         evento_ids: tuple[str, ...],
     ) -> None:
-        self._session.commit()
+        self._uow.commit()
         self._delegate.reconhecer_eventos(integracao, evento_ids)
 
     def consultar_pedido(self, integracao: IntegracaoMarketplace, pedido_id_externo: str):
@@ -428,7 +429,8 @@ class AplicacaoMarketplacesWebV1:
                     segredos=_SegredosKeeta(session, config, vault)
                 )
 
-            adapter = _AdapterCommitAntesAck(delegate, session)
+            uow = UnitOfWorkV1.adotar_session(session)
+            adapter = _AdapterCommitAntesAck(delegate, uow)
             integracao = IntegracaoMarketplace(
                 integracao_id=config.configuracao_id,
                 tenant_id=contexto.tenant_id,
@@ -481,5 +483,5 @@ class AplicacaoMarketplacesWebV1:
                 integracao_id=config.configuracao_id,
                 limite=limite,
             )
-            session.commit()
+            uow.commit()
             return resultado
