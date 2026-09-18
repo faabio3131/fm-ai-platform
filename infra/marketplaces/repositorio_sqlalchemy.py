@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -33,6 +34,7 @@ from core.marketplaces.repositorios import RepositorioPedidosExternos
 from core.pedidos.adaptador_sqlalchemy import RepositorioPedidosSQLAlchemy
 from core.pedidos.servicos import registrar_novo_pedido
 from core.seguranca.contexto import ContextoExecucao
+from core.seguranca.permissoes import Permissao
 from infra.eventos.adaptador_sqlalchemy import RepositorioOutboxSQLAlchemy
 from infra.gerente_ia.persistencia_sqlalchemy import ConsumidorEventosCoreSQLAlchemy
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
@@ -154,13 +156,23 @@ class PedidosInternosMarketplaceSQLAlchemy:
         unidade_id: str,
         idempotency_key: str,
     ) -> ContextoExecucao:
-        return ContextoExecucao.sistema(
+        contexto = ContextoExecucao.sistema(
             identidade=f"marketplace:{self._plataforma.value}",
             motivo="sincronizacao de pedido externo homologado",
             tenant_id=tenant_id,
             unidade_id=unidade_id,
             correlation_id=self._id("mkt-corr", idempotency_key),
             solicitado_em=datetime.now(timezone.utc),
+        )
+        return replace(
+            contexto,
+            permissoes=frozenset(
+                {
+                    Permissao.PEDIDO_CRIAR,
+                    Permissao.PEDIDO_ALTERAR,
+                    Permissao.PEDIDO_CANCELAR,
+                }
+            ),
         )
 
     def criar_ou_obter(
