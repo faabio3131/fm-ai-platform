@@ -7,6 +7,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import and_, or_, select
+from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -73,7 +74,7 @@ class FiscalSequenceStoreSQLAlchemy:
         self._session_factory = session_factory
 
     @staticmethod
-    def _identity(key: FiscalSequenceKey) -> tuple[object, ...]:
+    def _identity(key: FiscalSequenceKey) -> tuple[ColumnElement[bool], ...]:
         return (
             FiscalSequenceORM.tenant_id == key.tenant_id,
             FiscalSequenceORM.unit_id == key.unit_id,
@@ -170,7 +171,13 @@ class IdempotencyStoreSQLAlchemy:
             rejection_reason=row.rejection_reason,
         )
 
-    def _latest(self, session: Session, key: IdempotencyKey, *, lock: bool):
+    def _latest(
+        self,
+        session: Session,
+        key: IdempotencyKey,
+        *,
+        lock: bool,
+    ) -> FiscalIdempotencyORM | None:
         query = (
             select(FiscalIdempotencyORM)
             .where(FiscalIdempotencyORM.key_value == key.value)
