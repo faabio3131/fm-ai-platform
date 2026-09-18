@@ -3,7 +3,7 @@
   "product": "Kordena V1",
   "authority": "canonical-state-ledger",
   "branch": "feat/web-parity-v1-total-original-migration",
-  "reconciled_from_head": "01d5f7695cd72ab67cb7107c13c9e004de74f3d1",
+  "reconciled_from_head": "74530f13c8bd9c95b61b9b9da4192094a230c2d3",
   "rules": {
     "allowed_states": [
       "PENDING",
@@ -99,12 +99,13 @@
     },
     "WP-008": {
       "name": "Atendimento do Garcom mobile/tablet",
-      "state": "IMPLEMENTED_UNCERTIFIED",
-      "reason": "implementado no Web; gate dedicado de implementacao concluiu SUCCESS no HEAD 9daaacc9ef4754558ad570bd568a316367b9260d; certificacao integral posterior ainda pendente",
+      "state": "CERTIFIED",
+      "certified_sha": "74530f13c8bd9c95b61b9b9da4192094a230c2d3",
       "implementation_sha": "3c59dff6e4460d743f50214c6e79cdc886a2fdd5",
       "evidence": [
         "WP008_IMPLEMENTATION_EVIDENCE.md",
-        "Web Parity WP008 Implementation Gates run 35352705882"
+        "Web Parity WP008 Implementation Gates run 35352705882 — SUCCESS",
+        "Kordena V1 Non-Fiscal Master Gate run 35380670582 — SUCCESS (independent WP008 certification matrix + full regression)"
       ]
     },
     "WP-009": {
@@ -232,36 +233,46 @@
       "name": "Usuarios / Papeis / Permissoes",
       "state": "CERTIFIED",
       "evidence": [
-        "KORDENA_WEB_PARITY_V1_CHECKLIST_OPERACIONAL.md"
-      ]
+        "KORDENA_WEB_PARITY_V1_CHECKLIST_OPERACIONAL.md",
+        "Kordena V1 Non-Fiscal Master Gate run 35380670582 — SUCCESS"
+      ],
+      "certified_sha": "74530f13c8bd9c95b61b9b9da4192094a230c2d3"
     },
     "WP-024": {
       "name": "Parametros Financeiros",
       "state": "CERTIFIED",
       "evidence": [
-        "KORDENA_WEB_PARITY_V1_CHECKLIST_OPERACIONAL.md"
-      ]
+        "KORDENA_WEB_PARITY_V1_CHECKLIST_OPERACIONAL.md",
+        "Kordena V1 Non-Fiscal Master Gate run 35380670582 — SUCCESS"
+      ],
+      "certified_sha": "74530f13c8bd9c95b61b9b9da4192094a230c2d3"
     },
     "WP-025": {
       "name": "Impressao Operacional",
       "state": "CERTIFIED",
       "evidence": [
-        "KORDENA_WEB_PARITY_V1_CHECKLIST_OPERACIONAL.md"
-      ]
+        "KORDENA_WEB_PARITY_V1_CHECKLIST_OPERACIONAL.md",
+        "Kordena V1 Non-Fiscal Master Gate run 35380670582 — SUCCESS"
+      ],
+      "certified_sha": "74530f13c8bd9c95b61b9b9da4192094a230c2d3"
     },
     "WP-026": {
       "name": "Integracoes e Credenciais",
       "state": "CERTIFIED",
       "evidence": [
-        "KORDENA_WEB_PARITY_V1_CHECKLIST_OPERACIONAL.md"
-      ]
+        "KORDENA_WEB_PARITY_V1_CHECKLIST_OPERACIONAL.md",
+        "Kordena V1 Non-Fiscal Master Gate run 35380670582 — SUCCESS"
+      ],
+      "certified_sha": "74530f13c8bd9c95b61b9b9da4192094a230c2d3"
     },
     "WP-027": {
       "name": "Assistente de Atendimento",
       "state": "CERTIFIED",
       "evidence": [
-        "KORDENA_WEB_PARITY_V1_CHECKLIST_OPERACIONAL.md"
-      ]
+        "KORDENA_WEB_PARITY_V1_CHECKLIST_OPERACIONAL.md",
+        "Kordena V1 Non-Fiscal Master Gate run 35380670582 — SUCCESS"
+      ],
+      "certified_sha": "74530f13c8bd9c95b61b9b9da4192094a230c2d3"
     },
     "WP-028": {
       "name": "Gerente IA",

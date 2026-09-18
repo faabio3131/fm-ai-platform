@@ -3,7 +3,7 @@
 **Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`
 **Data original:** 08/09/2026
 **Reconciliação:** 18/09/2026
-**Versão do inventário:** 2.8 — WP-032/WP-033 certificados + pré-auditoria mestre
+**Versão do inventário:** 2.9 — Auditoria Mestre não fiscal + Gate Mestre final
 **Status:** DOCUMENTO MESTRE DE EXECUÇÃO
 
 ## 1. Regra constitucional deste inventário
@@ -15,7 +15,7 @@ Existir no backend, possuir UI candidata ou ter E2E legado **não** significa es
 ## 2. Diagnóstico executivo reconciliado
 
 - Capacidades inventariadas: **33**.
-- Estado canônico atual no ledger: **31 CERTIFIED**, **1 IMPLEMENTED_UNCERTIFIED** e **1 PENDING**.
+- Estado canônico atual no ledger: **32 CERTIFIED**, **0 IMPLEMENTED_UNCERTIFIED** e **1 PENDING**.
 - **WP-008** está implementado em `/garcom`; o gate de implementação do HEAD `9daaacc9ef4754558ad570bd568a316367b9260d` concluiu SUCCESS. Permanece `IMPLEMENTED_UNCERTIFIED` até certificação integral posterior.
 - **WP-018** foi certificado em `/admin/dashboard` no SHA `b7a64b2dc5a47763a86fded903a15fd2be2cc23d`.
 - **WP-012**, **WP-032** e **WP-033** estão tecnicamente certificados; o único WP deliberadamente pendente nesta rodada é **WP-031 Fiscal**.
@@ -242,3 +242,32 @@ Cada PR do WEB-PARITY-V1 deve: (a) citar IDs WP afetados; (b) atualizar este inv
 - **WP-032 — Notificações Internas Web:** CERTIFIED no SHA `c94d17ed85183c51ace803b5a97ecda84cbf447f`; run `35373830703` SUCCESS. Reutiliza diretório SQL cifrado e serviço canônico, sessão assinada, RBAC, step-up nas mutações, isolamento tenant/unidade e payload mascarado. Não cria inbox/feed/badge paralelo.
 - **WP-033 — Auditoria Web:** CERTIFIED no SHA `01d5f7695cd72ab67cb7107c13c9e004de74f3d1`; run `35376561635` SUCCESS. Reutiliza `RepositorioAuditoriaSQLAlchemy`, consulta read-only scoped à unidade ativa, exige `admin.acessar` + `auditoria.visualizar` + step-up e não expõe metadata interna/segredos.
 - Próxima etapa autorizada: **Auditoria Mestre V1 não fiscal + Audit & Fix + Gate Mestre Final**.
+
+
+## 17. Auditoria Mestre V1 não fiscal — 18/09/2026
+
+A Auditoria Mestre reconciliou código, rotas, ledger, checklist, evidências, gates de segurança e matriz integral.
+
+### Resultado canônico
+
+- 33 Work Packages oficiais.
+- **32 CERTIFIED**.
+- **0 IMPLEMENTED_UNCERTIFIED**.
+- **1 PENDING deliberado nesta rodada: WP-031 Fiscal**.
+- Visual Premium deliberadamente fora desta rodada.
+- WP-008 recebeu certificação independente posterior no Master Gate.
+- WP-023 a WP-027 receberam evidência consolidada adicional pelo Master Gate.
+
+### Gate Mestre
+
+Workflow: `Kordena V1 Non-Fiscal Master Gate`
+Run: `35380670582`
+HEAD certificado: `74530f13c8bd9c95b61b9b9da4192094a230c2d3`
+Resultado: **SUCCESS**
+
+Passaram: compile integral, Ruff auditado, mypy auditado, ledger, matriz independente WP-008, matriz WP-023–WP-027, matriz WP-032/WP-033, segurança/RBAC, regressão Python completa, ESLint Web completo, TypeScript, testes Node Web, Next production build e diff whitespace contra main.
+
+Regressão Python completa: **1528 passed, 5 skipped, 99 warnings**.
+Testes Node Web: **5 passed, 0 failed**.
+
+Nenhum merge, deploy, force push ou alteração da main foi realizado.

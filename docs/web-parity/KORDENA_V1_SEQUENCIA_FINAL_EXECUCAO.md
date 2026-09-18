@@ -7,10 +7,11 @@
 
 ## Sequência
 
-1. **WP-008 — fechar gate**
+1. **WP-008 — fechar gate — CONCLUÍDO**
    - Implementação Web concluída em `/garcom`.
-   - Gate dedicado no HEAD `9daaacc9ef4754558ad570bd568a316367b9260d`: SUCCESS.
-   - Estado canônico permanece `IMPLEMENTED_UNCERTIFIED` até certificação integral posterior.
+   - Gate dedicado de implementação: SUCCESS.
+   - Certificação independente posterior concluída no `Kordena V1 Non-Fiscal Master Gate` run `35380670582`: SUCCESS.
+   - Estado canônico: `CERTIFIED` no HEAD `74530f13c8bd9c95b61b9b9da4192094a230c2d3`.
 
 2. **WP-018 — certificar Dashboard Financeiro / Indicadores — CONCLUÍDO**
    - CERTIFIED no SHA `b7a64b2dc5a47763a86fded903a15fd2be2cc23d`.
@@ -28,7 +29,7 @@
    - Escopo: destinatários, preferências e alertas administrativos.
    - Não criar inbox/feed/badge genérico fora do escopo.
 
-5. **WP-033 — implantar Web de Auditoria / Histórico**
+5. **WP-033 — implantar Web de Auditoria / Histórico — CONCLUÍDO**
    - Reutilizar `core/seguranca/auditoria.py` e `infra/seguranca/auditoria_sqlalchemy.py`.
    - Consulta read-only, tenant-safe, sem exposição de segredos.
    - Proibida segunda auditoria.
@@ -39,11 +40,11 @@
    - Conectar ao Kordena, testar, homologar e certificar.
    - Fiscal é obrigatório para fechamento da V1.
 
-7. **Auditoria Mestre V1 completa**
+7. **Auditoria Mestre V1 não fiscal — CONCLUÍDA NESTA RODADA**
    - Reconciliar código, rotas, ledger, inventário, checklist, testes e evidências.
    - Resolver divergências documentais somente com evidência real.
 
-8. **Gate 100% funcional**
+8. **Gate 100% funcional não fiscal — CONCLUÍDO NESTA RODADA**
    - Regressão integral.
    - Gates frontend/backend.
    - Smokes/E2E aplicáveis.
@@ -55,8 +56,8 @@
 ## Estado CURRENT no congelamento
 
 - 33 Work Packages oficiais.
-- 31 `CERTIFIED`.
-- 1 `IMPLEMENTED_UNCERTIFIED`: WP-008.
+- 32 `CERTIFIED`.
+- 0 `IMPLEMENTED_UNCERTIFIED`.
 - 1 `PENDING`: WP-031 Fiscal (deliberadamente fora desta rodada).
 - WP-008 gate de implementação: SUCCESS.
 - PR #118 permanece OPEN/DRAFT e não mergeada.
@@ -72,3 +73,22 @@ Por decisão explícita do proprietário, o ciclo em execução após a certific
 - WP-032 certificado: SHA `c94d17ed85183c51ace803b5a97ecda84cbf447f`, run `35373830703` SUCCESS.
 - WP-033 certificado: SHA `01d5f7695cd72ab67cb7107c13c9e004de74f3d1`, run `35376561635` SUCCESS.
 - Próximo passo: Auditoria Mestre não fiscal, incluindo reavaliação do WP-008 e recuperação de evidências históricas faltantes.
+
+
+## Fechamento do ciclo não fiscal — 18/09/2026
+
+A execução autônoma prevista para esta rodada foi concluída.
+
+- Auditoria Mestre não fiscal: concluída.
+- Audit & Fix: concluído.
+- Gate Mestre Final não fiscal: **SUCCESS**.
+- Workflow: `Kordena V1 Non-Fiscal Master Gate`.
+- Run: `35380670582`.
+- HEAD certificado: `74530f13c8bd9c95b61b9b9da4192094a230c2d3`.
+- Regressão Python: **1528 passed / 5 skipped / 99 warnings**.
+- Web: ESLint, TypeScript, 5/5 testes Node e Next production build verdes.
+- Diff whitespace contra `main`: verde.
+
+Exclusões deliberadas que permanecem:
+1. WP-031 Fiscal.
+2. Visual Premium final.
