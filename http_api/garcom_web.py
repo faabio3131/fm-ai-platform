@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 
 from application.garcom_fechamento import (
     AplicacaoFechamentoGarcomV1,
+    ConfiguracaoFechamentoGarcom,
+    DemonstrativoFechamentoGarcom,
     DestinoRecebimento,
     ModoRecebimentoGarcom,
 )
@@ -20,7 +22,13 @@ from application.salao_transacoes import AplicacaoSalaoV1
 from core.garcom import ErroGarcom, ServicoGarcom
 from core.kds import RepositorioKDSSQLAlchemy
 from core.pagamentos.erros import ErroPagamento
-from core.salao import ErroSalao, MetodoFechamento, RepositorioSalaoSQLAlchemy
+from core.pagamentos.modelos import ResultadoPagamento
+from core.salao import (
+    Comanda,
+    ErroSalao,
+    MetodoFechamento,
+    RepositorioSalaoSQLAlchemy,
+)
 from core.seguranca import ContextoExecucao
 from core.seguranca.erros import CredenciaisInvalidas, ErroSeguranca
 from http_api.auth import AuthSessionRuntime
@@ -108,55 +116,56 @@ def _contexto(
     )
 
 
-def _comanda_dict(comanda: object) -> dict[str, object]:
-    item = comanda
+def _comanda_dict(comanda: Comanda) -> dict[str, object]:
     return {
-        "id": getattr(item, "comanda_id"),
-        "numero": getattr(item, "numero"),
-        "mesa_id": getattr(item, "mesa_id"),
-        "status": getattr(item, "status").name,
-        "total": str(getattr(item, "total")),
-        "saldo": str(getattr(item, "saldo")),
-        "versao": getattr(item, "versao"),
+        "id": comanda.comanda_id,
+        "numero": comanda.numero,
+        "mesa_id": comanda.mesa_id,
+        "status": comanda.status.name,
+        "total": str(comanda.total),
+        "saldo": str(comanda.saldo),
+        "versao": comanda.versao,
     }
 
 
-def _demonstrativo_dict(item: object) -> dict[str, object]:
-    destino = getattr(item, "destino_recebimento")
+def _demonstrativo_dict(
+    item: DemonstrativoFechamentoGarcom,
+) -> dict[str, object]:
+    destino = item.destino_recebimento
     return {
-        "comanda_id": getattr(item, "comanda_id"),
-        "consumo": str(getattr(item, "consumo")),
-        "couvert_artistico": str(getattr(item, "couvert_artistico")),
-        "taxa_servico_percentual": str(
-            getattr(item, "taxa_servico_percentual")
-        ),
-        "taxa_servico_valor": str(getattr(item, "taxa_servico_valor")),
-        "taxa_servico_incluida": getattr(item, "taxa_servico_incluida"),
-        "desconto": str(getattr(item, "desconto")),
-        "total": str(getattr(item, "total")),
-        "saldo": str(getattr(item, "saldo")),
-        "configuracao_versao": getattr(item, "configuracao_versao"),
-        "consolidado": getattr(item, "consolidado"),
+        "comanda_id": item.comanda_id,
+        "consumo": str(item.consumo),
+        "couvert_artistico": str(item.couvert_artistico),
+        "taxa_servico_percentual": str(item.taxa_servico_percentual),
+        "taxa_servico_valor": str(item.taxa_servico_valor),
+        "taxa_servico_incluida": item.taxa_servico_incluida,
+        "desconto": str(item.desconto),
+        "total": str(item.total),
+        "saldo": str(item.saldo),
+        "configuracao_versao": item.configuracao_versao,
+        "consolidado": item.consolidado,
         "destino_recebimento": destino.value if destino else None,
     }
 
 
-def _config_dict(item: object) -> dict[str, object]:
+def _config_dict(
+    item: ConfiguracaoFechamentoGarcom,
+) -> dict[str, object]:
     return {
-        "tenant_id": getattr(item, "tenant_id"),
-        "unidade_id": getattr(item, "unidade_id"),
-        "modo_recebimento": getattr(item, "modo_recebimento").value,
-        "taxa_servico_percentual": str(
-            getattr(item, "taxa_servico_percentual")
-        ),
-        "couvert_ativado": getattr(item, "couvert_ativado"),
-        "couvert_valor": str(getattr(item, "couvert_valor")),
-        "versao": getattr(item, "versao"),
+        "tenant_id": item.tenant_id,
+        "unidade_id": item.unidade_id,
+        "modo_recebimento": item.modo_recebimento.value,
+        "taxa_servico_percentual": str(item.taxa_servico_percentual),
+        "couvert_ativado": item.couvert_ativado,
+        "couvert_valor": str(item.couvert_valor),
+        "versao": item.versao,
     }
 
 
-def _pagamento_dict(resultado: object) -> dict[str, object]:
-    pagamento = getattr(resultado, "pagamento")
+def _pagamento_dict(
+    resultado: ResultadoPagamento,
+) -> dict[str, object]:
+    pagamento = resultado.pagamento
     return {
         "id": pagamento.id,
         "pedido_id": pagamento.pedido_id,
@@ -167,9 +176,8 @@ def _pagamento_dict(resultado: object) -> dict[str, object]:
         "valor_pago": str(pagamento.valor_pago.valor),
         "saldo": str(pagamento.saldo.valor),
         "versao": pagamento.versao,
-        "idempotente": getattr(resultado, "idempotente"),
+        "idempotente": resultado.idempotente,
     }
-
 
 def _erro_http(exc: Exception) -> JSONResponse:
     if isinstance(exc, CredenciaisInvalidas):
