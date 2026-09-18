@@ -205,7 +205,7 @@ class PedidosInternosMarketplaceSQLAlchemy:
 
         total = Decimal(snapshot.total)
         descontos = max(subtotal - total, Decimal(0))
-        taxas = max(total - subtotal, Decimal("0"))
+        taxas = max(total - subtotal, Decimal(0))
         origem = {
             PlataformaMarketplace.IFOOD: OrigemPedido.IFOOD,
             PlataformaMarketplace.FOOD99: OrigemPedido.FOOD99,
