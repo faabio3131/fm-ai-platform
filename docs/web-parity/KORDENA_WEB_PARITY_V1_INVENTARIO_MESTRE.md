@@ -3,7 +3,7 @@
 **Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`
 **Data original:** 08/09/2026
 **Reconciliação:** 18/09/2026
-**Versão do inventário:** 2.5 — reconciliação CURRENT + sequência final de fechamento da V1
+**Versão do inventário:** 2.6 — WP-018 certificado + sequência final de fechamento da V1
 **Status:** DOCUMENTO MESTRE DE EXECUÇÃO
 
 ## 1. Regra constitucional deste inventário
@@ -15,9 +15,9 @@ Existir no backend, possuir UI candidata ou ter E2E legado **não** significa es
 ## 2. Diagnóstico executivo reconciliado
 
 - Capacidades inventariadas: **33**.
-- Estado canônico atual no ledger: **27 CERTIFIED**, **2 IMPLEMENTED_UNCERTIFIED** e **4 PENDING**.
+- Estado canônico atual no ledger: **28 CERTIFIED**, **1 IMPLEMENTED_UNCERTIFIED** e **4 PENDING**.
 - **WP-008** está implementado em `/garcom`; o gate de implementação do HEAD `9daaacc9ef4754558ad570bd568a316367b9260d` concluiu SUCCESS. Permanece `IMPLEMENTED_UNCERTIFIED` até certificação integral posterior.
-- **WP-018** possui implementação Web em `/admin/dashboard` e é o próximo bloco de certificação.
+- **WP-018** foi certificado em `/admin/dashboard` no SHA `b7a64b2dc5a47763a86fded903a15fd2be2cc23d`.
 - **WP-012**, **WP-032** e **WP-033** são os gaps Web funcionais restantes.
 - **WP-031 Fiscal** permanece PENDING na PR #118; o módulo já pronto deve ser localizado, provado como autoridade e apenas implantado/integrado, sem reconstrução.
 - GAP HTTP/WEB/PÚBLICO: **0** — WP-030 foi concluído e certificado.
@@ -74,7 +74,7 @@ A retaguarda WP-013 a WP-017 está agora formalmente certificada. O WP-031 Fisca
 | WP-015 | Estoque / Almoxarifado / Validades | core/estoque + boundaries legados governados | HTTP/Web certificados | `/admin/estoque` | MIGRADO | Preservar; lote físico/FEFO seguem fora do escopo atual. |
 | WP-016 | CRM / Clientes / Cashback | core/crm + application/crm_cashback_comercial + ledger canônico | HTTP session-aware certificado | `/admin/crm` | MIGRADO | Preservar ledger, mapping, isolamento e step-up. |
 | WP-017 | Marketing / Resgate / Campanhas | application/crm_marketing_comercial + infra/crm + Outbox V1 + UnitOfWorkV1 | Boundary governado e replay-safe certificado | `/admin/crm` | MIGRADO | Preservar consentimento, escopo e proteção at-most-once do efeito externo. |
-| WP-018 | Dashboard Financeiro / Indicadores | administracao_proprietario.painel_executivo | HTTP read model presente | `/admin/dashboard` | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Certificação integrada. |
+| WP-018 | Dashboard Financeiro / Indicadores | administracao_proprietario.painel_executivo | HTTP read model certificado com step-up administrativo | `/admin/dashboard` | CERTIFIED | Preservar. |
 | WP-019 | AI FinOps | core/ai_finops + read model | HTTP read-only certificado | `/admin/ai-finops` | CERTIFIED | Preservar; não inventar custos. |
 | WP-020 | Área Proprietário / Backoffice | registrar_acesso + registry/guards | Landing/auditoria certificadas | `/admin` | CERTIFIED | Preservar. |
 | WP-021 | Step-up administrativo | auth + AdminStepUpGuard | Elevação temporária existente | `/admin` | MIGRADO | Preservar como barreira única. |
@@ -98,7 +98,7 @@ O `app.py` legado comprova abas para Engenharia de Cardápio, CRM/Resgate/Cashba
 ## 6. Gaps e pendências que ainda devem ser fechados
 
 1. **WP-008 — Garçom:** implementação e gate dedicado concluídos; permanece `IMPLEMENTED_UNCERTIFIED` até certificação integral posterior.
-2. **WP-018 — Dashboard Financeiro:** implementação presente; executar certificação dedicada agora, corrigindo apenas gaps comprovados.
+2. **WP-018 — Dashboard Financeiro:** CERTIFIED; step-up HTTP corrigido e gate integral verde.
 3. **WP-012 — Marketplaces:** backend/adapters/testes existem; falta implantação HTTP/Web integrada à Central de Pedidos WP-009.
 4. **WP-032 — Notificações Internas:** Core/Application/Infra existentes; falta superfície administrativa Web.
 5. **WP-033 — Auditoria/Histórico:** autoridade de auditoria existe; falta consulta Backoffice read-only tenant-safe.
@@ -128,7 +128,7 @@ WP-031 — Fiscal / NFC-e / SAT integra oficialmente a Kordena V1. Deve possuir 
 ### Sequência final oficial de execução
 
 1. **WP-008 → fechar gate** — gate dedicado de implementação já concluiu SUCCESS no HEAD `9daaacc9ef4754558ad570bd568a316367b9260d`; certificação integral permanece posterior.
-2. **WP-018 → certificar**.
+2. **WP-018 → certificar** — CONCLUÍDO/CERTIFIED no SHA `b7a64b2dc5a47763a86fded903a15fd2be2cc23d`.
 3. **WP-012 → implantar Web** sobre a Central de Pedidos existente.
 4. **WP-032 → implantar Web** reutilizando Notificações Internas canônicas.
 5. **WP-033 → implantar Web** read-only sobre auditoria canônica.
@@ -213,3 +213,13 @@ Cada PR do WEB-PARITY-V1 deve: (a) citar IDs WP afetados; (b) atualizar este inv
 - Sequência final de fechamento da V1 congelada: WP-008 gate → WP-018 certificar → WP-012 Web → WP-032 Web → WP-033 Web → WP-031 Fiscal pronto → Auditoria Mestre → Gate 100% funcional → Visual Premium.
 - Fiscal não deve ser reconstruído: localizar a implementação pronta, provar sua autoridade e executar apenas implantação/integração, testes, homologação e certificação.
 - PR #118 permanece OPEN/DRAFT; nenhum merge ou deploy autorizado.
+
+## 14. Registro de certificação WP-018 — 18/09/2026
+
+- Gap encontrado: endpoint do painel executivo aceitava administrador sem step-up HTTP ativo.
+- Correção: `/v1/admin/painel-executivo` passou a exigir elevação administrativa ativa além de `admin.acessar` e `financeiro.visualizar`.
+- Matriz dirigida: **18 passed / 0 failed**.
+- Regressão Python completa: **1517 passed / 5 skipped / 0 failed**.
+- Ruff, mypy, ESLint, TypeScript, navegação Backoffice, Next build e diff check: **SUCCESS**.
+- WP-018 promovido para **CERTIFIED** com evidência do run `35354337053`.
+- Próximo bloco autorizado: **WP-012 — Marketplaces / pedidos externos**.

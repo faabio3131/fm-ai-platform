@@ -3,7 +3,7 @@
   "product": "Kordena V1",
   "authority": "canonical-state-ledger",
   "branch": "feat/web-parity-v1-total-original-migration",
-  "reconciled_from_head": "9daaacc9ef4754558ad570bd568a316367b9260d",
+  "reconciled_from_head": "b7a64b2dc5a47763a86fded903a15fd2be2cc23d",
   "rules": {
     "allowed_states": [
       "PENDING",
@@ -132,8 +132,12 @@
     },
     "WP-018": {
       "name": "Dashboard Financeiro / Indicadores",
-      "state": "IMPLEMENTED_UNCERTIFIED",
-      "reason": "implementacao presente; certificacao dedicada/integrada ainda nao comprovada no HEAD reconciliado"
+      "state": "CERTIFIED",
+      "certified_sha": "b7a64b2dc5a47763a86fded903a15fd2be2cc23d",
+      "evidence": [
+        "WP018_DASHBOARD_FINANCEIRO_CERTIFICACAO.md",
+        "Web Parity WP018 Certification run 35354337053"
+      ]
     },
     "WP-019": {
       "name": "AI FinOps",

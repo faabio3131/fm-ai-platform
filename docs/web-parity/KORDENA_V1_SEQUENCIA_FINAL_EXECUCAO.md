@@ -12,10 +12,10 @@
    - Gate dedicado no HEAD `9daaacc9ef4754558ad570bd568a316367b9260d`: SUCCESS.
    - Estado canônico permanece `IMPLEMENTED_UNCERTIFIED` até certificação integral posterior.
 
-2. **WP-018 — certificar Dashboard Financeiro / Indicadores**
-   - Não reconstruir.
-   - Reutilizar `application/administracao_proprietario`, `http_api/admin_dashboard.py` e `/admin/dashboard`.
-   - Certificar tenant/unidade, RBAC/step-up, read model, indicadores, frontend, regressão e build.
+2. **WP-018 — certificar Dashboard Financeiro / Indicadores — CONCLUÍDO**
+   - CERTIFIED no SHA `b7a64b2dc5a47763a86fded903a15fd2be2cc23d`.
+   - Step-up HTTP reforçado.
+   - Gate integral SUCCESS; próximo bloco liberado: WP-012.
 
 3. **WP-012 — implantar Web de Marketplaces**
    - Reutilizar `core/marketplaces` e adapters existentes.
@@ -54,8 +54,8 @@
 ## Estado CURRENT no congelamento
 
 - 33 Work Packages oficiais.
-- 27 `CERTIFIED`.
-- 2 `IMPLEMENTED_UNCERTIFIED`: WP-008 e WP-018.
+- 28 `CERTIFIED`.
+- 1 `IMPLEMENTED_UNCERTIFIED`: WP-008.
 - 4 `PENDING`: WP-012, WP-031, WP-032 e WP-033.
 - WP-008 gate de implementação: SUCCESS.
 - PR #118 permanece OPEN/DRAFT e não mergeada.
