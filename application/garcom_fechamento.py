@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
 from uuid import uuid4
 
@@ -119,7 +119,7 @@ def configuracao_fechamento(
     ativado = bool(couvert.get("ativado", False))
     try:
         valor = _dinheiro(couvert.get("valor", "0"))
-    except Exception as exc:  # noqa: BLE001 - configuração inválida é fail-closed
+    except Exception as exc:
         raise ErroSalao("couvert_configuracao_invalida") from exc
     if valor < 0:
         raise ErroSalao("couvert_configuracao_invalida")
@@ -321,7 +321,7 @@ class AplicacaoFechamentoGarcomV1:
                 _dinheiro(
                     consumo
                     * config.taxa_servico_percentual
-                    / Decimal("100")
+                    / Decimal(100)
                 )
                 if incluir_taxa_servico
                 else Decimal("0.00")
@@ -396,7 +396,7 @@ class AplicacaoFechamentoGarcomV1:
                 _dinheiro(
                     consumo
                     * config.taxa_servico_percentual
-                    / Decimal("100")
+                    / Decimal(100)
                 )
                 if incluir_taxa_servico
                 else Decimal("0.00")
