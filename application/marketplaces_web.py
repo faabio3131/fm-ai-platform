@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from core.dominio.ids import TenantId, UnidadeId
 from core.dominio.tempo import SystemClock
 from core.eventos.modelos import DeadLetter, EnvelopeMensagem, ErroNormalizado
 from core.eventos.observabilidade import ColetorMetricasEmMemoria
@@ -136,6 +137,8 @@ class _InboxMarketplaceSQLAlchemy(RepositorioInbox):
         self._session = session
         self._tenant_id = tenant_id
         self._unidade_id = unidade_id
+        self._tenant = TenantId(tenant_id)
+        self._unidade = UnidadeId(unidade_id)
         self._repo = RepositorioInboxSQLAlchemy(session)
         self._registros: dict[str, RegistroInbox] = {}
 
@@ -168,15 +171,15 @@ class _InboxMarketplaceSQLAlchemy(RepositorioInbox):
 
     def ja_processada(self, chave) -> bool:
         return self._repo.ja_processada(
-            self._tenant_id,
-            self._unidade_id,
+            self._tenant,
+            self._unidade,
             chave,
         )
 
     def marcar_processada(self, chave, instante) -> None:
         self._repo.marcar_processada(
-            self._tenant_id,
-            self._unidade_id,
+            self._tenant,
+            self._unidade,
             chave,
         )
         registro = self._registros.get(str(chave))
@@ -212,6 +215,8 @@ class _DLQMarketplaceSQLAlchemy(RepositorioDLQ):
         self._repo = RepositorioDLQSQLAlchemy(session)
         self._tenant_id = tenant_id
         self._unidade_id = unidade_id
+        self._tenant = TenantId(tenant_id)
+        self._unidade = UnidadeId(unidade_id)
 
     def adicionar(self, item: DeadLetter) -> None:
         if (
@@ -222,7 +227,7 @@ class _DLQMarketplaceSQLAlchemy(RepositorioDLQ):
         self._repo.adicionar(item)
 
     def listar(self) -> tuple[DeadLetter, ...]:
-        return self._repo.listar(self._tenant_id, self._unidade_id)
+        return self._repo.listar(self._tenant, self._unidade)
 
 
 class _AdapterCommitAntesAck:
