@@ -10,7 +10,13 @@ from sqlalchemy.orm import Session
 
 from core.dominio.tempo import SystemClock
 from core.eventos.observabilidade import ColetorMetricasEmMemoria
-from core.eventos.repositorios import RepositorioOutboxEmMemoria
+from core.eventos.modelos import DeadLetter, EnvelopeMensagem, ErroNormalizado
+from core.eventos.repositorios import (
+    RegistroInbox,
+    RepositorioDLQ,
+    RepositorioInbox,
+    RepositorioOutboxEmMemoria,
+)
 from core.integracoes.modelos import ConfiguracaoServicoExterno
 from core.marketplaces.adapters import (
     MarketplaceAdapter,
@@ -40,6 +46,7 @@ from infra.eventos.adaptador_sqlalchemy import (
     RepositorioDLQSQLAlchemy,
     RepositorioInboxSQLAlchemy,
 )
+from infra.eventos.modelos_orm import InboxEventoORM
 from infra.integracoes.repositorio_sqlalchemy import (
     RepositorioConfiguracoesExternasSQLAlchemy,
 )
@@ -116,6 +123,106 @@ class _SegredosKeeta(_SegredosIfood):
             client_id=self._valor("client_id"),
             client_secret=self._valor("client_secret"),
         )
+
+
+class _InboxMarketplaceSQLAlchemy(RepositorioInbox):
+    def __init__(
+        self,
+        session: Session,
+        *,
+        tenant_id: str,
+        unidade_id: str,
+    ) -> None:
+        self._session = session
+        self._tenant_id = tenant_id
+        self._unidade_id = unidade_id
+        self._repo = RepositorioInboxSQLAlchemy(session)
+        self._registros: dict[str, RegistroInbox] = {}
+
+    def registrar(
+        self,
+        mensagem: EnvelopeMensagem,
+        recebido_em,
+    ) -> RegistroInbox:
+        if (
+            str(mensagem.tenant_id) != self._tenant_id
+            or str(mensagem.unidade_id) != self._unidade_id
+        ):
+            raise ErroMarketplace("evento_fora_do_escopo")
+        self._repo.registrar(mensagem)
+        key = str(mensagem.idempotency_key)
+        row = self._session.get(
+            InboxEventoORM,
+            (self._tenant_id, self._unidade_id, key),
+        )
+        if row is None:
+            raise ErroMarketplace("inbox_marketplace_indisponivel")
+        registro = RegistroInbox(
+            mensagem=mensagem,
+            recebido_em=row.received_at,
+            processado_em=row.processed_at,
+            tentativas=row.attempts,
+        )
+        self._registros[key] = registro
+        return registro
+
+    def ja_processada(self, chave) -> bool:
+        return self._repo.ja_processada(
+            self._tenant_id,
+            self._unidade_id,
+            chave,
+        )
+
+    def marcar_processada(self, chave, instante) -> None:
+        self._repo.marcar_processada(
+            self._tenant_id,
+            self._unidade_id,
+            chave,
+        )
+        registro = self._registros.get(str(chave))
+        if registro is not None:
+            registro.processado_em = instante
+
+    def marcar_falha(self, chave, erro: ErroNormalizado) -> None:
+        row = self._session.get(
+            InboxEventoORM,
+            (self._tenant_id, self._unidade_id, str(chave)),
+        )
+        if row is None:
+            raise KeyError(str(chave))
+        row.attempts += 1
+        self._session.flush()
+        registro = self._registros.get(str(chave))
+        if registro is not None:
+            registro.tentativas = row.attempts
+            registro.ultimo_erro = erro
+
+    def historico(self) -> tuple[RegistroInbox, ...]:
+        return tuple(self._registros.values())
+
+
+class _DLQMarketplaceSQLAlchemy(RepositorioDLQ):
+    def __init__(
+        self,
+        session: Session,
+        *,
+        tenant_id: str,
+        unidade_id: str,
+    ) -> None:
+        self._repo = RepositorioDLQSQLAlchemy(session)
+        self._tenant_id = tenant_id
+        self._unidade_id = unidade_id
+
+    def adicionar(self, item: DeadLetter) -> None:
+        if (
+            str(item.tenant_id) != self._tenant_id
+            or str(item.unidade_id) != self._unidade_id
+        ):
+            raise ErroMarketplace("dlq_fora_do_escopo")
+        self._repo.adicionar(item)
+
+    def listar(self) -> tuple[DeadLetter, ...]:
+        return self._repo.listar(self._tenant_id, self._unidade_id)
 
 
 class _AdapterCommitAntesAck:
@@ -304,6 +411,7 @@ class AplicacaoMarketplacesWebV1:
                 session,
                 master_key=self._master_key,
             )
+            delegate: MarketplaceAdapter
             if config.provedor == "ifood":
                 plataforma = PlataformaMarketplace.IFOOD
                 delegate = compor_ifood_http_real(
@@ -343,9 +451,17 @@ class AplicacaoMarketplacesWebV1:
                     plataforma=plataforma,
                 ),
                 adapters=adapters,
-                inbox=RepositorioInboxSQLAlchemy(session),
+                inbox=_InboxMarketplaceSQLAlchemy(
+                    session,
+                    tenant_id=contexto.tenant_id,
+                    unidade_id=contexto.unidade_id,
+                ),
                 outbox=RepositorioOutboxEmMemoria(),
-                dlq=RepositorioDLQSQLAlchemy(session),
+                dlq=_DLQMarketplaceSQLAlchemy(
+                    session,
+                    tenant_id=contexto.tenant_id,
+                    unidade_id=contexto.unidade_id,
+                ),
                 metricas=ColetorMetricasEmMemoria(),
                 clock=SystemClock(),
                 retry=PoliticaRetryMarketplace(
