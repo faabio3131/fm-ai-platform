@@ -172,6 +172,10 @@
     {
       "version": "0042_marketplace_orders_web_v1",
       "sha256": "d1fc28c669ddc73e9c349fe38938836a2b9cf4aabfe2b7b642abb9277aebb84a"
+    },
+    {
+      "version": "0043_fiscal_persistence_foundation_v1",
+      "sha256": "bb5a075fe68b866462e7c4c1909ed2a14853e3e5c936e8e018424945c2ae2e00"
     }
   ]
 }
