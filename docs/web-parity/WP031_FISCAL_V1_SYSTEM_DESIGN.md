@@ -1,12 +1,12 @@
 # WP-031 — Fiscal V1 Complete — System Design & Authority Map
 
-**Status:** WP-031A / Discovery + Authority Freeze  
-**Date:** 18/09/2026  
-**Repository:** `faabio3131/fm-ai-platform`  
-**PR:** #118 — OPEN/DRAFT  
-**Branch:** `feat/web-parity-v1-total-original-migration`  
-**Kordena HEAD de discovery:** `41aa7a8cb2326ad4d91c20f4541da66a6c3b7d3f`  
-**Fiscal V1 baseline congelado:** `faabio3131/kordena-fiscal-engine@b336def47ad4f5188307102203f4e04b98406014`  
+**Status:** WP-031A / Discovery + Authority Freeze
+**Date:** 18/09/2026
+**Repository:** `faabio3131/fm-ai-platform`
+**PR:** #118 — OPEN/DRAFT
+**Branch:** `feat/web-parity-v1-total-original-migration`
+**Kordena HEAD de discovery:** `41aa7a8cb2326ad4d91c20f4541da66a6c3b7d3f`
+**Fiscal V1 baseline congelado:** `faabio3131/kordena-fiscal-engine@b336def47ad4f5188307102203f4e04b98406014`
 **Decisão de sequência:** WP-031 Fiscal antes do Visual Premium final.
 
 ## 1. Objetivo
@@ -20,6 +20,12 @@ Completar o Fiscal V1 e integrá-lo ao Kordena sem reconstruir autoridades exist
 5. Smart Fiscal Intake — DF-e, XML, PDF, imagem e câmera convergindo para um único pipeline.
 
 O Visual Premium permanece bloqueado até o WP-031 Master Gate.
+
+## 1.1 Decisão de versão fiscal
+
+A Kordena V1 usa exclusivamente o Fiscal Engine V1 congelado em `b336def47ad4f5188307102203f4e04b98406014`.
+
+O **FM Fiscal / NFCore V2 não substitui o Fiscal V1 nesta fase**. A migração para NFCore V2 pertence à evolução futura da Kordena V2 e exigirá bloco próprio, gates próprios e decisão explícita de promoção.
 
 ## 2. Autoridades congeladas
 
