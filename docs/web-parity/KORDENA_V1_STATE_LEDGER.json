@@ -3,7 +3,7 @@
   "product": "Kordena V1",
   "authority": "canonical-state-ledger",
   "branch": "feat/web-parity-v1-total-original-migration",
-  "reconciled_from_head": "b7a64b2dc5a47763a86fded903a15fd2be2cc23d",
+  "reconciled_from_head": "e4ce2c1e2e315811425535c5ca74b5a56570050b",
   "rules": {
     "allowed_states": [
       "PENDING",
@@ -19,30 +19,68 @@
   "work_packages": {
     "WP-001": {
       "name": "Login / SSO corporativo",
-      "state": "CERTIFIED"
+      "state": "CERTIFIED",
+      "certified_sha": "0ce38df30f30bcce745a9466bdbbaccbcd37290a",
+      "evidence": [
+        "PR #108 — canonical auth HTTP session (merged)",
+        "PR #109 — auth session/unit selection Web (merged)",
+        "PR #114 — unified operational session/step-up (merged)",
+        "V1 Auth HTTP Foundation Gate run 34166587333 — SUCCESS"
+      ]
     },
     "WP-002": {
       "name": "Escopo tenant/unidade + troca de unidade",
-      "state": "CERTIFIED"
+      "state": "CERTIFIED",
+      "certified_sha": "0ce38df30f30bcce745a9466bdbbaccbcd37290a",
+      "evidence": [
+        "PR #108 — canonical auth HTTP session (merged)",
+        "PR #109 — auth session/unit selection Web (merged)",
+        "PR #114 — unified operational session/step-up (merged)",
+        "V1 Frontend Next.js Setup Gate run 34166587446 — SUCCESS"
+      ]
     },
     "WP-003": {
       "name": "Roteamento por perfil/permissao",
-      "state": "CERTIFIED"
+      "state": "CERTIFIED",
+      "certified_sha": "96b1441d26e1bfd93ef8f83f3183deb190bc9aee",
+      "evidence": [
+        "PR #115 — WP-003 + WP-004 shell corporativo e home governada (merged)",
+        "Commit workflow suite at 96b1441d — SUCCESS"
+      ]
     },
     "WP-004": {
       "name": "Home / Dashboard / Shell corporativo",
-      "state": "CERTIFIED"
+      "state": "CERTIFIED",
+      "certified_sha": "96b1441d26e1bfd93ef8f83f3183deb190bc9aee",
+      "evidence": [
+        "PR #115 — WP-003 + WP-004 shell corporativo e home governada (merged)",
+        "V1 Frontend Next.js Setup Gate run 34182536846 — SUCCESS"
+      ]
     },
     "WP-005": {
       "name": "PDV Touch",
       "state": "CERTIFIED",
       "historical_pending": [
         "settlement end-to-end PDV/pagamentos"
+      ],
+      "certified_sha": "01b64dca8a007bb9bc7155f12c8166c04f478263",
+      "evidence": [
+        "PR #102 — canonical PDV HTTP foundation (merged)",
+        "PR #103 — canonical PDV touchscreen Web (merged)",
+        "PR #113 — master integrated restaurant journey smoke (merged)",
+        "V1 Wave1 PDV Browser Gate run 34077212101 — SUCCESS"
       ]
     },
     "WP-006": {
       "name": "Salao / Mesas / Comandas",
-      "state": "CERTIFIED"
+      "state": "CERTIFIED",
+      "certified_sha": "27f103d7385b3478dec1d80cad4c9f7f1b2226b6",
+      "evidence": [
+        "PR #106 — Salão HTTP foundation (merged)",
+        "PR #107 — Salão floor map/comandas Web (merged)",
+        "PR #112 — canonical orders from table (merged)",
+        "V1 Salao HTTP Foundation Gate run 34077212156 — SUCCESS"
+      ]
     },
     "WP-007": {
       "name": "KDS / Cozinha",
@@ -50,6 +88,13 @@
       "historical_pending": [
         "roteamento/integracao KDS",
         "Pedido -> Producao/KDS onde houver lacuna comprovada"
+      ],
+      "certified_sha": "c29359931d1397b86c0d6c2d91523cb5a04950c8",
+      "evidence": [
+        "PR #104 — KDS HTTP contract foundation (merged)",
+        "PR #105 — canonical KDS Web workspace (merged)",
+        "PR #113 — master integrated restaurant journey smoke (merged)",
+        "PR10 KDS Gates run 34055996682 — SUCCESS"
       ]
     },
     "WP-008": {
@@ -87,8 +132,13 @@
     },
     "WP-012": {
       "name": "Marketplaces / pedidos externos",
-      "state": "PENDING",
-      "reason": "GAP HTTP/WEB; integrar a WP-009 sem criar segunda Central"
+      "state": "CERTIFIED",
+      "certified_sha": "e4ce2c1e2e315811425535c5ca74b5a56570050b",
+      "evidence": [
+        "WP012_MARKETPLACES_WEB_CERTIFICACAO.md",
+        "Web Parity WP012 Marketplaces run 35369209616 — SUCCESS"
+      ],
+      "reason": "certificacao tecnica interna da ponte Web concluida; homologacao externa de providers permanece condicionada a evidencia real e nao e declarada por este estado"
     },
     "WP-013": {
       "name": "Catalogo administrativo basico",

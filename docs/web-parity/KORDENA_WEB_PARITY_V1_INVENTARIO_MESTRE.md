@@ -3,7 +3,7 @@
 **Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`
 **Data original:** 08/09/2026
 **Reconciliação:** 18/09/2026
-**Versão do inventário:** 2.6 — WP-018 certificado + sequência final de fechamento da V1
+**Versão do inventário:** 2.7 — WP-012 certificado + sequência autônoma não fiscal
 **Status:** DOCUMENTO MESTRE DE EXECUÇÃO
 
 ## 1. Regra constitucional deste inventário
@@ -15,10 +15,10 @@ Existir no backend, possuir UI candidata ou ter E2E legado **não** significa es
 ## 2. Diagnóstico executivo reconciliado
 
 - Capacidades inventariadas: **33**.
-- Estado canônico atual no ledger: **28 CERTIFIED**, **1 IMPLEMENTED_UNCERTIFIED** e **4 PENDING**.
+- Estado canônico atual no ledger: **29 CERTIFIED**, **1 IMPLEMENTED_UNCERTIFIED** e **3 PENDING**.
 - **WP-008** está implementado em `/garcom`; o gate de implementação do HEAD `9daaacc9ef4754558ad570bd568a316367b9260d` concluiu SUCCESS. Permanece `IMPLEMENTED_UNCERTIFIED` até certificação integral posterior.
 - **WP-018** foi certificado em `/admin/dashboard` no SHA `b7a64b2dc5a47763a86fded903a15fd2be2cc23d`.
-- **WP-012**, **WP-032** e **WP-033** são os gaps Web funcionais restantes.
+- **WP-012** está tecnicamente certificado; **WP-032** e **WP-033** são os gaps Web funcionais restantes.
 - **WP-031 Fiscal** permanece PENDING na PR #118; o módulo já pronto deve ser localizado, provado como autoridade e apenas implantado/integrado, sem reconstrução.
 - GAP HTTP/WEB/PÚBLICO: **0** — WP-030 foi concluído e certificado.
 - A VERIFICAR: **0**.
@@ -68,7 +68,7 @@ A retaguarda WP-013 a WP-017 está agora formalmente certificada. O WP-031 Fisca
 | WP-009 | Central de Pedidos omnichannel | core/central_pedidos + application | HTTP first-class certificado | `/pedidos` | MIGRADO | Preservar e integrar canais futuros nela. |
 | WP-010 | Delivery Próprio | core/delivery + application + infra/delivery | Boundary certificado | `/delivery` | CERTIFIED | Preservar. |
 | WP-011 | Expedição / Entrega | core/entrega + application | Boundary certificado | `/entrega` | CERTIFIED | Preservar. |
-| WP-012 | Marketplaces / pedidos externos | core/marketplaces + adapters | Sem superfície Web certificada | — | GAP HTTP/WEB | Migrar sem criar segunda Central de Pedidos. |
+| WP-012 | Marketplaces / pedidos externos | core/marketplaces + adapters + bridge persistente para Pedido/Central canônicos | API `/v1/marketplaces` certificada; configuração fail-closed por homologação/evidência | `/pedidos` | CERTIFIED | Preservar; homologação externa de provider só com evidência real. |
 | WP-013 | Catálogo administrativo básico | catálogo existente + WP-014 | Boundary Web certificado | `/admin/catalogo` | MIGRADO | Preservar catálogo canônico, sessão e step-up. |
 | WP-014 | Engenharia de Cardápio + Ficha Técnica | legacy_cardapio_transacoes + legacy_cardapio_gemini | Ficha/Gemini/preço sugerido certificados | `/admin/catalogo` | MIGRADO | Preservar regra original e aplicação explícita do preço sugerido. |
 | WP-015 | Estoque / Almoxarifado / Validades | core/estoque + boundaries legados governados | HTTP/Web certificados | `/admin/estoque` | MIGRADO | Preservar; lote físico/FEFO seguem fora do escopo atual. |
@@ -99,7 +99,7 @@ O `app.py` legado comprova abas para Engenharia de Cardápio, CRM/Resgate/Cashba
 
 1. **WP-008 — Garçom:** implementação e gate dedicado concluídos; permanece `IMPLEMENTED_UNCERTIFIED` até certificação integral posterior.
 2. **WP-018 — Dashboard Financeiro:** CERTIFIED; step-up HTTP corrigido e gate integral verde.
-3. **WP-012 — Marketplaces:** backend/adapters/testes existem; falta implantação HTTP/Web integrada à Central de Pedidos WP-009.
+3. **WP-012 — Marketplaces:** CERTIFIED no SHA `e4ce2c1e2e315811425535c5ca74b5a56570050b`; bridge HTTP/Web integrado à Central/Pedido canônicos, sem homologação externa inventada.
 4. **WP-032 — Notificações Internas:** Core/Application/Infra existentes; falta superfície administrativa Web.
 5. **WP-033 — Auditoria/Histórico:** autoridade de auditoria existe; falta consulta Backoffice read-only tenant-safe.
 6. **WP-031 — Fiscal:** módulo pronto deve ser localizado fora do tree atual, importado/implantado e integrado; não reconstruir. A V1 não fecha sem teste, homologação e certificação fiscal.
@@ -223,3 +223,15 @@ Cada PR do WEB-PARITY-V1 deve: (a) citar IDs WP afetados; (b) atualizar este inv
 - Ruff, mypy, ESLint, TypeScript, navegação Backoffice, Next build e diff check: **SUCCESS**.
 - WP-018 promovido para **CERTIFIED** com evidência do run `35354337053`.
 - Próximo bloco autorizado: **WP-012 — Marketplaces / pedidos externos**.
+
+
+## 15. Registro de certificação WP-012 — 18/09/2026
+
+- Autoridades preservadas: `core/marketplaces`, `core/central_pedidos`, Pedido canônico, Outbox/Auditoria e Control Plane de integrações.
+- Migration oficial: `0042_marketplace_orders_web_v1`; schema baseline e histórico reconciliados.
+- Segurança: sessão assinada, tenant/unidade, RBAC, step-up administrativo para sincronização sensível e privilégios técnicos mínimos para criação/transição de Pedido.
+- Transaction ownership reconciliado com `UnitOfWorkV1`; nenhuma segunda Central/Pedido/Pagamento foi criada.
+- Gate `Web Parity WP012 Marketplaces` run `35369209616`: **SUCCESS** no SHA `e4ce2c1e2e315811425535c5ca74b5a56570050b`.
+- Compile, Ruff, mypy, manifest, matriz dirigida, regressão Python completa, ESLint, TypeScript, testes Web, Next build e diff check: **SUCCESS**.
+- Certificação é técnica/interna da integração Web. Nenhuma homologação real de iFood, Keeta, 99Food ou outro provider é declarada sem evidência externa.
+- Próximo bloco autorizado neste ciclo não fiscal: **WP-032 — Notificações Internas Web**.

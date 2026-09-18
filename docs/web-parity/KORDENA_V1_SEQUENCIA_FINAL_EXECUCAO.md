@@ -17,10 +17,11 @@
    - Step-up HTTP reforçado.
    - Gate integral SUCCESS; próximo bloco liberado: WP-012.
 
-3. **WP-012 — implantar Web de Marketplaces**
-   - Reutilizar `core/marketplaces` e adapters existentes.
-   - Integrar obrigatoriamente à Central de Pedidos WP-009.
-   - Proibida uma segunda Central de Pedidos.
+3. **WP-012 — implantar Web de Marketplaces — CONCLUÍDO**
+   - CERTIFIED no SHA `e4ce2c1e2e315811425535c5ca74b5a56570050b`.
+   - Gate `Web Parity WP012 Marketplaces` run `35369209616`: SUCCESS.
+   - `core/marketplaces`, Central/Pedido canônicos, isolamento tenant/unidade, transaction ownership e migration `0042` preservados.
+   - Homologação externa de provider continua dependente de evidência real; não é inferida pela certificação técnica interna.
 
 4. **WP-032 — implantar Web de Notificações Internas**
    - Reutilizar `core/notificacoes_internas`, `application/notificacoes_internas.py` e `infra/notificacoes_internas`.
@@ -54,8 +55,13 @@
 ## Estado CURRENT no congelamento
 
 - 33 Work Packages oficiais.
-- 28 `CERTIFIED`.
+- 29 `CERTIFIED`.
 - 1 `IMPLEMENTED_UNCERTIFIED`: WP-008.
-- 4 `PENDING`: WP-012, WP-031, WP-032 e WP-033.
+- 3 `PENDING`: WP-031, WP-032 e WP-033.
 - WP-008 gate de implementação: SUCCESS.
 - PR #118 permanece OPEN/DRAFT e não mergeada.
+
+
+## Exceção operacional do ciclo autônomo atual
+
+Por decisão explícita do proprietário, o ciclo em execução após a certificação do WP-012 segue **WP-032 → WP-033 → Auditoria Mestre não fiscal → Gate Mestre não fiscal**. O **WP-031 Fiscal permanece PENDING e deliberadamente fora desta rodada**, assim como o **Visual Premium**. Esta exceção não remove o Fiscal da V1 final; apenas o reserva para rodada própria posterior.
