@@ -92,3 +92,27 @@ A execução autônoma prevista para esta rodada foi concluída.
 Exclusões deliberadas que permanecem:
 1. WP-031 Fiscal.
 2. Visual Premium final.
+
+
+## WP-031 — sequência fiscal reconciliada em 18/09/2026
+
+A dependência histórica que colocava FISC-20 após Web Premium está superada para o fechamento atual da V1. A ordem vinculante é:
+
+1. WP-031A — Discovery + Authority Freeze.
+2. WP-031B — Fiscal Persistence Foundation.
+3. WP-031C — Outbound Bridge.
+4. WP-031D — Perfil / Produto Fiscal.
+5. WP-031E — Inbound Fiscal Foundation.
+6. WP-031F — Smart Fiscal Intake.
+7. WP-031G — Procurement Integration.
+8. WP-031H — Financial / Tax Bridge.
+9. WP-031I — Signer + Gateway.
+10. WP-031J — Web / UX funcional.
+11. WP-031K — Cognitive Fiscal.
+12. WP-031L — Regression / Channel Parity.
+13. WP-031 Master Gate 100% verde.
+14. Visual Premium final.
+
+System Design/Authority Map: `docs/web-parity/WP031_FISCAL_V1_SYSTEM_DESIGN.md`.
+
+O Fiscal V1 não será reconstruído e não será substituído pelo NFCore V2 nesta fase. O baseline V1 permanece `b336def47ad4f5188307102203f4e04b98406014`. O escopo fiscal inclui saídas, entradas/compras, Smart Fiscal Intake, estoque, financeiro e Core cognitivo.
