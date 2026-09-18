@@ -17,17 +17,16 @@ from core.integracoes.catalogo import CATALOGO_V1
 from core.integracoes.modelos import (
     AmbienteIntegracao,
     ConfiguracaoServicoExterno,
+    ErroConfiguracaoServico,
     EstadoProntidaoServico,
-    ValorParametro,
 )
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import Papel, Permissao
 from http_api.admin_integracoes import build_admin_integracoes_router
 from http_api.auth import AuthSessionRuntime
-from http_api.frontend_app import build_frontend_http_app
 from infra.integracoes.modelos_orm import IntegrationConfigBase
-from infra.seguranca.modelos_orm import EventoAuditoriaORM, SecurityBase
-from infra.seguranca.segredos_orm import SecretVaultBase, SegredoIntegracaoORM
+from infra.seguranca.modelos_orm import SecurityBase
+from infra.seguranca.segredos_orm import SecretVaultBase
 
 TENANT = "tenant-wp026"
 UNIDADE = "unidade-wp026"
@@ -370,7 +369,7 @@ def test_get_nunca_retorna_segredo(app_com_mocks):
     mocks["auth"].resolver_identidade.return_value = ident
     mocks["auth"].admin_status.return_value = (ident, True, None)
 
-    from core.integracoes.modelos import ConfiguracaoServicoExterno
+
     config = ConfiguracaoServicoExterno(
         configuracao_id="ia.generativa--gemini",
         tenant_id=TENANT,
@@ -416,7 +415,7 @@ def test_put_credencial_vazia_preserva_existente(app_com_mocks):
     mocks["auth"].resolver_identidade.return_value = ident
     mocks["auth"].admin_status.return_value = (ident, True, None)
 
-    from core.integracoes.modelos import ConfiguracaoServicoExterno
+
     config_existente = ConfiguracaoServicoExterno(
         configuracao_id="ia.generativa--gemini",
         tenant_id=TENANT,
@@ -482,7 +481,7 @@ def test_put_nova_credencial_usa_write_canonico(app_com_mocks):
     mocks["auth"].resolver_identidade.return_value = ident
     mocks["auth"].admin_status.return_value = (ident, True, None)
 
-    from core.integracoes.modelos import ConfiguracaoServicoExterno
+
     config_existente = ConfiguracaoServicoExterno(
         configuracao_id="ia.generativa--gemini",
         tenant_id=TENANT,
@@ -547,7 +546,7 @@ def test_put_habilitar_desabilitar_usa_put_sem_endpoint_paralelo(app_com_mocks):
     mocks["auth"].resolver_identidade.return_value = ident
     mocks["auth"].admin_status.return_value = (ident, True, None)
 
-    from core.integracoes.modelos import ConfiguracaoServicoExterno
+
     config_existente = ConfiguracaoServicoExterno(
         configuracao_id="ia.generativa--gemini",
         tenant_id=TENANT,
@@ -612,7 +611,7 @@ def test_healthcheck_suportado_funciona(app_com_mocks):
     mocks["auth"].resolver_identidade.return_value = ident
     mocks["auth"].admin_status.return_value = (ident, True, None)
 
-    from core.integracoes.modelos import ConfiguracaoServicoExterno
+
     config = ConfiguracaoServicoExterno(
         configuracao_id="ia.generativa--gemini",
         tenant_id=TENANT,
@@ -649,7 +648,7 @@ def test_healthcheck_nao_suportado_retorna_contrato_sanitizado(app_com_mocks):
     mocks["auth"].resolver_identidade.return_value = ident
     mocks["auth"].admin_status.return_value = (ident, True, None)
 
-    from core.integracoes.modelos import ConfiguracaoServicoExterno
+
     config = ConfiguracaoServicoExterno(
         configuracao_id="pagamentos.pix--pagbank",
         tenant_id=TENANT,
@@ -686,7 +685,7 @@ def test_erro_dominio_resposta_sanitizada(app_com_mocks):
     mocks["auth"].resolver_identidade.return_value = ident
     mocks["auth"].admin_status.return_value = (ident, True, None)
 
-    from core.integracoes.modelos import ErroConfiguracaoServico
+
     mocks["service"].listar.side_effect = ErroConfiguracaoServico("configuracao_indisponivel")
 
     client = TestClient(app)
@@ -701,7 +700,7 @@ def test_concorrencia_versionamento_preservados(app_com_mocks):
     mocks["auth"].resolver_identidade.return_value = ident
     mocks["auth"].admin_status.return_value = (ident, True, None)
 
-    from core.integracoes.modelos import ConfiguracaoServicoExterno, ErroConfiguracaoServico
+
     config_existente = ConfiguracaoServicoExterno(
         configuracao_id="ia.generativa--gemini",
         tenant_id=TENANT,
