@@ -94,6 +94,10 @@ from migrations.manifest import assert_migration_manifest, migration_fingerprint
 from migrations.migration_history_integrity_v1 import (
     upgrade_migration_history_integrity_v1,
 )
+from migrations.marketplace_orders_web_v1 import (
+    revert_marketplace_orders_web_v1,
+    upgrade_marketplace_orders_web_v1,
+)
 from migrations.pdv_reconciliation_strategy_width_v1 import (
     upgrade_pdv_reconciliation_strategy_width_v1,
 )
@@ -287,6 +291,11 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0039_crm_cashback_ledger_v1", upgrade_crm_cashback_ledger_v1),
     Migration("0040_product_active_flag_v1", upgrade_product_active_flag_v1),
     Migration("0041_cardapio_publico_identity_v1", upgrade_cardapio_publico_identity_v1),
+    Migration(
+        "0042_marketplace_orders_web_v1",
+        upgrade_marketplace_orders_web_v1,
+        revert_marketplace_orders_web_v1,
+    ),
 )
 
 

@@ -100,6 +100,18 @@ CATALOGO_V1 = CatalogoServicosExternos(
             credenciais_obrigatorias=frozenset({"access_token", "webhook_secret"}),
         ),
         EspecificacaoServico(
+            servico="marketplace.pedidos",
+            provedor="ifood",
+            parametros_obrigatorios=frozenset(),
+            credenciais_obrigatorias=frozenset({"client_id", "client_secret"}),
+        ),
+        EspecificacaoServico(
+            servico="marketplace.pedidos",
+            provedor="keeta",
+            parametros_obrigatorios=frozenset(),
+            credenciais_obrigatorias=frozenset({"client_id", "client_secret"}),
+        ),
+        EspecificacaoServico(
             servico="ia.generativa",
             provedor="gemini",
             # O runtime Gemini baseado em API key usa somente o modelo como

@@ -153,6 +153,8 @@ _LABELS = {
     ("pagamentos.pix", "pagbank"): "PagBank · PIX",
     ("pagamentos.pix", "mercado_pago"): "Mercado Pago · PIX",
     ("ia.generativa", "gemini"): "Google Gemini",
+    ("marketplace.pedidos", "ifood"): "Marketplace · iFood",
+    ("marketplace.pedidos", "keeta"): "Marketplace · Keeta",
 }
 
 _HEALTHCHECK_SUPPORTED = {
