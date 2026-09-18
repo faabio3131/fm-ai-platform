@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'kordena_fiscal/**'
+      - 'infra/fiscal/**'
+      - 'migrations/fiscal_*'
       - 'docs/web-parity/WP031_FISCAL_V1_VENDOR_BASELINE.json'
       - 'scripts/validate_wp031_vendor_baseline.py'
       - 'requirements.txt'
@@ -13,6 +15,8 @@ on:
       - feat/web-parity-v1-total-original-migration
     paths:
       - 'kordena_fiscal/**'
+      - 'infra/fiscal/**'
+      - 'migrations/fiscal_*'
       - 'docs/web-parity/WP031_FISCAL_V1_VENDOR_BASELINE.json'
       - 'scripts/validate_wp031_vendor_baseline.py'
       - 'requirements.txt'
