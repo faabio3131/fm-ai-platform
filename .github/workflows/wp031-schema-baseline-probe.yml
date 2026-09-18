@@ -27,7 +27,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Compute schema baseline candidate
-        run: python scripts/compute_schema_baseline_candidate.py
+        run: python -m scripts.compute_schema_baseline_candidate
       - uses: actions/upload-artifact@v4
         with:
           name: wp031-schema-baseline-candidate
