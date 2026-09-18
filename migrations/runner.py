@@ -76,6 +76,9 @@ from migrations.delivery_channel_state_v1 import (
     upgrade_delivery_channel_state_v1,
 )
 from migrations.delivery_policy_v1 import upgrade_delivery_policy_v1
+from migrations.fiscal_persistence_foundation_v1 import (
+    upgrade_fiscal_persistence_foundation_v1,
+)
 from migrations.history_guard import MigrationHistoryError, assert_applied_history
 from migrations.integration_secret_vault_v1 import upgrade_integration_secret_vault_v1
 from migrations.internal_notification_recipients_v1 import (
@@ -295,6 +298,10 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
         "0042_marketplace_orders_web_v1",
         upgrade_marketplace_orders_web_v1,
         revert_marketplace_orders_web_v1,
+    ),
+    Migration(
+        "0043_fiscal_persistence_foundation_v1",
+        upgrade_fiscal_persistence_foundation_v1,
     ),
 )
 
