@@ -3,7 +3,7 @@
   "product": "Kordena V1",
   "authority": "canonical-state-ledger",
   "branch": "feat/web-parity-v1-total-original-migration",
-  "reconciled_from_head": "66a5dcd3d97e860709a373bb99c384ae28400e2f",
+  "reconciled_from_head": "9daaacc9ef4754558ad570bd568a316367b9260d",
   "rules": {
     "allowed_states": [
       "PENDING",
@@ -55,11 +55,11 @@
     "WP-008": {
       "name": "Atendimento do Garcom mobile/tablet",
       "state": "IMPLEMENTED_UNCERTIFIED",
-      "reason": "implementado no Web com sessao unica, fechamento flexivel por unidade, couvert artistico e reutilizacao das autoridades canonicas; certificacao integral posterior ainda pendente",
+      "reason": "implementado no Web; gate dedicado de implementacao concluiu SUCCESS no HEAD 9daaacc9ef4754558ad570bd568a316367b9260d; certificacao integral posterior ainda pendente",
       "implementation_sha": "3c59dff6e4460d743f50214c6e79cdc886a2fdd5",
       "evidence": [
         "WP008_IMPLEMENTATION_EVIDENCE.md",
-        "Web Parity WP008 Implementation Gates run 35305972483"
+        "Web Parity WP008 Implementation Gates run 35352705882"
       ]
     },
     "WP-009": {
@@ -233,7 +233,7 @@
     "WP-031": {
       "name": "Fiscal / NFC-e / SAT",
       "state": "PENDING",
-      "reason": "obrigatorio para V1.0; fase fiscal propria antes do Visual Premium"
+      "reason": "obrigatorio para V1.0; modulo fiscal informado como pronto fora do tree atual da PR #118; localizar/provar autoridade e implantar/integrar sem reconstruir antes do Visual Premium"
     },
     "WP-032": {
       "name": "Notificacoes Internas",

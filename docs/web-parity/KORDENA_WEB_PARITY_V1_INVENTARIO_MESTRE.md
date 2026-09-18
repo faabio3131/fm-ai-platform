@@ -2,8 +2,8 @@
 
 **Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`
 **Data original:** 08/09/2026
-**Reconciliação:** 16/09/2026
-**Versão do inventário:** 2.4 — inclusão formal do WP-031 Fiscal na V1
+**Reconciliação:** 18/09/2026
+**Versão do inventário:** 2.5 — reconciliação CURRENT + sequência final de fechamento da V1
 **Status:** DOCUMENTO MESTRE DE EXECUÇÃO
 
 ## 1. Regra constitucional deste inventário
@@ -15,11 +15,11 @@ Existir no backend, possuir UI candidata ou ter E2E legado **não** significa es
 ## 2. Diagnóstico executivo reconciliado
 
 - Capacidades inventariadas: **33**.
-- Totalmente migradas/preservadas: **22** — WP-001 a WP-007, WP-009, WP-013 a WP-017, WP-021, WP-023 a WP-030.
-- IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO: **6** — WP-010, WP-011, WP-018, WP-019, WP-020 e WP-022.
-- GAP HTTP/WEB ainda sem superfície certificada: **3** — WP-008, WP-012 e WP-033.
-- GAP HTTP/WEB ADMINISTRATIVO obrigatório para V1.0: **1** — WP-032.
-- BLOCO FISCAL obrigatório para V1.0: **1** — WP-031.
+- Estado canônico atual no ledger: **27 CERTIFIED**, **2 IMPLEMENTED_UNCERTIFIED** e **4 PENDING**.
+- **WP-008** está implementado em `/garcom`; o gate de implementação do HEAD `9daaacc9ef4754558ad570bd568a316367b9260d` concluiu SUCCESS. Permanece `IMPLEMENTED_UNCERTIFIED` até certificação integral posterior.
+- **WP-018** possui implementação Web em `/admin/dashboard` e é o próximo bloco de certificação.
+- **WP-012**, **WP-032** e **WP-033** são os gaps Web funcionais restantes.
+- **WP-031 Fiscal** permanece PENDING na PR #118; o módulo já pronto deve ser localizado, provado como autoridade e apenas implantado/integrado, sem reconstrução.
 - GAP HTTP/WEB/PÚBLICO: **0** — WP-030 foi concluído e certificado.
 - A VERIFICAR: **0**.
 
@@ -36,6 +36,7 @@ A retaguarda WP-013 a WP-017 está agora formalmente certificada. O WP-031 Fisca
 - **WP-005 — PDV Touch**: `/pdv`.
 - **WP-006 — Salão / Mesas / Comandas**: `/salao`.
 - **WP-007 — KDS / Cozinha**: `/kds`.
+- **WP-008 — Atendimento do Garçom mobile/tablet**: `/garcom` — implementação concluída, aguardando certificação integral.
 - **WP-009 — Central de Pedidos omnichannel**: `/pedidos`.
 - **WP-013 — Catálogo administrativo básico**: `/admin/catalogo`.
 - **WP-014 — Engenharia de Cardápio + Ficha Técnica**: `/admin/catalogo`.
@@ -63,10 +64,10 @@ A retaguarda WP-013 a WP-017 está agora formalmente certificada. O WP-031 Fisca
 | WP-005 | PDV Touch | core/pdv + application | Router session-aware | `/pdv` | MIGRADO | Preservar. |
 | WP-006 | Salão / Mesas / Comandas | core/salão + application | Router session-aware | `/salao` | MIGRADO | Preservar. |
 | WP-007 | KDS / Cozinha | core/kds + application | Router session-aware | `/kds` | MIGRADO | Preservar. |
-| WP-008 | Atendimento do Garçom mobile/tablet | core/garcom + application/garcom_transacoes.py | Sem superfície Web certificada | — | GAP HTTP/WEB | Criar contrato session-aware e rota touch-first sem duplicar domínio. |
+| WP-008 | Atendimento do Garçom mobile/tablet | core/garcom + application/garcom_transacoes.py + application/garcom_fechamento.py | Router session-aware implementado e gate dedicado SUCCESS | `/garcom` | IMPLEMENTED_UNCERTIFIED | Preservar implementação; certificação integral posterior sem reconstrução. |
 | WP-009 | Central de Pedidos omnichannel | core/central_pedidos + application | HTTP first-class certificado | `/pedidos` | MIGRADO | Preservar e integrar canais futuros nela. |
-| WP-010 | Delivery Próprio | core/delivery + application + infra/delivery | Implementação candidata presente | `/delivery` | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Reconciliar/certificar em ciclo próprio sem reconstruir. |
-| WP-011 | Expedição / Entrega | core/entrega + application | Implementação candidata presente | `/entrega` | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Reconciliar/certificar em ciclo próprio sem reconstruir. |
+| WP-010 | Delivery Próprio | core/delivery + application + infra/delivery | Boundary certificado | `/delivery` | CERTIFIED | Preservar. |
+| WP-011 | Expedição / Entrega | core/entrega + application | Boundary certificado | `/entrega` | CERTIFIED | Preservar. |
 | WP-012 | Marketplaces / pedidos externos | core/marketplaces + adapters | Sem superfície Web certificada | — | GAP HTTP/WEB | Migrar sem criar segunda Central de Pedidos. |
 | WP-013 | Catálogo administrativo básico | catálogo existente + WP-014 | Boundary Web certificado | `/admin/catalogo` | MIGRADO | Preservar catálogo canônico, sessão e step-up. |
 | WP-014 | Engenharia de Cardápio + Ficha Técnica | legacy_cardapio_transacoes + legacy_cardapio_gemini | Ficha/Gemini/preço sugerido certificados | `/admin/catalogo` | MIGRADO | Preservar regra original e aplicação explícita do preço sugerido. |
@@ -74,10 +75,10 @@ A retaguarda WP-013 a WP-017 está agora formalmente certificada. O WP-031 Fisca
 | WP-016 | CRM / Clientes / Cashback | core/crm + application/crm_cashback_comercial + ledger canônico | HTTP session-aware certificado | `/admin/crm` | MIGRADO | Preservar ledger, mapping, isolamento e step-up. |
 | WP-017 | Marketing / Resgate / Campanhas | application/crm_marketing_comercial + infra/crm + Outbox V1 + UnitOfWorkV1 | Boundary governado e replay-safe certificado | `/admin/crm` | MIGRADO | Preservar consentimento, escopo e proteção at-most-once do efeito externo. |
 | WP-018 | Dashboard Financeiro / Indicadores | administracao_proprietario.painel_executivo | HTTP read model presente | `/admin/dashboard` | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Certificação integrada. |
-| WP-019 | AI FinOps | core/ai_finops + read model | HTTP read-only presente | `/admin/ai-finops` | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Certificação integrada; não inventar custos. |
-| WP-020 | Área Proprietário / Backoffice | registrar_acesso + registry/guards | Landing/auditoria presentes | `/admin` | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Certificação integrada/Smoke Mestre. |
+| WP-019 | AI FinOps | core/ai_finops + read model | HTTP read-only certificado | `/admin/ai-finops` | CERTIFIED | Preservar; não inventar custos. |
+| WP-020 | Área Proprietário / Backoffice | registrar_acesso + registry/guards | Landing/auditoria certificadas | `/admin` | CERTIFIED | Preservar. |
 | WP-021 | Step-up administrativo | auth + AdminStepUpGuard | Elevação temporária existente | `/admin` | MIGRADO | Preservar como barreira única. |
-| WP-022 | Empresa / Matriz / Filiais / Unidades | core/administracao + AplicacaoAdministracaoProprietarioV1 | Consulta/edição/criação presentes | `/admin/empresa` | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Certificação integrada/Smoke Mestre; não reconstruir. |
+| WP-022 | Empresa / Matriz / Filiais / Unidades | core/administracao + AplicacaoAdministracaoProprietarioV1 | Consulta/edição/criação certificadas | `/admin/empresa` | CERTIFIED | Preservar; não reconstruir. |
 | WP-023 | Usuários / Papéis / Permissões | AplicacaoAdministracaoProprietarioV1 + segurança | GET/POST/PUT Web concluídos | `/admin/usuarios` | MIGRADO | Preservar. |
 | WP-024 | Parâmetros Financeiros | administracao_proprietario + pagamentos | GET/PUT canônicos | `/admin/configuracao` | MIGRADO | Preservar; segredos permanecem WP-026. |
 | WP-025 | Impressão Operacional / Configuração | core/impressao + AplicacaoImpressaoV1 | Operação/configuração Web concluída | `/admin/impressao` | MIGRADO | Preservar KDS/PDV e adapter físico canônico. |
@@ -86,7 +87,7 @@ A retaguarda WP-013 a WP-017 está agora formalmente certificada. O WP-031 Fisca
 | WP-028 | Gerente IA | core/gerente_ia + runtime/tools canônicos | façade session-aware certificada | `/gerente-ia` | MIGRADO | Preservar preview/confirmação/idempotência. |
 | WP-029 | Pagamentos / PIX / Provedores | core/pagamentos + PagBank/reconciliação/runtime | Observabilidade/conciliação certificadas | `/pagamentos` | MIGRADO | Preservar checkout/ledger/PIX/webhook canônicos. |
 | WP-030 | Cardápio Digital público / Autosserviço | Catálogo Delivery + checkout canônico + publicação dedicada por unidade | identidade pública + catálogo + checkout públicos certificados | `/cardapio/{publicId}/{slug}` | MIGRADO | Preservar `public_id` opaco, configuração por unidade e checkout único. |
-| WP-031 | Fiscal / NFC-e / SAT | decisão do proprietário | Sem superfície fiscal certificada | — | OBRIGATÓRIA PARA V1.0 / PENDENTE | Executar fase fiscal própria da V1 antes da Arquitetura Visual Premium; não declarar V1 concluída sem sua certificação. |
+| WP-031 | Fiscal / NFC-e / SAT | módulo fiscal pronto ainda fora do tree da PR #118; autoridade de origem deve ser localizada antes da integração | Sem superfície fiscal certificada na PR #118 | — | PENDING | Localizar/provar o módulo pronto, implantar/integrar, testar, homologar e certificar; proibido reconstruir em paralelo. |
 | WP-032 | Notificações Internas | core/notificacoes_internas + application/notificacoes_internas | GAP administrativo | — | OBRIGATÓRIA PARA V1.0 / PENDENTE | Expor destinatários, preferências e alertas; sem inbox/feed/badge genérico. |
 | WP-033 | Auditoria / Histórico administrativo | repositórios de auditoria existentes | Sem consulta Web certificada | — | GAP HTTP/WEB | Criar consulta Backoffice read-only, tenant-safe e sem segredos. |
 
@@ -96,12 +97,13 @@ O `app.py` legado comprova abas para Engenharia de Cardápio, CRM/Resgate/Cashba
 
 ## 6. Gaps e pendências que ainda devem ser fechados
 
-1. **Implementados mas não certificados integralmente no estado mestre:** WP-010, WP-011, WP-018, WP-019, WP-020 e WP-022. Não reconstruir; executar/reconciliar ciclo de certificação e corrigir apenas gaps comprovados.
-2. **Ainda sem superfície Web certificada:** WP-008, WP-012 e WP-033.
-3. **Obrigatório V1.0 ainda pendente:** WP-032 — Notificações Internas.
-4. **Bloco Fiscal obrigatório da V1.0:** WP-031 — Fiscal/NFC-e/SAT. Executar em fase própria antes da Arquitetura Visual Premium; não relegar à V2.
-5. **Dados de homologação:** escopos sem vínculo seguro com loja legada devem continuar fail-closed; o provisionamento é requisito de ambiente, não motivo para enfraquecer isolamento.
-6. **Identidade do assistente:** permanece configurável por tenant/unidade; nenhum nome fixo histórico deve virar identidade de produto.
+1. **WP-008 — Garçom:** implementação e gate dedicado concluídos; permanece `IMPLEMENTED_UNCERTIFIED` até certificação integral posterior.
+2. **WP-018 — Dashboard Financeiro:** implementação presente; executar certificação dedicada agora, corrigindo apenas gaps comprovados.
+3. **WP-012 — Marketplaces:** backend/adapters/testes existem; falta implantação HTTP/Web integrada à Central de Pedidos WP-009.
+4. **WP-032 — Notificações Internas:** Core/Application/Infra existentes; falta superfície administrativa Web.
+5. **WP-033 — Auditoria/Histórico:** autoridade de auditoria existe; falta consulta Backoffice read-only tenant-safe.
+6. **WP-031 — Fiscal:** módulo pronto deve ser localizado fora do tree atual, importado/implantado e integrado; não reconstruir. A V1 não fecha sem teste, homologação e certificação fiscal.
+7. **Ledger histórico:** WP-001 a WP-007 possuem estados CERTIFIED sem campos de evidência exigidos pelo validador atual; reconciliar somente com evidência histórica real.
 
 ## 7. Ordem Mestre reconciliada
 
@@ -123,12 +125,19 @@ WP-030 **CERTIFICADO / 100% VERDE** no HEAD funcional `c74595637deb6e31a578e9597
 ### Onda Fiscal — obrigatória na V1
 WP-031 — Fiscal / NFC-e / SAT integra oficialmente a Kordena V1. Deve possuir fase própria de implementação, integração, testes e certificação depois do fechamento das pendências funcionais obrigatórias e **antes da Arquitetura Visual Premium**. A V1 não pode ser declarada 100% concluída enquanto o WP-031 estiver pendente.
 
-### Próximos blocos formais
-- WP-032: implementar superfície administrativa de Notificações Internas.
-- WP-033: implementar consulta administrativa de Auditoria/Histórico sem segredos.
-- WP-031: executar a fase fiscal obrigatória da V1 antes da etapa final de Arquitetura Visual Premium.
+### Sequência final oficial de execução
 
-Antes de declarar a Web V1 100%, executar auditoria/certificação das implementações históricas ainda marcadas como aguardando certificação e concluir WP-008/WP-012/WP-032/WP-033 e o bloco fiscal WP-031 conforme o inventário.
+1. **WP-008 → fechar gate** — gate dedicado de implementação já concluiu SUCCESS no HEAD `9daaacc9ef4754558ad570bd568a316367b9260d`; certificação integral permanece posterior.
+2. **WP-018 → certificar**.
+3. **WP-012 → implantar Web** sobre a Central de Pedidos existente.
+4. **WP-032 → implantar Web** reutilizando Notificações Internas canônicas.
+5. **WP-033 → implantar Web** read-only sobre auditoria canônica.
+6. **WP-031 → implantar Fiscal pronto**, após localizar e provar a autoridade do módulo existente.
+7. **Auditoria Mestre V1 completa**.
+8. **Gate 100% funcional**.
+9. **Visual Premium final**, somente após os gates anteriores.
+
+Cada bloco só autoriza o seguinte quando seus testes e gates aplicáveis estiverem 100% verdes; falhas devem ser corrigidas antes de avançar.
 
 ## 8. Gate obrigatório por PR
 
@@ -196,3 +205,11 @@ Cada PR do WEB-PARITY-V1 deve: (a) citar IDs WP afetados; (b) atualizar este inv
 
 ---
 **Regra de mudança:** este documento é vivo e versionado por baseline. Qualquer nova descoberta deve atualizar a linha correspondente antes de iniciar implementação que dependa dela. A Arquitetura Visual Premium só reabre depois do Gate de Paridade Web, da certificação das capacidades obrigatórias e da conclusão/certificação do WP-031 Fiscal da V1.
+## 13. Registro de reconciliação de 18/09/2026
+
+- WP-008 foi implementado em `/garcom` com sessão única, fechamento flexível por unidade, couvert artístico, autoridade financeira canônica, idempotência e concorrência.
+- Gate `Web Parity WP008 Implementation Gates` no HEAD `9daaacc9ef4754558ad570bd568a316367b9260d`: SUCCESS após correção documental de whitespace.
+- O ledger continua sendo a autoridade de estado; Inventário e Checklist foram reconciliados para remover estados narrativos antigos.
+- Sequência final de fechamento da V1 congelada: WP-008 gate → WP-018 certificar → WP-012 Web → WP-032 Web → WP-033 Web → WP-031 Fiscal pronto → Auditoria Mestre → Gate 100% funcional → Visual Premium.
+- Fiscal não deve ser reconstruído: localizar a implementação pronta, provar sua autoridade e executar apenas implantação/integração, testes, homologação e certificação.
+- PR #118 permanece OPEN/DRAFT; nenhum merge ou deploy autorizado.
