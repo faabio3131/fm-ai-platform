@@ -112,6 +112,12 @@
       "state": "CERTIFIED",
       "historical_pending": [
         "mensagens/integracoes omnichannel"
+      ],
+      "certified_sha": "f88f127a69b548d7b3b53cc9abe306ed7a2d2700",
+      "evidence": [
+        "PR #116 — WP-009 Central de Pedidos omnichannel (merged)",
+        "V1 Wave2 KDS run 34236945077 — SUCCESS",
+        "V1 Frontend Next.js Setup Gate run 34236945153 — SUCCESS"
       ]
     },
     "WP-010": {
