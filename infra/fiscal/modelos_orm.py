@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from sqlalchemy import (
     DateTime,
     Index,
@@ -59,11 +61,11 @@ class FiscalOutboxORM(FiscalBase):
     deduplication_key: Mapped[str] = mapped_column(String(512), nullable=False)
     payload: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     payload_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
-    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), nullable=False)
-    available_at: Mapped[object] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    lease_until: Mapped[object | None] = mapped_column(DateTime(timezone=True))
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_error: Mapped[str | None] = mapped_column(Text)
     completion_reference: Mapped[str | None] = mapped_column(String(512))
     __table_args__ = (
@@ -93,10 +95,10 @@ class FiscalArchiveORM(FiscalBase):
     content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     content_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     media_type: Mapped[str] = mapped_column(String(128), nullable=False)
-    archived_at: Mapped[object] = mapped_column(DateTime(timezone=True), nullable=False)
+    archived_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     retention_policy_id: Mapped[str] = mapped_column(String(128), nullable=False)
     retention_policy_version: Mapped[int] = mapped_column(Integer, nullable=False)
-    retain_until: Mapped[object | None] = mapped_column(DateTime(timezone=True))
+    retain_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     legal_basis_reference: Mapped[str | None] = mapped_column(String(512))
     previous_manifest_sha256: Mapped[str | None] = mapped_column(String(64))
     __table_args__ = (
@@ -128,7 +130,7 @@ class FiscalDocumentProjectionORM(FiscalBase):
     rejection_message: Mapped[str | None] = mapped_column(Text)
     correlation_id: Mapped[str] = mapped_column(String(256), nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    updated_at: Mapped[object] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     __table_args__ = (
         UniqueConstraint(
             "tenant_id",
@@ -159,8 +161,8 @@ class FiscalInboundDocumentORM(FiscalBase):
     xml_content: Mapped[bytes | None] = mapped_column(LargeBinary)
     xml_sha256: Mapped[str | None] = mapped_column(String(64))
     correlation_id: Mapped[str] = mapped_column(String(256), nullable=False)
-    discovered_at: Mapped[object] = mapped_column(DateTime(timezone=True), nullable=False)
-    updated_at: Mapped[object] = mapped_column(DateTime(timezone=True), nullable=False)
+    discovered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     __table_args__ = (
         UniqueConstraint(
             "tenant_id",
@@ -190,7 +192,7 @@ class FiscalDfeCheckpointORM(FiscalBase):
     last_nsu: Mapped[str] = mapped_column(String(32), nullable=False)
     max_nsu: Mapped[str | None] = mapped_column(String(32))
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    updated_at: Mapped[object] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class FiscalManifestationORM(FiscalBase):
@@ -206,7 +208,7 @@ class FiscalManifestationORM(FiscalBase):
     protocol_reference: Mapped[str | None] = mapped_column(String(512))
     actor_id: Mapped[str] = mapped_column(String(128), nullable=False)
     correlation_id: Mapped[str] = mapped_column(String(256), nullable=False)
-    occurred_at: Mapped[object] = mapped_column(DateTime(timezone=True), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     __table_args__ = (
         UniqueConstraint(
             "tenant_id",
@@ -227,8 +229,8 @@ class FiscalProductBindingORM(FiscalBase):
     product_id: Mapped[str] = mapped_column(String(128), primary_key=True)
     profile_version: Mapped[int] = mapped_column(Integer, primary_key=True)
     payload_json: Mapped[str] = mapped_column(Text, nullable=False)
-    valid_from: Mapped[object] = mapped_column(DateTime(timezone=True), nullable=False)
-    valid_until: Mapped[object | None] = mapped_column(DateTime(timezone=True))
+    valid_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class FiscalIssuerProfileORM(FiscalBase):
@@ -241,5 +243,5 @@ class FiscalIssuerProfileORM(FiscalBase):
     payload_json: Mapped[str] = mapped_column(Text, nullable=False)
     certificate_reference: Mapped[str | None] = mapped_column(String(256))
     provider_config_id: Mapped[str | None] = mapped_column(String(256))
-    valid_from: Mapped[object] = mapped_column(DateTime(timezone=True), nullable=False)
-    valid_until: Mapped[object | None] = mapped_column(DateTime(timezone=True))
+    valid_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
