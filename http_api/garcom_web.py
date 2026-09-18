@@ -254,7 +254,7 @@ def build_garcom_web_router(
                 auth_runtime=auth_runtime,
             )
 
-    @router.get("/painel")
+    @router.get("/painel", response_model=None)
     def painel(request: Request) -> dict[str, object] | JSONResponse:
         try:
             with session_factory() as session:
@@ -317,7 +317,7 @@ def build_garcom_web_router(
         except Exception as exc:  # noqa: BLE001
             return _erro_http(exc)
 
-    @router.post("/mesas/{mesa_id}/comandas")
+    @router.post("/mesas/{mesa_id}/comandas", response_model=None)
     def abrir_comanda(
         mesa_id: str,
         payload: AbrirComandaIn,
@@ -342,7 +342,7 @@ def build_garcom_web_router(
         except Exception as exc:  # noqa: BLE001
             return _erro_http(exc)
 
-    @router.post("/comandas/{comanda_id}/solicitar-conta")
+    @router.post("/comandas/{comanda_id}/solicitar-conta", response_model=None)
     def solicitar_conta(
         comanda_id: str,
         payload: MutacaoVersionadaIn,
@@ -366,7 +366,7 @@ def build_garcom_web_router(
         except Exception as exc:  # noqa: BLE001
             return _erro_http(exc)
 
-    @router.post("/comandas/{comanda_id}/retomar-consumo")
+    @router.post("/comandas/{comanda_id}/retomar-consumo", response_model=None)
     def retomar_consumo(
         comanda_id: str,
         payload: MutacaoVersionadaIn,
@@ -395,7 +395,7 @@ def build_garcom_web_router(
         except Exception as exc:  # noqa: BLE001
             return _erro_http(exc)
 
-    @router.get("/configuracao-fechamento")
+    @router.get("/configuracao-fechamento", response_model=None)
     def obter_configuracao(
         request: Request,
     ) -> dict[str, object] | JSONResponse:
@@ -408,7 +408,7 @@ def build_garcom_web_router(
         except Exception as exc:  # noqa: BLE001
             return _erro_http(exc)
 
-    @router.put("/configuracao-fechamento")
+    @router.put("/configuracao-fechamento", response_model=None)
     def salvar_configuracao(
         payload: ConfiguracaoFechamentoIn,
         request: Request,
@@ -426,7 +426,7 @@ def build_garcom_web_router(
         except Exception as exc:  # noqa: BLE001
             return _erro_http(exc)
 
-    @router.get("/comandas/{comanda_id}/demonstrativo")
+    @router.get("/comandas/{comanda_id}/demonstrativo", response_model=None)
     def demonstrativo(
         comanda_id: str,
         request: Request,
@@ -443,7 +443,7 @@ def build_garcom_web_router(
         except Exception as exc:  # noqa: BLE001
             return _erro_http(exc)
 
-    @router.post("/comandas/{comanda_id}/componentes")
+    @router.post("/comandas/{comanda_id}/componentes", response_model=None)
     def consolidar_componentes(
         comanda_id: str,
         payload: ComponentesFechamentoIn,
@@ -468,7 +468,7 @@ def build_garcom_web_router(
         except Exception as exc:  # noqa: BLE001
             return _erro_http(exc)
 
-    @router.post("/comandas/{comanda_id}/destino")
+    @router.post("/comandas/{comanda_id}/destino", response_model=None)
     def definir_destino(
         comanda_id: str,
         payload: DestinoRecebimentoIn,
@@ -492,7 +492,7 @@ def build_garcom_web_router(
         except Exception as exc:  # noqa: BLE001
             return _erro_http(exc)
 
-    @router.post("/comandas/{comanda_id}/divisao")
+    @router.post("/comandas/{comanda_id}/divisao", response_model=None)
     def definir_divisao(
         comanda_id: str,
         payload: DivisaoIn,
@@ -535,7 +535,7 @@ def build_garcom_web_router(
         except Exception as exc:  # noqa: BLE001
             return _erro_http(exc)
 
-    @router.post("/comandas/{comanda_id}/pagamentos")
+    @router.post("/comandas/{comanda_id}/pagamentos", response_model=None)
     def criar_pagamento(
         comanda_id: str,
         payload: CriarPagamentoIn,
@@ -563,7 +563,8 @@ def build_garcom_web_router(
             return _erro_http(exc)
 
     @router.post(
-        "/comandas/{comanda_id}/pagamentos/{pagamento_id}/confirmar"
+        "/comandas/{comanda_id}/pagamentos/{pagamento_id}/confirmar",
+        response_model=None,
     )
     def confirmar_pagamento(
         comanda_id: str,
@@ -593,7 +594,8 @@ def build_garcom_web_router(
             return _erro_http(exc)
 
     @router.post(
-        "/comandas/{comanda_id}/pagamentos/{pagamento_id}/aplicar"
+        "/comandas/{comanda_id}/pagamentos/{pagamento_id}/aplicar",
+        response_model=None,
     )
     def aplicar_pagamento(
         comanda_id: str,
@@ -621,7 +623,7 @@ def build_garcom_web_router(
         except Exception as exc:  # noqa: BLE001
             return _erro_http(exc)
 
-    @router.post("/comandas/{comanda_id}/fechar")
+    @router.post("/comandas/{comanda_id}/fechar", response_model=None)
     def fechar_comanda(
         comanda_id: str,
         payload: MutacaoVersionadaIn,
