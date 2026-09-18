@@ -3,7 +3,7 @@
 **Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`
 **Data original:** 08/09/2026
 **Reconciliação:** 18/09/2026
-**Versão do inventário:** 2.9 — Auditoria Mestre não fiscal + Gate Mestre final
+**Versão do inventário:** 3.0 — WP-031A Fiscal System Design / Authority Freeze
 **Status:** DOCUMENTO MESTRE DE EXECUÇÃO
 
 ## 1. Regra constitucional deste inventário
@@ -271,3 +271,17 @@ Regressão Python completa: **1528 passed, 5 skipped, 99 warnings**.
 Testes Node Web: **5 passed, 0 failed**.
 
 Nenhum merge, deploy, force push ou alteração da main foi realizado.
+
+
+## 18. WP-031A — Fiscal V1 System Design / Authority Freeze — 18/09/2026
+
+- Baseline fiscal V1 congelado: `faabio3131/kordena-fiscal-engine@b336def47ad4f5188307102203f4e04b98406014`.
+- System Design oficial: `docs/web-parity/WP031_FISCAL_V1_SYSTEM_DESIGN.md`.
+- A integração não será limitada a emissão de vendas. O escopo oficial do WP-031 passa a conter **Outbound Fiscal + Inbound Fiscal + Fiscal Procurement + Fiscal Accounting/Control Bridge + Smart Fiscal Intake**.
+- Autoridade outbound confirmada: `VendaFinanceira` / `venda.criada` após reconhecimento financeiro canônico.
+- Estoque existente será preservado; NF-e recebida não equivale automaticamente a recebimento físico nem a pagamento.
+- Leitura visual/IA existente será preservada como interpretação e sugestão, mas XML/DF-e oficial prevalece nos campos fiscais e confirmação humana governa o recebido físico.
+- O Control Plane de integrações, RBAC, step-up, Secret Store/Vault, catálogo, pagamentos e auditoria existentes devem ser reutilizados; proibidas autoridades paralelas.
+- A auditoria CURRENT localizou `compra.aprovar` no RBAC, mas não localizou autoridade materializada de pedido de compra/fornecedor/recebimento fiscal. WP-031G deve repetir discovery dirigido antes de criar a única autoridade de procurement necessária.
+- Ordem oficial congelada: **WP-031 Fiscal completo -> Fiscal Master Gate -> Visual Premium final**.
+- WP-031 permanece `PENDING` no ledger até implementação e certificação; este bloco fecha arquitetura/discovery, não promove readiness funcional.
