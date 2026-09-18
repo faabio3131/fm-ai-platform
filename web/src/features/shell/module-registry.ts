@@ -4,6 +4,7 @@ export type ShellModuleIcon =
   | "dashboard"
   | "pdv"
   | "salao"
+  | "garcom"
   | "kds"
   | "catalogo"
   | "estoque"
@@ -50,6 +51,16 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     available: true,
     allPermissions: ["pedido.visualizar"],
     anyPermissions: ["mesa.abrir", "comanda.alterar"],
+  },
+  {
+    id: "garcom",
+    label: "Garçom Web",
+    description: "Atendimento mobile/tablet, comandas e fechamento governado.",
+    href: "/garcom",
+    group: "operacao",
+    icon: "garcom",
+    available: true,
+    allPermissions: ["pedido.visualizar", "comanda.alterar"],
   },
   {
     id: "pedidos",

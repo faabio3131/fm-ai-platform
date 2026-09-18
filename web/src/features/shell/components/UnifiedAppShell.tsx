@@ -17,6 +17,7 @@ import {
   ShoppingCart,
   SlidersHorizontal,
   Users,
+  Utensils,
   Warehouse,
 } from "lucide-react";
 import Link from "next/link";
@@ -46,6 +47,7 @@ const iconByName: Record<ShellModuleIcon, typeof LayoutDashboard> = {
   dashboard: LayoutDashboard,
   pdv: ShoppingCart,
   salao: LayoutGrid,
+  garcom: Utensils,
   kds: ChefHat,
   catalogo: Package,
   estoque: Warehouse,
