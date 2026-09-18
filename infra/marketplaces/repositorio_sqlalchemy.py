@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from datetime import datetime, timezone
 from decimal import Decimal
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -180,7 +181,7 @@ class PedidosInternosMarketplaceSQLAlchemy:
             return str(existente.id), True
 
         itens: list[ItemPedido] = []
-        subtotal = Decimal("0")
+        subtotal = Decimal(0)
         for item in snapshot.itens:
             quantidade_decimal = Decimal(item.quantidade)
             if quantidade_decimal != quantidade_decimal.to_integral_value():
@@ -203,7 +204,7 @@ class PedidosInternosMarketplaceSQLAlchemy:
             )
 
         total = Decimal(snapshot.total)
-        descontos = max(subtotal - total, Decimal("0"))
+        descontos = max(subtotal - total, Decimal(0))
         taxas = max(total - subtotal, Decimal("0"))
         origem = {
             PlataformaMarketplace.IFOOD: OrigemPedido.IFOOD,

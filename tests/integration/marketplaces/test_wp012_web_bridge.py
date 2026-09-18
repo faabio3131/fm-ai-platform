@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from core.dominio.enums import PedidoStatus
+from core.dominio.ids import PedidoId, TenantId, UnidadeId
 from core.integracoes.catalogo import CATALOGO_V1
 from core.marketplaces.modelos import (
     ItemMarketplace,
@@ -21,12 +22,11 @@ from core.pedidos.modelos_orm import OrdersBase
 from infra.eventos.modelos_orm import EventBusBase
 from infra.gerente_ia.modelos_orm import CoreRuntimeBase
 from infra.marketplaces.modelos_orm import MarketplaceBase
-from infra.seguranca.modelos_orm import SecurityBase
 from infra.marketplaces.repositorio_sqlalchemy import (
     PedidosInternosMarketplaceSQLAlchemy,
     RepositorioPedidosExternosSQLAlchemy,
 )
-from core.dominio.ids import PedidoId, TenantId, UnidadeId
+from infra.seguranca.modelos_orm import SecurityBase
 
 TENANT = "tenant-wp012"
 UNIDADE = "unidade-wp012"
@@ -61,7 +61,7 @@ def _snapshot(
                 item_id_externo="item-1",
                 sku="SKU-EXTERNO-NAO-MAPEADO",
                 nome="Combo marketplace",
-                quantidade=Decimal("2"),
+                quantidade=Decimal(2),
                 preco_unitario=Decimal("20.00"),
             ),
         ),

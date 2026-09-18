@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -11,7 +12,10 @@ from core.dominio.tempo import SystemClock
 from core.eventos.observabilidade import ColetorMetricasEmMemoria
 from core.eventos.repositorios import RepositorioOutboxEmMemoria
 from core.integracoes.modelos import ConfiguracaoServicoExterno
-from core.marketplaces.adapters import MarketplaceAdapter, RegistroAdaptersMarketplace
+from core.marketplaces.adapters import (
+    MarketplaceAdapter,
+    RegistroAdaptersMarketplace,
+)
 from core.marketplaces.erros import ErroMarketplace
 from core.marketplaces.ifood_http import CredencialIfood
 from core.marketplaces.keeta_auth import CredencialKeeta
@@ -21,9 +25,14 @@ from core.marketplaces.modelos import (
     ResultadoSincronizacao,
     StatusIntegracao,
 )
-from core.marketplaces.repositorios import RepositorioIntegracoesMarketplaceEmMemoria
+from core.marketplaces.repositorios import (
+    RepositorioIntegracoesMarketplaceEmMemoria,
+)
 from core.marketplaces.retry import PoliticaRetryMarketplace
-from core.marketplaces.runtime import compor_ifood_http_real, compor_keeta_opendelivery_real
+from core.marketplaces.runtime import (
+    compor_ifood_http_real,
+    compor_keeta_opendelivery_real,
+)
 from core.marketplaces.servicos import ServicoMarketplaces
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.erros import SegredoAusente
