@@ -7,9 +7,9 @@ from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import and_, or_, select
-from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from infra.fiscal.modelos_orm import (
     FiscalArchiveORM,
