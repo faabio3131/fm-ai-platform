@@ -258,3 +258,15 @@ def test_wp031c_venda_criada_publica_contrato_fiscal_minimo() -> None:
     assert resultado.evento.payload["moeda"] == "BRL"
     assert resultado.evento.payload["metodo"] == "pix"
     assert resultado.evento.payload["criterio_versao"] == 2
+
+
+def test_wp031c_default_environment_is_homologation_fail_safe() -> None:
+    bridge = KordenaFiscalOutboundBridge(
+        outbox_store=InMemoryFiscalOutboxStore(),
+        issuer_resolver=_IssuerResolver(),
+        line_resolver=_LineResolver(),
+    )
+    prepared = bridge.process(event=_event(), pedido=pedido())
+
+    assert prepared.document.scope.environment is FiscalEnvironment.HOMOLOGATION
+    assert prepared.document.issuer.scope.environment is FiscalEnvironment.HOMOLOGATION
