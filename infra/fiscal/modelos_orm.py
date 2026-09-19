@@ -226,6 +226,7 @@ class FiscalProductBindingORM(FiscalBase):
 
     tenant_id: Mapped[str] = mapped_column(String(128), primary_key=True)
     unit_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    environment: Mapped[str] = mapped_column(String(32), primary_key=True)
     product_id: Mapped[str] = mapped_column(String(128), primary_key=True)
     profile_version: Mapped[int] = mapped_column(Integer, primary_key=True)
     payload_json: Mapped[str] = mapped_column(Text, nullable=False)
@@ -238,8 +239,8 @@ class FiscalIssuerProfileORM(FiscalBase):
 
     tenant_id: Mapped[str] = mapped_column(String(128), primary_key=True)
     unit_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    environment: Mapped[str] = mapped_column(String(32), primary_key=True)
     profile_version: Mapped[int] = mapped_column(Integer, primary_key=True)
-    environment: Mapped[str] = mapped_column(String(32), nullable=False)
     payload_json: Mapped[str] = mapped_column(Text, nullable=False)
     certificate_reference: Mapped[str | None] = mapped_column(String(256))
     provider_config_id: Mapped[str | None] = mapped_column(String(256))
