@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
-from typing import Callable
-
 import pytest
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
@@ -25,8 +23,6 @@ from migrations.fiscal_profile_environment_partition_v1 import (
 )
 
 NOW = datetime(2026, 9, 19, 12, 0, tzinfo=timezone.utc)
-StoreFactory = Callable[[], object]
-
 
 def _scope() -> ExecutionScope:
     return ExecutionScope(
