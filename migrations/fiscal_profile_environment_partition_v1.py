@@ -5,7 +5,19 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from sqlalchemy import inspect, text
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Integer,
+    MetaData,
+    PrimaryKeyConstraint,
+    String,
+    Table,
+    Text,
+    inspect,
+    insert,
+    text,
+)
 from sqlalchemy.engine import Connection
 
 _ISSUER_TABLE = "fiscal_issuer_profiles_v1"
@@ -128,81 +140,87 @@ def _product_rows(connection: Connection) -> list[dict[str, Any]]:
     return result
 
 
+def _issuer_rebuild_table(name: str) -> Table:
+    metadata = MetaData()
+    return Table(
+        name,
+        metadata,
+        Column("tenant_id", String(128), nullable=False),
+        Column("unit_id", String(128), nullable=False),
+        Column("environment", String(32), nullable=False),
+        Column("profile_version", Integer, nullable=False),
+        Column("payload_json", Text, nullable=False),
+        Column("certificate_reference", String(256)),
+        Column("provider_config_id", String(256)),
+        Column("valid_from", DateTime(timezone=True), nullable=False),
+        Column("valid_until", DateTime(timezone=True)),
+        PrimaryKeyConstraint(
+            "tenant_id",
+            "unit_id",
+            "environment",
+            "profile_version",
+        ),
+    )
+
+
+def _product_rebuild_table(name: str) -> Table:
+    metadata = MetaData()
+    return Table(
+        name,
+        metadata,
+        Column("tenant_id", String(128), nullable=False),
+        Column("unit_id", String(128), nullable=False),
+        Column("environment", String(32), nullable=False),
+        Column("product_id", String(128), nullable=False),
+        Column("profile_version", Integer, nullable=False),
+        Column("payload_json", Text, nullable=False),
+        Column("valid_from", DateTime(timezone=True), nullable=False),
+        Column("valid_until", DateTime(timezone=True)),
+        PrimaryKeyConstraint(
+            "tenant_id",
+            "unit_id",
+            "environment",
+            "product_id",
+            "profile_version",
+        ),
+    )
+
+
+def _replace_table(
+    connection: Connection,
+    *,
+    source: str,
+    temporary: str,
+    rebuilt: Table,
+    rows: list[dict[str, Any]],
+) -> None:
+    connection.exec_driver_sql(f"DROP TABLE IF EXISTS {temporary}")
+    rebuilt.create(bind=connection)
+    if rows:
+        connection.execute(insert(rebuilt), rows)
+    connection.exec_driver_sql(f"DROP TABLE {source}")
+    connection.exec_driver_sql(f"ALTER TABLE {temporary} RENAME TO {source}")
+
+
 def _rebuild_issuer(connection: Connection, rows: list[dict[str, Any]]) -> None:
     temporary = f"{_ISSUER_TABLE}__wp031_pre_e"
-    connection.exec_driver_sql(f"DROP TABLE IF EXISTS {temporary}")
-    connection.exec_driver_sql(
-        f"""
-        CREATE TABLE {temporary} (
-            tenant_id VARCHAR(128) NOT NULL,
-            unit_id VARCHAR(128) NOT NULL,
-            environment VARCHAR(32) NOT NULL,
-            profile_version INTEGER NOT NULL,
-            payload_json TEXT NOT NULL,
-            certificate_reference VARCHAR(256),
-            provider_config_id VARCHAR(256),
-            valid_from TIMESTAMP NOT NULL,
-            valid_until TIMESTAMP,
-            PRIMARY KEY (tenant_id, unit_id, environment, profile_version)
-        )
-        """
-    )
-    if rows:
-        connection.execute(
-            text(
-                f"INSERT INTO {temporary} "
-                "(tenant_id, unit_id, environment, profile_version, payload_json, "
-                "certificate_reference, provider_config_id, valid_from, valid_until) "
-                "VALUES (:tenant_id, :unit_id, :environment, :profile_version, "
-                ":payload_json, :certificate_reference, :provider_config_id, "
-                ":valid_from, :valid_until)"
-            ),
-            rows,
-        )
-    connection.exec_driver_sql(f"DROP TABLE {_ISSUER_TABLE}")
-    connection.exec_driver_sql(
-        f"ALTER TABLE {temporary} RENAME TO {_ISSUER_TABLE}"
+    _replace_table(
+        connection,
+        source=_ISSUER_TABLE,
+        temporary=temporary,
+        rebuilt=_issuer_rebuild_table(temporary),
+        rows=rows,
     )
 
 
 def _rebuild_product(connection: Connection, rows: list[dict[str, Any]]) -> None:
     temporary = f"{_PRODUCT_TABLE}__wp031_pre_e"
-    connection.exec_driver_sql(f"DROP TABLE IF EXISTS {temporary}")
-    connection.exec_driver_sql(
-        f"""
-        CREATE TABLE {temporary} (
-            tenant_id VARCHAR(128) NOT NULL,
-            unit_id VARCHAR(128) NOT NULL,
-            environment VARCHAR(32) NOT NULL,
-            product_id VARCHAR(128) NOT NULL,
-            profile_version INTEGER NOT NULL,
-            payload_json TEXT NOT NULL,
-            valid_from TIMESTAMP NOT NULL,
-            valid_until TIMESTAMP,
-            PRIMARY KEY (
-                tenant_id,
-                unit_id,
-                environment,
-                product_id,
-                profile_version
-            )
-        )
-        """
-    )
-    if rows:
-        connection.execute(
-            text(
-                f"INSERT INTO {temporary} "
-                "(tenant_id, unit_id, environment, product_id, profile_version, "
-                "payload_json, valid_from, valid_until) "
-                "VALUES (:tenant_id, :unit_id, :environment, :product_id, "
-                ":profile_version, :payload_json, :valid_from, :valid_until)"
-            ),
-            rows,
-        )
-    connection.exec_driver_sql(f"DROP TABLE {_PRODUCT_TABLE}")
-    connection.exec_driver_sql(
-        f"ALTER TABLE {temporary} RENAME TO {_PRODUCT_TABLE}"
+    _replace_table(
+        connection,
+        source=_PRODUCT_TABLE,
+        temporary=temporary,
+        rebuilt=_product_rebuild_table(temporary),
+        rows=rows,
     )
 
 
