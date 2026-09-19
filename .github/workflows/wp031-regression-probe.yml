@@ -1,12 +1,7 @@
 name: WP-031 Regression Probe
 
+# Manual diagnostic only; this workflow is not a certification gate.
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/wp031-regression-probe.yml'
-      - 'infra/fiscal/**'
-      - 'migrations/**'
-      - 'tests/**'
   workflow_dispatch:
 
 permissions:
