@@ -295,3 +295,36 @@ def test_pre_e_migration_fails_closed_on_payload_environment_mismatch() -> None:
         )
         with pytest.raises(RuntimeError, match="payload environment differs"):
             upgrade_fiscal_profile_environment_partition_v1(connection)
+
+def _table_shape(engine, table: str) -> tuple[tuple[object, ...], tuple[str, ...]]:
+    inspector = inspect(engine)
+    columns = tuple(
+        (
+            str(column["name"]),
+            str(column["type"]).upper(),
+            bool(column["nullable"]),
+        )
+        for column in inspector.get_columns(table)
+    )
+    primary_key = tuple(
+        str(column)
+        for column in inspector.get_pk_constraint(table)["constrained_columns"]
+    )
+    return columns, primary_key
+
+
+def test_pre_e_migration_upgrade_matches_fresh_profile_schema_shape() -> None:
+    upgraded = create_engine("sqlite+pysqlite:///:memory:")
+    with upgraded.begin() as connection:
+        _create_previous_profile_schema(connection)
+        upgrade_fiscal_profile_environment_partition_v1(connection)
+
+    fresh = create_engine("sqlite+pysqlite:///:memory:")
+    FiscalBase.metadata.create_all(fresh)
+
+    for table in (
+        "fiscal_issuer_profiles_v1",
+        "fiscal_product_bindings_v1",
+    ):
+        assert _table_shape(upgraded, table) == _table_shape(fresh, table)
+
