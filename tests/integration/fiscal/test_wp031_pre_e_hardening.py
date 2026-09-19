@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
+
 import pytest
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.schema import CreateTable
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.schema import CreateTable
 
 from infra.fiscal.modelos_orm import FiscalBase
 from infra.fiscal.repositorios_sqlalchemy import FiscalOutboxStoreSQLAlchemy
@@ -100,7 +101,7 @@ def test_pre_e_outbox_reschedule_requires_timezone_aware_datetime(
         limit=1,
         lease_duration=timedelta(seconds=30),
     )[0]
-    naive = datetime(2026, 9, 19, 12, 5)
+    naive = NOW.replace(tzinfo=None)
     with pytest.raises(FiscalValidationError, match="timezone-aware"):
         outbox_store.reschedule(
             claimed.entry_id,
@@ -339,4 +340,3 @@ def test_pre_e_migration_preserves_timezone_types_for_postgresql() -> None:
 
     assert issuer_sql.count("TIMESTAMP WITH TIME ZONE") == 2
     assert product_sql.count("TIMESTAMP WITH TIME ZONE") == 2
-
