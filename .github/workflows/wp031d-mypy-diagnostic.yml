@@ -1,11 +1,7 @@
 name: WP-031D Mypy Diagnostic
 
+# Manual diagnostic only; this workflow is not a certification gate.
 on:
-  pull_request:
-    paths:
-      - 'infra/fiscal/perfis_sqlalchemy.py'
-      - 'infra/fiscal/__init__.py'
-      - '.github/workflows/wp031d-mypy-diagnostic.yml'
   workflow_dispatch:
 
 permissions:
