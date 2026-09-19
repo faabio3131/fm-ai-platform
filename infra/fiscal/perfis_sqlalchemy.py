@@ -347,11 +347,11 @@ class FiscalIssuerProfileStoreSQLAlchemy:
                 )
                 .order_by(FiscalIssuerProfileORM.profile_version.desc())
             ).scalars()
-            candidates = [
-                row
-                for row in rows
-                if _utc(row.valid_until) is None or instant < _utc(row.valid_until)
-            ]
+            candidates = []
+            for row in rows:
+                valid_until = _utc(row.valid_until)
+                if valid_until is None or instant < valid_until:
+                    candidates.append(row)
             if len(candidates) != 1:
                 if not candidates:
                     raise FiscalProfileNotFoundError(
@@ -464,7 +464,8 @@ class FiscalProductProfileStoreSQLAlchemy:
             ).scalars()
             candidates: list[FiscalProductProfile] = []
             for row in rows:
-                if _utc(row.valid_until) is not None and instant >= _utc(row.valid_until):
+                valid_until = _utc(row.valid_until)
+                if valid_until is not None and instant >= valid_until:
                     continue
                 decoded = _product_from_payload(json.loads(row.payload_json))
                 if decoded.scope.environment is scope.environment:
