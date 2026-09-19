@@ -482,7 +482,7 @@ def test_wp031d_store_rejects_bool_version_and_naive_resolution_time() -> None:
 
     issuer_store.save(_issuer())
     product_store.save(_product())
-    naive = datetime(2026, 9, 19, 12, 0)
+    naive = NOW.replace(tzinfo=None)
 
     with pytest.raises(FiscalProfileStoreError, match="timezone-aware"):
         issuer_store.resolve(scope=_scope(), issued_at=naive)
@@ -542,4 +542,3 @@ def test_wp031d_product_resolver_fails_closed_on_persisted_identity_drift() -> N
             product_id="42",
             issued_at=NOW,
         )
-
