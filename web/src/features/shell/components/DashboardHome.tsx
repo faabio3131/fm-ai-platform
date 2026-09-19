@@ -3,11 +3,20 @@
 import {
   Activity,
   ArrowRight,
+  Bot,
+  BrainCircuit,
   ChefHat,
+  CircleGauge,
   LayoutGrid,
+  Link as LinkIcon,
   Package,
+  Printer,
   ShieldCheck,
   ShoppingCart,
+  SlidersHorizontal,
+  Users,
+  Utensils,
+  Warehouse,
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
@@ -31,9 +40,19 @@ const iconByName: Record<ShellModuleIcon, typeof ShoppingCart> = {
   dashboard: ShieldCheck,
   pdv: ShoppingCart,
   salao: LayoutGrid,
+  garcom: Utensils,
   kds: ChefHat,
   catalogo: Package,
+  estoque: Warehouse,
+  crm: Users,
+  financeiro: CircleGauge,
+  ai: BrainCircuit,
   saude: Activity,
+  usuarios: Users,
+  configuracao: SlidersHorizontal,
+  impressao: Printer,
+  integracoes: LinkIcon,
+  assistente: Bot,
 };
 
 function ModuleCard({ module }: { module: ShellModuleDefinition }) {

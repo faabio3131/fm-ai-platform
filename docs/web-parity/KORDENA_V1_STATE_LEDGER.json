@@ -1,0 +1,330 @@
+{
+  "schema_version": 1,
+  "product": "Kordena V1",
+  "authority": "canonical-state-ledger",
+  "branch": "feat/web-parity-v1-total-original-migration",
+  "reconciled_from_head": "74530f13c8bd9c95b61b9b9da4192094a230c2d3",
+  "rules": {
+    "allowed_states": [
+      "PENDING",
+      "IMPLEMENTED_UNCERTIFIED",
+      "CERTIFIED",
+      "BLOCKED"
+    ],
+    "certified_requires_evidence": true,
+    "chat_is_not_authority": true,
+    "narrative_docs_are_not_state_authority": true,
+    "next_work_must_be_derived_from_ledger": true
+  },
+  "work_packages": {
+    "WP-001": {
+      "name": "Login / SSO corporativo",
+      "state": "CERTIFIED",
+      "certified_sha": "0ce38df30f30bcce745a9466bdbbaccbcd37290a",
+      "evidence": [
+        "PR #108 — canonical auth HTTP session (merged)",
+        "PR #109 — auth session/unit selection Web (merged)",
+        "PR #114 — unified operational session/step-up (merged)",
+        "V1 Auth HTTP Foundation Gate run 34166587333 — SUCCESS"
+      ]
+    },
+    "WP-002": {
+      "name": "Escopo tenant/unidade + troca de unidade",
+      "state": "CERTIFIED",
+      "certified_sha": "0ce38df30f30bcce745a9466bdbbaccbcd37290a",
+      "evidence": [
+        "PR #108 — canonical auth HTTP session (merged)",
+        "PR #109 — auth session/unit selection Web (merged)",
+        "PR #114 — unified operational session/step-up (merged)",
+        "V1 Frontend Next.js Setup Gate run 34166587446 — SUCCESS"
+      ]
+    },
+    "WP-003": {
+      "name": "Roteamento por perfil/permissao",
+      "state": "CERTIFIED",
+      "certified_sha": "96b1441d26e1bfd93ef8f83f3183deb190bc9aee",
+      "evidence": [
+        "PR #115 — WP-003 + WP-004 shell corporativo e home governada (merged)",
+        "Commit workflow suite at 96b1441d — SUCCESS"
+      ]
+    },
+    "WP-004": {
+      "name": "Home / Dashboard / Shell corporativo",
+      "state": "CERTIFIED",
+      "certified_sha": "96b1441d26e1bfd93ef8f83f3183deb190bc9aee",
+      "evidence": [
+        "PR #115 — WP-003 + WP-004 shell corporativo e home governada (merged)",
+        "V1 Frontend Next.js Setup Gate run 34182536846 — SUCCESS"
+      ]
+    },
+    "WP-005": {
+      "name": "PDV Touch",
+      "state": "CERTIFIED",
+      "historical_pending": [
+        "settlement end-to-end PDV/pagamentos"
+      ],
+      "certified_sha": "01b64dca8a007bb9bc7155f12c8166c04f478263",
+      "evidence": [
+        "PR #102 — canonical PDV HTTP foundation (merged)",
+        "PR #103 — canonical PDV touchscreen Web (merged)",
+        "PR #113 — master integrated restaurant journey smoke (merged)",
+        "V1 Wave1 PDV Browser Gate run 34077212101 — SUCCESS"
+      ]
+    },
+    "WP-006": {
+      "name": "Salao / Mesas / Comandas",
+      "state": "CERTIFIED",
+      "certified_sha": "27f103d7385b3478dec1d80cad4c9f7f1b2226b6",
+      "evidence": [
+        "PR #106 — Salão HTTP foundation (merged)",
+        "PR #107 — Salão floor map/comandas Web (merged)",
+        "PR #112 — canonical orders from table (merged)",
+        "V1 Salao HTTP Foundation Gate run 34077212156 — SUCCESS"
+      ]
+    },
+    "WP-007": {
+      "name": "KDS / Cozinha",
+      "state": "CERTIFIED",
+      "historical_pending": [
+        "roteamento/integracao KDS",
+        "Pedido -> Producao/KDS onde houver lacuna comprovada"
+      ],
+      "certified_sha": "c29359931d1397b86c0d6c2d91523cb5a04950c8",
+      "evidence": [
+        "PR #104 — KDS HTTP contract foundation (merged)",
+        "PR #105 — canonical KDS Web workspace (merged)",
+        "PR #113 — master integrated restaurant journey smoke (merged)",
+        "PR10 KDS Gates run 34055996682 — SUCCESS"
+      ]
+    },
+    "WP-008": {
+      "name": "Atendimento do Garcom mobile/tablet",
+      "state": "CERTIFIED",
+      "certified_sha": "74530f13c8bd9c95b61b9b9da4192094a230c2d3",
+      "implementation_sha": "3c59dff6e4460d743f50214c6e79cdc886a2fdd5",
+      "evidence": [
+        "WP008_IMPLEMENTATION_EVIDENCE.md",
+        "Web Parity WP008 Implementation Gates run 35352705882 — SUCCESS",
+        "Kordena V1 Non-Fiscal Master Gate run 35380670582 — SUCCESS (independent WP008 certification matrix + full regression)"
+      ]
+    },
+    "WP-009": {
+      "name": "Central de Pedidos omnichannel",
+      "state": "CERTIFIED",
+      "historical_pending": [
+        "mensagens/integracoes omnichannel"
+      ],
+      "certified_sha": "f88f127a69b548d7b3b53cc9abe306ed7a2d2700",
+      "evidence": [
+        "PR #116 — WP-009 Central de Pedidos omnichannel (merged)",
+        "V1 Wave2 KDS run 34236945077 — SUCCESS",
+        "V1 Frontend Next.js Setup Gate run 34236945153 — SUCCESS"
+      ]
+    },
+    "WP-010": {
+      "name": "Delivery Proprio",
+      "state": "CERTIFIED",
+      "certified_sha": "66a5dcd3d97e860709a373bb99c384ae28400e2f",
+      "evidence": [
+        "Web Parity Phase 1 WP010-WP011 Certification"
+      ]
+    },
+    "WP-011": {
+      "name": "Expedicao / Entrega",
+      "state": "CERTIFIED",
+      "certified_sha": "66a5dcd3d97e860709a373bb99c384ae28400e2f",
+      "evidence": [
+        "Web Parity Phase 1 WP010-WP011 Certification"
+      ]
+    },
+    "WP-012": {
+      "name": "Marketplaces / pedidos externos",
+      "state": "CERTIFIED",
+      "certified_sha": "e4ce2c1e2e315811425535c5ca74b5a56570050b",
+      "evidence": [
+        "WP012_MARKETPLACES_WEB_CERTIFICACAO.md",
+        "Web Parity WP012 Marketplaces run 35369209616 — SUCCESS"
+      ],
+      "reason": "certificacao tecnica interna da ponte Web concluida; homologacao externa de providers permanece condicionada a evidencia real e nao e declarada por este estado"
+    },
+    "WP-013": {
+      "name": "Catalogo administrativo basico",
+      "state": "CERTIFIED",
+      "certified_sha": "66a5dcd3d97e860709a373bb99c384ae28400e2f",
+      "evidence": [
+        "Web Parity Phase 1 WP013-WP014 Certification"
+      ]
+    },
+    "WP-014": {
+      "name": "Engenharia de Cardapio + Ficha Tecnica",
+      "state": "CERTIFIED",
+      "certified_sha": "66a5dcd3d97e860709a373bb99c384ae28400e2f",
+      "evidence": [
+        "Web Parity Phase 1 WP013-WP014 Certification"
+      ]
+    },
+    "WP-015": {
+      "name": "Estoque / Almoxarifado / Validades",
+      "state": "CERTIFIED",
+      "certified_sha": "66a5dcd3d97e860709a373bb99c384ae28400e2f",
+      "evidence": [
+        "Web Parity Phase 1 WP015 Certification"
+      ]
+    },
+    "WP-016": {
+      "name": "CRM / Clientes / Cashback",
+      "state": "CERTIFIED",
+      "certified_sha": "66a5dcd3d97e860709a373bb99c384ae28400e2f",
+      "evidence": [
+        "Web Parity Phase 1 WP016 Certification"
+      ]
+    },
+    "WP-017": {
+      "name": "Marketing / Resgate / Campanhas",
+      "state": "CERTIFIED",
+      "certified_sha": "66a5dcd3d97e860709a373bb99c384ae28400e2f",
+      "evidence": [
+        "Web Parity Phase 1 WP017 Certification"
+      ]
+    },
+    "WP-018": {
+      "name": "Dashboard Financeiro / Indicadores",
+      "state": "CERTIFIED",
+      "certified_sha": "b7a64b2dc5a47763a86fded903a15fd2be2cc23d",
+      "evidence": [
+        "WP018_DASHBOARD_FINANCEIRO_CERTIFICACAO.md",
+        "Web Parity WP018 Certification run 35354337053"
+      ]
+    },
+    "WP-019": {
+      "name": "AI FinOps",
+      "state": "CERTIFIED",
+      "certified_sha": "66a5dcd3d97e860709a373bb99c384ae28400e2f",
+      "evidence": [
+        "WP019_AI_FINOPS_CERTIFICACAO.md",
+        "WP019_WP022_AUDITORIA_CONSOLIDADA.md"
+      ]
+    },
+    "WP-020": {
+      "name": "Area Proprietario / Backoffice",
+      "state": "CERTIFIED",
+      "certified_sha": "66a5dcd3d97e860709a373bb99c384ae28400e2f",
+      "evidence": [
+        "Web Parity WP020 Certification"
+      ]
+    },
+    "WP-021": {
+      "name": "Step-up administrativo",
+      "state": "CERTIFIED",
+      "certified_sha": "66a5dcd3d97e860709a373bb99c384ae28400e2f",
+      "evidence": [
+        "Web Parity WP021 Step-Up Revalidation"
+      ]
+    },
+    "WP-022": {
+      "name": "Empresa / Matriz / Filiais / Unidades",
+      "state": "CERTIFIED",
+      "certified_sha": "66a5dcd3d97e860709a373bb99c384ae28400e2f",
+      "evidence": [
+        "Web Parity WP022 Certification"
+      ]
+    },
+    "WP-023": {
+      "name": "Usuarios / Papeis / Permissoes",
+      "state": "CERTIFIED",
+      "evidence": [
+        "KORDENA_WEB_PARITY_V1_CHECKLIST_OPERACIONAL.md",
+        "Kordena V1 Non-Fiscal Master Gate run 35380670582 — SUCCESS"
+      ],
+      "certified_sha": "74530f13c8bd9c95b61b9b9da4192094a230c2d3"
+    },
+    "WP-024": {
+      "name": "Parametros Financeiros",
+      "state": "CERTIFIED",
+      "evidence": [
+        "KORDENA_WEB_PARITY_V1_CHECKLIST_OPERACIONAL.md",
+        "Kordena V1 Non-Fiscal Master Gate run 35380670582 — SUCCESS"
+      ],
+      "certified_sha": "74530f13c8bd9c95b61b9b9da4192094a230c2d3"
+    },
+    "WP-025": {
+      "name": "Impressao Operacional",
+      "state": "CERTIFIED",
+      "evidence": [
+        "KORDENA_WEB_PARITY_V1_CHECKLIST_OPERACIONAL.md",
+        "Kordena V1 Non-Fiscal Master Gate run 35380670582 — SUCCESS"
+      ],
+      "certified_sha": "74530f13c8bd9c95b61b9b9da4192094a230c2d3"
+    },
+    "WP-026": {
+      "name": "Integracoes e Credenciais",
+      "state": "CERTIFIED",
+      "evidence": [
+        "KORDENA_WEB_PARITY_V1_CHECKLIST_OPERACIONAL.md",
+        "Kordena V1 Non-Fiscal Master Gate run 35380670582 — SUCCESS"
+      ],
+      "certified_sha": "74530f13c8bd9c95b61b9b9da4192094a230c2d3"
+    },
+    "WP-027": {
+      "name": "Assistente de Atendimento",
+      "state": "CERTIFIED",
+      "evidence": [
+        "KORDENA_WEB_PARITY_V1_CHECKLIST_OPERACIONAL.md",
+        "Kordena V1 Non-Fiscal Master Gate run 35380670582 — SUCCESS"
+      ],
+      "certified_sha": "74530f13c8bd9c95b61b9b9da4192094a230c2d3"
+    },
+    "WP-028": {
+      "name": "Gerente IA",
+      "state": "CERTIFIED",
+      "certified_sha": "66a5dcd3d97e860709a373bb99c384ae28400e2f",
+      "evidence": [
+        "Web Parity WP028-WP030 Gate"
+      ]
+    },
+    "WP-029": {
+      "name": "Pagamentos / PIX / Provedores",
+      "state": "CERTIFIED",
+      "certified_sha": "66a5dcd3d97e860709a373bb99c384ae28400e2f",
+      "evidence": [
+        "Web Parity WP028-WP030 Gate"
+      ],
+      "historical_pending": [
+        "settlement end-to-end Caixa/PDV e pagamentos"
+      ]
+    },
+    "WP-030": {
+      "name": "Cardapio Digital publico / Autosservico",
+      "state": "CERTIFIED",
+      "certified_sha": "66a5dcd3d97e860709a373bb99c384ae28400e2f",
+      "evidence": [
+        "Web Parity WP028-WP030 Gate"
+      ]
+    },
+    "WP-031": {
+      "name": "Fiscal / NFC-e / SAT",
+      "state": "PENDING",
+      "reason": "obrigatorio para V1.0; Fiscal V1 baseline b336def47ad4f5188307102203f4e04b98406014 localizado e vendorizado; WP-031A a WP-031D implementados/certificados; Audit & Fix Pre-WP-031E em hardening; WP-031E permanece PENDING/NAO INICIADO e so pode iniciar apos certificacao do hardening e autorizacao explicita"
+    },
+    "WP-032": {
+      "name": "Notificacoes Internas",
+      "state": "CERTIFIED",
+      "certified_sha": "c94d17ed85183c51ace803b5a97ecda84cbf447f",
+      "evidence": [
+        "WP032_NOTIFICACOES_INTERNAS_WEB_CERTIFICACAO.md",
+        "Web Parity WP032 Notificacoes run 35373830703 — SUCCESS"
+      ],
+      "reason": "superficie Web/HTTP administrativa certificada sobre o diretorio canonico cifrado; sem inbox/feed/badge paralelo"
+    },
+    "WP-033": {
+      "name": "Auditoria / Historico administrativo",
+      "state": "CERTIFIED",
+      "certified_sha": "01d5f7695cd72ab67cb7107c13c9e004de74f3d1",
+      "evidence": [
+        "WP033_AUDITORIA_WEB_CERTIFICACAO.md",
+        "Web Parity WP033 Auditoria run 35376561635 — SUCCESS"
+      ],
+      "reason": "consulta Web read-only certificada sobre RepositorioAuditoriaSQLAlchemy; tenant/unit scoped e payload minimizado"
+    }
+  }
+}

@@ -1,0 +1,57 @@
+name: WP-031D Fiscal Profiles
+
+on:
+  pull_request:
+    paths:
+      - 'infra/fiscal/perfis_sqlalchemy.py'
+      - 'infra/fiscal/__init__.py'
+      - 'tests/integration/fiscal/test_wp031d_profiles.py'
+      - '.github/workflows/wp031d-fiscal-profiles.yml'
+  push:
+    branches:
+      - feat/web-parity-v1-total-original-migration
+    paths:
+      - 'infra/fiscal/perfis_sqlalchemy.py'
+      - 'infra/fiscal/__init__.py'
+      - 'tests/integration/fiscal/test_wp031d_profiles.py'
+      - '.github/workflows/wp031d-fiscal-profiles.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fiscal-profiles:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Verify frozen Fiscal V1 baseline
+        run: python scripts/validate_wp031_vendor_baseline.py
+      - name: Compile
+        run: |
+          python -m py_compile             infra/fiscal/perfis_sqlalchemy.py             tests/integration/fiscal/test_wp031d_profiles.py
+      - name: Ruff
+        run: |
+          ruff check             infra/fiscal/perfis_sqlalchemy.py             infra/fiscal/__init__.py             tests/integration/fiscal/test_wp031d_profiles.py
+      - name: Mypy
+        run: |
+          mypy infra/fiscal/perfis_sqlalchemy.py
+      - name: WP-031D targeted tests
+        run: |
+          pytest -q             tests/integration/fiscal/test_wp031d_profiles.py             tests/integration/fiscal/test_wp031c_outbound_bridge.py             tests/integration/fiscal/test_wp031b_persistence.py
+      - name: Full Python regression
+        run: pytest -q
+      - name: Diff whitespace gate
+        run: git diff --check HEAD~1..HEAD

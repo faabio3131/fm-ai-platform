@@ -1,0 +1,57 @@
+name: WP-031C Outbound Fiscal Bridge
+
+on:
+  pull_request:
+    paths:
+      - 'application/fiscal_outbound.py'
+      - 'core/pagamentos/servicos.py'
+      - 'tests/integration/fiscal/test_wp031c_outbound_bridge.py'
+      - '.github/workflows/wp031c-outbound-fiscal-bridge.yml'
+  push:
+    branches:
+      - feat/web-parity-v1-total-original-migration
+    paths:
+      - 'application/fiscal_outbound.py'
+      - 'core/pagamentos/servicos.py'
+      - 'tests/integration/fiscal/test_wp031c_outbound_bridge.py'
+      - '.github/workflows/wp031c-outbound-fiscal-bridge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  outbound-bridge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Verify frozen Fiscal V1 baseline
+        run: python scripts/validate_wp031_vendor_baseline.py
+      - name: Compile
+        run: |
+          python -m py_compile             application/fiscal_outbound.py             core/pagamentos/servicos.py             tests/integration/fiscal/test_wp031c_outbound_bridge.py
+      - name: Ruff
+        run: |
+          ruff check             application/fiscal_outbound.py             core/pagamentos/servicos.py             tests/integration/fiscal/test_wp031c_outbound_bridge.py
+      - name: Mypy
+        run: |
+          mypy application/fiscal_outbound.py core/pagamentos/servicos.py
+      - name: WP-031C targeted tests
+        run: |
+          pytest -q             tests/integration/fiscal/test_wp031c_outbound_bridge.py             tests/integration/payments/test_gate_a_finance_stock.py
+      - name: Full Python regression
+        run: pytest -q
+      - name: Diff whitespace gate
+        run: git diff --check HEAD~1..HEAD

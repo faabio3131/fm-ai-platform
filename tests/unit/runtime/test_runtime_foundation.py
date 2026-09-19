@@ -68,6 +68,9 @@ _EXPECTED_MIGRATIONS = (
     "0038_delivery_channel_state_v1",
     "0039_crm_cashback_ledger_v1",
     "0040_product_active_flag_v1",
+    "0041_cardapio_publico_identity_v1",
+    "0042_marketplace_orders_web_v1",
+    "0043_fiscal_persistence_foundation_v1",
 )
 
 

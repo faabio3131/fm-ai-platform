@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import base64
+import io
+from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
+from PIL import Image
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -12,6 +15,7 @@ from core.seguranca.permissoes import Papel
 from http_api.app import build_http_app
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 from migrations.runner import run_migrations
+from test_mode import mock_generate_content
 
 SESSION_SECRET = "catalogo-http-session-secret-0123456789-abcdef"
 SENHA = "Senha-Segura-Catalogo-123"
@@ -59,6 +63,34 @@ def _infra(monkeypatch=None):
                     (1, '71', 'X-Bacon', 'Lanches', 30.00, TRUE),
                     (2, '71', 'Suco', 'Bebidas', 12.00, FALSE),
                     (3, '72', 'Pizza', 'Pizzas', 55.00, TRUE)
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO insumos
+                    (id, loja_id, nome, unidade_medida, saldo_atual,
+                     estoque_minimo, custo_unitario, data_validade,
+                     dias_alerta_vencimento)
+                VALUES
+                    (11, 71, 'Carne', 'kg', 10.0, 2.0, 30.0,
+                     '2026-12-31', 15),
+                    (12, 71, 'Pão', 'un', 50.0, 10.0, 1.5,
+                     '2026-10-01', 10),
+                    (21, 72, 'Queijo', 'kg', 5.0, 1.0, 40.0,
+                     '2026-11-15', 15)
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO fichas_tecnicas
+                    (id, produto_id, insumo_id, quantidade_utilizada)
+                VALUES
+                    (31, 1, 11, 0.18),
+                    (32, 1, 12, 1.0)
                 """
             )
         )
@@ -273,3 +305,291 @@ def test_catalogo_rejeita_ausencia_de_credenciais() -> None:
 
     assert response.status_code == 401
     assert response.json() == {"erro": "seguranca.credenciais_invalidas"}
+
+
+def test_catalogo_expoe_insumos_e_ficha_somente_da_unidade() -> None:
+    _, _, client = _infra()
+
+    insumos = client.get("/v1/catalogo/insumos-ficha", headers=_headers())
+    ficha = client.get("/v1/catalogo/produtos/1/ficha", headers=_headers())
+
+    assert insumos.status_code == 200
+    assert [item["id"] for item in insumos.json()] == ["11", "12"]
+    assert all(item["id"] != "21" for item in insumos.json())
+    assert ficha.status_code == 200
+    assert ficha.json()["produto"]["id"] == "1"
+    assert [item["insumo_id"] for item in ficha.json()["itens"]] == ["11", "12"]
+
+
+def test_catalogo_cria_prato_e_ficha_atomicamente_e_idempotente() -> None:
+    engine, _, client = _infra()
+    headers = _headers(key="catalogo-ficha-idempotente-001")
+    payload = {
+        "nome": "Burger com ficha",
+        "categoria": "Lanches",
+        "preco": 42.0,
+        "custo_total_cmv": 6.9,
+        "margem_exibicao": "83.6%",
+        "descricao_bruta": "Carne e pão",
+        "ativo": True,
+        "itens_ficha": [
+            {"insumo_id": 11, "quantidade": 0.18},
+            {"insumo_id": 12, "quantidade": 1.0},
+        ],
+    }
+
+    primeiro = client.post(
+        "/v1/catalogo/pratos-com-ficha",
+        headers=headers,
+        json=payload,
+    )
+    replay = client.post(
+        "/v1/catalogo/pratos-com-ficha",
+        headers=headers,
+        json=payload,
+    )
+
+    assert primeiro.status_code == 201
+    assert replay.status_code == 200
+    assert replay.json() == primeiro.json()
+
+    produto_id = int(primeiro.json()["id"])
+    ficha = client.get(
+        f"/v1/catalogo/produtos/{produto_id}/ficha",
+        headers=_headers(),
+    )
+    assert ficha.status_code == 200
+    assert len(ficha.json()["itens"]) == 2
+
+    with engine.begin() as conn:
+        total_produtos = conn.execute(
+            text("SELECT COUNT(*) FROM produtos WHERE nome = 'Burger com ficha'")
+        ).scalar_one()
+        total_fichas = conn.execute(
+            text(
+                "SELECT COUNT(*) FROM fichas_tecnicas "
+                "WHERE produto_id = :produto_id"
+            ),
+            {"produto_id": produto_id},
+        ).scalar_one()
+    assert int(total_produtos) == 1
+    assert int(total_fichas) == 2
+
+
+def test_catalogo_importa_cardapio_gemini_por_texto_no_escopo(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "http_api.catalogo.generate_content",
+        mock_generate_content,
+    )
+    engine, _, client = _infra(monkeypatch)
+
+    response = client.post(
+        "/v1/catalogo/importacoes-gemini",
+        headers=_headers(),
+        json={"texto_cardapio": "Burger IA Teste 31,90"},
+    )
+
+    assert response.status_code == 201
+    assert response.json() == {"qtd_cadastrados": 2}
+    with engine.begin() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT nome, loja_id, preco_venda, custo_total_cmv "
+                "FROM produtos WHERE nome LIKE '%IA Teste' ORDER BY nome"
+            )
+        ).all()
+    assert [(row.nome, row.loja_id) for row in rows] == [
+        ("Batata IA Teste", "71"),
+        ("Burger IA Teste", "71"),
+    ]
+    assert float(rows[0].preco_venda) == 18.5
+    assert float(rows[0].custo_total_cmv) == 5.92
+    assert float(rows[1].preco_venda) == 31.9
+    assert float(rows[1].custo_total_cmv) == 10.21
+
+
+def test_catalogo_importacao_gemini_exige_entrada_e_permissao() -> None:
+    _, _, client = _infra()
+
+    sem_entrada = client.post(
+        "/v1/catalogo/importacoes-gemini",
+        headers=_headers(),
+        json={"texto_cardapio": "   "},
+    )
+    sem_credenciais = client.post(
+        "/v1/catalogo/importacoes-gemini",
+        json={"texto_cardapio": "Burger"},
+    )
+
+    assert sem_entrada.status_code == 400
+    assert sem_entrada.json() == {
+        "erro": "catalogo.importacao_gemini_entrada_invalida"
+    }
+    assert sem_credenciais.status_code == 401
+    assert sem_credenciais.json() == {"erro": "seguranca.credenciais_invalidas"}
+
+
+def test_catalogo_rejeita_ficha_com_insumo_de_outra_unidade_e_faz_rollback() -> None:
+    engine, _, client = _infra()
+
+    response = client.post(
+        "/v1/catalogo/pratos-com-ficha",
+        headers=_headers(key="catalogo-ficha-cross-unit"),
+        json={
+            "nome": "Prato inválido",
+            "categoria": "Teste",
+            "preco": 10.0,
+            "custo_total_cmv": 1.0,
+            "margem_exibicao": "90%",
+            "descricao_bruta": "",
+            "ativo": True,
+            "itens_ficha": [{"insumo_id": 21, "quantidade": 1.0}],
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {"erro": "catalogo.escopo_indisponivel"}
+    with engine.begin() as conn:
+        total = conn.execute(
+            text("SELECT COUNT(*) FROM produtos WHERE nome = 'Prato inválido'")
+        ).scalar_one()
+    assert int(total) == 0
+
+
+def test_estoque_lista_cria_aplica_leitura_e_exclui_no_escopo() -> None:
+    _, _, client = _infra()
+
+    inicial = client.get("/v1/estoque/insumos", headers=_headers())
+    criado = client.post(
+        "/v1/estoque/insumos",
+        headers=_headers(),
+        json={
+            "nome": "Tomate",
+            "unidade_medida": "kg",
+            "saldo_atual": 4.0,
+            "estoque_minimo": 1.0,
+            "custo_unitario": 8.0,
+            "data_fabricacao": None,
+            "data_validade": "2026-10-20",
+            "dias_alerta_vencimento": 15,
+        },
+    )
+    leitura = client.post(
+        "/v1/estoque/leituras",
+        headers=_headers(),
+        json={
+            "itens": [
+                {
+                    "nome": "Tomate",
+                    "quantidade": 2.0,
+                    "unidade": "kg",
+                    "data_validade": "2026-10-25",
+                }
+            ]
+        },
+    )
+    removido = client.delete(
+        f"/v1/estoque/insumos/{criado.json()['id']}",
+        headers=_headers(),
+    )
+
+    assert inicial.status_code == 200
+    assert [item["id"] for item in inicial.json()["itens"]] == ["11", "12"]
+    assert criado.status_code == 201
+    assert criado.json()["saldo_atual"] == 4.0
+    assert leitura.status_code == 200
+    tomate = next(item for item in leitura.json()["itens"] if item["nome"] == "Tomate")
+    assert tomate["saldo_atual"] == 6.0
+    assert removido.status_code == 200
+    assert removido.json() == {"ok": True}
+
+
+def test_estoque_nao_expoe_insumo_de_outra_unidade() -> None:
+    _, _, client = _infra()
+
+    unidade_a = client.get("/v1/estoque/insumos", headers=_headers())
+    unidade_b = client.get(
+        "/v1/estoque/insumos",
+        headers=_headers(unidade_id=UNIDADE_B),
+    )
+    exclusao_cruzada = client.delete(
+        "/v1/estoque/insumos/21",
+        headers=_headers(),
+    )
+
+    assert all(item["id"] != "21" for item in unidade_a.json()["itens"])
+    assert [item["id"] for item in unidade_b.json()["itens"]] == ["21"]
+    assert exclusao_cruzada.status_code == 404
+    assert exclusao_cruzada.json() == {"erro": "estoque.insumo_nao_encontrado"}
+
+
+def test_estoque_executa_forecasting_e_alertas_pelo_boundary(monkeypatch) -> None:
+    chamadas: list[str] = []
+
+    def gerar(*, contents):
+        chamadas.append(contents)
+        return mock_generate_content(contents=contents)
+
+    monkeypatch.setattr("http_api.estoque.generate_content", gerar)
+    monkeypatch.setattr("http_api.estoque.is_test_mode", lambda: True)
+    engine, _, client = _infra(monkeypatch)
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO contatos_gerenciais "
+                "(id, nome, whatsapp, cargo, receber_alertas_estoque) "
+                "VALUES (91, 'Gestor Estoque', '5511999999999', 'Gerente', 1)"
+            )
+        )
+
+    response = client.post(
+        "/v1/estoque/forecasting-alertas",
+        headers=_headers(),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "mensagem": (
+            "🚀 Análise concluída com sucesso! 1 alertas preditivos "
+            "(Estoque/Validade) disparados para 1 gestores via WhatsApp."
+        )
+    }
+    assert len(chamadas) == 1
+    assert "Você é o assistente de inteligência preditiva" in chamadas[0]
+    assert "- Carne: Saldo Atual = 10.0 kg, Mínimo = 2.0" in chamadas[0]
+    assert "- Pão: Saldo Atual = 50.0 un, Mínimo = 10.0" in chamadas[0]
+
+
+def test_estoque_aplica_leitura_visual_pelo_mesmo_boundary(monkeypatch) -> None:
+    def gerar(*, contents):
+        assert "Você é um auditor de estoque" in contents[0]
+        return SimpleNamespace(
+            text=(
+                '[{"nome":"Carne","unidade":"kg","quantidade":2.0,'
+                '"valor_unitario":30.0,"data_validade":"2026-10-25"}]'
+            )
+        )
+
+    monkeypatch.setattr("http_api.estoque.generate_content", gerar)
+    engine, _, client = _infra(monkeypatch)
+    arquivo = io.BytesIO()
+    Image.new("RGB", (2, 2), "white").save(arquivo, format="PNG")
+
+    response = client.post(
+        "/v1/estoque/leituras-visuais",
+        headers={**_headers(), "Content-Type": "image/png"},
+        content=arquivo.getvalue(),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["processados"] == 1
+    assert response.json()["itens_lidos"][0]["nome"] == "Carne"
+    with engine.begin() as conn:
+        row = conn.execute(
+            text(
+                "SELECT saldo_atual, data_validade FROM insumos "
+                "WHERE loja_id = 71 AND nome = 'Carne'"
+            )
+        ).one()
+    assert float(row.saldo_atual) == 12.0
+    assert str(row.data_validade).startswith("2026-10-25")

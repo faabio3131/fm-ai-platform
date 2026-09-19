@@ -1,0 +1,79 @@
+name: Web Parity WP008 Implementation Gates
+
+on:
+  push:
+    branches:
+      - feat/web-parity-v1-total-original-migration
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wp008-implementation:
+    name: WP008 implementation evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+
+      - name: Compile WP008 surface
+        run: |
+          python -m py_compile             application/garcom_fechamento.py             application/garcom_transacoes.py             application/salao_transacoes.py             http_api/garcom_web.py             http_api/frontend_app.py
+
+      - name: Ruff WP008
+        run: |
+          ruff check             application/garcom_fechamento.py             application/garcom_transacoes.py             application/salao_transacoes.py             http_api/garcom_web.py             tests/unit/garcom/test_wp008_fechamento.py             tests/integration/garcom
+
+      - name: Mypy WP008
+        run: |
+          mypy             application/garcom_fechamento.py             application/garcom_transacoes.py             application/salao_transacoes.py             http_api/garcom_web.py             http_api/frontend_app.py
+
+      - name: WP008 targeted matrix
+        run: |
+          pytest -q             tests/unit/garcom/test_wp008_fechamento.py             tests/unit/garcom             tests/integration/garcom             tests/integration/salao             tests/api/test_auth_http_contract.py             tests/api/test_operational_session_sso_http_contract.py             tests/api/test_salao_http_contract.py             tests/api/test_salao_pedido_http_contract.py             tests/api/test_pdv_http_contract.py
+
+      - name: Full Python regression
+        run: pytest -q
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: ESLint WP008
+        working-directory: web
+        run: |
+          npx eslint             src/app/garcom/page.tsx             src/features/garcom/components/GarcomWorkspace.tsx             src/features/garcom/services/garcom-api.ts             src/features/pdv/components/CouvertArtisticoPanel.tsx             src/features/pdv/components/PDVUnifiedWorkspace.tsx             src/features/shell/module-registry.ts             src/features/shell/components/DashboardHome.tsx             src/features/shell/components/UnifiedAppShell.tsx
+
+      - name: TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Web related tests
+        working-directory: web
+        run: node --test tests/backoffice-navigation.test.mjs
+
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+
+      - name: Diff whitespace gate
+        run: git diff --check HEAD~1..HEAD

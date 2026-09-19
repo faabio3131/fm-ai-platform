@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CouvertArtisticoPanel } from "@/features/pdv/components/CouvertArtisticoPanel";
 import { CheckoutModal } from "@/features/pdv/components/CheckoutModal";
 import { OrderCart } from "@/features/pdv/components/OrderCart";
 import { ProductCatalog } from "@/features/pdv/components/ProductCatalog";
@@ -81,8 +82,8 @@ export function PDVUnifiedWorkspace() {
   }
 
   return (
-    <main className="h-screen overflow-hidden bg-slate-100 p-3 text-foreground sm:p-4 lg:p-5">
-      <div className="mx-auto flex h-full max-w-[1800px] flex-col gap-3">
+    <main className="min-h-screen bg-slate-100 p-3 text-foreground sm:p-4 lg:p-5">
+      <div className="mx-auto flex min-h-[calc(100vh-2rem)] max-w-[1800px] flex-col gap-3">
         <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 rounded-2xl border bg-white px-4 py-3 shadow-sm">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-white">
@@ -120,6 +121,8 @@ export function PDVUnifiedWorkspace() {
             {error}
           </div>
         ) : null}
+
+        <CouvertArtisticoPanel />
 
         <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_390px] xl:grid-cols-[minmax(0,1fr)_430px]">
           <div className="min-h-0 rounded-2xl border bg-white p-3 shadow-sm sm:p-4">

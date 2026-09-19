@@ -58,6 +58,7 @@ from migrations.ai_finops_read_model_v1 import (
 from migrations.assistente_channel_runtime_v1 import (
     upgrade_assistente_channel_runtime_v1,
 )
+from migrations.cardapio_publico_identity_v1 import upgrade_cardapio_publico_identity_v1
 from migrations.client_payment_identity_v1 import upgrade_client_payment_identity_v1
 from migrations.crm_cashback_ledger_v1 import upgrade_crm_cashback_ledger_v1
 from migrations.crm_cliente_legado_mapping_v1 import (
@@ -75,6 +76,12 @@ from migrations.delivery_channel_state_v1 import (
     upgrade_delivery_channel_state_v1,
 )
 from migrations.delivery_policy_v1 import upgrade_delivery_policy_v1
+from migrations.fiscal_persistence_foundation_v1 import (
+    upgrade_fiscal_persistence_foundation_v1,
+)
+from migrations.fiscal_profile_environment_partition_v1 import (
+    upgrade_fiscal_profile_environment_partition_v1,
+)
 from migrations.history_guard import MigrationHistoryError, assert_applied_history
 from migrations.integration_secret_vault_v1 import upgrade_integration_secret_vault_v1
 from migrations.internal_notification_recipients_v1 import (
@@ -90,6 +97,10 @@ from migrations.legacy_schema_reconciliation_v1 import reconcile_legacy_schema_v
 from migrations.legacy_schema_upgrade_v1 import upgrade_legacy_schema_v1
 from migrations.legacy_store_baseline_v1 import upgrade_legacy_store_baseline_v1
 from migrations.manifest import assert_migration_manifest, migration_fingerprint
+from migrations.marketplace_orders_web_v1 import (
+    revert_marketplace_orders_web_v1,
+    upgrade_marketplace_orders_web_v1,
+)
 from migrations.migration_history_integrity_v1 import (
     upgrade_migration_history_integrity_v1,
 )
@@ -285,6 +296,20 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     ),
     Migration("0039_crm_cashback_ledger_v1", upgrade_crm_cashback_ledger_v1),
     Migration("0040_product_active_flag_v1", upgrade_product_active_flag_v1),
+    Migration("0041_cardapio_publico_identity_v1", upgrade_cardapio_publico_identity_v1),
+    Migration(
+        "0042_marketplace_orders_web_v1",
+        upgrade_marketplace_orders_web_v1,
+        revert_marketplace_orders_web_v1,
+    ),
+    Migration(
+        "0043_fiscal_persistence_foundation_v1",
+        upgrade_fiscal_persistence_foundation_v1,
+    ),
+    Migration(
+        "0044_fiscal_profile_environment_partition_v1",
+        upgrade_fiscal_profile_environment_partition_v1,
+    ),
 )
 
 

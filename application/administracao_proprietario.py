@@ -525,6 +525,8 @@ class AplicacaoAdministracaoProprietarioV1:
             }
             if not unidades or not unidades <= validas:
                 raise PermissionError("usuario_unidades_fora_do_tenant")
+            if unidade_padrao_id not in unidades:
+                raise PermissionError("unidade_padrao_fora_das_permitidas")
             identidade = RepositorioIdentidadesSQLAlchemy(session).criar_usuario(
                 email=email,
                 password=password,
@@ -582,6 +584,8 @@ class AplicacaoAdministracaoProprietarioV1:
             }
             if not unidades or not unidades <= validas:
                 raise PermissionError("usuario_unidades_fora_do_tenant")
+            if unidade_padrao_id not in unidades:
+                raise PermissionError("unidade_padrao_fora_das_permitidas")
             repo = RepositorioIdentidadesSQLAlchemy(session)
             anterior = repo.obter_por_id(usuario_id=usuario_id)
             if anterior is None or anterior.tenant_id != contexto.tenant_id:

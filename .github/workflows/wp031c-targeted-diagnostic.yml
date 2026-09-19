@@ -1,0 +1,37 @@
+name: WP-031C Targeted Test Diagnostic
+
+# Manual diagnostic only; this workflow is not a certification gate.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  targeted-diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Capture targeted test failure
+        shell: bash
+        run: |
+          set +e
+          pytest -q             tests/integration/fiscal/test_wp031c_outbound_bridge.py             tests/integration/payments/test_gate_a_finance_stock.py             --maxfail=1 > wp031c-targeted.txt 2>&1
+          code=$?
+          echo "exit_code=$code" >> wp031c-targeted.txt
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wp031c-targeted-diagnostic
+          path: wp031c-targeted.txt
+          if-no-files-found: error

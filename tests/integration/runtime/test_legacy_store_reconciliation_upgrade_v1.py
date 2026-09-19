@@ -38,6 +38,9 @@ _V0037 = "0037_pdv_reconciliation_strategy_width_v1"
 _V0038 = "0038_delivery_channel_state_v1"
 _V0039 = "0039_crm_cashback_ledger_v1"
 _V0040 = "0040_product_active_flag_v1"
+_V0041 = "0041_cardapio_publico_identity_v1"
+_V0042 = "0042_marketplace_orders_web_v1"
+_V0043 = "0043_fiscal_persistence_foundation_v1"
 _TENANT = "tenant-reconciliado"
 _UNIDADE = "unidade-reconciliada"
 _LOJA = 71
@@ -236,6 +239,9 @@ def test_reconciliacao_cria_loja_mapping_atomicamente_e_retomada_chega_a_0028(
         _V0038,
         _V0039,
         _V0040,
+        _V0041,
+        _V0042,
+        _V0043,
     )
     assert run_migrations(engine) == ()
 

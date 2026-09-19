@@ -1,0 +1,112 @@
+name: Web Parity Phase 1 WP015 Certification
+
+on:
+  pull_request:
+    branches:
+      - feat/web-parity-v1-wp010-wp011-delivery-entrega
+    paths:
+      - '.github/workflows/web-parity-phase1-wp015-certification.yml'
+      - 'application/legacy_estoque_transacoes.py'
+      - 'application/legacy_estoque_forecasting.py'
+      - 'application/legacy_estoque_leitura_visual.py'
+      - 'http_api/estoque.py'
+      - 'web/src/app/admin/estoque/**'
+      - 'web/src/features/backoffice/estoque/**'
+      - 'tests/api/test_estoque_http_contract.py'
+      - 'tests/contract/test_web_estoque_wp015.py'
+      - 'tests/unit/test_legacy_estoque_leitura_visual.py'
+      - 'docs/web-parity/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wp015-certification:
+    name: Estoque + Validades integrated certification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+
+      - name: Compile WP015 canonical surface
+        run: |
+          python -m py_compile \
+            application/legacy_estoque_transacoes.py \
+            application/legacy_estoque_forecasting.py \
+            application/legacy_estoque_leitura_visual.py \
+            http_api/estoque.py
+
+      - name: Ruff WP015
+        run: |
+          ruff check \
+            application/legacy_estoque_transacoes.py \
+            application/legacy_estoque_forecasting.py \
+            application/legacy_estoque_leitura_visual.py \
+            http_api/estoque.py \
+            tests/api/test_estoque_http_contract.py \
+            tests/contract/test_web_estoque_wp015.py \
+            tests/unit/test_legacy_estoque_leitura_visual.py
+
+      - name: Mypy WP015
+        run: |
+          mypy \
+            application/legacy_estoque_transacoes.py \
+            application/legacy_estoque_forecasting.py \
+            application/legacy_estoque_leitura_visual.py \
+            http_api/estoque.py
+
+      - name: Estoque targeted matrix
+        run: |
+          pytest -q \
+            tests/api/test_estoque_http_contract.py \
+            tests/contract/test_web_estoque_wp015.py \
+            tests/unit/test_legacy_estoque_leitura_visual.py
+
+      - name: Full Python regression
+        run: pytest -q
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: ESLint WP015
+        working-directory: web
+        run: |
+          npx eslint \
+            src/app/admin/estoque/page.tsx \
+            src/features/backoffice/estoque/components/EstoqueWorkspace.tsx \
+            src/features/backoffice/estoque/services/estoque-api.ts
+
+      - name: TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Backoffice navigation test
+        working-directory: web
+        run: node --test tests/backoffice-navigation.test.mjs
+
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+
+      - name: Diff whitespace gate
+        run: git diff --check origin/${{ github.base_ref }}...HEAD

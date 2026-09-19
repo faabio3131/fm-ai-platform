@@ -1,0 +1,106 @@
+name: Web Parity WP021 Step-Up Revalidation
+
+on:
+  pull_request:
+    branches:
+      - feat/web-parity-v1-wp010-wp011-delivery-entrega
+    paths:
+      - '.github/workflows/web-parity-wp021-certification.yml'
+      - 'http_api/auth.py'
+      - 'http_api/admin_backoffice.py'
+      - 'http_api/frontend_app.py'
+      - 'web/src/app/admin/layout.tsx'
+      - 'web/src/features/auth/components/AdminStepUpGuard.tsx'
+      - 'web/src/features/auth/services/auth-api.ts'
+      - 'tests/api/test_auth_admin_stepup_http_contract.py'
+      - 'tests/api/test_admin_backoffice_http_contract.py'
+      - 'docs/web-parity/WP021_STEP_UP_REVALIDACAO.md'
+      - 'docs/web-parity/WP019_WP022_AUDITORIA_CONSOLIDADA.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wp021-revalidation:
+    name: Admin step-up canonical revalidation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+
+      - name: Compile WP021 canonical surface
+        run: |
+          python -m py_compile \
+            http_api/auth.py \
+            http_api/admin_backoffice.py \
+            http_api/frontend_app.py
+
+      - name: Ruff WP021
+        run: |
+          ruff check \
+            http_api/auth.py \
+            http_api/admin_backoffice.py \
+            http_api/frontend_app.py \
+            tests/api/test_auth_admin_stepup_http_contract.py \
+            tests/api/test_admin_backoffice_http_contract.py
+
+      - name: Mypy WP021
+        run: |
+          mypy --follow-imports=silent \
+            http_api/auth.py \
+            http_api/admin_backoffice.py \
+            http_api/frontend_app.py
+
+      - name: WP021 targeted matrix
+        run: |
+          pytest -q \
+            tests/api/test_auth_admin_stepup_http_contract.py \
+            tests/api/test_admin_backoffice_http_contract.py
+
+      - name: Full Python regression
+        run: pytest -q
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: ESLint WP021
+        working-directory: web
+        run: |
+          npx eslint \
+            src/app/admin/layout.tsx \
+            src/features/auth/components/AdminStepUpGuard.tsx \
+            src/features/auth/services/auth-api.ts
+
+      - name: TypeScript
+        working-directory: web
+        run: npx tsc --noEmit --incremental false
+
+      - name: Backoffice navigation regression
+        working-directory: web
+        run: node --test tests/backoffice-navigation.test.mjs
+
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+
+      - name: Diff whitespace gate
+        run: git diff --check origin/${{ github.base_ref }}...HEAD

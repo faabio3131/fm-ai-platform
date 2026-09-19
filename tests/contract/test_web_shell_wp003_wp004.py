@@ -23,9 +23,12 @@ def test_wp003_root_layout_mounts_persistent_shell() -> None:
 
 def test_wp003_auth_guard_is_fail_closed_by_default() -> None:
     guard = _read("web/src/features/auth/components/AuthSessionGuard.tsx")
-    assert 'const PUBLIC_PATHS = ["/login"] as const;' in guard
+    assert 'const PUBLIC_PATHS = ["/login", "/cardapio"] as const;' in guard
     assert "return !PUBLIC_PATHS.some" in guard
     assert "PROTECTED_PREFIXES" not in guard
+    assert '"/admin"' not in guard.partition("const PUBLIC_PATHS =")[2].partition(
+        ";"
+    )[0]
 
 
 def test_wp003_module_registry_governs_current_routes_with_rbac() -> None:

@@ -1,0 +1,36 @@
+name: WP-031D Mypy Diagnostic
+
+# Manual diagnostic only; this workflow is not a certification gate.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mypy-diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install mypy==1.20.2
+      - name: Capture Mypy diagnostics
+        shell: bash
+        run: |
+          set +e
+          mypy infra/fiscal/perfis_sqlalchemy.py > wp031d-mypy.txt 2>&1
+          code=$?
+          echo "exit_code=$code" >> wp031d-mypy.txt
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wp031d-mypy-diagnostic
+          path: wp031d-mypy.txt
+          if-no-files-found: error

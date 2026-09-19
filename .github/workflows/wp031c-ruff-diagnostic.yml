@@ -1,0 +1,36 @@
+name: WP-031C Ruff Diagnostic
+
+# Manual diagnostic only; this workflow is not a certification gate.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ruff-diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install Ruff
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff==0.16.1
+      - name: Capture Ruff diagnostics
+        shell: bash
+        run: |
+          set +e
+          ruff check             application/fiscal_outbound.py             core/pagamentos/servicos.py             tests/integration/fiscal/test_wp031c_outbound_bridge.py             --output-format=full > wp031c-ruff.txt 2>&1
+          code=$?
+          echo "exit_code=$code" >> wp031c-ruff.txt
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wp031c-ruff-diagnostic
+          path: wp031c-ruff.txt
+          if-no-files-found: error

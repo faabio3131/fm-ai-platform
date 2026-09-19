@@ -17,6 +17,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { MarketplaceChannelPanel } from "@/features/orders/components/MarketplaceChannelPanel";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/features/auth/store/auth-store";
 import {
@@ -407,6 +408,8 @@ export function OrdersCenterWorkspace() {
             </Button>
           </div>
         </header>
+
+        <MarketplaceChannelPanel onOrdersChanged={refreshAll} />
 
         <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="grid gap-3 lg:grid-cols-[minmax(220px,1.5fr)_minmax(160px,0.8fr)_minmax(160px,0.8fr)_auto_auto]">

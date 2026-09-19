@@ -1,141 +1,284 @@
-# Kordena V1 - Inventario Mestre de Paridade Web (WEB-PARITY-V1)
+# Kordena V1 - Inventário Mestre de Paridade Web (WEB-PARITY-V1)
 
-**Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`  
-**Data:** 08/09/2026  
-**Versao do inventario:** 1.2 - Onda 2 / WP-009 certificada  
-**Status:** DOCUMENTO MESTRE DE EXECUCAO
+**Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`
+**Data original:** 08/09/2026
+**Reconciliação:** 18/09/2026
+**Versão do inventário:** 3.1 — WP-031A→D + Hardening Pré-WP-031E
+**Status:** DOCUMENTO MESTRE DE EXECUÇÃO
 
-## 1. Regra constitucional deste inventario
-Uma capacidade so pode ser marcada como **MIGRADO** quando a cadeia necessaria estiver comprovada: dominio/core preservado, application/infra utilizavel, contrato HTTP Web adequado, interface Next.js, isolamento tenant/unidade + RBAC/step-up quando aplicavel e teste suficiente. Existir no backend ou ter E2E legado **nao** significa estar migrado para a nova Web.
+## 1. Regra constitucional deste inventário
 
-## 2. Diagnostico executivo
+Uma capacidade só pode ser marcada como **MIGRADO** quando a cadeia necessária estiver comprovada: domínio/core preservado, application/infra utilizável, contrato HTTP Web adequado, interface Next.js, isolamento tenant/unidade + RBAC/step-up quando aplicável e teste suficiente.
+
+Existir no backend, possuir UI candidata ou ter E2E legado **não** significa estar certificado na nova Web. Itens explicitamente marcados como **IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO** não podem ser promovidos apenas por edição documental.
+
+## 2. Diagnóstico executivo reconciliado
+
 - Capacidades inventariadas: **33**.
-- Totalmente migradas: **9** (27.3% das linhas inventariadas, contagem nao ponderada).
-- PARCIAL: **5**.
-- GAP WEB: **0**.
-- GAP HTTP/WEB: **16**.
-- A VERIFICAR: **3**.
-- A rota `/` usa Home/Dashboard comercial real dentro do Shell Corporativo Unificado; o antigo harness tecnico permanece em `/admin/system-health`.
-- A Central de Pedidos omnichannel esta certificada na nova Web em `/pedidos`, com sessao assinada, RBAC, fila unificada, detalhe, financeiro, timeline e mutacao governada.
-- Visual Premium permanece bloqueado ate a paridade funcional Web da V1 atingir 100% das capacidades obrigatorias.
+- Estado canônico atual no ledger: **32 CERTIFIED**, **0 IMPLEMENTED_UNCERTIFIED** e **1 PENDING**.
+- **WP-008** está certificado em `/garcom`; após o gate de implementação no HEAD `9daaacc9ef4754558ad570bd568a316367b9260d`, recebeu certificação independente no `Kordena V1 Non-Fiscal Master Gate` run `35380670582`, HEAD `74530f13c8bd9c95b61b9b9da4192094a230c2d3`.
+- **WP-018** foi certificado em `/admin/dashboard` no SHA `b7a64b2dc5a47763a86fded903a15fd2be2cc23d`.
+- **WP-012**, **WP-032** e **WP-033** estão tecnicamente certificados; o único WP deliberadamente pendente nesta rodada é **WP-031 Fiscal**.
+- **WP-031 Fiscal** está em execução sequencial na PR #118: WP-031A, WP-031B, WP-031C e WP-031D estão implementados/certificados; o Fiscal V1 congelado foi vendorizado e o WP-031E permanece PENDING/NÃO INICIADO. O hardening Pré-WP-031E corrige contratos de persistência e particionamento por ambiente sem reconstruir o motor.
+- GAP HTTP/WEB/PÚBLICO: **0** — WP-030 foi concluído e certificado.
+- A VERIFICAR: **0**.
 
-## 3. O que foi migrado
-- **WP-001 - Login / SSO corporativo**: /login.
-- **WP-002 - Escopo tenant/unidade + troca de unidade**: sessao assinada + seletor no Shell.
-- **WP-003 - Roteamento por perfil e permissao**: navegacao corporativa central filtrada por RBAC.
-- **WP-004 - Home / Dashboard / Shell corporativo**: Shell persistente + dashboard real em `/`.
-- **WP-005 - PDV Touch**: /pdv.
-- **WP-006 - Salao / Mesas / Comandas**: /salao.
-- **WP-007 - KDS / Cozinha**: /kds.
-- **WP-009 - Central de Pedidos omnichannel**: /pedidos.
-- **WP-021 - Step-up administrativo / reautenticacao**: Guard de /admin.
+A rota `/` usa Home/Dashboard comercial real dentro do Shell Corporativo Unificado. A Central de Pedidos está certificada em `/pedidos`. O Cardápio Digital público/autosserviço foi certificado em `/cardapio/{publicId}/{slug}`, com administração da publicação por unidade em `/admin/empresa`.
 
-## 4. Matriz mestre de paridade
+A retaguarda WP-013 a WP-017 está agora formalmente certificada. O WP-031 Fiscal integra oficialmente a Kordena V1 e deve ser concluído em fase própria antes da Arquitetura Visual Premium. A Arquitetura Visual Premium permanece bloqueada até a paridade funcional, a certificação das capacidades obrigatórias e o bloco fiscal da V1 serem encerrados.
 
-| ID | Capacidade | Evidencia backend/legado | HTTP atual | Next.js atual | Status | Proxima acao obrigatoria |
+## 3. Capacidades já migradas/preservadas
+
+- **WP-001 — Login / SSO corporativo**: `/login`.
+- **WP-002 — Escopo tenant/unidade + troca de unidade**: sessão assinada + seletor no Shell.
+- **WP-003 — Roteamento por perfil/permissão**: navegação corporativa central filtrada por RBAC.
+- **WP-004 — Home / Dashboard / Shell corporativo**: Shell persistente + dashboard real em `/`.
+- **WP-005 — PDV Touch**: `/pdv`.
+- **WP-006 — Salão / Mesas / Comandas**: `/salao`.
+- **WP-007 — KDS / Cozinha**: `/kds`.
+- **WP-008 — Atendimento do Garçom mobile/tablet**: `/garcom` — CERTIFIED pelo Master Gate não fiscal.
+- **WP-009 — Central de Pedidos omnichannel**: `/pedidos`.
+- **WP-013 — Catálogo administrativo básico**: `/admin/catalogo`.
+- **WP-014 — Engenharia de Cardápio + Ficha Técnica**: `/admin/catalogo`.
+- **WP-015 — Estoque / Almoxarifado / Validades**: `/admin/estoque`.
+- **WP-016 — CRM / Clientes / Cashback**: `/admin/crm`.
+- **WP-017 — Marketing / Resgate / Campanhas**: `/admin/crm`.
+- **WP-021 — Step-up administrativo / reautenticação**: guard de `/admin`.
+- **WP-023 — Usuários / Papéis / Permissões**: `/admin/usuarios`.
+- **WP-024 — Parâmetros Financeiros**: `/admin/configuracao`.
+- **WP-025 — Impressão Operacional**: `/admin/impressao`.
+- **WP-026 — Integrações e Credenciais**: `/admin/integracoes`.
+- **WP-027 — Assistente de Atendimento**: `/admin/assistente-atendimento`.
+- **WP-028 — Gerente IA**: `/gerente-ia`.
+- **WP-029 — Pagamentos / PIX / Provedores**: `/pagamentos`.
+- **WP-030 — Cardápio Digital público / Autosserviço**: `/cardapio/{publicId}/{slug}` + administração por unidade em `/admin/empresa`.
+
+## 4. Matriz mestre de paridade reconciliada
+
+| ID | Capacidade | Evidência/autoridade | HTTP/Web atual | Next.js atual | Status | Próxima ação obrigatória |
 |---|---|---|---|---|---|---|
-| WP-001 | Login / SSO corporativo | http_api/auth.py; web/src/features/auth | Contrato dedicado e cookie assinado | /login | MIGRADO | Preservar e incluir no Smoke Mestre. |
-| WP-002 | Escopo tenant/unidade + troca de unidade | http_api/auth.py; operational_auth.py; auth feature | Sessao assinada governa tenant/unidade | Seletor/status no Shell | MIGRADO | Preservar em todos os novos modulos e fixtures. |
-| WP-003 | Roteamento por perfil e permissao | Seguranca/RBAC + guards Web + module registry | Sessao e permissoes governam a superficie Web | Shell central filtra navegacao por permissao | MIGRADO | Preservar o registry como fonte unica para novos modulos e testes. |
-| WP-004 | Home / Dashboard / Shell corporativo | UnifiedAppShell + DashboardHome | Health tecnico preservado fora da Home comercial | `/` = dashboard real; Shell persistente nas rotas autenticadas | MIGRADO | Preservar Shell em todos os WPs seguintes; refinamento estetico fica para Visual Premium. |
-| WP-005 | PDV Touch | core/pdv; application; http_api/pdv.py | Router dedicado, sessao Web | /pdv | MIGRADO | Manter; semear dados homologacao e incluir fluxo completo de pagamento. |
-| WP-006 | Salao / Mesas / Comandas | core/salao; application; http_api/salao.py | Router dedicado, sessao Web | /salao | MIGRADO | Manter; semear mesas/comandas e certificar jornada operacional. |
-| WP-007 | KDS / Cozinha | core/kds; application; http_api/kds.py | Router dedicado, sessao Web | /kds | MIGRADO | Manter; semear estacoes/pedidos e certificar estados. |
-| WP-008 | Atendimento do Garcom mobile/tablet | core/garcom; application/garcom_transacoes.py; pages/8_Atendimento_Garcom.py | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar contrato HTTP session-aware e rota /garcom touch-first. |
-| WP-009 | Central de Pedidos omnichannel | core/central_pedidos; application/central_pedidos_transacoes.py; http_api/central_pedidos.py | Router first-class session-aware com leitura, detalhe e comandos idempotentes | /pedidos com fila unificada, detalhe, financeiro, timeline e acoes governadas | MIGRADO | Preservar no Smoke Mestre e integrar os proximos canais sem duplicar regra de negocio. |
-| WP-010 | Delivery Proprio | core/delivery; application/delivery_*; infra/delivery; E2E legado | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar contrato HTTP e /delivery: fila, pedido, checkout, despacho e status. |
-| WP-011 | Expedicao / Entrega | core/entrega; application/entrega_*; pages/9_Expedicao_Entrega.py | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar contrato HTTP e integrar expedicao/entrega a /delivery com RBAC Expedicao/Entregador. |
-| WP-012 | Marketplaces / pedidos externos | core/marketplaces; infra adapters; tests/e2e-marketplace | Sem console/contrato Web de operacao identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Expor ingestao/monitoramento first-class e integrar a /pedidos e /delivery. |
-| WP-013 | Catalogo administrativo basico | core/catalogo + http_api/catalogo.py | Router dedicado com protecao admin | /admin/catalogo | PARCIAL | Expandir para paridade com engenharia de cardapio e configuracoes de produto. |
-| WP-014 | Engenharia de Cardapio + Ficha Tecnica | application/legacy_cardapio_transacoes.py; app.py legado | Catalogo HTTP nao cobre paridade completa confirmada | Sem rota Next.js equivalente completa | GAP HTTP/WEB | Inventariar operacoes de ficha; criar endpoints e /cardapio ou area admin correspondente. |
-| WP-015 | Estoque / Almoxarifado / Validades | core/estoque; application/catalogo_estoque_cutover.py; legacy_estoque; app.py | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar API de insumos, saldos, movimentos, reservas, perdas e validade; certificar lote/FEFO antes de prometer. |
-| WP-016 | CRM / Clientes / Cashback | core/crm; infra/crm; application/crm_cashback_* | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar contratos CRM e telas de clientes, historico, saldo e cashback. |
-| WP-017 | Marketing / Resgate / Campanhas | application/crm_marketing_comercial.py; campanhas_governadas.py; infra/crm | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar area de campanhas/consentimento com governanca e auditoria. |
-| WP-018 | Dashboard Financeiro / Indicadores | app.py legado; application/administracao_proprietario.py | Sem read model Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Expor painel executivo/financeiro session-aware e integrar ao Proprietario. |
-| WP-019 | AI FinOps | core/ai_cost.py; ai_finops.py; application/ai_finops_dashboard.py | Sem contrato Web first-class identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Expor metricas/custos com permissao e dashboard no Backoffice. |
-| WP-020 | Area Proprietario / Backoffice completo | application/administracao_proprietario.py; infra/streamlit_app/admin_proprietario.py | Somente partes expostas pela API atual | /admin existe, mas somente catalogo funcional | PARCIAL | Migrar 7 areas legadas: executivo, empresa/unidades, financeiro, impressao, usuarios, integracoes, auditoria. |
-| WP-021 | Step-up administrativo / reautenticacao | PR #114; auth + AdminStepUpGuard | Sessao elevada 15 min, revogada em troca/logout | Guard de /admin | MIGRADO | Preservar como barreira unica; reutilizar em todas mutacoes sensiveis. |
-| WP-022 | Empresa / Matriz / Filiais / Unidades | core/administracao; administracao_proprietario; UI legada | Sem endpoints Web first-class confirmados | Sem tela Next.js | GAP HTTP/WEB | Criar /admin/empresa e /admin/unidades sob step-up/RBAC. |
-| WP-023 | Usuarios / Papeis / Permissoes | core/seguranca + admin proprietario legado | Sem console HTTP Web dedicado confirmado | Sem tela Next.js | GAP HTTP/WEB | Criar gestao de usuarios e RBAC com auditoria e protecao anti-escalada. |
-| WP-024 | Parametros Financeiros | administracao_proprietario; pagamentos | Web atual cobre operacao PDV, nao configuracao completa | Sem tela administrativa Next.js | GAP HTTP/WEB | Criar parametros financeiros nao secretos no Backoffice; segredos ficam em Credenciais. |
-| WP-025 | Impressao Operacional / Configuracao | core/impressao; application/impressao_*; E2E legado | Sem router Web dedicado identificado | Nenhuma rota Next.js | GAP HTTP/WEB | Criar configuracao e operacao Web sem quebrar KDS/PDV. |
-| WP-026 | Integracoes e Credenciais | core/integracoes; application/integracoes_admin_transacoes.py; infra/streamlit_app/integracoes_admin.py | Webhooks/healthchecks existem; console session-aware nao | Nenhuma rota Next.js | GAP HTTP/WEB | Criar /admin/credenciais e /admin/integracoes com cofre, step-up, healthcheck e homologacao. |
-| WP-027 | Assistente de Atendimento - operacao/governanca | core/assistente_atendimento; application/assistente_*; WhatsApp webhook; E2E legado | Identidade GET/PUT e webhooks existem; parte usa Basic legado | Nenhuma rota Next.js | PARCIAL | Criar HTTP session-aware e /atendimento ou /admin/ia; nome exibido deve vir da identidade configurada. |
-| WP-028 | Gerente IA | core/gerente_ia; application/gerente_ia_* | /v1/core/tools, confirmar, perguntar; Basic legado | Nenhuma rota Next.js | PARCIAL | Criar facade session-aware, UI conversacional/decisao e trilha de confirmacao. |
-| WP-029 | Pagamentos / PIX / Provedores | core/pagamentos; application/pagbank.py; webhook PagBank; PDV | Operacao existe; configuracao/observabilidade Web incompletas | Pagamento aparece no PDV, sem console provedor | PARCIAL | Certificar checkout Web + conciliacao; mover configuracao de provedores para Credenciais. |
-| WP-030 | Cardapio Digital publico / Autosservico | Delivery checkout e cardapio legado sugerem componentes, mas escopo publico nao certificado | Nao confirmado | Nao confirmado | A VERIFICAR | Auditar requisito V1 oficial e codigo antes de criar rota publica. |
-| WP-031 | Fiscal / NFC-e / SAT / emissao fiscal | Nenhuma evidencia suficiente nesta auditoria para declarar capacidade V1 | Nao confirmado | Nao confirmado | A VERIFICAR | Conferir Plano Mestre V1 e repositorio; nao implementar nem prometer sem evidencia. |
-| WP-032 | Notificacoes internas | core/notificacoes_internas; application/notificacoes_internas.py | Sem contrato Web dedicado identificado | Sem UI dedicada | A VERIFICAR | Decidir se exige centro de notificacoes Web ou permanece servico transversal. |
-| WP-033 | Auditoria / Historico administrativo | admin proprietario legado; repositorios de auditoria | Sem tela/contrato Web de consulta confirmado | Sem tela Next.js | GAP HTTP/WEB | Criar consulta auditavel no Backoffice, sem expor segredos. |
+| WP-001 | Login / SSO corporativo | auth/session | Contrato dedicado e cookie assinado | `/login` | MIGRADO | Preservar. |
+| WP-002 | Escopo tenant/unidade + troca | auth/operational scope | Sessão assinada governa tenant/unidade | Shell | MIGRADO | Preservar em todos os módulos. |
+| WP-003 | Roteamento por perfil/permissão | segurança/RBAC + registry | Navegação governada | Shell | MIGRADO | Preservar registry como fonte única. |
+| WP-004 | Home / Dashboard / Shell | UnifiedAppShell + DashboardHome | Shell persistente | `/` | MIGRADO | Preservar; Visual Premium é fase posterior. |
+| WP-005 | PDV Touch | core/pdv + application | Router session-aware | `/pdv` | MIGRADO | Preservar. |
+| WP-006 | Salão / Mesas / Comandas | core/salão + application | Router session-aware | `/salao` | MIGRADO | Preservar. |
+| WP-007 | KDS / Cozinha | core/kds + application | Router session-aware | `/kds` | MIGRADO | Preservar. |
+| WP-008 | Atendimento do Garçom mobile/tablet | core/garcom + application/garcom_transacoes.py + application/garcom_fechamento.py | Router session-aware + gate dedicado + certificação independente no Master Gate | `/garcom` | CERTIFIED | Preservar implementação e autoridades canônicas. |
+| WP-009 | Central de Pedidos omnichannel | core/central_pedidos + application | HTTP first-class certificado | `/pedidos` | MIGRADO | Preservar e integrar canais futuros nela. |
+| WP-010 | Delivery Próprio | core/delivery + application + infra/delivery | Boundary certificado | `/delivery` | CERTIFIED | Preservar. |
+| WP-011 | Expedição / Entrega | core/entrega + application | Boundary certificado | `/entrega` | CERTIFIED | Preservar. |
+| WP-012 | Marketplaces / pedidos externos | core/marketplaces + adapters + bridge persistente para Pedido/Central canônicos | API `/v1/marketplaces` certificada; configuração fail-closed por homologação/evidência | `/pedidos` | CERTIFIED | Preservar; homologação externa de provider só com evidência real. |
+| WP-013 | Catálogo administrativo básico | catálogo existente + WP-014 | Boundary Web certificado | `/admin/catalogo` | MIGRADO | Preservar catálogo canônico, sessão e step-up. |
+| WP-014 | Engenharia de Cardápio + Ficha Técnica | legacy_cardapio_transacoes + legacy_cardapio_gemini | Ficha/Gemini/preço sugerido certificados | `/admin/catalogo` | MIGRADO | Preservar regra original e aplicação explícita do preço sugerido. |
+| WP-015 | Estoque / Almoxarifado / Validades | core/estoque + boundaries legados governados | HTTP/Web certificados | `/admin/estoque` | MIGRADO | Preservar; lote físico/FEFO seguem fora do escopo atual. |
+| WP-016 | CRM / Clientes / Cashback | core/crm + application/crm_cashback_comercial + ledger canônico | HTTP session-aware certificado | `/admin/crm` | MIGRADO | Preservar ledger, mapping, isolamento e step-up. |
+| WP-017 | Marketing / Resgate / Campanhas | application/crm_marketing_comercial + infra/crm + Outbox V1 + UnitOfWorkV1 | Boundary governado e replay-safe certificado | `/admin/crm` | MIGRADO | Preservar consentimento, escopo e proteção at-most-once do efeito externo. |
+| WP-018 | Dashboard Financeiro / Indicadores | administracao_proprietario.painel_executivo | HTTP read model certificado com step-up administrativo | `/admin/dashboard` | CERTIFIED | Preservar. |
+| WP-019 | AI FinOps | core/ai_finops + read model | HTTP read-only certificado | `/admin/ai-finops` | CERTIFIED | Preservar; não inventar custos. |
+| WP-020 | Área Proprietário / Backoffice | registrar_acesso + registry/guards | Landing/auditoria certificadas | `/admin` | CERTIFIED | Preservar. |
+| WP-021 | Step-up administrativo | auth + AdminStepUpGuard | Elevação temporária existente | `/admin` | MIGRADO | Preservar como barreira única. |
+| WP-022 | Empresa / Matriz / Filiais / Unidades | core/administracao + AplicacaoAdministracaoProprietarioV1 | Consulta/edição/criação certificadas | `/admin/empresa` | CERTIFIED | Preservar; não reconstruir. |
+| WP-023 | Usuários / Papéis / Permissões | AplicacaoAdministracaoProprietarioV1 + segurança | GET/POST/PUT Web concluídos | `/admin/usuarios` | MIGRADO | Preservar. |
+| WP-024 | Parâmetros Financeiros | administracao_proprietario + pagamentos | GET/PUT canônicos | `/admin/configuracao` | MIGRADO | Preservar; segredos permanecem WP-026. |
+| WP-025 | Impressão Operacional / Configuração | core/impressao + AplicacaoImpressaoV1 | Operação/configuração Web concluída | `/admin/impressao` | MIGRADO | Preservar KDS/PDV e adapter físico canônico. |
+| WP-026 | Integrações e Credenciais | core/integracoes + AplicacaoIntegracoesAdminV1 + vault | Console session-aware concluído | `/admin/integracoes` | MIGRADO | Preservar cofre/step-up/healthcheck/homologação. |
+| WP-027 | Assistente de Atendimento | core/assistente_atendimento + application/assistente_* | Administração session-aware concluída | `/admin/assistente-atendimento` | MIGRADO | Preservar identidade configurável por tenant/unidade. |
+| WP-028 | Gerente IA | core/gerente_ia + runtime/tools canônicos | façade session-aware certificada | `/gerente-ia` | MIGRADO | Preservar preview/confirmação/idempotência. |
+| WP-029 | Pagamentos / PIX / Provedores | core/pagamentos + PagBank/reconciliação/runtime | Observabilidade/conciliação certificadas | `/pagamentos` | MIGRADO | Preservar checkout/ledger/PIX/webhook canônicos. |
+| WP-030 | Cardápio Digital público / Autosserviço | Catálogo Delivery + checkout canônico + publicação dedicada por unidade | identidade pública + catálogo + checkout públicos certificados | `/cardapio/{publicId}/{slug}` | MIGRADO | Preservar `public_id` opaco, configuração por unidade e checkout único. |
+| WP-031 | Fiscal / NFC-e / SAT | Fiscal V1 congelado `b336def47ad4f5188307102203f4e04b98406014` vendorizado; WP-031A→D implementados/certificados | Persistência, outbound bridge e perfis fiscais integrados; WP-031E ainda não iniciado | — | PARCIAL — A→D CERTIFIED / E PENDING | Concluir hardening Pré-WP-031E; só então iniciar WP-031E mediante autorização explícita. |
+| WP-032 | Notificações Internas | core/notificacoes_internas + application/notificacoes_internas + diretório SQL cifrado | Superfície Web administrativa certificada, session-aware e tenant/unit-safe | Backoffice administrativo | CERTIFIED | Preservar serviço canônico; sem inbox/feed/badge paralelo. |
+| WP-033 | Auditoria / Histórico administrativo | core/seguranca/auditoria.py + RepositorioAuditoriaSQLAlchemy | Consulta Backoffice read-only certificada, tenant-safe, com RBAC + step-up | Backoffice administrativo | CERTIFIED | Preservar auditoria canônica e não expor metadata interna/segredos. |
 
-## 5. Capacidades historicas comprovadas na UI Streamlit
-O `app.py` legado comprova abas para Engenharia de Cardapio, CRM/Resgate/Cashback, PDV/Pix, Estoque/Validades, Dashboard Financeiro, Assistente de Atendimento e AI FinOps, com abas condicionais para Central de Pedidos, KDS, Mesas/Comandas, Delivery Proprio e Impressao Operacional. As paginas separadas comprovam ainda Administracao/Proprietario, Integracoes e Credenciais, Atendimento do Garcom e Expedicao/Entrega.
+## 5. Capacidades históricas comprovadas na UI Streamlit
 
-## 6. Gaps arquiteturais que o resgate deve corrigir
-1. **Contratos HTTP incompletos:** varios dominios maduros ainda nao possuem API first-class, session-aware, adequada ao Next.js.
-2. **E2E legado nao garante paridade Next.js:** testes de Delivery, Entrega, Garcom, Assistente e Order Center comprovam fluxo historico, mas nao a nova Web.
-3. **Dados de homologacao insuficientes:** PDV, Salao e KDS abrem na Web, mas fixtures ainda sao incompletas. No Smoke da Onda 1, `unidade-auth-b` preservou a sessao corretamente, porem o catalogo respondeu `403 catalogo_indisponivel_no_escopo` por ausencia/invalidade do vinculo seguro com a loja legada. O comportamento fail-closed deve ser preservado; o gap e de provisionamento/homologacao.
-4. **Identidade do assistente:** a UI nova deve usar o nome configurado por tenant, nunca fixar nome historico como nome de produto.
+O `app.py` legado comprova abas para Engenharia de Cardápio, CRM/Resgate/Cashback, PDV/Pix, Estoque/Validades, Dashboard Financeiro, Assistente de Atendimento e AI FinOps, com abas condicionais para Central de Pedidos, KDS, Mesas/Comandas, Delivery Próprio e Impressão Operacional. As páginas separadas comprovam ainda Administração/Proprietário, Integrações e Credenciais, Atendimento do Garçom e Expedição/Entrega.
 
-## 7. Ordem Mestre de Execucao
-### Onda 1 - Shell Corporativo Unificado
-**CERTIFICADA.** Shell persistente, Home real, unidade ativa, operador, logout, troca de unidade, navegacao governada por RBAC, separacao Operacao x Proprietario e step-up administrativo preservado.
-### Onda 2 - Coracao operacional faltante
-**WP-009 CERTIFICADA.** Central de Pedidos concluida e integrada a `main`. Proxima sequencia obrigatoria: WP-010 Delivery -> WP-011 Expedicao/Entrega -> WP-012 Marketplaces -> WP-008 Garcom, sempre fechando Core/Application -> HTTP -> Next -> RBAC -> testes antes do proximo bloco.
-### Onda 3 - Retaguarda completa
-Cardapio/Ficha Tecnica -> Estoque -> CRM/Cashback -> Marketing -> Financeiro -> Empresa/Unidades -> Usuarios/Permissoes -> Impressao -> Auditoria.
-### Onda 4 - IA e Integracoes
-Assistente de Atendimento -> Gerente IA -> AI FinOps -> Integracoes/Credenciais -> Pagamentos/provedores e healthchecks administrativos.
-### Onda 5 - Certificacao de Paridade
-Smoke Mestre completo e Gate de Paridade Web. Nenhuma linha obrigatoria pode permanecer PARCIAL, GAP ou A VERIFICAR para declarar V1 Web concluida.
+## 6. Gaps e pendências que ainda devem ser fechados
 
-## 8. Gate obrigatorio por PR
-Cada PR do WEB-PARITY-V1 deve: (a) citar IDs WP afetados; (b) atualizar este inventario; (c) preservar regras de negocio no Core/Application; (d) usar sessao assinada e RBAC/step-up; (e) adicionar/atualizar testes; (f) manter lint, typecheck/build e regressao verdes; (g) nao promover para MIGRADO sem evidencias da cadeia inteira.
+1. **WP-031 — Fiscal:** baseline V1 localizado, congelado e vendorizado. WP-031A→D estão implementados/certificados; o hardening Pré-E fecha equivalência do Outbox, partition key por ambiente, migration/schema e documentação. WP-031E permanece PENDING/NÃO INICIADO.
+2. **Ledger histórico:** WP-001 a WP-007 possuem estados CERTIFIED sem campos de evidência exigidos pelo validador atual; reconciliar somente com evidência histórica real.
+
+WP-008, WP-012, WP-018, WP-032 e WP-033 já possuem certificação posterior registrada neste documento e não são gaps CURRENT.
+
+## 7. Ordem Mestre reconciliada
+
+### Onda 1 — Shell Corporativo Unificado
+**CERTIFICADA.**
+
+### Onda 2 — Coração operacional
+WP-008, WP-009, WP-010, WP-011 e WP-012 estão migrados/certificados conforme seus gates e o Master Gate não fiscal. Preservar as autoridades canônicas existentes.
+
+### Onda 3 — Retaguarda
+WP-013 a WP-026 estão migrados/certificados conforme os gates específicos e o Master Gate não fiscal; preservar Core/Application, sessão, RBAC, step-up, isolamento e autoridades existentes.
+
+### Onda 4 — IA e Integrações
+WP-027, WP-028 e WP-029 estão migrados/certificados no ciclo não fiscal; WP-019 também está certificado. Preservar governança, confirmações e observabilidade existentes.
+
+### Onda pública
+WP-030 **CERTIFICADO / 100% VERDE** no HEAD funcional `c74595637deb6e31a578e95975445d34064a6b07`.
+
+### Onda Fiscal — obrigatória na V1
+WP-031 — Fiscal / NFC-e / SAT integra oficialmente a Kordena V1. Deve possuir fase própria de implementação, integração, testes e certificação depois do fechamento das pendências funcionais obrigatórias e **antes da Arquitetura Visual Premium**. A V1 não pode ser declarada 100% concluída enquanto o WP-031 estiver pendente.
+
+### Sequência final oficial de execução
+
+1. **WP-008 → fechar gate** — gate dedicado de implementação já concluiu SUCCESS no HEAD `9daaacc9ef4754558ad570bd568a316367b9260d`; certificação integral permanece posterior.
+2. **WP-018 → certificar** — CONCLUÍDO/CERTIFIED no SHA `b7a64b2dc5a47763a86fded903a15fd2be2cc23d`.
+3. **WP-012 → implantar Web** sobre a Central de Pedidos existente.
+4. **WP-032 → implantar Web** reutilizando Notificações Internas canônicas.
+5. **WP-033 → implantar Web** read-only sobre auditoria canônica.
+6. **WP-031 → continuar sequência fiscal congelada**: A→D concluídos; executar hardening Pré-E; depois E→L, Master Gate e só então Visual Premium.
+7. **Auditoria Mestre V1 completa**.
+8. **Gate 100% funcional**.
+9. **Visual Premium final**, somente após os gates anteriores.
+
+Cada bloco só autoriza o seguinte quando seus testes e gates aplicáveis estiverem 100% verdes; falhas devem ser corrigidas antes de avançar.
+
+## 8. Gate obrigatório por PR
+
+Cada PR do WEB-PARITY-V1 deve: (a) citar IDs WP afetados; (b) atualizar este inventário; (c) preservar regras de negócio no Core/Application; (d) usar sessão assinada e RBAC/step-up; (e) adicionar/atualizar testes; (f) manter lint, typecheck/build e regressão verdes; (g) não promover para MIGRADO sem evidências da cadeia inteira.
 
 ## 9. Definition of Done de uma capacidade
-- Dominio/core identificado e preservado.
-- Application/infra reutilizada, sem duplicar regra de negocio no React.
-- HTTP first-class session-aware, tenant/unit safe, idempotente quando aplicavel.
-- RBAC e step-up aplicados conforme risco.
-- Rota Next.js completa com loading/error/empty states.
-- Fixture de homologacao e testes unitarios/HTTP/E2E suficientes.
-- Smoke manual no navegador concluido.
-- Linha WP atualizada para MIGRADO.
 
-## 10. Evidencias principais auditadas
+- Domínio/core identificado e preservado.
+- Application/infra reutilizada, sem duplicar regra de negócio no React.
+- HTTP first-class session-aware ou boundary público governado quando aplicável.
+- Tenant/unit safe e idempotente quando aplicável.
+- RBAC e step-up aplicados conforme risco.
+- Rota Next.js completa com estados necessários.
+- Testes unitários/HTTP/integrados suficientes.
+- Gates de lint/typecheck/build/regressão verdes.
+- Smoke funcional/manual quando exigido pelo ciclo.
+- Linha WP atualizada para MIGRADO somente após evidência.
+
+## 10. Evidências principais auditadas
+
 - `web/src/app/`
 - `web/src/features/`
 - `web/src/app/admin/`
 - `http_api/`
-- `http_api/app.py`
 - `core/`
 - `application/`
-- `infra/delivery/`
-- `infra/assistente_atendimento/`
-- `infra/crm/`
-- `infra/gerente_ia/`
-- `infra/integracoes/`
-- `core/estoque/modelos.py`
-- `app.py`
-- `pages/`
-- `infra/streamlit_app/admin_proprietario.py`
-- `infra/streamlit_app/integracoes_admin.py`
+- `infra/`
+- `migrations/`
 - `tests/`
-- `tests/e2e/`
+- `docs/web-parity/WP010_WP011_CERTIFICACAO_INTEGRADA.md`
+- `docs/web-parity/WP013_WP014_CERTIFICACAO_INTEGRADA.md`
+- `docs/web-parity/WP015_CERTIFICACAO_INTEGRADA.md`
+- `docs/web-parity/WP016_CRM_CASHBACK_CERTIFICACAO.md`
+- `docs/web-parity/WP017_MARKETING_RESGATE_CERTIFICACAO.md`
+- `docs/web-parity/WP020_WP022_CICLO_2X2.md`
+- `docs/web-parity/WP023_WP024_CICLO_2X2.md`
+- `docs/web-parity/WP025_WP026_CICLO_2X2.md`
+- `docs/web-parity/WP027_WP028_CICLO_2X2.md`
+- `docs/web-parity/WP029_WP030_CICLO_2X2.md`
 
-## 11. Registro de execucao
-- **08/09/2026 - WP-003 + WP-004 iniciados** na branch `feat/web-parity-v1-wp003-wp004-shell-dashboard`, a partir da baseline certificada `22bf22c05641fb4340c48f65d39514dc37d649fe`.
-- O candidato implementou Shell persistente, navegacao filtrada por RBAC, troca de unidade, logout, Home comercial real, fail-closed para todas as rotas Web nao publicas e realocacao do health harness para `/admin/system-health`.
-- **Matriz automatizada da PR #115: 15/15 workflows SUCCESS**, incluindo lint, production build/typecheck, regressao backend e gates comerciais existentes.
-- **Smoke manual concluido:** PDV -> Home -> Salao -> Home -> KDS -> Home sem segundo login; troca `unidade-auth-a` -> `unidade-auth-b` preservou a sessao; logout invalidou a sessao e exigiu novo login para reentrada.
-- O `403 catalogo_indisponivel_no_escopo` observado apos trocar para `unidade-auth-b` foi classificado separadamente como gap de provisionamento/homologacao da unidade, mantendo a fronteira fail-closed de isolamento.
-- **WP-003 e WP-004 promovidos para MIGRADO somente apos os gates automaticos e o Smoke manual concluirem com sucesso.**
-- **08/09/2026 - WP-009 Central de Pedidos certificada** na PR #116, HEAD `f88f127a69b548d7b3b53cc9abe306ed7a2d2700`, apos smoke funcional completo e **22/22 workflows SUCCESS**.
-- O smoke WP-009 comprovou sessao unica, fila unificada, leitura de pedido criado no PDV, detalhe, financeiro, alertas, timeline e cancelamento governado com atualizacao de versao e evento `pedido.cancelado`; o atalho `Dashboard` foi incluido no cabecalho antes da certificacao final.
-- A falha intermitente do E2E legado CRM/cashback foi estabilizada no helper Playwright de combobox antes da matriz final, sem relaxar gates nem regras de negocio.
-- **PR #116 integrada a `main` no merge commit `5a17b0c8a1cb6dad576ce5b089166748b138900c`.**
-- **08/09/2026 - Bloco WP-010 + WP-011 iniciado** na branch sequencial `feat/web-parity-v1-wp010-wp011-delivery-entrega`, criada diretamente da `main` certificada apos o merge da PR #116.
-- **UX follow-up nao bloqueante:** o card inferior "Unidade operacional" e informativo; o seletor oficial fica na topbar. Tornar o card inferior tambem acionavel pode ser refinado depois sem alterar a regra de sessao.
+## 11. Registro de reconciliação de 15/09/2026
+
+- WP-030 saiu do bloqueio após decisão explícita do proprietário: estrutura de cliente/matriz/filial/unidade deve ser totalmente configurável, sem mudança de código por contratação.
+- Foi implementada identidade pública dedicada por unidade com `public_id` opaco, slug configurável, publicação/despublicação, migration oficial `0041`, resolução tenant-safe e administração em `/admin/empresa`.
+- O autosserviço reutiliza `ComandoCheckoutV1 -> executar_checkout_v1`; não existe segundo Pedido/Checkout/Pagamento/Catálogo.
+- Certificação funcional WP-030 no HEAD `c74595637deb6e31a578e95975445d34064a6b07`: **61 passed, 0 failed**, Ruff PASS, mypy PASS, ESLint PASS, TypeScript PASS, Next production build PASS, `git diff --check` PASS.
+- No mesmo HEAD: `Web Parity WP028-WP030 Gate`, `Commercial Runtime Readiness V1`, `PR Superseded Runs Cleanup` e `Assistente Fase 4 Gate V1` concluíram SUCCESS.
+- A auditoria retrospectiva encontrou estados mestres antigos para WP-024 a WP-029; eles foram reconciliados como MIGRADO conforme checklist/documentos posteriores.
+- WP-008, WP-012, WP-032 e WP-033 permaneceram funcionalmente pendentes na Web.
+- Na reconciliação de 15/09/2026, WP-031 ainda constava como BACKLOG FUTURO; essa classificação foi posteriormente substituída pela decisão formal de incluí-lo na V1.
+- PR #118 permaneceu OPEN/DRAFT e não mergeada; sem deploy/produção.
+
+## 12. Registro de reconciliação de 16/09/2026
+
+- WP-013 e WP-014 foram reconciliados como MIGRADO/CERTIFICADO conforme `WP013_WP014_CERTIFICACAO_INTEGRADA.md`; a matriz direcionada ficou 23/23 e a divergência histórica do preço sugerido foi corrigida sem criar catálogo paralelo.
+- WP-015 foi reconciliado como MIGRADO/CERTIFICADO conforme `WP015_CERTIFICACAO_INTEGRADA.md`; gate técnico `3daaddf7b97236ba0b80c13f0e36c91025f22a0c`, 10/10 direcionados e 1503 PASS / 5 SKIP / 0 FAIL.
+- WP-016 foi reconciliado como MIGRADO/CERTIFICADO conforme `WP016_CRM_CASHBACK_CERTIFICACAO.md`; gate técnico `d0fe8480c58449c54024c2dbb1fd9ca6b8747746`, 17/17 direcionados e 1505 PASS / 5 SKIP / 0 FAIL.
+- WP-017 foi corrigido e certificado no HEAD técnico `f059abe30e69cc1981188a76c040b99dba59874a`: 22/22 direcionados, 1506 PASS / 5 SKIP / 0 FAIL, Ruff/mypy/ESLint/TypeScript/build/diff verdes.
+- A idempotência de marketing passou a reutilizar a Outbox V1 como ledger durável do efeito externo, com reserva persistida antes do POST; replay e resultado externo incerto não geram retry automático perigoso.
+- O ownership de commit/rollback foi mantido no `UnitOfWorkV1`; o fitness gate AF03 permaneceu intacto e verde.
+- WP-018, WP-019, WP-020 e WP-022 não foram promovidos por associação; permanecem aguardando certificação própria.
+- WP-008, WP-012, WP-032 e WP-033 continuam funcionalmente pendentes na Web.
+- **Decisão formal do proprietário:** WP-031 deixa de ser backlog futuro e passa a integrar obrigatoriamente a Kordena V1 como bloco fiscal próprio, a ser concluído e certificado antes da Arquitetura Visual Premium.
+- Nenhuma V2 foi iniciada.
 
 ---
-**Regra de mudanca:** este documento e vivo e versionado por baseline. Qualquer nova descoberta deve atualizar a linha correspondente antes de iniciar implementacao que dependa dela. A arquitetura visual premium so reabre depois do Gate de Paridade Web.
+**Regra de mudança:** este documento é vivo e versionado por baseline. Qualquer nova descoberta deve atualizar a linha correspondente antes de iniciar implementação que dependa dela. A Arquitetura Visual Premium só reabre depois do Gate de Paridade Web, da certificação das capacidades obrigatórias e da conclusão/certificação do WP-031 Fiscal da V1.
+## 13. Registro de reconciliação de 18/09/2026
+
+- WP-008 foi implementado em `/garcom` com sessão única, fechamento flexível por unidade, couvert artístico, autoridade financeira canônica, idempotência e concorrência.
+- Gate `Web Parity WP008 Implementation Gates` no HEAD `9daaacc9ef4754558ad570bd568a316367b9260d`: SUCCESS após correção documental de whitespace.
+- O ledger continua sendo a autoridade de estado; Inventário e Checklist foram reconciliados para remover estados narrativos antigos.
+- Sequência final de fechamento da V1 congelada: WP-008 gate → WP-018 certificar → WP-012 Web → WP-032 Web → WP-033 Web → WP-031 Fiscal pronto → Auditoria Mestre → Gate 100% funcional → Visual Premium.
+- Fiscal não deve ser reconstruído: localizar a implementação pronta, provar sua autoridade e executar apenas implantação/integração, testes, homologação e certificação.
+- PR #118 permanece OPEN/DRAFT; nenhum merge ou deploy autorizado.
+
+## 14. Registro de certificação WP-018 — 18/09/2026
+
+- Gap encontrado: endpoint do painel executivo aceitava administrador sem step-up HTTP ativo.
+- Correção: `/v1/admin/painel-executivo` passou a exigir elevação administrativa ativa além de `admin.acessar` e `financeiro.visualizar`.
+- Matriz dirigida: **18 passed / 0 failed**.
+- Regressão Python completa: **1517 passed / 5 skipped / 0 failed**.
+- Ruff, mypy, ESLint, TypeScript, navegação Backoffice, Next build e diff check: **SUCCESS**.
+- WP-018 promovido para **CERTIFIED** com evidência do run `35354337053`.
+- Próximo bloco autorizado: **WP-012 — Marketplaces / pedidos externos**.
+
+
+## 15. Registro de certificação WP-012 — 18/09/2026
+
+- Autoridades preservadas: `core/marketplaces`, `core/central_pedidos`, Pedido canônico, Outbox/Auditoria e Control Plane de integrações.
+- Migration oficial: `0042_marketplace_orders_web_v1`; schema baseline e histórico reconciliados.
+- Segurança: sessão assinada, tenant/unidade, RBAC, step-up administrativo para sincronização sensível e privilégios técnicos mínimos para criação/transição de Pedido.
+- Transaction ownership reconciliado com `UnitOfWorkV1`; nenhuma segunda Central/Pedido/Pagamento foi criada.
+- Gate `Web Parity WP012 Marketplaces` run `35369209616`: **SUCCESS** no SHA `e4ce2c1e2e315811425535c5ca74b5a56570050b`.
+- Compile, Ruff, mypy, manifest, matriz dirigida, regressão Python completa, ESLint, TypeScript, testes Web, Next build e diff check: **SUCCESS**.
+- Certificação é técnica/interna da integração Web. Nenhuma homologação real de iFood, Keeta, 99Food ou outro provider é declarada sem evidência externa.
+- Próximo bloco autorizado neste ciclo não fiscal: **WP-032 — Notificações Internas Web**.
+
+
+## 16. Certificação WP-032 e WP-033 — 18/09/2026
+
+- **WP-032 — Notificações Internas Web:** CERTIFIED no SHA `c94d17ed85183c51ace803b5a97ecda84cbf447f`; run `35373830703` SUCCESS. Reutiliza diretório SQL cifrado e serviço canônico, sessão assinada, RBAC, step-up nas mutações, isolamento tenant/unidade e payload mascarado. Não cria inbox/feed/badge paralelo.
+- **WP-033 — Auditoria Web:** CERTIFIED no SHA `01d5f7695cd72ab67cb7107c13c9e004de74f3d1`; run `35376561635` SUCCESS. Reutiliza `RepositorioAuditoriaSQLAlchemy`, consulta read-only scoped à unidade ativa, exige `admin.acessar` + `auditoria.visualizar` + step-up e não expõe metadata interna/segredos.
+- Próxima etapa autorizada: **Auditoria Mestre V1 não fiscal + Audit & Fix + Gate Mestre Final**.
+
+
+## 17. Auditoria Mestre V1 não fiscal — 18/09/2026
+
+A Auditoria Mestre reconciliou código, rotas, ledger, checklist, evidências, gates de segurança e matriz integral.
+
+### Resultado canônico
+
+- 33 Work Packages oficiais.
+- **32 CERTIFIED**.
+- **0 IMPLEMENTED_UNCERTIFIED**.
+- **1 PENDING deliberado nesta rodada: WP-031 Fiscal**.
+- Visual Premium deliberadamente fora desta rodada.
+- WP-008 recebeu certificação independente posterior no Master Gate.
+- WP-023 a WP-027 receberam evidência consolidada adicional pelo Master Gate.
+
+### Gate Mestre
+
+Workflow: `Kordena V1 Non-Fiscal Master Gate`
+Run: `35380670582`
+HEAD certificado: `74530f13c8bd9c95b61b9b9da4192094a230c2d3`
+Resultado: **SUCCESS**
+
+Passaram: compile integral, Ruff auditado, mypy auditado, ledger, matriz independente WP-008, matriz WP-023–WP-027, matriz WP-032/WP-033, segurança/RBAC, regressão Python completa, ESLint Web completo, TypeScript, testes Node Web, Next production build e diff whitespace contra main.
+
+Regressão Python completa: **1528 passed, 5 skipped, 99 warnings**.
+Testes Node Web: **5 passed, 0 failed**.
+
+Nenhum merge, deploy, force push ou alteração da main foi realizado.
+
+
+## 18. WP-031A — Fiscal V1 System Design / Authority Freeze — 18/09/2026
+
+- Baseline fiscal V1 congelado: `faabio3131/kordena-fiscal-engine@b336def47ad4f5188307102203f4e04b98406014`.
+- System Design oficial: `docs/web-parity/WP031_FISCAL_V1_SYSTEM_DESIGN.md`.
+- A integração não será limitada a emissão de vendas. O escopo oficial do WP-031 passa a conter **Outbound Fiscal + Inbound Fiscal + Fiscal Procurement + Fiscal Accounting/Control Bridge + Smart Fiscal Intake**.
+- Autoridade outbound confirmada: `VendaFinanceira` / `venda.criada` após reconhecimento financeiro canônico.
+- Estoque existente será preservado; NF-e recebida não equivale automaticamente a recebimento físico nem a pagamento.
+- Leitura visual/IA existente será preservada como interpretação e sugestão, mas XML/DF-e oficial prevalece nos campos fiscais e confirmação humana governa o recebido físico.
+- O Control Plane de integrações, RBAC, step-up, Secret Store/Vault, catálogo, pagamentos e auditoria existentes devem ser reutilizados; proibidas autoridades paralelas.
+- A auditoria CURRENT localizou `compra.aprovar` no RBAC, mas não localizou autoridade materializada de pedido de compra/fornecedor/recebimento fiscal. WP-031G deve repetir discovery dirigido antes de criar a única autoridade de procurement necessária.
+- Ordem oficial congelada: **WP-031 Fiscal completo -> Fiscal Master Gate -> Visual Premium final**.
+- WP-031 permanece `PENDING` no ledger até implementação e certificação; este bloco fecha arquitetura/discovery, não promove readiness funcional.
