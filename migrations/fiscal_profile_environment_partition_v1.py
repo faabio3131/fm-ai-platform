@@ -96,9 +96,13 @@ def _issuer_rows(connection: Connection) -> list[dict[str, Any]]:
 
 
 def _product_rows(connection: Connection) -> list[dict[str, Any]]:
+    has_environment = "environment" in _columns(connection, _PRODUCT_TABLE)
+    environment_column = "environment, " if has_environment else ""
     rows = connection.execute(
         text(
-            "SELECT tenant_id, unit_id, product_id, profile_version, payload_json, "
+            "SELECT tenant_id, unit_id, "
+            f"{environment_column}"
+            "product_id, profile_version, payload_json, "
             f"valid_from, valid_until FROM {_PRODUCT_TABLE}"
         )
     ).mappings()
@@ -114,6 +118,10 @@ def _product_rows(connection: Connection) -> list[dict[str, Any]]:
         if str(payload.get("product_id") or "") != str(item["product_id"]):
             raise RuntimeError(
                 f"{_PRODUCT_TABLE} payload product differs from persisted product"
+            )
+        if has_environment and str(item["environment"]) != environment:
+            raise RuntimeError(
+                f"{_PRODUCT_TABLE} payload environment differs from persisted environment"
             )
         item["environment"] = environment
         result.append(item)
