@@ -71,6 +71,7 @@ _EXPECTED_MIGRATIONS = (
     "0041_cardapio_publico_identity_v1",
     "0042_marketplace_orders_web_v1",
     "0043_fiscal_persistence_foundation_v1",
+    "0044_fiscal_profile_environment_partition_v1",
 )
 
 
