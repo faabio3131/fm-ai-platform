@@ -15,13 +15,13 @@ from .repositorios_sqlalchemy import (
 )
 
 __all__ = [
+    "FiscalArchiveStoreSQLAlchemy",
     "FiscalIssuerProfileStoreSQLAlchemy",
+    "FiscalOutboxStoreSQLAlchemy",
     "FiscalProductProfileStoreSQLAlchemy",
     "FiscalProfileConflictError",
     "FiscalProfileNotFoundError",
     "FiscalProfileOverlapError",
-    "FiscalArchiveStoreSQLAlchemy",
-    "FiscalOutboxStoreSQLAlchemy",
     "FiscalSequenceStoreSQLAlchemy",
     "IdempotencyStoreSQLAlchemy",
 ]
