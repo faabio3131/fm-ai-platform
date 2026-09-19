@@ -1,12 +1,7 @@
 name: WP-031C Targeted Test Diagnostic
 
+# Manual diagnostic only; this workflow is not a certification gate.
 on:
-  pull_request:
-    paths:
-      - 'application/fiscal_outbound.py'
-      - 'core/pagamentos/servicos.py'
-      - 'tests/integration/fiscal/test_wp031c_outbound_bridge.py'
-      - '.github/workflows/wp031c-targeted-diagnostic.yml'
   workflow_dispatch:
 
 permissions:
