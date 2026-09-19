@@ -1,0 +1,38 @@
+name: WP-031D Ruff Diagnostic
+
+on:
+  pull_request:
+    paths:
+      - 'infra/fiscal/perfis_sqlalchemy.py'
+      - 'infra/fiscal/__init__.py'
+      - 'tests/integration/fiscal/test_wp031d_profiles.py'
+      - '.github/workflows/wp031d-ruff-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ruff-diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Ruff
+        run: pip install ruff==0.16.1
+      - name: Capture Ruff diagnostics
+        shell: bash
+        run: |
+          set +e
+          ruff check             infra/fiscal/perfis_sqlalchemy.py             infra/fiscal/__init__.py             tests/integration/fiscal/test_wp031d_profiles.py             --output-format=full > wp031d-ruff.txt 2>&1
+          code=$?
+          echo "exit_code=$code" >> wp031d-ruff.txt
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wp031d-ruff-diagnostic
+          path: wp031d-ruff.txt
+          if-no-files-found: error
