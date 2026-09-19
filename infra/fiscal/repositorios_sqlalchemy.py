@@ -67,6 +67,26 @@ def _reservation_token(key: FiscalSequenceKey, number: int) -> str:
     return hashlib.sha256(material).hexdigest()
 
 
+def _required_outbox_text(value: str, field_name: str, max_length: int) -> str:
+    normalized = value.strip()
+    if not normalized:
+        raise FiscalValidationError(f"{field_name} must not be blank")
+    if len(normalized) > max_length:
+        raise FiscalValidationError(f"{field_name} exceeds max length {max_length}")
+    return normalized
+
+
+def _outbox_entry_id(value: str) -> str:
+    normalized = value.strip().lower()
+    if len(normalized) != 64:
+        raise FiscalValidationError("entry_id must be SHA-256 hex")
+    try:
+        int(normalized, 16)
+    except ValueError as exc:
+        raise FiscalValidationError("entry_id must be hexadecimal") from exc
+    return normalized
+
+
 class FiscalSequenceStoreSQLAlchemy:
     """Atomic fiscal numbering store partitioned by scope, model and series."""
 
@@ -425,7 +445,7 @@ class FiscalOutboxStoreSQLAlchemy:
     ) -> tuple[FiscalOutboxEntry, ...]:
         if now.tzinfo is None or now.utcoffset() is None:
             raise FiscalValidationError("now must be timezone-aware")
-        if limit < 1:
+        if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1:
             raise FiscalValidationError("limit must be a positive integer")
         if lease_duration <= timedelta(0):
             raise FiscalValidationError("lease_duration must be positive")
@@ -471,9 +491,10 @@ class FiscalOutboxStoreSQLAlchemy:
             return tuple(claimed)
 
     def _locked(self, session: Session, entry_id: str) -> FiscalOutboxORM:
+        normalized = _outbox_entry_id(entry_id)
         row = session.execute(
             select(FiscalOutboxORM)
-            .where(FiscalOutboxORM.entry_id == entry_id)
+            .where(FiscalOutboxORM.entry_id == normalized)
             .with_for_update()
         ).scalar_one_or_none()
         if row is None:
@@ -494,14 +515,14 @@ class FiscalOutboxStoreSQLAlchemy:
         expected_attempt: int,
         completion_reference: str,
     ) -> FiscalOutboxEntry:
-        reference = completion_reference.strip()
-        if not reference:
-            raise FiscalValidationError(
-                "completion_reference must not be blank"
-            )
         with self._session_factory() as session, session.begin():
             row = self._locked(session, entry_id)
             self._assert_in_flight(row, expected_attempt)
+            reference = _required_outbox_text(
+                completion_reference,
+                "completion_reference",
+                512,
+            )
             row.status = FiscalOutboxStatus.SUCCEEDED.value
             row.lease_until = None
             row.last_error = None
@@ -517,12 +538,12 @@ class FiscalOutboxStoreSQLAlchemy:
         available_at: datetime,
         error: str,
     ) -> FiscalOutboxEntry:
-        message = error.strip()
-        if not message:
-            raise FiscalValidationError("error must not be blank")
+        if available_at.tzinfo is None or available_at.utcoffset() is None:
+            raise FiscalValidationError("available_at must be timezone-aware")
         with self._session_factory() as session, session.begin():
             row = self._locked(session, entry_id)
             self._assert_in_flight(row, expected_attempt)
+            message = _required_outbox_text(error, "error", 1024)
             row.status = FiscalOutboxStatus.RETRY_WAIT.value
             row.available_at = available_at
             row.lease_until = None
@@ -538,12 +559,10 @@ class FiscalOutboxStoreSQLAlchemy:
         expected_attempt: int,
         error: str,
     ) -> FiscalOutboxEntry:
-        message = error.strip()
-        if not message:
-            raise FiscalValidationError("error must not be blank")
         with self._session_factory() as session, session.begin():
             row = self._locked(session, entry_id)
             self._assert_in_flight(row, expected_attempt)
+            message = _required_outbox_text(error, "error", 1024)
             row.status = FiscalOutboxStatus.DEAD_LETTER.value
             row.lease_until = None
             row.last_error = message
@@ -552,8 +571,9 @@ class FiscalOutboxStoreSQLAlchemy:
             return self._to_domain(row)
 
     def get(self, entry_id: str) -> FiscalOutboxEntry | None:
+        normalized = _outbox_entry_id(entry_id)
         with self._session_factory() as session:
-            row = session.get(FiscalOutboxORM, entry_id)
+            row = session.get(FiscalOutboxORM, normalized)
             return None if row is None else self._to_domain(row)
 
 
