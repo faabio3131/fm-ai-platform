@@ -41,6 +41,7 @@ _V0040 = "0040_product_active_flag_v1"
 _V0041 = "0041_cardapio_publico_identity_v1"
 _V0042 = "0042_marketplace_orders_web_v1"
 _V0043 = "0043_fiscal_persistence_foundation_v1"
+_V0044 = "0044_fiscal_profile_environment_partition_v1"
 _TENANT = "tenant-reconciliado"
 _UNIDADE = "unidade-reconciliada"
 _LOJA = 71
@@ -242,6 +243,7 @@ def test_reconciliacao_cria_loja_mapping_atomicamente_e_retomada_chega_a_0028(
         _V0041,
         _V0042,
         _V0043,
+        _V0044,
     )
     assert run_migrations(engine) == ()
 
