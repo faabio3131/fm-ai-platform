@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from infra.fiscal.modelos_orm import FiscalBase
+from infra.fiscal.modelos_orm import (
+    FiscalBase,
+    FiscalIssuerProfileORM,
+    FiscalProductBindingORM,
+)
 from infra.fiscal.perfis_sqlalchemy import (
     FiscalIssuerProfileStoreSQLAlchemy,
     FiscalProductProfileStoreSQLAlchemy,
@@ -483,3 +488,58 @@ def test_wp031d_store_rejects_bool_version_and_naive_resolution_time() -> None:
         issuer_store.resolve(scope=_scope(), issued_at=naive)
     with pytest.raises(FiscalProfileStoreError, match="timezone-aware"):
         product_store.resolve(scope=_scope(), product_id="42", issued_at=naive)
+
+def test_wp031d_issuer_resolver_fails_closed_on_persisted_scope_drift() -> None:
+    sessions = _factory()
+    store = FiscalIssuerProfileStoreSQLAlchemy(sessions)
+    store.save(_issuer())
+
+    with sessions() as session, session.begin():
+        row = session.get(
+            FiscalIssuerProfileORM,
+            ("tenant-a", "unit-a", "homologation", 1),
+        )
+        assert row is not None
+        payload = json.loads(row.payload_json)
+        payload["scope"]["tenant_id"] = "tenant-b"
+        row.payload_json = json.dumps(
+            payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+
+    with pytest.raises(FiscalProfileStoreError, match="identity mismatch"):
+        store.resolve(scope=_scope(), issued_at=NOW)
+
+    with pytest.raises(FiscalProfileStoreError, match="identity mismatch"):
+        store.references(scope=_scope(), version=1)
+
+
+def test_wp031d_product_resolver_fails_closed_on_persisted_identity_drift() -> None:
+    sessions = _factory()
+    store = FiscalProductProfileStoreSQLAlchemy(sessions)
+    store.save(_product(product_id="42"))
+
+    with sessions() as session, session.begin():
+        row = session.get(
+            FiscalProductBindingORM,
+            ("tenant-a", "unit-a", "homologation", "42", 1),
+        )
+        assert row is not None
+        payload = json.loads(row.payload_json)
+        payload["product_id"] = "43"
+        row.payload_json = json.dumps(
+            payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+
+    with pytest.raises(FiscalProfileStoreError, match="identity mismatch"):
+        store.resolve(
+            scope=_scope(),
+            product_id="42",
+            issued_at=NOW,
+        )
+
