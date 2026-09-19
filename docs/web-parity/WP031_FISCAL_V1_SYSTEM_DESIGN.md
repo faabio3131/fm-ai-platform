@@ -1,6 +1,6 @@
 # WP-031 — Fiscal V1 Complete — System Design & Authority Map
 
-**Status:** WP-031A→D implementados/certificados; Hardening Pré-WP-031E em execução; WP-031E não iniciado
+**Status:** WP-031A→D implementados/certificados; Audit & Fix Pré-WP-031E CERTIFICADO; WP-031E não iniciado
 **Date:** 18/09/2026
 **Repository:** `faabio3131/fm-ai-platform`
 **PR:** #118 — OPEN/DRAFT
@@ -187,14 +187,15 @@ Os nomes finais serão congelados no bloco de migration. A granularidade mínima
 
 Todas as tabelas devem possuir escopo tenant/unidade quando aplicável e constraints de unicidade/idempotência. Para autoridades fiscais dependentes de ambiente, `ExecutionScope.partition_key = tenant_id + unit_id + environment` é estrutural: homologação e produção devem coexistir sem colisão de identidade.
 
-### 6.1 CURRENT pós-WP-031D / Hardening Pré-E
+### 6.1 CURRENT pós-WP-031D / Audit & Fix Pré-E certificado
 
 - `FiscalSequenceStore`, `IdempotencyStore`, `FiscalOutboxStore` e `FiscalArchiveStore` possuem adapters SQLAlchemy duráveis.
 - `FiscalIssuerProfileStoreSQLAlchemy` e `FiscalProductProfileStoreSQLAlchemy` resolvem perfis imutáveis e effective-dated.
-- O hardening Pré-WP-031E torna `environment` parte estrutural da identidade persistente de issuer e product profile e adiciona migration evolutiva `0044_fiscal_profile_environment_partition_v1`.
+- O Audit & Fix Pré-WP-031E tornou `environment` parte estrutural da identidade persistente de issuer e product profile e adicionou a migration evolutiva `0044_fiscal_profile_environment_partition_v1`.
 - O Outbox SQLAlchemy deve manter equivalência semântica com `InMemoryFiscalOutboxStore`, inclusive validação estrita de `limit`, timezone de `available_at`, identidade SHA-256 e ordem de validação/transição.
-- O outbound permanece fail-safe em `HOMOLOGATION` quando nenhum ambiente é injetado. A seleção final por Control Plane fiscal pertence ao wiring governado de WP-031I/J; não é autoridade do browser e não é antecipada neste hardening.
-- WP-031E continua não iniciado.
+- O outbound permanece fail-safe em `HOMOLOGATION` quando nenhum ambiente é injetado. A seleção final por Control Plane fiscal pertence ao wiring governado de WP-031I/J; não é autoridade do browser e não foi antecipada neste hardening.
+- Gate `WP-031 Pre-E Audit & Fix Gate` run `35465047494`: SUCCESS no HEAD funcional `f2ed3f2f2701b1a62af3d8c61299311a167f660c`, com 1581 passed / 5 skipped / 102 warnings na regressão integral.
+- WP-031E continua PENDING / NÃO INICIADO e depende de autorização explícita do proprietário.
 
 ## 7. Regras de concorrência e idempotência
 
