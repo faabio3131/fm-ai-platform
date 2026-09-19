@@ -377,7 +377,15 @@ class FiscalIssuerProfileStoreSQLAlchemy:
                 raise FiscalProfileOverlapError(
                     "multiple effective issuer fiscal profiles found"
                 )
-            profile = _issuer_from_payload(json.loads(candidates[0].payload_json))
+            row = candidates[0]
+            profile = _issuer_from_payload(json.loads(row.payload_json))
+            if (
+                profile.scope.partition_key != scope.partition_key
+                or profile.version != row.profile_version
+            ):
+                raise FiscalProfileStoreError(
+                    "persisted issuer fiscal profile identity mismatch"
+                )
             return _with_scope_correlation(profile, scope.correlation_id)
 
     def references(
@@ -399,6 +407,14 @@ class FiscalIssuerProfileStoreSQLAlchemy:
             )
             if row is None:
                 raise FiscalProfileNotFoundError("issuer fiscal profile not found")
+            profile = _issuer_from_payload(json.loads(row.payload_json))
+            if (
+                profile.scope.partition_key != scope.partition_key
+                or profile.version != row.profile_version
+            ):
+                raise FiscalProfileStoreError(
+                    "persisted issuer fiscal profile identity mismatch"
+                )
             return row.certificate_reference, row.provider_config_id
 
     def _assert_no_issuer_overlap(
@@ -493,7 +509,16 @@ class FiscalProductProfileStoreSQLAlchemy:
                 valid_until = _utc(row.valid_until)
                 if valid_until is not None and instant >= valid_until:
                     continue
-                candidates.append(_product_from_payload(json.loads(row.payload_json)))
+                decoded = _product_from_payload(json.loads(row.payload_json))
+                if (
+                    decoded.scope.partition_key != scope.partition_key
+                    or decoded.product_id != product_id
+                    or decoded.version != row.profile_version
+                ):
+                    raise FiscalProfileStoreError(
+                        "persisted product fiscal profile identity mismatch"
+                    )
+                candidates.append(decoded)
             if len(candidates) != 1:
                 if not candidates:
                     raise FiscalProfileNotFoundError(
