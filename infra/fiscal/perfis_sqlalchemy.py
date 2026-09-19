@@ -63,6 +63,18 @@ def _instant(value: datetime) -> str:
     return normalized.isoformat().replace("+00:00", "Z")
 
 
+def _aware_instant(value: datetime, field_name: str) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise FiscalProfileStoreError(f"{field_name} must be timezone-aware")
+    return value.astimezone(timezone.utc)
+
+
+def _profile_version(value: int) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        raise FiscalProfileStoreError("profile version must be a positive integer")
+    return value
+
+
 def _parse_instant(value: str | None) -> datetime | None:
     if value is None:
         return None
@@ -293,11 +305,17 @@ class FiscalIssuerProfileStoreSQLAlchemy:
         certificate_reference: str | None = None,
         provider_config_id: str | None = None,
     ) -> FiscalProfile:
+        version = _profile_version(profile.version)
         payload_json = _canonical_json(_issuer_payload(profile))
         with self._session_factory() as session, session.begin():
             existing = session.get(
                 FiscalIssuerProfileORM,
-                (profile.scope.tenant_id, profile.scope.unit_id, profile.version),
+                (
+                    profile.scope.tenant_id,
+                    profile.scope.unit_id,
+                    profile.scope.environment.value,
+                    version,
+                ),
             )
             if existing is not None:
                 if (
@@ -316,8 +334,8 @@ class FiscalIssuerProfileStoreSQLAlchemy:
                 FiscalIssuerProfileORM(
                     tenant_id=profile.scope.tenant_id,
                     unit_id=profile.scope.unit_id,
-                    profile_version=profile.version,
                     environment=profile.scope.environment.value,
+                    profile_version=version,
                     payload_json=payload_json,
                     certificate_reference=certificate_reference,
                     provider_config_id=provider_config_id,
@@ -334,8 +352,7 @@ class FiscalIssuerProfileStoreSQLAlchemy:
         scope: ExecutionScope,
         issued_at: datetime,
     ) -> FiscalProfile:
-        instant = _utc(issued_at)
-        assert instant is not None
+        instant = _aware_instant(issued_at, "issued_at")
         with self._session_factory() as session:
             rows = session.execute(
                 select(FiscalIssuerProfileORM)
@@ -369,12 +386,18 @@ class FiscalIssuerProfileStoreSQLAlchemy:
         scope: ExecutionScope,
         version: int,
     ) -> tuple[str | None, str | None]:
+        checked_version = _profile_version(version)
         with self._session_factory() as session:
             row = session.get(
                 FiscalIssuerProfileORM,
-                (scope.tenant_id, scope.unit_id, version),
+                (
+                    scope.tenant_id,
+                    scope.unit_id,
+                    scope.environment.value,
+                    checked_version,
+                ),
             )
-            if row is None or row.environment != scope.environment.value:
+            if row is None:
                 raise FiscalProfileNotFoundError("issuer fiscal profile not found")
             return row.certificate_reference, row.provider_config_id
 
@@ -409,6 +432,7 @@ class FiscalProductProfileStoreSQLAlchemy:
         self._session_factory = session_factory
 
     def save(self, profile: FiscalProductProfile) -> FiscalProductProfile:
+        version = _profile_version(profile.version)
         payload_json = _canonical_json(_product_payload(profile))
         with self._session_factory() as session, session.begin():
             existing = session.get(
@@ -416,8 +440,9 @@ class FiscalProductProfileStoreSQLAlchemy:
                 (
                     profile.scope.tenant_id,
                     profile.scope.unit_id,
+                    profile.scope.environment.value,
                     profile.product_id,
-                    profile.version,
+                    version,
                 ),
             )
             if existing is not None:
@@ -432,8 +457,9 @@ class FiscalProductProfileStoreSQLAlchemy:
                 FiscalProductBindingORM(
                     tenant_id=profile.scope.tenant_id,
                     unit_id=profile.scope.unit_id,
+                    environment=profile.scope.environment.value,
                     product_id=profile.product_id,
-                    profile_version=profile.version,
+                    profile_version=version,
                     payload_json=payload_json,
                     valid_from=_utc(profile.effective_from),
                     valid_until=_utc(profile.effective_to),
@@ -449,14 +475,14 @@ class FiscalProductProfileStoreSQLAlchemy:
         product_id: str,
         issued_at: datetime,
     ) -> FiscalProductProfile:
-        instant = _utc(issued_at)
-        assert instant is not None
+        instant = _aware_instant(issued_at, "issued_at")
         with self._session_factory() as session:
             rows = session.execute(
                 select(FiscalProductBindingORM)
                 .where(
                     FiscalProductBindingORM.tenant_id == scope.tenant_id,
                     FiscalProductBindingORM.unit_id == scope.unit_id,
+                    FiscalProductBindingORM.environment == scope.environment.value,
                     FiscalProductBindingORM.product_id == product_id,
                     FiscalProductBindingORM.valid_from <= instant,
                 )
@@ -467,9 +493,7 @@ class FiscalProductProfileStoreSQLAlchemy:
                 valid_until = _utc(row.valid_until)
                 if valid_until is not None and instant >= valid_until:
                     continue
-                decoded = _product_from_payload(json.loads(row.payload_json))
-                if decoded.scope.environment is scope.environment:
-                    candidates.append(decoded)
+                candidates.append(_product_from_payload(json.loads(row.payload_json)))
             if len(candidates) != 1:
                 if not candidates:
                     raise FiscalProfileNotFoundError(
@@ -489,13 +513,11 @@ class FiscalProductProfileStoreSQLAlchemy:
             select(FiscalProductBindingORM).where(
                 FiscalProductBindingORM.tenant_id == profile.scope.tenant_id,
                 FiscalProductBindingORM.unit_id == profile.scope.unit_id,
+                FiscalProductBindingORM.environment == profile.scope.environment.value,
                 FiscalProductBindingORM.product_id == profile.product_id,
             )
         ).scalars()
         for row in rows:
-            decoded = _product_from_payload(json.loads(row.payload_json))
-            if decoded.scope.environment is not profile.scope.environment:
-                continue
             if _overlaps(
                 profile.effective_from,
                 profile.effective_to,
