@@ -4,6 +4,8 @@ import json
 from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.schema import CreateTable
 from sqlalchemy.orm import sessionmaker
 
 from infra.fiscal.modelos_orm import FiscalBase
@@ -19,6 +21,8 @@ from kordena_fiscal.domain import (
     FiscalValidationError,
 )
 from migrations.fiscal_profile_environment_partition_v1 import (
+    _issuer_rebuild_table,
+    _product_rebuild_table,
     upgrade_fiscal_profile_environment_partition_v1,
 )
 
@@ -323,4 +327,16 @@ def test_pre_e_migration_upgrade_matches_fresh_profile_schema_shape() -> None:
         "fiscal_product_bindings_v1",
     ):
         assert _table_shape(upgraded, table) == _table_shape(fresh, table)
+
+def test_pre_e_migration_preserves_timezone_types_for_postgresql() -> None:
+    dialect = postgresql.dialect()
+    issuer_sql = str(
+        CreateTable(_issuer_rebuild_table("issuer_tmp")).compile(dialect=dialect)
+    ).upper()
+    product_sql = str(
+        CreateTable(_product_rebuild_table("product_tmp")).compile(dialect=dialect)
+    ).upper()
+
+    assert issuer_sql.count("TIMESTAMP WITH TIME ZONE") == 2
+    assert product_sql.count("TIMESTAMP WITH TIME ZONE") == 2
 
