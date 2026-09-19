@@ -304,7 +304,7 @@
     "WP-031": {
       "name": "Fiscal / NFC-e / SAT",
       "state": "PENDING",
-      "reason": "obrigatorio para V1.0; Fiscal V1 baseline b336def47ad4f5188307102203f4e04b98406014 localizado e vendorizado; WP-031A a WP-031D implementados/certificados; Audit & Fix Pre-WP-031E em hardening; WP-031E permanece PENDING/NAO INICIADO e so pode iniciar apos certificacao do hardening e autorizacao explicita"
+      "reason": "obrigatorio para V1.0; Fiscal V1 baseline b336def47ad4f5188307102203f4e04b98406014 localizado e vendorizado; WP-031A a WP-031D implementados/certificados; Audit & Fix Pre-WP-031E certificado no HEAD funcional f2ed3f2f2701b1a62af3d8c61299311a167f660c pelo gate WP-031 Pre-E Audit & Fix Gate run 35465047494 SUCCESS; WP-031E permanece PENDING/NAO INICIADO e so pode iniciar mediante autorizacao explicita"
     },
     "WP-032": {
       "name": "Notificacoes Internas",
