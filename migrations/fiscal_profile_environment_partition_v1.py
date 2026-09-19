@@ -15,8 +15,8 @@ from sqlalchemy import (
     String,
     Table,
     Text,
-    inspect,
     insert,
+    inspect,
     text,
 )
 from sqlalchemy.engine import Connection
@@ -66,7 +66,7 @@ def _persisted_datetime(
                 f"{table} contains invalid {field_name}"
             ) from exc
     else:
-        raise RuntimeError(f"{table} contains invalid {field_name}")
+        raise TypeError(f"{table} contains invalid {field_name}")
 
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         return parsed.replace(tzinfo=timezone.utc)
@@ -79,7 +79,7 @@ def _decoded_payload(raw: str, *, table: str) -> dict[str, Any]:
     except (TypeError, json.JSONDecodeError) as exc:
         raise RuntimeError(f"{table} contains invalid fiscal profile JSON") from exc
     if not isinstance(payload, dict):
-        raise RuntimeError(f"{table} fiscal profile payload must be an object")
+        raise TypeError(f"{table} fiscal profile payload must be an object")
     return payload
 
 
@@ -93,7 +93,7 @@ def _payload_scope(
     payload = _decoded_payload(raw, table=table)
     scope = payload.get("scope")
     if not isinstance(scope, dict):
-        raise RuntimeError(f"{table} fiscal profile payload is missing scope")
+        raise TypeError(f"{table} fiscal profile payload is missing scope")
     if str(scope.get("tenant_id") or "") != tenant_id:
         raise RuntimeError(f"{table} payload tenant differs from persisted tenant")
     if str(scope.get("unit_id") or "") != unit_id:
