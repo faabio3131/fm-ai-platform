@@ -13,6 +13,7 @@ from infra.fiscal.perfis_sqlalchemy import (
     FiscalProfileConflictError,
     FiscalProfileNotFoundError,
     FiscalProfileOverlapError,
+    FiscalProfileStoreError,
 )
 from kordena_fiscal.domain import (
     BrazilianJurisdiction,
@@ -271,3 +272,214 @@ def test_wp031d_product_binding_environment_isolated_without_second_catalog() ->
             product_id="42",
             issued_at=NOW,
         )
+
+
+def test_wp031d_issuer_same_version_coexists_across_environments() -> None:
+    sessions = _factory()
+    store = FiscalIssuerProfileStoreSQLAlchemy(sessions)
+    homologation = _issuer(
+        scope=_scope(environment=FiscalEnvironment.HOMOLOGATION),
+        version=1,
+    )
+    production = _issuer(
+        scope=_scope(
+            environment=FiscalEnvironment.PRODUCTION,
+            correlation="corr-prod",
+        ),
+        version=1,
+    )
+
+    store.save(homologation)
+    store.save(production)
+
+    resolved_hml = store.resolve(
+        scope=_scope(
+            environment=FiscalEnvironment.HOMOLOGATION,
+            correlation="corr-hml-read",
+        ),
+        issued_at=NOW,
+    )
+    resolved_prod = store.resolve(
+        scope=_scope(
+            environment=FiscalEnvironment.PRODUCTION,
+            correlation="corr-prod-read",
+        ),
+        issued_at=NOW,
+    )
+
+    assert resolved_hml.scope.environment is FiscalEnvironment.HOMOLOGATION
+    assert resolved_prod.scope.environment is FiscalEnvironment.PRODUCTION
+    assert resolved_hml.version == resolved_prod.version == 1
+
+
+def test_wp031d_issuer_same_version_isolated_by_tenant_and_unit() -> None:
+    sessions = _factory()
+    store = FiscalIssuerProfileStoreSQLAlchemy(sessions)
+    scopes = (
+        _scope(tenant="tenant-a", unit="unit-a", correlation="corr-aa"),
+        _scope(tenant="tenant-a", unit="unit-b", correlation="corr-ab"),
+        _scope(tenant="tenant-b", unit="unit-a", correlation="corr-ba"),
+    )
+    for scope in scopes:
+        store.save(_issuer(scope=scope, version=1))
+
+    for scope in scopes:
+        resolved = store.resolve(scope=scope, issued_at=NOW)
+        assert resolved.scope.partition_key == scope.partition_key
+
+
+def test_wp031d_issuer_overlap_is_scoped_to_environment() -> None:
+    sessions = _factory()
+    store = FiscalIssuerProfileStoreSQLAlchemy(sessions)
+    store.save(_issuer(version=1))
+    store.save(
+        _issuer(
+            scope=_scope(
+                environment=FiscalEnvironment.PRODUCTION,
+                correlation="corr-prod",
+            ),
+            version=2,
+            effective_from=NOW - timedelta(days=1),
+        )
+    )
+
+    with pytest.raises(FiscalProfileOverlapError):
+        store.save(
+            _issuer(
+                version=2,
+                effective_from=NOW - timedelta(days=1),
+            )
+        )
+
+
+def test_wp031d_product_same_version_coexists_across_environments() -> None:
+    sessions = _factory()
+    store = FiscalProductProfileStoreSQLAlchemy(sessions)
+    store.save(
+        _product(
+            scope=_scope(environment=FiscalEnvironment.HOMOLOGATION),
+            product_id="42",
+            version=1,
+        )
+    )
+    store.save(
+        _product(
+            scope=_scope(
+                environment=FiscalEnvironment.PRODUCTION,
+                correlation="corr-prod",
+            ),
+            product_id="42",
+            version=1,
+        )
+    )
+
+    hml = store.resolve(
+        scope=_scope(environment=FiscalEnvironment.HOMOLOGATION),
+        product_id="42",
+        issued_at=NOW,
+    )
+    prod = store.resolve(
+        scope=_scope(
+            environment=FiscalEnvironment.PRODUCTION,
+            correlation="corr-prod-read",
+        ),
+        product_id="42",
+        issued_at=NOW,
+    )
+
+    assert hml.product_id == prod.product_id == "42"
+    assert hml.scope.environment is FiscalEnvironment.HOMOLOGATION
+    assert prod.scope.environment is FiscalEnvironment.PRODUCTION
+
+
+def test_wp031d_product_same_version_isolated_by_tenant_and_unit() -> None:
+    sessions = _factory()
+    store = FiscalProductProfileStoreSQLAlchemy(sessions)
+    scopes = (
+        _scope(tenant="tenant-a", unit="unit-a", correlation="corr-aa"),
+        _scope(tenant="tenant-a", unit="unit-b", correlation="corr-ab"),
+        _scope(tenant="tenant-b", unit="unit-a", correlation="corr-ba"),
+    )
+    for scope in scopes:
+        store.save(_product(scope=scope, product_id="42", version=1))
+
+    for scope in scopes:
+        resolved = store.resolve(
+            scope=scope,
+            product_id="42",
+            issued_at=NOW,
+        )
+        assert resolved.scope.partition_key == scope.partition_key
+
+
+def test_wp031d_product_effective_dating_is_environment_scoped() -> None:
+    sessions = _factory()
+    store = FiscalProductProfileStoreSQLAlchemy(sessions)
+    split = NOW - timedelta(days=2)
+    store.save(
+        _product(
+            version=1,
+            effective_from=NOW - timedelta(days=20),
+            effective_to=split,
+        )
+    )
+    store.save(
+        _product(
+            version=2,
+            effective_from=split,
+            description="X-Burger atual",
+        )
+    )
+    store.save(
+        _product(
+            scope=_scope(
+                environment=FiscalEnvironment.PRODUCTION,
+                correlation="corr-prod",
+            ),
+            version=1,
+            effective_from=NOW - timedelta(days=20),
+        )
+    )
+
+    old_hml = store.resolve(
+        scope=_scope(),
+        product_id="42",
+        issued_at=NOW - timedelta(days=3),
+    )
+    current_hml = store.resolve(
+        scope=_scope(),
+        product_id="42",
+        issued_at=NOW,
+    )
+    prod = store.resolve(
+        scope=_scope(
+            environment=FiscalEnvironment.PRODUCTION,
+            correlation="corr-prod-read",
+        ),
+        product_id="42",
+        issued_at=NOW,
+    )
+
+    assert old_hml.version == 1
+    assert current_hml.version == 2
+    assert prod.version == 1
+
+
+def test_wp031d_store_rejects_bool_version_and_naive_resolution_time() -> None:
+    sessions = _factory()
+    issuer_store = FiscalIssuerProfileStoreSQLAlchemy(sessions)
+    product_store = FiscalProductProfileStoreSQLAlchemy(sessions)
+
+    with pytest.raises(FiscalProfileStoreError, match="positive integer"):
+        issuer_store.save(_issuer(version=True))
+    with pytest.raises(FiscalProfileStoreError, match="positive integer"):
+        product_store.save(_product(version=True))
+
+    issuer_store.save(_issuer())
+    product_store.save(_product())
+    naive = datetime(2026, 9, 19, 12, 0)
+
+    with pytest.raises(FiscalProfileStoreError, match="timezone-aware"):
+        issuer_store.resolve(scope=_scope(), issued_at=naive)
+    with pytest.raises(FiscalProfileStoreError, match="timezone-aware"):
+        product_store.resolve(scope=_scope(), product_id="42", issued_at=naive)
