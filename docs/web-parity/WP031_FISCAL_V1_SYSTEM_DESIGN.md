@@ -1,6 +1,6 @@
 # WP-031 — Fiscal V1 Complete — System Design & Authority Map
 
-**Status:** WP-031A / Discovery + Authority Freeze
+**Status:** WP-031A→D implementados/certificados; Hardening Pré-WP-031E em execução; WP-031E não iniciado
 **Date:** 18/09/2026
 **Repository:** `faabio3131/fm-ai-platform`
 **PR:** #118 — OPEN/DRAFT
@@ -185,7 +185,16 @@ Os nomes finais serão congelados no bloco de migration. A granularidade mínima
 14. product/insumo matching history;
 15. fiscal receipt reconciliation.
 
-Todas as tabelas devem possuir escopo tenant/unidade quando aplicável e constraints de unicidade/idempotência.
+Todas as tabelas devem possuir escopo tenant/unidade quando aplicável e constraints de unicidade/idempotência. Para autoridades fiscais dependentes de ambiente, `ExecutionScope.partition_key = tenant_id + unit_id + environment` é estrutural: homologação e produção devem coexistir sem colisão de identidade.
+
+### 6.1 CURRENT pós-WP-031D / Hardening Pré-E
+
+- `FiscalSequenceStore`, `IdempotencyStore`, `FiscalOutboxStore` e `FiscalArchiveStore` possuem adapters SQLAlchemy duráveis.
+- `FiscalIssuerProfileStoreSQLAlchemy` e `FiscalProductProfileStoreSQLAlchemy` resolvem perfis imutáveis e effective-dated.
+- O hardening Pré-WP-031E torna `environment` parte estrutural da identidade persistente de issuer e product profile e adiciona migration evolutiva `0044_fiscal_profile_environment_partition_v1`.
+- O Outbox SQLAlchemy deve manter equivalência semântica com `InMemoryFiscalOutboxStore`, inclusive validação estrita de `limit`, timezone de `available_at`, identidade SHA-256 e ordem de validação/transição.
+- O outbound permanece fail-safe em `HOMOLOGATION` quando nenhum ambiente é injetado. A seleção final por Control Plane fiscal pertence ao wiring governado de WP-031I/J; não é autoridade do browser e não é antecipada neste hardening.
+- WP-031E continua não iniciado.
 
 ## 7. Regras de concorrência e idempotência
 
