@@ -176,6 +176,10 @@
     {
       "version": "0043_fiscal_persistence_foundation_v1",
       "sha256": "bb5a075fe68b866462e7c4c1909ed2a14853e3e5c936e8e018424945c2ae2e00"
+    },
+    {
+      "version": "0044_fiscal_profile_environment_partition_v1",
+      "sha256": "3205aaff2f4988ccaa2a712deb885de46607da02ee2f3b0020fb3e08f2ba391f"
     }
   ]
 }
