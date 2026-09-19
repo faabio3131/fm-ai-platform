@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import (
@@ -44,6 +45,32 @@ def _columns(connection: Connection, table: str) -> frozenset[str]:
     return frozenset(
         str(column["name"]) for column in inspect(connection).get_columns(table)
     )
+
+
+def _persisted_datetime(
+    value: object,
+    *,
+    table: str,
+    field_name: str,
+) -> datetime | None:
+    if value is None:
+        return None
+    parsed: datetime
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise RuntimeError(
+                f"{table} contains invalid {field_name}"
+            ) from exc
+    else:
+        raise RuntimeError(f"{table} contains invalid {field_name}")
+
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _decoded_payload(raw: str, *, table: str) -> dict[str, Any]:
@@ -103,6 +130,18 @@ def _issuer_rows(connection: Connection) -> list[dict[str, Any]]:
             raise RuntimeError(
                 f"{_ISSUER_TABLE} payload environment differs from persisted environment"
             )
+        item["valid_from"] = _persisted_datetime(
+            item["valid_from"],
+            table=_ISSUER_TABLE,
+            field_name="valid_from",
+        )
+        item["valid_until"] = _persisted_datetime(
+            item["valid_until"],
+            table=_ISSUER_TABLE,
+            field_name="valid_until",
+        )
+        if item["valid_from"] is None:
+            raise RuntimeError(f"{_ISSUER_TABLE} contains null valid_from")
         result.append(item)
     return result
 
@@ -136,6 +175,18 @@ def _product_rows(connection: Connection) -> list[dict[str, Any]]:
                 f"{_PRODUCT_TABLE} payload environment differs from persisted environment"
             )
         item["environment"] = environment
+        item["valid_from"] = _persisted_datetime(
+            item["valid_from"],
+            table=_PRODUCT_TABLE,
+            field_name="valid_from",
+        )
+        item["valid_until"] = _persisted_datetime(
+            item["valid_until"],
+            table=_PRODUCT_TABLE,
+            field_name="valid_until",
+        )
+        if item["valid_from"] is None:
+            raise RuntimeError(f"{_PRODUCT_TABLE} contains null valid_from")
         result.append(item)
     return result
 
