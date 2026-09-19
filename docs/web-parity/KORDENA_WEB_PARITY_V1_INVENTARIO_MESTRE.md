@@ -16,7 +16,7 @@ Existir no backend, possuir UI candidata ou ter E2E legado **não** significa es
 
 - Capacidades inventariadas: **33**.
 - Estado canônico atual no ledger: **32 CERTIFIED**, **0 IMPLEMENTED_UNCERTIFIED** e **1 PENDING**.
-- **WP-008** está implementado em `/garcom`; o gate de implementação do HEAD `9daaacc9ef4754558ad570bd568a316367b9260d` concluiu SUCCESS. Permanece `IMPLEMENTED_UNCERTIFIED` até certificação integral posterior.
+- **WP-008** está certificado em `/garcom`; após o gate de implementação no HEAD `9daaacc9ef4754558ad570bd568a316367b9260d`, recebeu certificação independente no `Kordena V1 Non-Fiscal Master Gate` run `35380670582`, HEAD `74530f13c8bd9c95b61b9b9da4192094a230c2d3`.
 - **WP-018** foi certificado em `/admin/dashboard` no SHA `b7a64b2dc5a47763a86fded903a15fd2be2cc23d`.
 - **WP-012**, **WP-032** e **WP-033** estão tecnicamente certificados; o único WP deliberadamente pendente nesta rodada é **WP-031 Fiscal**.
 - **WP-031 Fiscal** está em execução sequencial na PR #118: WP-031A, WP-031B, WP-031C e WP-031D estão implementados/certificados; o Fiscal V1 congelado foi vendorizado e o WP-031E permanece PENDING/NÃO INICIADO. O hardening Pré-WP-031E corrige contratos de persistência e particionamento por ambiente sem reconstruir o motor.
@@ -36,7 +36,7 @@ A retaguarda WP-013 a WP-017 está agora formalmente certificada. O WP-031 Fisca
 - **WP-005 — PDV Touch**: `/pdv`.
 - **WP-006 — Salão / Mesas / Comandas**: `/salao`.
 - **WP-007 — KDS / Cozinha**: `/kds`.
-- **WP-008 — Atendimento do Garçom mobile/tablet**: `/garcom` — implementação concluída, aguardando certificação integral.
+- **WP-008 — Atendimento do Garçom mobile/tablet**: `/garcom` — CERTIFIED pelo Master Gate não fiscal.
 - **WP-009 — Central de Pedidos omnichannel**: `/pedidos`.
 - **WP-013 — Catálogo administrativo básico**: `/admin/catalogo`.
 - **WP-014 — Engenharia de Cardápio + Ficha Técnica**: `/admin/catalogo`.
@@ -64,7 +64,7 @@ A retaguarda WP-013 a WP-017 está agora formalmente certificada. O WP-031 Fisca
 | WP-005 | PDV Touch | core/pdv + application | Router session-aware | `/pdv` | MIGRADO | Preservar. |
 | WP-006 | Salão / Mesas / Comandas | core/salão + application | Router session-aware | `/salao` | MIGRADO | Preservar. |
 | WP-007 | KDS / Cozinha | core/kds + application | Router session-aware | `/kds` | MIGRADO | Preservar. |
-| WP-008 | Atendimento do Garçom mobile/tablet | core/garcom + application/garcom_transacoes.py + application/garcom_fechamento.py | Router session-aware implementado e gate dedicado SUCCESS | `/garcom` | IMPLEMENTED_UNCERTIFIED | Preservar implementação; certificação integral posterior sem reconstrução. |
+| WP-008 | Atendimento do Garçom mobile/tablet | core/garcom + application/garcom_transacoes.py + application/garcom_fechamento.py | Router session-aware + gate dedicado + certificação independente no Master Gate | `/garcom` | CERTIFIED | Preservar implementação e autoridades canônicas. |
 | WP-009 | Central de Pedidos omnichannel | core/central_pedidos + application | HTTP first-class certificado | `/pedidos` | MIGRADO | Preservar e integrar canais futuros nela. |
 | WP-010 | Delivery Próprio | core/delivery + application + infra/delivery | Boundary certificado | `/delivery` | CERTIFIED | Preservar. |
 | WP-011 | Expedição / Entrega | core/entrega + application | Boundary certificado | `/entrega` | CERTIFIED | Preservar. |
@@ -88,8 +88,8 @@ A retaguarda WP-013 a WP-017 está agora formalmente certificada. O WP-031 Fisca
 | WP-029 | Pagamentos / PIX / Provedores | core/pagamentos + PagBank/reconciliação/runtime | Observabilidade/conciliação certificadas | `/pagamentos` | MIGRADO | Preservar checkout/ledger/PIX/webhook canônicos. |
 | WP-030 | Cardápio Digital público / Autosserviço | Catálogo Delivery + checkout canônico + publicação dedicada por unidade | identidade pública + catálogo + checkout públicos certificados | `/cardapio/{publicId}/{slug}` | MIGRADO | Preservar `public_id` opaco, configuração por unidade e checkout único. |
 | WP-031 | Fiscal / NFC-e / SAT | Fiscal V1 congelado `b336def47ad4f5188307102203f4e04b98406014` vendorizado; WP-031A→D implementados/certificados | Persistência, outbound bridge e perfis fiscais integrados; WP-031E ainda não iniciado | — | PARCIAL — A→D CERTIFIED / E PENDING | Concluir hardening Pré-WP-031E; só então iniciar WP-031E mediante autorização explícita. |
-| WP-032 | Notificações Internas | core/notificacoes_internas + application/notificacoes_internas | GAP administrativo | — | OBRIGATÓRIA PARA V1.0 / PENDENTE | Expor destinatários, preferências e alertas; sem inbox/feed/badge genérico. |
-| WP-033 | Auditoria / Histórico administrativo | repositórios de auditoria existentes | Sem consulta Web certificada | — | GAP HTTP/WEB | Criar consulta Backoffice read-only, tenant-safe e sem segredos. |
+| WP-032 | Notificações Internas | core/notificacoes_internas + application/notificacoes_internas + diretório SQL cifrado | Superfície Web administrativa certificada, session-aware e tenant/unit-safe | Backoffice administrativo | CERTIFIED | Preservar serviço canônico; sem inbox/feed/badge paralelo. |
+| WP-033 | Auditoria / Histórico administrativo | core/seguranca/auditoria.py + RepositorioAuditoriaSQLAlchemy | Consulta Backoffice read-only certificada, tenant-safe, com RBAC + step-up | Backoffice administrativo | CERTIFIED | Preservar auditoria canônica e não expor metadata interna/segredos. |
 
 ## 5. Capacidades históricas comprovadas na UI Streamlit
 
@@ -97,13 +97,10 @@ O `app.py` legado comprova abas para Engenharia de Cardápio, CRM/Resgate/Cashba
 
 ## 6. Gaps e pendências que ainda devem ser fechados
 
-1. **WP-008 — Garçom:** implementação e gate dedicado concluídos; permanece `IMPLEMENTED_UNCERTIFIED` até certificação integral posterior.
-2. **WP-018 — Dashboard Financeiro:** CERTIFIED; step-up HTTP corrigido e gate integral verde.
-3. **WP-012 — Marketplaces:** CERTIFIED no SHA `e4ce2c1e2e315811425535c5ca74b5a56570050b`; bridge HTTP/Web integrado à Central/Pedido canônicos, sem homologação externa inventada.
-4. **WP-032 — Notificações Internas:** Core/Application/Infra existentes; falta superfície administrativa Web.
-5. **WP-033 — Auditoria/Histórico:** autoridade de auditoria existe; falta consulta Backoffice read-only tenant-safe.
-6. **WP-031 — Fiscal:** baseline V1 já localizado, congelado e vendorizado. WP-031A→D estão implementados/certificados; hardening Pré-E corrige equivalência do Outbox e partition key por ambiente. WP-031E permanece PENDING/NÃO INICIADO.
-7. **Ledger histórico:** WP-001 a WP-007 possuem estados CERTIFIED sem campos de evidência exigidos pelo validador atual; reconciliar somente com evidência histórica real.
+1. **WP-031 — Fiscal:** baseline V1 localizado, congelado e vendorizado. WP-031A→D estão implementados/certificados; o hardening Pré-E fecha equivalência do Outbox, partition key por ambiente, migration/schema e documentação. WP-031E permanece PENDING/NÃO INICIADO.
+2. **Ledger histórico:** WP-001 a WP-007 possuem estados CERTIFIED sem campos de evidência exigidos pelo validador atual; reconciliar somente com evidência histórica real.
+
+WP-008, WP-012, WP-018, WP-032 e WP-033 já possuem certificação posterior registrada neste documento e não são gaps CURRENT.
 
 ## 7. Ordem Mestre reconciliada
 
@@ -111,13 +108,13 @@ O `app.py` legado comprova abas para Engenharia de Cardápio, CRM/Resgate/Cashba
 **CERTIFICADA.**
 
 ### Onda 2 — Coração operacional
-WP-009 certificado. WP-010 e WP-011 permanecem em reconciliação/certificação mestre própria. WP-012 e WP-008 ainda requerem migração Web.
+WP-008, WP-009, WP-010, WP-011 e WP-012 estão migrados/certificados conforme seus gates e o Master Gate não fiscal. Preservar as autoridades canônicas existentes.
 
 ### Onda 3 — Retaguarda
-WP-013, WP-014, WP-015, WP-016 e WP-017 estão **MIGRADOS / CERTIFICADOS / 100% VERDES**. WP-018, WP-019, WP-020 e WP-022 possuem implementação presente aguardando certificação integrada. WP-021 e WP-023 a WP-026 estão migrados.
+WP-013 a WP-026 estão migrados/certificados conforme os gates específicos e o Master Gate não fiscal; preservar Core/Application, sessão, RBAC, step-up, isolamento e autoridades existentes.
 
 ### Onda 4 — IA e Integrações
-WP-027, WP-028 e WP-029 estão migrados. WP-019 possui implementação presente aguardando certificação integrada.
+WP-027, WP-028 e WP-029 estão migrados/certificados no ciclo não fiscal; WP-019 também está certificado. Preservar governança, confirmações e observabilidade existentes.
 
 ### Onda pública
 WP-030 **CERTIFICADO / 100% VERDE** no HEAD funcional `c74595637deb6e31a578e95975445d34064a6b07`.
