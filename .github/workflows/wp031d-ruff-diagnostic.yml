@@ -1,12 +1,7 @@
 name: WP-031D Ruff Diagnostic
 
+# Manual diagnostic only; this workflow is not a certification gate.
 on:
-  pull_request:
-    paths:
-      - 'infra/fiscal/perfis_sqlalchemy.py'
-      - 'infra/fiscal/__init__.py'
-      - 'tests/integration/fiscal/test_wp031d_profiles.py'
-      - '.github/workflows/wp031d-ruff-diagnostic.yml'
   workflow_dispatch:
 
 permissions:
