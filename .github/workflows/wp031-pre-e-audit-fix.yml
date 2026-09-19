@@ -1,0 +1,97 @@
+name: WP-031 Pre-E Audit & Fix Gate
+
+on:
+  pull_request:
+    paths:
+      - 'application/fiscal_outbound.py'
+      - 'infra/fiscal/**'
+      - 'migrations/**'
+      - 'tests/integration/fiscal/**'
+      - 'docs/web-parity/**'
+      - '.github/workflows/wp031-pre-e-audit-fix.yml'
+  push:
+    branches:
+      - feat/web-parity-v1-total-original-migration
+    paths:
+      - 'application/fiscal_outbound.py'
+      - 'infra/fiscal/**'
+      - 'migrations/**'
+      - 'tests/integration/fiscal/**'
+      - 'docs/web-parity/**'
+      - '.github/workflows/wp031-pre-e-audit-fix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-fix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Verify frozen Fiscal V1 baseline
+        run: python scripts/validate_wp031_vendor_baseline.py
+      - name: Compile hardened fiscal surface
+        run: |
+          python -m py_compile \
+            infra/fiscal/modelos_orm.py \
+            infra/fiscal/repositorios_sqlalchemy.py \
+            infra/fiscal/perfis_sqlalchemy.py \
+            migrations/fiscal_profile_environment_partition_v1.py \
+            migrations/runner.py \
+            tests/integration/fiscal/test_wp031_pre_e_hardening.py
+      - name: Ruff
+        run: |
+          ruff check \
+            infra/fiscal \
+            migrations/fiscal_profile_environment_partition_v1.py \
+            migrations/runner.py \
+            tests/integration/fiscal
+      - name: Mypy
+        run: |
+          mypy \
+            infra/fiscal \
+            migrations/fiscal_profile_environment_partition_v1.py
+      - name: Migration manifest
+        run: |
+          python - <<'PY'
+          from migrations.manifest import assert_migration_manifest
+          from migrations.runner import DEFAULT_MIGRATIONS
+          assert_migration_manifest(DEFAULT_MIGRATIONS)
+          print("Migration manifest: PASS")
+          PY
+      - name: Schema baseline
+        run: |
+          python - <<'PY'
+          from sqlalchemy import create_engine
+          from migrations.history_guard import assert_schema_baseline
+          from migrations.runner import run_migrations
+          engine = create_engine("sqlite+pysqlite:///:memory:")
+          run_migrations(engine)
+          assert_schema_baseline(engine)
+          print("Schema baseline: PASS")
+          PY
+      - name: Pre-E hardening tests
+        run: pytest -q tests/integration/fiscal/test_wp031_pre_e_hardening.py
+      - name: WP-031B persistence tests
+        run: pytest -q tests/integration/fiscal/test_wp031b_persistence.py
+      - name: WP-031C outbound tests
+        run: pytest -q tests/integration/fiscal/test_wp031c_outbound_bridge.py
+      - name: WP-031D profile tests
+        run: pytest -q tests/integration/fiscal/test_wp031d_profiles.py
+      - name: Full Python regression
+        run: pytest -q
+      - name: Diff whitespace gate
+        run: git diff --check 887e268695a8feb435a5229093ddff56ebcedcf3..HEAD
