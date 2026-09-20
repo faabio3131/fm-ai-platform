@@ -180,6 +180,10 @@
     {
       "version": "0044_fiscal_profile_environment_partition_v1",
       "sha256": "3205aaff2f4988ccaa2a712deb885de46607da02ee2f3b0020fb3e08f2ba391f"
+    },
+    {
+      "version": "0045_fiscal_inbound_foundation_v1",
+      "sha256": "6c78ad29c9d5d187dc416103a90220037ce95fbda66783a8f5886b82d59a86dc"
     }
   ]
 }

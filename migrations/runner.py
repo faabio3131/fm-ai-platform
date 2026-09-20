@@ -76,6 +76,9 @@ from migrations.delivery_channel_state_v1 import (
     upgrade_delivery_channel_state_v1,
 )
 from migrations.delivery_policy_v1 import upgrade_delivery_policy_v1
+from migrations.fiscal_inbound_foundation_v1 import (
+    upgrade_fiscal_inbound_foundation_v1,
+)
 from migrations.fiscal_persistence_foundation_v1 import (
     upgrade_fiscal_persistence_foundation_v1,
 )
@@ -309,6 +312,10 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         "0044_fiscal_profile_environment_partition_v1",
         upgrade_fiscal_profile_environment_partition_v1,
+    ),
+    Migration(
+        "0045_fiscal_inbound_foundation_v1",
+        upgrade_fiscal_inbound_foundation_v1,
     ),
 )
 

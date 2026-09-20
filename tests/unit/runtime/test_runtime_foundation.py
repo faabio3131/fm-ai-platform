@@ -72,6 +72,7 @@ _EXPECTED_MIGRATIONS = (
     "0042_marketplace_orders_web_v1",
     "0043_fiscal_persistence_foundation_v1",
     "0044_fiscal_profile_environment_partition_v1",
+    "0045_fiscal_inbound_foundation_v1",
 )
 
 

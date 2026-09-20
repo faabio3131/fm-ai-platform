@@ -1,5 +1,11 @@
 """Private Kordena adapters for the frozen Fiscal V1 engine."""
 
+from .inbound_sqlalchemy import (
+    FiscalCheckpointConflictError,
+    FiscalInboundConflictError,
+    FiscalInboundNotFoundError,
+    FiscalInboundStoreSQLAlchemy,
+)
 from .perfis_sqlalchemy import (
     FiscalIssuerProfileStoreSQLAlchemy,
     FiscalProductProfileStoreSQLAlchemy,
@@ -16,6 +22,10 @@ from .repositorios_sqlalchemy import (
 
 __all__ = [
     "FiscalArchiveStoreSQLAlchemy",
+    "FiscalCheckpointConflictError",
+    "FiscalInboundConflictError",
+    "FiscalInboundNotFoundError",
+    "FiscalInboundStoreSQLAlchemy",
     "FiscalIssuerProfileStoreSQLAlchemy",
     "FiscalOutboxStoreSQLAlchemy",
     "FiscalProductProfileStoreSQLAlchemy",

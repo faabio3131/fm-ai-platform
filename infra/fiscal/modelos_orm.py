@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import (
     DateTime,
     Index,
     Integer,
     LargeBinary,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -179,6 +181,39 @@ class FiscalInboundDocumentORM(FiscalBase):
             name="uq_fiscal_inbound_nsu_v1",
         ),
         Index("ix_fiscal_inbound_scope_status_v1", "tenant_id", "unit_id", "status"),
+        Index(
+            "ix_fiscal_inbound_partition_status_v1",
+            "tenant_id",
+            "unit_id",
+            "environment",
+            "status",
+        ),
+    )
+
+
+class FiscalInboundItemORM(FiscalBase):
+    __tablename__ = "fiscal_inbound_items_v1"
+
+    inbound_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    line_number: Mapped[int] = mapped_column(Integer, primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    unit_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    environment: Mapped[str] = mapped_column(String(32), nullable=False)
+    product_code: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[str] = mapped_column(String(512), nullable=False)
+    ncm: Mapped[str] = mapped_column(String(8), nullable=False)
+    commercial_unit: Mapped[str] = mapped_column(String(16), nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(20, 6), nullable=False)
+    unit_value: Mapped[Decimal] = mapped_column(Numeric(20, 6), nullable=False)
+    total_value: Mapped[Decimal] = mapped_column(Numeric(20, 6), nullable=False)
+    __table_args__ = (
+        Index(
+            "ix_fiscal_inbound_items_partition_v1",
+            "tenant_id",
+            "unit_id",
+            "environment",
+            "inbound_id",
+        ),
     )
 
 
@@ -218,6 +253,13 @@ class FiscalManifestationORM(FiscalBase):
             name="uq_fiscal_manifestation_idempotency_v1",
         ),
         Index("ix_fiscal_manifestation_document_v1", "tenant_id", "unit_id", "access_key"),
+        Index(
+            "ix_fiscal_manifestation_partition_document_v1",
+            "tenant_id",
+            "unit_id",
+            "environment",
+            "access_key",
+        ),
     )
 
 
