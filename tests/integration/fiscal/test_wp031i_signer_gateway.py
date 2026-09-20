@@ -249,14 +249,14 @@ class StubTransport:
     def authorize(self, request, *, configuration, credentials):
         self._before(credentials)
         provider = GatewayProviderMetadata(configuration.provider, "wp031i-v1")
-        common = dict(
-            scope=request.scope,
-            access_key=request.access_key,
-            idempotency_key=request.idempotency_key,
-            request_fingerprint=request.request_fingerprint,
-            provider=provider,
-            provider_request_id=f"request-{self.calls}",
-        )
+        common = {
+            "scope": request.scope,
+            "access_key": request.access_key,
+            "idempotency_key": request.idempotency_key,
+            "request_fingerprint": request.request_fingerprint,
+            "provider": provider,
+            "provider_request_id": f"request-{self.calls}",
+        }
         if self.authorization_status is AuthorizationStatus.AUTHORIZED:
             return AuthorizationResult(
                 status=self.authorization_status,
