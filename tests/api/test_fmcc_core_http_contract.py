@@ -158,3 +158,31 @@ def test_shared_core_fails_closed_without_routing_scope(monkeypatch):
     assert response.json() == {
         "error": "fmcc_core.cognitive_runtime_unavailable"
     }
+
+
+def test_shared_core_http_forwards_operational_context(monkeypatch):
+    client, router = _client(monkeypatch)
+    context = [
+        {
+            "question": "Quanto faturamos ontem?",
+            "answer": "R$ 100,00",
+            "factualStatus": "grounded",
+            "evidenceRefs": ["billing.gross_billed"],
+        }
+    ]
+
+    response = client.post(
+        "/v1/fmcc/plan",
+        headers=_auth_headers(),
+        json={
+            "question": "E hoje?",
+            "tenantId": "tenant-a",
+            "userId": "user-a",
+            "correlationId": "corr-a",
+            "allowedCapabilities": ["metric.query", "metrics.query_many"],
+            "operationalContext": context,
+        },
+    )
+
+    assert response.status_code == 200
+    assert router.requests[-1].conteudo["operational_context"] == context
