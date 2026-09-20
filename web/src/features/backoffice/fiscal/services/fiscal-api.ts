@@ -154,3 +154,46 @@ export async function getFiscalArchive(
     { credentials: "include" },
   );
 }
+
+export interface FiscalOperationResponse {
+  status: string;
+  request_id: string;
+  provider: string;
+  provider_request_id: string | null;
+  event_protocol_reference: string | null;
+  rejection_code: string | null;
+  rejection_message: string | null;
+}
+
+export async function cancelFiscalDocument(
+  accessKey: string,
+  payload: {
+    environment: FiscalEnvironment;
+    authorization_protocol: string;
+    justification: string;
+  },
+): Promise<FiscalOperationResponse> {
+  return apiRequest<FiscalOperationResponse>(
+    `/v1/admin/fiscal/documents/${encodeURIComponent(accessKey)}/cancel`,
+    {
+      method: "POST",
+      credentials: "include",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function inutilizeFiscalNumbers(payload: {
+  environment: FiscalEnvironment;
+  model: 55 | 65;
+  series: number;
+  first_number: number;
+  last_number: number;
+  justification: string;
+}): Promise<FiscalOperationResponse> {
+  return apiRequest<FiscalOperationResponse>("/v1/admin/fiscal/inutilizations", {
+    method: "POST",
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+}
