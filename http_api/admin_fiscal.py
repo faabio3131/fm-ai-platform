@@ -22,11 +22,14 @@ from http_api.auth import AuthSessionRuntime
 from infra.fiscal.modelos_orm import (
     FiscalArchiveORM,
     FiscalDocumentProjectionORM,
+    FiscalOutboxORM,
+    FiscalProductBindingORM,
     FiscalInboundDocumentORM,
     FiscalIntakeCaptureORM,
     FiscalManifestationORM,
 )
 from infra.integracoes.modelos_orm import ServicoExternoConfigORM
+from infra.legacy_product_scope import ErroEscopoLojaLegada, listar_produtos_legados
 from infra.procurement.modelos_orm import PedidoCompraORM, RecebimentoCompraORM
 from kordena_fiscal.domain import FiscalEnvironment
 
@@ -184,6 +187,46 @@ def build_admin_fiscal_router(
                         ServicoExternoConfigORM.servico == "fiscal.documentos",
                     )
                 )
+                contingency = session.scalars(
+                    select(FiscalOutboxORM)
+                    .where(
+                        *_scope_filters(FiscalOutboxORM, identidade, env),
+                        FiscalOutboxORM.status.in_(
+                            ("pending", "in_flight", "retry_wait", "dead_letter")
+                        ),
+                    )
+                    .order_by(FiscalOutboxORM.available_at.desc())
+                    .limit(limit)
+                ).all()
+                fiscal_product_ids = set(
+                    session.scalars(
+                        select(FiscalProductBindingORM.product_id).where(
+                            *_scope_filters(
+                                FiscalProductBindingORM,
+                                identidade,
+                                env,
+                            )
+                        )
+                    ).all()
+                )
+                try:
+                    catalog_rows = listar_produtos_legados(
+                        session,
+                        tenant_id=identidade.tenant_id,
+                        unidade_id=identidade.unidade_id,
+                    )
+                    pending_products_available = True
+                    pending_products = [
+                        {
+                            "product_id": str(row._mapping["id"]),
+                            "name": str(row._mapping.get("nome") or ""),
+                        }
+                        for row in catalog_rows
+                        if str(row._mapping["id"]) not in fiscal_product_ids
+                    ]
+                except ErroEscopoLojaLegada:
+                    pending_products_available = False
+                    pending_products = []
 
             return {
                 "tenant_id": identidade.tenant_id,
@@ -198,6 +241,8 @@ def build_admin_fiscal_router(
                     "receipts": len(receipts),
                     "financial_obligations": len(obligations),
                     "archive_entries": int(archive_count),
+                    "contingency_entries": len(contingency),
+                    "products_pending_fiscal": len(pending_products),
                 },
                 "outbound": [
                     {
@@ -286,6 +331,21 @@ def build_admin_fiscal_router(
                         "created_at": _dt(row.criado_em),
                     }
                     for row in obligations
+                ],
+                "products_pending_fiscal": {
+                    "available": pending_products_available,
+                    "items": pending_products,
+                },
+                "contingency": [
+                    {
+                        "entry_id": row.entry_id,
+                        "operation": row.operation,
+                        "status": row.status,
+                        "attempt_count": row.attempt_count,
+                        "available_at": _dt(row.available_at),
+                        "last_error": row.last_error,
+                    }
+                    for row in contingency
                 ],
                 "configuration": (
                     None
