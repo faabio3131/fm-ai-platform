@@ -10,7 +10,9 @@ on:
       - "core/ai_router.py"
       - "http_api/app.py"
       - "http_api/fmcc_core.py"
+      - "http_api/fmcc_core_app.py"
       - "tests/api/test_fmcc_core_http_contract.py"
+      - "tests/api/test_fmcc_core_app_contract.py"
       - "tests/unit/gerente_ia/test_fmcc_shared_core_service.py"
       - ".github/workflows/shared-core-fmcc-gate.yml"
 
