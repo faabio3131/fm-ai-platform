@@ -91,6 +91,7 @@ def _configure_frontend_cors(
 def build_frontend_http_app(
     *,
     settings: RuntimeSettings | None = None,
+    fiscal_operations_gateway_factory: Any | None = None,
     **kwargs: Any,
 ) -> FastAPI:
     """Constrói o HTTP ingress canônico + fronteiras WEB-PARITY para Next.js."""
@@ -124,7 +125,6 @@ def build_frontend_http_app(
         build_admin_assistente_atendimento_router,
         build_admin_dashboard_router,
         build_admin_empresa_router,
-        build_admin_fiscal_router,
         build_admin_usuarios_router,
         build_ai_finops_router,
         build_cardapio_publico_router,
@@ -139,6 +139,13 @@ def build_frontend_http_app(
                 auth_runtime=auth_runtime,
             )
         )
+    app.include_router(
+        build_admin_fiscal_router(
+            session_factory=session_factory,
+            auth_runtime=auth_runtime,
+            operations_gateway_factory=fiscal_operations_gateway_factory,
+        )
+    )
     app.include_router(
         build_marketplaces_web_router(
             session_factory=session_factory,
