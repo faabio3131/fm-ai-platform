@@ -103,7 +103,7 @@ A dependência histórica que colocava FISC-20 após Web Premium está superada 
 3. WP-031C — Outbound Bridge — CONCLUÍDO/CERTIFICADO.
 4. WP-031D — Perfil / Produto Fiscal — CONCLUÍDO/CERTIFICADO.
 5. Audit & Fix Pré-WP-031E — CONCLUÍDO/CERTIFICADO no HEAD funcional `f2ed3f2f2701b1a62af3d8c61299311a167f660c`; gate `WP-031 Pre-E Audit & Fix Gate` run `35465047494`: SUCCESS. Hardening fechou equivalência de contrato do Outbox, partition key persistente por ambiente, migration `0044`, schema baseline e regressão integral.
-6. WP-031E — Inbound Fiscal Foundation — PENDING / NÃO INICIADO.
+6. WP-031E — Inbound Fiscal Foundation — CONCLUÍDO/CERTIFICADO no HEAD funcional `0733a910c600819b3ae26b8ce7edb2883152a9c9`; gate `WP-031E Inbound Fiscal Foundation` run `35485517752`: SUCCESS. Fundação provider-neutral, XML NF-e modelo 55, Inbox/itens duráveis, checkpoint NSU atômico e manifestação replay-safe fechados; matriz do SHA 21/21 SUCCESS.
 7. WP-031F — Smart Fiscal Intake.
 8. WP-031G — Procurement Integration.
 9. WP-031H — Financial / Tax Bridge.
@@ -118,4 +118,4 @@ System Design/Authority Map: `docs/web-parity/WP031_FISCAL_V1_SYSTEM_DESIGN.md`.
 
 O Fiscal V1 não será reconstruído e não será substituído pelo NFCore V2 nesta fase. O baseline V1 permanece `b336def47ad4f5188307102203f4e04b98406014`. O escopo fiscal inclui saídas, entradas/compras, Smart Fiscal Intake, estoque, financeiro e Core cognitivo.
 
-O Audit & Fix Pré-WP-031E está certificado. Essa certificação NÃO inicia o WP-031E automaticamente. O WP-031E permanece PENDING / NÃO INICIADO e depende de autorização explícita do proprietário.
+O WP-031E está certificado internamente. Essa certificação não antecipa provider/SEFAZ real, OCR, procurement, efeitos de estoque/financeiro nem homologação externa. O WP-031 permanece PENDING e o WP-031F permanece PENDING / NÃO INICIADO; nenhum bloco posterior foi autorizado por esta certificação.
