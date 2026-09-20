@@ -23,11 +23,11 @@ from http_api.auth import AuthSessionRuntime
 from infra.fiscal.modelos_orm import (
     FiscalArchiveORM,
     FiscalDocumentProjectionORM,
-    FiscalOutboxORM,
-    FiscalProductBindingORM,
     FiscalInboundDocumentORM,
     FiscalIntakeCaptureORM,
     FiscalManifestationORM,
+    FiscalOutboxORM,
+    FiscalProductBindingORM,
 )
 from infra.integracoes.modelos_orm import ServicoExternoConfigORM
 from infra.legacy_product_scope import ErroEscopoLojaLegada, listar_produtos_legados
