@@ -125,6 +125,7 @@ export async function getFiscalWorkspace(
 ): Promise<FiscalWorkspaceResponse> {
   return apiRequest<FiscalWorkspaceResponse>(
     `/v1/admin/fiscal/workspace?environment=${environment}`,
+    { credentials: "include" },
   );
 }
 
@@ -133,5 +134,6 @@ export async function getFiscalArchive(
 ): Promise<FiscalArchiveResponse> {
   return apiRequest<FiscalArchiveResponse>(
     `/v1/admin/fiscal/archive?environment=${environment}`,
+    { credentials: "include" },
   );
 }
