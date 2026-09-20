@@ -135,3 +135,69 @@ def test_synthesis_requires_governed_evidence():
             fatos=(),
             evidencias=(),
         )
+
+
+def test_plan_receives_operational_context_without_promoting_it_to_authority():
+    router = FakeRouter(
+        ['{"capability":"metric.query","arguments":{"metricId":"revenue.mrr"}}']
+    )
+    service = ServicoCoreCompartilhadoFMCC(router)
+    context = (
+        {
+            "question": "Quanto faturamos ontem?",
+            "answer": "R$ 100,00",
+            "evidenceRefs": ["billing.gross_billed"],
+        },
+    )
+
+    service.planejar(
+        pergunta="E hoje?",
+        tenant_id="fmcc-tenant-a",
+        usuario_id="user-a",
+        correlation_id="corr-a",
+        capabilities_permitidas=("metric.query", "metrics.query_many"),
+        contexto_operacional=context,
+    )
+
+    request = router.requests[0]
+    assert request.conteudo["operational_context"] == list(context)
+
+
+def test_synthesis_supports_explanation_anomaly_risk_and_recommendation_only_from_facts():
+    router = FakeRouter(
+        [
+            {
+                "answer": (
+                    "A queda está concentrada na métrica governada enviada; "
+                    "vale investigar a origem indicada pela evidência."
+                )
+            }
+        ]
+    )
+    service = ServicoCoreCompartilhadoFMCC(router)
+    facts = (
+        {"metricId": "revenue.mrr", "value": "1000", "unit": "currency"},
+        {"metricId": "churn.rate", "value": "8", "unit": "percent"},
+    )
+    evidence = (
+        {"kind": "metric", "ref": "revenue.mrr", "sourceAuthority": "billing"},
+        {"kind": "metric", "ref": "churn.rate", "sourceAuthority": "billing"},
+    )
+
+    result = service.sintetizar(
+        pergunta="Há algum risco e o que recomenda?",
+        tenant_id="fmcc-tenant-a",
+        usuario_id="user-a",
+        correlation_id="corr-a",
+        fatos=facts,
+        evidencias=evidence,
+        contexto_operacional=(
+            {"question": "Como estava ontem?", "factualStatus": "grounded"},
+        ),
+    )
+
+    assert result["factualStatus"] == "grounded"
+    assert result["evidence"] == list(evidence)
+    request = router.requests[0]
+    assert request.conteudo["facts"] == list(facts)
+    assert request.conteudo["operational_context"][0]["factualStatus"] == "grounded"
