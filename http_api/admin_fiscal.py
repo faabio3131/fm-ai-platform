@@ -436,13 +436,31 @@ def build_admin_fiscal_router(
                 env,
                 request.headers.get("x-correlation-id") or "admin_fiscal_cancel",
             )
-            operation = CancellationRequest.build(
-                scope=scope,
-                access_key=NfeAccessKey(access_key),
-                authorization_protocol=payload.authorization_protocol,
-                justification=payload.justification,
-            )
+            parsed_access_key = NfeAccessKey(access_key)
             with session_factory() as session:
+                projection = session.scalar(
+                    select(FiscalDocumentProjectionORM).where(
+                        *_scope_filters(
+                            FiscalDocumentProjectionORM,
+                            identidade,
+                            env,
+                        ),
+                        FiscalDocumentProjectionORM.access_key
+                        == parsed_access_key.value,
+                    )
+                )
+                if projection is None:
+                    raise ValueError("fiscal.documento_nao_encontrado")
+                if projection.state != "authorized":
+                    raise ValueError("fiscal.cancelamento_estado_invalido")
+                if projection.protocol_reference != payload.authorization_protocol.strip():
+                    raise ValueError("fiscal.protocolo_autorizacao_divergente")
+                operation = CancellationRequest.build(
+                    scope=scope,
+                    access_key=parsed_access_key,
+                    authorization_protocol=payload.authorization_protocol,
+                    justification=payload.justification,
+                )
                 result = FiscalOperationsClient(
                     operations_gateway_factory(session)
                 ).cancel(operation)
