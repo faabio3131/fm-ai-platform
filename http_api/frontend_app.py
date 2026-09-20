@@ -25,6 +25,7 @@ from http_api.admin_backoffice import build_admin_backoffice_router
 from http_api.admin_configuracao import build_admin_configuracao_router
 from http_api.admin_dashboard import build_admin_dashboard_router
 from http_api.admin_empresa import build_admin_empresa_router
+from http_api.admin_fiscal import build_admin_fiscal_router
 from http_api.admin_impressao import build_admin_impressao_router
 from http_api.admin_integracoes import build_admin_integracoes_router
 from http_api.admin_notificacoes import build_admin_notificacoes_router
@@ -123,6 +124,7 @@ def build_frontend_http_app(
         build_admin_assistente_atendimento_router,
         build_admin_dashboard_router,
         build_admin_empresa_router,
+        build_admin_fiscal_router,
         build_admin_usuarios_router,
         build_ai_finops_router,
         build_cardapio_publico_router,
