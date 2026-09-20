@@ -14,6 +14,9 @@ from infra.fiscal.modelos_orm import FiscalArchiveORM, FiscalDocumentProjectionO
 from infra.integracoes.modelos_orm import ServicoExternoConfigORM
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 from infra.seguranca.segredos_orm import SegredoIntegracaoORM
+from kordena_fiscal.domain import Cnpj, ElectronicInvoiceModel
+from kordena_fiscal.operations import FakeFiscalOperationsGateway
+from kordena_fiscal.xml import AccessKeyInput, build_access_key
 from migrations.runner import run_migrations
 
 SESSION_SECRET = "wp031j-session-secret-01234567890123456789"
@@ -25,7 +28,7 @@ ADMIN_EMAIL = "admin-wp031j@example.com"
 NOW = datetime(2026, 9, 20, 18, 0, tzinfo=timezone.utc)
 
 
-def _infra(monkeypatch) -> TestClient:
+def _infra(monkeypatch, *, gateway_factory=None) -> TestClient:
     monkeypatch.setenv("FM_AI_SESSION_SECRET", SESSION_SECRET)
     engine = create_engine(
         "sqlite://",
@@ -178,8 +181,24 @@ def _infra(monkeypatch) -> TestClient:
         ),
         engine=engine,
         session_factory=factory,
+        fiscal_operations_gateway_factory=gateway_factory,
     )
     return TestClient(app)
+
+
+def _access_key() -> str:
+    return build_access_key(
+        AccessKeyInput(
+            state_ibge_code="35",
+            issued_at=NOW,
+            issuer_cnpj=Cnpj("11222333000181"),
+            model=ElectronicInvoiceModel.NFCE,
+            series=1,
+            invoice_number=123,
+            emission_type=1,
+            numeric_code=12345678,
+        )
+    ).value
 
 
 def _login(client: TestClient, email: str = ADMIN_EMAIL, *, stepup: bool = True) -> None:
@@ -276,3 +295,64 @@ def test_wp031j_invalid_environment_fails_closed(monkeypatch) -> None:
     response = client.get("/v1/admin/fiscal/workspace?environment=dev")
     assert response.status_code == 400
     assert response.json() == {"erro": "fiscal.ambiente_invalido"}
+
+
+def test_wp031j_sensitive_operations_fail_closed_without_gateway(monkeypatch) -> None:
+    client = _infra(monkeypatch)
+    _login(client)
+    cancel = client.post(
+        f"/v1/admin/fiscal/documents/{_access_key()}/cancel",
+        json={
+            "environment": "homologation",
+            "authorization_protocol": "protocol-1",
+            "justification": "cancelamento fiscal controlado",
+        },
+    )
+    inutilize = client.post(
+        "/v1/admin/fiscal/inutilizations",
+        json={
+            "environment": "homologation",
+            "model": 65,
+            "series": 1,
+            "first_number": 10,
+            "last_number": 12,
+            "justification": "inutilizacao fiscal controlada",
+        },
+    )
+    assert cancel.status_code == 503
+    assert cancel.json() == {"erro": "fiscal.gateway_nao_configurado"}
+    assert inutilize.status_code == 503
+    assert inutilize.json() == {"erro": "fiscal.gateway_nao_configurado"}
+
+
+def test_wp031j_sensitive_operations_use_injected_fiscal_v1_gateway(monkeypatch) -> None:
+    gateway = FakeFiscalOperationsGateway()
+    client = _infra(monkeypatch, gateway_factory=lambda _session: gateway)
+    _login(client)
+
+    cancel = client.post(
+        f"/v1/admin/fiscal/documents/{_access_key()}/cancel",
+        json={
+            "environment": "homologation",
+            "authorization_protocol": "protocol-1",
+            "justification": "cancelamento fiscal controlado",
+        },
+    )
+    inutilize = client.post(
+        "/v1/admin/fiscal/inutilizations",
+        json={
+            "environment": "homologation",
+            "model": 65,
+            "series": 1,
+            "first_number": 10,
+            "last_number": 12,
+            "justification": "inutilizacao fiscal controlada",
+        },
+    )
+
+    assert cancel.status_code == 200
+    assert cancel.json()["status"] == "accepted"
+    assert cancel.json()["event_protocol_reference"]
+    assert inutilize.status_code == 200
+    assert inutilize.json()["status"] == "accepted"
+    assert inutilize.json()["event_protocol_reference"]
