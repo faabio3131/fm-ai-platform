@@ -6,6 +6,7 @@ export const INTEGRACAO_LABELS: Record<string, string> = {
   'pagamentos.pix--pagbank': 'PagBank · PIX',
   'pagamentos.pix--mercado_pago': 'Mercado Pago · PIX',
   'ia.generativa--gemini': 'Google Gemini',
+  'fiscal.documentos--sefaz': 'Fiscal · SEFAZ',
 };
 
 export const PARAMETRO_LABELS: Record<string, string> = {
@@ -20,6 +21,9 @@ export const PARAMETRO_LABELS: Record<string, string> = {
   currency: 'Moeda (ex.: BRL)',
   notification_url: 'URL de notificação / webhook',
   model: 'Modelo',
+  signer_kind: 'Tipo de certificado/assinador',
+  signing_algorithm: 'Algoritmo de assinatura',
+  adapter_version: 'Versão do adapter fiscal',
 };
 
 export const CREDENCIAL_LABELS: Record<string, string> = {
@@ -31,6 +35,11 @@ export const CREDENCIAL_LABELS: Record<string, string> = {
   api_token: 'API Token',
   webhook_secret: 'Webhook Secret',
   api_key: 'API Key',
+  certificate_pfx: 'Certificado A1/PFX (Base64)',
+  certificate_password: 'Senha do certificado',
+  provider_token: 'Token do provedor fiscal',
+  csc: 'CSC',
+  csc_id: 'ID do CSC',
 };
 
 export const AMBIENTE_LABELS: Record<string, string> = {
