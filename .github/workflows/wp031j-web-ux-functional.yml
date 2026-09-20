@@ -1,0 +1,110 @@
+name: WP-031J Web UX Functional
+
+on:
+  pull_request:
+    paths:
+      - 'core/seguranca/permissoes.py'
+      - 'http_api/admin_fiscal.py'
+      - 'http_api/admin_integracoes.py'
+      - 'http_api/frontend_app.py'
+      - 'web/src/app/admin/fiscal/**'
+      - 'web/src/features/backoffice/fiscal/**'
+      - 'web/src/features/backoffice/integracoes/**'
+      - 'web/src/features/shell/module-registry.ts'
+      - 'tests/api/test_admin_fiscal_http_contract.py'
+      - 'docs/web-parity/**'
+      - '.github/workflows/wp031j-web-ux-functional.yml'
+  push:
+    branches:
+      - feat/web-parity-v1-total-original-migration
+    paths:
+      - 'core/seguranca/permissoes.py'
+      - 'http_api/admin_fiscal.py'
+      - 'http_api/admin_integracoes.py'
+      - 'http_api/frontend_app.py'
+      - 'web/src/app/admin/fiscal/**'
+      - 'web/src/features/backoffice/fiscal/**'
+      - 'web/src/features/backoffice/integracoes/**'
+      - 'web/src/features/shell/module-registry.ts'
+      - 'tests/api/test_admin_fiscal_http_contract.py'
+      - 'docs/web-parity/**'
+      - '.github/workflows/wp031j-web-ux-functional.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web-ux-functional:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Verify frozen Fiscal V1 baseline
+        run: python scripts/validate_wp031_vendor_baseline.py
+      - name: Compile Web fiscal boundary
+        run: |
+          python -m py_compile \
+            http_api/admin_fiscal.py \
+            http_api/frontend_app.py \
+            core/seguranca/permissoes.py \
+            tests/api/test_admin_fiscal_http_contract.py
+      - name: Ruff
+        run: |
+          ruff check \
+            http_api/admin_fiscal.py \
+            http_api/frontend_app.py \
+            http_api/admin_integracoes.py \
+            core/seguranca/permissoes.py \
+            tests/api/test_admin_fiscal_http_contract.py
+      - name: Mypy
+        run: |
+          mypy \
+            http_api/admin_fiscal.py \
+            --follow-imports=skip
+      - name: Migration manifest
+        run: |
+          python - <<'PY'
+          from migrations.manifest import assert_migration_manifest
+          from migrations.runner import DEFAULT_MIGRATIONS
+          assert_migration_manifest(DEFAULT_MIGRATIONS)
+          print("Migration manifest: PASS")
+          PY
+      - name: Schema baseline
+        run: python scripts/generate_schema_baseline_v1.py --check
+      - name: WP-031J HTTP security tests
+        run: pytest -q tests/api/test_admin_fiscal_http_contract.py
+      - name: Fiscal regression
+        run: pytest -q tests/integration/fiscal tests/api/test_admin_fiscal_http_contract.py
+      - name: Full Python regression
+        run: pytest -q
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm ci
+      - name: ESLint fiscal Web
+        working-directory: web
+        run: npx eslint src/app/admin/fiscal src/features/backoffice/fiscal src/features/shell/module-registry.ts src/features/backoffice/integracoes
+      - name: TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+      - name: Diff whitespace gate
+        run: git diff --check 686b0683384d7c3ab5adbdfcdb45f26226b41725..HEAD
