@@ -258,10 +258,10 @@ class ServicoProcurement:
         _autorizar(contexto, Permissao.FISCAL_COMPRAS_RECEBER)
         if documento.scope.partition_key != scope.partition_key:
             raise ProcurementForaDoEscopo("documento_fiscal_fora_do_escopo")
-        existente = self._repositorio.recebimento_por_idempotencia(
-            scope, idempotency_key
-        )
-        if existente is not None:
+
+        def replay_idempotente(
+            existente: RecebimentoCompra,
+        ) -> ResultadoRecebimento:
             assinatura_atual = tuple(
                 (
                     item.linha_pedido,
@@ -293,11 +293,24 @@ class ServicoProcurement:
             ):
                 raise ConflitoProcurement("conflito_idempotencia_recebimento")
             return ResultadoRecebimento(existente, (), True)
+
+        existente = self._repositorio.recebimento_por_idempotencia(
+            scope, idempotency_key
+        )
+        if existente is not None:
+            return replay_idempotente(existente)
         pedido = self._repositorio.obter_pedido(scope, pedido_id)
         if pedido is None or pedido.status not in {
             StatusPedidoCompra.APROVADO,
             StatusPedidoCompra.PARCIALMENTE_RECEBIDO,
         }:
+            # Outro worker pode ter concluído o mesmo comando entre a consulta
+            # idempotente e a leitura do pedido. Releia antes de rejeitar o estado.
+            existente = self._repositorio.recebimento_por_idempotencia(
+                scope, idempotency_key
+            )
+            if existente is not None:
+                return replay_idempotente(existente)
             raise EstadoProcurementInvalido("pedido_nao_esta_aprovado")
         fornecedor = next(
             (

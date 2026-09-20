@@ -254,7 +254,7 @@ def test_wp031g_concorrencia_nao_cria_duas_entradas() -> None:
     fiscal = documento(execution_scope)
     resultados: list[object] = []
 
-    def executar(chave: str) -> None:
+    def executar() -> None:
         try:
             resultados.append(
                 servico.receber(
@@ -263,24 +263,36 @@ def test_wp031g_concorrencia_nao_cria_duas_entradas() -> None:
                     pedido_id="pedido-1",
                     documento=fiscal,
                     itens_recebidos=item(),
-                    idempotency_key=chave,
-                    recebimento_id=f"recebimento-{chave}",
+                    idempotency_key="corrente-1",
+                    recebimento_id="recebimento-corrente-1",
                 )
             )
         except (ConflitoProcurement, EstadoProcurementInvalido) as exc:
             resultados.append(exc)
 
-    threads = [
-        Thread(target=executar, args=(f"corrente-{indice}",)) for indice in (1, 2)
-    ]
+    threads = [Thread(target=executar) for _ in range(2)]
     for thread in threads:
         thread.start()
     for thread in threads:
         thread.join(timeout=5)
 
-    assert sum(not isinstance(resultado, Exception) for resultado in resultados) == 1
+    assert len(resultados) == 2
+    assert all(not isinstance(resultado, Exception) for resultado in resultados)
+    assert sum(resultado.idempotente for resultado in resultados) == 1
     assert estoque.consultar_saldo("tenant-a", "unit-a", "farinha").saldo_fisico == 2
     assert len(estoque.listar_movimentos("tenant-a", "unit-a")) == 1
+
+    repo.barreira = None
+    with pytest.raises(EstadoProcurementInvalido):
+        servico.receber(
+            contexto=operador,
+            scope=execution_scope,
+            pedido_id="pedido-1",
+            documento=fiscal,
+            itens_recebidos=item(),
+            idempotency_key="novo-recebimento",
+            recebimento_id="recebimento-novo",
+        )
 
 
 def test_wp031g_nfe_isolada_homologacao_e_divergencia_nao_movem_estoque() -> None:
