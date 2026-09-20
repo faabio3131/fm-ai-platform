@@ -105,6 +105,8 @@ export function FiscalWorkspace() {
               ["Recebimentos", data.summary.receipts],
               ["Obrigações financeiras", data.summary.financial_obligations],
               ["Itens no archive", data.summary.archive_entries],
+              ["Contingência", data.summary.contingency_entries],
+              ["Produtos pendentes", data.summary.products_pending_fiscal],
             ].map(([label, value]) => (
               <article
                 key={String(label)}
@@ -303,6 +305,45 @@ export function FiscalWorkspace() {
                   <EmptyState>Nenhuma captura fiscal preliminar.</EmptyState>
                 ) : null}
               </div>
+            </article>
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-2">
+            <article className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+              <h2 className="font-semibold">Produtos com pendência fiscal</h2>
+              {!data.products_pending_fiscal.available ? (
+                <EmptyState>
+                  O catálogo legado não está mapeado para esta unidade; nenhuma pendência foi inferida.
+                </EmptyState>
+              ) : data.products_pending_fiscal.items.length === 0 ? (
+                <EmptyState>Nenhum produto sem perfil fiscal neste ambiente.</EmptyState>
+              ) : (
+                <div className="mt-4 space-y-2 text-sm">
+                  {data.products_pending_fiscal.items.map((item) => (
+                    <div key={item.product_id} className="rounded-lg border border-slate-800 p-3">
+                      {item.product_id} · {item.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </article>
+
+            <article className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+              <h2 className="font-semibold">Contingência e retries</h2>
+              {data.contingency.length === 0 ? (
+                <EmptyState>Nenhuma entrada pendente no outbox fiscal.</EmptyState>
+              ) : (
+                <div className="mt-4 space-y-2 text-sm">
+                  {data.contingency.map((item) => (
+                    <div key={item.entry_id} className="rounded-lg border border-slate-800 p-3">
+                      {item.operation} · {item.status} · tentativa {item.attempt_count}
+                      {item.last_error ? (
+                        <div className="mt-1 text-slate-400">{item.last_error}</div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
             </article>
           </section>
 
