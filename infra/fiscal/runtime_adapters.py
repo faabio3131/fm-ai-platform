@@ -47,7 +47,6 @@ from kordena_fiscal.security import (
     SigningRequest,
 )
 
-
 _FISCAL_SERVICE = "fiscal.documentos"
 _DEFAULT_PROVIDER = "sefaz"
 
