@@ -15,8 +15,6 @@ class CapabilityIA(StrEnum):
     TOOL_PLANNING = "tool_planning"
     ATENDIMENTO_INTERPRETACAO = "atendimento_interpretacao"
     ATENDIMENTO_TRANSCRICAO = "atendimento_transcricao"
-    FMCC_PLANNING = "fmcc_planning"
-    FMCC_SYNTHESIS = "fmcc_synthesis"
 
 
 class OutcomeIA(StrEnum):
