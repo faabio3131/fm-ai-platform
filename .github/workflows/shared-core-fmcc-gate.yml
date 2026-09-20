@@ -43,12 +43,30 @@ jobs:
 
       - name: Compile shared Core boundary
         run: |
-          python -m compileall -q             application/fmcc_core_service.py             http_api/fmcc_core.py             core/ai_router.py             application/ai_router_runtime.py
+          python -m compileall -q \
+            application/fmcc_core_service.py \
+            http_api/fmcc_core.py \
+            http_api/fmcc_core_app.py \
+            core/ai_router.py \
+            application/ai_router_runtime.py
 
       - name: Ruff shared Core boundary
         run: |
-          ruff check             application/fmcc_core_service.py             http_api/fmcc_core.py             core/ai_router.py             application/ai_router_runtime.py             tests/api/test_fmcc_core_http_contract.py             tests/unit/gerente_ia/test_fmcc_shared_core_service.py
+          ruff check \
+            application/fmcc_core_service.py \
+            http_api/fmcc_core.py \
+            http_api/fmcc_core_app.py \
+            core/ai_router.py \
+            application/ai_router_runtime.py \
+            tests/api/test_fmcc_core_http_contract.py \
+            tests/api/test_fmcc_core_app_contract.py \
+            tests/unit/gerente_ia/test_fmcc_shared_core_service.py
 
       - name: Shared Core contract tests
         run: |
-          pytest -q             tests/unit/gerente_ia/test_fmcc_shared_core_service.py             tests/api/test_fmcc_core_http_contract.py             tests/unit/ai_router/test_router.py             tests/fitness/test_af15_ai_model_router.py
+          pytest -q \
+            tests/unit/gerente_ia/test_fmcc_shared_core_service.py \
+            tests/api/test_fmcc_core_http_contract.py \
+            tests/api/test_fmcc_core_app_contract.py \
+            tests/unit/ai_router/test_router.py \
+            tests/fitness/test_af15_ai_model_router.py
