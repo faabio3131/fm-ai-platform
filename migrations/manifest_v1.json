@@ -184,6 +184,10 @@
     {
       "version": "0045_fiscal_inbound_foundation_v1",
       "sha256": "6c78ad29c9d5d187dc416103a90220037ce95fbda66783a8f5886b82d59a86dc"
+    },
+    {
+      "version": "0046_fiscal_smart_intake_v1",
+      "sha256": "a4bada163f854f2ba120a7e645c3f763fc72f48bb1a0ec5760a33abb67822154"
     }
   ]
 }

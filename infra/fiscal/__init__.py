@@ -6,6 +6,11 @@ from .inbound_sqlalchemy import (
     FiscalInboundNotFoundError,
     FiscalInboundStoreSQLAlchemy,
 )
+from .intake_sqlalchemy import (
+    FiscalIntakeConflictError,
+    FiscalIntakeNotFoundError,
+    FiscalIntakeStoreSQLAlchemy,
+)
 from .perfis_sqlalchemy import (
     FiscalIssuerProfileStoreSQLAlchemy,
     FiscalProductProfileStoreSQLAlchemy,
@@ -26,6 +31,9 @@ __all__ = [
     "FiscalInboundConflictError",
     "FiscalInboundNotFoundError",
     "FiscalInboundStoreSQLAlchemy",
+    "FiscalIntakeConflictError",
+    "FiscalIntakeNotFoundError",
+    "FiscalIntakeStoreSQLAlchemy",
     "FiscalIssuerProfileStoreSQLAlchemy",
     "FiscalOutboxStoreSQLAlchemy",
     "FiscalProductProfileStoreSQLAlchemy",

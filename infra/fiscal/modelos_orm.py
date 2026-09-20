@@ -115,6 +115,49 @@ class FiscalArchiveORM(FiscalBase):
     )
 
 
+class FiscalIntakeCaptureORM(FiscalBase):
+    __tablename__ = "fiscal_intake_captures_v1"
+
+    capture_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    unit_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    environment: Mapped[str] = mapped_column(String(32), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    authority: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    archive_entry_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    content_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    media_type: Mapped[str] = mapped_column(String(128), nullable=False)
+    extraction_json: Mapped[str | None] = mapped_column(Text)
+    reconciliation_json: Mapped[str | None] = mapped_column(Text)
+    last_error_code: Mapped[str | None] = mapped_column(String(128))
+    correlation_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "unit_id",
+            "environment",
+            "idempotency_key",
+            name="uq_fiscal_intake_idempotency_v1",
+        ),
+        UniqueConstraint(
+            "archive_entry_id",
+            name="uq_fiscal_intake_archive_entry_v1",
+        ),
+        Index(
+            "ix_fiscal_intake_partition_status_v1",
+            "tenant_id",
+            "unit_id",
+            "environment",
+            "status",
+        ),
+    )
+
+
 class FiscalDocumentProjectionORM(FiscalBase):
     __tablename__ = "fiscal_document_projection_v1"
 

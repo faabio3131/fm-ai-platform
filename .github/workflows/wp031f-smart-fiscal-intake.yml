@@ -1,0 +1,99 @@
+name: WP-031F Smart Fiscal Intake
+
+on:
+  pull_request:
+    paths:
+      - 'application/fiscal_intake.py'
+      - 'application/fiscal_inbound.py'
+      - 'kordena_fiscal/intake/**'
+      - 'kordena_fiscal/inbound/**'
+      - 'infra/fiscal/**'
+      - 'migrations/**'
+      - 'tests/integration/fiscal/**'
+      - 'docs/web-parity/**'
+      - '.github/workflows/wp031f-smart-fiscal-intake.yml'
+  push:
+    branches:
+      - feat/web-parity-v1-total-original-migration
+    paths:
+      - 'application/fiscal_intake.py'
+      - 'application/fiscal_inbound.py'
+      - 'kordena_fiscal/intake/**'
+      - 'kordena_fiscal/inbound/**'
+      - 'infra/fiscal/**'
+      - 'migrations/**'
+      - 'tests/integration/fiscal/**'
+      - 'docs/web-parity/**'
+      - '.github/workflows/wp031f-smart-fiscal-intake.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smart-fiscal-intake:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Verify frozen Fiscal V1 baseline
+        run: python scripts/validate_wp031_vendor_baseline.py
+      - name: Compile smart fiscal intake
+        run: |
+          python -m py_compile \
+            application/fiscal_intake.py \
+            kordena_fiscal/intake/models.py \
+            kordena_fiscal/intake/reconciliation.py \
+            infra/fiscal/intake_ai.py \
+            infra/fiscal/intake_sqlalchemy.py \
+            migrations/fiscal_smart_intake_v1.py \
+            migrations/runner.py
+      - name: Ruff
+        run: |
+          ruff check \
+            application/fiscal_intake.py \
+            kordena_fiscal/intake \
+            infra/fiscal \
+            migrations/fiscal_smart_intake_v1.py \
+            migrations/runner.py \
+            tests/integration/fiscal
+      - name: Mypy
+        run: |
+          mypy \
+            application/fiscal_intake.py \
+            kordena_fiscal/intake \
+            infra/fiscal/intake_ai.py \
+            infra/fiscal/intake_sqlalchemy.py \
+            migrations/fiscal_smart_intake_v1.py
+      - name: Migration manifest
+        run: |
+          python - <<'PY'
+          from migrations.manifest import assert_migration_manifest
+          from migrations.runner import DEFAULT_MIGRATIONS
+          assert_migration_manifest(DEFAULT_MIGRATIONS)
+          print("Migration manifest: PASS")
+          PY
+      - name: Schema baseline
+        run: python scripts/generate_schema_baseline_v1.py --check
+      - name: Smart intake and inbound regression
+        run: |
+          pytest -q \
+            tests/integration/fiscal/test_wp031f_smart_intake.py \
+            tests/integration/fiscal/test_wp031e_inbound_foundation.py \
+            tests/fitness/test_af04_schema_convergence.py \
+            tests/fitness/test_af05_migration_manifest.py
+      - name: Full Python regression
+        run: pytest -q
+      - name: Diff whitespace gate
+        run: git diff --check e9ca2d7349921e2e8c920c65ce9e18338ed46164..HEAD
