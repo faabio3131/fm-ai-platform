@@ -33,10 +33,6 @@ on:
       - "core/pdv/executor_canonico.py"
       - "core/pdv/reconciliacao.py"
       - "application/ai_router_runtime.py"
-      - "application/fmcc_core_service.py"
-      - "http_api/fmcc_core.py"
-      - "tests/api/test_fmcc_core_http_contract.py"
-      - "tests/unit/gerente_ia/test_fmcc_shared_core_service.py"
       - "infra/integracoes/**"
       - "infra/assistente_atendimento/**"
       - "infra/delivery/**"
@@ -133,8 +129,6 @@ jobs:
             core/pdv/executor_canonico.py \
             core/pdv/reconciliacao.py \
             application/ai_router_runtime.py \
-            application/fmcc_core_service.py \
-            http_api/fmcc_core.py \
             infra/integracoes/transportes.py \
             infra/assistente_atendimento/clientes_sqlalchemy.py \
             infra/assistente_atendimento/contexto_cliente_sqlalchemy.py \
@@ -193,8 +187,6 @@ jobs:
             core/pdv/executor_canonico.py \
             core/pdv/reconciliacao.py \
             application/ai_router_runtime.py \
-            application/fmcc_core_service.py \
-            http_api/fmcc_core.py \
             infra/integracoes/transportes.py \
             infra/assistente_atendimento/clientes_sqlalchemy.py \
             infra/assistente_atendimento/contexto_cliente_sqlalchemy.py \
@@ -230,8 +222,6 @@ jobs:
             tests/integration/pdv/test_rollback.py \
             tests/unit/delivery/test_politica_sqlalchemy.py \
             tests/unit/ai_router/test_router.py \
-            tests/unit/gerente_ia/test_fmcc_shared_core_service.py \
-            tests/api/test_fmcc_core_http_contract.py \
             tests/unit/integracoes/test_gemini_audio_transport_v1.py \
             tests/unit/integracoes/test_google_maps_delivery_address_v1.py \
             tests/unit/integracoes/test_whatsapp_control_plane_runtime_v1.py \
@@ -259,8 +249,6 @@ jobs:
             tests/unit/delivery/test_modelos.py \
             tests/unit/delivery/test_politica_sqlalchemy.py \
             tests/unit/ai_router/test_router.py \
-            tests/unit/gerente_ia/test_fmcc_shared_core_service.py \
-            tests/api/test_fmcc_core_http_contract.py \
             tests/unit/integracoes/test_gemini_audio_transport_v1.py \
             tests/unit/integracoes/test_google_maps_delivery_address_v1.py \
             tests/unit/integracoes/test_whatsapp_control_plane_runtime_v1.py \
