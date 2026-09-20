@@ -40,7 +40,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest ruff
+          pip install pytest ruff==0.16.1 mypy==1.20.2
 
       - name: Compile shared Core boundary
         run: |
@@ -62,6 +62,13 @@ jobs:
             tests/api/test_fmcc_core_http_contract.py \
             tests/api/test_fmcc_core_app_contract.py \
             tests/unit/gerente_ia/test_fmcc_shared_core_service.py
+
+      - name: Mypy shared Core boundary
+        run: |
+          mypy \
+            application/fmcc_core_service.py \
+            http_api/fmcc_core.py \
+            http_api/fmcc_core_app.py
 
       - name: Shared Core contract tests
         run: |
