@@ -19,6 +19,8 @@ class Permissao(StrEnum):
     CAIXA_ABRIR = "caixa.abrir"
     CAIXA_FECHAR = "caixa.fechar"
     FINANCEIRO_VISUALIZAR = "financeiro.visualizar"
+    FINANCEIRO_COMPRAS_REGISTRAR = "financeiro.compras.registrar"
+    FINANCEIRO_TRIBUTOS_DECIDIR = "financeiro.tributos.decidir"
     ESTOQUE_VISUALIZAR = "estoque.visualizar"
     ESTOQUE_AJUSTAR = "estoque.ajustar"
     ESTOQUE_BAIXAR = "estoque.baixar"
@@ -135,6 +137,8 @@ MATRIZ_PADRAO: dict[Papel, frozenset[Permissao]] = {
     Papel.FINANCEIRO: frozenset(
         {
             Permissao.FINANCEIRO_VISUALIZAR,
+            Permissao.FINANCEIRO_COMPRAS_REGISTRAR,
+            Permissao.FINANCEIRO_TRIBUTOS_DECIDIR,
             Permissao.PAGAMENTO_CONFIRMAR,
             Permissao.PAGAMENTO_ESTORNAR,
         }

@@ -192,6 +192,10 @@
     {
       "version": "0047_fiscal_procurement_integration_v1",
       "sha256": "3ce463e76fb72d17edd9e8abc0be4a3f86e13e303e395437c8ae8d0ffdcf38b9"
+    },
+    {
+      "version": "0048_fiscal_financial_tax_bridge_v1",
+      "sha256": "c7d27a7e4f55324c966163137f6a75f291cd26b13f0378f7ae9c1a4ff8da25a5"
     }
   ]
 }

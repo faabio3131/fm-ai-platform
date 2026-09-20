@@ -4,6 +4,10 @@ from .adapters import (  # noqa: F401
     ProvedorPagamentoFake,
     WebhookNormalizado,
 )
+from .fiscal_bridge import *
+from .fiscal_bridge_sqlalchemy import (  # noqa: F401
+    RepositorioBridgeFinanceiroFiscalSQLAlchemy,
+)
 from .flags import FlagsPagamentosV1  # noqa: F401
 from .modelos import *
 from .repositorios import (  # noqa: F401

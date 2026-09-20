@@ -75,6 +75,7 @@ _EXPECTED_MIGRATIONS = (
     "0045_fiscal_inbound_foundation_v1",
     "0046_fiscal_smart_intake_v1",
     "0047_fiscal_procurement_integration_v1",
+    "0048_fiscal_financial_tax_bridge_v1",
 )
 
 

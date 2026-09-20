@@ -76,6 +76,9 @@ from migrations.delivery_channel_state_v1 import (
     upgrade_delivery_channel_state_v1,
 )
 from migrations.delivery_policy_v1 import upgrade_delivery_policy_v1
+from migrations.fiscal_financial_tax_bridge_v1 import (
+    upgrade_fiscal_financial_tax_bridge_v1,
+)
 from migrations.fiscal_inbound_foundation_v1 import (
     upgrade_fiscal_inbound_foundation_v1,
 )
@@ -328,6 +331,10 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         "0047_fiscal_procurement_integration_v1",
         upgrade_fiscal_procurement_integration_v1,
+    ),
+    Migration(
+        "0048_fiscal_financial_tax_bridge_v1",
+        upgrade_fiscal_financial_tax_bridge_v1,
     ),
 )
 
