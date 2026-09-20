@@ -399,7 +399,12 @@ def test_get_nunca_retorna_segredo(app_com_mocks):
     resp = client.get("/v1/admin/integracoes")
     assert resp.status_code == 200
     data = resp.json()
-    integracao = data["integracoes"][0]
+    integracao = next(
+        item
+        for item in data["integracoes"]
+        if item["catalogo"]["servico"] == "ia.generativa"
+        and item["catalogo"]["provedor"] == "gemini"
+    )
     assert integracao["configuracao"] is not None
     assert "credenciais_estado" in integracao["configuracao"]
     assert integracao["configuracao"]["credenciais_estado"]["api_key"] is True
