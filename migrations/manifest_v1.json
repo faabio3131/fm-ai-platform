@@ -188,6 +188,10 @@
     {
       "version": "0046_fiscal_smart_intake_v1",
       "sha256": "a4bada163f854f2ba120a7e645c3f763fc72f48bb1a0ec5760a33abb67822154"
+    },
+    {
+      "version": "0047_fiscal_procurement_integration_v1",
+      "sha256": "3ce463e76fb72d17edd9e8abc0be4a3f86e13e303e395437c8ae8d0ffdcf38b9"
     }
   ]
 }

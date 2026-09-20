@@ -1,0 +1,99 @@
+name: WP-031G Procurement Integration
+
+on:
+  pull_request:
+    paths:
+      - 'core/procurement/**'
+      - 'core/estoque/**'
+      - 'core/seguranca/permissoes.py'
+      - 'infra/procurement/**'
+      - 'migrations/**'
+      - 'tests/integration/fiscal/test_wp031g_procurement.py'
+      - 'tests/integration/runtime/**'
+      - 'tests/unit/runtime/**'
+      - 'docs/web-parity/**'
+      - '.github/workflows/wp031g-procurement-integration.yml'
+  push:
+    branches:
+      - feat/web-parity-v1-total-original-migration
+    paths:
+      - 'core/procurement/**'
+      - 'core/estoque/**'
+      - 'core/seguranca/permissoes.py'
+      - 'infra/procurement/**'
+      - 'migrations/**'
+      - 'tests/integration/fiscal/test_wp031g_procurement.py'
+      - 'tests/integration/runtime/**'
+      - 'tests/unit/runtime/**'
+      - 'docs/web-parity/**'
+      - '.github/workflows/wp031g-procurement-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  procurement-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Verify frozen Fiscal V1 baseline
+        run: python scripts/validate_wp031_vendor_baseline.py
+      - name: Compile procurement integration
+        run: |
+          python -m py_compile \
+            core/procurement/modelos.py \
+            core/procurement/repositorios.py \
+            core/procurement/servicos.py \
+            infra/procurement/modelos_orm.py \
+            infra/procurement/repositorio_sqlalchemy.py \
+            migrations/fiscal_procurement_integration_v1.py \
+            migrations/runner.py
+      - name: Ruff
+        run: |
+          ruff check \
+            core/procurement \
+            infra/procurement \
+            core/estoque/modelos.py \
+            core/estoque/repositorios.py \
+            core/estoque/servicos.py \
+            core/seguranca/permissoes.py \
+            migrations/fiscal_procurement_integration_v1.py \
+            migrations/runner.py \
+            tests/integration/fiscal/test_wp031g_procurement.py
+      - name: Mypy
+        run: mypy core/procurement infra/procurement --follow-imports=skip
+      - name: Migration manifest
+        run: |
+          python - <<'PY'
+          from migrations.manifest import assert_migration_manifest
+          from migrations.runner import DEFAULT_MIGRATIONS
+          assert_migration_manifest(DEFAULT_MIGRATIONS)
+          print("Migration manifest: PASS")
+          PY
+      - name: Schema baseline
+        run: python scripts/generate_schema_baseline_v1.py --check
+      - name: Procurement, fiscal and stock regression
+        run: |
+          pytest -q \
+            tests/integration/fiscal \
+            tests/unit/stock \
+            tests/fitness/test_af04_schema_convergence.py \
+            tests/fitness/test_af05_migration_manifest.py \
+            tests/fitness/test_af09_rbac_capability_matrix.py
+      - name: Full Python regression
+        run: pytest -q
+      - name: Diff whitespace gate
+        run: git diff --check fe1884a2d29ebb8348857e43bad6f50ab7e9af3b..HEAD

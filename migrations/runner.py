@@ -82,6 +82,9 @@ from migrations.fiscal_inbound_foundation_v1 import (
 from migrations.fiscal_persistence_foundation_v1 import (
     upgrade_fiscal_persistence_foundation_v1,
 )
+from migrations.fiscal_procurement_integration_v1 import (
+    upgrade_fiscal_procurement_integration_v1,
+)
 from migrations.fiscal_profile_environment_partition_v1 import (
     upgrade_fiscal_profile_environment_partition_v1,
 )
@@ -321,6 +324,10 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         "0046_fiscal_smart_intake_v1",
         upgrade_fiscal_smart_intake_v1,
+    ),
+    Migration(
+        "0047_fiscal_procurement_integration_v1",
+        upgrade_fiscal_procurement_integration_v1,
     ),
 )
 

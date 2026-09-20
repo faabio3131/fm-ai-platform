@@ -27,6 +27,8 @@ class Permissao(StrEnum):
     ESTOQUE_PERDA_REGISTRAR = "estoque.perda_registrar"
     ESTOQUE_DEVOLVER = "estoque.devolver"
     COMPRA_APROVAR = "compra.aprovar"
+    FISCAL_COMPRAS_VISUALIZAR = "fiscal.compras.visualizar"
+    FISCAL_COMPRAS_RECEBER = "fiscal.compras.receber"
     PRODUCAO_VISUALIZAR = "producao.visualizar"
     PRODUCAO_ACEITAR = "producao.aceitar"
     PRODUCAO_ATUALIZAR = "producao.atualizar"
