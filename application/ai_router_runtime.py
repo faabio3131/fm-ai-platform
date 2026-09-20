@@ -232,8 +232,6 @@ def _capabilities(
             CapabilityIA.TOOL_PLANNING,
             CapabilityIA.ATENDIMENTO_INTERPRETACAO,
             CapabilityIA.ATENDIMENTO_TRANSCRICAO,
-            CapabilityIA.FMCC_PLANNING,
-            CapabilityIA.FMCC_SYNTHESIS,
         )
 
     try:
