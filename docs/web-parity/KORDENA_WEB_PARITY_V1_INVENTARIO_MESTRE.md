@@ -3,7 +3,7 @@
 **Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`
 **Data original:** 08/09/2026
 **Reconciliação:** 20/09/2026
-**Versão do inventário:** 3.6 — WP-031A→H certificados
+**Versão do inventário:** 3.6 — WP-031A→I certificados
 **Status:** DOCUMENTO MESTRE DE EXECUÇÃO
 
 ## 1. Regra constitucional deste inventário
@@ -19,7 +19,7 @@ Existir no backend, possuir UI candidata ou ter E2E legado **não** significa es
 - **WP-008** está certificado em `/garcom`; após o gate de implementação no HEAD `9daaacc9ef4754558ad570bd568a316367b9260d`, recebeu certificação independente no `Kordena V1 Non-Fiscal Master Gate` run `35380670582`, HEAD `74530f13c8bd9c95b61b9b9da4192094a230c2d3`.
 - **WP-018** foi certificado em `/admin/dashboard` no SHA `b7a64b2dc5a47763a86fded903a15fd2be2cc23d`.
 - **WP-012**, **WP-032** e **WP-033** estão tecnicamente certificados; o único WP deliberadamente pendente nesta rodada é **WP-031 Fiscal**.
-- **WP-031 Fiscal** está em execução sequencial na PR #118: WP-031A→H estão implementados/certificados. O WP-031H estendeu a autoridade financeira canônica com obrigação de compra, ajustes, reconciliação e decisão tributária explícita no HEAD funcional `1cd054e4d0748faafeb781cb145d0f4824be2bad`, gate run `35512559855` SUCCESS. O WP-031 permanece PENDING e o WP-031I não foi iniciado.
+- **WP-031 Fiscal** está em execução sequencial na PR #118: WP-031A→I estão implementados/certificados. O WP-031H estendeu a autoridade financeira canônica com obrigação de compra, ajustes, reconciliação e decisão tributária explícita no HEAD funcional `1cd054e4d0748faafeb781cb145d0f4824be2bad`, gate run `35512559855` SUCCESS. O WP-031 permanece PENDING e o WP-031I não foi iniciado.
 - GAP HTTP/WEB/PÚBLICO: **0** — WP-030 foi concluído e certificado.
 - A VERIFICAR: **0**.
 
@@ -87,7 +87,7 @@ A retaguarda WP-013 a WP-017 está agora formalmente certificada. O WP-031 Fisca
 | WP-028 | Gerente IA | core/gerente_ia + runtime/tools canônicos | façade session-aware certificada | `/gerente-ia` | MIGRADO | Preservar preview/confirmação/idempotência. |
 | WP-029 | Pagamentos / PIX / Provedores | core/pagamentos + PagBank/reconciliação/runtime | Observabilidade/conciliação certificadas | `/pagamentos` | MIGRADO | Preservar checkout/ledger/PIX/webhook canônicos. |
 | WP-030 | Cardápio Digital público / Autosserviço | Catálogo Delivery + checkout canônico + publicação dedicada por unidade | identidade pública + catálogo + checkout públicos certificados | `/cardapio/{publicId}/{slug}` | MIGRADO | Preservar `public_id` opaco, configuração por unidade e checkout único. |
-| WP-031 | Fiscal / NFC-e / SAT | Fiscal V1 congelado `b336def47ad4f5188307102203f4e04b98406014` vendorizado; WP-031A→H implementados/certificados | Persistência, outbound, perfis, inbound, intake, procurement e bridge financeiro/tributário integrados; provider/SEFAZ real e blocos I→L não executados | — | PARCIAL — A→H CERTIFIED / I PENDING | Preservar separação entre documento, recebimento, obrigação, pagamento e crédito; WP-031I permanece PENDING / NÃO INICIADO. |
+| WP-031 | Fiscal / NFC-e / SAT | Fiscal V1 congelado `b336def47ad4f5188307102203f4e04b98406014` vendorizado; WP-031A→I implementados/certificados | Persistência, outbound, perfis, inbound, intake, procurement e bridge financeiro/tributário integrados; provider/SEFAZ real e blocos I→L não executados | — | PARCIAL — A→H CERTIFIED / I PENDING | Preservar separação entre documento, recebimento, obrigação, pagamento e crédito; WP-031I permanece PENDING / NÃO INICIADO. |
 | WP-032 | Notificações Internas | core/notificacoes_internas + application/notificacoes_internas + diretório SQL cifrado | Superfície Web administrativa certificada, session-aware e tenant/unit-safe | Backoffice administrativo | CERTIFIED | Preservar serviço canônico; sem inbox/feed/badge paralelo. |
 | WP-033 | Auditoria / Histórico administrativo | core/seguranca/auditoria.py + RepositorioAuditoriaSQLAlchemy | Consulta Backoffice read-only certificada, tenant-safe, com RBAC + step-up | Backoffice administrativo | CERTIFIED | Preservar auditoria canônica e não expor metadata interna/segredos. |
 
@@ -97,7 +97,7 @@ O `app.py` legado comprova abas para Engenharia de Cardápio, CRM/Resgate/Cashba
 
 ## 6. Gaps e pendências que ainda devem ser fechados
 
-1. **WP-031 — Fiscal:** baseline V1 localizado, congelado e vendorizado. WP-031A→H estão implementados/certificados; o WP-031H foi certificado no gate `WP-031H Financial Tax Bridge` run `35512559855`, com 24/24 workflows SUCCESS no HEAD funcional. WP-031I→L e o Master Gate permanecem pendentes.
+1. **WP-031 — Fiscal:** baseline V1 localizado, congelado e vendorizado. WP-031A→I estão implementados/certificados; o WP-031H foi certificado no gate `WP-031H Financial Tax Bridge` run `35512559855`, com 24/24 workflows SUCCESS no HEAD funcional. WP-031I→L e o Master Gate permanecem pendentes.
 2. **Ledger histórico:** WP-001 a WP-007 possuem estados CERTIFIED sem campos de evidência exigidos pelo validador atual; reconciliar somente com evidência histórica real.
 
 WP-008, WP-012, WP-018, WP-032 e WP-033 já possuem certificação posterior registrada neste documento e não são gaps CURRENT.
