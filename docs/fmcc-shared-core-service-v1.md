@@ -1,8 +1,10 @@
 # FM Cognitive Core — Shared Service API for FM Control Center
 
-**Status:** implementação candidata em certificação  
-**Branch:** `feat/shared-core-fmcc-service`  
-**PR:** #121  
+**Status:** implementação candidata em certificação
+
+**Branch:** `feat/shared-core-fmcc-service`
+
+**PR:** #121
 **Base:** `feat/web-parity-v1-total-original-migration`
 
 ## Objetivo
