@@ -14,6 +14,7 @@ on:
       - "tests/api/test_fmcc_core_http_contract.py"
       - "tests/api/test_fmcc_core_app_contract.py"
       - "tests/unit/gerente_ia/test_fmcc_shared_core_service.py"
+      - "docs/fmcc-shared-core-preview-deployment.md"
       - ".github/workflows/shared-core-fmcc-gate.yml"
 
 permissions:
