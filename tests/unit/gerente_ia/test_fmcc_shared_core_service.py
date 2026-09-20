@@ -66,8 +66,10 @@ def test_plan_rejects_capability_outside_allowlist():
 def test_plan_rejects_scope_arguments_from_model():
     router = FakeRouter(
         [
-            '{"capability":"metric.query",'
-            '"arguments":{"metricId":"trial.starts.count","tenantId":"other"}}'
+            (
+                '{"capability":"metric.query",'
+                '"arguments":{"metricId":"trial.starts.count","tenantId":"other"}}'
+            )
         ]
     )
     service = ServicoCoreCompartilhadoFMCC(router)
