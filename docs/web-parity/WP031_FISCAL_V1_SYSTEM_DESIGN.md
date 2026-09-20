@@ -1,6 +1,6 @@
 # WP-031 — Fiscal V1 Complete — System Design & Authority Map
 
-**Status:** WP-031A→F implementados/certificados; WP-031G não iniciado
+**Status:** WP-031A→G implementados/certificados; WP-031H não iniciado
 **Date:** 20/09/2026
 **Repository:** `faabio3131/fm-ai-platform`
 **PR:** #118 — OPEN/DRAFT
@@ -96,9 +96,9 @@ Esse comportamento é válido como capacidade histórica, porém é insuficiente
 
 ### 3.4 Compras/fornecedores
 
-Existe a permissão `compra.aprovar` no RBAC, mas a auditoria do CURRENT não localizou autoridade canônica materializada para pedido de compra, fornecedor, recebimento fiscal ou DF-e.
+Na discovery inicial existia a permissão `compra.aprovar` no RBAC, mas não havia autoridade canônica materializada para pedido de compra, fornecedor ou recebimento fiscal.
 
-**Decisão:** antes de criar essas autoridades, WP-031G deve executar uma segunda descoberta dirigida no tree final. Se a autoridade continuar ausente, será criada uma única autoridade canônica de procurement, integrada ao estoque/financeiro existentes.
+**CURRENT pós-WP-031G:** a segunda descoberta dirigida confirmou a ausência. Foi criada uma única autoridade canônica de procurement, integrada ao ledger de estoque existente e preparada para o bridge financeiro do WP-031H, sem criar efeitos financeiros antecipados.
 
 ### 3.5 Integrações e segredos
 
@@ -187,7 +187,7 @@ Os nomes finais serão congelados no bloco de migration. A granularidade mínima
 
 Todas as tabelas devem possuir escopo tenant/unidade quando aplicável e constraints de unicidade/idempotência. Para autoridades fiscais dependentes de ambiente, `ExecutionScope.partition_key = tenant_id + unit_id + environment` é estrutural: homologação e produção devem coexistir sem colisão de identidade.
 
-### 6.1 CURRENT pós-WP-031F certificado
+### 6.1 CURRENT pós-WP-031G certificado
 
 - `FiscalSequenceStore`, `IdempotencyStore`, `FiscalOutboxStore` e `FiscalArchiveStore` possuem adapters SQLAlchemy duráveis.
 - `FiscalIssuerProfileStoreSQLAlchemy` e `FiscalProductProfileStoreSQLAlchemy` resolvem perfis imutáveis e effective-dated.
@@ -203,8 +203,14 @@ Todas as tabelas devem possuir escopo tenant/unidade quando aplicável e constra
 - A migration aditiva `0046_fiscal_smart_intake_v1` materializa a captura por `tenant_id + unit_id + environment`; o schema baseline passou a 92 tabelas.
 - PDF, imagem e câmera permanecem evidência preliminar; DF-e/XML permanecem autoridade oficial. Nenhum fluxo do WP-031F movimenta estoque, cria procurement ou produz efeito financeiro.
 - Gate `WP-031F Smart Fiscal Intake` run `35487571304`: SUCCESS no HEAD funcional `b3a5424d74497a55c96046585793d271e658887f`; matriz completa do SHA: 22/22 workflows SUCCESS; regressão local: 1601 passed / 5 skipped / 102 warnings.
-- A certificação é técnica interna. Provider/SEFAZ real, signer, certificado, homologação externa, precisão de OCR em produção, procurement, estoque e financeiro não foram antecipados.
-- WP-031G permanece PENDING / NÃO INICIADO; WP-031 continua PENDING até os blocos restantes e o Master Gate.
+- A certificação do WP-031F foi técnica interna e não antecipou provider/SEFAZ real, signer, certificado, homologação externa, precisão de OCR em produção, procurement, estoque ou financeiro.
+- O WP-031G confirmou por discovery a ausência de autoridade materializada e criou uma única autoridade canônica de procurement, sem duplicar estoque, catálogo, fiscal ou financeiro.
+- Fornecedor, pedido, aprovação, vínculo de produto, recebimento e custo de aquisição são duráveis e particionados por `tenant_id + unit_id + environment`.
+- XML/DF-e fornece a verdade documental; a confirmação humana fornece a verdade física. Somente recebimento aceito em `production` movimenta o ledger canônico de estoque; homologação, divergência e rejeição não contaminam saldo operacional.
+- A migration aditiva `0047_fiscal_procurement_integration_v1` elevou o schema baseline a 97 tabelas, com hash `a6a9ce9704ec3d62a6e32f71f2d54e4709fe4b24f3c1e18338d67dc38d43bb10`.
+- Gate `WP-031G Procurement Integration` run `35510517704`: SUCCESS no HEAD funcional `040d26154d3eb344e7b81b070ad619d22ff42357`; matriz completa do SHA: 23/23 workflows SUCCESS; regressão: 1621 passed / 5 skipped / 102 warnings.
+- A certificação é técnica interna. Efeitos financeiros/contábeis, signer, certificado, provider/SEFAZ real e homologação externa não foram antecipados.
+- WP-031H permanece PENDING / NÃO INICIADO; WP-031 continua PENDING até os blocos restantes e o Master Gate.
 
 ## 7. Regras de concorrência e idempotência
 
@@ -383,7 +389,7 @@ Nenhuma UF, município ou provider será marcado como homologado sem evidência 
 4. WP-031D — Perfil / Produto Fiscal.
 5. WP-031E — Inbound Fiscal Foundation — CONCLUÍDO/CERTIFICADO.
 6. WP-031F — Smart Fiscal Intake — CONCLUÍDO/CERTIFICADO.
-7. WP-031G — Procurement Integration.
+7. WP-031G — Procurement Integration — CONCLUÍDO/CERTIFICADO.
 8. WP-031H — Financial / Tax Bridge.
 9. WP-031I — Signer + Gateway.
 10. WP-031J — Web / UX funcional.
