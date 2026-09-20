@@ -103,6 +103,9 @@ jobs:
       - name: TypeScript
         working-directory: web
         run: npx tsc --noEmit
+      - name: Fiscal navigation contract
+        working-directory: web
+        run: node --test tests/wp031j-fiscal-navigation.test.mjs
       - name: Next production build
         working-directory: web
         run: npm run build
