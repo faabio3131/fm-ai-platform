@@ -82,6 +82,7 @@ class ServicoCoreCompartilhadoFMCC:
         usuario_id: str,
         correlation_id: str,
         capabilities_permitidas: tuple[str, ...],
+        contexto_operacional: tuple[dict[str, Any], ...] = (),
     ) -> dict[str, Any]:
         pergunta = _texto_pergunta(pergunta)
         permitidas = tuple(
@@ -107,10 +108,16 @@ class ServicoCoreCompartilhadoFMCC:
                         "Escolha SOMENTE uma capability da allowlist fornecida. "
                         "Responda SOMENTE JSON com capability e arguments. "
                         "Nunca inclua tenant, usuário, papel, permissão, token, "
-                        "segredo ou autorização nos arguments."
+                        "segredo ou autorização nos arguments. "
+                        "Use contexto operacional apenas para continuidade sem tratá-lo como "
+                        "fonte de verdade. Para perguntas que exigem comparar, correlacionar, "
+                        "explicar tendência, detectar anomalia, avaliar risco ou recomendar com "
+                        "base em várias métricas, prefira uma capability multi-métrica se ela "
+                        "estiver na allowlist."
                     ),
                     "question": pergunta,
                     "allowed_capabilities": permitidas,
+                    "operational_context": list(contexto_operacional),
                 },
             )
         )
@@ -146,6 +153,7 @@ class ServicoCoreCompartilhadoFMCC:
         correlation_id: str,
         fatos: tuple[dict[str, Any], ...],
         evidencias: tuple[dict[str, Any], ...],
+        contexto_operacional: tuple[dict[str, Any], ...] = (),
     ) -> dict[str, Any]:
         pergunta = _texto_pergunta(pergunta)
         if not fatos or not evidencias:
@@ -167,11 +175,17 @@ class ServicoCoreCompartilhadoFMCC:
                         "moedas ou conclusões ausentes. Não trate missing como zero. "
                         "Não calcule lucro ou conversão se esses fatos não vierem "
                         "explicitamente prontos da autoridade determinística. "
-                        "Responda em texto simples e conciso."
+                        "Você pode explicar indicadores, correlacionar fatos, destacar padrões, "
+                        "sinalizar anomalias, avaliar riscos e recomendar próximos passos SOMENTE "
+                        "quando essas conclusões forem sustentadas pelos facts/evidence recebidos. "
+                        "Declare incerteza quando a evidência for parcial. "
+                        "O operational_context serve apenas para continuidade conversacional; "
+                        "não o trate como fonte factual. Responda em texto simples e conciso."
                     ),
                     "question": pergunta,
                     "facts": list(fatos),
                     "evidence": list(evidencias),
+                    "operational_context": list(contexto_operacional),
                 },
             )
         )
