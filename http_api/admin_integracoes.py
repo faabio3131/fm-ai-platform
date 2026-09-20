@@ -155,6 +155,7 @@ _LABELS = {
     ("ia.generativa", "gemini"): "Google Gemini",
     ("marketplace.pedidos", "ifood"): "Marketplace · iFood",
     ("marketplace.pedidos", "keeta"): "Marketplace · Keeta",
+    ("fiscal.documentos", "sefaz"): "Fiscal · SEFAZ",
 }
 
 _HEALTHCHECK_SUPPORTED = {
