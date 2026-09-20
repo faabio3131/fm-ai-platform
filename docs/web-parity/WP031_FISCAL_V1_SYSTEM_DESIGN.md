@@ -1,6 +1,6 @@
 # WP-031 — Fiscal V1 Complete — System Design & Authority Map
 
-**Status:** WP-031A→H implementados/certificados; WP-031I não iniciado
+**Status:** WP-031A→I implementados/certificados; WP-031J em execução
 **Date:** 20/09/2026
 **Repository:** `faabio3131/fm-ai-platform`
 **PR:** #118 — OPEN/DRAFT
