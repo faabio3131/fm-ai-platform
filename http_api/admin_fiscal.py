@@ -12,6 +12,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Query, Request, status
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -31,9 +32,34 @@ from infra.fiscal.modelos_orm import (
 from infra.integracoes.modelos_orm import ServicoExternoConfigORM
 from infra.legacy_product_scope import ErroEscopoLojaLegada, listar_produtos_legados
 from infra.procurement.modelos_orm import PedidoCompraORM, RecebimentoCompraORM
-from kordena_fiscal.domain import FiscalEnvironment
+from kordena_fiscal.domain import ElectronicInvoiceModel, FiscalEnvironment
+from kordena_fiscal.operations import (
+    CancellationRequest,
+    FiscalOperationsClient,
+    FiscalOperationsGateway,
+    InutilizationRequest,
+)
+from kordena_fiscal.xml import NfeAccessKey
 
 SessionFactory = Callable[[], Session]
+FiscalOperationsGatewayFactory = Callable[[Session], FiscalOperationsGateway]
+
+
+class FiscalCancelIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    environment: str = "homologation"
+    authorization_protocol: str = Field(min_length=1, max_length=512)
+    justification: str = Field(min_length=15, max_length=255)
+
+
+class FiscalInutilizationIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    environment: str = "homologation"
+    model: int
+    series: int
+    first_number: int
+    last_number: int
+    justification: str = Field(min_length=15, max_length=255)
 
 
 def _erro(http_status: int, codigo: str) -> JSONResponse:
@@ -116,6 +142,7 @@ def build_admin_fiscal_router(
     *,
     session_factory: SessionFactory,
     auth_runtime: AuthSessionRuntime,
+    operations_gateway_factory: FiscalOperationsGatewayFactory | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/v1/admin/fiscal", tags=["admin-fiscal"])
 
@@ -378,6 +405,100 @@ def build_admin_fiscal_router(
                 },
             }
         except Exception as exc:  # noqa: BLE001 - HTTP boundary fail-closed
+            return _tratar_erro(exc)
+
+    @router.post("/documents/{access_key}/cancel", response_model=None)
+    def cancel_document(
+        access_key: str,
+        payload: FiscalCancelIn,
+        request: Request,
+    ) -> dict[str, Any] | JSONResponse:
+        try:
+            identidade = _identity(
+                request,
+                auth_runtime,
+                permission=Permissao.FISCAL_CANCELAR,
+            )
+            if operations_gateway_factory is None:
+                return _erro(
+                    status.HTTP_503_SERVICE_UNAVAILABLE,
+                    "fiscal.gateway_nao_configurado",
+                )
+            env = _environment(payload.environment)
+            scope = __import__("kordena_fiscal.domain", fromlist=["ExecutionScope"]).ExecutionScope(
+                identidade.tenant_id,
+                identidade.unidade_id,
+                env,
+                request.headers.get("x-correlation-id") or "admin_fiscal_cancel",
+            )
+            operation = CancellationRequest.build(
+                scope=scope,
+                access_key=NfeAccessKey(access_key),
+                authorization_protocol=payload.authorization_protocol,
+                justification=payload.justification,
+            )
+            with session_factory() as session:
+                result = FiscalOperationsClient(
+                    operations_gateway_factory(session)
+                ).cancel(operation)
+            return {
+                "status": result.status.value,
+                "access_key": result.access_key.value,
+                "request_id": result.request_id,
+                "provider": result.provider.provider_name,
+                "provider_request_id": result.provider_request_id,
+                "event_protocol_reference": result.event_protocol_reference,
+                "rejection_code": result.rejection_code,
+                "rejection_message": result.rejection_message,
+            }
+        except Exception as exc:  # noqa: BLE001
+            return _tratar_erro(exc)
+
+    @router.post("/inutilizations", response_model=None)
+    def inutilize_numbers(
+        payload: FiscalInutilizationIn,
+        request: Request,
+    ) -> dict[str, Any] | JSONResponse:
+        try:
+            identidade = _identity(
+                request,
+                auth_runtime,
+                permission=Permissao.FISCAL_INUTILIZAR,
+            )
+            if operations_gateway_factory is None:
+                return _erro(
+                    status.HTTP_503_SERVICE_UNAVAILABLE,
+                    "fiscal.gateway_nao_configurado",
+                )
+            env = _environment(payload.environment)
+            scope = __import__("kordena_fiscal.domain", fromlist=["ExecutionScope"]).ExecutionScope(
+                identidade.tenant_id,
+                identidade.unidade_id,
+                env,
+                request.headers.get("x-correlation-id") or "admin_fiscal_inutilize",
+            )
+            operation = InutilizationRequest.build(
+                scope=scope,
+                model=ElectronicInvoiceModel(payload.model),
+                series=payload.series,
+                first_number=payload.first_number,
+                last_number=payload.last_number,
+                justification=payload.justification,
+            )
+            with session_factory() as session:
+                result = FiscalOperationsClient(
+                    operations_gateway_factory(session)
+                ).inutilize(operation)
+            return {
+                "status": result.status.value,
+                "request_id": result.request_id,
+                "provider": result.provider.provider_name,
+                "provider_request_id": result.provider_request_id,
+                "event_protocol_reference": result.event_protocol_reference,
+                "rejection_code": result.rejection_code,
+                "rejection_message": result.rejection_message,
+            }
+        except Exception as exc:  # noqa: BLE001
             return _tratar_erro(exc)
 
     @router.get("/archive", response_model=None)
