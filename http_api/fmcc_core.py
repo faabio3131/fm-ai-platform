@@ -32,6 +32,7 @@ class FmccPlanIn(BaseModel):
     userId: str = Field(min_length=1, max_length=128)
     correlationId: str = Field(min_length=1, max_length=128)
     allowedCapabilities: list[str] = Field(min_length=1, max_length=32)
+    operationalContext: list[dict[str, Any]] = Field(default_factory=list, max_length=16)
 
 
 class FmccSynthesizeIn(BaseModel):
@@ -41,6 +42,7 @@ class FmccSynthesizeIn(BaseModel):
     correlationId: str = Field(min_length=1, max_length=128)
     facts: list[dict[str, Any]] = Field(min_length=1, max_length=64)
     evidence: list[dict[str, Any]] = Field(min_length=1, max_length=64)
+    operationalContext: list[dict[str, Any]] = Field(default_factory=list, max_length=16)
 
 
 def _service_token(request: Request) -> str | None:
@@ -139,6 +141,7 @@ def build_fmcc_core_router(
                     usuario_id=payload.userId,
                     correlation_id=payload.correlationId,
                     capabilities_permitidas=tuple(payload.allowedCapabilities),
+                    contexto_operacional=tuple(payload.operationalContext),
                 )
             return JSONResponse(status_code=status.HTTP_200_OK, content=result)
         except ErroCoreCompartilhadoFMCC as exc:
@@ -173,6 +176,7 @@ def build_fmcc_core_router(
                     correlation_id=payload.correlationId,
                     fatos=tuple(payload.facts),
                     evidencias=tuple(payload.evidence),
+                    contexto_operacional=tuple(payload.operationalContext),
                 )
             return JSONResponse(status_code=status.HTTP_200_OK, content=result)
         except ErroCoreCompartilhadoFMCC as exc:
