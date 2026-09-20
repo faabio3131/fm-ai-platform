@@ -51,6 +51,7 @@ from core.seguranca.segredos import ReferenceSecretStore, SecretStore
 from http_api.auth import AuthSessionRuntime, build_auth_router
 from http_api.catalogo import build_catalogo_router
 from http_api.estoque import build_estoque_router
+from http_api.fmcc_core import build_fmcc_core_router
 from http_api.kds import build_kds_router
 from http_api.pdv import build_pdv_router
 from http_api.salao import build_salao_router
@@ -148,6 +149,12 @@ def build_http_app(
             settings=settings,
             secret_store=secret_store,
             runtime=auth_runtime,
+        )
+    )
+    app.include_router(
+        build_fmcc_core_router(
+            session_factory=session_factory,
+            secret_store=secret_store,
         )
     )
     app.include_router(
