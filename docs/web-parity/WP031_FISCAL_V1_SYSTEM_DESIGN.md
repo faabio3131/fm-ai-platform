@@ -1,6 +1,6 @@
 # WP-031 — Fiscal V1 Complete — System Design & Authority Map
 
-**Status:** WP-031A→E implementados/certificados; WP-031F não iniciado
+**Status:** WP-031A→F implementados/certificados; WP-031G não iniciado
 **Date:** 20/09/2026
 **Repository:** `faabio3131/fm-ai-platform`
 **PR:** #118 — OPEN/DRAFT
@@ -187,7 +187,7 @@ Os nomes finais serão congelados no bloco de migration. A granularidade mínima
 
 Todas as tabelas devem possuir escopo tenant/unidade quando aplicável e constraints de unicidade/idempotência. Para autoridades fiscais dependentes de ambiente, `ExecutionScope.partition_key = tenant_id + unit_id + environment` é estrutural: homologação e produção devem coexistir sem colisão de identidade.
 
-### 6.1 CURRENT pós-WP-031E certificado
+### 6.1 CURRENT pós-WP-031F certificado
 
 - `FiscalSequenceStore`, `IdempotencyStore`, `FiscalOutboxStore` e `FiscalArchiveStore` possuem adapters SQLAlchemy duráveis.
 - `FiscalIssuerProfileStoreSQLAlchemy` e `FiscalProductProfileStoreSQLAlchemy` resolvem perfis imutáveis e effective-dated.
@@ -199,8 +199,12 @@ Todas as tabelas devem possuir escopo tenant/unidade quando aplicável e constra
 - A migration aditiva `0045_fiscal_inbound_foundation_v1` materializa itens inbound e índices completos por `tenant_id + unit_id + environment`; o schema baseline passou a 91 tabelas.
 - XML upload e DF-e da mesma chave convergem sem duplicidade; replays divergentes de chave, NSU ou manifestação falham fechados; documento e checkpoint DF-e são persistidos na mesma transação.
 - Gate `WP-031E Inbound Fiscal Foundation` run `35485517752`: SUCCESS no HEAD funcional `0733a910c600819b3ae26b8ce7edb2883152a9c9`; matriz completa do SHA: 21/21 workflows SUCCESS; regressão local: 1590 passed / 5 skipped / 102 warnings.
-- A certificação é técnica interna. Provider/SEFAZ real, signer, certificado, homologação externa, OCR/PDF/imagem/câmera, procurement, estoque e financeiro não foram antecipados.
-- WP-031F permanece PENDING / NÃO INICIADO; WP-031 continua PENDING até os blocos restantes e o Master Gate.
+- O WP-031F adicionou `SmartFiscalIntakeApplication`, captura preliminar durável, arquivo original atômico, boundary de extração estruturada e reconciliação determinística contra o documento oficial.
+- A migration aditiva `0046_fiscal_smart_intake_v1` materializa a captura por `tenant_id + unit_id + environment`; o schema baseline passou a 92 tabelas.
+- PDF, imagem e câmera permanecem evidência preliminar; DF-e/XML permanecem autoridade oficial. Nenhum fluxo do WP-031F movimenta estoque, cria procurement ou produz efeito financeiro.
+- Gate `WP-031F Smart Fiscal Intake` run `35487571304`: SUCCESS no HEAD funcional `b3a5424d74497a55c96046585793d271e658887f`; matriz completa do SHA: 22/22 workflows SUCCESS; regressão local: 1601 passed / 5 skipped / 102 warnings.
+- A certificação é técnica interna. Provider/SEFAZ real, signer, certificado, homologação externa, precisão de OCR em produção, procurement, estoque e financeiro não foram antecipados.
+- WP-031G permanece PENDING / NÃO INICIADO; WP-031 continua PENDING até os blocos restantes e o Master Gate.
 
 ## 7. Regras de concorrência e idempotência
 
@@ -378,7 +382,7 @@ Nenhuma UF, município ou provider será marcado como homologado sem evidência 
 3. WP-031C — Outbound Bridge.
 4. WP-031D — Perfil / Produto Fiscal.
 5. WP-031E — Inbound Fiscal Foundation — CONCLUÍDO/CERTIFICADO.
-6. WP-031F — Smart Fiscal Intake.
+6. WP-031F — Smart Fiscal Intake — CONCLUÍDO/CERTIFICADO.
 7. WP-031G — Procurement Integration.
 8. WP-031H — Financial / Tax Bridge.
 9. WP-031I — Signer + Gateway.
