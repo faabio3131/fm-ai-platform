@@ -478,9 +478,22 @@ class ServicoProcurement:
         )
 
         def operacao() -> ResultadoRecebimento:
-            salvo, criado = self._repositorio.salvar_recebimento(recebimento)
+            try:
+                salvo, criado = self._repositorio.salvar_recebimento(recebimento)
+            except ConflitoProcurement:
+                # O estado usado no matching pode ter mudado enquanto outro
+                # worker concluía a mesma chave. A autoridade é o comando
+                # original, validado novamente dentro da fronteira atômica.
+                existente_concorrente = (
+                    self._repositorio.recebimento_por_idempotencia(
+                        scope, idempotency_key
+                    )
+                )
+                if existente_concorrente is None:
+                    raise
+                return replay_idempotente(existente_concorrente)
             if not criado:
-                return ResultadoRecebimento(salvo, (), True)
+                return replay_idempotente(salvo)
             novo_status = (
                 StatusPedidoCompra.CONCLUIDO
                 if status is StatusRecebimento.CONCLUIDO

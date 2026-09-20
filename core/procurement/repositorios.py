@@ -171,10 +171,12 @@ class RepositorioProcurementEmMemoria:
     ) -> object:
         from decimal import Decimal
 
+        with self._lock:
+            recebimentos = tuple(self._recebimentos.values())
         return sum(
             (
                 item.quantidade
-                for recebimento in self._recebimentos.values()
+                for recebimento in recebimentos
                 if recebimento.scope.partition_key == scope.partition_key
                 and recebimento.pedido_id == pedido_id
                 and recebimento.status
