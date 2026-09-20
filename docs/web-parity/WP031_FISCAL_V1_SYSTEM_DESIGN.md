@@ -1,6 +1,6 @@
 # WP-031 — Fiscal V1 Complete — System Design & Authority Map
 
-**Status:** WP-031A→G implementados/certificados; WP-031H não iniciado
+**Status:** WP-031A→H implementados/certificados; WP-031I não iniciado
 **Date:** 20/09/2026
 **Repository:** `faabio3131/fm-ai-platform`
 **PR:** #118 — OPEN/DRAFT
@@ -187,7 +187,7 @@ Os nomes finais serão congelados no bloco de migration. A granularidade mínima
 
 Todas as tabelas devem possuir escopo tenant/unidade quando aplicável e constraints de unicidade/idempotência. Para autoridades fiscais dependentes de ambiente, `ExecutionScope.partition_key = tenant_id + unit_id + environment` é estrutural: homologação e produção devem coexistir sem colisão de identidade.
 
-### 6.1 CURRENT pós-WP-031G certificado
+### 6.1 CURRENT pós-WP-031H certificado
 
 - `FiscalSequenceStore`, `IdempotencyStore`, `FiscalOutboxStore` e `FiscalArchiveStore` possuem adapters SQLAlchemy duráveis.
 - `FiscalIssuerProfileStoreSQLAlchemy` e `FiscalProductProfileStoreSQLAlchemy` resolvem perfis imutáveis e effective-dated.
@@ -210,7 +210,15 @@ Todas as tabelas devem possuir escopo tenant/unidade quando aplicável e constra
 - A migration aditiva `0047_fiscal_procurement_integration_v1` elevou o schema baseline a 97 tabelas, com hash `a6a9ce9704ec3d62a6e32f71f2d54e4709fe4b24f3c1e18338d67dc38d43bb10`.
 - Gate `WP-031G Procurement Integration` run `35510517704`: SUCCESS no HEAD funcional `040d26154d3eb344e7b81b070ad619d22ff42357`; matriz completa do SHA: 23/23 workflows SUCCESS; regressão: 1621 passed / 5 skipped / 102 warnings.
 - A certificação é técnica interna. Efeitos financeiros/contábeis, signer, certificado, provider/SEFAZ real e homologação externa não foram antecipados.
-- WP-031H permanece PENDING / NÃO INICIADO; WP-031 continua PENDING até os blocos restantes e o Master Gate.
+- O WP-031H confirmou `core/pagamentos` como autoridade financeira canônica e a estendeu sem criar segundo ledger ou tratar contas a pagar como recebimento de venda.
+- Recebimentos físicos autorizados em `production` criam obrigação de compra única; NF-e isolada, homologação, divergência e rejeição não criam efeito financeiro.
+- Devolução e cancelamento geram ajustes append-only, preservam o valor original e alteram a versão da obrigação.
+- Crédito tributário nasce somente de regra explícita com identidade, versão, vigência, CFOP, CST e alíquota; ausência de regra resulta em decisão `BLOQUEADO` com valor zero.
+- Uma decisão tributária deixa de alimentar projeções quando a versão da obrigação muda, exigindo nova decisão após ajuste/devolução.
+- A migration aditiva `0048_fiscal_financial_tax_bridge_v1` elevou o schema baseline a 100 tabelas, com hash `6724f5e6a6b558ac82f9f88e4c964978fb10b0a94eb81e75ee085a76ca6cb645`.
+- Gate `WP-031H Financial Tax Bridge` run `35512559855`: SUCCESS no HEAD funcional `1cd054e4d0748faafeb781cb145d0f4824be2bad`; matriz completa do SHA: 24/24 workflows SUCCESS; regressão: 1614 passed / 5 skipped / 102 warnings.
+- A certificação é técnica interna. Pagamento/liquidação automática, escrituração oficial, signer, certificado, provider/SEFAZ real e homologação externa não foram antecipados.
+- WP-031I permanece PENDING / NÃO INICIADO; WP-031 continua PENDING até os blocos restantes e o Master Gate.
 
 ## 7. Regras de concorrência e idempotência
 
@@ -390,7 +398,7 @@ Nenhuma UF, município ou provider será marcado como homologado sem evidência 
 5. WP-031E — Inbound Fiscal Foundation — CONCLUÍDO/CERTIFICADO.
 6. WP-031F — Smart Fiscal Intake — CONCLUÍDO/CERTIFICADO.
 7. WP-031G — Procurement Integration — CONCLUÍDO/CERTIFICADO.
-8. WP-031H — Financial / Tax Bridge.
+8. WP-031H — Financial / Tax Bridge — CONCLUÍDO/CERTIFICADO.
 9. WP-031I — Signer + Gateway.
 10. WP-031J — Web / UX funcional.
 11. WP-031K — Cognitive Fiscal.

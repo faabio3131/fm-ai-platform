@@ -106,7 +106,7 @@ A dependência histórica que colocava FISC-20 após Web Premium está superada 
 6. WP-031E — Inbound Fiscal Foundation — CONCLUÍDO/CERTIFICADO no HEAD funcional `0733a910c600819b3ae26b8ce7edb2883152a9c9`; gate `WP-031E Inbound Fiscal Foundation` run `35485517752`: SUCCESS. Fundação provider-neutral, XML NF-e modelo 55, Inbox/itens duráveis, checkpoint NSU atômico e manifestação replay-safe fechados; matriz do SHA 21/21 SUCCESS.
 7. WP-031F — Smart Fiscal Intake — CONCLUÍDO/CERTIFICADO no HEAD funcional `b3a5424d74497a55c96046585793d271e658887f`; gate `WP-031F Smart Fiscal Intake` run `35487571304`: SUCCESS. Pipeline único DF-e/XML/PDF/imagem/câmera fechado com autoridade oficial preservada, evidência preliminar imutável, extração estruturada e reconciliação determinística; matriz do SHA 22/22 SUCCESS.
 8. WP-031G — Procurement Integration — CONCLUÍDO/CERTIFICADO no HEAD funcional `040d26154d3eb344e7b81b070ad619d22ff42357`; gate `WP-031G Procurement Integration` run `35510517704`: SUCCESS. Autoridade única de procurement, matching XML/DF-e + confirmação física, estoque transacional, custo histórico, devolução e isolamento de homologação fechados; matriz do SHA 23/23 SUCCESS.
-9. WP-031H — Financial / Tax Bridge.
+9. WP-031H — Financial / Tax Bridge — CONCLUÍDO/CERTIFICADO no HEAD funcional `1cd054e4d0748faafeb781cb145d0f4824be2bad`; gate `WP-031H Financial Tax Bridge` run `35512559855`: SUCCESS. Autoridade financeira canônica estendida com obrigação de compra, ajustes append-only, reconciliação e decisão tributária explícita/versionada, sem pagamento automático; matriz do SHA 24/24 SUCCESS.
 10. WP-031I — Signer + Gateway.
 11. WP-031J — Web / UX funcional.
 12. WP-031K — Cognitive Fiscal.
@@ -118,4 +118,4 @@ System Design/Authority Map: `docs/web-parity/WP031_FISCAL_V1_SYSTEM_DESIGN.md`.
 
 O Fiscal V1 não será reconstruído e não será substituído pelo NFCore V2 nesta fase. O baseline V1 permanece `b336def47ad4f5188307102203f4e04b98406014`. O escopo fiscal inclui saídas, entradas/compras, Smart Fiscal Intake, estoque, financeiro e Core cognitivo.
 
-O WP-031G está certificado internamente. Essa certificação não antecipa efeitos financeiros/contábeis, signer, certificado, provider/SEFAZ real nem homologação externa. O WP-031 permanece PENDING e o WP-031H permanece PENDING / NÃO INICIADO; nenhum bloco posterior foi antecipado por esta certificação.
+O WP-031H está certificado internamente. Essa certificação não antecipa pagamento/liquidação automática, escrituração oficial, signer, certificado, provider/SEFAZ real nem homologação externa. O WP-031 permanece PENDING e o WP-031I permanece PENDING / NÃO INICIADO; nenhum bloco posterior foi antecipado por esta certificação.
