@@ -112,6 +112,16 @@ CATALOGO_V1 = CatalogoServicosExternos(
             credenciais_obrigatorias=frozenset({"client_id", "client_secret"}),
         ),
         EspecificacaoServico(
+            servico="fiscal.documentos",
+            provedor="sefaz",
+            parametros_obrigatorios=frozenset(
+                {"signer_kind", "signing_algorithm", "adapter_version"}
+            ),
+            credenciais_obrigatorias=frozenset(
+                {"certificate_pfx", "certificate_password"}
+            ),
+        ),
+        EspecificacaoServico(
             servico="ia.generativa",
             provedor="gemini",
             # O runtime Gemini baseado em API key usa somente o modelo como
