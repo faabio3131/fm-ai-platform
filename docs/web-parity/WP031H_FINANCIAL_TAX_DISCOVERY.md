@@ -1,7 +1,9 @@
 # WP-031H — Financial / Tax Bridge — Discovery e decisão
 
-**Data:** 20/09/2026  
-**PR:** #118 — OPEN/DRAFT  
+**Data:** 20/09/2026
+
+**PR:** #118 — OPEN/DRAFT
+
 **Branch:** `feat/web-parity-v1-total-original-migration`
 
 ## CURRENT localizado
