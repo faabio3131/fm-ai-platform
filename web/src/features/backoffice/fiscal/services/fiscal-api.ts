@@ -15,6 +15,8 @@ export interface FiscalWorkspaceResponse {
     receipts: number;
     financial_obligations: number;
     archive_entries: number;
+    contingency_entries: number;
+    products_pending_fiscal: number;
   };
   outbound: Array<{
     document_id: string;
@@ -82,6 +84,21 @@ export interface FiscalWorkspaceResponse {
     balance: string;
     currency: string;
     created_at: string | null;
+  }>;
+  products_pending_fiscal: {
+    available: boolean;
+    items: Array<{
+      product_id: string;
+      name: string;
+    }>;
+  };
+  contingency: Array<{
+    entry_id: string;
+    operation: string;
+    status: string;
+    attempt_count: number;
+    available_at: string | null;
+    last_error: string | null;
   }>;
   configuration: null | {
     configuration_id: string;
