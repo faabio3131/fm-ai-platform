@@ -4,10 +4,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
+  cancelFiscalDocument,
   type FiscalEnvironment,
   type FiscalWorkspaceResponse,
   getFiscalWorkspace,
+  inutilizeFiscalNumbers,
 } from "@/features/backoffice/fiscal/services/fiscal-api";
 
 function EmptyState({ children }: { children: string }) {
@@ -25,6 +28,15 @@ export function FiscalWorkspace() {
   const [data, setData] = useState<FiscalWorkspaceResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [operationMessage, setOperationMessage] = useState<string | null>(null);
+  const [cancelAccessKey, setCancelAccessKey] = useState("");
+  const [cancelProtocol, setCancelProtocol] = useState("");
+  const [cancelJustification, setCancelJustification] = useState("");
+  const [inutilSeries, setInutilSeries] = useState("1");
+  const [inutilFirst, setInutilFirst] = useState("");
+  const [inutilLast, setInutilLast] = useState("");
+  const [inutilJustification, setInutilJustification] = useState("");
+  const [operationBusy, setOperationBusy] = useState(false);
 
   const load = useCallback(async (nextEnvironment: FiscalEnvironment) => {
     setLoading(true);
@@ -47,6 +59,57 @@ export function FiscalWorkspace() {
     const timer = window.setTimeout(() => void load(environment), 0);
     return () => window.clearTimeout(timer);
   }, [environment, load]);
+
+  async function handleCancel(): Promise<void> {
+    setOperationBusy(true);
+    setOperationMessage(null);
+    try {
+      const result = await cancelFiscalDocument(cancelAccessKey, {
+        environment,
+        authorization_protocol: cancelProtocol,
+        justification: cancelJustification,
+      });
+      setOperationMessage(
+        `Cancelamento: ${result.status} · ${result.event_protocol_reference ?? result.provider_request_id ?? result.request_id}`,
+      );
+      await load(environment);
+    } catch (caught: unknown) {
+      setOperationMessage(
+        caught instanceof Error
+          ? caught.message
+          : "Cancelamento fiscal não pôde ser executado.",
+      );
+    } finally {
+      setOperationBusy(false);
+    }
+  }
+
+  async function handleInutilization(): Promise<void> {
+    setOperationBusy(true);
+    setOperationMessage(null);
+    try {
+      const result = await inutilizeFiscalNumbers({
+        environment,
+        model: 65,
+        series: Number(inutilSeries),
+        first_number: Number(inutilFirst),
+        last_number: Number(inutilLast),
+        justification: inutilJustification,
+      });
+      setOperationMessage(
+        `Inutilização: ${result.status} · ${result.event_protocol_reference ?? result.provider_request_id ?? result.request_id}`,
+      );
+      await load(environment);
+    } catch (caught: unknown) {
+      setOperationMessage(
+        caught instanceof Error
+          ? caught.message
+          : "Inutilização fiscal não pôde ser executada.",
+      );
+    } finally {
+      setOperationBusy(false);
+    }
+  }
 
   return (
     <main className="mx-auto w-full max-w-7xl space-y-6 p-6 text-slate-100">
@@ -354,6 +417,95 @@ export function FiscalWorkspace() {
               permanecem protegidos por RBAC, step-up e gateway governado. Nenhuma
               homologação SEFAZ real é presumida por esta certificação interna.
             </p>
+
+            {operationMessage ? (
+              <div role="status" className="mt-4 rounded-lg border border-slate-700 p-3">
+                {operationMessage}
+              </div>
+            ) : null}
+
+            <div className="mt-5 grid gap-5 lg:grid-cols-2">
+              <div className="space-y-3 rounded-lg border border-slate-800 p-4">
+                <h3 className="font-medium">Cancelar documento autorizado</h3>
+                <Input
+                  aria-label="Chave de acesso para cancelamento"
+                  placeholder="Chave de acesso"
+                  value={cancelAccessKey}
+                  onChange={(event) => setCancelAccessKey(event.target.value)}
+                />
+                <Input
+                  aria-label="Protocolo de autorização"
+                  placeholder="Protocolo de autorização"
+                  value={cancelProtocol}
+                  onChange={(event) => setCancelProtocol(event.target.value)}
+                />
+                <Input
+                  aria-label="Justificativa de cancelamento"
+                  placeholder="Justificativa (mínimo 15 caracteres)"
+                  value={cancelJustification}
+                  onChange={(event) => setCancelJustification(event.target.value)}
+                />
+                <Button
+                  type="button"
+                  disabled={
+                    operationBusy ||
+                    !data.capabilities.cancel ||
+                    cancelAccessKey.length !== 44 ||
+                    !cancelProtocol.trim() ||
+                    cancelJustification.trim().length < 15
+                  }
+                  onClick={() => void handleCancel()}
+                >
+                  Solicitar cancelamento
+                </Button>
+              </div>
+
+              <div className="space-y-3 rounded-lg border border-slate-800 p-4">
+                <h3 className="font-medium">Inutilizar faixa NFC-e</h3>
+                <div className="grid grid-cols-3 gap-2">
+                  <Input
+                    aria-label="Série fiscal"
+                    inputMode="numeric"
+                    placeholder="Série"
+                    value={inutilSeries}
+                    onChange={(event) => setInutilSeries(event.target.value)}
+                  />
+                  <Input
+                    aria-label="Primeiro número"
+                    inputMode="numeric"
+                    placeholder="Inicial"
+                    value={inutilFirst}
+                    onChange={(event) => setInutilFirst(event.target.value)}
+                  />
+                  <Input
+                    aria-label="Último número"
+                    inputMode="numeric"
+                    placeholder="Final"
+                    value={inutilLast}
+                    onChange={(event) => setInutilLast(event.target.value)}
+                  />
+                </div>
+                <Input
+                  aria-label="Justificativa de inutilização"
+                  placeholder="Justificativa (mínimo 15 caracteres)"
+                  value={inutilJustification}
+                  onChange={(event) => setInutilJustification(event.target.value)}
+                />
+                <Button
+                  type="button"
+                  disabled={
+                    operationBusy ||
+                    !data.capabilities.inutilize ||
+                    !inutilFirst ||
+                    !inutilLast ||
+                    inutilJustification.trim().length < 15
+                  }
+                  onClick={() => void handleInutilization()}
+                >
+                  Solicitar inutilização
+                </Button>
+              </div>
+            </div>
           </section>
         </>
       ) : null}
