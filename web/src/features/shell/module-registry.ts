@@ -234,6 +234,16 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     anyPermissions: ["producao.visualizar", "impressao.reimprimir"],
   },
   {
+    id: "fiscal",
+    label: "Fiscal",
+    description: "Documentos fiscais, entradas, compras, manifestações e reconciliação.",
+    href: "/admin/fiscal",
+    group: "proprietario",
+    icon: "financeiro",
+    available: true,
+    allPermissions: ["admin.acessar", "fiscal.visualizar"],
+  },
+  {
     id: "integracoes",
     label: "Integrações e Credenciais",
     description: "Provedores externos, cofre de segredos, healthchecks e homologação.",
