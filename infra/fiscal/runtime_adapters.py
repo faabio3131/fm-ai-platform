@@ -25,7 +25,11 @@ from core.seguranca.segredos import SecretStore, SecretValue
 from infra.integracoes.modelos_orm import ServicoExternoConfigORM
 from infra.seguranca.modelos_orm import CredencialReferenciaORM
 from kordena_fiscal.domain import ExecutionScope, FiscalEnvironment
-from kordena_fiscal.gateway import AuthorizationRequest, AuthorizationResult, FiscalGateway
+from kordena_fiscal.gateway import (
+    AuthorizationRequest,
+    AuthorizationResult,
+    FiscalGateway,
+)
 from kordena_fiscal.operations import (
     CancellationRequest,
     CancellationResult,
@@ -307,7 +311,7 @@ class ConfiguredFiscalSignerAdapter(FiscalSigner):
         self._resolver = resolver
 
     def sign(self, request: SigningRequest) -> SignatureEnvelope:
-        configuration = self._resolver.configuration_for_scope(request.scope)
+        self._resolver.configuration_for_scope(request.scope)
         pfx = self._resolver.credential(
             scope=request.scope,
             role="certificate_pfx",
