@@ -32,7 +32,12 @@ from infra.fiscal.modelos_orm import (
 from infra.integracoes.modelos_orm import ServicoExternoConfigORM
 from infra.legacy_product_scope import ErroEscopoLojaLegada, listar_produtos_legados
 from infra.procurement.modelos_orm import PedidoCompraORM, RecebimentoCompraORM
-from kordena_fiscal.domain import ElectronicInvoiceModel, FiscalEnvironment
+from kordena_fiscal.domain import (
+    ElectronicInvoiceModel,
+    ExecutionScope,
+    FiscalDomainError,
+    FiscalEnvironment,
+)
 from kordena_fiscal.operations import (
     CancellationRequest,
     FiscalOperationsClient,
@@ -74,7 +79,7 @@ def _tratar_erro(exc: Exception) -> JSONResponse:
             status.HTTP_403_FORBIDDEN,
             str(getattr(exc, "codigo", str(exc) or "seguranca.permissao_insuficiente")),
         )
-    if isinstance(exc, (ValueError, TypeError)):
+    if isinstance(exc, (ValueError, TypeError, FiscalDomainError)):
         return _erro(status.HTTP_400_BAD_REQUEST, str(exc) or "fiscal.parametro_invalido")
     return _erro(status.HTTP_503_SERVICE_UNAVAILABLE, "fiscal.web_indisponivel")
 
@@ -425,7 +430,7 @@ def build_admin_fiscal_router(
                     "fiscal.gateway_nao_configurado",
                 )
             env = _environment(payload.environment)
-            scope = __import__("kordena_fiscal.domain", fromlist=["ExecutionScope"]).ExecutionScope(
+            scope = ExecutionScope(
                 identidade.tenant_id,
                 identidade.unidade_id,
                 env,
