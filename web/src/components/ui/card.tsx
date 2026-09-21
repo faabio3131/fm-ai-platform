@@ -3,7 +3,15 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 function Card({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("rounded-xl border bg-card text-card-foreground shadow-sm", className)} {...props} />;
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border border-slate-200/80 bg-card text-card-foreground shadow-[0_18px_45px_-30px_rgba(15,23,42,0.42)] backdrop-blur-sm",
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
@@ -11,11 +19,11 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("font-semibold leading-none tracking-tight", className)} {...props} />;
+  return <div className={cn("font-bold leading-none tracking-tight", className)} {...props} />;
 }
 
 function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("text-sm text-muted-foreground", className)} {...props} />;
+  return <div className={cn("text-sm leading-6 text-muted-foreground", className)} {...props} />;
 }
 
 function CardContent({ className, ...props }: React.ComponentProps<"div">) {

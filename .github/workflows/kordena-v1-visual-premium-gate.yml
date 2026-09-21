@@ -1,0 +1,61 @@
+name: Kordena V1 Visual Premium Gate
+
+on:
+  pull_request:
+    paths:
+      - 'web/**'
+      - 'docs/web-parity/KORDENA_V1_VISUAL_PREMIUM_**'
+      - '.github/workflows/kordena-v1-visual-premium-gate.yml'
+  push:
+    branches:
+      - feat/web-parity-v1-total-original-migration
+    paths:
+      - 'web/**'
+      - 'docs/web-parity/KORDENA_V1_VISUAL_PREMIUM_**'
+      - '.github/workflows/kordena-v1-visual-premium-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  premium:
+    name: Visual Premium final certification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: ESLint
+        working-directory: web
+        run: npm run lint
+
+      - name: TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Web tests
+        working-directory: web
+        run: node --test tests/*.test.mjs
+
+      - name: Visual Premium structural contract
+        working-directory: web
+        run: node --test tests/visual-premium-v1.test.mjs
+
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+
+      - name: Diff whitespace
+        run: git diff --check origin/main...HEAD
