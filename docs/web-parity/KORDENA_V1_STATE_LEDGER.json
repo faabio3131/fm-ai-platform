@@ -304,7 +304,7 @@
     "WP-031": {
       "name": "Fiscal / NFC-e / SAT",
       "state": "PENDING",
-      "reason": "obrigatorio para V1.0; Fiscal V1 baseline b336def47ad4f5188307102203f4e04b98406014 localizado e vendorizado; WP-031A a WP-031I implementados/certificados; WP-031I certificado no HEAD 686b0683384d7c3ab5adbdfcdb45f26226b41725 pelo gate WP-031I Signer Gateway run 35525587908 SUCCESS, com matriz 25/25 workflows SUCCESS; WP-031 permanece PENDING porque WP-031J a WP-031L e o Master Gate ainda nao estao certificados; WP-031J em execucao"
+      "reason": "obrigatorio para V1.0; Fiscal V1 baseline b336def47ad4f5188307102203f4e04b98406014 localizado e vendorizado; WP-031A a WP-031J implementados/certificados; WP-031J certificado no HEAD funcional dab486acae6b8df70446089130a75773f271fc55 pelo gate WP-031J Web UX Functional run 35550921933 SUCCESS, com matriz completa 26/26 workflows SUCCESS; WP-031 permanece PENDING porque WP-031K, WP-031L e o Master Gate ainda nao estao certificados; WP-031K permanece PENDING/NAO INICIADO"
     },
     "WP-032": {
       "name": "Notificacoes Internas",
