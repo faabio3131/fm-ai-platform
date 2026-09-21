@@ -1,6 +1,6 @@
 # WP-031 — Fiscal V1 Complete — System Design & Authority Map
 
-**Status:** WP-031A→I implementados/certificados; WP-031J em execução
+**Status:** WP-031A→J implementados/certificados; WP-031K PENDING / NÃO INICIADO
 **Date:** 20/09/2026
 **Repository:** `faabio3131/fm-ai-platform`
 **PR:** #118 — OPEN/DRAFT
@@ -218,7 +218,8 @@ Todas as tabelas devem possuir escopo tenant/unidade quando aplicável e constra
 - A migration aditiva `0048_fiscal_financial_tax_bridge_v1` elevou o schema baseline a 100 tabelas, com hash `6724f5e6a6b558ac82f9f88e4c964978fb10b0a94eb81e75ee085a76ca6cb645`.
 - Gate `WP-031H Financial Tax Bridge` run `35512559855`: SUCCESS no HEAD funcional `1cd054e4d0748faafeb781cb145d0f4824be2bad`; matriz completa do SHA: 24/24 workflows SUCCESS; regressão: 1614 passed / 5 skipped / 102 warnings.
 - A certificação é técnica interna. Pagamento/liquidação automática, escrituração oficial, signer, certificado, provider/SEFAZ real e homologação externa não foram antecipados.
-- WP-031I permanece PENDING / NÃO INICIADO; WP-031 continua PENDING até os blocos restantes e o Master Gate.
+- WP-031I e WP-031J estão certificados internamente. WP-031J: HEAD `dab486acae6b8df70446089130a75773f271fc55`, gate `WP-031J Web UX Functional` run `35550921933` SUCCESS, matriz 26/26 workflows SUCCESS.
+- WP-031K permanece PENDING / NÃO INICIADO; WP-031 continua PENDING até K, L e o Master Gate.
 
 ## 7. Regras de concorrência e idempotência
 
