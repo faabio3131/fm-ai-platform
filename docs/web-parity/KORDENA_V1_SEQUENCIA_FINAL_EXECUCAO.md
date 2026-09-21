@@ -118,4 +118,4 @@ System Design/Authority Map: `docs/web-parity/WP031_FISCAL_V1_SYSTEM_DESIGN.md`.
 
 O Fiscal V1 não será reconstruído e não será substituído pelo NFCore V2 nesta fase. O baseline V1 permanece `b336def47ad4f5188307102203f4e04b98406014`. O escopo fiscal inclui saídas, entradas/compras, Smart Fiscal Intake, estoque, financeiro e Core cognitivo.
 
-O WP-031H está certificado internamente. Essa certificação não antecipa pagamento/liquidação automática, escrituração oficial, signer, certificado, provider/SEFAZ real nem homologação externa. O WP-031 permanece PENDING e o WP-031I permanece PENDING / NÃO INICIADO; nenhum bloco posterior foi antecipado por esta certificação.
+WP-031A→J estão certificados internamente. O WP-031J foi certificado no HEAD `dab486acae6b8df70446089130a75773f271fc55`, gate `WP-031J Web UX Functional` run `35550921933` SUCCESS, matriz 26/26 workflows SUCCESS. Isso não declara homologação externa nem produção aprovada. O WP-031 permanece PENDING; o próximo bloco é WP-031K — Cognitive Fiscal, ainda NÃO INICIADO.
