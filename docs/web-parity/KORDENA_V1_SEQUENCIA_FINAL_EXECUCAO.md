@@ -34,7 +34,7 @@
    - Consulta read-only, tenant-safe, sem exposição de segredos.
    - Proibida segunda auditoria.
 
-6. **WP-031 — implantar Fiscal pronto**
+6. **WP-031 — implantar Fiscal pronto — CONCLUÍDO/CERTIFICADO**
    - Antes de qualquer código: localizar a implementação pronta e provar sua autoridade/versão.
    - Importar/implantar/integrar; não reconstruir motor fiscal.
    - Conectar ao Kordena, testar, homologar e certificar.
@@ -111,11 +111,22 @@ A dependência histórica que colocava FISC-20 após Web Premium está superada 
 11. WP-031J — Web / UX funcional.
 12. WP-031K — Cognitive Fiscal — CONCLUÍDO/CERTIFICADO no HEAD funcional `8ee77732f7f1cba5da8403872217bd2ee2cad986`; gate `WP-031K Cognitive Fiscal` run `35553683984`: SUCCESS. Core canônico `core/gerente_ia` reutilizado; consulta fiscal read-only com RBAC fiscal adicional, isolamento tenant/unidade/ambiente, proveniência explícita e recomendações sem autoridade operacional. Regressão integral: 1637 passed / 5 skipped / 102 warnings; matriz do SHA 27/27 SUCCESS.
 13. WP-031L — Regression / Channel Parity — CONCLUÍDO/CERTIFICADO no HEAD funcional `c990d1e92f87a6eea2110f4bc3141bff4321f6c8`; gate `WP-031L Regression Channel Parity` run `35556451970`: SUCCESS. Fitness de autoridade, paridade PDV/Salão/Garçom/Delivery/Entrega/Marketplaces/Central/Pagamentos/Fiscal, segurança, regressão Python integral e cadeia Web passaram; matriz do SHA 28/28 SUCCESS.
-14. WP-031 Master Gate 100% verde.
+14. WP-031 Master Gate — CONCLUÍDO/CERTIFICADO no HEAD `09f1f0b4e21c0751e3828f7480239bd1720dcc6d`; workflow `WP-031 Master Gate` run `35618240783`: SUCCESS.
 15. Visual Premium final.
 
 System Design/Authority Map: `docs/web-parity/WP031_FISCAL_V1_SYSTEM_DESIGN.md`.
 
 O Fiscal V1 não será reconstruído e não será substituído pelo NFCore V2 nesta fase. O baseline V1 permanece `b336def47ad4f5188307102203f4e04b98406014`. O escopo fiscal inclui saídas, entradas/compras, Smart Fiscal Intake, estoque, financeiro e Core cognitivo.
 
-WP-031A→L estão certificados internamente. O WP-031L foi certificado no HEAD funcional `c990d1e92f87a6eea2110f4bc3141bff4321f6c8`, gate `WP-031L Regression Channel Parity` run `35556451970` SUCCESS, com matriz completa 28/28 workflows SUCCESS. A paridade preserva Pedido/Pagamentos/Fiscal canônicos e impede regra fiscal por canal. Isso não declara homologação externa nem produção aprovada. O WP-031 permanece PENDING; o próximo bloco é o WP-031 Master Gate.
+WP-031A→L estão certificados internamente. O WP-031L foi certificado no HEAD funcional `c990d1e92f87a6eea2110f4bc3141bff4321f6c8`, gate `WP-031L Regression Channel Parity` run `35556451970` SUCCESS, com matriz completa 28/28 workflows SUCCESS. A paridade preserva Pedido/Pagamentos/Fiscal canônicos e impede regra fiscal por canal. Isso não declara homologação externa nem produção aprovada. O WP-031 está CERTIFIED no HEAD `09f1f0b4e21c0751e3828f7480239bd1720dcc6d`; o Master Gate `35618240783` concluiu SUCCESS. O próximo bloco autorizado pela sequência oficial é o Visual Premium final.
+
+
+## Fechamento funcional pré-Visual Premium — 21/09/2026
+
+- WP-031 Master Gate certificado no HEAD `09f1f0b4e21c0751e3828f7480239bd1720dcc6d`.
+- Workflow `WP-031 Master Gate`, run `35618240783`: **SUCCESS**.
+- O job `Fiscal V1 A-L master certification` concluiu com sucesso baseline fiscal, compile, Ruff, mypy, ledger, migration manifest, schema baseline, matriz fiscal A-L, canais/pagamentos/estoque, segurança/tenancy/RBAC/fail-closed, regressão Python, ESLint, TypeScript, testes Web, Next production build e diff whitespace.
+- Estado canônico após reconciliação: **33/33 Work Packages CERTIFIED**, **0 IMPLEMENTED_UNCERTIFIED**, **0 PENDING**.
+- A certificação é interna/técnica e **não** declara homologação externa de provider/SEFAZ, credenciais reais, deploy, produção ou readiness comercial final.
+- PR #118 permanece **OPEN/DRAFT**, sem merge e sem deploy.
+- Próximo bloco autorizado: **Visual Premium final**, sobre a mesma linha arquitetural e sem reconstrução funcional.
