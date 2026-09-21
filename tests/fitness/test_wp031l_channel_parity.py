@@ -10,18 +10,27 @@ def _source(path: str) -> str:
 
 def test_wp031l_canonical_channels_remain_explicit_and_stable() -> None:
     enums = _source("core/dominio/enums.py")
+    assert "{v: v.lower() for v in valores.split()}" in enums
+
+    origem = enums.split("OrigemPedido = _enum(", 1)[1].split(
+        "CanalAtendimento = _enum(", 1
+    )[0]
+    canal = enums.split("CanalAtendimento = _enum(", 1)[1].split(
+        "FormaPagamento = _enum(", 1
+    )[0]
     expected = {
-        "PDV": "pdv",
-        "SALAO": "salao",
-        "DELIVERY_PROPRIO": "delivery_proprio",
-        "IFOOD": "ifood",
-        "FOOD99": "food99",
-        "KEETA": "keeta",
-        "WHATSAPP": "whatsapp",
-        "MICA": "mica",
+        "PDV",
+        "SALAO",
+        "DELIVERY_PROPRIO",
+        "IFOOD",
+        "FOOD99",
+        "KEETA",
+        "WHATSAPP",
+        "MICA",
     }
-    for name, value in expected.items():
-        assert f'{name} = "{value}"' in enums
+    for name in expected:
+        assert name in origem
+        assert name in canal
 
 
 def test_wp031l_channels_reuse_canonical_order_and_payment_boundaries() -> None:
