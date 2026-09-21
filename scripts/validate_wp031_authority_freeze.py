@@ -52,13 +52,42 @@ def main() -> None:
         "## WP-031 — sequência fiscal reconciliada em 18/09/2026" in sequence,
         "Sequencia final sem reconciliacao WP-031",
     )
-    fiscal_pos = sequence.find("WP-031 Master Gate 100% verde")
+    fiscal_section_pos = sequence.find(
+        "## WP-031 — sequência fiscal reconciliada em 18/09/2026"
+    )
+    fiscal_pos = sequence.find("WP-031 Master Gate", fiscal_section_pos)
     premium_pos = sequence.find("Visual Premium final", fiscal_pos)
-    require(fiscal_pos >= 0 and premium_pos > fiscal_pos, "Visual Premium aparece antes do Master Gate fiscal")
+    require(
+        fiscal_section_pos >= 0 and fiscal_pos >= 0 and premium_pos > fiscal_pos,
+        "Visual Premium aparece antes do Master Gate fiscal",
+    )
 
     wp031 = ledger["work_packages"]["WP-031"]
-    require(wp031["state"] == "PENDING", "WP-031 nao pode ser promovido no gate de arquitetura")
-    require("certified_sha" not in wp031, "WP-031 possui certified_sha antes da implementacao")
+    require(
+        wp031["state"] in {"PENDING", "CERTIFIED"},
+        "WP-031 deve estar PENDING antes da implementacao ou CERTIFIED apos o Master Gate",
+    )
+
+    if wp031["state"] == "PENDING":
+        require(
+            "certified_sha" not in wp031,
+            "WP-031 possui certified_sha antes da implementacao",
+        )
+    else:
+        certified_sha = wp031.get("certified_sha", "")
+        evidence = wp031.get("evidence", [])
+        require(
+            bool(certified_sha),
+            "WP-031 CERTIFIED sem certified_sha",
+        )
+        require(
+            bool(evidence),
+            "WP-031 CERTIFIED sem evidencia",
+        )
+        require(
+            "WP031_MASTER_GATE_CERTIFICATION.md" in evidence,
+            "WP-031 CERTIFIED sem certificacao formal do Master Gate",
+        )
 
     require(
         "NFCore V2" in design and "não" in design,
@@ -67,7 +96,7 @@ def main() -> None:
 
     print("WP-031A authority freeze: PASS")
     print(f"Fiscal V1 baseline: {BASELINE}")
-    print("WP-031 remains PENDING until implementation/certification")
+    print(f"WP-031 ledger state: {wp031['state']}")
     print("Execution order: Fiscal Master Gate -> Visual Premium")
 
 
