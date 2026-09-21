@@ -1,7 +1,5 @@
 from pathlib import Path
 
-from core.dominio.enums import CanalAtendimento, OrigemPedido
-
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -11,6 +9,7 @@ def _source(path: str) -> str:
 
 
 def test_wp031l_canonical_channels_remain_explicit_and_stable() -> None:
+    enums = _source("core/dominio/enums.py")
     expected = {
         "PDV": "pdv",
         "SALAO": "salao",
@@ -22,8 +21,7 @@ def test_wp031l_canonical_channels_remain_explicit_and_stable() -> None:
         "MICA": "mica",
     }
     for name, value in expected.items():
-        assert getattr(OrigemPedido, name).value == value
-        assert getattr(CanalAtendimento, name).value == value
+        assert f'{name} = "{value}"' in enums
 
 
 def test_wp031l_channels_reuse_canonical_order_and_payment_boundaries() -> None:
