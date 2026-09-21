@@ -3,7 +3,7 @@
   "product": "Kordena V1",
   "authority": "canonical-state-ledger",
   "branch": "feat/web-parity-v1-total-original-migration",
-  "reconciled_from_head": "74530f13c8bd9c95b61b9b9da4192094a230c2d3",
+  "reconciled_from_head": "09f1f0b4e21c0751e3828f7480239bd1720dcc6d",
   "rules": {
     "allowed_states": [
       "PENDING",
@@ -303,8 +303,15 @@
     },
     "WP-031": {
       "name": "Fiscal / NFC-e / SAT",
-      "state": "PENDING",
-      "reason": "obrigatorio para V1.0; Fiscal V1 baseline b336def47ad4f5188307102203f4e04b98406014 localizado e vendorizado; WP-031A a WP-031L implementados/certificados; WP-031L certificado no HEAD funcional c990d1e92f87a6eea2110f4bc3141bff4321f6c8 pelo gate WP-031L Regression Channel Parity run 35556451970 SUCCESS, com matriz completa 28/28 workflows SUCCESS; WP-031 permanece PENDING somente porque o WP-031 Master Gate ainda nao esta certificado"
+      "state": "CERTIFIED",
+      "certified_sha": "09f1f0b4e21c0751e3828f7480239bd1720dcc6d",
+      "evidence": [
+        "WP031L_REGRESSION_CHANNEL_PARITY_CERTIFICATION.md",
+        "WP-031L Regression Channel Parity run 35556451970 — SUCCESS (28/28 workflow matrix)",
+        "WP031_MASTER_GATE_CERTIFICATION.md",
+        "WP-031 Master Gate run 35618240783 — SUCCESS"
+      ],
+      "reason": "WP-031A a WP-031L implementados/certificados e Master Gate fiscal concluido com sucesso. Certificacao interna da V1 concluida; homologacao externa de provider/SEFAZ, credenciais reais, deploy e producao nao sao inferidos por este estado."
     },
     "WP-032": {
       "name": "Notificacoes Internas",
