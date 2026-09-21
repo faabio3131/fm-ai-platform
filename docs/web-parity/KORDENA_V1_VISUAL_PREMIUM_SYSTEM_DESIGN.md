@@ -1,9 +1,9 @@
 # Kordena V1 — Visual Premium Final — System Design
 
-**Data:** 21/09/2026  
-**Branch oficial:** `feat/web-parity-v1-total-original-migration`  
-**PR:** #118  
-**Baseline funcional autorizado:** `7b588012c5cd09a265f7b955f6d485eaa4c7713d`  
+**Data:** 21/09/2026
+**Branch oficial:** `feat/web-parity-v1-total-original-migration`
+**PR:** #118
+**Baseline funcional autorizado:** `7b588012c5cd09a265f7b955f6d485eaa4c7713d`
 **Baseline CI:** 29/29 workflows SUCCESS; `WP-031 Master Gate` run `35622812468` SUCCESS.
 
 ## 1. Objetivo
