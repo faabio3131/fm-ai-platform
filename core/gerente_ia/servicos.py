@@ -527,7 +527,11 @@ class ServicoGerenteIA:
             "filtros": argumentos,
         }
         if tool is ToolGerenteIA.CONSULTAR_FISCAL:
-            return self.consultas.consultar_fiscal(**kwargs)
+            return self.consultas.consultar_fiscal(
+                tenant_id=contexto.tenant_id,
+                unidade_id=contexto.unidade_id,
+                filtros=argumentos,
+            )
 
         despachantes: dict[ToolGerenteIA, Callable[..., tuple[RegistroGerencial, ...]]] = {
             ToolGerenteIA.CONSULTAR_PEDIDOS: self.consultas.consultar_pedidos,

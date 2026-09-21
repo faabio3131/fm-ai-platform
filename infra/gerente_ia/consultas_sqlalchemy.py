@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import cast
+from typing import Any, cast
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -261,13 +261,9 @@ class ConsultasGerenciaisSQLAlchemy:
             DecisaoCreditoTributarioORM.environment == environment,
         )
 
-        def count(model: object, *conditions: object) -> int:
-            return int(
-                self._session.scalar(
-                    select(func.count()).select_from(model).where(*conditions)
-                )
-                or 0
-            )
+        def count(model: type[Any], *conditions: Any) -> int:
+            statement = select(func.count()).select_from(model).where(*conditions)
+            return int(self._session.execute(statement).scalar_one())
 
         outbound_total = count(FiscalDocumentProjectionORM, *doc_scope)
         outbound_rejected = count(
@@ -346,7 +342,7 @@ class ConsultasGerenciaisSQLAlchemy:
         ]
 
         if tema == "documentos":
-            rows = self._session.scalars(
+            document_rows = self._session.scalars(
                 select(FiscalDocumentProjectionORM)
                 .where(*doc_scope)
                 .order_by(FiscalDocumentProjectionORM.updated_at.desc())
@@ -365,10 +361,10 @@ class ConsultasGerenciaisSQLAlchemy:
                     autoridade="fiscal_v1",
                     natureza="fato_deterministico",
                 )
-                for row in rows
+                for row in document_rows
             )
         elif tema == "entradas":
-            rows = self._session.scalars(
+            inbound_rows = self._session.scalars(
                 select(FiscalInboundDocumentORM)
                 .where(*inbound_scope)
                 .order_by(FiscalInboundDocumentORM.updated_at.desc())
@@ -387,10 +383,10 @@ class ConsultasGerenciaisSQLAlchemy:
                     autoridade="xml_dfe_oficial",
                     natureza="fato_deterministico",
                 )
-                for row in rows
+                for row in inbound_rows
             )
         elif tema == "intake":
-            rows = self._session.scalars(
+            intake_rows = self._session.scalars(
                 select(FiscalIntakeCaptureORM)
                 .where(*intake_scope)
                 .order_by(FiscalIntakeCaptureORM.updated_at.desc())
@@ -410,7 +406,7 @@ class ConsultasGerenciaisSQLAlchemy:
                     autoridade="captura_preliminar",
                     natureza="fato_deterministico",
                 )
-                for row in rows
+                for row in intake_rows
             )
         elif tema == "compras":
             order_rows = self._session.scalars(
@@ -455,7 +451,7 @@ class ConsultasGerenciaisSQLAlchemy:
                 for row in receipt_rows
             )
         elif tema == "financeiro":
-            rows = self._session.scalars(
+            obligation_rows = self._session.scalars(
                 select(ObrigacaoCompraFiscalORM)
                 .where(*finance_scope)
                 .order_by(ObrigacaoCompraFiscalORM.criado_em.desc())
@@ -476,7 +472,7 @@ class ConsultasGerenciaisSQLAlchemy:
                     autoridade="financeiro_v1",
                     natureza="fato_deterministico",
                 )
-                for row in rows
+                for row in obligation_rows
             )
         elif tema == "configuracao":
             registros.append(
