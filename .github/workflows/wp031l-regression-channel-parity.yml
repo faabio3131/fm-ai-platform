@@ -1,0 +1,123 @@
+name: WP-031L Regression Channel Parity
+
+on:
+  pull_request:
+    paths:
+      - 'application/**'
+      - 'core/**'
+      - 'http_api/**'
+      - 'infra/**'
+      - 'migrations/**'
+      - 'tests/**'
+      - 'web/**'
+      - 'docs/web-parity/**'
+      - '.github/workflows/wp031l-regression-channel-parity.yml'
+  push:
+    branches:
+      - feat/web-parity-v1-total-original-migration
+    paths:
+      - 'application/**'
+      - 'core/**'
+      - 'http_api/**'
+      - 'infra/**'
+      - 'migrations/**'
+      - 'tests/**'
+      - 'web/**'
+      - 'docs/web-parity/**'
+      - '.github/workflows/wp031l-regression-channel-parity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression-channel-parity:
+    name: Fiscal regression and channel parity certification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+
+      - name: Verify frozen Fiscal V1 baseline
+        run: python scripts/validate_wp031_vendor_baseline.py
+
+      - name: Compile canonical surfaces
+        run: python -m compileall -q application core infra http_api migrations tests/fitness/test_wp031l_channel_parity.py
+
+      - name: Ruff parity contract
+        run: ruff check tests/fitness/test_wp031l_channel_parity.py
+
+      - name: Mypy canonical bridge surfaces
+        run: |
+          mypy             application/checkout.py             application/fiscal_outbound.py             application/delivery_checkout_comercial.py             application/salao_transacoes.py             core/pagamentos/servicos.py             --follow-imports=skip
+
+      - name: Migration manifest
+        run: |
+          python - <<'PY'
+          from migrations.manifest import assert_migration_manifest
+          from migrations.runner import DEFAULT_MIGRATIONS
+          assert_migration_manifest(DEFAULT_MIGRATIONS)
+          print("Migration manifest: PASS")
+          PY
+
+      - name: Schema baseline
+        run: python scripts/generate_schema_baseline_v1.py --check
+
+      - name: WP-031L authority fitness contract
+        run: pytest -q tests/fitness/test_wp031l_channel_parity.py
+
+      - name: Operational channel parity matrix
+        run: |
+          pytest -q             tests/api/test_pdv_http_contract.py             tests/api/test_salao_http_contract.py             tests/api/test_salao_pedido_http_contract.py             tests/api/test_delivery_entrega_http_contract.py             tests/api/test_central_pedidos_http_contract.py             tests/api/test_order_confirmation_kds_routing_http_contract.py             tests/integration/garcom             tests/integration/delivery             tests/integration/entrega             tests/integration/marketplaces             tests/integration/orders/test_central_pedidos.py
+
+      - name: Fiscal and Cognitive parity matrix
+        run: |
+          pytest -q             tests/integration/fiscal             tests/integration/gerente_ia/test_wp031k_cognitive_fiscal.py             tests/api/test_admin_fiscal_http_contract.py
+
+      - name: Payment stock and security regression
+        run: |
+          pytest -q             tests/integration/payments             tests/unit/payments             tests/integration/pdv             tests/integration/salao             tests/unit/stock             tests/unit/security             tests/integration/security             tests/fitness/test_f14_transversal_rbac_security_v1.py
+
+      - name: Full Python regression
+        run: pytest -q
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: Full Web ESLint
+        working-directory: web
+        run: npm run lint
+
+      - name: Full Web TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Full Web node tests
+        working-directory: web
+        run: node --test tests/*.test.mjs
+
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+
+      - name: Diff whitespace against main
+        run: git diff --check origin/main...HEAD
