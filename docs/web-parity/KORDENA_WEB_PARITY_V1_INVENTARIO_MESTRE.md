@@ -3,7 +3,7 @@
 **Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`
 **Data original:** 08/09/2026
 **Reconciliação:** 20/09/2026
-**Versão do inventário:** 3.7 — WP-031A→J certificados
+**Versão do inventário:** 3.8 — WP-031A→K certificados
 **Status:** DOCUMENTO MESTRE DE EXECUÇÃO
 
 ## 1. Regra constitucional deste inventário
@@ -19,7 +19,7 @@ Existir no backend, possuir UI candidata ou ter E2E legado **não** significa es
 - **WP-008** está certificado em `/garcom`; após o gate de implementação no HEAD `9daaacc9ef4754558ad570bd568a316367b9260d`, recebeu certificação independente no `Kordena V1 Non-Fiscal Master Gate` run `35380670582`, HEAD `74530f13c8bd9c95b61b9b9da4192094a230c2d3`.
 - **WP-018** foi certificado em `/admin/dashboard` no SHA `b7a64b2dc5a47763a86fded903a15fd2be2cc23d`.
 - **WP-012**, **WP-032** e **WP-033** estão tecnicamente certificados; o único WP deliberadamente pendente nesta rodada é **WP-031 Fiscal**.
-- **WP-031 Fiscal** está em execução sequencial na PR #118: WP-031A→J estão implementados/certificados. O WP-031J entregou a superfície Web/UX fiscal funcional no HEAD `dab486acae6b8df70446089130a75773f271fc55`, gate `WP-031J Web UX Functional` run `35550921933` SUCCESS, com matriz completa 26/26 workflows SUCCESS. O WP-031 permanece PENDING; WP-031K é o próximo bloco e permanece NÃO INICIADO.
+- **WP-031 Fiscal** está em execução sequencial na PR #118: WP-031A→K estão implementados/certificados. O WP-031K integrou o Fiscal ao Core canônico como capacidade cognitiva read-only no HEAD `8ee77732f7f1cba5da8403872217bd2ee2cad986`, gate `WP-031K Cognitive Fiscal` run `35553683984` SUCCESS, com matriz completa 27/27 workflows SUCCESS. O WP-031 permanece PENDING; WP-031L é o próximo bloco e permanece NÃO INICIADO.
 - GAP HTTP/WEB/PÚBLICO: **0** — WP-030 foi concluído e certificado.
 - A VERIFICAR: **0**.
 
@@ -87,7 +87,7 @@ A retaguarda WP-013 a WP-017 está agora formalmente certificada. O WP-031 Fisca
 | WP-028 | Gerente IA | core/gerente_ia + runtime/tools canônicos | façade session-aware certificada | `/gerente-ia` | MIGRADO | Preservar preview/confirmação/idempotência. |
 | WP-029 | Pagamentos / PIX / Provedores | core/pagamentos + PagBank/reconciliação/runtime | Observabilidade/conciliação certificadas | `/pagamentos` | MIGRADO | Preservar checkout/ledger/PIX/webhook canônicos. |
 | WP-030 | Cardápio Digital público / Autosserviço | Catálogo Delivery + checkout canônico + publicação dedicada por unidade | identidade pública + catálogo + checkout públicos certificados | `/cardapio/{publicId}/{slug}` | MIGRADO | Preservar `public_id` opaco, configuração por unidade e checkout único. |
-| WP-031 | Fiscal / NFC-e / SAT | Fiscal V1 congelado `b336def47ad4f5188307102203f4e04b98406014` vendorizado; WP-031A→J implementados/certificados | Persistência, outbound, perfis, inbound, intake, procurement, financeiro/tributário, signer/gateway governado e Web/UX funcional integrados; sem homologação externa presumida | `/admin/fiscal` + `/admin/integracoes` | PARCIAL — A→J CERTIFIED / K PENDING | Executar WP-031K Cognitive Fiscal; depois L e Master Gate. |
+| WP-031 | Fiscal / NFC-e / SAT | Fiscal V1 congelado `b336def47ad4f5188307102203f4e04b98406014` vendorizado; WP-031A→K implementados/certificados | Persistência, outbound, perfis, inbound, intake, procurement, financeiro/tributário, signer/gateway governado, Web/UX funcional e Cognitive Fiscal read-only integrados; sem homologação externa presumida | `/admin/fiscal` + `/admin/integracoes` + Core canônico | PARCIAL — A→K CERTIFIED / L PENDING | Executar WP-031L Regression / Channel Parity; depois Master Gate. |
 | WP-032 | Notificações Internas | core/notificacoes_internas + application/notificacoes_internas + diretório SQL cifrado | Superfície Web administrativa certificada, session-aware e tenant/unit-safe | Backoffice administrativo | CERTIFIED | Preservar serviço canônico; sem inbox/feed/badge paralelo. |
 | WP-033 | Auditoria / Histórico administrativo | core/seguranca/auditoria.py + RepositorioAuditoriaSQLAlchemy | Consulta Backoffice read-only certificada, tenant-safe, com RBAC + step-up | Backoffice administrativo | CERTIFIED | Preservar auditoria canônica e não expor metadata interna/segredos. |
 
@@ -97,7 +97,7 @@ O `app.py` legado comprova abas para Engenharia de Cardápio, CRM/Resgate/Cashba
 
 ## 6. Gaps e pendências que ainda devem ser fechados
 
-1. **WP-031 — Fiscal:** baseline V1 localizado, congelado e vendorizado. WP-031A→J estão implementados/certificados; o WP-031J foi certificado no gate `WP-031J Web UX Functional` run `35550921933`, HEAD `dab486acae6b8df70446089130a75773f271fc55`, com 26/26 workflows SUCCESS. WP-031K, WP-031L e o Master Gate permanecem pendentes.
+1. **WP-031 — Fiscal:** baseline V1 localizado, congelado e vendorizado. WP-031A→K estão implementados/certificados; o WP-031K foi certificado no gate `WP-031K Cognitive Fiscal` run `35553683984`, HEAD `8ee77732f7f1cba5da8403872217bd2ee2cad986`, com 27/27 workflows SUCCESS. WP-031L e o Master Gate permanecem pendentes.
 2. **Ledger histórico:** WP-001 a WP-007 possuem estados CERTIFIED sem campos de evidência exigidos pelo validador atual; reconciliar somente com evidência histórica real.
 
 WP-008, WP-012, WP-018, WP-032 e WP-033 já possuem certificação posterior registrada neste documento e não são gaps CURRENT.
@@ -129,7 +129,7 @@ WP-031 — Fiscal / NFC-e / SAT integra oficialmente a Kordena V1. Deve possuir 
 3. **WP-012 → implantar Web** sobre a Central de Pedidos existente.
 4. **WP-032 → implantar Web** reutilizando Notificações Internas canônicas.
 5. **WP-033 → implantar Web** read-only sobre auditoria canônica.
-6. **WP-031 → continuar sequência fiscal congelada**: A→J concluídos/certificados; WP-031K → WP-031L → Master Gate → Visual Premium permanecem na ordem vinculante.
+6. **WP-031 → continuar sequência fiscal congelada**: A→K concluídos/certificados; WP-031L → Master Gate → Visual Premium permanecem na ordem vinculante.
 7. **Auditoria Mestre V1 completa**.
 8. **Gate 100% funcional**.
 9. **Visual Premium final**, somente após os gates anteriores.

@@ -1,6 +1,6 @@
 # WP-031 — Fiscal V1 Complete — System Design & Authority Map
 
-**Status:** WP-031A→J implementados/certificados; WP-031K PENDING / NÃO INICIADO
+**Status:** WP-031A→K implementados/certificados; WP-031L PENDING / NÃO INICIADO
 **Date:** 20/09/2026
 **Repository:** `faabio3131/fm-ai-platform`
 **PR:** #118 — OPEN/DRAFT
@@ -219,7 +219,9 @@ Todas as tabelas devem possuir escopo tenant/unidade quando aplicável e constra
 - Gate `WP-031H Financial Tax Bridge` run `35512559855`: SUCCESS no HEAD funcional `1cd054e4d0748faafeb781cb145d0f4824be2bad`; matriz completa do SHA: 24/24 workflows SUCCESS; regressão: 1614 passed / 5 skipped / 102 warnings.
 - A certificação é técnica interna. Pagamento/liquidação automática, escrituração oficial, signer, certificado, provider/SEFAZ real e homologação externa não foram antecipados.
 - WP-031I e WP-031J estão certificados internamente. WP-031J: HEAD `dab486acae6b8df70446089130a75773f271fc55`, gate `WP-031J Web UX Functional` run `35550921933` SUCCESS, matriz 26/26 workflows SUCCESS.
-- WP-031K permanece PENDING / NÃO INICIADO; WP-031 continua PENDING até K, L e o Master Gate.
+- O WP-031K reutilizou o Core canônico `core/gerente_ia` e adicionou `consultar_fiscal` como capacidade estritamente read-only sobre projeções determinísticas. A tool exige `GERENTE_IA_CONSULTAR` e `FISCAL_VISUALIZAR`, preserva tenant/unidade/ambiente, não lê XML/archive bruto nem Secret Store e marca recomendações como `execucao=nao_executada`.
+- Gate `WP-031K Cognitive Fiscal` run `35553683984`: SUCCESS no HEAD funcional `8ee77732f7f1cba5da8403872217bd2ee2cad986`; regressão integral 1637 passed / 5 skipped / 102 warnings; matriz completa do SHA: 27/27 workflows SUCCESS.
+- WP-031L permanece PENDING / NÃO INICIADO; WP-031 continua PENDING até L e o Master Gate.
 
 ## 7. Regras de concorrência e idempotência
 
@@ -402,7 +404,7 @@ Nenhuma UF, município ou provider será marcado como homologado sem evidência 
 8. WP-031H — Financial / Tax Bridge — CONCLUÍDO/CERTIFICADO.
 9. WP-031I — Signer + Gateway.
 10. WP-031J — Web / UX funcional.
-11. WP-031K — Cognitive Fiscal.
+11. WP-031K — Cognitive Fiscal — CONCLUÍDO/CERTIFICADO.
 12. WP-031L — Regression / Channel Parity.
 13. WP-031 Master Gate.
 14. Visual Premium final.
