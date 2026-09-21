@@ -1,6 +1,6 @@
 # WP-031 — Fiscal V1 Complete — System Design & Authority Map
 
-**Status:** WP-031A→K implementados/certificados; WP-031L PENDING / NÃO INICIADO
+**Status:** WP-031A→L implementados/certificados; WP-031 Master Gate PENDING / NÃO INICIADO
 **Date:** 20/09/2026
 **Repository:** `faabio3131/fm-ai-platform`
 **PR:** #118 — OPEN/DRAFT
@@ -221,7 +221,9 @@ Todas as tabelas devem possuir escopo tenant/unidade quando aplicável e constra
 - WP-031I e WP-031J estão certificados internamente. WP-031J: HEAD `dab486acae6b8df70446089130a75773f271fc55`, gate `WP-031J Web UX Functional` run `35550921933` SUCCESS, matriz 26/26 workflows SUCCESS.
 - O WP-031K reutilizou o Core canônico `core/gerente_ia` e adicionou `consultar_fiscal` como capacidade estritamente read-only sobre projeções determinísticas. A tool exige `GERENTE_IA_CONSULTAR` e `FISCAL_VISUALIZAR`, preserva tenant/unidade/ambiente, não lê XML/archive bruto nem Secret Store e marca recomendações como `execucao=nao_executada`.
 - Gate `WP-031K Cognitive Fiscal` run `35553683984`: SUCCESS no HEAD funcional `8ee77732f7f1cba5da8403872217bd2ee2cad986`; regressão integral 1637 passed / 5 skipped / 102 warnings; matriz completa do SHA: 27/27 workflows SUCCESS.
-- WP-031L permanece PENDING / NÃO INICIADO; WP-031 continua PENDING até L e o Master Gate.
+- O WP-031L consolidou fitness contract de autoridade e regressão/channel parity sem introduzir nova autoridade. PDV e Delivery reutilizam Checkout V1; Salão/Garçom reutilizam Pagamentos V1; Marketplaces convergem em Pedido interno; o outbound fiscal continua nascendo de `venda.criada`.
+- Gate `WP-031L Regression Channel Parity` run `35556451970`: SUCCESS no HEAD funcional `c990d1e92f87a6eea2110f4bc3141bff4321f6c8`; fitness 5 passed; canais 101 passed / 14 warnings; fiscal+cognitivo 109 passed / 5 warnings; pagamentos+estoque+segurança 150 passed / 56 warnings; regressão integral 1642 passed / 5 skipped / 102 warnings; Web Node 6/6; ESLint, TypeScript e Next production build verdes; matriz completa 28/28 workflows SUCCESS.
+- WP-031 continua PENDING somente até o WP-031 Master Gate.
 
 ## 7. Regras de concorrência e idempotência
 
@@ -405,7 +407,7 @@ Nenhuma UF, município ou provider será marcado como homologado sem evidência 
 9. WP-031I — Signer + Gateway.
 10. WP-031J — Web / UX funcional.
 11. WP-031K — Cognitive Fiscal — CONCLUÍDO/CERTIFICADO.
-12. WP-031L — Regression / Channel Parity.
+12. WP-031L — Regression / Channel Parity — CONCLUÍDO/CERTIFICADO.
 13. WP-031 Master Gate.
 14. Visual Premium final.
 
