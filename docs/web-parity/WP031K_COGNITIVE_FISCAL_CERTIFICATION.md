@@ -1,13 +1,13 @@
 # WP-031K — Cognitive Fiscal — Certification
 
-**Status:** CERTIFIED_INTERNAL  
-**Data:** 20/09/2026  
-**Repositório:** `faabio3131/fm-ai-platform`  
-**Branch:** `feat/web-parity-v1-total-original-migration`  
-**PR:** #118 — OPEN/DRAFT  
-**HEAD funcional certificado:** `8ee77732f7f1cba5da8403872217bd2ee2cad986`  
-**Workflow:** `WP-031K Cognitive Fiscal`  
-**Run:** `35553683984` — SUCCESS  
+**Status:** CERTIFIED_INTERNAL
+**Data:** 20/09/2026
+**Repositório:** `faabio3131/fm-ai-platform`
+**Branch:** `feat/web-parity-v1-total-original-migration`
+**PR:** #118 — OPEN/DRAFT
+**HEAD funcional certificado:** `8ee77732f7f1cba5da8403872217bd2ee2cad986`
+**Workflow:** `WP-031K Cognitive Fiscal`
+**Run:** `35553683984` — SUCCESS
 **Matriz do HEAD:** 27/27 workflows SUCCESS
 
 ## Escopo certificado
