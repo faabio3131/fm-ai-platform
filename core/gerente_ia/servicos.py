@@ -526,6 +526,9 @@ class ServicoGerenteIA:
             "unidade_id": contexto.unidade_id,
             "filtros": argumentos,
         }
+        if tool is ToolGerenteIA.CONSULTAR_FISCAL:
+            return self.consultas.consultar_fiscal(**kwargs)
+
         despachantes: dict[ToolGerenteIA, Callable[..., tuple[RegistroGerencial, ...]]] = {
             ToolGerenteIA.CONSULTAR_PEDIDOS: self.consultas.consultar_pedidos,
             ToolGerenteIA.CONSULTAR_ATRASOS: self.consultas.consultar_atrasos,
@@ -533,7 +536,6 @@ class ServicoGerenteIA:
             ToolGerenteIA.CONSULTAR_COZINHA: self.consultas.consultar_cozinha,
             ToolGerenteIA.CONSULTAR_ENTREGAS: self.consultas.consultar_entregas,
             ToolGerenteIA.CONSULTAR_ESTOQUE: self.consultas.consultar_estoque,
-            ToolGerenteIA.CONSULTAR_FISCAL: self.consultas.consultar_fiscal,
             ToolGerenteIA.SUGERIR_COMPRA: self.consultas.sugerir_compra,
             ToolGerenteIA.GERAR_RELATORIO: self.consultas.gerar_relatorio,
             ToolGerenteIA.ACOMPANHAR_CONVERSAO: self.consultas.acompanhar_conversao,
