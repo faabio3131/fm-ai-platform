@@ -1,11 +1,11 @@
 # WP-031L — Regression / Channel Parity — CURRENT Discovery
 
-**Status:** DISCOVERY concluída / implementação do gate autorizada  
-**Data:** 20/09/2026  
-**Repositório:** `faabio3131/fm-ai-platform`  
-**Branch:** `feat/web-parity-v1-total-original-migration`  
-**PR:** #118 — OPEN/DRAFT  
-**HEAD de entrada:** `2f25dcec54a07ccbff9ec4e29d76c519a187a2a1`  
+**Status:** DISCOVERY concluída / implementação do gate autorizada
+**Data:** 20/09/2026
+**Repositório:** `faabio3131/fm-ai-platform`
+**Branch:** `feat/web-parity-v1-total-original-migration`
+**PR:** #118 — OPEN/DRAFT
+**HEAD de entrada:** `2f25dcec54a07ccbff9ec4e29d76c519a187a2a1`
 **Pré-condição:** WP-031K certificado; HEAD documental 27/27 workflows SUCCESS.
 
 ## CURRENT comprovado
