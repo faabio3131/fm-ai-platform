@@ -2,8 +2,8 @@
 
 **Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`
 **Data original:** 08/09/2026
-**Reconciliação:** 20/09/2026
-**Versão do inventário:** 3.9 — WP-031A→L certificados
+**Reconciliação:** 21/09/2026
+**Versão do inventário:** 4.0 — WP-031 + Master Gate certificados
 **Status:** DOCUMENTO MESTRE DE EXECUÇÃO
 
 ## 1. Regra constitucional deste inventário
@@ -15,17 +15,17 @@ Existir no backend, possuir UI candidata ou ter E2E legado **não** significa es
 ## 2. Diagnóstico executivo reconciliado
 
 - Capacidades inventariadas: **33**.
-- Estado canônico atual no ledger: **32 CERTIFIED**, **0 IMPLEMENTED_UNCERTIFIED** e **1 PENDING**.
+- Estado canônico atual no ledger: **33 CERTIFIED**, **0 IMPLEMENTED_UNCERTIFIED** e **0 PENDING**.
 - **WP-008** está certificado em `/garcom`; após o gate de implementação no HEAD `9daaacc9ef4754558ad570bd568a316367b9260d`, recebeu certificação independente no `Kordena V1 Non-Fiscal Master Gate` run `35380670582`, HEAD `74530f13c8bd9c95b61b9b9da4192094a230c2d3`.
 - **WP-018** foi certificado em `/admin/dashboard` no SHA `b7a64b2dc5a47763a86fded903a15fd2be2cc23d`.
-- **WP-012**, **WP-032** e **WP-033** estão tecnicamente certificados; o único WP deliberadamente pendente nesta rodada é **WP-031 Fiscal**.
-- **WP-031 Fiscal** está em execução sequencial na PR #118: WP-031A→L estão implementados/certificados. O WP-031L fechou regressão e paridade de canais no HEAD `c990d1e92f87a6eea2110f4bc3141bff4321f6c8`, gate `WP-031L Regression Channel Parity` run `35556451970` SUCCESS, com matriz completa 28/28 workflows SUCCESS. O WP-031 permanece PENDING somente até o Master Gate.
+- **WP-012**, **WP-032**, **WP-033** e **WP-031 Fiscal** estão tecnicamente certificados; não há Work Package funcional pendente no ledger.
+- **WP-031 Fiscal** está concluído/certificado na PR #118: WP-031A→L estão certificados e o Master Gate fechou SUCCESS no HEAD `09f1f0b4e21c0751e3828f7480239bd1720dcc6d`, workflow `WP-031 Master Gate` run `35618240783`.
 - GAP HTTP/WEB/PÚBLICO: **0** — WP-030 foi concluído e certificado.
 - A VERIFICAR: **0**.
 
 A rota `/` usa Home/Dashboard comercial real dentro do Shell Corporativo Unificado. A Central de Pedidos está certificada em `/pedidos`. O Cardápio Digital público/autosserviço foi certificado em `/cardapio/{publicId}/{slug}`, com administração da publicação por unidade em `/admin/empresa`.
 
-A retaguarda WP-013 a WP-017 está agora formalmente certificada. O WP-031 Fiscal integra oficialmente a Kordena V1 e deve ser concluído em fase própria antes da Arquitetura Visual Premium. A Arquitetura Visual Premium permanece bloqueada até a paridade funcional, a certificação das capacidades obrigatórias e o bloco fiscal da V1 serem encerrados.
+A retaguarda WP-013 a WP-017 e o WP-031 Fiscal estão formalmente certificados. As condições funcionais previstas para reabrir a Arquitetura Visual Premium foram satisfeitas; qualquer trabalho visual deve preservar a mesma linha arquitetural e não pode reconstruir autoridades já certificadas.
 
 ## 3. Capacidades já migradas/preservadas
 
@@ -52,6 +52,7 @@ A retaguarda WP-013 a WP-017 está agora formalmente certificada. O WP-031 Fisca
 - **WP-028 — Gerente IA**: `/gerente-ia`.
 - **WP-029 — Pagamentos / PIX / Provedores**: `/pagamentos`.
 - **WP-030 — Cardápio Digital público / Autosserviço**: `/cardapio/{publicId}/{slug}` + administração por unidade em `/admin/empresa`.
+- **WP-031 — Fiscal / NFC-e / SAT**: `/admin/fiscal` + `/admin/integracoes` + Core canônico — CERTIFIED pelo Master Gate fiscal.
 
 ## 4. Matriz mestre de paridade reconciliada
 
@@ -87,7 +88,7 @@ A retaguarda WP-013 a WP-017 está agora formalmente certificada. O WP-031 Fisca
 | WP-028 | Gerente IA | core/gerente_ia + runtime/tools canônicos | façade session-aware certificada | `/gerente-ia` | MIGRADO | Preservar preview/confirmação/idempotência. |
 | WP-029 | Pagamentos / PIX / Provedores | core/pagamentos + PagBank/reconciliação/runtime | Observabilidade/conciliação certificadas | `/pagamentos` | MIGRADO | Preservar checkout/ledger/PIX/webhook canônicos. |
 | WP-030 | Cardápio Digital público / Autosserviço | Catálogo Delivery + checkout canônico + publicação dedicada por unidade | identidade pública + catálogo + checkout públicos certificados | `/cardapio/{publicId}/{slug}` | MIGRADO | Preservar `public_id` opaco, configuração por unidade e checkout único. |
-| WP-031 | Fiscal / NFC-e / SAT | Fiscal V1 congelado `b336def47ad4f5188307102203f4e04b98406014` vendorizado; WP-031A→L implementados/certificados | Persistência, outbound, perfis, inbound, intake, procurement, financeiro/tributário, signer/gateway governado, Web/UX funcional, Cognitive Fiscal e paridade de canais certificados; sem homologação externa presumida | `/admin/fiscal` + `/admin/integracoes` + Core canônico | PARCIAL — A→L CERTIFIED / MASTER GATE PENDING | Executar WP-031 Master Gate. |
+| WP-031 | Fiscal / NFC-e / SAT | Fiscal V1 congelado `b336def47ad4f5188307102203f4e04b98406014` vendorizado; WP-031A→L + Master Gate certificados | Persistência, outbound, perfis, inbound, intake, procurement, financeiro/tributário, signer/gateway governado, Web/UX funcional, Cognitive Fiscal e paridade de canais certificados; sem homologação externa presumida | `/admin/fiscal` + `/admin/integracoes` + Core canônico | CERTIFIED | Preservar; Visual Premium final é o próximo bloco autorizado. |
 | WP-032 | Notificações Internas | core/notificacoes_internas + application/notificacoes_internas + diretório SQL cifrado | Superfície Web administrativa certificada, session-aware e tenant/unit-safe | Backoffice administrativo | CERTIFIED | Preservar serviço canônico; sem inbox/feed/badge paralelo. |
 | WP-033 | Auditoria / Histórico administrativo | core/seguranca/auditoria.py + RepositorioAuditoriaSQLAlchemy | Consulta Backoffice read-only certificada, tenant-safe, com RBAC + step-up | Backoffice administrativo | CERTIFIED | Preservar auditoria canônica e não expor metadata interna/segredos. |
 
@@ -282,3 +283,15 @@ Nenhum merge, deploy, force push ou alteração da main foi realizado.
 - A auditoria CURRENT localizou `compra.aprovar` no RBAC, mas não localizou autoridade materializada de pedido de compra/fornecedor/recebimento fiscal. WP-031G deve repetir discovery dirigido antes de criar a única autoridade de procurement necessária.
 - Ordem oficial congelada: **WP-031 Fiscal completo -> Fiscal Master Gate -> Visual Premium final**.
 - WP-031 permanece `PENDING` no ledger até implementação e certificação; este bloco fecha arquitetura/discovery, não promove readiness funcional.
+
+
+## Registro final de certificação WP-031 — 21/09/2026
+
+- HEAD funcional/certificador: `09f1f0b4e21c0751e3828f7480239bd1720dcc6d` — `ci(wp031): add Fiscal V1 master gate`.
+- Workflow: `WP-031 Master Gate`.
+- Run: `35618240783` — **SUCCESS**.
+- Job: `Fiscal V1 A-L master certification` — **SUCCESS** em todas as etapas aplicáveis.
+- Ledger reconciliado para **33 CERTIFIED / 0 IMPLEMENTED_UNCERTIFIED / 0 PENDING**.
+- Homologação externa de provider/SEFAZ, credenciais reais, deploy e produção não são inferidos por esta certificação interna.
+- PR #118 permanece OPEN/DRAFT, sem merge e sem deploy.
+- Próximo bloco autorizado pela sequência oficial: **Visual Premium final**.
