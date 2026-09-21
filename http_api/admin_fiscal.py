@@ -130,7 +130,7 @@ def _identity(
 
 
 def _scope_filters(model: Any, identidade: Any, environment: FiscalEnvironment) -> tuple[Any, ...]:
-    tenant_column = getattr(model, "tenant_id")
+    tenant_column = model.tenant_id
     unit_column = getattr(model, "unit_id", getattr(model, "unidade_id", None))
     if unit_column is None:
         raise RuntimeError("fiscal model without unit scope")
@@ -139,7 +139,7 @@ def _scope_filters(model: Any, identidade: Any, environment: FiscalEnvironment) 
         unit_column == identidade.unidade_id,
     ]
     if hasattr(model, "environment"):
-        filters.append(getattr(model, "environment") == environment.value)
+        filters.append(model.environment == environment.value)
     return tuple(filters)
 
 
