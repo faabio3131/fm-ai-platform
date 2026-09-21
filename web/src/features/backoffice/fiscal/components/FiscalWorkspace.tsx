@@ -241,10 +241,10 @@ export function FiscalWorkspace() {
                         <td>{shortKey(item.access_key)}</td>
                         <td>
                           {item.protocol_reference ??
-                            [item.rejection_code, item.rejection_message]
+                            ([item.rejection_code, item.rejection_message]
                               .filter(Boolean)
                               .join(" — ") ||
-                            "—"}
+                              "—")}
                         </td>
                       </tr>
                     ))}
