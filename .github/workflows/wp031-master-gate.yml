@@ -1,0 +1,129 @@
+name: WP-031 Master Gate
+
+on:
+  pull_request:
+    paths:
+      - 'application/**'
+      - 'core/**'
+      - 'http_api/**'
+      - 'infra/**'
+      - 'kordena_fiscal/**'
+      - 'migrations/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'web/**'
+      - 'docs/web-parity/**'
+      - '.github/workflows/wp031-master-gate.yml'
+  push:
+    branches:
+      - feat/web-parity-v1-total-original-migration
+    paths:
+      - 'application/**'
+      - 'core/**'
+      - 'http_api/**'
+      - 'infra/**'
+      - 'kordena_fiscal/**'
+      - 'migrations/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'web/**'
+      - 'docs/web-parity/**'
+      - '.github/workflows/wp031-master-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fiscal-master:
+    name: Fiscal V1 A-L master certification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+
+      - name: Verify frozen Fiscal V1 authority
+        run: python scripts/validate_wp031_vendor_baseline.py
+
+      - name: Compile canonical V1 surfaces
+        run: |
+          python -m compileall -q             application             core             http_api             infra             kordena_fiscal             migrations             scripts             tests/fitness/test_wp031l_channel_parity.py
+
+      - name: Ruff fiscal master surfaces
+        run: |
+          ruff check             application/fiscal_outbound.py             application/fiscal_inbound.py             application/fiscal_intake.py             application/gerente_ia_runtime.py             core/gerente_ia             core/pagamentos/fiscal_bridge.py             core/pagamentos/fiscal_bridge_sqlalchemy.py             core/procurement             core/seguranca/permissoes.py             http_api/admin_fiscal.py             infra/fiscal             infra/gerente_ia             infra/procurement             tests/integration/fiscal             tests/integration/gerente_ia/test_wp031k_cognitive_fiscal.py             tests/fitness/test_wp031l_channel_parity.py
+
+      - name: Mypy fiscal master surfaces
+        run: |
+          mypy             application/fiscal_outbound.py             application/fiscal_inbound.py             application/fiscal_intake.py             application/gerente_ia_runtime.py             core/gerente_ia/modelos.py             core/gerente_ia/tools.py             core/gerente_ia/adapters.py             core/gerente_ia/servicos.py             core/pagamentos/fiscal_bridge.py             core/pagamentos/fiscal_bridge_sqlalchemy.py             http_api/admin_fiscal.py             infra/fiscal/runtime_adapters.py             infra/gerente_ia/consultas_sqlalchemy.py             --follow-imports=skip
+
+      - name: Validate canonical state ledger
+        run: python scripts/validate_kordena_v1_state_ledger.py
+
+      - name: Migration manifest
+        run: |
+          python - <<'PY'
+          from migrations.manifest import assert_migration_manifest
+          from migrations.runner import DEFAULT_MIGRATIONS
+          assert_migration_manifest(DEFAULT_MIGRATIONS)
+          print("Migration manifest: PASS")
+          PY
+
+      - name: Schema baseline
+        run: python scripts/generate_schema_baseline_v1.py --check
+
+      - name: WP-031 A-L fiscal master matrix
+        run: |
+          pytest -q             tests/integration/fiscal             tests/api/test_admin_fiscal_http_contract.py             tests/integration/gerente_ia/test_wp031k_cognitive_fiscal.py             tests/fitness/test_wp031l_channel_parity.py
+
+      - name: Canonical channels payments stock matrix
+        run: |
+          pytest -q             tests/api/test_pdv_http_contract.py             tests/api/test_salao_http_contract.py             tests/api/test_salao_pedido_http_contract.py             tests/api/test_delivery_entrega_http_contract.py             tests/api/test_central_pedidos_http_contract.py             tests/api/test_order_confirmation_kds_routing_http_contract.py             tests/integration/garcom             tests/integration/delivery             tests/integration/entrega             tests/integration/marketplaces             tests/integration/orders/test_central_pedidos.py             tests/integration/payments             tests/unit/payments             tests/integration/pdv             tests/integration/salao             tests/unit/stock
+
+      - name: Security tenancy RBAC and fail-closed matrix
+        run: |
+          pytest -q             tests/unit/security             tests/integration/security             tests/security/hardening             tests/fitness/test_auth_sensitive_entrypoints_v1.py             tests/fitness/test_f14_transversal_rbac_security_v1.py             tests/fitness/test_af09_rbac_capability_matrix.py             tests/fitness/test_af04_schema_convergence.py             tests/fitness/test_af05_migration_manifest.py
+
+      - name: Full Python regression
+        run: pytest -q
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: Full Web ESLint
+        working-directory: web
+        run: npm run lint
+
+      - name: Full Web TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Full Web node tests
+        working-directory: web
+        run: node --test tests/*.test.mjs
+
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+
+      - name: Diff whitespace against main
+        run: git diff --check origin/main...HEAD
