@@ -14,11 +14,24 @@ from core.estoque.modelos_orm import SaldoEstoqueORM
 from core.gerente_ia.erros import ErroGerenteIA
 from core.gerente_ia.modelos import RegistroGerencial, ValorPrimitivo
 from core.kds.modelos_orm import ProducaoItemORM
-from core.pagamentos.modelos_orm import VendaFinanceiraORM
+from core.pagamentos.modelos_orm import (
+    DecisaoCreditoTributarioORM,
+    ObrigacaoCompraFiscalORM,
+    VendaFinanceiraORM,
+)
 from core.pedidos.modelos_orm import PedidoORM
 from core.salao.modelos_orm import MesaORM
+from infra.fiscal.modelos_orm import (
+    FiscalDocumentProjectionORM,
+    FiscalInboundDocumentORM,
+    FiscalIntakeCaptureORM,
+    FiscalIssuerProfileORM,
+    FiscalOutboxORM,
+    FiscalProductBindingORM,
+)
 from infra.gerente_ia.modelos_orm import ConsentimentoCRMAtualORM, EventoCoreORM
 from infra.integracoes.modelos_orm import ServicoExternoConfigORM
+from infra.procurement.modelos_orm import PedidoCompraORM, RecebimentoCompraORM
 
 
 def _registro(tipo: str, **campos: ValorPrimitivo) -> RegistroGerencial:
@@ -189,6 +202,367 @@ class ConsultasGerenciaisSQLAlchemy:
             )
             if float(registro.para_dict()["disponivel"] or 0) <= 0
         )
+
+    def consultar_fiscal(
+        self,
+        *,
+        tenant_id: str,
+        unidade_id: str,
+        filtros: dict[str, ValorPrimitivo],
+    ) -> tuple[RegistroGerencial, ...]:
+        """Consulta cognitiva read-only sobre autoridades fiscais determinísticas.
+
+        Nunca lê XML/arquivo bruto nem Secret Store. Environment é somente filtro
+        de leitura e não promove ambiente nem autoriza operação.
+        """
+
+        environment = str(filtros.get("environment") or "homologation")
+        tema = str(filtros.get("tema") or "resumo")
+        limite = self._limite(filtros)
+
+        doc_scope = (
+            FiscalDocumentProjectionORM.tenant_id == tenant_id,
+            FiscalDocumentProjectionORM.unit_id == unidade_id,
+            FiscalDocumentProjectionORM.environment == environment,
+        )
+        inbound_scope = (
+            FiscalInboundDocumentORM.tenant_id == tenant_id,
+            FiscalInboundDocumentORM.unit_id == unidade_id,
+            FiscalInboundDocumentORM.environment == environment,
+        )
+        intake_scope = (
+            FiscalIntakeCaptureORM.tenant_id == tenant_id,
+            FiscalIntakeCaptureORM.unit_id == unidade_id,
+            FiscalIntakeCaptureORM.environment == environment,
+        )
+        outbox_scope = (
+            FiscalOutboxORM.tenant_id == tenant_id,
+            FiscalOutboxORM.unit_id == unidade_id,
+            FiscalOutboxORM.environment == environment,
+        )
+        purchase_scope = (
+            PedidoCompraORM.tenant_id == tenant_id,
+            PedidoCompraORM.unit_id == unidade_id,
+            PedidoCompraORM.environment == environment,
+        )
+        receipt_scope = (
+            RecebimentoCompraORM.tenant_id == tenant_id,
+            RecebimentoCompraORM.unit_id == unidade_id,
+            RecebimentoCompraORM.environment == environment,
+        )
+        finance_scope = (
+            ObrigacaoCompraFiscalORM.tenant_id == tenant_id,
+            ObrigacaoCompraFiscalORM.unidade_id == unidade_id,
+            ObrigacaoCompraFiscalORM.environment == environment,
+        )
+        credit_scope = (
+            DecisaoCreditoTributarioORM.tenant_id == tenant_id,
+            DecisaoCreditoTributarioORM.unidade_id == unidade_id,
+            DecisaoCreditoTributarioORM.environment == environment,
+        )
+
+        def count(model: object, *conditions: object) -> int:
+            return int(
+                self._session.scalar(
+                    select(func.count()).select_from(model).where(*conditions)
+                )
+                or 0
+            )
+
+        outbound_total = count(FiscalDocumentProjectionORM, *doc_scope)
+        outbound_rejected = count(
+            FiscalDocumentProjectionORM,
+            *doc_scope,
+            FiscalDocumentProjectionORM.state == "rejected",
+        )
+        inbound_total = count(FiscalInboundDocumentORM, *inbound_scope)
+        intake_total = count(FiscalIntakeCaptureORM, *intake_scope)
+        intake_errors = count(
+            FiscalIntakeCaptureORM,
+            *intake_scope,
+            FiscalIntakeCaptureORM.last_error_code.is_not(None),
+        )
+        outbox_open = count(
+            FiscalOutboxORM,
+            *outbox_scope,
+            FiscalOutboxORM.status != "completed",
+        )
+        purchase_total = count(PedidoCompraORM, *purchase_scope)
+        receipt_total = count(RecebimentoCompraORM, *receipt_scope)
+        obligation_total = count(ObrigacaoCompraFiscalORM, *finance_scope)
+        credit_total = count(DecisaoCreditoTributarioORM, *credit_scope)
+        issuer_profiles = count(
+            FiscalIssuerProfileORM,
+            FiscalIssuerProfileORM.tenant_id == tenant_id,
+            FiscalIssuerProfileORM.unit_id == unidade_id,
+            FiscalIssuerProfileORM.environment == environment,
+            FiscalIssuerProfileORM.valid_until.is_(None),
+        )
+        product_bindings = count(
+            FiscalProductBindingORM,
+            FiscalProductBindingORM.tenant_id == tenant_id,
+            FiscalProductBindingORM.unit_id == unidade_id,
+            FiscalProductBindingORM.environment == environment,
+            FiscalProductBindingORM.valid_until.is_(None),
+        )
+
+        saldo_aberto = self._session.scalar(
+            select(func.coalesce(func.sum(ObrigacaoCompraFiscalORM.saldo), 0)).where(
+                *finance_scope
+            )
+        )
+        integration = self._session.scalar(
+            select(ServicoExternoConfigORM)
+            .where(
+                ServicoExternoConfigORM.tenant_id == tenant_id,
+                ServicoExternoConfigORM.unidade_id == unidade_id,
+                ServicoExternoConfigORM.servico == "fiscal.documentos",
+            )
+            .order_by(ServicoExternoConfigORM.atualizado_em.desc())
+            .limit(1)
+        )
+
+        registros: list[RegistroGerencial] = [
+            _registro(
+                "resumo_fiscal",
+                environment=environment,
+                documentos_saida=outbound_total,
+                documentos_rejeitados=outbound_rejected,
+                documentos_entrada=inbound_total,
+                capturas_intake=intake_total,
+                capturas_com_erro=intake_errors,
+                outbox_aberto=outbox_open,
+                pedidos_compra=purchase_total,
+                recebimentos=receipt_total,
+                obrigacoes_compra=obligation_total,
+                saldo_obrigacoes=float(Decimal(str(saldo_aberto or 0))),
+                decisoes_credito=credit_total,
+                perfis_emissor_ativos=issuer_profiles,
+                vinculos_produto_ativos=product_bindings,
+                fonte="fiscal_projection,inbound,intake,outbox,procurement,pagamentos",
+                autoridade="servicos_deterministicos_v1",
+                natureza="fato_deterministico",
+            )
+        ]
+
+        if tema == "documentos":
+            rows = self._session.scalars(
+                select(FiscalDocumentProjectionORM)
+                .where(*doc_scope)
+                .order_by(FiscalDocumentProjectionORM.updated_at.desc())
+                .limit(limite)
+            )
+            registros.extend(
+                _registro(
+                    "documento_fiscal",
+                    document_id=row.document_id,
+                    document_kind=row.document_kind,
+                    state=row.state,
+                    rejection_code=row.rejection_code,
+                    updated_at=str(row.updated_at),
+                    environment=environment,
+                    fonte="fiscal_document_projection_v1",
+                    autoridade="fiscal_v1",
+                    natureza="fato_deterministico",
+                )
+                for row in rows
+            )
+        elif tema == "entradas":
+            rows = self._session.scalars(
+                select(FiscalInboundDocumentORM)
+                .where(*inbound_scope)
+                .order_by(FiscalInboundDocumentORM.updated_at.desc())
+                .limit(limite)
+            )
+            registros.extend(
+                _registro(
+                    "entrada_fiscal",
+                    inbound_id=row.inbound_id,
+                    status=row.status,
+                    source=row.source,
+                    issuer_name=row.issuer_name,
+                    updated_at=str(row.updated_at),
+                    environment=environment,
+                    fonte="fiscal_inbound_documents_v1",
+                    autoridade="xml_dfe_oficial",
+                    natureza="fato_deterministico",
+                )
+                for row in rows
+            )
+        elif tema == "intake":
+            rows = self._session.scalars(
+                select(FiscalIntakeCaptureORM)
+                .where(*intake_scope)
+                .order_by(FiscalIntakeCaptureORM.updated_at.desc())
+                .limit(limite)
+            )
+            registros.extend(
+                _registro(
+                    "captura_fiscal",
+                    capture_id=row.capture_id,
+                    source=row.source,
+                    authority=row.authority,
+                    status=row.status,
+                    last_error_code=row.last_error_code,
+                    updated_at=str(row.updated_at),
+                    environment=environment,
+                    fonte="fiscal_intake_captures_v1",
+                    autoridade="captura_preliminar",
+                    natureza="fato_deterministico",
+                )
+                for row in rows
+            )
+        elif tema == "compras":
+            order_rows = self._session.scalars(
+                select(PedidoCompraORM)
+                .where(*purchase_scope)
+                .order_by(PedidoCompraORM.atualizado_em.desc())
+                .limit(limite)
+            )
+            receipt_rows = self._session.scalars(
+                select(RecebimentoCompraORM)
+                .where(*receipt_scope)
+                .order_by(RecebimentoCompraORM.confirmado_em.desc())
+                .limit(limite)
+            )
+            registros.extend(
+                _registro(
+                    "pedido_compra_fiscal",
+                    pedido_id=row.pedido_id,
+                    fornecedor_id=row.fornecedor_id,
+                    status=row.status,
+                    versao=row.versao,
+                    environment=environment,
+                    fonte="procurement_purchase_orders_v1",
+                    autoridade="procurement_v1",
+                    natureza="fato_deterministico",
+                )
+                for row in order_rows
+            )
+            registros.extend(
+                _registro(
+                    "recebimento_compra_fiscal",
+                    recebimento_id=row.recebimento_id,
+                    pedido_id=row.pedido_id,
+                    inbound_id=row.inbound_id,
+                    status=row.status,
+                    versao=row.versao,
+                    environment=environment,
+                    fonte="procurement_receipts_v1",
+                    autoridade="procurement_v1",
+                    natureza="fato_deterministico",
+                )
+                for row in receipt_rows
+            )
+        elif tema == "financeiro":
+            rows = self._session.scalars(
+                select(ObrigacaoCompraFiscalORM)
+                .where(*finance_scope)
+                .order_by(ObrigacaoCompraFiscalORM.criado_em.desc())
+                .limit(limite)
+            )
+            registros.extend(
+                _registro(
+                    "obrigacao_compra_fiscal",
+                    obrigacao_id=row.obrigacao_id,
+                    pedido_id=row.pedido_id,
+                    status=row.status,
+                    reconciliacao=row.reconciliacao,
+                    saldo=float(Decimal(str(row.saldo))),
+                    moeda=row.moeda,
+                    versao=row.versao,
+                    environment=environment,
+                    fonte="obrigacoes_compra_fiscal_v1",
+                    autoridade="financeiro_v1",
+                    natureza="fato_deterministico",
+                )
+                for row in rows
+            )
+        elif tema == "configuracao":
+            registros.append(
+                _registro(
+                    "configuracao_fiscal",
+                    environment=environment,
+                    configurada=integration is not None,
+                    provider=(integration.provedor if integration else None),
+                    enabled=(integration.habilitada if integration else False),
+                    homologated=(integration.homologada if integration else False),
+                    credential_roles=(
+                        ",".join(sorted(dict(integration.finalidades_credenciais)))
+                        if integration
+                        else ""
+                    ),
+                    perfis_emissor_ativos=issuer_profiles,
+                    vinculos_produto_ativos=product_bindings,
+                    fonte="fm_servicos_externos_config_v1,fiscal_issuer_profiles_v1,fiscal_product_bindings_v1",
+                    autoridade="control_plane_fiscal_v1",
+                    natureza="fato_deterministico",
+                )
+            )
+
+        if tema in {"resumo", "pendencias"}:
+            if issuer_profiles == 0:
+                registros.append(
+                    _registro(
+                        "recomendacao_fiscal",
+                        codigo="configurar_perfil_emissor",
+                        evidencias=0,
+                        environment=environment,
+                        fonte="fiscal_issuer_profiles_v1",
+                        natureza="recomendacao",
+                        execucao="nao_executada",
+                    )
+                )
+            if integration is None or not integration.habilitada:
+                registros.append(
+                    _registro(
+                        "recomendacao_fiscal",
+                        codigo="regularizar_integracao_fiscal",
+                        evidencias=0 if integration is None else 1,
+                        environment=environment,
+                        fonte="fm_servicos_externos_config_v1",
+                        natureza="recomendacao",
+                        execucao="nao_executada",
+                    )
+                )
+            if outbound_rejected:
+                registros.append(
+                    _registro(
+                        "recomendacao_fiscal",
+                        codigo="revisar_documentos_rejeitados",
+                        evidencias=outbound_rejected,
+                        environment=environment,
+                        fonte="fiscal_document_projection_v1",
+                        natureza="recomendacao",
+                        execucao="nao_executada",
+                    )
+                )
+            if intake_errors:
+                registros.append(
+                    _registro(
+                        "recomendacao_fiscal",
+                        codigo="revisar_falhas_intake",
+                        evidencias=intake_errors,
+                        environment=environment,
+                        fonte="fiscal_intake_captures_v1",
+                        natureza="recomendacao",
+                        execucao="nao_executada",
+                    )
+                )
+            if outbox_open:
+                registros.append(
+                    _registro(
+                        "recomendacao_fiscal",
+                        codigo="acompanhar_outbox_fiscal",
+                        evidencias=outbox_open,
+                        environment=environment,
+                        fonte="fiscal_outbox_v1",
+                        natureza="recomendacao",
+                        execucao="nao_executada",
+                    )
+                )
+
+        return tuple(registros)
 
     def gerar_relatorio(self, *, tenant_id: str, unidade_id: str, filtros: dict[str, ValorPrimitivo]):
         tipo = str(filtros.get("tipo", "operacional"))

@@ -21,6 +21,7 @@ class ToolGerenteIA(StrEnum):
     CONSULTAR_COZINHA = "consultar_cozinha"
     CONSULTAR_ENTREGAS = "consultar_entregas"
     CONSULTAR_ESTOQUE = "consultar_estoque"
+    CONSULTAR_FISCAL = "consultar_fiscal"
     SUGERIR_COMPRA = "sugerir_compra"
     GERAR_RELATORIO = "gerar_relatorio"
     PREPARAR_CAMPANHA = "preparar_campanha"

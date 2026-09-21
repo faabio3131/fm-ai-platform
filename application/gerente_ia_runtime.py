@@ -77,7 +77,10 @@ class PlanejadorAIRouterCore:
                         "Responda SOMENTE JSON com as chaves tool e argumentos. "
                         "Nunca inclua tenant_id, unidade_id, usuário, credencial, "
                         "SQL, confirmação ou autorização. "
-                        "Use apenas tools do catálogo V1."
+                        "Use apenas tools do catálogo V1. "
+                        "A tool consultar_fiscal é somente leitura: ela explica "
+                        "fatos/projeções determinísticas e recomenda próximos passos, "
+                        "mas nunca autoriza nem executa operação fiscal."
                     ),
                     "user": pergunta,
                     "tools": ", ".join(

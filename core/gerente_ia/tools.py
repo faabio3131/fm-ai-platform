@@ -38,6 +38,11 @@ ESPECIFICACOES: dict[ToolGerenteIA, EspecificacaoTool] = {
         frozenset({"criticos_apenas", "limite"}),
         frozenset(),
     ),
+    ToolGerenteIA.CONSULTAR_FISCAL: EspecificacaoTool(
+        NaturezaTool.CONSULTA,
+        frozenset({"environment", "tema", "limite"}),
+        frozenset(),
+    ),
     ToolGerenteIA.SUGERIR_COMPRA: EspecificacaoTool(
         NaturezaTool.CONSULTA,
         frozenset({"dias_cobertura", "limite"}),
@@ -147,9 +152,27 @@ def validar_argumentos(
         "produto_id",
         "motivo",
         "idempotency_key",
+        "environment",
+        "tema",
     ):
         if campo in normalizados and normalizados[campo] is not None:
             normalizados[campo] = _texto(normalizados[campo], campo)
+    if "environment" in normalizados and normalizados["environment"] not in {
+        "homologation",
+        "production",
+    }:
+        raise ErroGerenteIA("environment_fiscal_invalido")
+    if "tema" in normalizados and normalizados["tema"] not in {
+        "resumo",
+        "documentos",
+        "entradas",
+        "intake",
+        "compras",
+        "financeiro",
+        "configuracao",
+        "pendencias",
+    }:
+        raise ErroGerenteIA("tema_fiscal_invalido")
     if tool is ToolGerenteIA.GERAR_RELATORIO and normalizados["tipo"] not in {
         "operacional",
         "financeiro_agregado",

@@ -1,0 +1,108 @@
+name: WP-031K Cognitive Fiscal
+
+on:
+  pull_request:
+    paths:
+      - 'core/gerente_ia/**'
+      - 'application/gerente_ia_runtime.py'
+      - 'infra/gerente_ia/**'
+      - 'infra/fiscal/**'
+      - 'infra/procurement/**'
+      - 'core/pagamentos/**'
+      - 'tests/unit/gerente_ia/**'
+      - 'tests/integration/gerente_ia/**'
+      - 'tests/integration/fiscal/**'
+      - 'docs/web-parity/**'
+      - '.github/workflows/wp031k-cognitive-fiscal.yml'
+  push:
+    branches:
+      - feat/web-parity-v1-total-original-migration
+    paths:
+      - 'core/gerente_ia/**'
+      - 'application/gerente_ia_runtime.py'
+      - 'infra/gerente_ia/**'
+      - 'infra/fiscal/**'
+      - 'infra/procurement/**'
+      - 'core/pagamentos/**'
+      - 'tests/unit/gerente_ia/**'
+      - 'tests/integration/gerente_ia/**'
+      - 'tests/integration/fiscal/**'
+      - 'docs/web-parity/**'
+      - '.github/workflows/wp031k-cognitive-fiscal.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cognitive-fiscal:
+    name: Cognitive Fiscal governed certification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+      - name: Verify frozen Fiscal V1 baseline
+        run: python scripts/validate_wp031_vendor_baseline.py
+      - name: Compile Cognitive Fiscal
+        run: |
+          python -m py_compile \
+            core/gerente_ia/modelos.py \
+            core/gerente_ia/tools.py \
+            core/gerente_ia/adapters.py \
+            core/gerente_ia/servicos.py \
+            application/gerente_ia_runtime.py \
+            infra/gerente_ia/consultas_sqlalchemy.py \
+            tests/integration/gerente_ia/test_wp031k_cognitive_fiscal.py
+      - name: Ruff Cognitive Fiscal
+        run: |
+          ruff check \
+            core/gerente_ia/modelos.py \
+            core/gerente_ia/tools.py \
+            core/gerente_ia/adapters.py \
+            core/gerente_ia/servicos.py \
+            application/gerente_ia_runtime.py \
+            infra/gerente_ia/consultas_sqlalchemy.py \
+            tests/integration/gerente_ia/test_wp031k_cognitive_fiscal.py
+      - name: Mypy Cognitive Fiscal
+        run: |
+          mypy \
+            core/gerente_ia/modelos.py \
+            core/gerente_ia/tools.py \
+            core/gerente_ia/adapters.py \
+            core/gerente_ia/servicos.py \
+            application/gerente_ia_runtime.py \
+            infra/gerente_ia/consultas_sqlalchemy.py \
+            --follow-imports=skip
+      - name: Migration manifest
+        run: |
+          python - <<'PY'
+          from migrations.manifest import assert_migration_manifest
+          from migrations.runner import DEFAULT_MIGRATIONS
+          assert_migration_manifest(DEFAULT_MIGRATIONS)
+          print("Migration manifest: PASS")
+          PY
+      - name: Schema baseline
+        run: python scripts/generate_schema_baseline_v1.py --check
+      - name: WP-031K targeted tests
+        run: pytest -q tests/integration/gerente_ia/test_wp031k_cognitive_fiscal.py
+      - name: Gerente IA regression
+        run: pytest -q tests/unit/gerente_ia tests/integration/gerente_ia tests/api/test_gerente_ia_web_http_contract.py
+      - name: Fiscal regression
+        run: pytest -q tests/integration/fiscal tests/api/test_admin_fiscal_http_contract.py
+      - name: Security regression
+        run: pytest -q tests/unit/security tests/integration/security tests/fitness/test_f14_transversal_rbac_security_v1.py
+      - name: Full Python regression
+        run: pytest -q
+      - name: Diff whitespace gate
+        run: git diff --check de8e96be94b0717fd544062391746baa7b476d7e..HEAD

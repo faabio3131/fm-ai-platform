@@ -54,6 +54,7 @@ _TOOLS_CONSULTA = frozenset(
         ToolGerenteIA.CONSULTAR_COZINHA,
         ToolGerenteIA.CONSULTAR_ENTREGAS,
         ToolGerenteIA.CONSULTAR_ESTOQUE,
+        ToolGerenteIA.CONSULTAR_FISCAL,
         ToolGerenteIA.SUGERIR_COMPRA,
         ToolGerenteIA.GERAR_RELATORIO,
         ToolGerenteIA.ACOMPANHAR_CONVERSAO,
@@ -113,6 +114,15 @@ class ServicoGerenteIA:
                 recurso_id=None,
                 instante=instante,
             )
+            if chamada.tool is ToolGerenteIA.CONSULTAR_FISCAL:
+                self._exigir(
+                    contexto=contexto,
+                    permissao=Permissao.FISCAL_VISUALIZAR,
+                    acao="gerente_ia.consultar_fiscal",
+                    recurso_tipo="consulta_fiscal",
+                    recurso_id=None,
+                    instante=instante,
+                )
             registros = self._consultar(chamada.tool, contexto, argumentos)
             resultado = ResultadoTool(
                 tool=chamada.tool,
@@ -523,6 +533,7 @@ class ServicoGerenteIA:
             ToolGerenteIA.CONSULTAR_COZINHA: self.consultas.consultar_cozinha,
             ToolGerenteIA.CONSULTAR_ENTREGAS: self.consultas.consultar_entregas,
             ToolGerenteIA.CONSULTAR_ESTOQUE: self.consultas.consultar_estoque,
+            ToolGerenteIA.CONSULTAR_FISCAL: self.consultas.consultar_fiscal,
             ToolGerenteIA.SUGERIR_COMPRA: self.consultas.sugerir_compra,
             ToolGerenteIA.GERAR_RELATORIO: self.consultas.gerar_relatorio,
             ToolGerenteIA.ACOMPANHAR_CONVERSAO: self.consultas.acompanhar_conversao,
