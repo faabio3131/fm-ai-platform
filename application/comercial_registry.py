@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -55,7 +55,7 @@ def _texto_opcional(valor: str | None, *, max_length: int) -> str | None:
     return normalizado
 
 
-def _hash_requisicao(payload: dict[str, object]) -> str:
+def _hash_requisicao(payload: Mapping[str, object]) -> str:
     serializado = json.dumps(
         payload,
         ensure_ascii=False,
