@@ -66,6 +66,7 @@ from migrations.commercial_provisioning_v1 import upgrade_commercial_provisionin
 from migrations.commercial_registry_v1 import upgrade_commercial_registry_v1
 from migrations.commercial_signup_v1 import upgrade_commercial_signup_v1
 from migrations.commercial_subscription_v1 import upgrade_commercial_subscription_v1
+from migrations.commercial_billing_config_v1 import upgrade_commercial_billing_config_v1
 from migrations.commercial_trial_v1 import upgrade_commercial_trial_v1
 from migrations.crm_cashback_ledger_v1 import upgrade_crm_cashback_ledger_v1
 from migrations.crm_cliente_legado_mapping_v1 import (
@@ -377,6 +378,10 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         "0056_commercial_subscription_v1",
         upgrade_commercial_subscription_v1,
+    ),
+    Migration(
+        "0057_commercial_billing_config_v1",
+        upgrade_commercial_billing_config_v1,
     ),
 )
 
