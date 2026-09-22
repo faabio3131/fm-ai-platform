@@ -47,6 +47,7 @@ _V0046 = "0046_fiscal_smart_intake_v1"
 _V0047 = "0047_fiscal_procurement_integration_v1"
 _V0048 = "0048_fiscal_financial_tax_bridge_v1"
 _V0049 = "0049_commercial_registry_v1"
+_V0050 = "0050_global_identity_membership_v1"
 _TENANT = "tenant-reconciliado"
 _UNIDADE = "unidade-reconciliada"
 _LOJA = 71
@@ -254,6 +255,7 @@ def test_reconciliacao_cria_loja_mapping_atomicamente_e_retomada_chega_a_0028(
             _V0047,
             _V0048,
             _V0049,
+            _V0050,
         )
     assert run_migrations(engine) == ()
 

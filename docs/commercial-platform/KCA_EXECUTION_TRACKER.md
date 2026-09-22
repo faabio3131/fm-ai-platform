@@ -7,7 +7,7 @@
 | Baseline inicial | PASS — `922db0e3c568d8db232eecbf8059398e522e8603` |
 | KCA-01 Commercial Registry | PASS — `c623dd4a8bef04105b720d80c7d44b97bce00189` |
 | KCA-G1 | PASS |
-| KCA-02 Global Identity + Memberships | NÃO INICIADO |
+| KCA-02 Global Identity + Memberships | EM EXECUÇÃO / CI PENDENTE |
 | KCA-03+ | NÃO INICIADO |
 
 ## Baseline
