@@ -83,18 +83,15 @@ def build_public_signup_router(
     credential_secret_reference: str = "env:FM_AI_SIGNUP_SECRET_KEY",
 ) -> APIRouter:
     router = APIRouter(prefix="/v1/public/signup", tags=["public-signup"])
+    if not enabled:
+        return router
+
     app = AplicacaoPublicSignupV1(
         session_factory,
         secret_store=secret_store,
         credential_secret_reference=credential_secret_reference,
     )
     limiter = _SlidingWindowLimiter()
-
-    def _disabled() -> JSONResponse:
-        return JSONResponse(
-            status_code=status.HTTP_404_NOT_FOUND,
-            content={"erro": "recurso_indisponivel"},
-        )
 
     def _generic_accepted(signup_id: str | None = None) -> JSONResponse:
         return JSONResponse(
@@ -117,8 +114,6 @@ def build_public_signup_router(
 
     @router.post("")
     def create_signup(payload: SignupIn, request: Request) -> JSONResponse:
-        if not enabled:
-            return _disabled()
         remote = request.client.host if request.client else "unknown"
         if not limiter.allow(f"ip:{remote}"):
             return JSONResponse(
