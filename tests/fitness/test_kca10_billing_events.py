@@ -12,6 +12,7 @@ APP = ROOT / "application/commercial_billing_events.py"
 ORM = ROOT / "infra/comercial/billing_events_orm.py"
 MIGRATION = ROOT / "migrations/commercial_billing_events_v1.py"
 HTTP = ROOT / "http_api/commercial_billing_webhooks.py"
+CRYPTO = ROOT / "infra/comercial/billing_payload_crypto.py"
 ADMIN = ROOT / "http_api/admin_comercial.py"
 WORKFLOW = ROOT / ".github/workflows/kordena-kca-commercial-gate.yml"
 
@@ -36,7 +37,7 @@ def test_kca10_migration_is_canonical_and_additive() -> None:
 def test_kca10_is_provider_neutral_and_does_not_persist_raw_webhook() -> None:
     combined = "\n".join(
         path.read_text(encoding="utf-8")
-        for path in (CORE, APP, ORM, MIGRATION, HTTP)
+        for path in (CORE, APP, ORM, MIGRATION, HTTP, CRYPTO)
     ).casefold()
     for concrete in (
         "stripe",
@@ -49,10 +50,16 @@ def test_kca10_is_provider_neutral_and_does_not_persist_raw_webhook() -> None:
 
     orm = ORM.read_text(encoding="utf-8").casefold()
     assert "body_hash" in orm
+    assert "payload_ciphertext" in orm
     assert "normalized_payload" in orm
     assert "raw_body" not in orm
     assert "raw_payload" not in orm
     assert "signature_value" not in orm
+    app = APP.read_text(encoding="utf-8").casefold()
+    crypto = CRYPTO.read_text(encoding="utf-8").casefold()
+    assert "payload_ciphertext=encrypted_payload" in app
+    assert "billingwebhookpayloadcipher" in app
+    assert "fernet" in crypto
 
 
 def test_kca10_has_durable_inbox_ordering_retry_dlq_and_reconciliation() -> None:
