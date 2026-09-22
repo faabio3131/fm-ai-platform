@@ -13,14 +13,22 @@ from sqlalchemy.exc import IntegrityError
 
 from application.commercial_entitlement import AplicacaoEntitlementComercialV1
 from core.comercial.catalogo import StatusRegistroCatalogo
-from core.comercial.entitlement import EstadoComercial, SnapshotEntitlement, serializar_capabilities
+from core.comercial.entitlement import (
+    EstadoComercial,
+    SnapshotEntitlement,
+    serializar_capabilities,
+)
 from core.comercial.erros import (
     ConflitoIdempotenciaComercial,
     DadoComercialInvalido,
     RegistroComercialDuplicado,
     RegistroComercialNaoEncontrado,
 )
-from core.comercial.modelos import ClasseContaComercial, StatusClienteComercial, StatusContaProduto
+from core.comercial.modelos import (
+    ClasseContaComercial,
+    StatusClienteComercial,
+    StatusContaProduto,
+)
 from core.comercial.trial import (
     EstadoTrial,
     TrialComercial,
