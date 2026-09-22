@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Protocol
 
+from core.comercial.billing_events import NormalizedBillingEvent
 from core.comercial.erros import DadoComercialInvalido
 from core.seguranca.segredos import SecretValue
 
@@ -269,3 +270,12 @@ class BillingProvider(Protocol):
         context: BillingCallContext,
         credential: SecretValue,
     ) -> WebhookVerificationResult: ...
+
+    def normalize_webhook(
+        self,
+        *,
+        payload: bytes,
+        verification: WebhookVerificationResult,
+        context: BillingCallContext,
+        credential: SecretValue,
+    ) -> NormalizedBillingEvent: ...
