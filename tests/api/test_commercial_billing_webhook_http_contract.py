@@ -4,6 +4,7 @@ import json
 from datetime import datetime, timezone
 from decimal import Decimal
 
+from cryptography.fernet import Fernet
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -26,6 +27,7 @@ from http_api.commercial_billing_webhooks import (
     build_commercial_billing_webhook_router,
 )
 from infra.comercial.billing_config_orm import FMBillingProviderAccountORM
+from infra.comercial.billing_payload_crypto import BillingWebhookPayloadCipher
 from migrations.runner import run_migrations
 
 
@@ -108,6 +110,9 @@ def _client() -> TestClient:
             adapter_registry=BillingProviderAdapterRegistryV1((_Provider(),)),
             fallback_secret_store=ReferenceSecretStore(
                 mapping={"http_secret": "fake-http-secret"}
+            ),
+            payload_cipher=BillingWebhookPayloadCipher(
+                master_key=Fernet.generate_key().decode("ascii")
             ),
         )
     )
