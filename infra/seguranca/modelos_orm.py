@@ -25,8 +25,6 @@ class SecurityBase(DeclarativeBase):
 class GlobalIdentityBase(DeclarativeBase):
     """Schema aditivo da identidade global/memberships KCA-02."""
 
-    pass
-
 
 def _agora_utc() -> datetime:
     return datetime.now(timezone.utc)
