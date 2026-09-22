@@ -220,6 +220,10 @@
     {
       "version": "0054_commercial_signup_v1",
       "sha256": "f55536a5f133d1a8a1da06fd562aa6144700507a074c4f266502dae91fb640b4"
+    },
+    {
+      "version": "0055_commercial_trial_v1",
+      "sha256": "99211bb96cc797d0bc1aa48334fccac2c26b73d80b29dc6df64432806eff3c6b"
     }
   ]
 }
