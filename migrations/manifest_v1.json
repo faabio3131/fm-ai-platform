@@ -216,6 +216,10 @@
     {
       "version": "0053_commercial_provisioning_v1",
       "sha256": "a7cbb175733f67830473427ca55c03cad2b6fe71c971d25cb7f5fe81dd6dfaae"
+    },
+    {
+      "version": "0054_commercial_signup_v1",
+      "sha256": "f55536a5f133d1a8a1da06fd562aa6144700507a074c4f266502dae91fb640b4"
     }
   ]
 }
