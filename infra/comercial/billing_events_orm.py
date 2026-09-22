@@ -14,6 +14,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -105,6 +106,7 @@ class FMBillingWebhookInboxORM(BillingEventsBase):
     provider_event_type: Mapped[str | None] = mapped_column(String(128))
     canonical_event_type: Mapped[str | None] = mapped_column(String(64))
     body_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_ciphertext: Mapped[str | None] = mapped_column(Text)
     signature_valid: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     received_at: Mapped[datetime] = mapped_column(
