@@ -204,6 +204,10 @@
     {
       "version": "0050_global_identity_membership_v1",
       "sha256": "d3941c930a3d18a26c91d9a5ed66d371c2747928129fbb34b67c7204082bbff3"
+    },
+    {
+      "version": "0051_commercial_catalog_v1",
+      "sha256": "ea1745486bdf231424ccd354dc1fd5007b18b48c5d2fa1def1ce760a66393342"
     }
   ]
 }
