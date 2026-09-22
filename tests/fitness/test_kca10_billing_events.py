@@ -71,7 +71,7 @@ def test_kca10_has_durable_inbox_ordering_retry_dlq_and_reconciliation() -> None
         "reprocessar_dead_letter",
         "processar_retries",
         "reconciliar_transacao",
-        "billing_event_cursor",
+        "fmbillingeventcursororm",
         "replay_body_conflict",
     ):
         assert marker in app
@@ -81,7 +81,8 @@ def test_kca10_http_ingress_passes_all_headers_to_adapter() -> None:
     http = HTTP.read_text(encoding="utf-8")
     assert "dict(request.headers.items())" in http
     assert "_MAX_BILLING_WEBHOOK_BYTES" in http
-    assert "payload" not in http.split("content={", 1)[-1]
+    assert '"payload":' not in http
+    assert "payload_ciphertext" not in http
 
 
 def test_kca10_admin_controls_are_behind_existing_backoffice_context() -> None:
