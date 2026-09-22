@@ -14,7 +14,7 @@
 | KCA-G4 | PASS |
 | KCA-05 Tenant Provisioning Saga | PASS — `3f0ee70c1e8483b2b6aad1a6c5737959ee555c98` |
 | KCA-G5 | PASS |
-| KCA-06+ | NÃO INICIADO |
+| KCA-06 Public Signup + Verification | EM CERTIFICAÇÃO |
 
 ## Baseline
 
@@ -116,3 +116,16 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - 16 workflows do candidate SHA: SUCCESS.
 - KCA-G5: PASS.
 - KCA-06+: NÃO INICIADO.
+
+
+## Execução KCA-06 — em certificação
+
+- Migration: `0054_commercial_signup_v1`.
+- Public signup permanece desabilitado por padrão.
+- Verificação de e-mail usa token de uso único com hash persistido e expiração.
+- Payload público não aceita `tenant_id`, `plan_code` ou `entitlement`.
+- Provisioning é delegado ao Provisioning Orchestrator.
+- Anti-enumeration e rate limit implementados.
+- Correção de regressão de migration manifest aplicada nos testes runtime/legacy.
+- Gate KCA-G6: **PENDENTE DE CI FINAL**.
+- KCA-07: NÃO INICIADO.
