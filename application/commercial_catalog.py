@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import uuid4
 
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -56,8 +57,6 @@ from infra.comercial.catalogo_sqlalchemy import (
 )
 from infra.comercial.modelos_orm import CommercialAuditORM, CommercialOutboxORM
 from infra.comercial.repositorio_sqlalchemy import RepositorioComercialSQLAlchemy
-
-SessionFactory = object
 
 
 def _agora() -> datetime:
@@ -993,10 +992,7 @@ class AplicacaoCatalogoComercialV1:
                         promotion_id=promotion.promotion_id
                     ) - 1
                     row = session.scalar(
-                        __import__(
-                            "sqlalchemy",
-                            fromlist=["select"],
-                        ).select(FMCommercialPromotionVersionORM).where(
+                        select(FMCommercialPromotionVersionORM).where(
                             FMCommercialPromotionVersionORM.promotion_id
                             == promotion.promotion_id,
                             FMCommercialPromotionVersionORM.version_number
