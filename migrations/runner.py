@@ -60,6 +60,7 @@ from migrations.assistente_channel_runtime_v1 import (
 )
 from migrations.cardapio_publico_identity_v1 import upgrade_cardapio_publico_identity_v1
 from migrations.client_payment_identity_v1 import upgrade_client_payment_identity_v1
+from migrations.commercial_registry_v1 import upgrade_commercial_registry_v1
 from migrations.crm_cashback_ledger_v1 import upgrade_crm_cashback_ledger_v1
 from migrations.crm_cliente_legado_mapping_v1 import (
     upgrade_crm_cliente_legado_mapping_v1,
@@ -335,6 +336,10 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         "0048_fiscal_financial_tax_bridge_v1",
         upgrade_fiscal_financial_tax_bridge_v1,
+    ),
+    Migration(
+        "0049_commercial_registry_v1",
+        upgrade_commercial_registry_v1,
     ),
 )
 

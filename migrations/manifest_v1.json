@@ -196,6 +196,10 @@
     {
       "version": "0048_fiscal_financial_tax_bridge_v1",
       "sha256": "c7d27a7e4f55324c966163137f6a75f291cd26b13f0378f7ae9c1a4ff8da25a5"
+    },
+    {
+      "version": "0049_commercial_registry_v1",
+      "sha256": "284092661f4a2b1759ce58530bec2ef56e51aa713dc0268001df16cec450eb9b"
     }
   ]
 }

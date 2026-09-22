@@ -22,6 +22,7 @@ from http_api.admin_assistente_atendimento import (
 )
 from http_api.admin_auditoria import build_admin_auditoria_router
 from http_api.admin_backoffice import build_admin_backoffice_router
+from http_api.admin_comercial import build_admin_comercial_router
 from http_api.admin_configuracao import build_admin_configuracao_router
 from http_api.admin_dashboard import build_admin_dashboard_router
 from http_api.admin_empresa import build_admin_empresa_router
@@ -118,6 +119,7 @@ def build_frontend_http_app(
     for router_builder in (
         build_admin_auditoria_router,
         build_admin_backoffice_router,
+        build_admin_comercial_router,
         build_admin_configuracao_router,
         build_admin_impressao_router,
         build_admin_integracoes_router,
