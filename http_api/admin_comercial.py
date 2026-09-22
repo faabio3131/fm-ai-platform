@@ -194,6 +194,8 @@ class BillingRoutingPolicyCreateIn(BaseModel):
     product_code: str = Field(min_length=1, max_length=64)
     payment_method: BillingPaymentMethod
     environment: BillingEnvironment
+    requires_recurring: bool = False
+    requires_webhooks: bool = False
     primary_provider_account_id: str = Field(min_length=1, max_length=64)
     fallback_provider_account_ids: list[str] = Field(default_factory=list)
 
@@ -205,6 +207,8 @@ class BillingRoutingPolicyUpdateIn(BaseModel):
     primary_provider_account_id: str = Field(min_length=1, max_length=64)
     fallback_provider_account_ids: list[str] = Field(default_factory=list)
     active: bool = True
+    requires_recurring: bool = False
+    requires_webhooks: bool = False
 
 
 def _catalog_out(value: Any) -> Any:
@@ -253,6 +257,8 @@ def _billing_routing_out(policy: Any) -> dict[str, Any]:
         "product_code": policy.product_code,
         "payment_method": policy.payment_method.value,
         "environment": policy.environment.value,
+        "requires_recurring": policy.requires_recurring,
+        "requires_webhooks": policy.requires_webhooks,
         "primary_provider_account_id": policy.primary_provider_account_id,
         "fallback_provider_account_ids": list(policy.fallback_provider_account_ids),
         "active": policy.active,
@@ -891,6 +897,8 @@ def build_admin_comercial_router(
                     fallback_provider_account_ids=tuple(
                         payload.fallback_provider_account_ids
                     ),
+                    requires_recurring=payload.requires_recurring,
+                    requires_webhooks=payload.requires_webhooks,
                 )
             )
         except Exception as exc:  # noqa: BLE001
@@ -929,6 +937,8 @@ def build_admin_comercial_router(
                         payload.fallback_provider_account_ids
                     ),
                     active=payload.active,
+                    requires_recurring=payload.requires_recurring,
+                    requires_webhooks=payload.requires_webhooks,
                 )
             )
         except Exception as exc:  # noqa: BLE001
