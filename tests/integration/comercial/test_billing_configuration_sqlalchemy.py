@@ -416,3 +416,51 @@ def test_credential_can_be_added_later_via_encrypted_vault(
     )
     assert tested.ok is True
     assert provider.seen_credentials == [raw_secret]
+
+
+
+def test_foreign_vault_reference_is_rejected(monkeypatch) -> None:
+    monkeypatch.setenv(
+        "FM_AI_SECRET_MASTER_KEY",
+        Fernet.generate_key().decode("ascii"),
+    )
+    provider = FakeConfigProvider("PROVIDER_ALPHA")
+    _, factory, app = _infra(provider)
+    account = _create_account(
+        app,
+        key="scope-account",
+        provider_code="PROVIDER_ALPHA",
+        secret_ref=None,
+    )
+
+    foreign_ref = "vault:foreign-scope-test"
+    with factory() as session, session.begin():
+        session.add(
+            SegredoIntegracaoORM(
+                referencia=foreign_ref,
+                tenant_id="other-tenant",
+                unidade_id="other-unit",
+                provedor="provider_alpha",
+                finalidade="foreign",
+                ciphertext="not-used",
+                criado_por="foreign-user",
+                correlation_id="foreign-corr",
+            )
+        )
+
+    with pytest.raises(
+        PermissionError,
+        match="billing.secret_reference_scope_mismatch",
+    ):
+        app.atualizar_provider_account(
+            contexto=_admin_context(),
+            provider_account_id=account.provider_account_id,
+            expected_version=account.version,
+            display_name=account.display_name,
+            legal_entity_ref=None,
+            credential_secret_reference=foreign_ref,
+            supported_payment_methods=account.supported_payment_methods,
+            supports_recurring=account.supports_recurring,
+            supports_webhooks=account.supports_webhooks,
+            priority=account.priority,
+        )
