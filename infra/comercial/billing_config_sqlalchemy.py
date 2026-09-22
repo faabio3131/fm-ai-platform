@@ -61,6 +61,8 @@ def _routing_policy(row: FMBillingRoutingPolicyORM) -> BillingRoutingPolicy:
         product_code=row.product_code,
         payment_method=BillingPaymentMethod(row.payment_method),
         environment=BillingEnvironment(row.environment),
+        requires_recurring=row.requires_recurring,
+        requires_webhooks=row.requires_webhooks,
         primary_provider_account_id=row.primary_provider_account_id,
         fallback_provider_account_ids=tuple(row.fallback_provider_account_ids),
         active=row.active,
