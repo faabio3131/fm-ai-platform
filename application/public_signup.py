@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from cryptography.fernet import Fernet, InvalidToken
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from application.commercial_provisioning import AplicacaoProvisioningKordenaV1
@@ -260,7 +260,7 @@ class AplicacaoPublicSignupV1:
                 provisioning_id=provisioning.provisioning_id,
                 owner_password=password,
             )
-        except Exception as exc:
+        except (ValueError, RuntimeError, SQLAlchemyError) as exc:
             with self._session_factory() as session, session.begin():
                 repo = RepositorioPublicSignupSQLAlchemy(session)
                 current = repo.obter(signup.signup_id)
