@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from enum import StrEnum
 from typing import Any
 
-from .erros import DadoComercialInvalido, TransicaoComercialInvalida
+from core.comercial.erros import DadoComercialInvalido, TransicaoComercialInvalida
 
 
 KORDENA_PLAN_CODES: tuple[str, ...] = (
