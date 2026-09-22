@@ -108,7 +108,7 @@ class AplicacaoSubscriptionComercialV1:
         instante: datetime,
         metadata: dict[str, object] | None = None,
     ) -> CommercialAuditORM:
-        safe = {
+        safe: dict[str, object] = {
             "fm_customer_id": subscription.fm_customer_id,
             "product_account_id": subscription.product_account_id,
             "tenant_id": subscription.tenant_id,
