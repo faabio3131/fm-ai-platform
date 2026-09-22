@@ -16,8 +16,10 @@
 | KCA-G5 | PASS |
 | KCA-06 Public Signup + Verification | PASS — `1569253f69db951bdb1c5ac36a7c9908d40483b4` |
 | KCA-G6 | PASS |
-| KCA-07 Trial Engine | EM EXECUÇÃO — baseline pós-G6 |
-| KCA-08+ | NÃO INICIADO |
+| KCA-07 Trial Engine | PASS — `f3af1ba4aab2d16992ada5ed1fd5b35b5ad1ab10` |
+| KCA-G7 | PASS |
+| KCA-08 Subscription Engine | EM EXECUÇÃO — autorizado após G7 |
+| KCA-09+ | NÃO INICIADO |
 
 ## Baseline
 
@@ -148,3 +150,19 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - Escopo autorizado: KCA-07 → G7 → KCA-08 → G8 → KCA-09 → G9; STOP antes de KCA-10.
 - Governança: sem merge, sem deploy, sem `main`, sem cliente/trial/billing/provider real.
 - Evidência baseline funcional herdada do HEAD certificado KCA-G6: 17/17 workflows SUCCESS; full Python 1716 passed, 5 skipped, 102 warnings; KCA targeted 115 passed; Web Node 14/14; schema 122 tabelas.
+
+
+## Certificação KCA-07
+
+- Candidate funcional: `f3af1ba4aab2d16992ada5ed1fd5b35b5ad1ab10`.
+- Migration: `0055_commercial_trial_v1`.
+- Trial policy: `KORDENA_TRIAL_30D_V1` — 30 dias UTC.
+- Trial state machine / antiabuso / idempotência / expiração: PASS.
+- Provisioning → Trial Engine → Entitlement Authority: PASS.
+- Schema baseline: 124 tabelas; SHA `a9cedb852fd163eb96bd09f7c38a09ceb4478e8c0a6807f653b5d307469c25e1`.
+- KCA targeted: 127 passed, 2 warnings.
+- Full Python: 1728 passed, 5 skipped, 102 warnings.
+- Web Node: 14/14; ESLint/TypeScript/Next build/diff: PASS.
+- 13/13 workflows do candidate SHA: SUCCESS.
+- KCA-G7: PASS.
+- KCA-08 autorizado; KCA-09+ ainda não iniciado.
