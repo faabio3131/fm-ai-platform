@@ -100,6 +100,17 @@ def _optional(value: str | None, *, max_length: int) -> str | None:
     return result
 
 
+def _safe_detail_code(value: str, *, fallback: str) -> str:
+    code = value.strip()
+    if (
+        not code
+        or len(code) > 128
+        or not all(char.isalnum() or char in {"_", "-", "."} for char in code)
+    ):
+        return fallback
+    return code
+
+
 class AplicacaoBillingConfigurationV1:
     def __init__(
         self,
@@ -409,8 +420,9 @@ class AplicacaoBillingConfigurationV1:
                 )
             )
             ok = bool(result.ok)
-            detail_code = result.detail_code.strip()[:128] or (
-                "connection_ok" if ok else "connection_failed"
+            detail_code = _safe_detail_code(
+                result.detail_code,
+                fallback="connection_ok" if ok else "connection_failed",
             )
         except (
             BillingProviderError,
