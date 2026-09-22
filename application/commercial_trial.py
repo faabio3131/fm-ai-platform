@@ -434,6 +434,87 @@ class AplicacaoTrialComercialV1:
                 session
             ).obter_por_product_account(product_account_id.strip())
 
+    def marcar_convertido_em_transacao(
+        self,
+        *,
+        session,
+        contexto: ContextoExecucao,
+        trial_id: str,
+        instante: datetime,
+        motivo: str = "KCA-08 subscription activation",
+    ) -> TrialComercial:
+        """Converte o trial dentro da transação coordenada da assinatura.
+
+        Não recalcula entitlement aqui: a ativação da subscription publica o
+        estado SUBSCRIPTION_ACTIVE imediatamente após o commit coordenado.
+        """
+        shared = RepositorioComercialSQLAlchemy(session)
+        repo = RepositorioTrialComercialSQLAlchemy(session)
+        current = repo.obter(trial_id.strip())
+        if current is None:
+            raise RegistroComercialNaoEncontrado("trial_not_found")
+        self._validate_scope(contexto, tenant_id=current.tenant_id)
+        if current.status == EstadoTrial.CONVERTED:
+            return current
+        validar_transicao_trial(current.status, EstadoTrial.CONVERTED)
+        if current.ends_at is not None and instante >= utc(current.ends_at):
+            raise DadoComercialInvalido("trial_expired_cannot_convert")
+        updated = repo.atualizar(
+            trial_id=current.trial_id,
+            expected_version=current.version,
+            values={
+                "status": EstadoTrial.CONVERTED.value,
+                "converted_at": instante,
+            },
+        )
+        shared.adicionar_auditoria(
+            CommercialAuditORM(
+                audit_id=str(uuid4()),
+                actor_user_id=self._actor(contexto),
+                action="commercial.trial.converted",
+                aggregate_type="trial",
+                aggregate_id=updated.trial_id,
+                result="success",
+                reason=motivo[:255],
+                correlation_id=contexto.correlation_id,
+                causation_id=contexto.causation_id,
+                metadata_safe={
+                    "product_account_id": updated.product_account_id,
+                    "tenant_id": updated.tenant_id,
+                    "status": updated.status.value,
+                    "coordinated_by": "subscription_engine",
+                },
+                timestamp=instante,
+            )
+        )
+        shared.adicionar_outbox(
+            CommercialOutboxORM(
+                event_id=str(uuid4()),
+                event_type="trial.converted",
+                aggregate_type="trial",
+                aggregate_id=updated.trial_id,
+                fm_customer_id=updated.fm_customer_id,
+                product_account_id=updated.product_account_id,
+                product_code="KORDENA",
+                product_tenant_id=updated.tenant_id,
+                correlation_id=contexto.correlation_id,
+                causation_id=contexto.causation_id,
+                idempotency_key=(
+                    f"trial:{updated.trial_id}:converted:v{updated.version}"
+                ),
+                occurred_at=instante,
+                payload={
+                    "trial_id": updated.trial_id,
+                    "status": updated.status.value,
+                    "product_account_id": updated.product_account_id,
+                    "tenant_id": updated.tenant_id,
+                },
+                version=1,
+                status="pending",
+            )
+        )
+        return updated
+
     def _transition_terminal(
         self,
         *,
