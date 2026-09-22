@@ -212,6 +212,10 @@
     {
       "version": "0052_commercial_entitlement_v1",
       "sha256": "1b6a29d8941a37513d8046601537f8071a4f90a92df952fabc9b27fa79d6ae4c"
+    },
+    {
+      "version": "0053_commercial_provisioning_v1",
+      "sha256": "a7cbb175733f67830473427ca55c03cad2b6fe71c971d25cb7f5fe81dd6dfaae"
     }
   ]
 }
