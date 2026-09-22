@@ -20,6 +20,7 @@ from core.comercial.billing import (
     BillingCallContext,
     BillingProviderError,
     BillingTransaction,
+    WebhookVerificationResult,
 )
 from core.comercial.billing_config import (
     BillingProviderAccount,
@@ -56,6 +57,7 @@ from infra.comercial.billing_events_orm import (
     FMBillingWebhookInboxORM,
 )
 from infra.comercial.billing_events_sqlalchemy import RepositorioBillingEventsSQLAlchemy
+from infra.comercial.billing_payload_crypto import BillingWebhookPayloadCipher
 from infra.comercial.modelos_orm import CommercialAuditORM
 from infra.comercial.repositorio_sqlalchemy import RepositorioComercialSQLAlchemy
 from infra.comercial.subscription_sqlalchemy import (
@@ -190,6 +192,7 @@ class AplicacaoBillingEventsV1:
         *,
         adapter_registry: BillingProviderAdapterRegistryV1,
         fallback_secret_store: SecretStore | None = None,
+        payload_cipher: BillingWebhookPayloadCipher | None = None,
         max_attempts: int = 5,
         retry_base_seconds: int = 5,
     ) -> None:
@@ -202,9 +205,15 @@ class AplicacaoBillingEventsV1:
         self._fallback_secret_store = (
             fallback_secret_store or ReferenceSecretStore()
         )
+        self._payload_cipher_override = payload_cipher
         self._max_attempts = max_attempts
         self._retry_base_seconds = retry_base_seconds
         self._subscription = AplicacaoSubscriptionComercialV1(session_factory)
+
+    def _payload_cipher(self) -> BillingWebhookPayloadCipher:
+        if self._payload_cipher_override is not None:
+            return self._payload_cipher_override
+        return BillingWebhookPayloadCipher()
 
     @staticmethod
     def _audit(
@@ -396,43 +405,29 @@ class AplicacaoBillingEventsV1:
                 headers={str(k).casefold(): str(v) for k, v in headers.items()},
                 context=call_context,
             )
-            event_id = (
-                verification.event_id.strip()
-                if verification.event_id and verification.event_id.strip()
-                else f"invalid:{digest}"
-            )
-            provider_event_type = (
-                verification.event_type.strip()[:128]
-                if verification.event_type
-                else None
-            )
 
-            if not verification.valid:
-                return self._persist_rejected(
-                    contexto=contexto,
-                    provider_account_id=account_id,
-                    provider_code=account.provider_code,
-                    external_event_id=event_id,
-                    provider_event_type=provider_event_type,
-                    body_hash=digest,
-                    reason="billing_webhook_signature_invalid",
-                )
-
-            normalized = gateway.normalize_webhook(
-                payload=payload,
-                verification=verification,
-                context=BillingCallContext(
-                    idempotency_key=f"webhook-normalize:{account_id}:{event_id}",
-                    correlation_id=contexto.correlation_id,
-                    timeout_seconds=10.0,
-                ),
+        event_id = (
+            verification.event_id.strip()
+            if verification.event_id and verification.event_id.strip()
+            else f"invalid:{digest}"
+        )
+        provider_event_type = (
+            verification.event_type.strip()[:128]
+            if verification.event_type
+            else None
+        )
+        if not verification.valid:
+            return self._persist_rejected(
+                contexto=contexto,
+                provider_account_id=account_id,
+                provider_code=account.provider_code,
+                external_event_id=event_id,
+                provider_event_type=provider_event_type,
+                body_hash=digest,
+                reason="billing_webhook_signature_invalid",
             )
 
-        if normalized.provider_code != account.provider_code:
-            raise DadoComercialInvalido("billing_webhook_provider_mismatch")
-        if normalized.external_event_id != event_id:
-            raise DadoComercialInvalido("billing_webhook_event_id_mismatch")
-
+        encrypted_payload = self._payload_cipher().encrypt(payload)
         with self._session_factory() as session, session.begin():
             repo = RepositorioBillingEventsSQLAlchemy(session)
             existing = repo.obter_inbox_por_evento(
@@ -446,38 +441,26 @@ class AplicacaoBillingEventsV1:
                     )
                 return existing
 
-            subscription_id: str | None = None
-            if normalized.external_subscription_ref:
-                binding = repo.obter_binding_por_external(
-                    provider_account_id=account_id,
-                    external_subscription_ref=normalized.external_subscription_ref,
-                )
-                if binding is not None:
-                    if binding.provider_code != normalized.provider_code:
-                        raise DadoComercialInvalido(
-                            "billing_webhook_binding_provider_mismatch"
-                        )
-                    subscription_id = binding.subscription_id
-
             instante = _now()
             inbox = repo.adicionar_inbox(
                 FMBillingWebhookInboxORM(
                     inbox_id=str(uuid4()),
                     provider_account_id=account_id,
-                    provider_code=normalized.provider_code,
+                    provider_code=account.provider_code,
                     external_event_id=event_id,
                     provider_event_type=provider_event_type,
-                    canonical_event_type=normalized.canonical_event_type.value,
+                    canonical_event_type=None,
                     body_hash=digest,
+                    payload_ciphertext=encrypted_payload,
                     signature_valid=True,
                     status=BillingWebhookInboxStatus.VERIFIED.value,
                     received_at=instante,
-                    provider_occurred_at=normalized.occurred_at,
-                    provider_sequence=normalized.provider_sequence,
-                    external_subscription_ref=normalized.external_subscription_ref,
-                    external_transaction_ref=normalized.external_transaction_ref,
-                    subscription_id=subscription_id,
-                    normalized_payload=_event_payload(normalized),
+                    provider_occurred_at=None,
+                    provider_sequence=None,
+                    external_subscription_ref=None,
+                    external_transaction_ref=None,
+                    subscription_id=None,
+                    normalized_payload=None,
                     attempts=0,
                     max_attempts=self._max_attempts,
                     last_error_code=None,
@@ -495,13 +478,13 @@ class AplicacaoBillingEventsV1:
                     aggregate_type="billing_webhook",
                     aggregate_id=inbox.inbox_id,
                     result="success",
-                    reason="KCA-10 durable webhook inbox",
+                    reason="KCA-10 durable encrypted webhook inbox",
                     metadata_safe={
                         "provider_account_id": account_id,
-                        "provider_code": normalized.provider_code,
+                        "provider_code": account.provider_code,
                         "external_event_id": event_id,
-                        "canonical_event_type": normalized.canonical_event_type.value,
                         "body_hash": digest,
+                        "payload_storage": "encrypted",
                     },
                     instante=instante,
                 )
@@ -545,6 +528,7 @@ class AplicacaoBillingEventsV1:
                     provider_event_type=provider_event_type,
                     canonical_event_type=None,
                     body_hash=body_hash,
+                    payload_ciphertext=None,
                     signature_valid=False,
                     status=BillingWebhookInboxStatus.REJECTED.value,
                     received_at=instante,
@@ -657,6 +641,88 @@ class AplicacaoBillingEventsV1:
                 },
             )
 
+    def _ensure_normalized(
+        self,
+        *,
+        contexto: ContextoExecucao,
+        inbox: FMBillingWebhookInboxORM,
+    ) -> FMBillingWebhookInboxORM:
+        if inbox.normalized_payload:
+            return inbox
+        if not inbox.payload_ciphertext:
+            raise DadoComercialInvalido(
+                "billing_webhook_encrypted_payload_missing"
+            )
+
+        payload = self._payload_cipher().decrypt(inbox.payload_ciphertext)
+        with self._session_factory() as session:
+            account, gateway = self._gateway_in_session(
+                session=session,
+                provider_account_id=inbox.provider_account_id,
+                require_webhooks=True,
+            )
+            verification = WebhookVerificationResult(
+                valid=True,
+                event_id=inbox.external_event_id,
+                event_type=inbox.provider_event_type,
+            )
+            normalized = gateway.normalize_webhook(
+                payload=payload,
+                verification=verification,
+                context=BillingCallContext(
+                    idempotency_key=(
+                        f"webhook-normalize:{inbox.provider_account_id}:"
+                        f"{inbox.external_event_id}"
+                    ),
+                    correlation_id=contexto.correlation_id,
+                    timeout_seconds=10.0,
+                ),
+            )
+            if normalized.provider_code != account.provider_code:
+                raise DadoComercialInvalido(
+                    "billing_webhook_provider_mismatch"
+                )
+            if normalized.external_event_id != inbox.external_event_id:
+                raise DadoComercialInvalido(
+                    "billing_webhook_event_id_mismatch"
+                )
+            subscription_id: str | None = None
+            if normalized.external_subscription_ref:
+                binding = RepositorioBillingEventsSQLAlchemy(
+                    session
+                ).obter_binding_por_external(
+                    provider_account_id=inbox.provider_account_id,
+                    external_subscription_ref=normalized.external_subscription_ref,
+                )
+                if binding is not None:
+                    if binding.provider_code != normalized.provider_code:
+                        raise DadoComercialInvalido(
+                            "billing_webhook_binding_provider_mismatch"
+                        )
+                    subscription_id = binding.subscription_id
+
+        with self._session_factory() as session, session.begin():
+            repo = RepositorioBillingEventsSQLAlchemy(session)
+            current = repo.obter_inbox(inbox.inbox_id)
+            if current is None:
+                raise RegistroComercialNaoEncontrado(
+                    "billing_webhook_not_found"
+                )
+            return repo.atualizar_inbox(
+                inbox_id=current.inbox_id,
+                expected_version=current.version,
+                values={
+                    "canonical_event_type": normalized.canonical_event_type.value,
+                    "provider_occurred_at": normalized.occurred_at,
+                    "provider_sequence": normalized.provider_sequence,
+                    "external_subscription_ref": normalized.external_subscription_ref,
+                    "external_transaction_ref": normalized.external_transaction_ref,
+                    "subscription_id": subscription_id,
+                    "normalized_payload": _event_payload(normalized),
+                    "correlation_id": contexto.correlation_id,
+                },
+            )
+
     def processar_inbox(
         self,
         *,
@@ -670,15 +736,16 @@ class AplicacaoBillingEventsV1:
             BillingWebhookInboxStatus.REJECTED.value,
         }:
             return inbox
-        if not inbox.normalized_payload:
-            return self._falhar_inbox(
-                contexto=contexto,
-                inbox=inbox,
-                error_code="billing_normalized_payload_missing",
-                retryable=False,
-            )
 
         try:
+            inbox = self._ensure_normalized(
+                contexto=contexto,
+                inbox=inbox,
+            )
+            if not inbox.normalized_payload:
+                raise DadoComercialInvalido(
+                    "billing_normalized_payload_missing"
+                )
             event = _event_from_payload(dict(inbox.normalized_payload))
             with self._session_factory() as session:
                 subscription_id = self._resolve_subscription_id(
@@ -743,7 +810,14 @@ class AplicacaoBillingEventsV1:
                 error_code=str(exc),
                 retryable=True,
             )
-        except (ConflitoConcorrenciaComercial, BillingRetryableProcessingError) as exc:
+        except BillingProviderError as exc:
+            return self._falhar_inbox(
+                contexto=contexto,
+                inbox=inbox,
+                error_code=type(exc).__name__,
+                retryable=bool(exc.retryable),
+            )
+        except (ConflitoConcorrenciaComercial, BillingRetryableProcessingError, RuntimeError) as exc:
             return self._falhar_inbox(
                 contexto=contexto,
                 inbox=inbox,
