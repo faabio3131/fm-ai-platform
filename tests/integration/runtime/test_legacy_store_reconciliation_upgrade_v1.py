@@ -52,8 +52,8 @@ _V0051 = "0051_commercial_catalog_v1"
 _V0052 = "0052_commercial_entitlement_v1"
 _V0053 = "0053_commercial_provisioning_v1"
 _V0054 = "0054_commercial_signup_v1"
-_V0055 = "0055_commercial_trial_v1",
-    "0056_commercial_subscription_v1"
+_V0055 = "0055_commercial_trial_v1"
+_V0056 = "0056_commercial_subscription_v1"
 _TENANT = "tenant-reconciliado"
 _UNIDADE = "unidade-reconciliada"
 _LOJA = 71
@@ -267,6 +267,7 @@ def test_reconciliacao_cria_loja_mapping_atomicamente_e_retomada_chega_a_0028(
             _V0053,
             _V0054,
             _V0055,
+            _V0056,
         )
     assert run_migrations(engine) == ()
 
