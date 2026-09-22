@@ -29,10 +29,8 @@ class BillingProviderBinding:
     credential_secret_reference: str
 
     def __post_init__(self) -> None:
-        code = self.provider_code.strip()
+        code = normalizar_provider_code(self.provider_code)
         reference = self.credential_secret_reference.strip()
-        if not code or len(code) > 64:
-            raise DadoComercialInvalido("billing_provider_code_invalido")
         if ":" not in reference or len(reference) > 255:
             raise DadoComercialInvalido("billing_secret_reference_invalida")
         object.__setattr__(self, "provider_code", code)
