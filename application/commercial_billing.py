@@ -19,6 +19,7 @@ from core.comercial.billing import (
     WebhookVerificationResult,
 )
 from core.comercial.billing_config import normalizar_provider_code
+from core.comercial.billing_events import NormalizedBillingEvent
 from core.comercial.erros import DadoComercialInvalido
 from core.seguranca.segredos import SecretStore
 
@@ -181,6 +182,20 @@ class BillingGatewayV1:
         return self._provider.verify_webhook(
             payload=payload,
             signature=signature,
+            context=context,
+            credential=self._credential(),
+        )
+
+    def normalize_webhook(
+        self,
+        *,
+        payload: bytes,
+        verification: WebhookVerificationResult,
+        context: BillingCallContext,
+    ) -> NormalizedBillingEvent:
+        return self._provider.normalize_webhook(
+            payload=payload,
+            verification=verification,
             context=context,
             credential=self._credential(),
         )
