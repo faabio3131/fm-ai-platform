@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from cryptography.fernet import Fernet, InvalidToken
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from application.commercial_provisioning import AplicacaoProvisioningKordenaV1
@@ -134,38 +135,41 @@ class AplicacaoPublicSignupV1:
         token = secrets.token_urlsafe(32)
         ciphertext = self._encrypt_password(owner_password)
 
-        with self._session_factory() as session, session.begin():
-            identities = RepositorioIdentidadesSQLAlchemy(session)
-            existing_membership = identities.obter_por_email(email)
-            repo = RepositorioPublicSignupSQLAlchemy(session)
-            pending = repo.obter_pendente_por_email(email)
-            if existing_membership is not None or pending is not None:
-                raise RegistroComercialDuplicado("signup_indisponivel")
-            signup = repo.adicionar(
-                FMPublicSignupIntentORM(
-                    signup_id=str(uuid4()),
-                    status=EstadoSignup.EMAIL_PENDING.value,
-                    owner_name=name,
-                    owner_email=email,
-                    primary_contact_phone=phone,
-                    establishment_name=establishment,
-                    segment=segment_clean,
-                    terms_accepted=True,
-                    consent_json=dict(consent_json),
-                    credential_ciphertext=ciphertext,
-                    verification_token_sha256=_token_hash(token),
-                    verification_expires_at=now + self._verification_ttl,
-                    verified_at=None,
-                    provisioning_id=None,
-                    resend_count=0,
-                    last_sent_at=now,
-                    last_error=None,
-                    correlation_id=corr,
-                    created_at=now,
-                    updated_at=now,
-                    version=1,
+        try:
+            with self._session_factory() as session, session.begin():
+                identities = RepositorioIdentidadesSQLAlchemy(session)
+                existing_membership = identities.obter_por_email(email)
+                repo = RepositorioPublicSignupSQLAlchemy(session)
+                pending = repo.obter_pendente_por_email(email)
+                if existing_membership is not None or pending is not None:
+                    raise RegistroComercialDuplicado("signup_indisponivel")
+                signup = repo.adicionar(
+                    FMPublicSignupIntentORM(
+                        signup_id=str(uuid4()),
+                        status=EstadoSignup.EMAIL_PENDING.value,
+                        owner_name=name,
+                        owner_email=email,
+                        primary_contact_phone=phone,
+                        establishment_name=establishment,
+                        segment=segment_clean,
+                        terms_accepted=True,
+                        consent_json=dict(consent_json),
+                        credential_ciphertext=ciphertext,
+                        verification_token_sha256=_token_hash(token),
+                        verification_expires_at=now + self._verification_ttl,
+                        verified_at=None,
+                        provisioning_id=None,
+                        resend_count=0,
+                        last_sent_at=now,
+                        last_error=None,
+                        correlation_id=corr,
+                        created_at=now,
+                        updated_at=now,
+                        version=1,
+                    )
                 )
-            )
+        except IntegrityError as exc:
+            raise RegistroComercialDuplicado("signup_indisponivel") from exc
         return SignupCreationResult(signup=signup, verification_token=token)
 
     def obter_status(self, *, signup_id: str) -> SignupIntent | None:
