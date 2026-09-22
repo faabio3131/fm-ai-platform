@@ -1,7 +1,7 @@
 # Kordena — KCA-00 System Design Comercial
 
-**Status:** APROVADO PARA EXECUÇÃO KCA-01  
-**Data:** 2026-09-21  
+**Status:** APROVADO PARA EXECUÇÃO KCA-01
+**Data:** 2026-09-21
 **Base factual revisada:** `staging/kordena-premium@55ef4cacf7df6e55c533e815f35bf0a6e50f1adf`
 
 ## Objetivo

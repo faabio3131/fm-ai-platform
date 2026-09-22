@@ -1,6 +1,6 @@
 # KCA-00 — Reconciliação do CURRENT
 
-**Data:** 2026-09-21  
+**Data:** 2026-09-21
 **Modo da auditoria:** leitura remota no GitHub antes da criação da branch KCA.
 
 ## Linhas relevantes
