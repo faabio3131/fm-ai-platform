@@ -189,6 +189,35 @@ class FMBillingTransactionORM(BillingEventsBase):
     )
 
 
+class FMBillingEventCursorORM(BillingEventsBase):
+    __tablename__ = "fm_billing_event_cursors_v1"
+    __table_args__ = (
+        UniqueConstraint(
+            "provider_account_id",
+            "stream_key",
+            name="uq_fm_billing_event_cursor_stream_v1",
+        ),
+        CheckConstraint("version >= 1", name="ck_fm_billing_event_cursor_version_v1"),
+        Index(
+            "ix_fm_billing_event_cursor_provider_v1",
+            "provider_account_id",
+            "updated_at",
+        ),
+    )
+
+    cursor_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    provider_account_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    stream_key: Mapped[str] = mapped_column(String(320), nullable=False)
+    last_provider_sequence: Mapped[int | None] = mapped_column(Integer)
+    last_occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_external_event_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now
+    )
+
+
 class FMBillingReconciliationRunORM(BillingEventsBase):
     __tablename__ = "fm_billing_reconciliation_runs_v1"
     __table_args__ = (
