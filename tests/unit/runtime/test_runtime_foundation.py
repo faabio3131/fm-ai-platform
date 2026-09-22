@@ -78,6 +78,7 @@ _EXPECTED_MIGRATIONS = (
     "0048_fiscal_financial_tax_bridge_v1",
     "0049_commercial_registry_v1",
     "0050_global_identity_membership_v1",
+    "0051_commercial_catalog_v1",
 )
 
 
