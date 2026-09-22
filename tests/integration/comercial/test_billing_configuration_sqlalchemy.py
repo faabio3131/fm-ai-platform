@@ -95,6 +95,8 @@ def _create_account(
         BillingPaymentMethod.PIX,
         BillingPaymentMethod.CARD,
     ),
+    supports_recurring: bool = True,
+    supports_webhooks: bool = True,
 ):
     return app.criar_provider_account(
         contexto=_context(),
@@ -105,8 +107,8 @@ def _create_account(
         environment=environment,
         credential_secret_reference=secret_ref,
         supported_payment_methods=methods,
-        supports_recurring=True,
-        supports_webhooks=True,
+        supports_recurring=supports_recurring,
+        supports_webhooks=supports_webhooks,
         priority=10,
     )
 
@@ -162,6 +164,8 @@ def test_multiple_accounts_route_primary_and_governed_fallback() -> None:
         environment=BillingEnvironment.PRODUCTION,
         primary_provider_account_id=account_a.provider_account_id,
         fallback_provider_account_ids=(account_b.provider_account_id,),
+        requires_recurring=True,
+        requires_webhooks=True,
     )
     assert policy.primary_provider_account_id == account_a.provider_account_id
 
@@ -274,6 +278,31 @@ def test_routing_rejects_environment_method_and_duplicates() -> None:
             payment_method=BillingPaymentMethod.CARD,
             environment=BillingEnvironment.SANDBOX,
             primary_provider_account_id=sandbox.provider_account_id,
+        )
+
+    no_recurring = _test_and_activate(
+        app,
+        _create_account(
+            app,
+            key="sandbox-no-recurring",
+            provider_code="PROVIDER_ALPHA",
+            secret_ref="mapping:alpha",
+            environment=BillingEnvironment.SANDBOX,
+            methods=(BillingPaymentMethod.PIX,),
+            supports_recurring=False,
+            supports_webhooks=True,
+        ),
+    )
+    with pytest.raises(DadoComercialInvalido, match="recurring_not_supported"):
+        app.criar_routing_policy(
+            contexto=_context(),
+            idempotency_key="route-recurring",
+            product_code="IRON",
+            payment_method=BillingPaymentMethod.PIX,
+            environment=BillingEnvironment.SANDBOX,
+            primary_provider_account_id=no_recurring.provider_account_id,
+            requires_recurring=True,
+            requires_webhooks=True,
         )
 
 
