@@ -24,7 +24,9 @@
 | KCA-G9 | PASS |
 | KCA-09B Multi-Provider Configuration & Receiving Accounts | PASS — `b38f20b0c7520e39203076a07923c76767ffb970` |
 | KCA-G9B | PASS |
-| KCA-10+ | NÃO INICIADO |
+| KCA-10 Webhook Inbox + Reconciliation | EM EXECUÇÃO — autorizado após G9B |
+| KCA-G10 | PENDENTE |
+| KCA-11+ | NÃO INICIADO |
 
 ## Baseline
 
@@ -253,3 +255,12 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - 13/13 workflows do candidate funcional: SUCCESS.
 - KCA-G9B: PASS.
 - STOP obrigatório mantido antes do KCA-10.
+
+
+## Execução KCA-10 — abertura
+
+- KCA-G9B previamente certificado no HEAD documental `de02f8c2c7c816472425ae4fbba95d440ab24d56` com 13/13 workflows SUCCESS.
+- Prompt formal: `docs/commercial-platform/KCA10_EXECUTION_PROMPT.md`.
+- Escopo: durable webhook inbox, signature verification, event ID/body hash, idempotência, replay protection, normalization, ordering, retry/DLQ/replay controlado, Billing Ledger mínimo e reconciliation.
+- KCA-11 Paywall/Recovery/Dunning permanece NÃO INICIADO.
+- Nenhum provider, credencial, conta financeira ou cobrança real será utilizado.
