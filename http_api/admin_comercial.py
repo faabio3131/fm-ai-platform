@@ -17,12 +17,14 @@ from sqlalchemy.orm import Session
 from application.comercial_registry import AplicacaoCommercialRegistryV1
 from application.commercial_billing import BillingProviderAdapterRegistryV1
 from application.commercial_billing_config import AplicacaoBillingConfigurationV1
+from application.commercial_billing_events import AplicacaoBillingEventsV1
 from application.commercial_catalog import AplicacaoCatalogoComercialV1
 from core.comercial.billing_config import (
     BillingEnvironment,
     BillingPaymentMethod,
     BillingProviderAccountStatus,
 )
+from core.comercial.billing_events import BillingWebhookInboxStatus
 from core.comercial.catalogo import (
     EntitlementPlano,
     PoliticaMudancaPreco,
@@ -222,6 +224,27 @@ class BillingRoutingPolicyUpdateIn(BaseModel):
     requires_webhooks: bool = False
 
 
+class BillingSubscriptionBindingIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider_account_id: str = Field(min_length=1, max_length=64)
+    subscription_id: str = Field(min_length=1, max_length=64)
+    external_subscription_ref: str = Field(min_length=1, max_length=255)
+    external_customer_ref: str | None = Field(default=None, max_length=255)
+
+
+class BillingDeadLetterReplayIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_version: int = Field(ge=1)
+
+
+class BillingRetryBatchIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    limit: int = Field(default=100, ge=1, le=500)
+
+
 def _catalog_out(value: Any) -> Any:
     if is_dataclass(value) and not isinstance(value, type):
         return _catalog_out(asdict(value))  # type: ignore[arg-type]
@@ -275,6 +298,67 @@ def _billing_routing_out(policy: Any) -> dict[str, Any]:
         "active": policy.active,
         "version": policy.version,
         "updated_at": policy.updated_at.isoformat(),
+    }
+
+
+def _billing_inbox_out(row: Any) -> dict[str, Any]:
+    return {
+        "inbox_id": row.inbox_id,
+        "provider_account_id": row.provider_account_id,
+        "provider_code": row.provider_code,
+        "external_event_id": row.external_event_id,
+        "provider_event_type": row.provider_event_type,
+        "canonical_event_type": row.canonical_event_type,
+        "body_hash": row.body_hash,
+        "signature_valid": row.signature_valid,
+        "status": row.status,
+        "received_at": row.received_at.isoformat(),
+        "provider_occurred_at": (
+            row.provider_occurred_at.isoformat()
+            if row.provider_occurred_at
+            else None
+        ),
+        "provider_sequence": row.provider_sequence,
+        "external_subscription_ref": row.external_subscription_ref,
+        "external_transaction_ref": row.external_transaction_ref,
+        "subscription_id": row.subscription_id,
+        "attempts": row.attempts,
+        "max_attempts": row.max_attempts,
+        "last_error_code": row.last_error_code,
+        "next_retry_at": (
+            row.next_retry_at.isoformat() if row.next_retry_at else None
+        ),
+        "processed_at": row.processed_at.isoformat() if row.processed_at else None,
+        "version": row.version,
+    }
+
+
+def _billing_transaction_out(row: Any) -> dict[str, Any]:
+    return {
+        "billing_transaction_id": row.billing_transaction_id,
+        "provider_account_id": row.provider_account_id,
+        "provider_code": row.provider_code,
+        "external_transaction_ref": row.external_transaction_ref,
+        "subscription_id": row.subscription_id,
+        "transaction_type": row.transaction_type,
+        "status": row.status,
+        "amount": str(row.amount) if row.amount is not None else None,
+        "currency": row.currency,
+        "provider_occurred_at": (
+            row.provider_occurred_at.isoformat()
+            if row.provider_occurred_at
+            else None
+        ),
+        "provider_sequence": row.provider_sequence,
+        "last_external_event_id": row.last_external_event_id,
+        "reconciliation_status": row.reconciliation_status,
+        "last_reconciled_at": (
+            row.last_reconciled_at.isoformat()
+            if row.last_reconciled_at
+            else None
+        ),
+        "version": row.version,
+        "updated_at": row.updated_at.isoformat(),
     }
 
 
@@ -350,12 +434,17 @@ def build_admin_comercial_router(
     router = APIRouter(prefix="/v1/admin/commercial", tags=["admin-commercial"])
     app = AplicacaoCommercialRegistryV1(session_factory)
     catalog_app = AplicacaoCatalogoComercialV1(session_factory)
+    billing_registry = billing_adapter_registry or BillingProviderAdapterRegistryV1()
+    billing_secrets = billing_secret_store or ReferenceSecretStore()
     billing_app = AplicacaoBillingConfigurationV1(
         session_factory,
-        adapter_registry=(
-            billing_adapter_registry or BillingProviderAdapterRegistryV1()
-        ),
-        secret_store=billing_secret_store or ReferenceSecretStore(),
+        adapter_registry=billing_registry,
+        secret_store=billing_secrets,
+    )
+    billing_events_app = AplicacaoBillingEventsV1(
+        session_factory,
+        adapter_registry=billing_registry,
+        fallback_secret_store=billing_secrets,
     )
 
     def contexto(request: Request):
@@ -1003,6 +1092,115 @@ def build_admin_comercial_router(
                     for item in decision.accounts
                 ],
             }
+        except Exception as exc:  # noqa: BLE001
+            return _erro_comercial(exc)
+
+    @router.post(
+        "/billing/subscription-bindings",
+        status_code=201,
+        response_model=None,
+    )
+    def criar_billing_subscription_binding(
+        payload: BillingSubscriptionBindingIn,
+        request: Request,
+    ) -> Any:
+        try:
+            binding_id = billing_events_app.registrar_subscription_binding(
+                contexto=contexto(request),
+                provider_account_id=payload.provider_account_id,
+                subscription_id=payload.subscription_id,
+                external_subscription_ref=payload.external_subscription_ref,
+                external_customer_ref=payload.external_customer_ref,
+            )
+            return {"billing_binding_id": binding_id}
+        except Exception as exc:  # noqa: BLE001
+            return _erro_comercial(exc)
+
+    @router.get("/billing/webhook-inbox", response_model=None)
+    def listar_billing_webhook_inbox(
+        request: Request,
+        status_filter: BillingWebhookInboxStatus = BillingWebhookInboxStatus.DEAD_LETTER,
+        limit: int = 100,
+    ) -> Any:
+        try:
+            contexto(request)
+            return [
+                _billing_inbox_out(row)
+                for row in billing_events_app.listar_inbox(
+                    status=status_filter,
+                    limit=limit,
+                )
+            ]
+        except Exception as exc:  # noqa: BLE001
+            return _erro_comercial(exc)
+
+    @router.post(
+        "/billing/webhook-inbox/{inbox_id}/replay",
+        response_model=None,
+    )
+    def replay_billing_dead_letter(
+        inbox_id: str,
+        payload: BillingDeadLetterReplayIn,
+        request: Request,
+    ) -> Any:
+        try:
+            return _billing_inbox_out(
+                billing_events_app.reprocessar_dead_letter(
+                    contexto=contexto(request),
+                    inbox_id=inbox_id,
+                    expected_version=payload.expected_version,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            return _erro_comercial(exc)
+
+    @router.post("/billing/webhook-inbox/process-retries", response_model=None)
+    def processar_billing_retries(
+        payload: BillingRetryBatchIn,
+        request: Request,
+    ) -> Any:
+        try:
+            ids = billing_events_app.processar_retries(
+                contexto=contexto(request),
+                limit=payload.limit,
+            )
+            return {"processed_inbox_ids": list(ids), "count": len(ids)}
+        except Exception as exc:  # noqa: BLE001
+            return _erro_comercial(exc)
+
+    @router.get(
+        "/billing/transactions/{billing_transaction_id}",
+        response_model=None,
+    )
+    def obter_billing_transaction(
+        billing_transaction_id: str,
+        request: Request,
+    ) -> Any:
+        try:
+            contexto(request)
+            return _billing_transaction_out(
+                billing_events_app.obter_transacao(
+                    billing_transaction_id=billing_transaction_id
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            return _erro_comercial(exc)
+
+    @router.post(
+        "/billing/transactions/{billing_transaction_id}/reconcile",
+        response_model=None,
+    )
+    def reconciliar_billing_transaction(
+        billing_transaction_id: str,
+        request: Request,
+    ) -> Any:
+        try:
+            return _billing_transaction_out(
+                billing_events_app.reconciliar_transacao(
+                    contexto=contexto(request),
+                    billing_transaction_id=billing_transaction_id,
+                )
+            )
         except Exception as exc:  # noqa: BLE001
             return _erro_comercial(exc)
 
