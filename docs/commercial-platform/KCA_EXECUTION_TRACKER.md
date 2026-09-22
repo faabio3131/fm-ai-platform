@@ -12,7 +12,9 @@
 | KCA-G3 | PASS |
 | KCA-04 Entitlement Authority + Local Projection | PASS — `6b43c8454c13e6ac64d31907286c5e4af2979983` |
 | KCA-G4 | PASS |
-| KCA-05+ | NÃO INICIADO |
+| KCA-05 Tenant Provisioning Saga | PASS — `3f0ee70c1e8483b2b6aad1a6c5737959ee555c98` |
+| KCA-G5 | PASS |
+| KCA-06+ | NÃO INICIADO |
 
 ## Baseline
 
@@ -91,3 +93,26 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - 16 workflows do candidate SHA: SUCCESS.
 - KCA-G4: PASS.
 - KCA-05+: NÃO INICIADO.
+
+
+## Certificação KCA-05
+
+- Candidate funcional: `3f0ee70c1e8483b2b6aad1a6c5737959ee555c98`.
+- Certification documentation commit: `87873b287f23e1e4d3a47416c1f0ccbd3db7c9de`.
+- Migration: `0053_commercial_provisioning_v1`.
+- Persisted Saga + explicit state machine: PASS.
+- Idempotency + optimistic concurrency: PASS.
+- Retry/restart/recovery: PASS.
+- Logical compensation: PASS.
+- Provisioning inbox/outbox: PASS.
+- Duplicate tenant protection: PASS.
+- Password not persisted in Saga: PASS.
+- KCA-07 Trial Engine not anticipated; only `pending_kca07` binding exists.
+- KCA targeted: 105 passed.
+- Full Python: 1706 passed, 5 skipped, 102 warnings.
+- Web Node: 11 passed, 0 failed.
+- Schema baseline: 121 tables.
+- Ruff/mypy/ESLint/TypeScript/Next build/diff: PASS.
+- 16 workflows do candidate SHA: SUCCESS.
+- KCA-G5: PASS.
+- KCA-06+: NÃO INICIADO.
