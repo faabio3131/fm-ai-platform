@@ -16,6 +16,13 @@ from sqlalchemy.orm import Session
 
 from application.comercial_registry import AplicacaoCommercialRegistryV1
 from application.commercial_catalog import AplicacaoCatalogoComercialV1
+from application.commercial_billing import BillingProviderAdapterRegistryV1
+from application.commercial_billing_config import AplicacaoBillingConfigurationV1
+from core.comercial.billing_config import (
+    BillingEnvironment,
+    BillingPaymentMethod,
+    BillingProviderAccountStatus,
+)
 from core.comercial.catalogo import (
     EntitlementPlano,
     PoliticaMudancaPreco,
@@ -39,6 +46,7 @@ from core.comercial.modelos import (
 from http_api.admin_backoffice import contexto_backoffice
 from http_api.admin_dashboard import _tratar_erro
 from http_api.auth import AuthSessionRuntime
+from core.seguranca.segredos import ReferenceSecretStore, SecretStore
 
 SessionFactory = Callable[[], Session]
 IdempotencyHeader = Annotated[
@@ -139,6 +147,66 @@ class PromotionPublishIn(CatalogValidateIn):
     expected_promotion_version: int = Field(ge=1)
 
 
+class BillingProviderAccountCreateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider_code: str = Field(min_length=1, max_length=64)
+    display_name: str = Field(min_length=1, max_length=128)
+    legal_entity_ref: str | None = Field(default=None, max_length=128)
+    environment: BillingEnvironment
+    credential_secret_reference: str = Field(min_length=3, max_length=255)
+    supported_payment_methods: list[BillingPaymentMethod] = Field(min_length=1)
+    supports_recurring: bool = False
+    supports_webhooks: bool = False
+    priority: int = Field(default=100, ge=0, le=100000)
+
+
+class BillingProviderAccountUpdateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_version: int = Field(ge=1)
+    display_name: str = Field(min_length=1, max_length=128)
+    legal_entity_ref: str | None = Field(default=None, max_length=128)
+    credential_secret_reference: str = Field(min_length=3, max_length=255)
+    supported_payment_methods: list[BillingPaymentMethod] = Field(min_length=1)
+    supports_recurring: bool = False
+    supports_webhooks: bool = False
+    priority: int = Field(default=100, ge=0, le=100000)
+
+
+class BillingProviderConnectionTestIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_version: int = Field(ge=1)
+    timeout_seconds: float = Field(default=10.0, gt=0, le=120)
+
+
+class BillingProviderStatusIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_version: int = Field(ge=1)
+    status: BillingProviderAccountStatus
+
+
+class BillingRoutingPolicyCreateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    product_code: str = Field(min_length=1, max_length=64)
+    payment_method: BillingPaymentMethod
+    environment: BillingEnvironment
+    primary_provider_account_id: str = Field(min_length=1, max_length=64)
+    fallback_provider_account_ids: list[str] = Field(default_factory=list)
+
+
+class BillingRoutingPolicyUpdateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_version: int = Field(ge=1)
+    primary_provider_account_id: str = Field(min_length=1, max_length=64)
+    fallback_provider_account_ids: list[str] = Field(default_factory=list)
+    active: bool = True
+
+
 def _catalog_out(value: Any) -> Any:
     if is_dataclass(value) and not isinstance(value, type):
         return _catalog_out(asdict(value))  # type: ignore[arg-type]
@@ -153,6 +221,44 @@ def _catalog_out(value: Any) -> Any:
     if isinstance(value, (tuple, list)):
         return [_catalog_out(item) for item in value]
     return value
+
+
+def _billing_provider_out(account: Any) -> dict[str, Any]:
+    return {
+        "provider_account_id": account.provider_account_id,
+        "provider_code": account.provider_code,
+        "display_name": account.display_name,
+        "legal_entity_ref": account.legal_entity_ref,
+        "environment": account.environment.value,
+        "status": account.status.value,
+        "credential_configured": bool(account.credential_secret_reference),
+        "supported_payment_methods": [
+            item.value for item in account.supported_payment_methods
+        ],
+        "supports_recurring": account.supports_recurring,
+        "supports_webhooks": account.supports_webhooks,
+        "priority": account.priority,
+        "last_tested_at": (
+            account.last_tested_at.isoformat() if account.last_tested_at else None
+        ),
+        "last_test_status": account.last_test_status.value,
+        "version": account.version,
+        "updated_at": account.updated_at.isoformat(),
+    }
+
+
+def _billing_routing_out(policy: Any) -> dict[str, Any]:
+    return {
+        "routing_policy_id": policy.routing_policy_id,
+        "product_code": policy.product_code,
+        "payment_method": policy.payment_method.value,
+        "environment": policy.environment.value,
+        "primary_provider_account_id": policy.primary_provider_account_id,
+        "fallback_provider_account_ids": list(policy.fallback_provider_account_ids),
+        "active": policy.active,
+        "version": policy.version,
+        "updated_at": policy.updated_at.isoformat(),
+    }
 
 
 def _customer_out(customer: ClienteComercial) -> dict[str, Any]:
@@ -221,10 +327,19 @@ def build_admin_comercial_router(
     *,
     session_factory: SessionFactory,
     auth_runtime: AuthSessionRuntime,
+    billing_adapter_registry: BillingProviderAdapterRegistryV1 | None = None,
+    billing_secret_store: SecretStore | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/v1/admin/commercial", tags=["admin-commercial"])
     app = AplicacaoCommercialRegistryV1(session_factory)
     catalog_app = AplicacaoCatalogoComercialV1(session_factory)
+    billing_app = AplicacaoBillingConfigurationV1(
+        session_factory,
+        adapter_registry=(
+            billing_adapter_registry or BillingProviderAdapterRegistryV1()
+        ),
+        secret_store=billing_secret_store or ReferenceSecretStore(),
+    )
 
     def contexto(request: Request):
         return contexto_backoffice(
@@ -636,6 +751,216 @@ def build_admin_comercial_router(
                     change_reason=payload.change_reason,
                 )
             )
+        except Exception as exc:  # noqa: BLE001
+            return _erro_comercial(exc)
+
+    @router.post(
+        "/billing/provider-accounts",
+        status_code=201,
+        response_model=None,
+    )
+    def criar_billing_provider_account(
+        payload: BillingProviderAccountCreateIn,
+        request: Request,
+        idempotency_key: IdempotencyHeader,
+    ) -> Any:
+        try:
+            account = billing_app.criar_provider_account(
+                contexto=contexto(request),
+                idempotency_key=idempotency_key,
+                provider_code=payload.provider_code,
+                display_name=payload.display_name,
+                legal_entity_ref=payload.legal_entity_ref,
+                environment=payload.environment,
+                credential_secret_reference=payload.credential_secret_reference,
+                supported_payment_methods=tuple(payload.supported_payment_methods),
+                supports_recurring=payload.supports_recurring,
+                supports_webhooks=payload.supports_webhooks,
+                priority=payload.priority,
+            )
+            return _billing_provider_out(account)
+        except Exception as exc:  # noqa: BLE001
+            return _erro_comercial(exc)
+
+    @router.get("/billing/provider-accounts", response_model=None)
+    def listar_billing_provider_accounts(request: Request) -> Any:
+        try:
+            contexto(request)
+            return [
+                _billing_provider_out(item)
+                for item in billing_app.listar_provider_accounts()
+            ]
+        except Exception as exc:  # noqa: BLE001
+            return _erro_comercial(exc)
+
+    @router.put(
+        "/billing/provider-accounts/{provider_account_id}",
+        response_model=None,
+    )
+    def atualizar_billing_provider_account(
+        provider_account_id: str,
+        payload: BillingProviderAccountUpdateIn,
+        request: Request,
+    ) -> Any:
+        try:
+            return _billing_provider_out(
+                billing_app.atualizar_provider_account(
+                    contexto=contexto(request),
+                    provider_account_id=provider_account_id,
+                    expected_version=payload.expected_version,
+                    display_name=payload.display_name,
+                    legal_entity_ref=payload.legal_entity_ref,
+                    credential_secret_reference=payload.credential_secret_reference,
+                    supported_payment_methods=tuple(
+                        payload.supported_payment_methods
+                    ),
+                    supports_recurring=payload.supports_recurring,
+                    supports_webhooks=payload.supports_webhooks,
+                    priority=payload.priority,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            return _erro_comercial(exc)
+
+    @router.post(
+        "/billing/provider-accounts/{provider_account_id}/test-connection",
+        response_model=None,
+    )
+    def testar_billing_provider_account(
+        provider_account_id: str,
+        payload: BillingProviderConnectionTestIn,
+        request: Request,
+    ) -> Any:
+        try:
+            result = billing_app.testar_conexao(
+                contexto=contexto(request),
+                provider_account_id=provider_account_id,
+                expected_version=payload.expected_version,
+                timeout_seconds=payload.timeout_seconds,
+            )
+            return {
+                "ok": result.ok,
+                "detail_code": result.detail_code,
+                "account": _billing_provider_out(result.account),
+            }
+        except Exception as exc:  # noqa: BLE001
+            return _erro_comercial(exc)
+
+    @router.post(
+        "/billing/provider-accounts/{provider_account_id}/status",
+        response_model=None,
+    )
+    def transicionar_billing_provider_account(
+        provider_account_id: str,
+        payload: BillingProviderStatusIn,
+        request: Request,
+    ) -> Any:
+        try:
+            return _billing_provider_out(
+                billing_app.transicionar_provider_account(
+                    contexto=contexto(request),
+                    provider_account_id=provider_account_id,
+                    expected_version=payload.expected_version,
+                    status=payload.status,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            return _erro_comercial(exc)
+
+    @router.post(
+        "/billing/routing-policies",
+        status_code=201,
+        response_model=None,
+    )
+    def criar_billing_routing_policy(
+        payload: BillingRoutingPolicyCreateIn,
+        request: Request,
+        idempotency_key: IdempotencyHeader,
+    ) -> Any:
+        try:
+            return _billing_routing_out(
+                billing_app.criar_routing_policy(
+                    contexto=contexto(request),
+                    idempotency_key=idempotency_key,
+                    product_code=payload.product_code,
+                    payment_method=payload.payment_method,
+                    environment=payload.environment,
+                    primary_provider_account_id=(
+                        payload.primary_provider_account_id
+                    ),
+                    fallback_provider_account_ids=tuple(
+                        payload.fallback_provider_account_ids
+                    ),
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            return _erro_comercial(exc)
+
+    @router.get("/billing/routing-policies", response_model=None)
+    def listar_billing_routing_policies(request: Request) -> Any:
+        try:
+            contexto(request)
+            return [
+                _billing_routing_out(item)
+                for item in billing_app.listar_routing_policies()
+            ]
+        except Exception as exc:  # noqa: BLE001
+            return _erro_comercial(exc)
+
+    @router.put(
+        "/billing/routing-policies/{routing_policy_id}",
+        response_model=None,
+    )
+    def atualizar_billing_routing_policy(
+        routing_policy_id: str,
+        payload: BillingRoutingPolicyUpdateIn,
+        request: Request,
+    ) -> Any:
+        try:
+            return _billing_routing_out(
+                billing_app.atualizar_routing_policy(
+                    contexto=contexto(request),
+                    routing_policy_id=routing_policy_id,
+                    expected_version=payload.expected_version,
+                    primary_provider_account_id=(
+                        payload.primary_provider_account_id
+                    ),
+                    fallback_provider_account_ids=tuple(
+                        payload.fallback_provider_account_ids
+                    ),
+                    active=payload.active,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            return _erro_comercial(exc)
+
+    @router.get("/billing/route-preview", response_model=None)
+    def preview_billing_route(
+        product_code: str,
+        payment_method: BillingPaymentMethod,
+        environment: BillingEnvironment,
+        request: Request,
+    ) -> Any:
+        try:
+            contexto(request)
+            decision = billing_app.resolver_rota(
+                product_code=product_code,
+                payment_method=payment_method,
+                environment=environment,
+            )
+            return {
+                "product_code": decision.product_code,
+                "payment_method": decision.payment_method.value,
+                "environment": decision.environment.value,
+                "accounts": [
+                    {
+                        "provider_account_id": item.provider_account_id,
+                        "provider_code": item.provider_code,
+                        "priority": item.priority,
+                    }
+                    for item in decision.accounts
+                ],
+            }
         except Exception as exc:  # noqa: BLE001
             return _erro_comercial(exc)
 
