@@ -32,6 +32,7 @@ from application.pagbank import (
     processar_webhook_pagbank,
 )
 from application.pdv_legacy_projection import ProjecaoLegadaInvalida
+from application.commercial_billing import BillingProviderAdapterRegistryV1
 from core.gerente_ia.erros import ErroGerenteIA
 from core.gerente_ia.modelos import ChamadaTool
 from core.integracoes.modelos import ErroConfiguracaoServico
@@ -50,6 +51,7 @@ from core.seguranca.erros import (
 from core.seguranca.segredos import ReferenceSecretStore, SecretStore
 from http_api.auth import AuthSessionRuntime, build_auth_router
 from http_api.catalogo import build_catalogo_router
+from http_api.commercial_billing_webhooks import build_commercial_billing_webhook_router
 from http_api.estoque import build_estoque_router
 from http_api.kds import build_kds_router
 from http_api.pdv import build_pdv_router
@@ -117,6 +119,7 @@ def build_http_app(
     whatsapp_secret_store_factory: Callable[[Session], SecretStore] | None = None,
     whatsapp_runtime: RuntimeCanalWhatsAppV1 | None = None,
     auth_runtime: AuthSessionRuntime | None = None,
+    commercial_billing_adapter_registry: BillingProviderAdapterRegistryV1 | None = None,
 ) -> FastAPI:
     settings = settings or load_runtime_settings()
     engine = engine or build_engine(settings)
@@ -179,6 +182,13 @@ def build_http_app(
         build_salao_router(
             session_factory=session_factory,
             auth_runtime=auth_runtime,
+        )
+    )
+    app.include_router(
+        build_commercial_billing_webhook_router(
+            session_factory=session_factory,
+            adapter_registry=commercial_billing_adapter_registry,
+            fallback_secret_store=secret_store,
         )
     )
 
