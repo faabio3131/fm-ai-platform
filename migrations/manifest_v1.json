@@ -228,6 +228,10 @@
     {
       "version": "0056_commercial_subscription_v1",
       "sha256": "0e05619d90259dcc1cc0cd8c83f19605be052934166c5d30c5e3594f43e298ff"
+    },
+    {
+      "version": "0057_commercial_billing_config_v1",
+      "sha256": "3d255142b5aebc4f6e52d6fe0c818a5e4b34ffa8fa6324ceee2ecf99ca886eb6"
     }
   ]
 }
