@@ -1,6 +1,6 @@
 # KCA-01 — Commercial Registry + Product Accounts
 
-**Status:** IMPLEMENTAÇÃO CANDIDATA — AGUARDA CI / GATE KCA-G1
+**Status:** CERTIFICADO — KCA-G1 PASS
 **Baseline SHA:** `922db0e3c568d8db232eecbf8059398e522e8603`
 
 ## Escopo implementado
@@ -59,3 +59,40 @@ Forward-fix. A migration não possui drop automático. Reverter o código não a
 ## Fora de escopo
 
 KCA-02 Global Identity/Membership e todos os blocos posteriores permanecem não iniciados.
+
+
+## Certificação final
+
+**Candidate SHA funcional:** `c623dd4a8bef04105b720d80c7d44b97bce00189`
+
+### Audit & Fix executado
+
+Durante a certificação foram encontrados e corrigidos, sem reduzir cobertura:
+
+1. incompatibilidade de tipagem estática em `_hash_requisicao`, corrigida para aceitar `Mapping[str, object]`;
+2. colisão de nome de módulo Pytest entre `tests/unit/comercial/test_modelos.py` e teste legado homônimo, corrigida renomeando o teste comercial;
+3. expectativas históricas de migrations em testes runtime ainda encerradas em `0048`, reconciliadas com a nova migration `0049_commercial_registry_v1`.
+
+### Evidências do Gate KCA-G1
+
+Workflow canônico: **Kordena KCA Commercial Gate** — run `35681467454` — **SUCCESS**.
+
+- compile Python: PASS;
+- migration manifest: PASS;
+- schema baseline: PASS — **105 tabelas**, SHA-256 `0890e133e2c91151f2da49a31d91d4bb800efc08a08c6594e36135c32a31c652`;
+- Ruff/mypy KCA: PASS;
+- testes direcionados KCA: **16 passed**;
+- regressão Python completa: **1660 passed, 5 skipped, 102 warnings**;
+- Web ESLint: PASS;
+- TypeScript: PASS;
+- Web Node tests: **11 passed, 0 failed**;
+- Next production build: PASS;
+- diff whitespace: PASS.
+
+Todos os 15 workflows disparados no candidate SHA terminaram em SUCCESS, incluindo WP-031 Master Gate e regressões fiscais/Web transversais.
+
+## Gate
+
+**KCA-G1: PASS.**
+
+KCA-02 permanece **NÃO INICIADO**.
