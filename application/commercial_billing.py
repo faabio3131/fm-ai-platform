@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from core.comercial.billing import (
     BillingCallContext,
+    BillingConnectionTestResult,
     BillingCustomerReference,
     BillingCustomerRequest,
     BillingProvider,
@@ -17,6 +18,7 @@ from core.comercial.billing import (
     ProviderSubscriptionReference,
     WebhookVerificationResult,
 )
+from core.comercial.billing_config import normalizar_provider_code
 from core.comercial.erros import DadoComercialInvalido
 from core.seguranca.segredos import SecretStore
 
@@ -35,6 +37,31 @@ class BillingProviderBinding:
             raise DadoComercialInvalido("billing_secret_reference_invalida")
         object.__setattr__(self, "provider_code", code)
         object.__setattr__(self, "credential_secret_reference", reference)
+
+
+class BillingProviderAdapterRegistryV1:
+    """Registry runtime de adapters, sem lista fechada de providers."""
+
+    def __init__(self, providers: tuple[BillingProvider, ...] = ()) -> None:
+        self._providers: dict[str, BillingProvider] = {}
+        for provider in providers:
+            self.register(provider)
+
+    def register(self, provider: BillingProvider) -> None:
+        code = normalizar_provider_code(provider.provider_code)
+        if code in self._providers:
+            raise DadoComercialInvalido("billing_provider_adapter_duplicado")
+        self._providers[code] = provider
+
+    def resolve(self, provider_code: str) -> BillingProvider:
+        code = normalizar_provider_code(provider_code)
+        provider = self._providers.get(code)
+        if provider is None:
+            raise DadoComercialInvalido("billing_provider_adapter_nao_registrado")
+        return provider
+
+    def available_provider_codes(self) -> tuple[str, ...]:
+        return tuple(sorted(self._providers))
 
 
 class BillingGatewayV1:
@@ -63,6 +90,16 @@ class BillingGatewayV1:
 
     def _credential(self):
         return self._secret_store.resolve(self._binding.credential_secret_reference)
+
+    def test_connection(
+        self,
+        *,
+        context: BillingCallContext,
+    ) -> BillingConnectionTestResult:
+        return self._provider.test_connection(
+            context=context,
+            credential=self._credential(),
+        )
 
     def create_customer(
         self,
