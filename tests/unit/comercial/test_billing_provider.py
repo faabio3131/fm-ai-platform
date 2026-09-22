@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
@@ -25,6 +26,10 @@ from core.comercial.billing import (
     CheckoutResult,
     ProviderSubscriptionReference,
     WebhookVerificationResult,
+)
+from core.comercial.billing_events import (
+    BillingCanonicalEventType,
+    NormalizedBillingEvent,
 )
 from core.comercial.erros import DadoComercialInvalido
 from core.seguranca.segredos import ReferenceSecretStore, SecretValue
@@ -154,15 +159,35 @@ class FakeBillingProvider:
         self,
         *,
         payload: bytes,
-        signature: str,
+        headers,
         context: BillingCallContext,
         credential: SecretValue,
     ) -> WebhookVerificationResult:
         self._capture("verify_webhook", context, credential)
         return WebhookVerificationResult(
-            valid=payload == b"{}" and signature == "fake-signature",
+            valid=(
+                payload == b"{}"
+                and headers.get("x-test-signature") == "fake-signature"
+            ),
             event_id="event:test",
             event_type="billing.test",
+        )
+
+    def normalize_webhook(
+        self,
+        *,
+        payload: bytes,
+        verification: WebhookVerificationResult,
+        context: BillingCallContext,
+        credential: SecretValue,
+    ) -> NormalizedBillingEvent:
+        self._capture("normalize_webhook", context, credential)
+        return NormalizedBillingEvent(
+            provider_code=self.provider_code,
+            external_event_id=verification.event_id or "event:test",
+            canonical_event_type=BillingCanonicalEventType.PAYMENT_SUCCEEDED,
+            occurred_at=datetime.now(timezone.utc),
+            external_transaction_ref="transaction:test",
         )
 
 
@@ -235,7 +260,7 @@ def test_provider_contract_covers_all_kca09_operations_and_preserves_context() -
     )
     webhook = gateway.verify_webhook(
         payload=b"{}",
-        signature="fake-signature",
+        headers={"x-test-signature": "fake-signature"},
         context=_context("webhook"),
     )
 
