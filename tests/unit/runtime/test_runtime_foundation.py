@@ -80,6 +80,7 @@ _EXPECTED_MIGRATIONS = (
     "0050_global_identity_membership_v1",
     "0051_commercial_catalog_v1",
     "0052_commercial_entitlement_v1",
+    "0053_commercial_provisioning_v1",
 )
 
 
