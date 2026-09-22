@@ -192,6 +192,14 @@ class RepositorioIdentidadesSQLAlchemy:
             return None
         return self._legacy_por_email(usuario.email)
 
+    def obter_identity_user_id_por_email(self, email_normalizado: str) -> str | None:
+        email = email_normalizado.strip().casefold()
+        if not email or not self._global_disponivel():
+            return None
+        return self._session.scalar(
+            select(IdentityUserORM.identity_user_id).where(IdentityUserORM.email == email)
+        )
+
     def obter_por_email(self, email_normalizado: str) -> IdentidadeUsuario | None:
         email = email_normalizado.strip().casefold()
         if self._global_disponivel():
