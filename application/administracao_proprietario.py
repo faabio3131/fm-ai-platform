@@ -39,7 +39,6 @@ from infra.integracoes.repositorio_sqlalchemy import (
 from infra.legacy_product_scope import resolver_loja_id_legada
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
-from infra.seguranca.modelos_orm import UsuarioSegurancaORM
 from infra.transacoes.uow import UnitOfWorkV1
 
 SessionFactory = Callable[[], Session]
@@ -863,14 +862,12 @@ class AplicacaoAdministracaoProprietarioV1:
                 contexto=contexto,
                 unidades=alvo,
             )
-            usuarios_ativos = int(
-                session.scalar(
-                    select(func.count(UsuarioSegurancaORM.usuario_id)).where(
-                        UsuarioSegurancaORM.tenant_id == contexto.tenant_id,
-                        UsuarioSegurancaORM.ativo.is_(True),
-                    )
-                )
-                or 0
+            usuarios_ativos = sum(
+                1
+                for identidade in RepositorioIdentidadesSQLAlchemy(
+                    session
+                ).listar_por_tenant(tenant_id=contexto.tenant_id)
+                if identidade.ativo
             )
             cmv, cobertura = self._cmv_estimado(
                 session=session,

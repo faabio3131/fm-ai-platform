@@ -22,6 +22,12 @@ class SecurityBase(DeclarativeBase):
     pass
 
 
+class GlobalIdentityBase(DeclarativeBase):
+    """Schema aditivo da identidade global/memberships KCA-02."""
+
+    pass
+
+
 def _agora_utc() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -69,6 +75,108 @@ class UsuarioUnidadeORM(SecurityBase):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     usuario_id: Mapped[str] = mapped_column(
         ForeignKey("fm_usuarios_v1.usuario_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    unidade_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+
+
+class IdentityUserORM(GlobalIdentityBase):
+    __tablename__ = "fm_identity_users_v1"
+
+    identity_user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True, index=True)
+    senha_hash: Mapped[str] = mapped_column(String(512), nullable=False)
+    admin_pin_hash: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_agora_utc
+    )
+    atualizado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_agora_utc, onupdate=_agora_utc
+    )
+
+
+class IdentityMembershipORM(GlobalIdentityBase):
+    __tablename__ = "fm_identity_memberships_v1"
+    __table_args__ = (
+        UniqueConstraint(
+            "identity_user_id",
+            "product_code",
+            "tenant_id",
+            name="uq_fm_identity_membership_scope_v1",
+        ),
+        UniqueConstraint(
+            "legacy_usuario_id",
+            name="uq_fm_identity_membership_legacy_user_v1",
+        ),
+        Index(
+            "ix_fm_identity_membership_tenant_product_v1",
+            "tenant_id",
+            "product_code",
+        ),
+        Index(
+            "ix_fm_identity_membership_identity_product_v1",
+            "identity_user_id",
+            "product_code",
+        ),
+    )
+
+    membership_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    identity_user_id: Mapped[str] = mapped_column(
+        ForeignKey("fm_identity_users_v1.identity_user_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    product_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    tenant_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    unidade_padrao_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    acesso_admin_sensivel: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    padrao: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    legacy_usuario_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_agora_utc
+    )
+    atualizado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_agora_utc, onupdate=_agora_utc
+    )
+
+
+class IdentityMembershipRoleORM(GlobalIdentityBase):
+    __tablename__ = "fm_identity_membership_roles_v1"
+    __table_args__ = (
+        UniqueConstraint(
+            "membership_id",
+            "papel",
+            name="uq_fm_identity_membership_role_v1",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    membership_id: Mapped[str] = mapped_column(
+        ForeignKey("fm_identity_memberships_v1.membership_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    papel: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class IdentityMembershipUnitORM(GlobalIdentityBase):
+    __tablename__ = "fm_identity_membership_units_v1"
+    __table_args__ = (
+        UniqueConstraint(
+            "membership_id",
+            "unidade_id",
+            name="uq_fm_identity_membership_unit_v1",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    membership_id: Mapped[str] = mapped_column(
+        ForeignKey("fm_identity_memberships_v1.membership_id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

@@ -46,6 +46,10 @@ class SelecionarUnidadeIn(BaseModel):
     unidade_id: str = Field(min_length=1, max_length=64)
 
 
+class SelecionarMembershipIn(BaseModel):
+    membership_id: str = Field(min_length=1, max_length=64)
+
+
 class AdminStepUpIn(BaseModel):
     senha: str = Field(min_length=1, max_length=1024)
 
@@ -54,6 +58,8 @@ class AdminStepUpIn(BaseModel):
 class _SessaoOperacional:
     session_id: str
     usuario_id: str
+    identity_user_id: str
+    membership_id: str
     email: str
     tenant_id: str
     unidade_ativa_id: str
@@ -112,6 +118,8 @@ class _GerenciadorSessaoOperacional:
         sessao = _SessaoOperacional(
             session_id=secrets.token_urlsafe(32),
             usuario_id=identidade.usuario_id,
+            identity_user_id=identidade.global_identity_id,
+            membership_id=identidade.membership_subject_id,
             email=identidade.email,
             tenant_id=identidade.tenant_id,
             unidade_ativa_id=identidade.unidade_id,
@@ -142,6 +150,31 @@ class _GerenciadorSessaoOperacional:
             sessao,
             session_id=secrets.token_urlsafe(32),
             unidade_ativa_id=unidade_id,
+            admin_elevado_ate=None,
+        )
+        with self._lock:
+            corrente = self._sessions.get(sessao.session_id)
+            if corrente != sessao:
+                raise _SessaoInvalida("sessao invalida")
+            self._sessions.pop(sessao.session_id, None)
+            self._sessions[atualizada.session_id] = atualizada
+        return atualizada, self._token(atualizada.session_id)
+
+    def trocar_membership(
+        self,
+        sessao: _SessaoOperacional,
+        *,
+        identidade: IdentidadeUsuario,
+    ) -> tuple[_SessaoOperacional, str]:
+        atualizada = replace(
+            sessao,
+            session_id=secrets.token_urlsafe(32),
+            usuario_id=identidade.usuario_id,
+            identity_user_id=identidade.global_identity_id,
+            membership_id=identidade.membership_subject_id,
+            email=identidade.email,
+            tenant_id=identidade.tenant_id,
+            unidade_ativa_id=identidade.unidade_id,
             admin_elevado_ate=None,
         )
         with self._lock:
@@ -223,11 +256,13 @@ class AuthSessionRuntime:
         with self._session_factory() as session:
             identidade = RepositorioIdentidadesSQLAlchemy(
                 session
-            ).obter_por_id(usuario_id=sessao.usuario_id)
+            ).obter_por_id(usuario_id=sessao.membership_id)
         if (
             identidade is None
             or not identidade.ativo
             or identidade.email != sessao.email
+            or identidade.global_identity_id != sessao.identity_user_id
+            or identidade.membership_subject_id != sessao.membership_id
             or identidade.tenant_id != sessao.tenant_id
         ):
             raise _SessaoInvalida("sessao invalida")
@@ -423,6 +458,77 @@ def build_auth_router(
         _aplicar_cookie(response, novo_token)
         return response
 
+
+    @router.get("/memberships")
+    def memberships(request: Request) -> JSONResponse:
+        try:
+            _, _, identidade = runtime.sessao_autenticada(request)
+            with session_factory() as session:
+                memberships_autorizados = RepositorioIdentidadesSQLAlchemy(
+                    session
+                ).listar_memberships(
+                    identity_user_id=identidade.global_identity_id,
+                    product_code=identidade.product_code,
+                )
+            content = [
+                {
+                    "membership_id": item.membership_subject_id,
+                    "tenant_id": item.tenant_id,
+                    "product_code": item.product_code,
+                    "unidade_padrao_id": item.unidade_id,
+                    "ativo": item.ativo,
+                    "atual": item.membership_subject_id
+                    == identidade.membership_subject_id,
+                }
+                for item in memberships_autorizados
+                if item.ativo
+            ]
+            return JSONResponse(status_code=status.HTTP_200_OK, content=content)
+        except _SessaoInvalida:
+            return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
+        except (ReferenciaSegredoInvalida, SegredoAusente, _SegredoSessaoInseguro):
+            return _erro(status.HTTP_503_SERVICE_UNAVAILABLE, "auth.sessao_indisponivel")
+
+    @router.post("/select-membership")
+    def selecionar_membership(
+        payload: SelecionarMembershipIn,
+        request: Request,
+    ) -> JSONResponse:
+        try:
+            manager, sessao, identidade = runtime.sessao_autenticada(request)
+        except _SessaoInvalida:
+            return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
+        except (ReferenciaSegredoInvalida, SegredoAusente, _SegredoSessaoInseguro):
+            return _erro(status.HTTP_503_SERVICE_UNAVAILABLE, "auth.sessao_indisponivel")
+
+        with session_factory() as session:
+            alvo = RepositorioIdentidadesSQLAlchemy(session).obter_por_id(
+                usuario_id=payload.membership_id
+            )
+        if (
+            alvo is None
+            or not alvo.ativo
+            or alvo.global_identity_id != identidade.global_identity_id
+            or alvo.product_code != identidade.product_code
+        ):
+            return _erro(status.HTTP_403_FORBIDDEN, "seguranca.recurso_indisponivel")
+
+        try:
+            _, novo_token = manager.trocar_membership(sessao, identidade=alvo)
+        except _SessaoInvalida:
+            return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
+
+        response = JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "membership_id": alvo.membership_subject_id,
+                "tenant_id": alvo.tenant_id,
+                "unidade_ativa_id": alvo.unidade_id,
+            },
+        )
+        _aplicar_cookie(response, novo_token)
+        return response
+
     @router.get("/admin-status")
     def admin_status(request: Request) -> JSONResponse:
         try:
@@ -451,7 +557,7 @@ def build_auth_router(
                 confirmada = ServicoAutenticacao(
                     RepositorioIdentidadesSQLAlchemy(session)
                 ).autenticar(email=identidade.email, password=payload.senha)
-            if confirmada.usuario_id != identidade.usuario_id:
+            if confirmada.global_identity_id != identidade.global_identity_id:
                 return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
 
             elevada, novo_token = manager.elevar_admin(sessao)

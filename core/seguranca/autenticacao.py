@@ -110,6 +110,9 @@ class IdentidadeUsuario:
     unidades_permitidas: frozenset[str]
     ativo: bool = True
     acesso_admin_sensivel: bool = False
+    identity_user_id: str | None = None
+    membership_id: str | None = None
+    product_code: str = "KORDENA"
 
     def __post_init__(self) -> None:
         obrigatorios = (
@@ -125,6 +128,20 @@ class IdentidadeUsuario:
             raise ValueError("usuario deve possuir ao menos um papel")
         if self.unidade_id not in self.unidades_permitidas:
             raise ValueError("unidade ativa deve estar no escopo do usuario")
+        if self.identity_user_id is not None and not self.identity_user_id.strip():
+            raise ValueError("identity_user_id invalido")
+        if self.membership_id is not None and not self.membership_id.strip():
+            raise ValueError("membership_id invalido")
+        if not self.product_code.strip():
+            raise ValueError("product_code invalido")
+
+    @property
+    def global_identity_id(self) -> str:
+        return self.identity_user_id or self.usuario_id
+
+    @property
+    def membership_subject_id(self) -> str:
+        return self.membership_id or self.usuario_id
 
     @property
     def permissoes(self) -> frozenset[Permissao]:
@@ -179,6 +196,9 @@ class IdentidadeUsuario:
             solicitado_em=solicitado_em or datetime.now(timezone.utc),
             origem=origem,
             unidades_permitidas=self.unidades_permitidas,
+            identity_user_id=self.global_identity_id,
+            membership_id=self.membership_subject_id,
+            product_code=self.product_code,
         )
 
 
