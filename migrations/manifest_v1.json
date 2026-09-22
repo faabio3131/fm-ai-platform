@@ -224,6 +224,10 @@
     {
       "version": "0055_commercial_trial_v1",
       "sha256": "99211bb96cc797d0bc1aa48334fccac2c26b73d80b29dc6df64432806eff3c6b"
+    },
+    {
+      "version": "0056_commercial_subscription_v1",
+      "sha256": "0e05619d90259dcc1cc0cd8c83f19605be052934166c5d30c5e3594f43e298ff"
     }
   ]
 }
