@@ -256,6 +256,7 @@ class RepositorioIdentidadesSQLAlchemy:
         senha_hash = hash_password(password)
         pin_hash = hash_admin_pin(admin_pin) if admin_pin is not None else None
 
+        membership_criada: IdentityMembershipORM | None = None
         if self._global_disponivel():
             agora = _agora()
             self._session.add(
@@ -268,10 +269,9 @@ class RepositorioIdentidadesSQLAlchemy:
                     criado_em=agora,
                     atualizado_em=agora,
                 )
-            )
+            self._session.add(membership_criada)
             self._session.flush()
-            self._session.add(
-                IdentityMembershipORM(
+            membership_criada = IdentityMembershipORM(
                     membership_id=uid,
                     identity_user_id=uid,
                     product_code=_PRODUCT_CODE_KORDENA,
@@ -328,7 +328,9 @@ class RepositorioIdentidadesSQLAlchemy:
             ]
         )
         self._session.flush()
-        identidade = self.obter_por_id(usuario_id=uid)
+        if membership_criada is not None:
+            return self._membership_para_identidade(membership_criada)
+        identidade = self._legacy_por_email(normalizado)
         if identidade is None:
             raise RuntimeError("falha ao reconstruir identidade persistida")
         return identidade

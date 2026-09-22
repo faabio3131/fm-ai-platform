@@ -93,9 +93,9 @@ from migrations.fiscal_profile_environment_partition_v1 import (
     upgrade_fiscal_profile_environment_partition_v1,
 )
 from migrations.fiscal_smart_intake_v1 import upgrade_fiscal_smart_intake_v1
+from migrations.global_identity_membership_v1 import upgrade_global_identity_membership_v1
 from migrations.history_guard import MigrationHistoryError, assert_applied_history
 from migrations.integration_secret_vault_v1 import upgrade_integration_secret_vault_v1
-from migrations.global_identity_membership_v1 import upgrade_global_identity_membership_v1
 from migrations.internal_notification_recipients_v1 import (
     upgrade_internal_notification_recipients_v1,
 )
