@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from core.comercial.catalogo import normalizar_plan_code
 from core.comercial.entitlement import (
+    CapabilityEntitlement,
     DecisaoEntitlement,
     EntitlementNegado,
     EstadoComercial,
@@ -112,7 +113,7 @@ class AplicacaoEntitlementComercialV1:
         if until <= instante:
             raise DadoComercialInvalido("entitlement_valid_until_invalido")
         plan = normalizar_plan_code(plan_code) if plan_code is not None else None
-        payload = {
+        payload: dict[str, object] = {
             "product_account_id": account_id,
             "tenant_id": tenant,
             "commercial_state": estado.value,
@@ -155,7 +156,7 @@ class AplicacaoEntitlementComercialV1:
                     raise EntitlementNegado("tenant_product_account_mismatch")
 
                 plan_version = None
-                capabilities = ()
+                capabilities: tuple[CapabilityEntitlement, ...] = ()
                 if plan is not None:
                     plan_record = catalog.obter_plano_por_codigo(plan_code=plan)
                     if plan_record is None:
@@ -299,7 +300,12 @@ class AplicacaoEntitlementComercialV1:
         try:
             account_id = str(payload["product_account_id"]).strip()
             tenant_id = str(payload["tenant_id"]).strip()
-            revision = int(payload["revision"])
+            raw_revision = payload["revision"]
+            if isinstance(raw_revision, bool) or not isinstance(
+                raw_revision, (str, int)
+            ):
+                raise ValueError("revision_invalida")
+            revision = int(raw_revision)
             state = normalizar_estado_comercial(str(payload["commercial_state"]))
             access_mode = ModoAcessoComercial(str(payload["access_mode"]))
             capabilities_payload = payload["capabilities"]
@@ -316,6 +322,10 @@ class AplicacaoEntitlementComercialV1:
                 "entitlement_event_capabilities_invalidas"
             )
         capabilities = desserializar_capabilities(capabilities_payload)
+        serialized_capabilities: dict[str, object] = {
+            key: value
+            for key, value in serializar_capabilities(capabilities).items()
+        }
         effective = utc(effective_from)
         until = utc(valid_until)
         plan_code_raw = payload.get("plan_code")
@@ -343,7 +353,7 @@ class AplicacaoEntitlementComercialV1:
                 plan_code=plan_code,
                 plan_version_id=plan_version_id,
                 access_mode=access_mode,
-                capabilities_json=serializar_capabilities(capabilities),
+                capabilities_json=serialized_capabilities,
                 effective_from=effective,
                 valid_until=until,
                 received_at=received,
