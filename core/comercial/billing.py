@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Protocol
@@ -266,7 +267,7 @@ class BillingProvider(Protocol):
         self,
         *,
         payload: bytes,
-        signature: str,
+        headers: Mapping[str, str],
         context: BillingCallContext,
         credential: SecretValue,
     ) -> WebhookVerificationResult: ...
