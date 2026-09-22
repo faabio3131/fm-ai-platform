@@ -15,15 +15,18 @@ Implementar, antes do KCA-10, a camada configurável de contas recebedoras da FM
 3. Permitir ambientes SANDBOX e PRODUCTION.
 4. Permitir métodos de pagamento por conta.
 5. Permitir capacidades de recorrência e webhooks por conta.
-6. Persistir somente referências de segredo, nunca credenciais.
-7. Criar Provider Adapter Registry em runtime.
-8. Criar teste de conexão não financeiro.
-9. Criar políticas de roteamento com conta primária e fallbacks ordenados.
-10. Resolver rota de pagamento de forma determinística e fail-closed.
-11. Proteger administração com RBAC + step-up existente.
-12. Auditar criação, alteração, teste, ativação e roteamento.
-13. Expor contrato administrativo que o FM Control Center poderá consumir futuramente.
-14. Manter billing SaaS da FM separado dos pagamentos operacionais do Kordena.
+6. Permitir conta DRAFT sem credencial e onboarding posterior pelo FM Control Center.
+7. Persistir somente referências de segredo, nunca credenciais em claro.
+8. Reutilizar o Secret Vault cifrado existente para converter credenciais digitadas em referências `vault:*`.
+9. Criar Provider Adapter Registry em runtime.
+10. Criar teste de conexão não financeiro.
+11. Criar políticas de roteamento com conta primária e fallbacks ordenados.
+12. Permitir que routing policies exijam recorrência e/ou webhooks.
+13. Resolver rota de pagamento de forma determinística e fail-closed.
+14. Proteger administração com RBAC + step-up existente.
+15. Auditar criação, alteração, credencial, teste, ativação e roteamento.
+16. Expor contrato administrativo que o FM Control Center poderá consumir futuramente.
+17. Manter billing SaaS da FM separado dos pagamentos operacionais do Kordena.
 
 ### Fora de escopo
 - provider financeiro real;
@@ -70,7 +73,9 @@ DRAFT → VALIDATING → ACTIVE → SUSPENDED | DISABLED
 
 ### Regras
 - provider_code é configurável, não uma enumeração fechada.
-- credencial é sempre secret reference.
+- conta pode permanecer DRAFT sem credencial até a empresa possuir conta/credenciais reais.
+- credencial digitada pela administração deve ser cifrada no Secret Vault; a configuração persiste somente `vault:*`/secret reference.
+- referências `vault:*` devem pertencer ao mesmo tenant/unidade administrativo.
 - conta PRODUCTION não pode ser ativada sem teste de conexão PASS.
 - policy só pode apontar para contas ACTIVE, compatíveis com ambiente e método.
 - primary/fallback não podem se repetir.
