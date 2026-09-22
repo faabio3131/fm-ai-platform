@@ -1,6 +1,6 @@
 # KCA-02 — Global Identity + Memberships
 
-**Status:** IMPLEMENTAÇÃO CANDIDATA — AGUARDA CI / GATE KCA-G2
+**Status:** CERTIFICADO — KCA-G2 PASS
 **Base KCA-01 certificada:** `c623dd4a8bef04105b720d80c7d44b97bce00189`
 
 ## Objetivo
@@ -57,3 +57,54 @@ Essa igualdade inicial não transforma os conceitos em uma única autoridade.
 
 Signup público, trial, planos/pricing, entitlement, subscription e billing
 permanecem não iniciados.
+
+
+## Audit & Fix executado
+
+A implementação foi submetida aos gates KCA e transversais. Durante o ciclo de
+certificação foram identificadas e corrigidas causas-raiz reais, sem reduzir
+cobertura:
+
+1. inspeção de existência do schema global usando o `Engine` podia trocar a
+   conexão de SQLite em memória; a detecção passou a usar a conexão ativa da
+   própria `Session`;
+2. criação/reconstrução de identidade global foi estabilizada para preservar a
+   mesma transação e a ponte de compatibilidade com o usuário V1;
+3. import ordering e classe declarativa foram ajustados aos gates Ruff;
+4. schema baseline foi atualizado para a migration 0050;
+5. expectativas históricas do runtime foram reconciliadas com a nova migration,
+   sem alterar migrations anteriores.
+
+## Certificação do candidate
+
+**Candidate SHA:** `b67b1e82459657b691bac8429af501548edb9ac5`
+
+Workflow KCA: **Kordena KCA Commercial Gate** — run `35683797426` — **SUCCESS**.
+
+Evidências:
+
+- migration manifest: PASS;
+- schema baseline: PASS — **109 tabelas**;
+- schema SHA-256:
+  `6792e66af3402609e367344cf50b4b7f19d8369404fe3153616f4248e1f7fcab`;
+- Ruff: PASS;
+- mypy: PASS — **30 source files**;
+- KCA/security targeted: **71 passed, 0 failed**;
+- full Python regression: **1669 passed, 5 skipped, 102 warnings**;
+- Web ESLint: PASS;
+- TypeScript: PASS;
+- Web Node: **11 passed, 0 failed**;
+- Next production build: PASS;
+- diff whitespace: PASS.
+
+Todos os **16 workflows** disparados no candidate concluíram em **SUCCESS**,
+incluindo WP-031 Master Gate, WP-031 B/E/F/G/H/I/J/L, Pre-E Audit & Fix,
+Web Parity WP022, Commercial Runtime Readiness, Schema Baseline e Assistente.
+
+## Gate
+
+**KCA-G2: PASS.**
+
+A arquitetura agora suporta uma identidade humana global com memberships
+isolados por produto/tenant. O KCA-03 e blocos posteriores permanecem não
+iniciados.
