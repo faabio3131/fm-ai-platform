@@ -20,6 +20,7 @@ from core.comercial.erros import (
 )
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.segredos import ReferenceSecretStore, SecretStore
+from infra.comercial.billing_payload_crypto import BillingWebhookPayloadCipher
 
 _MAX_BILLING_WEBHOOK_BYTES = 1024 * 1024
 
@@ -31,6 +32,7 @@ def build_commercial_billing_webhook_router(
     session_factory: SessionFactory,
     adapter_registry: BillingProviderAdapterRegistryV1 | None = None,
     fallback_secret_store: SecretStore | None = None,
+    payload_cipher: BillingWebhookPayloadCipher | None = None,
 ) -> APIRouter:
     router = APIRouter(
         prefix="/v1/commercial/billing",
@@ -40,6 +42,7 @@ def build_commercial_billing_webhook_router(
         session_factory,
         adapter_registry=adapter_registry or BillingProviderAdapterRegistryV1(),
         fallback_secret_store=fallback_secret_store or ReferenceSecretStore(),
+        payload_cipher=payload_cipher,
     )
 
     @router.post(
@@ -103,6 +106,14 @@ def build_commercial_billing_webhook_router(
                 content={
                     "accepted": False,
                     "code": "billing_provider_account_not_found",
+                },
+            )
+        except RuntimeError:
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={
+                    "accepted": False,
+                    "code": "billing_webhook_crypto_unavailable",
                 },
             )
         except (DadoComercialInvalido, PermissionError):
