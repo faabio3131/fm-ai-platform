@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import uuid4
@@ -363,7 +364,7 @@ class AplicacaoBillingEventsV1:
         contexto: ContextoExecucao,
         provider_account_id: str,
         payload: bytes,
-        signature: str,
+        headers: Mapping[str, str],
     ) -> FMBillingWebhookInboxORM:
         account_id = provider_account_id.strip()
         if not account_id or not payload:
@@ -383,7 +384,7 @@ class AplicacaoBillingEventsV1:
             )
             verification = gateway.verify_webhook(
                 payload=payload,
-                signature=signature,
+                headers={str(k).casefold(): str(v) for k, v in headers.items()},
                 context=call_context,
             )
             event_id = (
