@@ -83,7 +83,9 @@ def normalizar_plan_code(valor: str) -> str:
 
 
 def normalizar_currency(valor: str) -> str:
-    currency = _texto(valor, "currency", max_length=3, upper=True)
+    if not isinstance(valor, str) or not valor.strip():
+        raise DadoComercialInvalido("currency_invalida")
+    currency = valor.strip().upper()
     if len(currency) != 3 or not currency.isalpha():
         raise DadoComercialInvalido("currency_invalida")
     return currency

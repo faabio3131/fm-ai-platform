@@ -6,7 +6,10 @@ from migrations.runner import DEFAULT_MIGRATIONS, run_migrations
 
 
 def test_kca02_migration_e_tabelas_estao_no_registry_canonico() -> None:
-    assert DEFAULT_MIGRATIONS[-1].version == "0050_global_identity_membership_v1"
+    assert any(
+        migration.version == "0050_global_identity_membership_v1"
+        for migration in DEFAULT_MIGRATIONS
+    )
 
     engine = create_engine("sqlite:///:memory:")
     run_migrations(engine)

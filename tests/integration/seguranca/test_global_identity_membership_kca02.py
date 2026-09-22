@@ -14,7 +14,12 @@ from migrations.runner import DEFAULT_MIGRATIONS, run_migrations
 
 def test_upgrade_backfill_preserva_usuario_legado_como_identidade_global() -> None:
     engine = create_engine("sqlite:///:memory:")
-    run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:-1])
+    migration_index = next(
+        index
+        for index, migration in enumerate(DEFAULT_MIGRATIONS)
+        if migration.version == "0050_global_identity_membership_v1"
+    )
+    run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:migration_index])
 
     with Session(engine) as session:
         legado = RepositorioIdentidadesSQLAlchemy(session).criar_usuario(
@@ -29,9 +34,10 @@ def test_upgrade_backfill_preserva_usuario_legado_como_identidade_global() -> No
         session.commit()
         assert legado.identity_user_id is None
 
-    assert run_migrations(engine, migrations=(DEFAULT_MIGRATIONS[-1],)) == (
-        "0050_global_identity_membership_v1",
-    )
+    assert run_migrations(
+        engine,
+        migrations=(DEFAULT_MIGRATIONS[migration_index],),
+    ) == ("0050_global_identity_membership_v1",)
 
     tabelas = set(inspect(engine).get_table_names())
     assert {
