@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from enum import StrEnum
 from typing import Any
 
@@ -108,7 +108,7 @@ def normalizar_reason(valor: str) -> str:
     return _texto(valor, "change_reason", max_length=255)
 
 
-def decimal_monetario(valor: Decimal | str | int | float) -> Decimal:
+def decimal_monetario(valor: Decimal | str | float) -> Decimal:
     try:
         result = Decimal(str(valor)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     except (InvalidOperation, ValueError) as exc:
@@ -118,7 +118,7 @@ def decimal_monetario(valor: Decimal | str | int | float) -> Decimal:
     return result
 
 
-def decimal_limite(valor: Decimal | str | int | float | None) -> Decimal | None:
+def decimal_limite(valor: Decimal | str | float | None) -> Decimal | None:
     if valor is None:
         return None
     try:
@@ -146,7 +146,7 @@ def validar_intervalo(inicio: datetime, fim: datetime | None) -> tuple[datetime,
 
 def validar_desconto(
     tipo: TipoDescontoPromocao,
-    valor: Decimal | str | int | float,
+    valor: Decimal | str | float,
     currency: str | None,
 ) -> tuple[Decimal, str | None]:
     amount = decimal_monetario(valor)
