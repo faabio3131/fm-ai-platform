@@ -11,7 +11,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, Request, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, SecretStr
 from sqlalchemy.orm import Session
 
 from application.comercial_registry import AplicacaoCommercialRegistryV1
@@ -154,7 +154,9 @@ class BillingProviderAccountCreateIn(BaseModel):
     display_name: str = Field(min_length=1, max_length=128)
     legal_entity_ref: str | None = Field(default=None, max_length=128)
     environment: BillingEnvironment
-    credential_secret_reference: str = Field(min_length=3, max_length=255)
+    credential_secret_reference: str | None = Field(
+        default=None, min_length=3, max_length=255
+    )
     supported_payment_methods: list[BillingPaymentMethod] = Field(min_length=1)
     supports_recurring: bool = False
     supports_webhooks: bool = False
@@ -167,11 +169,20 @@ class BillingProviderAccountUpdateIn(BaseModel):
     expected_version: int = Field(ge=1)
     display_name: str = Field(min_length=1, max_length=128)
     legal_entity_ref: str | None = Field(default=None, max_length=128)
-    credential_secret_reference: str = Field(min_length=3, max_length=255)
+    credential_secret_reference: str | None = Field(
+        default=None, min_length=3, max_length=255
+    )
     supported_payment_methods: list[BillingPaymentMethod] = Field(min_length=1)
     supports_recurring: bool = False
     supports_webhooks: bool = False
     priority: int = Field(default=100, ge=0, le=100000)
+
+
+class BillingProviderCredentialIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_version: int = Field(ge=1)
+    credential: SecretStr
 
 
 class BillingProviderConnectionTestIn(BaseModel):
@@ -823,6 +834,27 @@ def build_admin_comercial_router(
                     supports_recurring=payload.supports_recurring,
                     supports_webhooks=payload.supports_webhooks,
                     priority=payload.priority,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            return _erro_comercial(exc)
+
+    @router.post(
+        "/billing/provider-accounts/{provider_account_id}/credential",
+        response_model=None,
+    )
+    def armazenar_billing_provider_credential(
+        provider_account_id: str,
+        payload: BillingProviderCredentialIn,
+        request: Request,
+    ) -> Any:
+        try:
+            return _billing_provider_out(
+                billing_app.armazenar_credencial(
+                    contexto=contexto(request),
+                    provider_account_id=provider_account_id,
+                    expected_version=payload.expected_version,
+                    credential_value=payload.credential.get_secret_value(),
                 )
             )
         except Exception as exc:  # noqa: BLE001
