@@ -269,22 +269,22 @@ class RepositorioIdentidadesSQLAlchemy:
                     criado_em=agora,
                     atualizado_em=agora,
                 )
-            self._session.add(membership_criada)
+            )
             self._session.flush()
             membership_criada = IdentityMembershipORM(
-                    membership_id=uid,
-                    identity_user_id=uid,
-                    product_code=_PRODUCT_CODE_KORDENA,
-                    tenant_id=tenant,
-                    unidade_padrao_id=padrao,
-                    ativo=True,
-                    acesso_admin_sensivel=bool(acesso_admin_sensivel),
-                    padrao=True,
-                    legacy_usuario_id=uid,
-                    criado_em=agora,
-                    atualizado_em=agora,
-                )
+                membership_id=uid,
+                identity_user_id=uid,
+                product_code=_PRODUCT_CODE_KORDENA,
+                tenant_id=tenant,
+                unidade_padrao_id=padrao,
+                ativo=True,
+                acesso_admin_sensivel=bool(acesso_admin_sensivel),
+                padrao=True,
+                legacy_usuario_id=uid,
+                criado_em=agora,
+                atualizado_em=agora,
             )
+            self._session.add(membership_criada)
             self._session.flush()
             self._session.add_all(
                 [
@@ -319,7 +319,10 @@ class RepositorioIdentidadesSQLAlchemy:
         )
         self._session.flush()
         self._session.add_all(
-            [UsuarioPapelORM(usuario_id=uid, papel=papel.value) for papel in papeis_set]
+            [
+                UsuarioPapelORM(usuario_id=uid, papel=papel.value)
+                for papel in papeis_set
+            ]
         )
         self._session.add_all(
             [
@@ -328,6 +331,7 @@ class RepositorioIdentidadesSQLAlchemy:
             ]
         )
         self._session.flush()
+
         if membership_criada is not None:
             return self._membership_para_identidade(membership_criada)
         identidade = self._legacy_por_email(normalizado)
