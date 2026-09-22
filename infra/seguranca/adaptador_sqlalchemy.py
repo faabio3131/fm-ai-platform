@@ -43,8 +43,7 @@ class RepositorioIdentidadesSQLAlchemy:
         self._session = session
 
     def _global_disponivel(self) -> bool:
-        bind = self._session.get_bind()
-        return bool(bind is not None and inspect(bind).has_table("fm_identity_users_v1"))
+        return inspect(self._session.connection()).has_table("fm_identity_users_v1")
 
     def _membership_para_identidade(
         self,
