@@ -18,6 +18,7 @@ from application.commercial_provisioning import AplicacaoProvisioningKordenaV1
 from core.comercial.erros import DadoComercialInvalido, RegistroComercialDuplicado
 from core.comercial.signup import EstadoSignup, SignupIntent
 from core.seguranca.segredos import SecretStore
+from infra.comercial.modelos_orm import CommercialAuditORM
 from infra.comercial.signup_orm import FMPublicSignupIntentORM
 from infra.comercial.signup_sqlalchemy import RepositorioPublicSignupSQLAlchemy
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
@@ -168,6 +169,21 @@ class AplicacaoPublicSignupV1:
                         version=1,
                     )
                 )
+                session.add(
+                    CommercialAuditORM(
+                        audit_id=str(uuid4()),
+                        actor_user_id="public-signup-v1",
+                        action="commercial.signup.created",
+                        aggregate_type="public_signup",
+                        aggregate_id=signup.signup_id,
+                        result="success",
+                        reason="KCA-06 public signup intent",
+                        correlation_id=signup.correlation_id,
+                        causation_id=None,
+                        metadata_safe={"status": signup.status.value},
+                        timestamp=now,
+                    )
+                )
         except IntegrityError as exc:
             raise RegistroComercialDuplicado("signup_indisponivel") from exc
         return SignupCreationResult(signup=signup, verification_token=token)
@@ -232,6 +248,21 @@ class AplicacaoPublicSignupV1:
                     ),
                 },
             )
+            session.add(
+                CommercialAuditORM(
+                    audit_id=str(uuid4()),
+                    actor_user_id="public-signup-v1",
+                    action="commercial.signup.email_verified",
+                    aggregate_type="public_signup",
+                    aggregate_id=signup.signup_id,
+                    result="success",
+                    reason="KCA-06 email verification",
+                    correlation_id=signup.correlation_id,
+                    causation_id=None,
+                    metadata_safe={"status": signup.status.value},
+                    timestamp=now,
+                )
+            )
 
         password = self._decrypt_password(signup.credential_ciphertext)
         try:
@@ -273,6 +304,21 @@ class AplicacaoPublicSignupV1:
                             "last_error": f"{type(exc).__name__}:{str(exc)[:300]}",
                         },
                     )
+                    session.add(
+                        CommercialAuditORM(
+                            audit_id=str(uuid4()),
+                            actor_user_id="public-signup-v1",
+                            action="commercial.signup.provisioning_failed",
+                            aggregate_type="public_signup",
+                            aggregate_id=current.signup_id,
+                            result="failure",
+                            reason="KCA-06 provisioning retryable failure",
+                            correlation_id=current.correlation_id,
+                            causation_id=current.provisioning_id,
+                            metadata_safe={"status": EstadoSignup.FAILED_RETRYABLE.value},
+                            timestamp=_now(),
+                        )
+                    )
             raise
 
         with self._session_factory() as session, session.begin():
@@ -280,7 +326,7 @@ class AplicacaoPublicSignupV1:
             current = repo.obter(signup.signup_id)
             if current is None:
                 raise SignupVerificationError("signup_not_found")
-            return repo.atualizar(
+            completed = repo.atualizar(
                 signup_id=current.signup_id,
                 expected_version=current.version,
                 values={
@@ -290,3 +336,19 @@ class AplicacaoPublicSignupV1:
                     "last_error": None,
                 },
             )
+            session.add(
+                CommercialAuditORM(
+                    audit_id=str(uuid4()),
+                    actor_user_id="public-signup-v1",
+                    action="commercial.signup.ready",
+                    aggregate_type="public_signup",
+                    aggregate_id=completed.signup_id,
+                    result="success",
+                    reason="KCA-06 signup provisioning completed",
+                    correlation_id=completed.correlation_id,
+                    causation_id=ready.provisioning_id,
+                    metadata_safe={"status": completed.status.value},
+                    timestamp=_now(),
+                )
+            )
+            return completed
