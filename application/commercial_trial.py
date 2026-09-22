@@ -100,18 +100,21 @@ class AplicacaoTrialComercialV1:
         if not contexto.identidade_sistema and contexto.tenant_id != tenant_id:
             raise PermissionError("seguranca.tenant_nao_autorizado")
 
-    def _select_trial_plan(self, *, instante: datetime):
-        with self._session_factory() as session:
-            catalog = RepositorioCatalogoComercialSQLAlchemy(session)
-            for plan in catalog.listar_planos(product_code="KORDENA"):
-                if plan.status != StatusRegistroCatalogo.CONFIGURED:
-                    continue
-                version = catalog.versao_efetiva_plano(
-                    plan_id=plan.plan_id,
-                    instante=instante,
-                )
-                if version is not None and version.trial_eligible:
-                    return plan, version
+    @staticmethod
+    def _select_trial_plan(
+        *,
+        catalog: RepositorioCatalogoComercialSQLAlchemy,
+        instante: datetime,
+    ):
+        for plan in catalog.listar_planos(product_code="KORDENA"):
+            if plan.status != StatusRegistroCatalogo.CONFIGURED:
+                continue
+            version = catalog.versao_efetiva_plano(
+                plan_id=plan.plan_id,
+                instante=instante,
+            )
+            if version is not None and version.trial_eligible:
+                return plan, version
         raise RegistroComercialNaoEncontrado("trial_eligible_plan_not_found")
 
     def _project(self, snapshot: SnapshotEntitlement) -> None:
@@ -227,6 +230,7 @@ class AplicacaoTrialComercialV1:
             with self._session_factory() as session, session.begin():
                 shared = RepositorioComercialSQLAlchemy(session)
                 trials = RepositorioTrialComercialSQLAlchemy(session)
+                catalog = RepositorioCatalogoComercialSQLAlchemy(session)
                 existing_key = shared.obter_idempotencia(
                     scope=scope,
                     idempotency_key=key,
@@ -287,7 +291,10 @@ class AplicacaoTrialComercialV1:
                         raise RegistroComercialNaoEncontrado(
                             "trial_effective_policy_not_found"
                         )
-                    plan, plan_version = self._select_trial_plan(instante=now)
+                    plan, plan_version = self._select_trial_plan(
+                        catalog=catalog,
+                        instante=now,
+                    )
                     trial_id = str(uuid4())
                     pending = trials.adicionar(
                         FMCommercialTrialORM(
