@@ -200,6 +200,10 @@
     {
       "version": "0049_commercial_registry_v1",
       "sha256": "284092661f4a2b1759ce58530bec2ef56e51aa713dc0268001df16cec450eb9b"
+    },
+    {
+      "version": "0050_global_identity_membership_v1",
+      "sha256": "d3941c930a3d18a26c91d9a5ed66d371c2747928129fbb34b67c7204082bbff3"
     }
   ]
 }
