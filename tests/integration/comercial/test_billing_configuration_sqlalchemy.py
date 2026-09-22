@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import pytest
+from cryptography.fernet import Fernet
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -22,8 +23,10 @@ from core.comercial.erros import (
     TransicaoComercialInvalida,
 )
 from core.seguranca.contexto import ContextoExecucao
+from core.seguranca.permissoes import Papel, Permissao
 from core.seguranca.segredos import ReferenceSecretStore, SecretValue
 from infra.comercial.billing_config_orm import FMBillingProviderAccountORM
+from infra.seguranca.segredos_orm import SegredoIntegracaoORM
 from migrations.runner import run_migrations
 
 
@@ -60,6 +63,20 @@ def _context() -> ContextoExecucao:
     )
 
 
+def _admin_context() -> ContextoExecucao:
+    return ContextoExecucao(
+        tenant_id="internal-fm",
+        unidade_id="internal-fm-hq",
+        usuario_id="fm-owner",
+        papeis=frozenset({Papel.ADMINISTRADOR}),
+        permissoes=frozenset({Permissao.INTEGRACAO_GERENCIAR}),
+        correlation_id="corr-kca09b-admin",
+        solicitado_em=datetime.now(timezone.utc),
+        origem="kca09b-test",
+        unidades_permitidas=frozenset({"internal-fm-hq"}),
+    )
+
+
 def _infra(*providers: FakeConfigProvider):
     engine = create_engine(
         "sqlite://",
@@ -89,7 +106,7 @@ def _create_account(
     *,
     key: str,
     provider_code: str,
-    secret_ref: str,
+    secret_ref: str | None,
     environment: BillingEnvironment = BillingEnvironment.PRODUCTION,
     methods: tuple[BillingPaymentMethod, ...] = (
         BillingPaymentMethod.PIX,
@@ -349,3 +366,53 @@ def test_provider_account_idempotency_and_secret_value_never_persisted() -> None
         )
     assert "definitely-fake-secret" not in persisted
     assert "mapping:alpha" in persisted
+
+
+
+def test_credential_can_be_added_later_via_encrypted_vault(
+    monkeypatch,
+) -> None:
+    raw_secret = "future-company-account-secret-test-only"
+    monkeypatch.setenv(
+        "FM_AI_SECRET_MASTER_KEY",
+        Fernet.generate_key().decode("ascii"),
+    )
+    provider = FakeConfigProvider("PROVIDER_ALPHA")
+    _, factory, app = _infra(provider)
+    account = _create_account(
+        app,
+        key="draft-without-secret",
+        provider_code="PROVIDER_ALPHA",
+        secret_ref=None,
+    )
+    assert account.status == BillingProviderAccountStatus.DRAFT
+    assert account.credential_secret_reference is None
+
+    rotated = app.armazenar_credencial(
+        contexto=_admin_context(),
+        provider_account_id=account.provider_account_id,
+        expected_version=account.version,
+        credential_value=raw_secret,
+    )
+    assert rotated.credential_secret_reference is not None
+    assert rotated.credential_secret_reference.startswith("vault:")
+    assert rotated.status == BillingProviderAccountStatus.VALIDATING
+    assert rotated.last_test_status == BillingConnectionTestStatus.NEVER
+
+    with factory() as session:
+        row = session.get(
+            SegredoIntegracaoORM,
+            rotated.credential_secret_reference,
+        )
+        assert row is not None
+        assert raw_secret not in row.ciphertext
+        assert row.tenant_id == "internal-fm"
+        assert row.unidade_id == "internal-fm-hq"
+
+    tested = app.testar_conexao(
+        contexto=_admin_context(),
+        provider_account_id=rotated.provider_account_id,
+        expected_version=rotated.version,
+    )
+    assert tested.ok is True
+    assert provider.seen_credentials == [raw_secret]
