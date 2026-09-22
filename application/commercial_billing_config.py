@@ -520,6 +520,8 @@ class AplicacaoBillingConfigurationV1:
         account_ids: tuple[str, ...],
         payment_method: BillingPaymentMethod,
         environment: BillingEnvironment,
+        requires_recurring: bool,
+        requires_webhooks: bool,
     ) -> tuple[BillingProviderAccount, ...]:
         if len(account_ids) != len(set(account_ids)):
             raise DadoComercialInvalido("billing_routing_account_duplicate")
@@ -542,6 +544,14 @@ class AplicacaoBillingConfigurationV1:
                 raise DadoComercialInvalido(
                     "billing_routing_payment_method_not_supported"
                 )
+            if requires_recurring and not account.supports_recurring:
+                raise DadoComercialInvalido(
+                    "billing_routing_recurring_not_supported"
+                )
+            if requires_webhooks and not account.supports_webhooks:
+                raise DadoComercialInvalido(
+                    "billing_routing_webhooks_not_supported"
+                )
             accounts.append(account)
         return tuple(accounts)
 
@@ -555,6 +565,8 @@ class AplicacaoBillingConfigurationV1:
         environment: BillingEnvironment,
         primary_provider_account_id: str,
         fallback_provider_account_ids: tuple[str, ...] = (),
+        requires_recurring: bool = False,
+        requires_webhooks: bool = False,
     ) -> BillingRoutingPolicy:
         key = _key(idempotency_key)
         product = normalizar_product_code(product_code)
@@ -568,6 +580,8 @@ class AplicacaoBillingConfigurationV1:
                 "product_code": product,
                 "payment_method": payment_method.value,
                 "environment": environment.value,
+                "requires_recurring": requires_recurring,
+                "requires_webhooks": requires_webhooks,
                 "primary_provider_account_id": primary,
                 "fallback_provider_account_ids": fallbacks,
             }
@@ -611,6 +625,8 @@ class AplicacaoBillingConfigurationV1:
                     account_ids=ordered,
                     payment_method=payment_method,
                     environment=environment,
+                    requires_recurring=requires_recurring,
+                    requires_webhooks=requires_webhooks,
                 )
                 policy_id = str(uuid4())
                 policy = repo.adicionar_routing_policy(
@@ -619,6 +635,8 @@ class AplicacaoBillingConfigurationV1:
                         product_code=product,
                         payment_method=payment_method.value,
                         environment=environment.value,
+                        requires_recurring=requires_recurring,
+                        requires_webhooks=requires_webhooks,
                         primary_provider_account_id=primary,
                         fallback_provider_account_ids=list(fallbacks),
                         active=True,
@@ -650,6 +668,8 @@ class AplicacaoBillingConfigurationV1:
                             "product_code": product,
                             "payment_method": payment_method.value,
                             "environment": environment.value,
+                            "requires_recurring": requires_recurring,
+                            "requires_webhooks": requires_webhooks,
                             "provider_account_count": len(ordered),
                         },
                         instante=instante,
@@ -670,6 +690,8 @@ class AplicacaoBillingConfigurationV1:
         primary_provider_account_id: str,
         fallback_provider_account_ids: tuple[str, ...],
         active: bool,
+        requires_recurring: bool,
+        requires_webhooks: bool,
     ) -> BillingRoutingPolicy:
         policy_id = routing_policy_id.strip()
         primary = primary_provider_account_id.strip()
@@ -689,6 +711,8 @@ class AplicacaoBillingConfigurationV1:
                     account_ids=(primary, *fallbacks),
                     payment_method=current.payment_method,
                     environment=current.environment,
+                    requires_recurring=requires_recurring,
+                    requires_webhooks=requires_webhooks,
                 )
             updated = repo.atualizar_routing_policy(
                 routing_policy_id=policy_id,
@@ -696,6 +720,8 @@ class AplicacaoBillingConfigurationV1:
                 values={
                     "primary_provider_account_id": primary,
                     "fallback_provider_account_ids": list(fallbacks),
+                    "requires_recurring": requires_recurring,
+                    "requires_webhooks": requires_webhooks,
                     "active": active,
                     "correlation_id": contexto.correlation_id,
                     "updated_by": self._actor(contexto),
@@ -713,6 +739,8 @@ class AplicacaoBillingConfigurationV1:
                         "product_code": updated.product_code,
                         "payment_method": updated.payment_method.value,
                         "environment": updated.environment.value,
+                        "requires_recurring": updated.requires_recurring,
+                        "requires_webhooks": updated.requires_webhooks,
                         "active": updated.active,
                         "provider_account_count": 1
                         + len(updated.fallback_provider_account_ids),
@@ -760,6 +788,10 @@ class AplicacaoBillingConfigurationV1:
                 if account.environment != environment:
                     continue
                 if payment_method not in account.supported_payment_methods:
+                    continue
+                if policy.requires_recurring and not account.supports_recurring:
+                    continue
+                if policy.requires_webhooks and not account.supports_webhooks:
                     continue
                 available.append(
                     BillingRouteAccount(
