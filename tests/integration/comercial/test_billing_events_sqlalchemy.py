@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
+from cryptography.fernet import Fernet
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -32,6 +33,7 @@ from core.comercial.erros import ConflitoIdempotenciaComercial
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.segredos import ReferenceSecretStore, SecretValue
 from infra.comercial.billing_config_orm import FMBillingProviderAccountORM
+from infra.comercial.billing_payload_crypto import BillingWebhookPayloadCipher
 from infra.comercial.billing_events_orm import (
     FMBillingReconciliationRunORM,
     FMBillingTransactionORM,
@@ -199,6 +201,9 @@ def _infra(*, max_attempts: int = 5):
         factory,
         adapter_registry=registry,
         fallback_secret_store=store,
+        payload_cipher=BillingWebhookPayloadCipher(
+            master_key=Fernet.generate_key().decode("ascii")
+        ),
         max_attempts=max_attempts,
         retry_base_seconds=1,
     )
@@ -266,6 +271,32 @@ def _insert_subscription(factory) -> None:
             )
         )
 
+
+
+
+def test_valid_webhook_is_persisted_encrypted_before_normalization_effects() -> None:
+    _, factory, _, app = _infra()
+    raw_payload = _payload(
+        event_id="evt-encrypted",
+        canonical=BillingCanonicalEventType.PAYMENT_SUCCEEDED,
+        sequence=1,
+        transaction_ref="tx-encrypted",
+        amount="12.34",
+    )
+    processed = _receive(app, raw_payload)
+    assert processed.status == BillingWebhookInboxStatus.PROCESSED.value
+
+    with factory() as session:
+        row = session.scalar(
+            select(FMBillingWebhookInboxORM).where(
+                FMBillingWebhookInboxORM.external_event_id == "evt-encrypted"
+            )
+        )
+        assert row is not None
+        assert row.payload_ciphertext
+        assert raw_payload.decode("utf-8") not in row.payload_ciphertext
+        assert row.normalized_payload is not None
+        assert row.body_hash
 
 def test_forged_signature_is_durable_rejected_without_financial_effect() -> None:
     _, factory, _, app = _infra()
