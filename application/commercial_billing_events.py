@@ -988,12 +988,32 @@ class AplicacaoBillingEventsV1:
                     last_sequence=cursor.last_provider_sequence,
                     last_occurred_at=cursor.last_occurred_at,
                 ):
-                    return self._mark_out_of_order(
-                        contexto=contexto,
-                        inbox=current,
-                        subscription_id=subscription_id,
-                        stream_key=stream_key,
+                    ignored = repo.atualizar_inbox(
+                        inbox_id=current.inbox_id,
+                        expected_version=current.version,
+                        values={
+                            "status": BillingWebhookInboxStatus.IGNORED_OUT_OF_ORDER.value,
+                            "subscription_id": subscription_id,
+                            "processed_at": instante,
+                            "last_error_code": "billing_event_out_of_order",
+                        },
                     )
+                    RepositorioComercialSQLAlchemy(session).adicionar_auditoria(
+                        self._audit(
+                            contexto=contexto,
+                            action="commercial.billing.webhook.out_of_order",
+                            aggregate_type="billing_webhook",
+                            aggregate_id=current.inbox_id,
+                            result="ignored",
+                            reason="KCA-10 ordering protection",
+                            metadata_safe={
+                                "stream_key": stream_key,
+                                "external_event_id": event.external_event_id,
+                            },
+                            instante=instante,
+                        )
+                    )
+                    return ignored
                 repo.atualizar_cursor(
                     cursor_id=cursor.cursor_id,
                     expected_version=cursor.version,
