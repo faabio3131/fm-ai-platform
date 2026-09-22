@@ -28,7 +28,9 @@ from core.comercial.provisioning import (
 )
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import Papel
-from infra.administracao.repositorio_sqlalchemy import RepositorioAdministracaoSQLAlchemy
+from infra.administracao.repositorio_sqlalchemy import (
+    RepositorioAdministracaoSQLAlchemy,
+)
 from infra.comercial.modelos_orm import CommercialAuditORM, CommercialOutboxORM
 from infra.comercial.provisioning_orm import FMCommercialProvisioningSagaORM
 from infra.comercial.provisioning_sqlalchemy import RepositorioProvisioningSQLAlchemy
