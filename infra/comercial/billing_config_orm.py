@@ -110,6 +110,12 @@ class FMBillingRoutingPolicyORM(BillingConfigBase):
     product_code: Mapped[str] = mapped_column(String(64), nullable=False)
     payment_method: Mapped[str] = mapped_column(String(32), nullable=False)
     environment: Mapped[str] = mapped_column(String(32), nullable=False)
+    requires_recurring: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    requires_webhooks: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
     primary_provider_account_id: Mapped[str] = mapped_column(
         String(64), nullable=False
     )
