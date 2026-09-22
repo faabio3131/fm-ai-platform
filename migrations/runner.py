@@ -60,6 +60,7 @@ from migrations.assistente_channel_runtime_v1 import (
 )
 from migrations.cardapio_publico_identity_v1 import upgrade_cardapio_publico_identity_v1
 from migrations.client_payment_identity_v1 import upgrade_client_payment_identity_v1
+from migrations.commercial_catalog_v1 import upgrade_commercial_catalog_v1
 from migrations.commercial_registry_v1 import upgrade_commercial_registry_v1
 from migrations.crm_cashback_ledger_v1 import upgrade_crm_cashback_ledger_v1
 from migrations.crm_cliente_legado_mapping_v1 import (
@@ -93,7 +94,6 @@ from migrations.fiscal_profile_environment_partition_v1 import (
     upgrade_fiscal_profile_environment_partition_v1,
 )
 from migrations.fiscal_smart_intake_v1 import upgrade_fiscal_smart_intake_v1
-from migrations.commercial_catalog_v1 import upgrade_commercial_catalog_v1
 from migrations.global_identity_membership_v1 import (
     upgrade_global_identity_membership_v1,
 )
