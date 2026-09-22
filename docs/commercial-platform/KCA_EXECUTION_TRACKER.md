@@ -16,7 +16,8 @@
 | KCA-G5 | PASS |
 | KCA-06 Public Signup + Verification | PASS — `1569253f69db951bdb1c5ac36a7c9908d40483b4` |
 | KCA-G6 | PASS |
-| KCA-07+ | NÃO INICIADO |
+| KCA-07 Trial Engine | EM EXECUÇÃO — baseline pós-G6 |
+| KCA-08+ | NÃO INICIADO |
 
 ## Baseline
 
@@ -138,3 +139,12 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - 17/17 workflows do candidate SHA: SUCCESS.
 - KCA-G6: PASS.
 - KCA-07+: NÃO INICIADO.
+
+
+## Execução KCA-07 — abertura
+
+- Base reconciliada: `staging/kordena-premium` @ `40e2029019fb426cb22f55ebf7137474661bfda5`.
+- Nova branch: `feat/kordena-commercial-kca07-kca09`.
+- Escopo autorizado: KCA-07 → G7 → KCA-08 → G8 → KCA-09 → G9; STOP antes de KCA-10.
+- Governança: sem merge, sem deploy, sem `main`, sem cliente/trial/billing/provider real.
+- Evidência baseline funcional herdada do HEAD certificado KCA-G6: 17/17 workflows SUCCESS; full Python 1716 passed, 5 skipped, 102 warnings; KCA targeted 115 passed; Web Node 14/14; schema 122 tabelas.
