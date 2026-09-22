@@ -19,6 +19,7 @@ from application.assistente_channel_runtime import RuntimeCanalWhatsAppV1
 from application.assistente_operational_notifications import (
     notificar_status_assistente_best_effort,
 )
+from application.commercial_billing import BillingProviderAdapterRegistryV1
 from application.finalizacao_pagamento import FinalizacaoPagamentoInvalida
 from application.gerente_ia_runtime import PlanejadorLLM, compor_runtime_gerente_ia
 from application.gerente_ia_transacoes import (
@@ -32,7 +33,6 @@ from application.pagbank import (
     processar_webhook_pagbank,
 )
 from application.pdv_legacy_projection import ProjecaoLegadaInvalida
-from application.commercial_billing import BillingProviderAdapterRegistryV1
 from core.gerente_ia.erros import ErroGerenteIA
 from core.gerente_ia.modelos import ChamadaTool
 from core.integracoes.modelos import ErroConfiguracaoServico
