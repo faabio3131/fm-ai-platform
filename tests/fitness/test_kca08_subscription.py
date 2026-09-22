@@ -7,7 +7,8 @@ from migrations.runner import DEFAULT_MIGRATIONS, run_migrations
 
 def test_kca08_subscription_migration_is_canonical() -> None:
     versions = tuple(migration.version for migration in DEFAULT_MIGRATIONS)
-    assert versions[-1] == "0056_commercial_subscription_v1"
+    index = versions.index("0056_commercial_subscription_v1")
+    assert versions[index + 1] == "0057_commercial_billing_config_v1"
 
     engine = create_engine("sqlite:///:memory:")
     run_migrations(engine)
