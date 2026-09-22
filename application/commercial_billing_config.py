@@ -478,7 +478,6 @@ class AplicacaoBillingConfigurationV1:
         timeout_seconds: float = 10.0,
     ) -> BillingConnectionTestOutcome:
         account_id = provider_account_id.strip()
-        instante = _now()
         with self._session_factory() as session, session.begin():
             repo = RepositorioBillingConfigSQLAlchemy(session)
             current = repo.obter_provider_account(account_id)
