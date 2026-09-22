@@ -76,7 +76,7 @@ class BillingGatewayV1:
         binding: BillingProviderBinding,
         secret_store: SecretStore,
     ) -> None:
-        if provider.provider_code != binding.provider_code:
+        if normalizar_provider_code(provider.provider_code) != binding.provider_code:
             raise DadoComercialInvalido("billing_provider_binding_mismatch")
         self._provider = provider
         self._binding = binding
