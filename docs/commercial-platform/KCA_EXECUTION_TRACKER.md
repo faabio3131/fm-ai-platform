@@ -10,7 +10,9 @@
 | KCA-02 Global Identity + Memberships | PASS — `b67b1e82459657b691bac8429af501548edb9ac5` |
 | KCA-03 Planos / Pricing / Promoções | PASS — `4934ee2db1febe51b1bb4fd114faf2eddb94c89f` |
 | KCA-G3 | PASS |
-| KCA-04+ | NÃO INICIADO |
+| KCA-04 Entitlement Authority + Local Projection | PASS — `6b43c8454c13e6ac64d31907286c5e4af2979983` |
+| KCA-G4 | PASS |
+| KCA-05+ | NÃO INICIADO |
 
 ## Baseline
 
@@ -69,3 +71,23 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - 16 workflows do candidate SHA: SUCCESS.
 - KCA-G3: PASS.
 - KCA-04+: NÃO INICIADO.
+
+
+## Certificação KCA-04
+
+- Candidate funcional: `6b43c8454c13e6ac64d31907286c5e4af2979983`.
+- Certification documentation commit: `d7a8a52fecaa2ac39509b423ec7f99f4f90279f6`.
+- Migration: `0052_commercial_entitlement_v1`.
+- Entitlement Authority + snapshots: PASS.
+- Local Kordena projection + durable inbox: PASS.
+- `entitlement.changed` outbox contract: PASS.
+- Missing entitlement / stale beyond grace: fail-closed.
+- Duplicate and out-of-order events: protected.
+- Cross-tenant product-account mismatch: denied.
+- KCA targeted: 90 passed.
+- Full Python: 1691 passed, 5 skipped, 102 warnings.
+- Schema baseline: 119 tables.
+- Ruff/mypy/ESLint/TypeScript/Next build/diff: PASS.
+- 16 workflows do candidate SHA: SUCCESS.
+- KCA-G4: PASS.
+- KCA-05+: NÃO INICIADO.
