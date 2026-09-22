@@ -8,6 +8,7 @@ from application.commercial_billing import BillingGatewayV1, BillingProviderBind
 from core.comercial.billing import (
     BillingAuthenticationError,
     BillingCallContext,
+    BillingConnectionTestResult,
     BillingConflict,
     BillingCustomerReference,
     BillingCustomerRequest,
@@ -50,6 +51,19 @@ class FakeBillingProvider:
             )
         )
         assert credential.reveal() == "definitely-not-a-real-secret"
+
+    def test_connection(
+        self,
+        *,
+        context: BillingCallContext,
+        credential: SecretValue,
+    ) -> BillingConnectionTestResult:
+        self._capture("test_connection", context, credential)
+        return BillingConnectionTestResult(
+            ok=True,
+            provider_code=self.provider_code,
+            detail_code="connection_ok",
+        )
 
     def create_customer(
         self,
