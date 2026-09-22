@@ -49,6 +49,7 @@ from infra.comercial.billing_config_orm import (
 from infra.comercial.billing_config_sqlalchemy import RepositorioBillingConfigSQLAlchemy
 from infra.comercial.modelos_orm import CommercialAuditORM
 from infra.comercial.repositorio_sqlalchemy import RepositorioComercialSQLAlchemy
+from infra.seguranca.segredos_orm import SegredoIntegracaoORM
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
 
 SessionFactory = Callable[[], Session]
@@ -113,6 +114,23 @@ def _safe_detail_code(value: str, *, fallback: str) -> str:
 
 
 class AplicacaoBillingConfigurationV1:
+    @staticmethod
+    def _validar_vault_scope(
+        *,
+        session: Session,
+        contexto: ContextoExecucao,
+        reference: str | None,
+    ) -> None:
+        if not reference or not reference.startswith("vault:"):
+            return
+        row = session.get(SegredoIntegracaoORM, reference)
+        if (
+            row is None
+            or row.tenant_id != contexto.tenant_id
+            or row.unidade_id != contexto.unidade_id
+        ):
+            raise PermissionError("billing.secret_reference_scope_mismatch")
+
     def __init__(
         self,
         session_factory: SessionFactory,
@@ -200,6 +218,11 @@ class AplicacaoBillingConfigurationV1:
             with self._session_factory() as session, session.begin():
                 shared = RepositorioComercialSQLAlchemy(session)
                 repo = RepositorioBillingConfigSQLAlchemy(session)
+                self._validar_vault_scope(
+                    session=session,
+                    contexto=contexto,
+                    reference=secret_ref,
+                )
                 existing = shared.obter_idempotencia(
                     scope=scope, idempotency_key=key
                 )
@@ -333,6 +356,11 @@ class AplicacaoBillingConfigurationV1:
                 raise DadoComercialInvalido(
                     "billing_provider_account_disabled_is_terminal"
                 )
+            self._validar_vault_scope(
+                session=session,
+                contexto=contexto,
+                reference=requested_secret_ref,
+            )
             updated = repo.atualizar_provider_account(
                 provider_account_id=account_id,
                 expected_version=expected_version,
@@ -494,10 +522,18 @@ class AplicacaoBillingConfigurationV1:
             )
             if validating.credential_secret_reference.startswith("vault:"):
                 with self._session_factory() as secret_session:
+                    vault = EncryptedSQLAlchemySecretStore(secret_session)
+                    if not vault.pertence_ao_escopo(
+                        contexto=contexto,
+                        reference=validating.credential_secret_reference,
+                    ):
+                        raise PermissionError(
+                            "billing.secret_reference_scope_mismatch"
+                        )
                     gateway = BillingGatewayV1(
                         provider=provider,
                         binding=binding,
-                        secret_store=EncryptedSQLAlchemySecretStore(secret_session),
+                        secret_store=vault,
                     )
                     result = gateway.test_connection(context=call_context)
             else:
@@ -522,6 +558,7 @@ class AplicacaoBillingConfigurationV1:
             ReferenciaSegredoInvalida,
             SegredoAusente,
             RuntimeError,
+            PermissionError,
         ) as exc:
             detail_code = type(exc).__name__
             ok = False
