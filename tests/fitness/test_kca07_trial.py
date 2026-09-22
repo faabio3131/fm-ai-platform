@@ -13,7 +13,10 @@ EXPECTED_TABLES = {
 
 def test_kca07_trial_migration_and_policy_are_canonical() -> None:
     versions = tuple(migration.version for migration in DEFAULT_MIGRATIONS)
-    assert versions[-1] == "0055_commercial_trial_v1"
+    assert "0055_commercial_trial_v1" in versions
+    assert versions.index("0055_commercial_trial_v1") < versions.index(
+        "0056_commercial_subscription_v1"
+    )
 
     engine = create_engine("sqlite:///:memory:")
     run_migrations(engine)
