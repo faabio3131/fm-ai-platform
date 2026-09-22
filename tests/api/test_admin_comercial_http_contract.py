@@ -165,3 +165,62 @@ def test_gerente_nao_recebe_administracao_comercial(monkeypatch) -> None:
 def test_nao_existe_signup_publico_no_kca01(monkeypatch) -> None:
     client = _infra(monkeypatch)
     assert client.post("/v1/public/signup", json={}).status_code == 404
+
+
+
+def test_billing_configuration_requires_stepup_and_hides_secret_reference(
+    monkeypatch,
+) -> None:
+    client = _infra(monkeypatch)
+    payload = {
+        "provider_code": "PROVIDER_CONFIGURAVEL",
+        "display_name": "Conta principal FM",
+        "legal_entity_ref": None,
+        "environment": "sandbox",
+        "credential_secret_reference": "env:FM_BILLING_PROVIDER_TEST",
+        "supported_payment_methods": ["pix", "card"],
+        "supports_recurring": True,
+        "supports_webhooks": True,
+        "priority": 10,
+    }
+
+    assert client.post(
+        "/v1/admin/commercial/billing/provider-accounts",
+        headers={"Idempotency-Key": "billing-provider-api"},
+        json=payload,
+    ).status_code == 401
+
+    _login(client, step_up=False)
+    assert client.post(
+        "/v1/admin/commercial/billing/provider-accounts",
+        headers={"Idempotency-Key": "billing-provider-api"},
+        json=payload,
+    ).status_code == 403
+
+    assert client.post(
+        "/v1/auth/admin-step-up",
+        json={"senha": SENHA},
+    ).status_code == 200
+
+    response = client.post(
+        "/v1/admin/commercial/billing/provider-accounts",
+        headers={"Idempotency-Key": "billing-provider-api"},
+        json=payload,
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert body["provider_code"] == "PROVIDER_CONFIGURAVEL"
+    assert body["credential_configured"] is True
+    assert "credential_secret_reference" not in body
+
+    listing = client.get("/v1/admin/commercial/billing/provider-accounts")
+    assert listing.status_code == 200
+    assert len(listing.json()) == 1
+    assert "credential_secret_reference" not in listing.json()[0]
+
+
+def test_gerente_nao_configura_contas_de_recebimento(monkeypatch) -> None:
+    client = _infra(monkeypatch, papel=Papel.GERENTE)
+    _login(client, step_up=False)
+    response = client.get("/v1/admin/commercial/billing/provider-accounts")
+    assert response.status_code == 403
