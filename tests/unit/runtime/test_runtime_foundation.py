@@ -82,6 +82,7 @@ _EXPECTED_MIGRATIONS = (
     "0052_commercial_entitlement_v1",
     "0053_commercial_provisioning_v1",
     "0054_commercial_signup_v1",
+    "0055_commercial_trial_v1",
 )
 
 
