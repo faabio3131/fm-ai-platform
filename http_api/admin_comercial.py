@@ -140,8 +140,8 @@ class PromotionPublishIn(CatalogValidateIn):
 
 
 def _catalog_out(value: Any) -> Any:
-    if is_dataclass(value):
-        return _catalog_out(asdict(value))
+    if is_dataclass(value) and not isinstance(value, type):
+        return _catalog_out(asdict(value))  # type: ignore[arg-type]
     if isinstance(value, Enum):
         return value.value
     if isinstance(value, Decimal):
