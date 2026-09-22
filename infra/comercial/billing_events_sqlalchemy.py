@@ -108,6 +108,23 @@ class RepositorioBillingEventsSQLAlchemy:
             )
         return row
 
+    def listar_inbox_por_status(
+        self,
+        *,
+        status: str,
+        limit: int = 100,
+    ) -> tuple[FMBillingWebhookInboxORM, ...]:
+        rows = self._session.scalars(
+            select(FMBillingWebhookInboxORM)
+            .where(FMBillingWebhookInboxORM.status == status)
+            .order_by(
+                FMBillingWebhookInboxORM.received_at.desc(),
+                FMBillingWebhookInboxORM.inbox_id,
+            )
+            .limit(limit)
+        ).all()
+        return tuple(rows)
+
     def listar_retryable_due(
         self,
         *,
