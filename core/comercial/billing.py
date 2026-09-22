@@ -156,6 +156,13 @@ class WebhookVerificationResult:
     event_type: str | None
 
 
+@dataclass(frozen=True, kw_only=True)
+class BillingConnectionTestResult:
+    ok: bool
+    provider_code: str
+    detail_code: str
+
+
 class BillingProviderError(RuntimeError):
     retryable = False
 
@@ -198,6 +205,13 @@ class BillingWebhookInvalid(BillingProviderError):
 class BillingProvider(Protocol):
     @property
     def provider_code(self) -> str: ...
+
+    def test_connection(
+        self,
+        *,
+        context: BillingCallContext,
+        credential: SecretValue,
+    ) -> BillingConnectionTestResult: ...
 
     def create_customer(
         self,
