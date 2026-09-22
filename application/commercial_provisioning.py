@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
@@ -58,7 +58,7 @@ def _normalize_email(value: str) -> str:
     return normalized
 
 
-def _request_hash(payload: dict[str, object]) -> str:
+def _request_hash(payload: Mapping[str, object]) -> str:
     encoded = json.dumps(
         payload,
         ensure_ascii=False,
