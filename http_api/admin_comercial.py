@@ -15,9 +15,9 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, SecretStr
 from sqlalchemy.orm import Session
 
 from application.comercial_registry import AplicacaoCommercialRegistryV1
-from application.commercial_catalog import AplicacaoCatalogoComercialV1
 from application.commercial_billing import BillingProviderAdapterRegistryV1
 from application.commercial_billing_config import AplicacaoBillingConfigurationV1
+from application.commercial_catalog import AplicacaoCatalogoComercialV1
 from core.comercial.billing_config import (
     BillingEnvironment,
     BillingPaymentMethod,
@@ -43,10 +43,10 @@ from core.comercial.modelos import (
     StatusClienteComercial,
     StatusContaProduto,
 )
+from core.seguranca.segredos import ReferenceSecretStore, SecretStore
 from http_api.admin_backoffice import contexto_backoffice
 from http_api.admin_dashboard import _tratar_erro
 from http_api.auth import AuthSessionRuntime
-from core.seguranca.segredos import ReferenceSecretStore, SecretStore
 
 SessionFactory = Callable[[], Session]
 IdempotencyHeader = Annotated[
