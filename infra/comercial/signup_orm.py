@@ -27,7 +27,7 @@ class FMPublicSignupIntentORM(SignupBase):
     signup_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     owner_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    owner_email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
+    owner_email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True, index=True)
     primary_contact_phone: Mapped[str | None] = mapped_column(String(64))
     establishment_name: Mapped[str] = mapped_column(String(255), nullable=False)
     segment: Mapped[str] = mapped_column(String(96), nullable=False)
