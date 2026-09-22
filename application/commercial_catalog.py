@@ -11,7 +11,6 @@ from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
 
 from core.comercial.catalogo import (
     EntitlementPlano,
