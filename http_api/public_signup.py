@@ -152,8 +152,6 @@ def build_public_signup_router(
 
     @router.post("/{signup_id}/resend-verification")
     def resend_verification(signup_id: str) -> JSONResponse:
-        if not enabled:
-            return _disabled()
         try:
             result = app.reenviar_token(signup_id=signup_id)
             _dispatch(result)
@@ -168,8 +166,6 @@ def build_public_signup_router(
 
     @router.post("/{signup_id}/verify-email")
     def verify_email(signup_id: str, payload: VerifyEmailIn) -> JSONResponse:
-        if not enabled:
-            return _disabled()
         try:
             result = app.verificar_e_provisionar(
                 signup_id=signup_id,
@@ -196,8 +192,6 @@ def build_public_signup_router(
 
     @router.get("/{signup_id}/status")
     def signup_status(signup_id: str) -> JSONResponse:
-        if not enabled:
-            return _disabled()
         result = app.obter_status(signup_id=signup_id)
         if result is None:
             return JSONResponse(
