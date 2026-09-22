@@ -18,8 +18,10 @@
 | KCA-G6 | PASS |
 | KCA-07 Trial Engine | PASS — `f3af1ba4aab2d16992ada5ed1fd5b35b5ad1ab10` |
 | KCA-G7 | PASS |
-| KCA-08 Subscription Engine | EM EXECUÇÃO — autorizado após G7 |
-| KCA-09+ | NÃO INICIADO |
+| KCA-08 Subscription Engine | PASS — `e5f63d6ee7bba2e19ad4daf5102e36116ee9f11d` |
+| KCA-G8 | PASS |
+| KCA-09 Billing Provider Abstraction | NÃO INICIADO |
+| KCA-10+ | NÃO INICIADO |
 
 ## Baseline
 
@@ -166,3 +168,23 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - 13/13 workflows do candidate SHA: SUCCESS.
 - KCA-G7: PASS.
 - KCA-08 autorizado; KCA-09+ ainda não iniciado.
+
+
+## Certificação KCA-08
+
+- Candidate funcional: `e5f63d6ee7bba2e19ad4daf5102e36116ee9f11d`.
+- Migration: `0056_commercial_subscription_v1`.
+- State machine PENDING / ACTIVE / PAST_DUE / SUSPENDED / CANCELED: PASS.
+- Recuperação PAST_DUE/SUSPENDED → ACTIVE: PASS.
+- Plan/version/price binding histórico: PASS.
+- Trial ACTIVE → CONVERTED + Subscription ACTIVE: PASS.
+- Idempotência / optimistic concurrency / unique subscription por Product Account: PASS.
+- Entitlement Authority + projeção local: PASS.
+- Cross-tenant e catálogo incompatível: fail-closed.
+- Schema baseline: 125 tabelas; SHA `c6caa6d8ab1b58ae318b20e4b003b6db181f5211884e8a42eb4b09dd78ff0251`.
+- KCA targeted: 134 passed, 2 warnings.
+- Full Python: 1735 passed, 5 skipped, 102 warnings.
+- Web Node: 14/14; ESLint/TypeScript/Next build/diff: PASS.
+- 13/13 workflows do candidate SHA: SUCCESS.
+- KCA-G8: PASS.
+- KCA-09 autorizado somente após recertificação do HEAD documental; KCA-10+ não iniciado.
