@@ -196,6 +196,30 @@
     {
       "version": "0048_fiscal_financial_tax_bridge_v1",
       "sha256": "c7d27a7e4f55324c966163137f6a75f291cd26b13f0378f7ae9c1a4ff8da25a5"
+    },
+    {
+      "version": "0049_commercial_registry_v1",
+      "sha256": "284092661f4a2b1759ce58530bec2ef56e51aa713dc0268001df16cec450eb9b"
+    },
+    {
+      "version": "0050_global_identity_membership_v1",
+      "sha256": "d3941c930a3d18a26c91d9a5ed66d371c2747928129fbb34b67c7204082bbff3"
+    },
+    {
+      "version": "0051_commercial_catalog_v1",
+      "sha256": "ea1745486bdf231424ccd354dc1fd5007b18b48c5d2fa1def1ce760a66393342"
+    },
+    {
+      "version": "0052_commercial_entitlement_v1",
+      "sha256": "1b6a29d8941a37513d8046601537f8071a4f90a92df952fabc9b27fa79d6ae4c"
+    },
+    {
+      "version": "0053_commercial_provisioning_v1",
+      "sha256": "a7cbb175733f67830473427ca55c03cad2b6fe71c971d25cb7f5fe81dd6dfaae"
+    },
+    {
+      "version": "0054_commercial_signup_v1",
+      "sha256": "f55536a5f133d1a8a1da06fd562aa6144700507a074c4f266502dae91fb640b4"
     }
   ]
 }

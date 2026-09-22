@@ -1,0 +1,127 @@
+name: Kordena KCA Commercial Gate
+
+on:
+  pull_request:
+    paths:
+      - 'application/comercial_registry.py'
+      - 'application/commercial_entitlement.py'
+      - 'core/comercial/**'
+      - 'core/seguranca/**'
+      - 'infra/comercial/**'
+      - 'infra/seguranca/**'
+      - 'http_api/admin_comercial.py'
+      - 'http_api/frontend_app.py'
+      - 'migrations/commercial_registry_v1.py'
+      - 'migrations/commercial_catalog_v1.py'
+      - 'migrations/commercial_entitlement_v1.py'
+      - 'migrations/commercial_provisioning_v1.py'
+      - 'migrations/commercial_signup_v1.py'
+      - 'migrations/global_identity_membership_v1.py'
+      - 'migrations/runner.py'
+      - 'migrations/manifest_v1.json'
+      - 'migrations/schema_baseline_v1.json'
+      - 'tests/unit/comercial/**'
+      - 'tests/unit/security/**'
+      - 'tests/integration/seguranca/**'
+      - 'tests/integration/comercial/**'
+      - 'tests/api/test_admin_comercial_http_contract.py'
+      - 'tests/fitness/test_kca01_commercial_registry.py'
+      - 'docs/commercial-platform/**'
+      - '.github/workflows/kordena-kca-commercial-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  baseline-and-kca:
+    name: KCA baseline and commercial registry gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+
+      - name: Compile canonical Python surfaces
+        run: python -m compileall -q application core infra http_api migrations scripts
+
+      - name: Migration manifest
+        run: |
+          python - <<'PY'
+          from migrations.manifest import assert_migration_manifest
+          from migrations.runner import DEFAULT_MIGRATIONS
+          assert_migration_manifest(DEFAULT_MIGRATIONS)
+          print("Migration manifest: PASS")
+          PY
+
+      - name: Schema baseline
+        run: python scripts/generate_schema_baseline_v1.py --check
+
+      - name: KCA targeted static checks
+        shell: bash
+        run: |
+          paths=()
+          for p in application/comercial_registry.py application/commercial_catalog.py application/commercial_entitlement.py application/commercial_provisioning.py application/public_signup.py core/comercial infra/comercial core/seguranca infra/seguranca http_api/admin_comercial.py http_api/auth.py http_api/public_signup.py migrations/commercial_registry_v1.py migrations/global_identity_membership_v1.py migrations/commercial_catalog_v1.py migrations/commercial_entitlement_v1.py migrations/commercial_provisioning_v1.py migrations/commercial_signup_v1.py; do
+            if [ -e "$p" ]; then paths+=("$p"); fi
+          done
+          if [ "${#paths[@]}" -gt 0 ]; then
+            ruff check "${paths[@]}"
+            mypy "${paths[@]}" --follow-imports=skip
+          else
+            echo "KCA functional files not present yet: baseline-only run."
+          fi
+
+      - name: KCA targeted tests
+        shell: bash
+        run: |
+          tests=()
+          for p in tests/unit/comercial tests/integration/comercial tests/unit/security tests/integration/seguranca tests/api/test_admin_comercial_http_contract.py tests/api/test_auth_http_contract.py tests/api/test_auth_membership_http_contract.py tests/fitness/test_kca01_commercial_registry.py tests/fitness/test_kca02_global_identity.py tests/fitness/test_kca03_commercial_catalog.py tests/fitness/test_kca04_entitlement.py tests/fitness/test_kca05_provisioning.py tests/fitness/test_kca06_public_signup.py tests/api/test_public_signup_http_contract.py; do
+            if [ -e "$p" ]; then tests+=("$p"); fi
+          done
+          if [ "${#tests[@]}" -gt 0 ]; then
+            pytest -q "${tests[@]}"
+          else
+            echo "KCA tests not present yet: baseline-only run."
+          fi
+
+      - name: Full Python regression
+        run: pytest -q
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: Web ESLint
+        working-directory: web
+        run: npm run lint
+
+      - name: Web TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Web node tests
+        working-directory: web
+        run: node --test tests/*.test.mjs
+
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+
+      - name: Diff whitespace
+        run: git diff --check origin/staging/kordena-premium...HEAD

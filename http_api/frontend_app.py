@@ -22,6 +22,7 @@ from http_api.admin_assistente_atendimento import (
 )
 from http_api.admin_auditoria import build_admin_auditoria_router
 from http_api.admin_backoffice import build_admin_backoffice_router
+from http_api.admin_comercial import build_admin_comercial_router
 from http_api.admin_configuracao import build_admin_configuracao_router
 from http_api.admin_dashboard import build_admin_dashboard_router
 from http_api.admin_empresa import build_admin_empresa_router
@@ -42,6 +43,7 @@ from http_api.garcom_web import build_garcom_web_router
 from http_api.gerente_ia_web import build_gerente_ia_web_router
 from http_api.marketplaces_web import build_marketplaces_web_router
 from http_api.pagamentos_web import build_pagamentos_web_router
+from http_api.public_signup import VerificationDispatcher, build_public_signup_router
 from infra.seguranca.session_guard import build_session_factory
 
 DEV_FRONTEND_ORIGINS: tuple[str, ...] = (
@@ -92,6 +94,9 @@ def build_frontend_http_app(
     *,
     settings: RuntimeSettings | None = None,
     fiscal_operations_gateway_factory: Any | None = None,
+    public_signup_enabled: bool = False,
+    signup_verification_dispatcher: VerificationDispatcher | None = None,
+    signup_credential_secret_reference: str = "env:FM_AI_SIGNUP_SECRET_KEY",
     **kwargs: Any,
 ) -> FastAPI:
     """Constrói o HTTP ingress canônico + fronteiras WEB-PARITY para Next.js."""
@@ -115,9 +120,19 @@ def build_frontend_http_app(
     kwargs["auth_runtime"] = auth_runtime
 
     app = build_http_app(settings=resolved_settings, **kwargs)
+    app.include_router(
+        build_public_signup_router(
+            session_factory=session_factory,
+            secret_store=secret_store,
+            enabled=public_signup_enabled,
+            verification_dispatcher=signup_verification_dispatcher,
+            credential_secret_reference=signup_credential_secret_reference,
+        )
+    )
     for router_builder in (
         build_admin_auditoria_router,
         build_admin_backoffice_router,
+        build_admin_comercial_router,
         build_admin_configuracao_router,
         build_admin_impressao_router,
         build_admin_integracoes_router,

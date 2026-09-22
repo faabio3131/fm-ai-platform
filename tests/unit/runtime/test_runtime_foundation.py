@@ -76,6 +76,12 @@ _EXPECTED_MIGRATIONS = (
     "0046_fiscal_smart_intake_v1",
     "0047_fiscal_procurement_integration_v1",
     "0048_fiscal_financial_tax_bridge_v1",
+    "0049_commercial_registry_v1",
+    "0050_global_identity_membership_v1",
+    "0051_commercial_catalog_v1",
+    "0052_commercial_entitlement_v1",
+    "0053_commercial_provisioning_v1",
+    "0054_commercial_signup_v1",
 )
 
 

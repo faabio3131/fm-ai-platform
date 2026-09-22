@@ -60,6 +60,11 @@ from migrations.assistente_channel_runtime_v1 import (
 )
 from migrations.cardapio_publico_identity_v1 import upgrade_cardapio_publico_identity_v1
 from migrations.client_payment_identity_v1 import upgrade_client_payment_identity_v1
+from migrations.commercial_catalog_v1 import upgrade_commercial_catalog_v1
+from migrations.commercial_entitlement_v1 import upgrade_commercial_entitlement_v1
+from migrations.commercial_provisioning_v1 import upgrade_commercial_provisioning_v1
+from migrations.commercial_registry_v1 import upgrade_commercial_registry_v1
+from migrations.commercial_signup_v1 import upgrade_commercial_signup_v1
 from migrations.crm_cashback_ledger_v1 import upgrade_crm_cashback_ledger_v1
 from migrations.crm_cliente_legado_mapping_v1 import (
     upgrade_crm_cliente_legado_mapping_v1,
@@ -92,6 +97,9 @@ from migrations.fiscal_profile_environment_partition_v1 import (
     upgrade_fiscal_profile_environment_partition_v1,
 )
 from migrations.fiscal_smart_intake_v1 import upgrade_fiscal_smart_intake_v1
+from migrations.global_identity_membership_v1 import (
+    upgrade_global_identity_membership_v1,
+)
 from migrations.history_guard import MigrationHistoryError, assert_applied_history
 from migrations.integration_secret_vault_v1 import upgrade_integration_secret_vault_v1
 from migrations.internal_notification_recipients_v1 import (
@@ -335,6 +343,30 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         "0048_fiscal_financial_tax_bridge_v1",
         upgrade_fiscal_financial_tax_bridge_v1,
+    ),
+    Migration(
+        "0049_commercial_registry_v1",
+        upgrade_commercial_registry_v1,
+    ),
+    Migration(
+        "0050_global_identity_membership_v1",
+        upgrade_global_identity_membership_v1,
+    ),
+    Migration(
+        "0051_commercial_catalog_v1",
+        upgrade_commercial_catalog_v1,
+    ),
+    Migration(
+        "0052_commercial_entitlement_v1",
+        upgrade_commercial_entitlement_v1,
+    ),
+    Migration(
+        "0053_commercial_provisioning_v1",
+        upgrade_commercial_provisioning_v1,
+    ),
+    Migration(
+        "0054_commercial_signup_v1",
+        upgrade_commercial_signup_v1,
     ),
 )
 
