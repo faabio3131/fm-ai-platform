@@ -42,8 +42,12 @@ def test_kca09b_is_provider_neutral_and_configurable() -> None:
 
     assert "provider_code" in combined
     assert "credential_secret_reference" in combined
+    assert "encryptedsqlalchemysecretstore" in combined
+    assert "billing.secret_reference_scope_mismatch" in combined
     assert "supported_payment_methods" in combined
     assert "fallback_provider_account_ids" in combined
+    assert "requires_recurring" in combined
+    assert "requires_webhooks" in combined
 
 
 def test_kca09b_does_not_anticipate_kca10() -> None:
