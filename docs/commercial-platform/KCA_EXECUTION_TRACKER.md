@@ -14,7 +14,9 @@
 | KCA-G4 | PASS |
 | KCA-05 Tenant Provisioning Saga | PASS — `3f0ee70c1e8483b2b6aad1a6c5737959ee555c98` |
 | KCA-G5 | PASS |
-| KCA-06 Public Signup + Verification | EM CERTIFICAÇÃO |
+| KCA-06 Public Signup + Verification | PASS — `1569253f69db951bdb1c5ac36a7c9908d40483b4` |
+| KCA-G6 | PASS |
+| KCA-07+ | NÃO INICIADO |
 
 ## Baseline
 
@@ -118,14 +120,21 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - KCA-06+: NÃO INICIADO.
 
 
-## Execução KCA-06 — em certificação
+## Certificação KCA-06
 
+- Functional candidate: `1569253f69db951bdb1c5ac36a7c9908d40483b4`.
+- Certification documentation commit: `d18c436fa856b3c9952b3b8c5b1019cf85584300` (record) + tracker certification commit.
 - Migration: `0054_commercial_signup_v1`.
 - Public signup permanece desabilitado por padrão.
-- Verificação de e-mail usa token de uso único com hash persistido e expiração.
-- Payload público não aceita `tenant_id`, `plan_code` ou `entitlement`.
-- Provisioning é delegado ao Provisioning Orchestrator.
-- Anti-enumeration e rate limit implementados.
-- Correção de regressão de migration manifest aplicada nos testes runtime/legacy.
-- Gate KCA-G6: **PENDENTE DE CI FINAL**.
-- KCA-07: NÃO INICIADO.
+- Verification token: uso único, hash persistido, expiração e replay protection.
+- Anti-enumeration e rate limit: PASS.
+- Payload público não controla tenant/plano/entitlement: PASS.
+- Provisioning delegado ao KCA-05 Orchestrator: PASS.
+- KCA targeted: 115 passed, 2 warnings.
+- Full Python: 1716 passed, 5 skipped, 102 warnings.
+- Schema baseline: 122 tabelas.
+- Ruff/mypy/ESLint/TypeScript/Next build/diff: PASS.
+- Web Node: 14 tests, 0 skipped.
+- 17/17 workflows do candidate SHA: SUCCESS.
+- KCA-G6: PASS.
+- KCA-07+: NÃO INICIADO.
