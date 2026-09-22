@@ -61,6 +61,7 @@ from migrations.assistente_channel_runtime_v1 import (
 from migrations.cardapio_publico_identity_v1 import upgrade_cardapio_publico_identity_v1
 from migrations.client_payment_identity_v1 import upgrade_client_payment_identity_v1
 from migrations.commercial_billing_config_v1 import upgrade_commercial_billing_config_v1
+from migrations.commercial_billing_events_v1 import upgrade_commercial_billing_events_v1
 from migrations.commercial_catalog_v1 import upgrade_commercial_catalog_v1
 from migrations.commercial_entitlement_v1 import upgrade_commercial_entitlement_v1
 from migrations.commercial_provisioning_v1 import upgrade_commercial_provisioning_v1
@@ -382,6 +383,10 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         "0057_commercial_billing_config_v1",
         upgrade_commercial_billing_config_v1,
+    ),
+    Migration(
+        "0058_commercial_billing_events_v1",
+        upgrade_commercial_billing_events_v1,
     ),
 )
 
