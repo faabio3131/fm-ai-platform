@@ -10,7 +10,11 @@ EXPECTED_TABLES = {
 
 
 def test_kca04_migration_e_tabelas_estao_no_registry_canonico() -> None:
-    assert DEFAULT_MIGRATIONS[-1].version == "0052_commercial_entitlement_v1"
+    versions = tuple(migration.version for migration in DEFAULT_MIGRATIONS)
+    assert "0052_commercial_entitlement_v1" in versions
+    assert versions.index("0052_commercial_entitlement_v1") < versions.index(
+        "0053_commercial_provisioning_v1"
+    )
 
     engine = create_engine("sqlite:///:memory:")
     run_migrations(engine)
