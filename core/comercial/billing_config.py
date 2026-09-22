@@ -146,6 +146,8 @@ class BillingRoutingPolicy:
     product_code: str
     payment_method: BillingPaymentMethod
     environment: BillingEnvironment
+    requires_recurring: bool
+    requires_webhooks: bool
     primary_provider_account_id: str
     fallback_provider_account_ids: tuple[str, ...]
     active: bool
