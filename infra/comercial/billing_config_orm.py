@@ -56,7 +56,7 @@ class FMBillingProviderAccountORM(BillingConfigBase):
     legal_entity_ref: Mapped[str | None] = mapped_column(String(128))
     environment: Mapped[str] = mapped_column(String(32), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
-    credential_secret_reference: Mapped[str] = mapped_column(String(255), nullable=False)
+    credential_secret_reference: Mapped[str | None] = mapped_column(String(255))
     supported_payment_methods: Mapped[list[str]] = mapped_column(
         JSON, nullable=False, default=list
     )
