@@ -18,8 +18,8 @@ from core.comercial.entitlement import (
     EstadoComercial,
     ModoAcessoComercial,
     SnapshotEntitlement,
-    capability_por_chave,
     capabilities_do_plano,
+    capability_por_chave,
     desserializar_capabilities,
     modo_para_estado,
     normalizar_estado_comercial,
@@ -35,6 +35,7 @@ from core.comercial.erros import (
 from core.comercial.modelos import StatusContaProduto
 from core.seguranca.contexto import ContextoExecucao
 from infra.comercial.catalogo_sqlalchemy import RepositorioCatalogoComercialSQLAlchemy
+from infra.comercial.entitlement_orm import FMCommercialEntitlementSnapshotORM
 from infra.comercial.entitlement_sqlalchemy import RepositorioEntitlementSQLAlchemy
 from infra.comercial.modelos_orm import CommercialAuditORM, CommercialOutboxORM
 from infra.comercial.repositorio_sqlalchemy import RepositorioComercialSQLAlchemy
