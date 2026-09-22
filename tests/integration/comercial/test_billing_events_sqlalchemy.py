@@ -437,7 +437,7 @@ def test_retry_processes_after_subscription_binding_appears() -> None:
     )
     processed = app.processar_retries(
         contexto=_context(),
-        now=NOW + timedelta(minutes=10),
+        now=datetime.now(timezone.utc) + timedelta(minutes=10),
     )
     assert processed == (first.inbox_id,)
     current = app.obter_inbox(inbox_id=first.inbox_id)
