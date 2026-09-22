@@ -143,7 +143,7 @@ def _event_from_payload(payload: dict[str, object]) -> NormalizedBillingEvent:
         ),
         occurred_at=datetime.fromisoformat(str(payload["occurred_at"])),
         provider_sequence=(
-            int(payload["provider_sequence"])
+            int(str(payload["provider_sequence"]))
             if payload.get("provider_sequence") is not None
             else None
         ),
@@ -867,7 +867,7 @@ class AplicacaoBillingEventsV1:
                 provider_account_id=inbox.provider_account_id,
                 external_transaction_ref=event.external_transaction_ref,
             )
-            values = {
+            values: dict[str, object] = {
                 "subscription_id": subscription_id,
                 "transaction_type": transaction_type.value,
                 "status": status.value,
