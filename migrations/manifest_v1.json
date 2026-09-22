@@ -208,6 +208,10 @@
     {
       "version": "0051_commercial_catalog_v1",
       "sha256": "ea1745486bdf231424ccd354dc1fd5007b18b48c5d2fa1def1ce760a66393342"
+    },
+    {
+      "version": "0052_commercial_entitlement_v1",
+      "sha256": "1b6a29d8941a37513d8046601537f8071a4f90a92df952fabc9b27fa79d6ae4c"
     }
   ]
 }

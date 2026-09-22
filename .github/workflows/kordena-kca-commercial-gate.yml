@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'application/comercial_registry.py'
+      - 'application/commercial_entitlement.py'
       - 'core/comercial/**'
       - 'core/seguranca/**'
       - 'infra/comercial/**'
@@ -12,6 +13,7 @@ on:
       - 'http_api/frontend_app.py'
       - 'migrations/commercial_registry_v1.py'
       - 'migrations/commercial_catalog_v1.py'
+      - 'migrations/commercial_entitlement_v1.py'
       - 'migrations/global_identity_membership_v1.py'
       - 'migrations/runner.py'
       - 'migrations/manifest_v1.json'
@@ -69,7 +71,7 @@ jobs:
         shell: bash
         run: |
           paths=()
-          for p in application/comercial_registry.py core/comercial infra/comercial core/seguranca infra/seguranca http_api/admin_comercial.py http_api/auth.py migrations/commercial_registry_v1.py migrations/global_identity_membership_v1.py; do
+          for p in application/comercial_registry.py application/commercial_catalog.py application/commercial_entitlement.py core/comercial infra/comercial core/seguranca infra/seguranca http_api/admin_comercial.py http_api/auth.py migrations/commercial_registry_v1.py migrations/global_identity_membership_v1.py migrations/commercial_catalog_v1.py migrations/commercial_entitlement_v1.py; do
             if [ -e "$p" ]; then paths+=("$p"); fi
           done
           if [ "${#paths[@]}" -gt 0 ]; then
@@ -83,7 +85,7 @@ jobs:
         shell: bash
         run: |
           tests=()
-          for p in tests/unit/comercial tests/integration/comercial tests/unit/security tests/integration/seguranca tests/api/test_admin_comercial_http_contract.py tests/api/test_auth_http_contract.py tests/api/test_auth_membership_http_contract.py tests/fitness/test_kca01_commercial_registry.py tests/fitness/test_kca02_global_identity.py; do
+          for p in tests/unit/comercial tests/integration/comercial tests/unit/security tests/integration/seguranca tests/api/test_admin_comercial_http_contract.py tests/api/test_auth_http_contract.py tests/api/test_auth_membership_http_contract.py tests/fitness/test_kca01_commercial_registry.py tests/fitness/test_kca02_global_identity.py tests/fitness/test_kca03_commercial_catalog.py tests/fitness/test_kca04_entitlement.py; do
             if [ -e "$p" ]; then tests+=("$p"); fi
           done
           if [ "${#tests[@]}" -gt 0 ]; then

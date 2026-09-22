@@ -61,6 +61,7 @@ from migrations.assistente_channel_runtime_v1 import (
 from migrations.cardapio_publico_identity_v1 import upgrade_cardapio_publico_identity_v1
 from migrations.client_payment_identity_v1 import upgrade_client_payment_identity_v1
 from migrations.commercial_catalog_v1 import upgrade_commercial_catalog_v1
+from migrations.commercial_entitlement_v1 import upgrade_commercial_entitlement_v1
 from migrations.commercial_registry_v1 import upgrade_commercial_registry_v1
 from migrations.crm_cashback_ledger_v1 import upgrade_crm_cashback_ledger_v1
 from migrations.crm_cliente_legado_mapping_v1 import (
@@ -352,6 +353,10 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         "0051_commercial_catalog_v1",
         upgrade_commercial_catalog_v1,
+    ),
+    Migration(
+        "0052_commercial_entitlement_v1",
+        upgrade_commercial_entitlement_v1,
     ),
 )
 
