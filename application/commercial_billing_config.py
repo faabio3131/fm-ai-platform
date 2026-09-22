@@ -49,6 +49,7 @@ from infra.comercial.billing_config_orm import (
 from infra.comercial.billing_config_sqlalchemy import RepositorioBillingConfigSQLAlchemy
 from infra.comercial.modelos_orm import CommercialAuditORM
 from infra.comercial.repositorio_sqlalchemy import RepositorioComercialSQLAlchemy
+from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
 
 SessionFactory = Callable[[], Session]
 
@@ -162,7 +163,7 @@ class AplicacaoBillingConfigurationV1:
         display_name: str,
         legal_entity_ref: str | None,
         environment: BillingEnvironment,
-        credential_secret_reference: str,
+        credential_secret_reference: str | None,
         supported_payment_methods: tuple[BillingPaymentMethod, ...],
         supports_recurring: bool,
         supports_webhooks: bool,
@@ -172,7 +173,11 @@ class AplicacaoBillingConfigurationV1:
         code = normalizar_provider_code(provider_code)
         name = _clean(display_name, field="display_name", max_length=128)
         legal_ref = _optional(legal_entity_ref, max_length=128)
-        secret_ref = normalizar_secret_reference(credential_secret_reference)
+        secret_ref = (
+            normalizar_secret_reference(credential_secret_reference)
+            if credential_secret_reference
+            else None
+        )
         methods = normalizar_payment_methods(supported_payment_methods)
         if priority < 0 or priority > 100000:
             raise DadoComercialInvalido("billing_priority_invalida")
@@ -298,7 +303,7 @@ class AplicacaoBillingConfigurationV1:
         expected_version: int,
         display_name: str,
         legal_entity_ref: str | None,
-        credential_secret_reference: str,
+        credential_secret_reference: str | None,
         supported_payment_methods: tuple[BillingPaymentMethod, ...],
         supports_recurring: bool,
         supports_webhooks: bool,
@@ -307,7 +312,11 @@ class AplicacaoBillingConfigurationV1:
         account_id = provider_account_id.strip()
         name = _clean(display_name, field="display_name", max_length=128)
         legal_ref = _optional(legal_entity_ref, max_length=128)
-        secret_ref = normalizar_secret_reference(credential_secret_reference)
+        requested_secret_ref = (
+            normalizar_secret_reference(credential_secret_reference)
+            if credential_secret_reference
+            else None
+        )
         methods = normalizar_payment_methods(supported_payment_methods)
         if priority < 0 or priority > 100000:
             raise DadoComercialInvalido("billing_priority_invalida")
@@ -330,7 +339,11 @@ class AplicacaoBillingConfigurationV1:
                 values={
                     "display_name": name,
                     "legal_entity_ref": legal_ref,
-                    "credential_secret_reference": secret_ref,
+                    "credential_secret_reference": (
+                        requested_secret_ref
+                        if requested_secret_ref is not None
+                        else current.credential_secret_reference
+                    ),
                     "supported_payment_methods": [item.value for item in methods],
                     "supports_recurring": supports_recurring,
                     "supports_webhooks": supports_webhooks,
@@ -357,6 +370,70 @@ class AplicacaoBillingConfigurationV1:
                         "payment_methods": [
                             item.value for item in updated.supported_payment_methods
                         ],
+                        "version": updated.version,
+                    },
+                    instante=instante,
+                )
+            )
+            return updated
+
+    def armazenar_credencial(
+        self,
+        *,
+        contexto: ContextoExecucao,
+        provider_account_id: str,
+        expected_version: int,
+        credential_value: str,
+    ) -> BillingProviderAccount:
+        account_id = provider_account_id.strip()
+        secret = credential_value.strip()
+        if not secret or len(secret) > 16384:
+            raise DadoComercialInvalido("billing_credential_value_invalido")
+        instante = _now()
+        with self._session_factory() as session, session.begin():
+            shared = RepositorioComercialSQLAlchemy(session)
+            repo = RepositorioBillingConfigSQLAlchemy(session)
+            current = repo.obter_provider_account(account_id)
+            if current is None:
+                raise RegistroComercialNaoEncontrado(
+                    "billing_provider_account_not_found"
+                )
+            if current.status == BillingProviderAccountStatus.DISABLED:
+                raise DadoComercialInvalido(
+                    "billing_provider_account_disabled_is_terminal"
+                )
+            vault = EncryptedSQLAlchemySecretStore(session)
+            reference = vault.armazenar(
+                contexto=contexto,
+                provedor=current.provider_code,
+                finalidade=f"fm_billing_account:{account_id}",
+                valor=secret,
+            )
+            updated = repo.atualizar_provider_account(
+                provider_account_id=account_id,
+                expected_version=expected_version,
+                values={
+                    "credential_secret_reference": reference,
+                    "status": BillingProviderAccountStatus.VALIDATING.value,
+                    "last_test_status": BillingConnectionTestStatus.NEVER.value,
+                    "last_tested_at": None,
+                    "correlation_id": contexto.correlation_id,
+                    "updated_by": self._actor(contexto),
+                },
+            )
+            shared.adicionar_auditoria(
+                self._audit(
+                    contexto=contexto,
+                    action="commercial.billing.provider_account.credential.rotate",
+                    aggregate_type="billing_provider_account",
+                    aggregate_id=account_id,
+                    result="success",
+                    reason="kca09b_encrypted_vault_rotation",
+                    metadata_safe={
+                        "provider_code": updated.provider_code,
+                        "environment": updated.environment.value,
+                        "credential_reference_type": "vault",
+                        "status": updated.status.value,
                         "version": updated.version,
                     },
                     instante=instante,
@@ -399,27 +476,42 @@ class AplicacaoBillingConfigurationV1:
         detail_code = "connection_ok"
         ok = False
         try:
-            provider = self._adapter_registry.resolve(validating.provider_code)
-            gateway = BillingGatewayV1(
-                provider=provider,
-                binding=BillingProviderBinding(
-                    provider_code=validating.provider_code,
-                    credential_secret_reference=(
-                        validating.credential_secret_reference
-                    ),
-                ),
-                secret_store=self._secret_store,
-            )
-            result = gateway.test_connection(
-                context=BillingCallContext(
-                    idempotency_key=(
-                        f"billing-connection-test:{account_id}:v{validating.version}"
-                    ),
-                    correlation_id=contexto.correlation_id,
-                    timeout_seconds=timeout_seconds,
+            if not validating.credential_secret_reference:
+                raise DadoComercialInvalido(
+                    "billing_credential_not_configured"
                 )
+            provider = self._adapter_registry.resolve(validating.provider_code)
+            binding = BillingProviderBinding(
+                provider_code=validating.provider_code,
+                credential_secret_reference=validating.credential_secret_reference,
             )
+            call_context = BillingCallContext(
+                idempotency_key=(
+                    f"billing-connection-test:{account_id}:v{validating.version}"
+                ),
+                correlation_id=contexto.correlation_id,
+                timeout_seconds=timeout_seconds,
+            )
+            if validating.credential_secret_reference.startswith("vault:"):
+                with self._session_factory() as secret_session:
+                    gateway = BillingGatewayV1(
+                        provider=provider,
+                        binding=binding,
+                        secret_store=EncryptedSQLAlchemySecretStore(secret_session),
+                    )
+                    result = gateway.test_connection(context=call_context)
+            else:
+                gateway = BillingGatewayV1(
+                    provider=provider,
+                    binding=binding,
+                    secret_store=self._secret_store,
+                )
+                result = gateway.test_connection(context=call_context)
             ok = bool(result.ok)
+            if normalizar_provider_code(result.provider_code) != validating.provider_code:
+                raise DadoComercialInvalido(
+                    "billing_connection_provider_mismatch"
+                )
             detail_code = _safe_detail_code(
                 result.detail_code,
                 fallback="connection_ok" if ok else "connection_failed",
@@ -429,6 +521,7 @@ class AplicacaoBillingConfigurationV1:
             DadoComercialInvalido,
             ReferenciaSegredoInvalida,
             SegredoAusente,
+            RuntimeError,
         ) as exc:
             detail_code = type(exc).__name__
             ok = False
