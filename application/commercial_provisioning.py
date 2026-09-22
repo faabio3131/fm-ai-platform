@@ -12,8 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from application.comercial_registry import AplicacaoCommercialRegistryV1
-from application.commercial_entitlement import AplicacaoEntitlementComercialV1
-from core.comercial.entitlement import EstadoComercial, serializar_capabilities
+from application.commercial_trial import AplicacaoTrialComercialV1
 from core.comercial.erros import (
     ConflitoIdempotenciaComercial,
     DadoComercialInvalido,
@@ -84,7 +83,7 @@ class AplicacaoProvisioningKordenaV1:
         self._failure_hook = failure_hook
         self._lease = timedelta(seconds=pending_entitlement_lease_seconds)
         self._registry = AplicacaoCommercialRegistryV1(session_factory)
-        self._entitlement = AplicacaoEntitlementComercialV1(session_factory)
+        self._trial = AplicacaoTrialComercialV1(session_factory)
 
     def _failpoint(self, step: str) -> None:
         if self._failure_hook is not None:
@@ -238,7 +237,7 @@ class AplicacaoProvisioningKordenaV1:
                     owner_email=email,
                     display_name=name,
                     primary_contact_phone=phone,
-                    trial_binding_status="pending_kca07",
+                    trial_binding_status="pending",
                     entitlement_snapshot_id=None,
                     attempts=0,
                     last_error=None,
@@ -411,50 +410,30 @@ class AplicacaoProvisioningKordenaV1:
             )
         return self._update(saga, current_step="product_account_active")
 
-    def _ensure_pending_entitlement(
+    def _ensure_trial_binding(
         self, saga: ProvisionamentoKordena
     ) -> ProvisionamentoKordena:
-        if saga.entitlement_snapshot_id is not None:
+        if (
+            saga.trial_binding_status == "active"
+            and saga.entitlement_snapshot_id is not None
+        ):
             return saga
-        self._failpoint("entitlement")
-        snapshot = self._entitlement.recalcular(
+        self._failpoint("trial")
+        result = self._trial.ativar(
             contexto=self._system_context(saga),
-            idempotency_key=f"{saga.idempotency_key}:pending-entitlement",
+            idempotency_key=f"{saga.idempotency_key}:trial",
+            fm_customer_id=str(saga.fm_customer_id),
             product_account_id=str(saga.product_account_id),
             tenant_id=saga.tenant_id,
-            commercial_state=EstadoComercial.TRIAL_PENDING,
-            plan_code=None,
-            valid_until=_now() + self._lease,
-            change_reason="KCA-05 provisioning pending KCA-07 trial activation",
+            # Provisioning is an internal trusted boundary. Public signup only
+            # reaches this point after KCA-06 verified the one-time email token.
+            email_verified=True,
         )
-        applied = self._entitlement.aplicar_evento_local(
-            event_id=f"prov-{saga.provisioning_id}",
-            payload={
-                "product_account_id": snapshot.product_account_id,
-                "tenant_id": snapshot.tenant_id,
-                "revision": snapshot.revision,
-                "commercial_state": snapshot.commercial_state.value,
-                "plan_code": snapshot.plan_code,
-                "plan_version_id": snapshot.plan_version_id,
-                "access_mode": snapshot.access_mode.value,
-                "capabilities": serializar_capabilities(
-                    snapshot.capabilities
-                ),
-                "effective_from": snapshot.effective_from.isoformat(),
-                "valid_until": snapshot.valid_until.isoformat(),
-            },
-        )
-        if not applied:
-            decision = self._entitlement.avaliar_local(
-                tenant_id=saga.tenant_id,
-                product_account_id=str(saga.product_account_id),
-            )
-            if decision.revision is None or decision.revision < snapshot.revision:
-                raise RuntimeError("entitlement_projection_not_applied")
         return self._update(
             saga,
-            entitlement_snapshot_id=snapshot.entitlement_snapshot_id,
-            current_step="pending_entitlement_projected",
+            trial_binding_status="active",
+            entitlement_snapshot_id=result.entitlement_snapshot_id,
+            current_step="trial_active",
         )
 
     def _mark_failed(
@@ -526,7 +505,7 @@ class AplicacaoProvisioningKordenaV1:
             saga = self._ensure_identity(saga, owner_password)
             saga = self._ensure_admin_scope(saga)
             saga = self._activate_account(saga)
-            saga = self._ensure_pending_entitlement(saga)
+            saga = self._ensure_trial_binding(saga)
             self._failpoint("ready")
             saga = self._transition(
                 saga,
