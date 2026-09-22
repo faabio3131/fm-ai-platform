@@ -15,6 +15,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from application.public_signup import (
@@ -192,7 +193,7 @@ def build_public_signup_router(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={"erro": str(exc)},
             )
-        except Exception:
+        except (ValueError, RuntimeError, SQLAlchemyError):
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 content={"erro": "signup_provisioning_pending"},
