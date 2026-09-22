@@ -3,13 +3,14 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from application.public_signup import AplicacaoPublicSignupV1, SignupVerificationError
 from core.comercial.signup import EstadoSignup
 from core.seguranca.segredos import ReferenceSecretStore
+from infra.comercial.catalogo_orm import FMCommercialPlanORM, FMCommercialPlanVersionORM
 from infra.comercial.signup_orm import FMPublicSignupIntentORM
 from migrations.runner import run_migrations
 
@@ -24,7 +25,41 @@ def _factory():
         poolclass=StaticPool,
     )
     run_migrations(engine)
-    return sessionmaker(bind=engine, expire_on_commit=False)
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    now = datetime.now(timezone.utc)
+    with factory() as session, session.begin():
+        plan = session.scalar(
+            select(FMCommercialPlanORM).where(
+                FMCommercialPlanORM.plan_code == "KORDENA_PLAN_A"
+            )
+        )
+        assert plan is not None
+        plan.status = "configured"
+        plan.version = 2
+        plan.updated_at = now
+        session.add(
+            FMCommercialPlanVersionORM(
+                plan_version_id="kca06-trial-plan-version",
+                plan_id=plan.plan_id,
+                version_number=1,
+                display_name="Plano fixture KCA-06",
+                description=None,
+                trial_eligible=True,
+                marketing_badge=None,
+                metadata_json={},
+                status="published",
+                valid_from=now - timedelta(days=1),
+                valid_until=None,
+                change_reason="fixture signup",
+                created_by="test",
+                validated_by="test",
+                published_by="test",
+                created_at=now,
+                validated_at=now,
+                published_at=now,
+            )
+        )
+    return factory
 
 
 def _app(factory, **kwargs):
