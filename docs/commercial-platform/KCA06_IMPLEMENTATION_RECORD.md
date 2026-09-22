@@ -2,7 +2,7 @@
 
 ## Status
 
-**EM CERTIFICAÇÃO — KCA-G6 AINDA NÃO APROVADO**
+**PASS — KCA-G6 CERTIFIED**
 
 ## Scope implementado
 
@@ -21,7 +21,30 @@
 - Audit/correlation preservados.
 - Frontend de signup existe, mas feature flag pública permanece desligada por padrão.
 
-## Evidência em validação
+## Certification evidence
+
+Candidate certificado: `1569253f69db951bdb1c5ac36a7c9908d40483b4`
+
+GitHub Actions:
+- Kordena KCA Commercial Gate: run `35750059891` — SUCCESS.
+- 17/17 workflows associados ao candidate concluíram SUCCESS.
+- Migration manifest: PASS.
+- Schema baseline: PASS — 122 tabelas.
+- Schema SHA-256: `0c25e3fe75497b92f0c2e9667d864c90daba44fcc3da56ba1fec224abb2bc113`.
+- Ruff/mypy: PASS.
+- KCA targeted suite: **115 passed, 2 warnings**.
+- Full Python regression: **1716 passed, 5 skipped, 102 warnings**.
+- Web ESLint: PASS.
+- Web TypeScript: PASS.
+- Web Node: **14 tests, 0 skipped**.
+- Next production build: PASS.
+- Diff whitespace: PASS.
+- WP-031 Master Gate: SUCCESS.
+- Commercial Runtime Readiness: SUCCESS.
+- Schema Baseline Probe: SUCCESS.
+- Web Parity, Pre-E Audit & Fix, WP-031 B/E/F/G/H/I/J/L, Assistente e Visual Premium gates: SUCCESS.
+
+## Correção realizada durante a certificação
 
 A regressão do primeiro HEAD KCA-06 revelou quatro testes legados que congelavam o manifesto até `0053_commercial_provisioning_v1`. A migration `0054_commercial_signup_v1` já estava corretamente registrada no runner. Os testes foram atualizados para reconhecer a nova migration canônica.
 
@@ -31,6 +54,6 @@ Commits corretivos:
 
 ## Gate
 
-**KCA-G6 = PENDENTE**
+**KCA-G6 = PASS**
 
-Somente promover para PASS após Migration manifest, schema baseline, targeted KCA, full Python, frontend lint/typecheck/tests/build, regressão e CI aplicáveis ficarem verdes.
+Não iniciar KCA-07 automaticamente. PR #125 deve permanecer OPEN/DRAFT, sem merge e sem deploy público.
