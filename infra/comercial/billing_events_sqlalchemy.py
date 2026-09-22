@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from core.comercial.erros import ConflitoConcorrenciaComercial
 
 from .billing_events_orm import (
+    FMBillingEventCursorORM,
     FMBillingReconciliationRunORM,
     FMBillingSubscriptionBindingORM,
     FMBillingTransactionORM,
@@ -184,6 +185,56 @@ class RepositorioBillingEventsSQLAlchemy:
         if row is None:
             raise ConflitoConcorrenciaComercial(
                 "billing_transaction_missing_after_update"
+            )
+        return row
+
+    def obter_cursor(
+        self,
+        *,
+        provider_account_id: str,
+        stream_key: str,
+    ) -> FMBillingEventCursorORM | None:
+        return self._session.scalar(
+            select(FMBillingEventCursorORM).where(
+                FMBillingEventCursorORM.provider_account_id == provider_account_id,
+                FMBillingEventCursorORM.stream_key == stream_key,
+            )
+        )
+
+    def adicionar_cursor(
+        self, row: FMBillingEventCursorORM
+    ) -> FMBillingEventCursorORM:
+        self._session.add(row)
+        self._session.flush()
+        return row
+
+    def atualizar_cursor(
+        self,
+        *,
+        cursor_id: str,
+        expected_version: int,
+        values: dict[str, object],
+    ) -> FMBillingEventCursorORM:
+        payload = dict(values)
+        payload["version"] = expected_version + 1
+        payload["updated_at"] = datetime.now(timezone.utc)
+        result = self._session.execute(
+            update(FMBillingEventCursorORM)
+            .where(
+                FMBillingEventCursorORM.cursor_id == cursor_id,
+                FMBillingEventCursorORM.version == expected_version,
+            )
+            .values(**payload)
+        )
+        if getattr(result, "rowcount", 0) != 1:
+            raise ConflitoConcorrenciaComercial(
+                "billing_event_cursor_version_conflict"
+            )
+        self._session.flush()
+        row = self._session.get(FMBillingEventCursorORM, cursor_id)
+        if row is None:
+            raise ConflitoConcorrenciaComercial(
+                "billing_event_cursor_missing_after_update"
             )
         return row
 
