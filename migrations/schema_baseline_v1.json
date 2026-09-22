@@ -1,7 +1,7 @@
 {
   "algorithm": "sha256:normalized-schema-signature-v1",
-  "approved_head": "00bf4dcb50731307e6a72b8f07b2d1d9f95c6837",
+  "approved_head": "d6f11fa49f55cadea31ecdcd9c89c25b41d717f5",
   "dialect": "sqlite",
-  "signature_sha256": "6792e66af3402609e367344cf50b4b7f19d8369404fe3153616f4248e1f7fcab",
-  "table_count": 109
+  "signature_sha256": "64fa1bd61e7c174b3d7571b7bba02fd95d6ce65b0a642ee65de3a519fb352294",
+  "table_count": 116
 }
