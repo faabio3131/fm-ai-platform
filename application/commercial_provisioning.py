@@ -325,7 +325,10 @@ class AplicacaoProvisioningKordenaV1:
         with self._session_factory() as session, session.begin():
             repo = RepositorioIdentidadesSQLAlchemy(session)
             current = repo.obter_por_email(saga.owner_email)
-            if current is None:
+            global_identity_id = repo.obter_identity_user_id_por_email(
+                saga.owner_email
+            )
+            if current is None and global_identity_id is None:
                 if not password:
                     raise DadoComercialInvalido(
                         "owner_password_required_for_identity"
@@ -340,8 +343,13 @@ class AplicacaoProvisioningKordenaV1:
                     acesso_admin_sensivel=True,
                 )
             else:
+                identity_user_id = (
+                    str(current.global_identity_id)
+                    if current is not None
+                    else str(global_identity_id)
+                )
                 memberships = repo.listar_memberships(
-                    identity_user_id=str(current.global_identity_id)
+                    identity_user_id=identity_user_id
                 )
                 same_scope = next(
                     (
@@ -354,7 +362,7 @@ class AplicacaoProvisioningKordenaV1:
                 )
                 if same_scope is None:
                     current = repo.criar_membership_existente(
-                        identity_user_id=str(current.global_identity_id),
+                        identity_user_id=identity_user_id,
                         tenant_id=saga.tenant_id,
                         unidade_padrao_id=saga.unidade_id,
                         papeis=(Papel.ADMINISTRADOR,),
