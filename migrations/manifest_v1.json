@@ -232,6 +232,10 @@
     {
       "version": "0057_commercial_billing_config_v1",
       "sha256": "3d255142b5aebc4f6e52d6fe0c818a5e4b34ffa8fa6324ceee2ecf99ca886eb6"
+    },
+    {
+      "version": "0058_commercial_billing_events_v1",
+      "sha256": "bcda27f3eb312f6af5498c7f7e6d80916a6deb34ef238645c8ee7f108f0a75fe"
     }
   ]
 }
