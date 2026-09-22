@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
@@ -234,6 +235,18 @@ export default function LoginPage() {
                 {submitting ? <><Loader2 className="animate-spin" />Validando acesso…</> : <>Entrar<ArrowRight /></>}
               </Button>
             </form>
+
+            <div className="mt-4">
+              {process.env.NEXT_PUBLIC_KORDENA_SIGNUP_ENABLED === "true" ? (
+                <Button asChild variant="outline" className="h-12 w-full border-slate-700 bg-transparent">
+                  <Link href="/signup">Começar teste grátis</Link>
+                </Button>
+              ) : (
+                <Button type="button" variant="outline" className="h-12 w-full border-slate-700 bg-transparent" disabled>
+                  Começar teste grátis
+                </Button>
+              )}
+            </div>
 
             <p className="mt-6 text-center text-xs leading-5 text-slate-500">
               O acesso é vinculado ao seu tenant, unidades permitidas e permissões ativas.
