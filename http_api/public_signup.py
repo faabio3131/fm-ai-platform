@@ -206,8 +206,12 @@ def build_public_signup_router(
         result = app.obter_status(signup_id=signup_id)
         if result is None:
             return JSONResponse(
-                status_code=status.HTTP_404_NOT_FOUND,
-                content={"erro": "signup_not_found"},
+                status_code=status.HTTP_200_OK,
+                content={
+                    "signup_id": signup_id,
+                    "status": "email_pending",
+                    "ready": False,
+                },
             )
         return JSONResponse(
             status_code=status.HTTP_200_OK,
