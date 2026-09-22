@@ -304,7 +304,7 @@ class AplicacaoEntitlementComercialV1:
             if isinstance(raw_revision, bool) or not isinstance(
                 raw_revision, (str, int)
             ):
-                raise ValueError("revision_invalida")
+                raise TypeError("revision_invalida")
             revision = int(raw_revision)
             state = normalizar_estado_comercial(str(payload["commercial_state"]))
             access_mode = ModoAcessoComercial(str(payload["access_mode"]))
