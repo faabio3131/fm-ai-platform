@@ -1119,6 +1119,39 @@ class AplicacaoBillingEventsV1:
             )
             return updated
 
+    def obter_inbox(self, *, inbox_id: str) -> FMBillingWebhookInboxORM:
+        with self._session_factory() as session:
+            row = RepositorioBillingEventsSQLAlchemy(session).obter_inbox(
+                inbox_id.strip()
+            )
+        if row is None:
+            raise RegistroComercialNaoEncontrado("billing_webhook_not_found")
+        return row
+
+    def listar_inbox(
+        self,
+        *,
+        status: BillingWebhookInboxStatus,
+        limit: int = 100,
+    ) -> tuple[FMBillingWebhookInboxORM, ...]:
+        if limit < 1 or limit > 500:
+            raise DadoComercialInvalido("billing_inbox_limit_invalido")
+        with self._session_factory() as session:
+            return RepositorioBillingEventsSQLAlchemy(
+                session
+            ).listar_inbox_por_status(status=status.value, limit=limit)
+
+    def obter_transacao(
+        self, *, billing_transaction_id: str
+    ) -> FMBillingTransactionORM:
+        with self._session_factory() as session:
+            row = RepositorioBillingEventsSQLAlchemy(session).obter_transacao(
+                billing_transaction_id.strip()
+            )
+        if row is None:
+            raise RegistroComercialNaoEncontrado("billing_transaction_not_found")
+        return row
+
     def processar_retries(
         self,
         *,
