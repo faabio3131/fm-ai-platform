@@ -21,7 +21,10 @@ from core.comercial.billing import (
     BillingProviderError,
     BillingTransaction,
 )
-from core.comercial.billing_config import BillingProviderAccountStatus
+from core.comercial.billing_config import (
+    BillingProviderAccount,
+    BillingProviderAccountStatus,
+)
 from core.comercial.billing_events import (
     BillingCanonicalEventType,
     BillingReconciliationStatus,
@@ -124,6 +127,12 @@ def _event_from_payload(payload: dict[str, object]) -> NormalizedBillingEvent:
     amount_raw = payload.get("amount")
     transaction_type = payload.get("transaction_type")
     transaction_status = payload.get("transaction_status")
+    metadata_raw = payload.get("metadata_safe")
+    metadata_safe = (
+        dict(metadata_raw)
+        if isinstance(metadata_raw, dict)
+        else {}
+    )
     return NormalizedBillingEvent(
         provider_code=str(payload["provider_code"]),
         external_event_id=str(payload["external_event_id"]),
@@ -160,7 +169,7 @@ def _event_from_payload(payload: dict[str, object]) -> NormalizedBillingEvent:
         currency=str(payload["currency"]) if payload.get("currency") else None,
         period_start=dt("period_start"),
         period_end=dt("period_end"),
-        metadata_safe=dict(payload.get("metadata_safe") or {}),
+        metadata_safe=metadata_safe,
     )
 
 
@@ -229,7 +238,7 @@ class AplicacaoBillingEventsV1:
         session,
         provider_account_id: str,
         require_webhooks: bool,
-    ) -> tuple[object, BillingGatewayV1]:
+    ) -> tuple[BillingProviderAccount, BillingGatewayV1]:
         account = RepositorioBillingConfigSQLAlchemy(
             session
         ).obter_provider_account(provider_account_id.strip())
