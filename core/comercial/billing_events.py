@@ -125,6 +125,49 @@ class NormalizedBillingEvent:
                 "external_transaction_ref",
                 self.external_transaction_ref.strip(),
             )
+        transaction_events = {
+            BillingCanonicalEventType.PAYMENT_SUCCEEDED,
+            BillingCanonicalEventType.PAYMENT_FAILED,
+            BillingCanonicalEventType.PAYMENT_REFUNDED,
+        }
+        subscription_events = {
+            BillingCanonicalEventType.SUBSCRIPTION_ACTIVE,
+            BillingCanonicalEventType.SUBSCRIPTION_PAST_DUE,
+            BillingCanonicalEventType.SUBSCRIPTION_SUSPENDED,
+            BillingCanonicalEventType.SUBSCRIPTION_CANCELED,
+            BillingCanonicalEventType.SUBSCRIPTION_RENEWED,
+        }
+        if self.canonical_event_type in transaction_events:
+            if self.external_transaction_ref is None:
+                raise DadoComercialInvalido(
+                    "billing_event_transaction_ref_obrigatoria"
+                )
+            expected_status = transaction_status_for_event(
+                self.canonical_event_type
+            )
+            if (
+                self.transaction_status is not None
+                and expected_status is not None
+                and self.transaction_status != expected_status
+            ):
+                raise DadoComercialInvalido(
+                    "billing_event_transaction_status_incompativel"
+                )
+        if (
+            self.canonical_event_type in subscription_events
+            and self.external_subscription_ref is None
+        ):
+            raise DadoComercialInvalido(
+                "billing_event_subscription_ref_obrigatoria"
+            )
+        if (
+            self.canonical_event_type
+            == BillingCanonicalEventType.SUBSCRIPTION_RENEWED
+            and (self.period_start is None or self.period_end is None)
+        ):
+            raise DadoComercialInvalido(
+                "billing_event_renewal_period_obrigatorio"
+            )
         object.__setattr__(self, "metadata_safe", dict(self.metadata_safe or {}))
 
 
