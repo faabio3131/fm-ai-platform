@@ -274,3 +274,32 @@ def test_billing_credential_is_onboarded_through_encrypted_vault(
     assert body["status"] == "validating"
     assert "credential_secret_reference" not in body
     assert "fake-provider-secret-never-returned" not in rotated.text
+
+
+
+def test_kca10_billing_event_controls_require_admin_stepup(monkeypatch) -> None:
+    client = _infra(monkeypatch)
+
+    response = client.get(
+        "/v1/admin/commercial/billing/webhook-inbox",
+        params={"status_filter": "dead_letter"},
+    )
+    assert response.status_code == 401
+
+    _login(client, step_up=False)
+    response = client.get(
+        "/v1/admin/commercial/billing/webhook-inbox",
+        params={"status_filter": "dead_letter"},
+    )
+    assert response.status_code == 403
+
+    assert client.post(
+        "/v1/auth/admin-step-up",
+        json={"senha": SENHA},
+    ).status_code == 200
+    response = client.get(
+        "/v1/admin/commercial/billing/webhook-inbox",
+        params={"status_filter": "dead_letter"},
+    )
+    assert response.status_code == 200
+    assert response.json() == []
