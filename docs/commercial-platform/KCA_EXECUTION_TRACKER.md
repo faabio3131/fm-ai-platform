@@ -24,8 +24,8 @@
 | KCA-G9 | PASS |
 | KCA-09B Multi-Provider Configuration & Receiving Accounts | PASS — `b38f20b0c7520e39203076a07923c76767ffb970` |
 | KCA-G9B | PASS |
-| KCA-10 Webhook Inbox + Reconciliation | EM EXECUÇÃO — autorizado após G9B |
-| KCA-G10 | PENDENTE |
+| KCA-10 Webhook Inbox + Reconciliation | PASS — `ccdf7883f63d184e34dab51ad26babc69b3edf9a` |
+| KCA-G10 | PASS |
 | KCA-11+ | NÃO INICIADO |
 
 ## Baseline
@@ -264,3 +264,32 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - Escopo: durable webhook inbox, signature verification, event ID/body hash, idempotência, replay protection, normalization, ordering, retry/DLQ/replay controlado, Billing Ledger mínimo e reconciliation.
 - KCA-11 Paywall/Recovery/Dunning permanece NÃO INICIADO.
 - Nenhum provider, credencial, conta financeira ou cobrança real será utilizado.
+
+
+## Certificação KCA-10
+
+- Candidate funcional: `ccdf7883f63d184e34dab51ad26babc69b3edf9a`.
+- Migration: `0058_commercial_billing_events_v1`.
+- Durable Webhook Inbox: PASS.
+- Assinatura provider-neutral por headers: PASS.
+- Body hash/idempotência/replay protection: PASS.
+- Payload válido persistido cifrado antes da normalização: PASS.
+- Raw payload/assinatura não persistidos em claro: PASS.
+- Normalização após Inbox durável: PASS.
+- Binding assinatura interna↔externa: PASS.
+- Ordering cursor/sequence/time: PASS.
+- Provider resend idempotente: PASS.
+- Retry governado/backoff: PASS.
+- DEAD_LETTER por exaustão: PASS.
+- Replay administrativo controlado: PASS.
+- Billing Transaction Ledger: PASS.
+- Reconciliation IN_SYNC/REPAIRED: PASS.
+- Subscription Engine canônico preservado: PASS.
+- KCA-11 Paywall/Recovery/Dunning: NÃO INICIADO.
+- Schema baseline: 132 tabelas; SHA `9fccb9f26f04f92fb104f0eebef885c0f5a8556ef9816670e8e4fafdf594beb3`.
+- KCA targeted: 187 passed, 2 warnings.
+- Full Python: 1788 passed, 5 skipped, 102 warnings.
+- Web Node: 14/14; ESLint/TypeScript/Next build/diff: PASS.
+- Candidate funcional: 13/13 workflows SUCCESS.
+- KCA-G10: PASS.
+- STOP obrigatório mantido antes do KCA-11.
