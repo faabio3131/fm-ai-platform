@@ -140,9 +140,14 @@ class AplicacaoPublicSignupV1:
             with self._session_factory() as session, session.begin():
                 identities = RepositorioIdentidadesSQLAlchemy(session)
                 existing_membership = identities.obter_por_email(email)
+                existing_identity_id = identities.obter_identity_user_id_por_email(email)
                 repo = RepositorioPublicSignupSQLAlchemy(session)
                 pending = repo.obter_pendente_por_email(email)
-                if existing_membership is not None or pending is not None:
+                if (
+                    existing_membership is not None
+                    or existing_identity_id is not None
+                    or pending is not None
+                ):
                     raise RegistroComercialDuplicado("signup_indisponivel")
                 signup = repo.adicionar(
                     FMPublicSignupIntentORM(
