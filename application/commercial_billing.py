@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from core.comercial.billing import (
@@ -176,12 +177,12 @@ class BillingGatewayV1:
         self,
         *,
         payload: bytes,
-        signature: str,
+        headers: Mapping[str, str],
         context: BillingCallContext,
     ) -> WebhookVerificationResult:
         return self._provider.verify_webhook(
             payload=payload,
-            signature=signature,
+            headers=headers,
             context=context,
             credential=self._credential(),
         )
