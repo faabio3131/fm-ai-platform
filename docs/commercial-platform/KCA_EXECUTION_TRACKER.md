@@ -22,6 +22,8 @@
 | KCA-G8 | PASS |
 | KCA-09 Billing Provider Abstraction | PASS — `640e63595046fbd68df4ff129b2cb156e845c28a` |
 | KCA-G9 | PASS |
+| KCA-09B Multi-Provider Configuration & Receiving Accounts | EM EXECUÇÃO — autorizado após G9 |
+| KCA-G9B | PENDENTE |
 | KCA-10+ | NÃO INICIADO |
 
 ## Baseline
@@ -211,3 +213,13 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - 13/13 workflows do candidate SHA: SUCCESS.
 - KCA-G9: PASS.
 - STOP obrigatório aplicado antes do KCA-10.
+
+
+## Execução KCA-09B — abertura
+
+- KCA-G9 previamente certificado.
+- Prompt formal: `docs/commercial-platform/KCA09B_EXECUTION_PROMPT.md`.
+- Objetivo: configuração multi-provider, contas recebedoras e roteamento governado antes do KCA-10.
+- Nenhum provider, credencial, conta financeira ou cobrança real será criado.
+- FM Control Center permanece apenas como futura superfície administrativa; autoridade continua na FM Commercial Platform.
+- KCA-10 permanece NÃO INICIADO até KCA-G9B PASS.
