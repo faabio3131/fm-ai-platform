@@ -48,6 +48,12 @@ def _agora() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _persisted_utc(value: datetime) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
 def _hash_payload(payload: dict[str, object]) -> str:
     encoded = json.dumps(
         payload,
@@ -383,7 +389,7 @@ class AplicacaoEntitlementComercialV1:
                     stale=False,
                 )
 
-            valid_until = utc(row.valid_until)
+            valid_until = _persisted_utc(row.valid_until)
             stale = instante > valid_until
             if stale and instante > valid_until + self._stale_grace:
                 return DecisaoEntitlement(
