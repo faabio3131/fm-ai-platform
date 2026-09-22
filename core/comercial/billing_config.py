@@ -127,7 +127,7 @@ class BillingProviderAccount:
     legal_entity_ref: str | None
     environment: BillingEnvironment
     status: BillingProviderAccountStatus
-    credential_secret_reference: str
+    credential_secret_reference: str | None
     supported_payment_methods: tuple[BillingPaymentMethod, ...]
     supports_recurring: bool
     supports_webhooks: bool
