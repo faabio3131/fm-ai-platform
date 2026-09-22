@@ -22,8 +22,8 @@
 | KCA-G8 | PASS |
 | KCA-09 Billing Provider Abstraction | PASS — `640e63595046fbd68df4ff129b2cb156e845c28a` |
 | KCA-G9 | PASS |
-| KCA-09B Multi-Provider Configuration & Receiving Accounts | EM EXECUÇÃO — autorizado após G9 |
-| KCA-G9B | PENDENTE |
+| KCA-09B Multi-Provider Configuration & Receiving Accounts | PASS — `b38f20b0c7520e39203076a07923c76767ffb970` |
+| KCA-G9B | PASS |
 | KCA-10+ | NÃO INICIADO |
 
 ## Baseline
@@ -223,3 +223,33 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - Nenhum provider, credencial, conta financeira ou cobrança real será criado.
 - FM Control Center permanece apenas como futura superfície administrativa; autoridade continua na FM Commercial Platform.
 - KCA-10 permanece NÃO INICIADO até KCA-G9B PASS.
+
+
+## Certificação KCA-09B
+
+- Candidate funcional: `b38f20b0c7520e39203076a07923c76767ffb970`.
+- Migration: `0057_commercial_billing_config_v1`.
+- Provider accounts multi-provider/configuráveis: PASS.
+- Provider code aberto/provider-neutral: PASS.
+- Conta DRAFT sem credencial: PASS.
+- Onboarding/rotação posterior em Secret Vault cifrado: PASS.
+- Secret reference somente; nenhum segredo em claro na configuração/API: PASS.
+- Isolamento `vault:*` por tenant/unidade: PASS.
+- Adapter registry runtime: PASS.
+- Teste de conexão não financeiro: PASS.
+- Ativação somente após connection test PASS: PASS.
+- Sandbox/Production: PASS.
+- Métodos de pagamento e capabilities recurring/webhooks: PASS.
+- Routing primary + fallbacks: PASS.
+- Rota incompatível/ausente: fail-closed.
+- Fallback não executa cobrança automática: PASS.
+- RBAC + step-up administrativo: PASS.
+- API preparada para futura superfície do FM Control Center: PASS.
+- KCA-10 Webhook Inbox/Reconciliation: NÃO INICIADO.
+- Schema baseline: 127 tabelas; SHA `dfa71718df03907d1cf44cdb7f54ce774d7b05395b4a9ef20885d90951e88c55`.
+- KCA targeted: 161 passed, 2 warnings.
+- Full Python: 1762 passed, 5 skipped, 102 warnings.
+- Web Node: 14/14; ESLint/TypeScript/Next build/diff: PASS.
+- 13/13 workflows do candidate funcional: SUCCESS.
+- KCA-G9B: PASS.
+- STOP obrigatório mantido antes do KCA-10.
