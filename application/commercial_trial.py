@@ -156,8 +156,9 @@ class AplicacaoTrialComercialV1:
         contexto: ContextoExecucao,
         trial: TrialComercial,
         reason: str,
+        agora: datetime | None = None,
     ) -> str:
-        now = _now()
+        now = utc(agora or _now())
         if trial.status == EstadoTrial.ACTIVE:
             if trial.ends_at is None or utc(trial.ends_at) <= now:
                 raise DadoComercialInvalido("trial_active_without_future_end")
@@ -603,6 +604,7 @@ class AplicacaoTrialComercialV1:
             contexto=contexto,
             trial=updated,
             reason=reason,
+            agora=instante,
         )
         return updated
 
