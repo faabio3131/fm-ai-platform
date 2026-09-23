@@ -30,7 +30,8 @@
 | KCA-G11 | PASS |
 | KCA-12 FM Control Center — Integração + Commercial Control Plane | PASS — `b35ba198ecd9a667f0473829c16562e2474a1f31` |
 | KCA-G12 | PASS — recertificação documental obrigatória |
-| KCA-13+ | NÃO INICIADO |
+| KCA-13 Observability / Antiabuse / FinOps | EM EXECUÇÃO — G13 PENDENTE |
+| KCA-14+ | NÃO INICIADO |
 
 ## Baseline
 
@@ -364,3 +365,18 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - Fechamento depende da recertificação do HEAD documental gerado por este registro/tracker.
 - KCA-12 ainda não está integrado na staging neste ponto documental; bloco cognitivo permanece proibido até o merge KCA-12 e verificação pós-merge.
 - KCA-13 permanece NÃO INICIADO.
+
+
+## Execução KCA-13 — abertura
+
+- Base Kordena reconciliada: `staging/kordena-premium` @ `9c52fd998e04c4d723171917f3776c9da7295858`.
+- Base FMCC reconciliada: `main` @ `5b433832e599f07a7b39c373c508733775d78406`.
+- Branch Kordena: `feat/kordena-commercial-kca13-observability-antiabuse-finops`.
+- Branch FMCC: `feat/fmcc-kca13-kordena-observability`.
+- CURRENT confirmou AI FinOps, audit trail, correlation IDs e KCA-12 já existentes; KCA-13 reutiliza essas autoridades.
+- Escopo: projeção read-only de observabilidade, métricas governadas, antiabuso, health, alertas determinísticos, tracing e FinOps.
+- INTERNAL_TEST permanece excluído de KPIs comerciais.
+- Custo de infraestrutura permanece unavailable até fonte governada real.
+- Nenhuma migration nova foi criada.
+- KCA-G13: PENDENTE de CI, auditoria e recertificação.
+- KCA-14 permanece NÃO INICIADO.
