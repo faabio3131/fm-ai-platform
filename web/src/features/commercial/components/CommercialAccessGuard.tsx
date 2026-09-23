@@ -1,6 +1,6 @@
 "use client";
 
-import { CreditCard, Loader2, LogOut, RefreshCw, ShieldAlert } from "lucide-react";
+import { CreditCard, LifeBuoy, Loader2, LogOut, RefreshCw, ShieldAlert } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
@@ -8,12 +8,16 @@ import { Button } from "@/components/ui/button";
 import {
   getCommercialAccess,
   getCommercialPlans,
+  startCommercialCheckout,
   type CommercialAccessStatus,
+  type CommercialPaymentMethod,
   type CommercialPlan,
+  type CommercialPlanPrice,
 } from "@/features/commercial/services/commercial-access-api";
 import { endAuthSession, useAuthStore } from "@/features/auth/store/auth-store";
 
 const EXEMPT_PATHS = ["/login", "/signup", "/cardapio"] as const;
+const SUPPORT_URL = process.env.NEXT_PUBLIC_SUPPORT_URL?.trim() || null;
 
 function isProtectedPath(pathname: string): boolean {
   return !EXEMPT_PATHS.some(
@@ -30,6 +34,9 @@ export function CommercialAccessGuard({ children }: { children: ReactNode }) {
   const [plans, setPlans] = useState<CommercialPlan[]>([]);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<CommercialPaymentMethod>("pix");
+  const [checkoutKey, setCheckoutKey] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!protectedPath || auth.status !== "authenticated") {
@@ -60,6 +67,30 @@ export function CommercialAccessGuard({ children }: { children: ReactNode }) {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [load, auth.tenantId]);
+
+  const beginCheckout = useCallback(
+    async (plan: CommercialPlan, price: CommercialPlanPrice) => {
+      const key = `${plan.plan_code}:${price.price_id}`;
+      setCheckoutKey(key);
+      setCheckoutError(null);
+      try {
+        const result = await startCommercialCheckout({
+          plan_code: plan.plan_code,
+          plan_version_id: plan.plan_version_id,
+          price_id: price.price_id,
+          payment_method: paymentMethod,
+        });
+        window.location.assign(result.checkout_url);
+      } catch {
+        setCheckoutError(
+          "Não foi possível iniciar o checkout. Tente novamente ou use o canal de suporte.",
+        );
+      } finally {
+        setCheckoutKey(null);
+      }
+    },
+    [paymentMethod],
+  );
 
   if (!protectedPath || auth.status !== "authenticated") {
     return children;
@@ -136,7 +167,50 @@ export function CommercialAccessGuard({ children }: { children: ReactNode }) {
             </Button>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-7 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+            <label htmlFor="commercial-payment-method" className="text-sm text-slate-300">
+              Forma de pagamento
+            </label>
+            <select
+              id="commercial-payment-method"
+              className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+              value={paymentMethod}
+              onChange={(event) =>
+                setPaymentMethod(event.target.value as CommercialPaymentMethod)
+              }
+            >
+              <option value="pix">Pix</option>
+              <option value="card">Cartão</option>
+              <option value="boleto">Boleto</option>
+              <option value="bank_transfer">Transferência bancária</option>
+            </select>
+            {SUPPORT_URL ? (
+              <a
+                href={SUPPORT_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="ml-auto inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+              >
+                <LifeBuoy className="size-4" />
+                Falar com suporte
+              </a>
+            ) : (
+              <span className="ml-auto text-xs text-slate-500">
+                Canal de suporte não configurado neste ambiente.
+              </span>
+            )}
+          </div>
+
+          {checkoutError ? (
+            <p
+              role="alert"
+              className="mt-4 rounded-xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-100"
+            >
+              {checkoutError}
+            </p>
+          ) : null}
+
+          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {plans.map((plan) => (
               <article
                 key={plan.plan_code}
@@ -150,16 +224,37 @@ export function CommercialAccessGuard({ children }: { children: ReactNode }) {
                   {plan.description ?? "Plano comercial Kordena."}
                 </p>
                 <div className="mt-5 space-y-2">
-                  {plan.prices.map((price) => (
-                    <div key={price.price_id}>
-                      <span className="text-xl font-semibold">
-                        {price.currency} {price.amount}
-                      </span>
-                      <span className="ml-1 text-xs text-slate-500">
-                        /{price.billing_period}
-                      </span>
-                    </div>
-                  ))}
+                  {plan.prices.map((price) => {
+                    const key = `${plan.plan_code}:${price.price_id}`;
+                    const checkingOut = checkoutKey === key;
+                    return (
+                      <div
+                        key={price.price_id}
+                        className="rounded-xl border border-slate-800 p-3"
+                      >
+                        <div>
+                          <span className="text-xl font-semibold">
+                            {price.currency} {price.amount}
+                          </span>
+                          <span className="ml-1 text-xs text-slate-500">
+                            /{price.billing_period}
+                          </span>
+                        </div>
+                        <Button
+                          className="mt-3 w-full"
+                          disabled={checkoutKey !== null}
+                          onClick={() => void beginCheckout(plan, price)}
+                        >
+                          {checkingOut ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <CreditCard className="size-4" />
+                          )}
+                          {checkingOut ? "Abrindo checkout…" : "Escolher este plano"}
+                        </Button>
+                      </div>
+                    );
+                  })}
                 </div>
               </article>
             ))}
