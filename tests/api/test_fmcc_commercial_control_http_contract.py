@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -13,8 +14,12 @@ from core.comercial.modelos import ClasseContaComercial, StatusContaProduto
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import Papel, Permissao
 from http_api.fmcc_commercial_control import build_fmcc_commercial_control_router
+from infra.comercial.billing_events_orm import FMBillingTransactionORM
 from infra.comercial.catalogo_orm import FMCommercialPlanVersionORM
+from infra.comercial.entitlement_orm import KordenaEntitlementProjectionORM
 from infra.comercial.modelos_orm import CommercialAuditORM
+from infra.comercial.subscription_orm import FMCommercialSubscriptionORM
+from infra.comercial.trial_orm import FMCommercialTrialORM
 from migrations.runner import run_migrations
 
 TOKEN = "kca12-fmcc-control-plane-token-0123456789abcdef"
@@ -71,6 +76,115 @@ def _client(*, token: str | None = TOKEN) -> TestClient:
         product_tenant_id="tenant-kca12-a",
     )
 
+    now = datetime.now(timezone.utc)
+    with factory() as session, session.begin():
+        session.add(
+            FMCommercialTrialORM(
+                trial_id="trial-kca12-expired",
+                fm_customer_id=customer.fm_customer_id,
+                product_account_id=account.product_account_id,
+                tenant_id="tenant-kca12-a",
+                plan_code="KORDENA_PLAN_A",
+                plan_version_id="plan-version-kca12",
+                status="expired",
+                policy_version="policy-kca12",
+                duration_days=30,
+                started_at=now - timedelta(days=31),
+                ends_at=now - timedelta(days=1),
+                converted_at=None,
+                revoked_at=None,
+                override_reason=None,
+                version=2,
+                correlation_id="kca12-fixture",
+                created_at=now - timedelta(days=31),
+                updated_at=now - timedelta(days=1),
+            )
+        )
+        session.add(
+            FMCommercialSubscriptionORM(
+                subscription_id="subscription-kca12-past-due",
+                fm_customer_id=customer.fm_customer_id,
+                product_account_id=account.product_account_id,
+                tenant_id="tenant-kca12-a",
+                plan_code="KORDENA_PLAN_A",
+                plan_version_id="plan-version-kca12",
+                price_id="price-kca12",
+                currency="BRL",
+                billing_period="monthly",
+                contracted_amount=Decimal("149.90"),
+                status="past_due",
+                current_period_start=now - timedelta(days=31),
+                current_period_end=now - timedelta(days=1),
+                cancel_at_period_end=False,
+                canceled_at=None,
+                activated_at=now - timedelta(days=31),
+                suspended_at=None,
+                version=3,
+                correlation_id="kca12-fixture",
+                created_at=now - timedelta(days=31),
+                updated_at=now - timedelta(hours=2),
+            )
+        )
+        session.add_all(
+            [
+                FMBillingTransactionORM(
+                    billing_transaction_id="billing-kca12-success",
+                    provider_account_id="provider-account-kca12",
+                    provider_code="fixture-provider",
+                    external_transaction_ref="external-payment-success",
+                    subscription_id="subscription-kca12-past-due",
+                    transaction_type="payment",
+                    status="succeeded",
+                    amount=Decimal("149.90"),
+                    currency="BRL",
+                    provider_occurred_at=now - timedelta(days=30),
+                    provider_sequence=1,
+                    last_external_event_id="provider-event-1",
+                    reconciliation_status="in_sync",
+                    last_reconciled_at=now - timedelta(hours=3),
+                    version=1,
+                    correlation_id="kca12-fixture",
+                    created_at=now - timedelta(days=30),
+                    updated_at=now - timedelta(hours=3),
+                ),
+                FMBillingTransactionORM(
+                    billing_transaction_id="billing-kca12-failed",
+                    provider_account_id="provider-account-kca12",
+                    provider_code="fixture-provider",
+                    external_transaction_ref="external-payment-failed",
+                    subscription_id="subscription-kca12-past-due",
+                    transaction_type="payment",
+                    status="failed",
+                    amount=Decimal("149.90"),
+                    currency="BRL",
+                    provider_occurred_at=now - timedelta(hours=2),
+                    provider_sequence=2,
+                    last_external_event_id="provider-event-2",
+                    reconciliation_status="failed",
+                    last_reconciled_at=now - timedelta(hours=1),
+                    version=1,
+                    correlation_id="kca12-fixture",
+                    created_at=now - timedelta(hours=2),
+                    updated_at=now - timedelta(hours=1),
+                ),
+            ]
+        )
+        session.add(
+            KordenaEntitlementProjectionORM(
+                tenant_id="tenant-kca12-a",
+                product_account_id=account.product_account_id,
+                revision=7,
+                commercial_state="subscription_past_due",
+                plan_code="KORDENA_PLAN_A",
+                plan_version_id="plan-version-kca12",
+                access_mode="billing_only",
+                capabilities_json={},
+                effective_from=now - timedelta(days=31),
+                valid_until=now - timedelta(minutes=30),
+                last_synced_at=now - timedelta(hours=1),
+            )
+        )
+
     app = FastAPI()
     app.state.kca12_session_factory = factory
     app.include_router(
@@ -121,6 +235,23 @@ def test_snapshot_is_authenticated_and_does_not_expose_contact_pii() -> None:
     )
     assert payload["coverage"]["mrr"] == "pending_governed_semantics"
     assert payload["coverage"]["organization_users_units"] == "safe_counts_only"
+    assert payload["summary"]["active_trials"] == 0
+    assert payload["summary"]["past_due_subscriptions"] == 1
+    assert payload["summary"]["confirmed_payments"] == 1
+    assert payload["summary"]["failed_payments"] == 1
+    assert payload["summary"]["reconciled_transactions"] == 1
+    assert payload["trials"][0]["status"] == "expired"
+    assert payload["subscriptions"][0]["status"] == "past_due"
+    assert payload["billing_transactions"][0]["provider_account_id"] == (
+        "provider-account-kca12"
+    )
+    assert payload["entitlements"][0]["revision"] == 7
+    assert payload["entitlements"][0]["stale"] is True
+    fact_types = {item["fact_type"] for item in payload["facts"]}
+    assert "trial.expired" in fact_types
+    assert "payment.settled" in fact_types
+    assert "payment.failed" in fact_types
+    assert "entitlement.changed" in fact_types
     assert "secret-contact@example.test" not in response.text
     assert "+5511999999999" not in response.text
 
