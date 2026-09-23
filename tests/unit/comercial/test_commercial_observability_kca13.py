@@ -4,7 +4,15 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
 from application.commercial_observability import AplicacaoCommercialObservabilityKCA13
+from infra.comercial.modelos_orm import FMCustomerORM, FMProductAccountORM
+from infra.comercial.subscription_orm import FMCommercialSubscriptionORM
+from infra.comercial.trial_orm import FMCommercialTrialORM
+from migrations.runner import run_migrations
 
 NOW = datetime(2026, 9, 23, 18, 0, tzinfo=timezone.utc)
 START = NOW - timedelta(days=30)
@@ -177,3 +185,168 @@ def test_kca13_alerts_are_deterministic_failure_signals_without_risk_score() -> 
         "kca13.trial.repeated_customer",
     }
     assert all(item["count"] > 0 for item in alerts)
+
+
+def test_kca13_snapshot_does_not_mix_other_product_trials_or_subscriptions() -> None:
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    run_migrations(engine)
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+
+    with factory() as session, session.begin():
+        session.add(
+            FMCustomerORM(
+                fm_customer_id="customer-multi-product",
+                customer_code="KRD-C-999991",
+                display_name="Multi Product",
+                legal_name=None,
+                status="active",
+                account_class="paid",
+                primary_contact_email="multi@example.test",
+                primary_contact_phone=None,
+                created_by="test",
+                updated_by="test",
+                version=1,
+                created_at=NOW - timedelta(days=60),
+                updated_at=NOW,
+            )
+        )
+        session.add_all(
+            [
+                FMProductAccountORM(
+                    product_account_id="account-kordena",
+                    fm_customer_id="customer-multi-product",
+                    product_code="KORDENA",
+                    product_tenant_id="tenant-kordena",
+                    status="active",
+                    created_by="test",
+                    updated_by="test",
+                    version=1,
+                    created_at=NOW - timedelta(days=60),
+                    updated_at=NOW,
+                    activated_at=NOW - timedelta(days=60),
+                    suspended_at=None,
+                    closed_at=None,
+                ),
+                FMProductAccountORM(
+                    product_account_id="account-iron",
+                    fm_customer_id="customer-multi-product",
+                    product_code="IRON",
+                    product_tenant_id="tenant-iron",
+                    status="active",
+                    created_by="test",
+                    updated_by="test",
+                    version=1,
+                    created_at=NOW - timedelta(days=60),
+                    updated_at=NOW,
+                    activated_at=NOW - timedelta(days=60),
+                    suspended_at=None,
+                    closed_at=None,
+                ),
+            ]
+        )
+        session.add_all(
+            [
+                FMCommercialTrialORM(
+                    trial_id="trial-kordena",
+                    fm_customer_id="customer-multi-product",
+                    product_account_id="account-kordena",
+                    tenant_id="tenant-kordena",
+                    plan_code="KORDENA_PLAN_A",
+                    plan_version_id="kordena-plan-v1",
+                    status="active",
+                    policy_version="v1",
+                    duration_days=30,
+                    started_at=NOW - timedelta(days=2),
+                    ends_at=NOW + timedelta(days=28),
+                    converted_at=None,
+                    revoked_at=None,
+                    override_reason=None,
+                    version=1,
+                    correlation_id="corr-kordena",
+                    created_at=NOW - timedelta(days=2),
+                    updated_at=NOW,
+                ),
+                FMCommercialTrialORM(
+                    trial_id="trial-iron",
+                    fm_customer_id="customer-multi-product",
+                    product_account_id="account-iron",
+                    tenant_id="tenant-iron",
+                    plan_code="IRON_PLAN_A",
+                    plan_version_id="iron-plan-v1",
+                    status="active",
+                    policy_version="v1",
+                    duration_days=30,
+                    started_at=NOW - timedelta(days=2),
+                    ends_at=NOW + timedelta(days=28),
+                    converted_at=None,
+                    revoked_at=None,
+                    override_reason=None,
+                    version=1,
+                    correlation_id="corr-iron",
+                    created_at=NOW - timedelta(days=2),
+                    updated_at=NOW,
+                ),
+            ]
+        )
+        session.add_all(
+            [
+                FMCommercialSubscriptionORM(
+                    subscription_id="sub-kordena",
+                    fm_customer_id="customer-multi-product",
+                    product_account_id="account-kordena",
+                    tenant_id="tenant-kordena",
+                    plan_code="KORDENA_PLAN_A",
+                    plan_version_id="kordena-plan-v1",
+                    price_id="kordena-price",
+                    currency="BRL",
+                    billing_period="monthly",
+                    contracted_amount=Decimal("100.00"),
+                    status="active",
+                    current_period_start=NOW - timedelta(days=1),
+                    current_period_end=NOW + timedelta(days=29),
+                    cancel_at_period_end=False,
+                    canceled_at=None,
+                    activated_at=NOW - timedelta(days=1),
+                    suspended_at=None,
+                    version=1,
+                    correlation_id="corr-kordena",
+                    created_at=NOW - timedelta(days=1),
+                    updated_at=NOW,
+                ),
+                FMCommercialSubscriptionORM(
+                    subscription_id="sub-iron",
+                    fm_customer_id="customer-multi-product",
+                    product_account_id="account-iron",
+                    tenant_id="tenant-iron",
+                    plan_code="IRON_PLAN_A",
+                    plan_version_id="iron-plan-v1",
+                    price_id="iron-price",
+                    currency="BRL",
+                    billing_period="monthly",
+                    contracted_amount=Decimal("999.00"),
+                    status="active",
+                    current_period_start=NOW - timedelta(days=1),
+                    current_period_end=NOW + timedelta(days=29),
+                    cancel_at_period_end=False,
+                    canceled_at=None,
+                    activated_at=NOW - timedelta(days=1),
+                    suspended_at=None,
+                    version=1,
+                    correlation_id="corr-iron",
+                    created_at=NOW - timedelta(days=1),
+                    updated_at=NOW,
+                ),
+            ]
+        )
+
+    result = AplicacaoCommercialObservabilityKCA13(factory).snapshot(agora=NOW)
+
+    assert result["metrics"]["trial_active"]["value"] == 1
+    assert result["metrics"]["subscription_active"]["value"] == 1
+    assert result["metrics"]["mrr"]["value"]["by_currency"] == [
+        {"currency": "BRL", "amount": "100.00"}
+    ]
