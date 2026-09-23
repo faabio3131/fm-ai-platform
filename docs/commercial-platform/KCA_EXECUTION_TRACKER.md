@@ -30,7 +30,7 @@
 | KCA-G11 | PASS |
 | KCA-12 FM Control Center — Integração + Commercial Control Plane | PASS — `b35ba198ecd9a667f0473829c16562e2474a1f31` |
 | KCA-G12 | PASS — recertificação documental obrigatória |
-| KCA-13 Observability / Antiabuse / FinOps | EM EXECUÇÃO — G13 PENDENTE |
+| KCA-13 Observability / Antiabuse / FinOps | PASS NO CANDIDATE `10cb4ac5da96947e0298616af9a3e56c37fccb23` — RECERTIFICAÇÃO DOCUMENTAL PENDENTE |
 | KCA-14+ | NÃO INICIADO |
 
 ## Baseline
@@ -378,5 +378,51 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - INTERNAL_TEST permanece excluído de KPIs comerciais.
 - Custo de infraestrutura permanece unavailable até fonte governada real.
 - Nenhuma migration nova foi criada.
-- KCA-G13: PENDENTE de CI, auditoria e recertificação.
+- Candidate funcional Kordena: `10cb4ac5da96947e0298616af9a3e56c37fccb23`.
+- KCA targeted: 212 passed, 1 warning.
+- Full Python: 1813 passed, 5 skipped, 101 warnings.
+- Web Node: 16 passed.
+- Runtime Readiness / KCA Commercial / WP-031 Master / WP-031L Parity: SUCCESS.
+- FMCC `main@0e37eecb69d00361216468891c7442b74b993b29`: Foundation Gate pós-merge SUCCESS — 48 test files / 185 tests; 6/6 E2E; secret scan 232 arquivos; build/runtime/Docker/dependency audit HIGH PASS.
+- 4 advisories MODERATE transitivos no npm; nenhum HIGH/CRITICAL bloqueante.
+- KCA-G13: PASS no candidate funcional; este HEAD documental ainda precisa da própria recertificação.
+- PR Kordena #130 permanece OPEN/DRAFT e não mergeada.
 - KCA-14 permanece NÃO INICIADO.
+
+
+## Certificação KCA-13
+
+- Implementation/certification record: `docs/commercial-platform/KCA13_IMPLEMENTATION_RECORD.md`.
+- Base Kordena: `staging/kordena-premium@9c52fd998e04c4d723171917f3776c9da7295858`.
+- Candidate funcional: `10cb4ac5da96947e0298616af9a3e56c37fccb23`.
+- PR Kordena #130: OPEN/DRAFT; não mergeada.
+- Migration: não aplicável; KCA-13 é projeção read-only sobre autoridades existentes.
+- Contrato: `kordena.observability.kca13.v1`, aditivo ao `kordena.fmcc.commercial.v1`.
+- INTERNAL_TEST excluído dos KPIs: PASS.
+- Public Signup → account_class TRIAL: fitness contract PASS.
+- Kordena × sibling-product isolation por Product Account: PASS, incluindo regressão Kordena + IRON.
+- MRR/ARR sem FX inventado e moedas separadas: PASS.
+- Missing/unavailable != zero: PASS.
+- Churn com base histórica insuficiente → unavailable: PASS.
+- Antiabuso observável sem risk score arbitrário: PASS.
+- Health + alertas determinísticos: PASS.
+- Correlation IDs/tracing: PASS.
+- AI FinOps existente reutilizado: PASS.
+- Infra cost: explicitamente unavailable enquanto não existir fonte governada.
+- Limitação conhecida: usage_by_plan usa o plano corrente no as_of; não reconstrói histórico de mudança de plano dentro da janela.
+- KCA targeted: 212 passed, 1 warning.
+- Full Python: 1813 passed, 5 skipped, 101 warnings.
+- Web Node: 16 passed.
+- Ruff/mypy/Migration Manifest/Schema Baseline/ESLint/TypeScript/Next build/diff: PASS.
+- Runtime Readiness #1134: SUCCESS.
+- KCA Commercial Gate #288: SUCCESS.
+- WP-031 Master Gate #297: SUCCESS.
+- WP-031L Regression Channel Parity #307: SUCCESS.
+- FMCC PR #19 foi mergeada concorrentemente durante a execução; merge não foi efetuado por este fluxo.
+- FMCC current main: `0e37eecb69d00361216468891c7442b74b993b29`.
+- FMCC pós-merge Foundation Gate #391: SUCCESS.
+- FMCC pós-merge: 48 test files / 185 tests; 6 E2E; secret scan 232 tracked files; runtime smoke/Docker/dependency audit HIGH PASS.
+- npm: 4 advisories MODERATE transitivos; nenhum HIGH/CRITICAL bloqueante.
+- KCA-G13: PASS no candidate funcional.
+- Esta atualização documental requer recertificação no próprio HEAD antes do fechamento canônico.
+- KCA-14: NÃO INICIADO.
