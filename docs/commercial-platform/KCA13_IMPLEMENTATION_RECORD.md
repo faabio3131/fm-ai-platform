@@ -8,13 +8,19 @@ Candidate funcional Kordena certificado:
 
 `10cb4ac5da96947e0298616af9a3e56c37fccb23`
 
-HEAD documental recertificado:
+HEAD pré-merge final recertificado:
 
-`8325913147bb2019b617249e66410ff14c0beba7`
+`72cb89feadc2930bf08a22d57edd31afc9bb7c54`
 
-A recertificação documental terminou com todos os workflows obrigatórios em SUCCESS: Runtime Readiness #1135, KCA Commercial Gate #289, WP-031 Master Gate #298, WP-031L Regression Channel Parity #308 e PR Superseded Runs Cleanup #835.
+A recertificação pré-merge terminou com todos os gates obrigatórios em SUCCESS: Runtime Readiness #1140, KCA Commercial Gate #294, WP-031 Master Gate #303, WP-031L Regression Channel Parity #313, PR Superseded Runs Cleanup #840 e Vercel SUCCESS.
 
-**KCA-14 permanece NÃO INICIADO.**
+Merge Kordena KCA-13 em `staging/kordena-premium`:
+
+`05c65c16ef380158b4602780511a9997e08cb5bb`
+
+Pós-merge no SHA exato: Vercel SUCCESS + Railway SUCCESS.
+
+**KCA-13 está INTEGRADO E ENCERRADO. KCA-14 permanece NÃO INICIADO.**
 
 ## 1. Bases reconciliadas
 
@@ -22,9 +28,10 @@ A recertificação documental terminou com todos os workflows obrigatórios em S
 
 - Repositório: `faabio3131/fm-ai-platform`.
 - Base: `staging/kordena-premium`.
-- Base confirmada antes e após a execução: `9c52fd998e04c4d723171917f3776c9da7295858`.
+- Base inicial confirmada: `9c52fd998e04c4d723171917f3776c9da7295858`.
+- HEAD canônico pós-merge: `05c65c16ef380158b4602780511a9997e08cb5bb`.
 - Branch: `feat/kordena-commercial-kca13-observability-antiabuse-finops`.
-- PR: #130 — OPEN/DRAFT, não mergeada.
+- PR: #130 — MERGED em `staging/kordena-premium`.
 - Candidate funcional: `10cb4ac5da96947e0298616af9a3e56c37fccb23`.
 
 ### FM Control Center
@@ -354,13 +361,13 @@ Condições satisfeitas:
 
 A recertificação do HEAD documental foi concluída. O KCA-G13 está formalmente fechado sem alteração funcional posterior ao candidate certificado.
 
-## 16. Estado seguinte
+## 16. Fechamento pós-merge
 
-- PR Kordena #130: OPEN/DRAFT;
-- Kordena KCA-13 ainda **não mergeado** em `staging/kordena-premium`;
-- nenhum deploy público executado;
-- nenhum cliente real criado;
-- nenhum provider/credencial/cobrança real criado;
-- **KCA-14 NÃO INICIADO**.
-
-O checkpoint formal do KCA-G13 está concluído. Qualquer avanço para KCA-14 deve iniciar por nova reconciliação de CURRENT e novo escopo congelado, preservando a PR #130 e a governança vigente.
+- PR Kordena #130: **MERGED** em 2026-09-23T22:59:08Z.
+- HEAD pré-merge recertificado: `72cb89feadc2930bf08a22d57edd31afc9bb7c54`.
+- Merge commit / HEAD de staging: `05c65c16ef380158b4602780511a9997e08cb5bb`.
+- Pós-merge Vercel: **SUCCESS**.
+- Pós-merge Railway: **SUCCESS**.
+- Nenhum cliente real, provider/credencial/cobrança real ou abertura pública foi criado por este fechamento.
+- **KCA-G13: PASS, INTEGRADO E ENCERRADO.**
+- **KCA-14: NÃO INICIADO** neste registro; deve nascer do CURRENT pós-merge certificado.
