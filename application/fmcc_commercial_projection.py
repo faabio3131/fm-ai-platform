@@ -39,6 +39,16 @@ def _decimal(value: Decimal | None) -> str | None:
     return str(value) if value is not None else None
 
 
+def _after(value: datetime | None, reference: datetime) -> bool:
+    normalized = _utc(value)
+    return normalized is not None and normalized > reference
+
+
+def _at_or_before(value: datetime | None, reference: datetime) -> bool:
+    normalized = _utc(value)
+    return normalized is not None and normalized <= reference
+
+
 def _fact(
     *,
     external_id: str,
@@ -291,7 +301,7 @@ class AplicacaoFMCCCommercialProjectionV1:
                 "active_trials": sum(
                     row.status == "active"
                     and row.ends_at is not None
-                    and _utc(row.ends_at) > instante
+                    and _after(row.ends_at, instante)
                     for row in trials
                 ),
                 "active_subscriptions": sum(
@@ -376,10 +386,10 @@ class AplicacaoFMCCCommercialProjectionV1:
                         for price in prices
                         if price.status.value == "published"
                         and price.valid_from is not None
-                        and _utc(price.valid_from) <= instante
+                        and _at_or_before(price.valid_from, instante)
                         and (
                             price.valid_until is None
-                            or _utc(price.valid_until) > instante
+                            or _after(price.valid_until, instante)
                         )
                     ],
                 }
