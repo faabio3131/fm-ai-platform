@@ -464,6 +464,8 @@ class AplicacaoFMCCCommercialProjectionV1:
             row.subscription_id: row.fm_customer_id for row in subscriptions
         }
         for row in customers:
+            if row.fm_customer_id in internal_customer_ids:
+                continue
             facts.append(
                 _fact(
                     external_id=f"customer:{row.fm_customer_id}:created",
