@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
+import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -15,6 +16,7 @@ from core.comercial.catalogo import (
     StatusRegistroCatalogo,
     TipoDescontoPromocao,
 )
+from core.comercial.erros import ConflitoConcorrenciaComercial
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import Papel, Permissao
 from infra.comercial.catalogo_orm import (
@@ -360,3 +362,131 @@ def test_promocao_versionada_preserva_planos_e_publica_evento() -> None:
         event.event_type == "promotion.version.published"
         for event in events
     )
+
+
+def test_price_publish_rejects_stale_plan_version_race() -> None:
+    factory, app = _infra()
+    plan_version = _criar_publicar_plano(app)
+
+    first = app.criar_preco(
+        contexto=_contexto(),
+        idempotency_key="kca14-price-first",
+        plan_version_id=plan_version.plan_version_id,
+        currency="BRL",
+        billing_period="MONTHLY",
+        amount=Decimal("99.90"),
+        change_policy=PoliticaMudancaPreco.NEW_CUSTOMERS_ONLY,
+        change_reason="KCA-14 primeiro preco",
+    )
+    app.validar_preco(
+        contexto=_contexto(),
+        price_id=first.price_id,
+        change_reason="KCA-14 validar primeiro preco",
+    )
+    app.publicar_preco(
+        contexto=_contexto(),
+        idempotency_key="kca14-price-first-publish",
+        price_id=first.price_id,
+        expected_plan_version=2,
+        effective_from=datetime.now(timezone.utc) - timedelta(seconds=1),
+        change_reason="KCA-14 publicar primeiro preco",
+    )
+
+    racer = app.criar_preco(
+        contexto=_contexto(),
+        idempotency_key="kca14-price-racer",
+        plan_version_id=plan_version.plan_version_id,
+        currency="BRL",
+        billing_period="MONTHLY",
+        amount=Decimal("109.90"),
+        change_policy=PoliticaMudancaPreco.NEW_CUSTOMERS_ONLY,
+        change_reason="KCA-14 preco concorrente",
+    )
+    app.validar_preco(
+        contexto=_contexto(),
+        price_id=racer.price_id,
+        change_reason="KCA-14 validar concorrente",
+    )
+
+    with pytest.raises(ConflitoConcorrenciaComercial, match="plan_version_conflict"):
+        app.publicar_preco(
+            contexto=_contexto(),
+            idempotency_key="kca14-price-racer-publish",
+            price_id=racer.price_id,
+            expected_plan_version=2,
+            effective_from=datetime.now(timezone.utc) + timedelta(days=1),
+            change_reason="KCA-14 rejeitar expected version stale",
+        )
+
+    assert app.preview_preco(
+        contexto=_contexto(),
+        price_id=racer.price_id,
+    )["candidate"].status == StatusConfiguracaoCatalogo.VALIDATED
+
+
+def test_promotion_publish_rejects_stale_version_race() -> None:
+    _, app = _infra()
+    now = datetime.now(timezone.utc)
+    promotion, first = app.criar_promocao(
+        contexto=_contexto(),
+        idempotency_key="kca14-promo-first",
+        name="Promo KCA-14",
+        discount_type=TipoDescontoPromocao.PERCENTAGE,
+        discount_value=Decimal("10"),
+        currency=None,
+        starts_at=now + timedelta(days=1),
+        ends_at=now + timedelta(days=3),
+        eligible_plan_codes=("KORDENA_PLAN_A",),
+        max_redemptions=10,
+        per_customer_limit=1,
+        rules={"kca14": True},
+        change_reason="KCA-14 primeira promocao",
+    )
+    app.validar_versao_promocao(
+        contexto=_contexto(),
+        promotion_version_id=first.promotion_version_id,
+        change_reason="KCA-14 validar primeira promocao",
+    )
+    app.publicar_versao_promocao(
+        contexto=_contexto(),
+        idempotency_key="kca14-promo-first-publish",
+        promotion_version_id=first.promotion_version_id,
+        expected_promotion_version=1,
+        change_reason="KCA-14 publicar primeira promocao",
+    )
+
+    second = app.criar_versao_promocao(
+        contexto=_contexto(),
+        idempotency_key="kca14-promo-second",
+        promotion_id=promotion.promotion_id,
+        name="Promo KCA-14 v2",
+        discount_type=TipoDescontoPromocao.PERCENTAGE,
+        discount_value=Decimal("15"),
+        currency=None,
+        starts_at=now + timedelta(days=4),
+        ends_at=now + timedelta(days=6),
+        eligible_plan_codes=("KORDENA_PLAN_A",),
+        max_redemptions=10,
+        per_customer_limit=1,
+        rules={"kca14": True, "version": 2},
+        change_reason="KCA-14 segunda promocao",
+    )
+    app.validar_versao_promocao(
+        contexto=_contexto(),
+        promotion_version_id=second.promotion_version_id,
+        change_reason="KCA-14 validar segunda promocao",
+    )
+
+    with pytest.raises(ConflitoConcorrenciaComercial, match="promotion_version_conflict"):
+        app.publicar_versao_promocao(
+            contexto=_contexto(),
+            idempotency_key="kca14-promo-second-publish",
+            promotion_version_id=second.promotion_version_id,
+            expected_promotion_version=1,
+            change_reason="KCA-14 rejeitar promotion version stale",
+        )
+
+    assert app.preview_promocao(
+        contexto=_contexto(),
+        promotion_version_id=second.promotion_version_id,
+    )["candidate"].status == StatusConfiguracaoCatalogo.VALIDATED
