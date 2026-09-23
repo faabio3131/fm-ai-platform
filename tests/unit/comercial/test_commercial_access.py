@@ -194,3 +194,27 @@ def test_trial_expirado_bloqueia_no_boundary_mesmo_com_stale_grace() -> None:
     assert result.entitled is False
     assert result.access_mode == ModoAcessoComercial.BILLING_ONLY
     assert result.reason == "trial_expired_temporally"
+
+
+def test_trial_valido_permanece_operacional_antes_do_boundary() -> None:
+    factory = _infra()
+    now = datetime.now(timezone.utc)
+    _, snapshot = _managed_trial(
+        factory,
+        valid_until=now + timedelta(minutes=5),
+    )
+
+    result = AplicacaoAcessoComercialV1(
+        factory,
+        enforcement_enabled=True,
+        stale_grace_seconds=300,
+    ).avaliar(
+        tenant_id="tenant-kca11",
+        agora=snapshot.valid_until - timedelta(microseconds=1),
+    )
+
+    assert result.managed is True
+    assert result.operational_allowed is True
+    assert result.entitled is True
+    assert result.access_mode == ModoAcessoComercial.FULL
+    assert result.reason == "entitlement_active"
