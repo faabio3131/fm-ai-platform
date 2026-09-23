@@ -25,7 +25,7 @@ from core.runtime.config import RuntimeEnvironment, RuntimeSettings
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import Papel, Permissao
 from http_api.frontend_app import build_frontend_http_app
-from infra.administracao.repositorio_sqlalchemy import RepositorioAdministracaoSQLAlchemy
+from infra.administracao.repositorio_sqlalchemy import (\n    RepositorioAdministracaoSQLAlchemy,\n)
 from infra.legacy_product_scope import inserir_produto_legado
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 from migrations.runner import run_migrations
