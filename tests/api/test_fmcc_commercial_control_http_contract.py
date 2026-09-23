@@ -431,7 +431,9 @@ def test_fmcc_administra_plano_preco_limites_promocao_e_ativacao_futura() -> Non
     plan_version = created.json()["result"]
     assert plan_version["display_name"] == "Plano B Governado"
     assert plan_version["entitlements"][0]["capability_key"] == "orders.monthly"
-    assert plan_version["entitlements"][0]["limit_value"] == "1000"
+    assert Decimal(plan_version["entitlements"][0]["limit_value"]) == Decimal(
+        "1000"
+    )
 
     validated = client.post(
         "/v1/control-plane/fmcc/catalog/commands",
