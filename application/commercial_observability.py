@@ -183,11 +183,11 @@ class AplicacaoCommercialObservabilityKCA13:
                 session.scalars(
                     select(CommercialOutboxORM).where(
                         CommercialOutboxORM.aggregate_type == "subscription",
-                        CommercialOutboxORM.aggregate_id.in_(subscription_ids),
+                        CommercialOutboxORM.product_account_id.in_(account_ids),
                         CommercialOutboxORM.occurred_at <= now,
                     )
                 ).all()
-            ) if subscription_ids else ()
+            ) if account_ids else ()
             finops = tuple(
                 session.scalars(
                     select(AIFinOpsDailyORM).where(
