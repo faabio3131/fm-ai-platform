@@ -2,13 +2,17 @@
 
 ## Status
 
-**KCA-G13 — PASS NO CANDIDATE FUNCIONAL**
+**KCA-G13 — PASS CANÔNICO**
 
 Candidate funcional Kordena certificado:
 
 `10cb4ac5da96947e0298616af9a3e56c37fccb23`
 
-A presente atualização documental somente se torna o registro canônico final do bloco após o próprio HEAD documental passar pelos gates obrigatórios da PR #130.
+HEAD documental recertificado:
+
+`8325913147bb2019b617249e66410ff14c0beba7`
+
+A recertificação documental terminou com todos os workflows obrigatórios em SUCCESS: Runtime Readiness #1135, KCA Commercial Gate #289, WP-031 Master Gate #298, WP-031L Regression Channel Parity #308 e PR Superseded Runs Cleanup #835.
 
 **KCA-14 permanece NÃO INICIADO.**
 
@@ -324,7 +328,15 @@ A implementação deriva observabilidade de autoridades persistentes existentes.
 
 ## 15. Gate
 
-**KCA-G13 — PASS NO CANDIDATE FUNCIONAL `10cb4ac5...`.**
+**KCA-G13 — PASS CANÔNICO.**
+
+- Candidate funcional: `10cb4ac5da96947e0298616af9a3e56c37fccb23`.
+- HEAD documental recertificado: `8325913147bb2019b617249e66410ff14c0beba7`.
+- Runtime Readiness #1135: SUCCESS.
+- KCA Commercial Gate #289: SUCCESS.
+- WP-031 Master Gate #298: SUCCESS.
+- WP-031L Regression Channel Parity #308: SUCCESS.
+- PR Superseded Runs Cleanup #835: SUCCESS.
 
 Condições satisfeitas:
 
@@ -340,7 +352,7 @@ Condições satisfeitas:
 - cross-product isolation;
 - FMCC consumindo o contrato e certificado pós-merge.
 
-Esta atualização documental deve passar pelos gates da própria PR #130 antes de ser considerada o registro final canônico do bloco.
+A recertificação do HEAD documental foi concluída. O KCA-G13 está formalmente fechado sem alteração funcional posterior ao candidate certificado.
 
 ## 16. Estado seguinte
 
@@ -351,4 +363,4 @@ Esta atualização documental deve passar pelos gates da própria PR #130 antes 
 - nenhum provider/credencial/cobrança real criado;
 - **KCA-14 NÃO INICIADO**.
 
-O próximo bloco somente poderá ser iniciado após a recertificação do HEAD documental e o checkpoint formal do KCA-G13.
+O checkpoint formal do KCA-G13 está concluído. Qualquer avanço para KCA-14 deve iniciar por nova reconciliação de CURRENT e novo escopo congelado, preservando a PR #130 e a governança vigente.
