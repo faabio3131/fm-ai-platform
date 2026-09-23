@@ -106,6 +106,7 @@ class AplicacaoEntitlementComercialV1:
         plan_code: str | None,
         valid_until: datetime,
         change_reason: str,
+        plan_version_id: str | None = None,
     ) -> SnapshotEntitlement:
         key = _key(idempotency_key)
         account_id = product_account_id.strip()
@@ -124,6 +125,7 @@ class AplicacaoEntitlementComercialV1:
             "tenant_id": tenant,
             "commercial_state": estado.value,
             "plan_code": plan,
+            "plan_version_id": plan_version_id.strip() if plan_version_id else None,
             "valid_until": until.isoformat(),
             "change_reason": reason,
         }
@@ -167,9 +169,25 @@ class AplicacaoEntitlementComercialV1:
                     plan_record = catalog.obter_plano_por_codigo(plan_code=plan)
                     if plan_record is None:
                         raise RegistroComercialNaoEncontrado("plan_not_found")
-                    plan_version = catalog.versao_efetiva_plano(
-                        plan_id=plan_record.plan_id, instante=instante
+                    requested_plan_version_id = (
+                        plan_version_id.strip() if plan_version_id else None
                     )
+                    if requested_plan_version_id is not None:
+                        plan_version = catalog.obter_versao_plano(
+                            plan_version_id=requested_plan_version_id
+                        )
+                        if (
+                            plan_version is None
+                            or plan_version.plan_id != plan_record.plan_id
+                        ):
+                            raise DadoComercialInvalido(
+                                "plan_version_nao_pertence_ao_plano"
+                            )
+                    else:
+                        plan_version = catalog.versao_efetiva_plano(
+                            plan_id=plan_record.plan_id,
+                            instante=instante,
+                        )
                     if plan_version is None:
                         raise RegistroComercialNaoEncontrado(
                             "effective_plan_version_not_found"

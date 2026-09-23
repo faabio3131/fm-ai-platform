@@ -16,7 +16,17 @@
 | KCA-G5 | PASS |
 | KCA-06 Public Signup + Verification | PASS — `1569253f69db951bdb1c5ac36a7c9908d40483b4` |
 | KCA-G6 | PASS |
-| KCA-07+ | NÃO INICIADO |
+| KCA-07 Trial Engine | PASS — `f3af1ba4aab2d16992ada5ed1fd5b35b5ad1ab10` |
+| KCA-G7 | PASS |
+| KCA-08 Subscription Engine | PASS — `e5f63d6ee7bba2e19ad4daf5102e36116ee9f11d` |
+| KCA-G8 | PASS |
+| KCA-09 Billing Provider Abstraction | PASS — `640e63595046fbd68df4ff129b2cb156e845c28a` |
+| KCA-G9 | PASS |
+| KCA-09B Multi-Provider Configuration & Receiving Accounts | PASS — `b38f20b0c7520e39203076a07923c76767ffb970` |
+| KCA-G9B | PASS |
+| KCA-10 Webhook Inbox + Reconciliation | PASS — `ccdf7883f63d184e34dab51ad26babc69b3edf9a` |
+| KCA-G10 | PASS |
+| KCA-11+ | NÃO INICIADO |
 
 ## Baseline
 
@@ -138,3 +148,148 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - 17/17 workflows do candidate SHA: SUCCESS.
 - KCA-G6: PASS.
 - KCA-07+: NÃO INICIADO.
+
+
+## Execução KCA-07 — abertura
+
+- Base reconciliada: `staging/kordena-premium` @ `40e2029019fb426cb22f55ebf7137474661bfda5`.
+- Nova branch: `feat/kordena-commercial-kca07-kca09`.
+- Escopo autorizado: KCA-07 → G7 → KCA-08 → G8 → KCA-09 → G9; STOP antes de KCA-10.
+- Governança: sem merge, sem deploy, sem `main`, sem cliente/trial/billing/provider real.
+- Evidência baseline funcional herdada do HEAD certificado KCA-G6: 17/17 workflows SUCCESS; full Python 1716 passed, 5 skipped, 102 warnings; KCA targeted 115 passed; Web Node 14/14; schema 122 tabelas.
+
+
+## Certificação KCA-07
+
+- Candidate funcional: `f3af1ba4aab2d16992ada5ed1fd5b35b5ad1ab10`.
+- Migration: `0055_commercial_trial_v1`.
+- Trial policy: `KORDENA_TRIAL_30D_V1` — 30 dias UTC.
+- Trial state machine / antiabuso / idempotência / expiração: PASS.
+- Provisioning → Trial Engine → Entitlement Authority: PASS.
+- Schema baseline: 124 tabelas; SHA `a9cedb852fd163eb96bd09f7c38a09ceb4478e8c0a6807f653b5d307469c25e1`.
+- KCA targeted: 127 passed, 2 warnings.
+- Full Python: 1728 passed, 5 skipped, 102 warnings.
+- Web Node: 14/14; ESLint/TypeScript/Next build/diff: PASS.
+- 13/13 workflows do candidate SHA: SUCCESS.
+- KCA-G7: PASS.
+- KCA-08 autorizado; KCA-09+ ainda não iniciado.
+
+
+## Certificação KCA-08
+
+- Candidate funcional: `e5f63d6ee7bba2e19ad4daf5102e36116ee9f11d`.
+- Migration: `0056_commercial_subscription_v1`.
+- State machine PENDING / ACTIVE / PAST_DUE / SUSPENDED / CANCELED: PASS.
+- Recuperação PAST_DUE/SUSPENDED → ACTIVE: PASS.
+- Plan/version/price binding histórico: PASS.
+- Trial ACTIVE → CONVERTED + Subscription ACTIVE: PASS.
+- Idempotência / optimistic concurrency / unique subscription por Product Account: PASS.
+- Entitlement Authority + projeção local: PASS.
+- Cross-tenant e catálogo incompatível: fail-closed.
+- Schema baseline: 125 tabelas; SHA `c6caa6d8ab1b58ae318b20e4b003b6db181f5211884e8a42eb4b09dd78ff0251`.
+- KCA targeted: 134 passed, 2 warnings.
+- Full Python: 1735 passed, 5 skipped, 102 warnings.
+- Web Node: 14/14; ESLint/TypeScript/Next build/diff: PASS.
+- 13/13 workflows do candidate SHA: SUCCESS.
+- KCA-G8: PASS.
+- KCA-09 autorizado somente após recertificação do HEAD documental; KCA-10+ não iniciado.
+
+
+## Certificação KCA-09
+
+- Candidate funcional: `640e63595046fbd68df4ff129b2cb156e845c28a`.
+- Migration: não aplicável; nenhuma persistência nova necessária neste bloco.
+- BillingProvider provider-neutral: PASS.
+- Operações: create_customer / create_checkout / create_subscription / cancel_subscription / change_subscription / fetch_transaction / verify_webhook.
+- Error mapping retryable vs terminal: PASS.
+- Timeout explícito + idempotency key + correlation id: PASS.
+- Retry automático oculto: NÃO; policy permanece externa/governada.
+- Secret isolation: `SecretStore` + secret reference + `SecretValue` mascarado: PASS.
+- Provider concreto/SDK no domínio central: NÃO.
+- Billing SaaS FM separado de pagamentos operacionais Kordena: PASS.
+- KCA-10 webhook inbox/reconciliation: NÃO INICIADO.
+- Schema baseline: 125 tabelas; SHA `c6caa6d8ab1b58ae318b20e4b003b6db181f5211884e8a42eb4b09dd78ff0251`.
+- KCA targeted: 143 passed, 2 warnings.
+- Full Python: 1744 passed, 5 skipped, 102 warnings.
+- Web Node: 14/14; ESLint/TypeScript/Next build/diff: PASS.
+- 13/13 workflows do candidate SHA: SUCCESS.
+- KCA-G9: PASS.
+- STOP obrigatório aplicado antes do KCA-10.
+
+
+## Execução KCA-09B — abertura
+
+- KCA-G9 previamente certificado.
+- Prompt formal: `docs/commercial-platform/KCA09B_EXECUTION_PROMPT.md`.
+- Objetivo: configuração multi-provider, contas recebedoras e roteamento governado antes do KCA-10.
+- Nenhum provider, credencial, conta financeira ou cobrança real será criado.
+- FM Control Center permanece apenas como futura superfície administrativa; autoridade continua na FM Commercial Platform.
+- KCA-10 permanece NÃO INICIADO até KCA-G9B PASS.
+
+
+## Certificação KCA-09B
+
+- Candidate funcional: `b38f20b0c7520e39203076a07923c76767ffb970`.
+- Migration: `0057_commercial_billing_config_v1`.
+- Provider accounts multi-provider/configuráveis: PASS.
+- Provider code aberto/provider-neutral: PASS.
+- Conta DRAFT sem credencial: PASS.
+- Onboarding/rotação posterior em Secret Vault cifrado: PASS.
+- Secret reference somente; nenhum segredo em claro na configuração/API: PASS.
+- Isolamento `vault:*` por tenant/unidade: PASS.
+- Adapter registry runtime: PASS.
+- Teste de conexão não financeiro: PASS.
+- Ativação somente após connection test PASS: PASS.
+- Sandbox/Production: PASS.
+- Métodos de pagamento e capabilities recurring/webhooks: PASS.
+- Routing primary + fallbacks: PASS.
+- Rota incompatível/ausente: fail-closed.
+- Fallback não executa cobrança automática: PASS.
+- RBAC + step-up administrativo: PASS.
+- API preparada para futura superfície do FM Control Center: PASS.
+- KCA-10 Webhook Inbox/Reconciliation: NÃO INICIADO.
+- Schema baseline: 127 tabelas; SHA `dfa71718df03907d1cf44cdb7f54ce774d7b05395b4a9ef20885d90951e88c55`.
+- KCA targeted: 161 passed, 2 warnings.
+- Full Python: 1762 passed, 5 skipped, 102 warnings.
+- Web Node: 14/14; ESLint/TypeScript/Next build/diff: PASS.
+- 13/13 workflows do candidate funcional: SUCCESS.
+- KCA-G9B: PASS.
+- STOP obrigatório mantido antes do KCA-10.
+
+
+## Execução KCA-10 — abertura
+
+- KCA-G9B previamente certificado no HEAD documental `de02f8c2c7c816472425ae4fbba95d440ab24d56` com 13/13 workflows SUCCESS.
+- Prompt formal: `docs/commercial-platform/KCA10_EXECUTION_PROMPT.md`.
+- Escopo: durable webhook inbox, signature verification, event ID/body hash, idempotência, replay protection, normalization, ordering, retry/DLQ/replay controlado, Billing Ledger mínimo e reconciliation.
+- KCA-11 Paywall/Recovery/Dunning permanece NÃO INICIADO.
+- Nenhum provider, credencial, conta financeira ou cobrança real será utilizado.
+
+
+## Certificação KCA-10
+
+- Candidate funcional: `ccdf7883f63d184e34dab51ad26babc69b3edf9a`.
+- Migration: `0058_commercial_billing_events_v1`.
+- Durable Webhook Inbox: PASS.
+- Assinatura provider-neutral por headers: PASS.
+- Body hash/idempotência/replay protection: PASS.
+- Payload válido persistido cifrado antes da normalização: PASS.
+- Raw payload/assinatura não persistidos em claro: PASS.
+- Normalização após Inbox durável: PASS.
+- Binding assinatura interna↔externa: PASS.
+- Ordering cursor/sequence/time: PASS.
+- Provider resend idempotente: PASS.
+- Retry governado/backoff: PASS.
+- DEAD_LETTER por exaustão: PASS.
+- Replay administrativo controlado: PASS.
+- Billing Transaction Ledger: PASS.
+- Reconciliation IN_SYNC/REPAIRED: PASS.
+- Subscription Engine canônico preservado: PASS.
+- KCA-11 Paywall/Recovery/Dunning: NÃO INICIADO.
+- Schema baseline: 132 tabelas; SHA `9fccb9f26f04f92fb104f0eebef885c0f5a8556ef9816670e8e4fafdf594beb3`.
+- KCA targeted: 187 passed, 2 warnings.
+- Full Python: 1788 passed, 5 skipped, 102 warnings.
+- Web Node: 14/14; ESLint/TypeScript/Next build/diff: PASS.
+- Candidate funcional: 13/13 workflows SUCCESS.
+- KCA-G10: PASS.
+- STOP obrigatório mantido antes do KCA-11.

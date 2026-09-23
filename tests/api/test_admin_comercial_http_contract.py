@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -165,3 +166,140 @@ def test_gerente_nao_recebe_administracao_comercial(monkeypatch) -> None:
 def test_nao_existe_signup_publico_no_kca01(monkeypatch) -> None:
     client = _infra(monkeypatch)
     assert client.post("/v1/public/signup", json={}).status_code == 404
+
+
+
+def test_billing_configuration_requires_stepup_and_hides_secret_reference(
+    monkeypatch,
+) -> None:
+    client = _infra(monkeypatch)
+    payload = {
+        "provider_code": "PROVIDER_CONFIGURAVEL",
+        "display_name": "Conta principal FM",
+        "legal_entity_ref": None,
+        "environment": "sandbox",
+        "credential_secret_reference": "env:FM_BILLING_PROVIDER_TEST",
+        "supported_payment_methods": ["pix", "card"],
+        "supports_recurring": True,
+        "supports_webhooks": True,
+        "priority": 10,
+    }
+
+    assert client.post(
+        "/v1/admin/commercial/billing/provider-accounts",
+        headers={"Idempotency-Key": "billing-provider-api"},
+        json=payload,
+    ).status_code == 401
+
+    _login(client, step_up=False)
+    assert client.post(
+        "/v1/admin/commercial/billing/provider-accounts",
+        headers={"Idempotency-Key": "billing-provider-api"},
+        json=payload,
+    ).status_code == 403
+
+    assert client.post(
+        "/v1/auth/admin-step-up",
+        json={"senha": SENHA},
+    ).status_code == 200
+
+    response = client.post(
+        "/v1/admin/commercial/billing/provider-accounts",
+        headers={"Idempotency-Key": "billing-provider-api"},
+        json=payload,
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert body["provider_code"] == "PROVIDER_CONFIGURAVEL"
+    assert body["credential_configured"] is True
+    assert "credential_secret_reference" not in body
+
+    listing = client.get("/v1/admin/commercial/billing/provider-accounts")
+    assert listing.status_code == 200
+    assert len(listing.json()) == 1
+    assert "credential_secret_reference" not in listing.json()[0]
+
+
+def test_gerente_nao_configura_contas_de_recebimento(monkeypatch) -> None:
+    client = _infra(monkeypatch, papel=Papel.GERENTE)
+    _login(client, step_up=False)
+    response = client.get("/v1/admin/commercial/billing/provider-accounts")
+    assert response.status_code == 403
+
+
+
+def test_billing_credential_is_onboarded_through_encrypted_vault(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv(
+        "FM_AI_SECRET_MASTER_KEY",
+        Fernet.generate_key().decode("ascii"),
+    )
+    client = _infra(monkeypatch)
+    _login(client)
+
+    created = client.post(
+        "/v1/admin/commercial/billing/provider-accounts",
+        headers={"Idempotency-Key": "billing-draft-no-secret"},
+        json={
+            "provider_code": "PROVIDER_CONFIGURAVEL",
+            "display_name": "Conta futura FM",
+            "legal_entity_ref": None,
+            "environment": "production",
+            "credential_secret_reference": None,
+            "supported_payment_methods": ["pix", "card"],
+            "supports_recurring": True,
+            "supports_webhooks": True,
+            "priority": 10,
+        },
+    )
+    assert created.status_code == 201
+    account = created.json()
+    assert account["credential_configured"] is False
+    assert account["status"] == "draft"
+
+    rotated = client.post(
+        (
+            "/v1/admin/commercial/billing/provider-accounts/"
+            f"{account['provider_account_id']}/credential"
+        ),
+        json={
+            "expected_version": account["version"],
+            "credential": "fake-provider-secret-never-returned",
+        },
+    )
+    assert rotated.status_code == 200
+    body = rotated.json()
+    assert body["credential_configured"] is True
+    assert body["status"] == "validating"
+    assert "credential_secret_reference" not in body
+    assert "fake-provider-secret-never-returned" not in rotated.text
+
+
+
+def test_kca10_billing_event_controls_require_admin_stepup(monkeypatch) -> None:
+    client = _infra(monkeypatch)
+
+    response = client.get(
+        "/v1/admin/commercial/billing/webhook-inbox",
+        params={"status_filter": "dead_letter"},
+    )
+    assert response.status_code == 401
+
+    _login(client, step_up=False)
+    response = client.get(
+        "/v1/admin/commercial/billing/webhook-inbox",
+        params={"status_filter": "dead_letter"},
+    )
+    assert response.status_code == 403
+
+    assert client.post(
+        "/v1/auth/admin-step-up",
+        json={"senha": SENHA},
+    ).status_code == 200
+    response = client.get(
+        "/v1/admin/commercial/billing/webhook-inbox",
+        params={"status_filter": "dead_letter"},
+    )
+    assert response.status_code == 200
+    assert response.json() == []

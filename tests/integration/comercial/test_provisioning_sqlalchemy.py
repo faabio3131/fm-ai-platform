@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import create_engine, select
@@ -15,6 +16,7 @@ from core.comercial.erros import ConflitoIdempotenciaComercial
 from core.comercial.modelos import StatusContaProduto
 from core.comercial.provisioning import EstadoProvisionamento
 from infra.administracao.modelos_orm import EmpresaAdminORM, UnidadeAdminORM
+from infra.comercial.catalogo_orm import FMCommercialPlanORM, FMCommercialPlanVersionORM
 from infra.comercial.modelos_orm import CommercialOutboxORM
 from infra.comercial.provisioning_orm import FMCommercialProvisioningSagaORM
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
@@ -31,7 +33,41 @@ def _factory():
         poolclass=StaticPool,
     )
     run_migrations(engine)
-    return sessionmaker(bind=engine, expire_on_commit=False)
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    now = datetime.now(timezone.utc)
+    with factory() as session, session.begin():
+        plan = session.scalar(
+            select(FMCommercialPlanORM).where(
+                FMCommercialPlanORM.plan_code == "KORDENA_PLAN_A"
+            )
+        )
+        assert plan is not None
+        plan.status = "configured"
+        plan.version = 2
+        plan.updated_at = now
+        session.add(
+            FMCommercialPlanVersionORM(
+                plan_version_id="kca05-trial-plan-version",
+                plan_id=plan.plan_id,
+                version_number=1,
+                display_name="Plano fixture KCA-05",
+                description=None,
+                trial_eligible=True,
+                marketing_badge=None,
+                metadata_json={},
+                status="published",
+                valid_from=now - timedelta(days=1),
+                valid_until=None,
+                change_reason="fixture provisioning",
+                created_by="test",
+                validated_by="test",
+                published_by="test",
+                created_at=now,
+                validated_at=now,
+                published_at=now,
+            )
+        )
+    return factory
 
 
 def _request(app: AplicacaoProvisioningKordenaV1, key: str = "prov-1"):
@@ -45,7 +81,7 @@ def _request(app: AplicacaoProvisioningKordenaV1, key: str = "prov-1"):
     )
 
 
-def test_happy_path_provisiona_autoridades_sem_trial_engine_completo() -> None:
+def test_happy_path_provisiona_autoridades_com_trial_engine_kca07() -> None:
     factory = _factory()
     app = AplicacaoProvisioningKordenaV1(factory)
     requested = _request(app)
@@ -59,7 +95,7 @@ def test_happy_path_provisiona_autoridades_sem_trial_engine_completo() -> None:
     assert ready.product_account_id
     assert ready.identity_user_id
     assert ready.membership_id
-    assert ready.trial_binding_status == "pending_kca07"
+    assert ready.trial_binding_status == "active"
     assert ready.entitlement_snapshot_id
 
     account = AplicacaoCommercialRegistryV1(factory).obter_conta_produto(
@@ -93,8 +129,8 @@ def test_happy_path_provisiona_autoridades_sem_trial_engine_completo() -> None:
         tenant_id=ready.tenant_id,
         product_account_id=str(ready.product_account_id),
     )
-    assert decision.allowed is False
-    assert decision.access_mode == ModoAcessoComercial.BLOCKED
+    assert decision.allowed is True
+    assert decision.access_mode == ModoAcessoComercial.FULL
 
 
 def test_solicitacao_e_execucao_sao_idempotentes() -> None:
@@ -138,7 +174,7 @@ def test_solicitacao_e_execucao_sao_idempotentes() -> None:
         "identity_membership",
         "admin_scope",
         "activate_product_account",
-        "entitlement",
+        "trial",
         "ready",
     ],
 )
