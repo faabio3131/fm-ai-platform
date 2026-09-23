@@ -13,7 +13,8 @@ from decimal import Decimal
 
 from application.commercial_entitlement import AplicacaoEntitlementComercialV1
 from application.commercial_subscription import AplicacaoSubscriptionComercialV1
-from core.comercial.catalogo import StatusConfiguracaoCatalogo, utc as catalog_utc
+from core.comercial.catalogo import StatusConfiguracaoCatalogo
+from core.comercial.catalogo import utc as catalog_utc
 from core.comercial.entitlement import ModoAcessoComercial
 from infra.comercial.catalogo_sqlalchemy import RepositorioCatalogoComercialSQLAlchemy
 from infra.comercial.repositorio_sqlalchemy import RepositorioComercialSQLAlchemy
