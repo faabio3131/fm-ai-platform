@@ -504,7 +504,10 @@ class AplicacaoSubscriptionComercialV1:
                             trial_id=trial.trial_id,
                             instante=instante,
                         )
-                    elif trial.status != EstadoTrial.CONVERTED:
+                    elif trial.status not in {
+                        EstadoTrial.CONVERTED,
+                        EstadoTrial.EXPIRED,
+                    }:
                         raise DadoComercialInvalido(
                             f"subscription_trial_not_convertible:{trial.status.value}"
                         )
