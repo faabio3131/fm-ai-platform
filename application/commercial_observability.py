@@ -111,7 +111,6 @@ class AplicacaoCommercialObservabilityKCA13:
                     )
                 ).all()
             ) if customer_ids else ()
-            account_ids = {row.product_account_id for row in accounts}
             tenant_ids = {
                 row.product_tenant_id
                 for row in accounts
