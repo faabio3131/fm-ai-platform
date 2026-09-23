@@ -12,6 +12,7 @@ from typing import Any
 
 from sqlalchemy import func, select
 
+from application.commercial_observability import AplicacaoCommercialObservabilityKCA13
 from infra.comercial.billing_events_orm import FMBillingTransactionORM
 from infra.comercial.catalogo_sqlalchemy import RepositorioCatalogoComercialSQLAlchemy
 from infra.comercial.entitlement_orm import KordenaEntitlementProjectionORM
@@ -225,6 +226,9 @@ class AplicacaoFMCCCommercialProjectionV1:
             transactions=transactions,
             entitlements=entitlements,
         )
+        observability = AplicacaoCommercialObservabilityKCA13(
+            self._session_factory
+        ).snapshot(agora=instante)
         return {
             "schema_version": SCHEMA_VERSION,
             "product_code": "KORDENA",
@@ -374,17 +378,20 @@ class AplicacaoFMCCCommercialProjectionV1:
                 "units": sum(int(value) for value in unit_counts.values()),
             },
             "facts": facts,
+            "observability": observability,
             "coverage": {
-                "mrr": "pending_governed_semantics",
-                "arr": "pending_governed_semantics",
-                "churn": "pending_governed_semantics",
+                "mrr": "available_via_kca13_observability",
+                "arr": "available_via_kca13_observability",
+                "churn": "available_when_starting_active_cohort_exists",
                 "delinquency_amount": "pending_governed_semantics",
                 "subscription_active_metric": (
-                    "snapshot_summary_only_pending_stateful_as_of_semantics"
+                    "available_via_kca13_current_state"
                 ),
                 "organization_users_units": "safe_counts_only",
-                "health": "owned_by_kca13_observability_source",
-                "costs": "owned_by_dedicated_finops_source",
+                "health": "available_via_kca13_observability",
+                "costs": (
+                    "ai_finops_available_infra_cost_source_not_configured"
+                ),
                 "support": "owned_by_dedicated_support_source",
             },
         }
