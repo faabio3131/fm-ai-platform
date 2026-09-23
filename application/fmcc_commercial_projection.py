@@ -219,6 +219,7 @@ class AplicacaoFMCCCommercialProjectionV1:
 
         facts = self._facts(
             customers=customers,
+            accounts=accounts,
             trials=trials,
             subscriptions=subscriptions,
             transactions=transactions,
@@ -444,12 +445,24 @@ class AplicacaoFMCCCommercialProjectionV1:
     def _facts(
         *,
         customers,
+        accounts,
         trials,
         subscriptions,
         transactions,
         entitlements,
     ) -> list[dict[str, Any]]:
         facts: list[dict[str, Any]] = []
+        internal_customer_ids = {
+            row.fm_customer_id
+            for row in customers
+            if row.account_class == "internal_test"
+        }
+        account_customer = {
+            row.product_account_id: row.fm_customer_id for row in accounts
+        }
+        subscription_customer = {
+            row.subscription_id: row.fm_customer_id for row in subscriptions
+        }
         for row in customers:
             facts.append(
                 _fact(
@@ -464,6 +477,8 @@ class AplicacaoFMCCCommercialProjectionV1:
                 )
             )
         for row in trials:
+            if row.fm_customer_id in internal_customer_ids:
+                continue
             if row.started_at is not None:
                 facts.append(
                     _fact(
@@ -504,6 +519,8 @@ class AplicacaoFMCCCommercialProjectionV1:
                     )
                 )
         for row in subscriptions:
+            if row.fm_customer_id in internal_customer_ids:
+                continue
             if row.activated_at is not None:
                 facts.append(
                     _fact(
@@ -537,6 +554,13 @@ class AplicacaoFMCCCommercialProjectionV1:
                     )
                 )
         for row in transactions:
+            customer_id = (
+                subscription_customer.get(row.subscription_id)
+                if row.subscription_id is not None
+                else None
+            )
+            if customer_id in internal_customer_ids:
+                continue
             timestamp = row.provider_occurred_at or row.updated_at
             if row.transaction_type == "payment" and row.status == "succeeded":
                 facts.append(
@@ -577,6 +601,9 @@ class AplicacaoFMCCCommercialProjectionV1:
                     )
                 )
         for row in entitlements:
+            customer_id = account_customer.get(row.product_account_id)
+            if customer_id in internal_customer_ids:
+                continue
             facts.append(
                 _fact(
                     external_id=(
