@@ -230,3 +230,40 @@ def test_abrir_comanda_replay_idempotente_retorna_200_sem_duplicar() -> None:
         )
         assert comandas == 1
         assert eventos == 1
+
+
+def test_cross_tenant_write_cannot_open_other_tenant_table() -> None:
+    engine, _, client = _infra()
+
+    response = client.post(
+        "/v1/salao/comandas/abrir",
+        headers=_headers("salao-cross-tenant-write"),
+        json={
+            "mesa_id": "mesa-outro-tenant",
+            "responsavel_nome": "Tentativa Cross Tenant",
+            "quantidade_pessoas": 2,
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"erro": "mesa_indisponivel"}
+
+    with Session(engine) as session:
+        foreign_table = session.get(
+            MesaORM,
+            ("mesa-outro-tenant", OUTRO_TENANT, OUTRA_UNIDADE),
+        )
+        assert foreign_table is not None
+        assert foreign_table.status == "livre"
+        foreign_commands = (
+            session.scalar(
+                select(func.count())
+                .select_from(ComandaORM)
+                .where(
+                    ComandaORM.tenant_id == OUTRO_TENANT,
+                    ComandaORM.unidade_id == OUTRA_UNIDADE,
+                )
+            )
+            or 0
+        )
+        assert foreign_commands == 0
