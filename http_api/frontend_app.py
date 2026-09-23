@@ -12,12 +12,13 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from application.commercial_access import AplicacaoAcessoComercialV1
 from core.runtime import build_engine, load_runtime_settings
 from core.runtime.config import RuntimeSettings
+from core.seguranca.erros import ErroSeguranca
 from core.seguranca.segredos import ReferenceSecretStore
 from http_api.admin_assistente_atendimento import (
     build_admin_assistente_atendimento_router,
@@ -158,7 +159,8 @@ def build_frontend_http_app(
             access = commercial_access_app.avaliar(
                 tenant_id=resolved.identidade.tenant_id
             )
-        except Exception:  # auth/route authority remains responsible for auth errors
+        except ErroSeguranca:
+            # A própria rota permanece autoridade da resposta de autenticação.
             return await call_next(request)
         if not access.operational_allowed:
             return JSONResponse(
