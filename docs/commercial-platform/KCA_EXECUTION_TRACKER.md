@@ -28,7 +28,9 @@
 | KCA-G10 | PASS |
 | KCA-11 Expiração + Paywall + Recovery | PASS — `f61c86ae44f88ecd38e050217ccd55960c4a9fd0` |
 | KCA-G11 | PASS |
-| KCA-12+ | NÃO INICIADO |
+| KCA-12 FM Control Center — Integração + Commercial Control Plane | PASS — `b35ba198ecd9a667f0473829c16562e2474a1f31` |
+| KCA-G12 | PASS — recertificação documental obrigatória |
+| KCA-13+ | NÃO INICIADO |
 
 ## Baseline
 
@@ -322,6 +324,43 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - Migration manifest/schema baseline/Ruff/mypy/ESLint/TypeScript/Next build/diff: PASS.
 - Candidate técnico final `f61c86ae44f88ecd38e050217ccd55960c4a9fd0`: 8/8 GitHub Actions SUCCESS + Vercel SUCCESS.
 - KCA-G11: PASS.
-- PR #127 permanece OPEN/DRAFT e não mergeada.
-- KCA-12/FM Control Center: NÃO INICIADO.
+- PR #127: MERGED em `staging/kordena-premium`; merge commit `87f4e2f47abcc5bd0be372c477bec612aed0a482`.
+- KCA-12/FM Control Center: executado e certificado em candidates funcionais; ver seção KCA-12.
 - Nenhum deploy público, cliente/trial/assinatura real, provider, credencial ou cobrança real foi executado.
+
+
+## Certificação KCA-12
+
+- Implementation record: `docs/commercial-platform/KCA12_IMPLEMENTATION_RECORD.md`.
+- Base Kordena: `staging/kordena-premium` @ `87f4e2f47abcc5bd0be372c477bec612aed0a482`.
+- Candidate funcional Kordena: `b35ba198ecd9a667f0473829c16562e2474a1f31`.
+- PR Kordena: #128 — OPEN/DRAFT durante a certificação.
+- Candidate funcional FMCC: `5d4843d4bd5ac403c59a0d491413f4482a0318f9`.
+- PR FMCC: #16 — OPEN/DRAFT durante a certificação.
+- Migration Kordena: não aplicável; nenhuma migration nova.
+- Schema baseline Kordena: 132 tabelas; SHA `9fccb9f26f04f92fb104f0eebef885c0f5a8556ef9816670e8e4fafdf594beb3`.
+- Read contract `kordena.fmcc.commercial.v1`: PASS.
+- Clientes / Product Accounts / trials / subscriptions / billing / entitlement: PASS.
+- Usuários/unidades: contagens minimizadas sem PII: PASS.
+- INTERNAL_TEST excluído dos facts de KPI: PASS.
+- Administração dos quatro planos via `AplicacaoCatalogoComercialV1`: PASS.
+- Nome/descrição/preço/periodicidade/benefício/limite/promoção/ativação futura: PASS.
+- Versionamento / idempotência / audit trail: PASS.
+- Preview/diff + confirmação + password step-up: PASS.
+- FMCC sem SQL direto no banco operacional Kordena: PASS.
+- Nenhuma segunda autoridade comercial: PASS.
+- Cross-tenant control tenant/source isolation: PASS.
+- Secret reference/origin allowlist/token isolation: PASS.
+- Contract drift/incomplete snapshot: fail-closed.
+- MRR/ARR/churn/inadimplência monetária/saúde/custos/suporte ausentes: exibidos como indisponíveis com dependência explícita; nenhum valor inventado.
+- KCA targeted Kordena: 202 passed, 1 warning.
+- Full Python Kordena: 1803 passed, 5 skipped, 101 warnings.
+- Web Node Kordena: 16 passed, 0 failed, 0 skipped.
+- Ruff/mypy/ESLint/TypeScript/Next build/diff: PASS.
+- Kordena candidate: 7/7 GitHub Actions SUCCESS + Vercel SUCCESS.
+- FMCC: 33 test files / 118 tests PASS; lint/typecheck/migrations/build/Docker/runtime dependency audit: PASS.
+- FMCC Foundation Gate: SUCCESS.
+- KCA-G12: PASS nos candidates funcionais.
+- Fechamento depende da recertificação do HEAD documental gerado por este registro/tracker.
+- KCA-12 ainda não está integrado na staging neste ponto documental; bloco cognitivo permanece proibido até o merge KCA-12 e verificação pós-merge.
+- KCA-13 permanece NÃO INICIADO.
