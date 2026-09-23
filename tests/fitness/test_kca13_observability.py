@@ -4,6 +4,8 @@ import inspect
 
 import application.commercial_observability as observability
 import application.fmcc_commercial_projection as fmcc_projection
+import application.commercial_provisioning as commercial_provisioning
+import application.public_signup as public_signup
 
 
 def test_kca13_observability_is_read_only_and_reuses_existing_authorities() -> None:
@@ -35,3 +37,14 @@ def test_kca13_is_additive_to_kca12_contract() -> None:
     assert 'SCHEMA_VERSION = "kordena.fmcc.commercial.v1"' in source
     assert '"observability": observability' in source
     assert "AplicacaoCommercialObservabilityKCA13" in source
+
+
+def test_kca13_public_signup_cannot_create_internal_test_customer() -> None:
+    signup_source = inspect.getsource(public_signup.AplicacaoPublicSignupV1.verificar_e_provisionar)
+    provisioning_source = inspect.getsource(
+        commercial_provisioning.AplicacaoProvisioningKordenaV1._ensure_customer
+    )
+
+    assert "self._provisioning.solicitar" in signup_source
+    assert "account_class=ClasseContaComercial.TRIAL" in provisioning_source
+    assert "INTERNAL_TEST" not in provisioning_source
