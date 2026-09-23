@@ -31,7 +31,7 @@
 | KCA-12 FM Control Center — Integração + Commercial Control Plane | PASS — `b35ba198ecd9a667f0473829c16562e2474a1f31` |
 | KCA-G12 | PASS — recertificação documental obrigatória |
 | KCA-13 Observability / Antiabuse / FinOps | PASS / MERGED — pré-merge `72cb89feadc2930bf08a22d57edd31afc9bb7c54`; staging `05c65c16ef380158b4602780511a9997e08cb5bb`; pós-merge Vercel + Railway SUCCESS |
-| KCA-14 Security Hardening + Tenant Isolation Audit | NÃO INICIADO |
+| KCA-14 Security Hardening + Tenant Isolation Audit | PASS CANDIDATE — `c9435f5af7f205457787a592d4a2e885f0f3ec0d`; CRITICAL OPEN=0; HIGH OPEN=0; awaiting exact-head doc recertification + merge |
 | KCA-15+ | NÃO INICIADO |
 
 ## Baseline
@@ -487,3 +487,38 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - Pós-merge: Vercel SUCCESS + Railway SUCCESS.
 - KCA-G13: PASS, INTEGRADO E ENCERRADO.
 - KCA-14 somente pode iniciar a partir deste CURRENT certificado.
+
+
+## Certificação KCA-14 — Security Hardening + Tenant Isolation Audit
+
+- Base canônica: `staging/kordena-premium@c8374e187bbcf782274e2c4e07f76283a1ad34cd`.
+- PR: #133.
+- Candidate funcional/security: `c9435f5af7f205457787a592d4a2e885f0f3ec0d`.
+- Auth/RBAC targeted adversarial matrix: **104 passed, 1 warning**.
+- Full Python regression: **1819 passed, 5 skipped, 101 warnings**.
+- KCA targeted matrix: **254 passed, 1 warning**.
+- Web Node: **16 passed, 0 skipped**.
+- Migration manifest: PASS.
+- Schema baseline: PASS — 132 tabelas, SHA `9fccb9f26f04f92fb104f0eebef885c0f5a8556ef9816670e8e4fafdf594beb3`.
+- Ruff: PASS.
+- mypy: PASS.
+- ESLint/TypeScript/Next production build/diff: PASS.
+- Auth/RBAC Commercial Gate V1 #29: SUCCESS.
+- Kordena KCA Commercial Gate #299: SUCCESS.
+- WP-031 Master Gate #307: SUCCESS.
+- WP-031L Regression Channel Parity #317: SUCCESS.
+- PR Superseded Runs Cleanup #845: SUCCESS.
+- Vercel: SUCCESS.
+- Hardening incorporado ao gate canônico de staging.
+- Replay de sessão antiga após troca de unidade: negado por teste.
+- Basic Auth legado com tenant/unidade forjados: negado por teste.
+- Header spoofing contra sessão assinada: permanece fail-closed/ignorado em favor da sessão.
+- Step-up administrativo e revogação por troca de unidade: PASS.
+- Cross-tenant/cross-unit IDOR deny-by-default: PASS.
+- Webhook assinatura forjada, duplicate/replay/out-of-order: PASS.
+- FMCC service-token + step-up boundary: PASS.
+- Commercial entitlement/provisioning/subscription isolation matrix: incluída no KCA gate.
+- **CRITICAL OPEN = 0**.
+- **HIGH OPEN = 0**.
+- Primeira tentativa do Auth/RBAC gate falhou apenas porque um fitness contract exigia nomes individuais de testes que já eram cobertos por `tests/integration/comercial`; o contrato foi corrigido sem reduzir cobertura e a matriz adversarial subsequente passou.
+- KCA-G14: PASS no candidate funcional; este commit documental ainda deve ser recertificado antes do merge.

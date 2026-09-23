@@ -32,6 +32,7 @@ on:
   pull_request:
     branches:
       - main
+      - "staging/kordena-premium"
     paths:
       - "infra/streamlit_app/auth_ui.py"
       - "infra/streamlit_app/sensitive_idle_watchdog.py"
@@ -55,6 +56,12 @@ on:
       - "tests/unit/payments/**"
       - "tests/fitness/test_auth_sensitive_entrypoints_v1.py"
       - "tests/fitness/test_f14_transversal_rbac_security_v1.py"
+      - "tests/fitness/test_kca14_security_hardening.py"
+      - "tests/api/test_operational_session_sso_http_contract.py"
+      - "tests/api/test_auth_admin_stepup_http_contract.py"
+      - "tests/api/test_auth_membership_http_contract.py"
+      - "tests/api/test_commercial_billing_webhook_http_contract.py"
+      - "tests/api/test_fmcc_commercial_control_http_contract.py"
       - ".github/workflows/auth-rbac-commercial-gate-v1.yml"
   workflow_dispatch:
 
@@ -85,7 +92,8 @@ jobs:
             pages/6_Administracao_Proprietario.py \
             pages/7_Integracoes_e_Credenciais.py \
             tests/fitness/test_auth_sensitive_entrypoints_v1.py \
-            tests/fitness/test_f14_transversal_rbac_security_v1.py
+            tests/fitness/test_f14_transversal_rbac_security_v1.py \
+            tests/fitness/test_kca14_security_hardening.py
       - name: Ruff auth and transversal security surface
         run: |
           ruff check \
@@ -101,7 +109,11 @@ jobs:
             tests/unit/security/test_sensitive_admin_access_v1.py \
             tests/integration/security/test_admin_pin_v1.py \
             tests/fitness/test_auth_sensitive_entrypoints_v1.py \
-            tests/fitness/test_f14_transversal_rbac_security_v1.py
+            tests/fitness/test_f14_transversal_rbac_security_v1.py \
+            tests/fitness/test_kca14_security_hardening.py \
+            tests/api/test_operational_session_sso_http_contract.py \
+            tests/api/test_auth_admin_stepup_http_contract.py \
+            tests/api/test_auth_membership_http_contract.py
       - name: Mypy auth surface
         run: |
           mypy \
@@ -115,6 +127,12 @@ jobs:
             tests/unit/security \
             tests/integration/security \
             tests/fitness/test_auth_sensitive_entrypoints_v1.py \
-            tests/fitness/test_f14_transversal_rbac_security_v1.py
+            tests/fitness/test_f14_transversal_rbac_security_v1.py \
+            tests/fitness/test_kca14_security_hardening.py \
+            tests/api/test_operational_session_sso_http_contract.py \
+            tests/api/test_auth_admin_stepup_http_contract.py \
+            tests/api/test_auth_membership_http_contract.py \
+            tests/api/test_commercial_billing_webhook_http_contract.py \
+            tests/api/test_fmcc_commercial_control_http_contract.py
       - name: Full Python regression
         run: pytest -q
