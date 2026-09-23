@@ -395,3 +395,213 @@ def test_wrong_service_token_is_rejected_before_command_execution() -> None:
         },
     )
     assert response.status_code == 401
+
+
+def test_fmcc_administra_plano_preco_limites_promocao_e_ativacao_futura() -> None:
+    client = _client()
+    future = datetime.now(timezone.utc) + timedelta(days=2)
+
+    created = client.post(
+        "/v1/control-plane/fmcc/catalog/commands",
+        headers={**_headers(), "Idempotency-Key": "kca12-plan-b-create"},
+        json={
+            "actor": _actor(),
+            "action": "plan_version.create",
+            "resource_id": "KORDENA_PLAN_B",
+            "payload": {
+                "display_name": "Plano B Governado",
+                "description": "Plano administrado pelo FMCC",
+                "trial_eligible": True,
+                "marketing_badge": "Mais escolhido",
+                "metadata": {"source": "fmcc"},
+                "entitlements": [
+                    {
+                        "capability_key": "orders.monthly",
+                        "enabled": True,
+                        "limit_value": "1000",
+                        "limit_unit": "orders",
+                        "config": {"benefit": "standard"},
+                    }
+                ],
+                "change_reason": "KCA-12 full catalog flow",
+            },
+        },
+    )
+    assert created.status_code == 200
+    plan_version = created.json()["result"]
+    assert plan_version["display_name"] == "Plano B Governado"
+    assert plan_version["entitlements"][0]["capability_key"] == "orders.monthly"
+    assert plan_version["entitlements"][0]["limit_value"] == "1000"
+
+    validated = client.post(
+        "/v1/control-plane/fmcc/catalog/commands",
+        headers={**_headers(), "Idempotency-Key": "kca12-plan-b-validate"},
+        json={
+            "actor": _actor(),
+            "action": "plan_version.validate",
+            "resource_id": plan_version["plan_version_id"],
+            "payload": {"change_reason": "validar versão"},
+        },
+    )
+    assert validated.status_code == 200
+    assert validated.json()["result"]["status"] == "validated"
+
+    preview = client.post(
+        "/v1/control-plane/fmcc/catalog/commands",
+        headers={**_headers(), "Idempotency-Key": "kca12-plan-b-preview"},
+        json={
+            "actor": _actor(),
+            "action": "plan_version.preview",
+            "resource_id": plan_version["plan_version_id"],
+            "payload": {},
+        },
+    )
+    assert preview.status_code == 200
+    assert preview.json()["result"]["candidate"]["display_name"] == (
+        "Plano B Governado"
+    )
+
+    published = client.post(
+        "/v1/control-plane/fmcc/catalog/commands",
+        headers={**_headers(), "Idempotency-Key": "kca12-plan-b-publish"},
+        json={
+            "actor": _actor(),
+            "action": "plan_version.publish",
+            "resource_id": plan_version["plan_version_id"],
+            "payload": {
+                "expected_plan_version": 1,
+                "effective_from": future.isoformat(),
+                "change_reason": "ativação futura governada",
+            },
+        },
+    )
+    assert published.status_code == 200
+    assert published.json()["result"]["status"] == "published"
+    assert published.json()["result"]["valid_from"] == future.isoformat()
+
+    price_created = client.post(
+        "/v1/control-plane/fmcc/catalog/commands",
+        headers={**_headers(), "Idempotency-Key": "kca12-price-b-create"},
+        json={
+            "actor": _actor(),
+            "action": "price.create",
+            "resource_id": plan_version["plan_version_id"],
+            "payload": {
+                "currency": "BRL",
+                "billing_period": "monthly",
+                "amount": "199.90",
+                "change_policy": "new_customers_only",
+                "change_reason": "novo preço governado",
+            },
+        },
+    )
+    assert price_created.status_code == 200
+    price = price_created.json()["result"]
+    assert price["amount"] == "199.90"
+    assert price["billing_period"] == "MONTHLY"
+
+    assert client.post(
+        "/v1/control-plane/fmcc/catalog/commands",
+        headers={**_headers(), "Idempotency-Key": "kca12-price-b-validate"},
+        json={
+            "actor": _actor(),
+            "action": "price.validate",
+            "resource_id": price["price_id"],
+            "payload": {"change_reason": "validar preço"},
+        },
+    ).status_code == 200
+
+    price_preview = client.post(
+        "/v1/control-plane/fmcc/catalog/commands",
+        headers={**_headers(), "Idempotency-Key": "kca12-price-b-preview"},
+        json={
+            "actor": _actor(),
+            "action": "price.preview",
+            "resource_id": price["price_id"],
+            "payload": {},
+        },
+    )
+    assert price_preview.status_code == 200
+    assert price_preview.json()["result"]["candidate"]["amount"] == "199.90"
+
+    price_published = client.post(
+        "/v1/control-plane/fmcc/catalog/commands",
+        headers={**_headers(), "Idempotency-Key": "kca12-price-b-publish"},
+        json={
+            "actor": _actor(),
+            "action": "price.publish",
+            "resource_id": price["price_id"],
+            "payload": {
+                "expected_plan_version": 2,
+                "effective_from": (future + timedelta(hours=1)).isoformat(),
+                "change_reason": "ativar preço futuro",
+            },
+        },
+    )
+    assert price_published.status_code == 200
+    assert price_published.json()["result"]["status"] == "published"
+
+    promotion_created = client.post(
+        "/v1/control-plane/fmcc/catalog/commands",
+        headers={**_headers(), "Idempotency-Key": "kca12-promo-create"},
+        json={
+            "actor": _actor(),
+            "action": "promotion.create",
+            "payload": {
+                "name": "Promo KCA12",
+                "discount_type": "percentage",
+                "discount_value": "10",
+                "currency": None,
+                "starts_at": (future + timedelta(days=1)).isoformat(),
+                "ends_at": (future + timedelta(days=8)).isoformat(),
+                "eligible_plan_codes": ["KORDENA_PLAN_B"],
+                "max_redemptions": 100,
+                "per_customer_limit": 1,
+                "rules": {"channel": "fmcc"},
+                "change_reason": "promoção governada",
+            },
+        },
+    )
+    assert promotion_created.status_code == 200
+    promotion, promotion_version = promotion_created.json()["result"]
+    assert promotion["product_code"] == "KORDENA"
+    assert promotion_version["eligible_plan_codes"] == ["KORDENA_PLAN_B"]
+
+    assert client.post(
+        "/v1/control-plane/fmcc/catalog/commands",
+        headers={**_headers(), "Idempotency-Key": "kca12-promo-validate"},
+        json={
+            "actor": _actor(),
+            "action": "promotion_version.validate",
+            "resource_id": promotion_version["promotion_version_id"],
+            "payload": {"change_reason": "validar promoção"},
+        },
+    ).status_code == 200
+
+    promo_preview = client.post(
+        "/v1/control-plane/fmcc/catalog/commands",
+        headers={**_headers(), "Idempotency-Key": "kca12-promo-preview"},
+        json={
+            "actor": _actor(),
+            "action": "promotion_version.preview",
+            "resource_id": promotion_version["promotion_version_id"],
+            "payload": {},
+        },
+    )
+    assert promo_preview.status_code == 200
+
+    promo_published = client.post(
+        "/v1/control-plane/fmcc/catalog/commands",
+        headers={**_headers(), "Idempotency-Key": "kca12-promo-publish"},
+        json={
+            "actor": _actor(),
+            "action": "promotion_version.publish",
+            "resource_id": promotion_version["promotion_version_id"],
+            "payload": {
+                "expected_promotion_version": 1,
+                "change_reason": "publicar promoção",
+            },
+        },
+    )
+    assert promo_published.status_code == 200
+    assert promo_published.json()["result"]["status"] == "published"
