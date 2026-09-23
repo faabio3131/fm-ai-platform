@@ -432,3 +432,31 @@ def test_expired_trial_subscription_activation_restores_entitlement_idempotently
     )
     assert still_recovered.allowed is True
     assert still_recovered.access_mode == ModoAcessoComercial.FULL
+
+
+def test_subscription_race_rejects_stale_expected_version() -> None:
+    factory = _factory()
+    context, _, _, app, pending = _pending(factory, tenant_id="tenant-kca14-race")
+    now = datetime.now(timezone.utc)
+    active = app.ativar(
+        contexto=context,
+        subscription_id=pending.subscription_id,
+        expected_version=pending.version,
+        current_period_start=now,
+        current_period_end=now + timedelta(days=30),
+    ).subscription
+
+    past_due = app.marcar_past_due(
+        contexto=context,
+        subscription_id=active.subscription_id,
+        expected_version=active.version,
+    )
+    assert past_due.status == EstadoAssinatura.PAST_DUE
+
+    with pytest.raises(DadoComercialInvalido, match="subscription_expected_version_stale"):
+        app.suspender(
+            contexto=context,
+            subscription_id=active.subscription_id,
+            expected_version=active.version,
+            motivo="KCA-14 stale concurrent transition",
+        )
