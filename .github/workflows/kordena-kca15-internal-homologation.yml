@@ -45,6 +45,7 @@ jobs:
       FM_AI_UNIDADE_ID: kca15-bootstrap
       FM_AI_COMMERCIAL_ACCESS_GATE_ENABLED: "1"
       PYTHONUNBUFFERED: "1"
+      PYTHONPATH: .
 
     steps:
       - uses: actions/checkout@v4
