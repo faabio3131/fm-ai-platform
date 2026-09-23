@@ -299,6 +299,7 @@ class AplicacaoFMCCCommercialProjectionV1:
                 {
                     "billing_transaction_id": row.billing_transaction_id,
                     "provider_code": row.provider_code,
+                    "provider_account_id": row.provider_account_id,
                     "subscription_id": row.subscription_id,
                     "transaction_type": row.transaction_type,
                     "status": row.status,
@@ -322,6 +323,7 @@ class AplicacaoFMCCCommercialProjectionV1:
                     "effective_from": _iso(row.effective_from),
                     "valid_until": _iso(row.valid_until),
                     "last_synced_at": _iso(row.last_synced_at),
+                    "stale": not _after(row.valid_until, instante),
                 }
                 for row in entitlements
             ],
@@ -356,6 +358,18 @@ class AplicacaoFMCCCommercialProjectionV1:
                 "suspended_subscriptions": sum(
                     row.status == "suspended" for row in subscriptions
                 ),
+                "confirmed_payments": sum(
+                    row.transaction_type == "payment" and row.status == "succeeded"
+                    for row in transactions
+                ),
+                "failed_payments": sum(
+                    row.transaction_type == "payment" and row.status == "failed"
+                    for row in transactions
+                ),
+                "reconciled_transactions": sum(
+                    row.reconciliation_status in {"in_sync", "repaired"}
+                    for row in transactions
+                ),
                 "users": sum(int(value) for value in membership_counts.values()),
                 "units": sum(int(value) for value in unit_counts.values()),
             },
@@ -364,8 +378,14 @@ class AplicacaoFMCCCommercialProjectionV1:
                 "mrr": "pending_governed_semantics",
                 "arr": "pending_governed_semantics",
                 "churn": "pending_governed_semantics",
+                "delinquency_amount": "pending_governed_semantics",
+                "subscription_active_metric": (
+                    "snapshot_summary_only_pending_stateful_as_of_semantics"
+                ),
                 "organization_users_units": "safe_counts_only",
-                "health_costs_support": "owned_by_dedicated_sources",
+                "health": "owned_by_kca13_observability_source",
+                "costs": "owned_by_dedicated_finops_source",
+                "support": "owned_by_dedicated_support_source",
             },
         }
 
