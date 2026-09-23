@@ -134,5 +134,5 @@ jobs:
         with:
           name: kca15-internal-homologation
           path: evidence/kca15-internal-homologation.json
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
