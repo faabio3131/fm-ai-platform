@@ -6,7 +6,8 @@ Expiração autoritativa de trial + Paywall + Recovery da FM Commercial Platform
 
 ## Candidate funcional certificado
 
-- SHA técnico: `f6b529d0cdfd14b11e5b82f9f7ac89803a2f0ea8`.
+- SHA técnico final recertificado: `f61c86ae44f88ecd38e050217ccd55960c4a9fd0`.
+- Este SHA substitui, para fins de certificação KCA-G11, o candidate técnico preliminar `f6b529d0cdfd14b11e5b82f9f7ac89803a2f0ea8`, pois inclui as correções finais de static checks do gate.
 - Base de integração: `staging/kordena-premium` @ `9867651dc5422ff21f91392bdae9ce44afa536f3`.
 - PR: #127 — OPEN/DRAFT.
 - KCA-G10 previamente integrado/certificado.
@@ -130,12 +131,12 @@ Cobertura confirmada para:
 
 ### KCA targeted
 
-- **194 passed**
+- **192 passed**
 - **2 warnings**
 
 ### Full Python regression
 
-- **1795 passed**
+- **1793 passed**
 - **5 skipped**
 - **102 warnings**
 
@@ -159,7 +160,7 @@ Cobertura confirmada para:
 
 ### CI do SHA técnico
 
-No SHA `f6b529d0cdfd14b11e5b82f9f7ac89803a2f0ea8`:
+No SHA `f61c86ae44f88ecd38e050217ccd55960c4a9fd0`:
 
 - Kordena KCA Commercial Gate: SUCCESS
 - WP-031 Master Gate: SUCCESS
@@ -171,7 +172,7 @@ No SHA `f6b529d0cdfd14b11e5b82f9f7ac89803a2f0ea8`:
 - PR Superseded Runs Cleanup: SUCCESS
 - Vercel: SUCCESS
 
-Resultado: **8/8 GitHub Actions SUCCESS + Vercel SUCCESS**.
+Resultado: **8/8 GitHub Actions SUCCESS + Vercel SUCCESS** no SHA final `f61c86ae44f88ecd38e050217ccd55960c4a9fd0`.
 
 ## Governança
 
@@ -187,6 +188,6 @@ Resultado: **8/8 GitHub Actions SUCCESS + Vercel SUCCESS**.
 
 ## Gate
 
-**KCA-G11: PASS no candidate técnico `f6b529d0cdfd14b11e5b82f9f7ac89803a2f0ea8`.**
+**KCA-G11: PASS no candidate técnico `f61c86ae44f88ecd38e050217ccd55960c4a9fd0`.**
 
 O HEAD documental criado pelo fechamento deste registro/tracker deve ser recertificado antes de qualquer merge.
