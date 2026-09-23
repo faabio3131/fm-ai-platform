@@ -153,3 +153,28 @@ def test_membership_inexistente_falha_fechado(monkeypatch) -> None:
     )
     assert response.status_code == 403
     assert response.json() == {"erro": "seguranca.recurso_indisponivel"}
+
+
+def test_old_membership_token_cannot_be_replayed_after_switch(monkeypatch) -> None:
+    client, _, membership_b, _ = _infra(monkeypatch)
+    assert client.post(
+        "/v1/auth/login",
+        json={"email": EMAIL, "senha": PASSWORD},
+    ).status_code == 200
+    old_token = client.cookies.get("fm_ai_session")
+    assert old_token
+
+    switched = client.post(
+        "/v1/auth/select-membership",
+        json={"membership_id": membership_b},
+    )
+    assert switched.status_code == 200
+    assert switched.json()["tenant_id"] == TENANT_B
+
+    replay_client = TestClient(client.app)
+    replay = replay_client.get(
+        "/v1/auth/me",
+        headers={"Authorization": f"Bearer {old_token}"},
+    )
+    assert replay.status_code == 401
+    assert client.get("/v1/auth/me").json()["tenant_id"] == TENANT_B
