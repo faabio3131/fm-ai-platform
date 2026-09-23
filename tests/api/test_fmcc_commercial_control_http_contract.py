@@ -233,8 +233,18 @@ def test_snapshot_is_authenticated_and_does_not_expose_contact_pii() -> None:
         payload["product_accounts"][0]["product_tenant_id"]
         == "tenant-kca12-a"
     )
-    assert payload["coverage"]["mrr"] == "pending_governed_semantics"
+    assert payload["coverage"]["mrr"] == "available_via_kca13_observability"
     assert payload["coverage"]["organization_users_units"] == "safe_counts_only"
+    observability = payload["observability"]
+    assert observability["schema_version"] == "kordena.observability.kca13.v1"
+    assert observability["internal_test_excluded"] is True
+    assert observability["metrics"]["trial_expired"]["value"] == 1
+    assert observability["metrics"]["past_due"]["value"] == 1
+    assert observability["metrics"]["payment_success"]["value"] == 1
+    assert observability["metrics"]["payment_failure"]["value"] == 1
+    assert observability["finops"]["infra_cost_per_tenant"]["status"] == "unavailable"
+    assert observability["finops"]["infra_cost_per_tenant"]["tenants"] is None
+    assert observability["metrics"]["trial_expired"]["provenance_refs"]
     assert payload["summary"]["active_trials"] == 0
     assert payload["summary"]["past_due_subscriptions"] == 1
     assert payload["summary"]["confirmed_payments"] == 1
