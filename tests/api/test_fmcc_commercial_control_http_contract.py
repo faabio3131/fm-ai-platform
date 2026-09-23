@@ -13,6 +13,8 @@ from core.comercial.modelos import ClasseContaComercial, StatusContaProduto
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import Papel, Permissao
 from http_api.fmcc_commercial_control import build_fmcc_commercial_control_router
+from infra.comercial.catalogo_orm import FMCommercialPlanVersionORM
+from infra.comercial.modelos_orm import CommercialAuditORM
 from migrations.runner import run_migrations
 
 TOKEN = "kca12-fmcc-control-plane-token-0123456789abcdef"
