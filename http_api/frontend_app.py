@@ -16,8 +16,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from application.commercial_access import AplicacaoAcessoComercialV1
+from application.commercial_billing import BillingProviderAdapterRegistryV1
+from core.comercial.billing_config import BillingEnvironment
 from core.runtime import build_engine, load_runtime_settings
-from core.runtime.config import RuntimeSettings
+from core.runtime.config import RuntimeEnvironment, RuntimeSettings
 from core.seguranca.erros import ErroSeguranca
 from core.seguranca.segredos import ReferenceSecretStore
 from http_api.admin_assistente_atendimento import (
@@ -120,10 +122,15 @@ def build_frontend_http_app(
         secret_store=secret_store,
     )
 
+    billing_adapter_registry = kwargs.get(
+        "commercial_billing_adapter_registry"
+    ) or BillingProviderAdapterRegistryV1()
+
     kwargs["engine"] = engine
     kwargs["session_factory"] = session_factory
     kwargs["secret_store"] = secret_store
     kwargs["auth_runtime"] = auth_runtime
+    kwargs["commercial_billing_adapter_registry"] = billing_adapter_registry
 
     app = build_http_app(settings=resolved_settings, **kwargs)
     gate_enabled = (
@@ -183,6 +190,13 @@ def build_frontend_http_app(
             session_factory=session_factory,
             auth_runtime=auth_runtime,
             enforcement_enabled=gate_enabled,
+            billing_adapter_registry=billing_adapter_registry,
+            billing_secret_store=secret_store,
+            billing_environment=(
+                BillingEnvironment.PRODUCTION
+                if resolved_settings.environment is RuntimeEnvironment.PRODUCTION
+                else BillingEnvironment.SANDBOX
+            ),
         )
     )
     app.include_router(
