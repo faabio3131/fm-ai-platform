@@ -333,3 +333,43 @@ def test_internal_test_trial_marks_commercial_event_as_kpi_excluded() -> None:
         )
     assert event is not None
     assert event.payload["kpi_excluded"] is True
+
+def test_late_expiration_batch_is_reprocessable_and_does_not_extend_trial() -> None:
+    factory = _factory()
+    context, customer, account = _account(factory, tenant_id="tenant-kca11-late")
+    app = AplicacaoTrialComercialV1(factory)
+    active = app.ativar(
+        contexto=context,
+        idempotency_key="kca11-late-trial",
+        fm_customer_id=customer.fm_customer_id,
+        product_account_id=account.product_account_id,
+        tenant_id="tenant-kca11-late",
+        email_verified=True,
+    ).trial
+    assert active.ends_at is not None
+
+    late_clock = active.ends_at + timedelta(hours=2)
+    expired = app.expirar_vencidos(
+        contexto_factory=lambda _: context,
+        agora=late_clock,
+        limite=10,
+    )
+    assert len(expired) == 1
+    assert expired[0].trial_id == active.trial_id
+    assert expired[0].status == EstadoTrial.EXPIRED
+
+    repeated = app.expirar_vencidos(
+        contexto_factory=lambda _: context,
+        agora=late_clock + timedelta(minutes=1),
+        limite=10,
+    )
+    assert repeated == ()
+
+    decision = AplicacaoEntitlementComercialV1(factory).avaliar_local(
+        tenant_id="tenant-kca11-late",
+        product_account_id=account.product_account_id,
+        agora=late_clock,
+    )
+    assert decision.allowed is False
+    assert decision.access_mode == ModoAcessoComercial.BILLING_ONLY
+
