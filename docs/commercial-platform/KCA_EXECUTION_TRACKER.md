@@ -433,3 +433,32 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - PR Superseded Runs Cleanup #835: SUCCESS.
 - KCA-G13: PASS canônico.
 - KCA-14: NÃO INICIADO.
+
+
+## Certificação KCA-13
+
+- Candidate funcional Kordena: `10cb4ac5da96947e0298616af9a3e56c37fccb23`.
+- Candidate funcional FMCC: `5def840f7a42686ae11df16406fcc68d54bb9647`.
+- FMCC base reconciliada após drift autorizado da PR #18: `main@221e8866c5d07f488dceb1861d44bf0771a75c0a`.
+- PR Kordena #130: OPEN / DRAFT / não mergeada.
+- PR FMCC #19: OPEN / DRAFT / não mergeada.
+- Kordena KCA Commercial Gate #288: SUCCESS.
+- KCA targeted: 212 passed, 1 warning.
+- Full Python: 1813 passed, 5 skipped, 101 warnings.
+- Schema baseline: 132 tabelas; SHA `9fccb9f26f04f92fb104f0eebef885c0f5a8556ef9816670e8e4fafdf594beb3`.
+- Ruff/mypy/ESLint/TypeScript/Next build/diff: PASS.
+- Web Node: 16 tests, 0 skipped.
+- Commercial Runtime Readiness V1 #1134: SUCCESS.
+- WP-031 Master Gate #297: SUCCESS.
+- WP-031L Regression Channel Parity #307: SUCCESS.
+- FMCC Foundation Gate #390: SUCCESS.
+- FMCC Cognitive Governed Intelligence Gate #72: SUCCESS.
+- Observabilidade read-only, provenance, correlation IDs, health e alertas: PASS.
+- INTERNAL_TEST excluído e public signup -> TRIAL protegido por fitness test.
+- Isolamento cross-product Kordena/IRON comprovado por teste.
+- AI FinOps existente reutilizado; nenhum segundo FinOps criado.
+- Infra cost sem fonte governada: permanece unavailable, nunca zero inventado.
+- Nenhuma migration nova no KCA-13.
+- Nenhum merge, deploy, provider real, cliente real ou abertura pública executado.
+- KCA-G13: PASS.
+- KCA-14: NÃO INICIADO.
