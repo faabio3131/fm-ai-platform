@@ -230,22 +230,24 @@ def test_missing_e_stale_excedido_sao_fail_closed() -> None:
         payload=_event_payload(snapshot),
     )
 
-    inside_grace = entitlement.avaliar_local(
+    at_boundary = entitlement.avaliar_local(
+        tenant_id="tenant-kca04",
+        product_account_id=account.product_account_id,
+        agora=snapshot.valid_until,
+    )
+    assert at_boundary.allowed is False
+    assert at_boundary.access_mode == ModoAcessoComercial.BILLING_ONLY
+    assert at_boundary.reason == "trial_expired_temporally"
+    assert at_boundary.stale is True
+
+    inside_generic_grace = entitlement.avaliar_local(
         tenant_id="tenant-kca04",
         product_account_id=account.product_account_id,
         agora=snapshot.valid_until + timedelta(seconds=30),
     )
-    assert inside_grace.allowed is True
-    assert inside_grace.stale is True
-
-    expired = entitlement.avaliar_local(
-        tenant_id="tenant-kca04",
-        product_account_id=account.product_account_id,
-        agora=snapshot.valid_until + timedelta(seconds=61),
-    )
-    assert expired.allowed is False
-    assert expired.access_mode == ModoAcessoComercial.BLOCKED
-    assert expired.reason == "entitlement_stale_limit_exceeded"
+    assert inside_generic_grace.allowed is False
+    assert inside_generic_grace.access_mode == ModoAcessoComercial.BILLING_ONLY
+    assert inside_generic_grace.reason == "trial_expired_temporally"
 
 
 def test_duplicate_e_out_of_order_nao_regredem_projection() -> None:

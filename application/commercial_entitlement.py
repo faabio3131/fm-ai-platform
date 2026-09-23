@@ -408,6 +408,19 @@ class AplicacaoEntitlementComercialV1:
                 )
 
             valid_until = _persisted_utc(row.valid_until)
+            commercial_state = EstadoComercial(row.commercial_state)
+            if (
+                commercial_state == EstadoComercial.TRIAL_ACTIVE
+                and instante >= valid_until
+            ):
+                return DecisaoEntitlement(
+                    allowed=False,
+                    access_mode=ModoAcessoComercial.BILLING_ONLY,
+                    reason="trial_expired_temporally",
+                    revision=row.revision,
+                    stale=True,
+                )
+
             stale = instante > valid_until
             if stale and instante > valid_until + self._stale_grace:
                 return DecisaoEntitlement(
