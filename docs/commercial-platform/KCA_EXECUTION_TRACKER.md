@@ -441,7 +441,7 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - Candidate funcional FMCC: `5def840f7a42686ae11df16406fcc68d54bb9647`.
 - FMCC base reconciliada após drift autorizado da PR #18: `main@221e8866c5d07f488dceb1861d44bf0771a75c0a`.
 - PR Kordena #130: OPEN / DRAFT / não mergeada.
-- PR FMCC #19: OPEN / DRAFT / não mergeada.
+- PR FMCC #19: MERGED externamente em `0e37eecb69d00361216468891c7442b74b993b29`; `main` posteriormente avançou para `eb130c37bdd26c559c517fcfc3cf3731874ffc59` por commit operacional sem alteração do contrato KCA-13.
 - Kordena KCA Commercial Gate #288: SUCCESS.
 - KCA targeted: 212 passed, 1 warning.
 - Full Python: 1813 passed, 5 skipped, 101 warnings.
@@ -459,6 +459,17 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - AI FinOps existente reutilizado; nenhum segundo FinOps criado.
 - Infra cost sem fonte governada: permanece unavailable, nunca zero inventado.
 - Nenhuma migration nova no KCA-13.
-- Nenhum merge, deploy, provider real, cliente real ou abertura pública executado.
+- Nenhum merge Kordena, provider real, cliente real ou abertura pública executado. O merge FMCC #19 ocorreu externamente durante a execução e está reconciliado como fato do CURRENT.
 - KCA-G13: PASS.
 - KCA-14: NÃO INICIADO.
+
+
+### Recertificação documental pós-drift
+
+- HEAD documental anterior: `0a9e82e0bae6a4a09db705a3483250831b0b82a0`.
+- Runtime Readiness #1137: SUCCESS.
+- KCA Commercial Gate #291: SUCCESS.
+- WP-031 Master #300: SUCCESS.
+- WP-031L Parity #310: SUCCESS.
+- Cleanup #837: SUCCESS.
+- Drift factual reconciliado: FMCC PR #19 foi mergeada externamente; nenhuma tentativa de rollback automático foi realizada.
