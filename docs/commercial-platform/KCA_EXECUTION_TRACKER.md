@@ -30,8 +30,9 @@
 | KCA-G11 | PASS |
 | KCA-12 FM Control Center — Integração + Commercial Control Plane | PASS — `b35ba198ecd9a667f0473829c16562e2474a1f31` |
 | KCA-G12 | PASS — recertificação documental obrigatória |
-| KCA-13 Observability / Antiabuse / FinOps | PASS CANÔNICO — candidate `10cb4ac5da96947e0298616af9a3e56c37fccb23` + HEAD documental `8325913147bb2019b617249e66410ff14c0beba7` recertificado |
-| KCA-14+ | NÃO INICIADO |
+| KCA-13 Observability / Antiabuse / FinOps | PASS / MERGED — pré-merge `72cb89feadc2930bf08a22d57edd31afc9bb7c54`; staging `05c65c16ef380158b4602780511a9997e08cb5bb`; pós-merge Vercel + Railway SUCCESS |
+| KCA-14 Security Hardening + Tenant Isolation Audit | NÃO INICIADO |
+| KCA-15+ | NÃO INICIADO |
 
 ## Baseline
 
@@ -473,3 +474,16 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - WP-031L Parity #310: SUCCESS.
 - Cleanup #837: SUCCESS.
 - Drift factual reconciliado: FMCC PR #19 foi mergeada externamente; nenhuma tentativa de rollback automático foi realizada.
+
+
+## Fechamento integrado KCA-13
+
+- PR #130: MERGED.
+- HEAD pré-merge recertificado: `72cb89feadc2930bf08a22d57edd31afc9bb7c54`.
+- Evidência pré-merge: Runtime Readiness #1140 / KCA Commercial #294 / WP-031 Master #303 / WP-031L Parity #313 / Cleanup #840 / Vercel — SUCCESS.
+- KCA targeted: 212 passed, 1 warning.
+- Full Python: 1813 passed, 5 skipped, 101 warnings.
+- Merge commit / staging: `05c65c16ef380158b4602780511a9997e08cb5bb`.
+- Pós-merge: Vercel SUCCESS + Railway SUCCESS.
+- KCA-G13: PASS, INTEGRADO E ENCERRADO.
+- KCA-14 somente pode iniciar a partir deste CURRENT certificado.
