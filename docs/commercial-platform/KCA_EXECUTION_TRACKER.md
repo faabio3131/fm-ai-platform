@@ -361,6 +361,12 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - FMCC: 33 test files / 118 tests PASS; lint/typecheck/migrations/build/Docker/runtime dependency audit: PASS.
 - FMCC Foundation Gate: SUCCESS.
 - KCA-G12: PASS nos candidates funcionais.
-- Fechamento depende da recertificação do HEAD documental gerado por este registro/tracker.
-- KCA-12 ainda não está integrado na staging neste ponto documental; bloco cognitivo permanece proibido até o merge KCA-12 e verificação pós-merge.
+- HEAD documental Kordena `3beead7c43a54d9d945c1d611f8412726adc379f`: 7/7 GitHub Actions SUCCESS + Vercel SUCCESS.
+- HEAD documental FMCC `f53ad1c449565feee665687b993aed532ff468e7`: FMCC Foundation Gate SUCCESS.
+- PR Kordena #128: MERGED em `staging/kordena-premium` em 2026-09-23T18:21:33Z.
+- Merge commit / HEAD da staging: `9c52fd998e04c4d723171917f3776c9da7295858`.
+- Pós-merge staging: Vercel SUCCESS + Railway SUCCESS.
+- KCA-G12: PASS E ENCERRADO no Kordena/staging.
+- PR FMCC #16 permanece OPEN/DRAFT e não mergeada; `main` do FMCC permanece inalterada.
+- Bloco cognitivo autorizado somente em branch/PR separada dependente da #16.
 - KCA-13 permanece NÃO INICIADO.
