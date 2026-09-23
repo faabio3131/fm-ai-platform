@@ -42,6 +42,7 @@ from http_api.auth import AuthSessionRuntime
 from http_api.cardapio_publico import build_cardapio_publico_router
 from http_api.central_pedidos import build_central_pedidos_router
 from http_api.commercial_access import build_commercial_access_router
+from http_api.fmcc_commercial_control import build_fmcc_commercial_control_router
 from http_api.crm import build_crm_router
 from http_api.delivery import build_delivery_router
 from http_api.entrega import build_entrega_router
@@ -153,6 +154,7 @@ def build_frontend_http_app(
                 "/v1/public",
                 "/v1/commercial",
                 "/v1/admin/commercial",
+                "/v1/control-plane/fmcc",
             )
         ):
             return await call_next(request)
@@ -185,6 +187,12 @@ def build_frontend_http_app(
             )
         return await call_next(request)
 
+    app.include_router(
+        build_fmcc_commercial_control_router(
+            session_factory=session_factory,
+            control_plane_token=resolved_settings.fmcc_control_plane_token,
+        )
+    )
     app.include_router(
         build_commercial_access_router(
             session_factory=session_factory,
