@@ -55,7 +55,10 @@ export function CommercialAccessGuard({ children }: { children: ReactNode }) {
   }, [auth.status, protectedPath]);
 
   useEffect(() => {
-    void load();
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [load, auth.tenantId]);
 
   if (!protectedPath || auth.status !== "authenticated") {
