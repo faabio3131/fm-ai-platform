@@ -67,10 +67,7 @@ def test_kca14_targeted_gate_includes_adversarial_security_matrix() -> None:
         "tests/fitness/test_kca12_fmcc_control_plane.py",
         "tests/fitness/test_kca13_observability.py",
         "tests/fitness/test_kca14_security_hardening.py",
-        "tests/integration/comercial/test_commercial_catalog_sqlalchemy.py",
-        "tests/integration/comercial/test_provisioning_sqlalchemy.py",
-        "tests/integration/comercial/test_subscription_sqlalchemy.py",
-        "tests/integration/comercial/test_billing_events_sqlalchemy.py",
+        "tests/integration/comercial",
     )
     for path in required:
         assert path in workflow, path
