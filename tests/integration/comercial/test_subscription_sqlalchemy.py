@@ -432,4 +432,3 @@ def test_expired_trial_subscription_activation_restores_entitlement_idempotently
     )
     assert still_recovered.allowed is True
     assert still_recovered.access_mode == ModoAcessoComercial.FULL
-
