@@ -48,6 +48,15 @@ on:
       - 'tests/fitness/test_kca12_fmcc_control_plane.py'
       - 'tests/fitness/test_kca13_observability.py'
       - 'tests/unit/comercial/test_commercial_observability_kca13.py'
+      - 'http_api/operational_auth.py'
+      - 'tests/api/test_auth_http_contract.py'
+      - 'tests/api/test_auth_membership_http_contract.py'
+      - 'tests/api/test_auth_admin_stepup_http_contract.py'
+      - 'tests/api/test_operational_session_sso_http_contract.py'
+      - 'tests/api/test_pdv_http_contract.py'
+      - 'tests/api/test_salao_http_contract.py'
+      - 'tests/security/**'
+      - 'tests/fitness/test_f14_transversal_rbac_security_v1.py'
       - 'docs/commercial-platform/**'
       - '.github/workflows/kordena-kca-commercial-gate.yml'
   workflow_dispatch:
@@ -95,7 +104,7 @@ jobs:
         shell: bash
         run: |
           paths=()
-          for p in application/comercial_registry.py application/commercial_catalog.py application/commercial_entitlement.py application/commercial_access.py application/commercial_checkout.py application/commercial_trial.py application/commercial_subscription.py application/commercial_billing.py application/commercial_billing_config.py application/commercial_billing_events.py application/fmcc_commercial_projection.py application/commercial_observability.py application/commercial_provisioning.py application/public_signup.py core/comercial infra/comercial core/seguranca infra/seguranca core/runtime/config.py http_api/admin_comercial.py http_api/commercial_billing_webhooks.py http_api/commercial_access.py http_api/fmcc_commercial_control.py http_api/auth.py http_api/public_signup.py migrations/commercial_registry_v1.py migrations/global_identity_membership_v1.py migrations/commercial_catalog_v1.py migrations/commercial_entitlement_v1.py migrations/commercial_provisioning_v1.py migrations/commercial_signup_v1.py migrations/commercial_trial_v1.py migrations/commercial_subscription_v1.py migrations/commercial_billing_config_v1.py migrations/commercial_billing_events_v1.py; do
+          for p in application/comercial_registry.py application/commercial_catalog.py application/commercial_entitlement.py application/commercial_access.py application/commercial_checkout.py application/commercial_trial.py application/commercial_subscription.py application/commercial_billing.py application/commercial_billing_config.py application/commercial_billing_events.py application/fmcc_commercial_projection.py application/commercial_observability.py application/commercial_provisioning.py application/public_signup.py core/comercial infra/comercial core/seguranca infra/seguranca core/runtime/config.py http_api/admin_comercial.py http_api/commercial_billing_webhooks.py http_api/commercial_access.py http_api/fmcc_commercial_control.py http_api/auth.py http_api/operational_auth.py http_api/frontend_app.py http_api/public_signup.py migrations/commercial_registry_v1.py migrations/global_identity_membership_v1.py migrations/commercial_catalog_v1.py migrations/commercial_entitlement_v1.py migrations/commercial_provisioning_v1.py migrations/commercial_signup_v1.py migrations/commercial_trial_v1.py migrations/commercial_subscription_v1.py migrations/commercial_billing_config_v1.py migrations/commercial_billing_events_v1.py; do
             if [ -e "$p" ]; then paths+=("$p"); fi
           done
           if [ "${#paths[@]}" -gt 0 ]; then
@@ -117,6 +126,26 @@ jobs:
           else
             echo "KCA tests not present yet: baseline-only run."
           fi
+
+      - name: KCA-14 adversarial security matrix
+        run: |
+          pytest -q \
+            tests/security/test_kca14_auth_session_adversarial.py \
+            tests/api/test_auth_http_contract.py \
+            tests/api/test_auth_membership_http_contract.py \
+            tests/api/test_auth_admin_stepup_http_contract.py \
+            tests/api/test_operational_session_sso_http_contract.py \
+            tests/api/test_pdv_http_contract.py \
+            tests/api/test_salao_http_contract.py \
+            tests/api/test_public_signup_http_contract.py \
+            tests/api/test_commercial_billing_webhook_http_contract.py \
+            tests/api/test_commercial_access_http_contract.py \
+            tests/api/test_fmcc_commercial_control_http_contract.py \
+            tests/integration/comercial/test_commercial_catalog_sqlalchemy.py \
+            tests/integration/comercial/test_subscription_sqlalchemy.py \
+            tests/integration/comercial/test_entitlement_sqlalchemy.py \
+            tests/fitness/test_f14_transversal_rbac_security_v1.py \
+            tests/fitness/test_kca13_observability.py
 
       - name: Full Python regression
         run: pytest -q
