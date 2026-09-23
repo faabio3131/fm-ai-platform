@@ -46,13 +46,16 @@ MIN_SERVICE_TOKEN_LENGTH = 32
 CatalogAction = Literal[
     "plan_version.create",
     "plan_version.validate",
+    "plan_version.preview",
     "plan_version.publish",
     "price.create",
     "price.validate",
+    "price.preview",
     "price.publish",
     "promotion.create",
     "promotion_version.create",
     "promotion_version.validate",
+    "promotion_version.preview",
     "promotion_version.publish",
 ]
 
@@ -294,6 +297,11 @@ def build_fmcc_commercial_control_router(
                     plan_version_id=_resource(body),
                     change_reason=data.change_reason,
                 )
+            elif action == "plan_version.preview":
+                result = catalog.preview_versao_plano(
+                    contexto=contexto,
+                    plan_version_id=_resource(body),
+                )
             elif action == "plan_version.publish":
                 data = PlanVersionPublishIn.model_validate(payload)
                 result = catalog.publicar_versao_plano(
@@ -322,6 +330,11 @@ def build_fmcc_commercial_control_router(
                     contexto=contexto,
                     price_id=_resource(body),
                     change_reason=data.change_reason,
+                )
+            elif action == "price.preview":
+                result = catalog.preview_preco(
+                    contexto=contexto,
+                    price_id=_resource(body),
                 )
             elif action == "price.publish":
                 data = PricePublishIn.model_validate(payload)
@@ -374,6 +387,11 @@ def build_fmcc_commercial_control_router(
                     contexto=contexto,
                     promotion_version_id=_resource(body),
                     change_reason=data.change_reason,
+                )
+            elif action == "promotion_version.preview":
+                result = catalog.preview_promocao(
+                    contexto=contexto,
+                    promotion_version_id=_resource(body),
                 )
             else:
                 data = PromotionPublishIn.model_validate(payload)
