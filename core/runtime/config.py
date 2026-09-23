@@ -58,6 +58,7 @@ class RuntimeSettings:
     tenant_id: str
     unidade_id: str
     allow_sqlite_commercial: bool = False
+    commercial_access_gate_enabled: bool = False
 
     @property
     def commercial(self) -> bool:
@@ -116,5 +117,8 @@ def load_runtime_settings(*, test_database_url: str | None = None) -> RuntimeSet
         tenant_id=os.getenv("FM_AI_TENANT_ID", tenant_default).strip(),
         unidade_id=os.getenv("FM_AI_UNIDADE_ID", unidade_default).strip(),
         allow_sqlite_commercial=_bool_env("FM_AI_ALLOW_SQLITE_COMMERCIAL"),
+        commercial_access_gate_enabled=_bool_env(
+            "FM_AI_COMMERCIAL_ACCESS_GATE_ENABLED"
+        ),
     )
     return settings.validate()

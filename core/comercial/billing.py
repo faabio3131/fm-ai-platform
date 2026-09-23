@@ -85,6 +85,7 @@ class CheckoutRequest:
     price_id: str
     success_url: str
     cancel_url: str
+    subscription_id: str | None = None
 
     def __post_init__(self) -> None:
         for field in ("fm_customer_id", "product_account_id", "price_id"):
@@ -95,6 +96,12 @@ class CheckoutRequest:
         object.__setattr__(
             self, "cancel_url", _required(self.cancel_url, "cancel_url", max_length=2048)
         )
+        if self.subscription_id is not None:
+            object.__setattr__(
+                self,
+                "subscription_id",
+                _required(self.subscription_id, "subscription_id"),
+            )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -102,6 +109,8 @@ class CheckoutResult:
     provider_code: str
     external_checkout_ref: str
     checkout_url: str
+    external_subscription_ref: str | None = None
+    external_customer_ref: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)

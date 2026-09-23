@@ -105,6 +105,20 @@ class RepositorioComercialSQLAlchemy:
         row = self._session.get(FMProductAccountORM, product_account_id)
         return _conta(row) if row is not None else None
 
+    def obter_conta_produto_por_tenant(
+        self,
+        *,
+        product_code: str,
+        product_tenant_id: str,
+    ) -> ContaProdutoComercial | None:
+        row = self._session.scalar(
+            select(FMProductAccountORM).where(
+                FMProductAccountORM.product_code == product_code.strip().upper(),
+                FMProductAccountORM.product_tenant_id == product_tenant_id.strip(),
+            )
+        )
+        return _conta(row) if row is not None else None
+
     def adicionar_conta_produto(
         self, row: FMProductAccountORM
     ) -> ContaProdutoComercial:
