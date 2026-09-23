@@ -26,7 +26,6 @@ from core.comercial.modelos import StatusContaProduto
 from core.comercial.subscription import AssinaturaComercial, EstadoAssinatura
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.segredos import ReferenceSecretStore, SecretStore
-from infra.comercial.billing_config_sqlalchemy import RepositorioBillingConfigSQLAlchemy
 from infra.comercial.repositorio_sqlalchemy import RepositorioComercialSQLAlchemy
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
 
