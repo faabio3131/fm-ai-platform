@@ -164,3 +164,49 @@ def test_unknown_provider_account_fails_closed() -> None:
     )
     assert response.status_code == 404
     assert response.json()["accepted"] is False
+
+
+def test_duplicate_webhook_same_body_is_idempotent() -> None:
+    client = _client()
+    payload = _payload("evt-http-duplicate", "tx-http-duplicate")
+
+    first = client.post(
+        "/v1/commercial/billing/webhooks/provider-http-account",
+        headers={"x-provider-signature": "valid"},
+        json=payload,
+    )
+    duplicate = client.post(
+        "/v1/commercial/billing/webhooks/provider-http-account",
+        headers={"x-provider-signature": "valid"},
+        json=payload,
+    )
+
+    assert first.status_code == 202
+    assert duplicate.status_code == 202
+    assert first.json()["event_id"] == "evt-http-duplicate"
+    assert duplicate.json()["event_id"] == "evt-http-duplicate"
+    assert duplicate.json()["accepted"] is True
+
+
+def test_replayed_event_id_with_different_body_is_rejected() -> None:
+    client = _client()
+    original = _payload("evt-http-replay-conflict", "tx-http-a")
+    forged = dict(original)
+    forged["transaction_ref"] = "tx-http-b"
+
+    assert client.post(
+        "/v1/commercial/billing/webhooks/provider-http-account",
+        headers={"x-provider-signature": "valid"},
+        json=original,
+    ).status_code == 202
+
+    replay = client.post(
+        "/v1/commercial/billing/webhooks/provider-http-account",
+        headers={"x-provider-signature": "valid"},
+        json=forged,
+    )
+    assert replay.status_code == 409
+    assert replay.json() == {
+        "accepted": False,
+        "code": "billing_webhook_replay_conflict",
+    }
