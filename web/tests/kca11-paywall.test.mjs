@@ -23,4 +23,9 @@ test("KCA-11 paywall is backend-authoritative and preserves logout", () => {
   assert.match(guard, /operational_allowed/);
   assert.match(guard, /endAuthSession/);
   assert.match(guard, /Seus dados permanecem preservados/);
+  assert.match(api, /\/v1\/commercial\/checkout/);
+  assert.match(api, /Idempotency-Key/);
+  assert.match(guard, /Escolher este plano/);
+  assert.match(guard, /NEXT_PUBLIC_SUPPORT_URL/);
+  assert.match(guard, /Falar com suporte/);
 });
