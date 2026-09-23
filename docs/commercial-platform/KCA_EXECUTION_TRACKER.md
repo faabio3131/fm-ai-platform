@@ -26,7 +26,7 @@
 | KCA-G9B | PASS |
 | KCA-10 Webhook Inbox + Reconciliation | PASS — `ccdf7883f63d184e34dab51ad26babc69b3edf9a` |
 | KCA-G10 | PASS |
-| KCA-11 Expiração + Paywall + Recovery | PASS — `f6b529d0cdfd14b11e5b82f9f7ac89803a2f0ea8` |
+| KCA-11 Expiração + Paywall + Recovery | PASS — `f61c86ae44f88ecd38e050217ccd55960c4a9fd0` |
 | KCA-G11 | PASS |
 | KCA-12+ | NÃO INICIADO |
 
@@ -298,7 +298,8 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 
 ## Certificação KCA-11
 
-- Candidate funcional certificado: `f6b529d0cdfd14b11e5b82f9f7ac89803a2f0ea8`.
+- Candidate preliminar substituído: `f6b529d0cdfd14b11e5b82f9f7ac89803a2f0ea8`.
+- Candidate funcional certificado: `f61c86ae44f88ecd38e050217ccd55960c4a9fd0`.
 - Implementation record: `docs/commercial-platform/KCA11_IMPLEMENTATION_RECORD.md`.
 - Migration: não aplicável; nenhuma mudança de schema no KCA-11.
 - Schema baseline: 132 tabelas; SHA `9fccb9f26f04f92fb104f0eebef885c0f5a8556ef9816670e8e4fafdf594beb3`.
@@ -315,11 +316,11 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - Recovery repetido/idempotente: PASS.
 - Stale/missing entitlement: fail-closed.
 - Cross-tenant: fail-closed.
-- KCA targeted: 194 passed, 2 warnings.
-- Full Python: 1795 passed, 5 skipped, 102 warnings.
+- KCA targeted: 192 passed, 2 warnings.
+- Full Python: 1793 passed, 5 skipped, 102 warnings.
 - Web Node: 16 passed, 0 failed, 0 skipped.
 - Migration manifest/schema baseline/Ruff/mypy/ESLint/TypeScript/Next build/diff: PASS.
-- Candidate técnico: 8/8 GitHub Actions SUCCESS + Vercel SUCCESS.
+- Candidate técnico final `f61c86ae44f88ecd38e050217ccd55960c4a9fd0`: 8/8 GitHub Actions SUCCESS + Vercel SUCCESS.
 - KCA-G11: PASS.
 - PR #127 permanece OPEN/DRAFT e não mergeada.
 - KCA-12/FM Control Center: NÃO INICIADO.
