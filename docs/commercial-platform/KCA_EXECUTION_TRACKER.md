@@ -31,7 +31,7 @@
 | KCA-12 FM Control Center — Integração + Commercial Control Plane | PASS — `b35ba198ecd9a667f0473829c16562e2474a1f31` |
 | KCA-G12 | PASS — recertificação documental obrigatória |
 | KCA-13 Observability / Antiabuse / FinOps | PASS / MERGED — pré-merge `72cb89feadc2930bf08a22d57edd31afc9bb7c54`; staging `05c65c16ef380158b4602780511a9997e08cb5bb`; pós-merge Vercel + Railway SUCCESS |
-| KCA-14 Security Hardening + Tenant Isolation Audit | NÃO INICIADO |
+| KCA-14 Security Hardening + Tenant Isolation Audit | IN PROGRESS — base `c8374e187bbcf782274e2c4e07f76283a1ad34cd` |
 | KCA-15+ | NÃO INICIADO |
 
 ## Baseline
@@ -487,3 +487,15 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - Pós-merge: Vercel SUCCESS + Railway SUCCESS.
 - KCA-G13: PASS, INTEGRADO E ENCERRADO.
 - KCA-14 somente pode iniciar a partir deste CURRENT certificado.
+
+
+## Execução KCA-14 — abertura
+
+- Base canônica pós-KCA-13: `c8374e187bbcf782274e2c4e07f76283a1ad34cd`.
+- Branch: `feat/kordena-kca14-security-hardening`.
+- Migration: não aplicável.
+- Estratégia: nenhuma segunda autoridade; hardening por testes adversariais e correção somente se falha real for encontrada.
+- Matriz obrigatória: auth/session/cookies/CSRF/membership/RBAC/tenant/unit/step-up/comercial/catalog/trial/subscription/billing/webhook/entitlement/FMCC/Core/fiscal/headers/IDs/product_account/audit/secrets.
+- Novas provas: replay/expired/fixation, cross-tenant write, webhook duplicate/replay conflict e races de preço/promoção/assinatura.
+- KCA-G14 permanece FAIL/IN PROGRESS até CI e auditoria provarem CRITICAL OPEN=0 e HIGH OPEN=0.
+- KCA-15 permanece NÃO INICIADO.
