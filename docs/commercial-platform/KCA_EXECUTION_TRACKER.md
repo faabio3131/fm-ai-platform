@@ -324,4 +324,3 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - PR #127 permanece OPEN/DRAFT e não mergeada.
 - KCA-12/FM Control Center: NÃO INICIADO.
 - Nenhum deploy público, cliente/trial/assinatura real, provider, credencial ou cobrança real foi executado.
-
