@@ -111,6 +111,7 @@ class AplicacaoCommercialObservabilityKCA13:
                     )
                 ).all()
             ) if customer_ids else ()
+            account_ids = {row.product_account_id for row in accounts}
             tenant_ids = {
                 row.product_tenant_id
                 for row in accounts
@@ -136,17 +137,17 @@ class AplicacaoCommercialObservabilityKCA13:
             trials = tuple(
                 session.scalars(
                     select(FMCommercialTrialORM).where(
-                        FMCommercialTrialORM.fm_customer_id.in_(customer_ids)
+                        FMCommercialTrialORM.product_account_id.in_(account_ids)
                     )
                 ).all()
-            ) if customer_ids else ()
+            ) if account_ids else ()
             subscriptions = tuple(
                 session.scalars(
                     select(FMCommercialSubscriptionORM).where(
-                        FMCommercialSubscriptionORM.fm_customer_id.in_(customer_ids)
+                        FMCommercialSubscriptionORM.product_account_id.in_(account_ids)
                     )
                 ).all()
-            ) if customer_ids else ()
+            ) if account_ids else ()
             subscription_ids = {row.subscription_id for row in subscriptions}
             transactions = tuple(
                 session.scalars(
@@ -182,11 +183,11 @@ class AplicacaoCommercialObservabilityKCA13:
                 session.scalars(
                     select(CommercialOutboxORM).where(
                         CommercialOutboxORM.aggregate_type == "subscription",
-                        CommercialOutboxORM.fm_customer_id.in_(customer_ids),
+                        CommercialOutboxORM.aggregate_id.in_(subscription_ids),
                         CommercialOutboxORM.occurred_at <= now,
                     )
                 ).all()
-            ) if customer_ids else ()
+            ) if subscription_ids else ()
             finops = tuple(
                 session.scalars(
                     select(AIFinOpsDailyORM).where(
