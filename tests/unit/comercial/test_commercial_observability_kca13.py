@@ -51,6 +51,7 @@ def test_kca13_mrr_arr_keep_currencies_separate_and_report_unknown_periods() -> 
         ),
         transactions=(),
         subscription_events=(),
+        customer_ids=set(),
     )
 
     assert metrics["mrr"]["status"] == "partial"
@@ -77,6 +78,7 @@ def test_kca13_conversion_rate_is_unavailable_for_empty_cohort_not_zero() -> Non
         subscriptions=(),
         transactions=(),
         subscription_events=(),
+        customer_ids=set(),
     )
 
     assert metrics["conversion_rate"]["status"] == "unavailable"
