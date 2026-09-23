@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from infra.comercial.billing_events_orm import FMBillingTransactionORM
 from infra.comercial.catalogo_sqlalchemy import RepositorioCatalogoComercialSQLAlchemy
@@ -18,6 +18,10 @@ from infra.comercial.entitlement_orm import KordenaEntitlementProjectionORM
 from infra.comercial.modelos_orm import FMCustomerORM, FMProductAccountORM
 from infra.comercial.subscription_orm import FMCommercialSubscriptionORM
 from infra.comercial.trial_orm import FMCommercialTrialORM
+from infra.seguranca.modelos_orm import (
+    IdentityMembershipORM,
+    IdentityMembershipUnitORM,
+)
 
 SCHEMA_VERSION = "kordena.fmcc.commercial.v1"
 
@@ -182,6 +186,34 @@ class AplicacaoFMCCCommercialProjectionV1:
                 else ()
             )
 
+            membership_counts = dict(
+                session.execute(
+                    select(
+                        IdentityMembershipORM.tenant_id,
+                        func.count(IdentityMembershipORM.membership_id),
+                    )
+                    .where(IdentityMembershipORM.product_code == "KORDENA")
+                    .group_by(IdentityMembershipORM.tenant_id)
+                ).all()
+            )
+            unit_counts = dict(
+                session.execute(
+                    select(
+                        IdentityMembershipORM.tenant_id,
+                        func.count(
+                            func.distinct(IdentityMembershipUnitORM.unidade_id)
+                        ),
+                    )
+                    .join(
+                        IdentityMembershipUnitORM,
+                        IdentityMembershipUnitORM.membership_id
+                        == IdentityMembershipORM.membership_id,
+                    )
+                    .where(IdentityMembershipORM.product_code == "KORDENA")
+                    .group_by(IdentityMembershipORM.tenant_id)
+                ).all()
+            )
+
             catalog_repo = RepositorioCatalogoComercialSQLAlchemy(session)
             catalog = self._catalog_snapshot(catalog_repo, instante)
 
@@ -293,6 +325,16 @@ class AplicacaoFMCCCommercialProjectionV1:
                 for row in entitlements
             ],
             "catalog": catalog,
+            "organization": [
+                {
+                    "tenant_id": tenant_id,
+                    "active_memberships": int(
+                        membership_counts.get(tenant_id, 0)
+                    ),
+                    "units": int(unit_counts.get(tenant_id, 0)),
+                }
+                for tenant_id in tenant_ids
+            ],
             "summary": {
                 "customers": len(customers),
                 "internal_test_customers": sum(
@@ -313,13 +355,15 @@ class AplicacaoFMCCCommercialProjectionV1:
                 "suspended_subscriptions": sum(
                     row.status == "suspended" for row in subscriptions
                 ),
+                "users": sum(int(value) for value in membership_counts.values()),
+                "units": sum(int(value) for value in unit_counts.values()),
             },
             "facts": facts,
             "coverage": {
                 "mrr": "pending_governed_semantics",
                 "arr": "pending_governed_semantics",
                 "churn": "pending_governed_semantics",
-                "organization_users_units": "not_in_commercial_projection_v1",
+                "organization_users_units": "safe_counts_only",
                 "health_costs_support": "owned_by_dedicated_sources",
             },
         }
