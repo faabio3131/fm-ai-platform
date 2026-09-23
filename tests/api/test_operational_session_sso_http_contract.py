@@ -182,3 +182,29 @@ def test_basic_legado_permanece_compativel_sem_cookie(monkeypatch) -> None:
     assert [item["nome"] for item in response.json()["produtos"]] == [
         "Produto Unidade A"
     ]
+
+
+def test_old_session_token_cannot_be_replayed_after_unit_switch(monkeypatch) -> None:
+    client = _infra(monkeypatch)
+    _login(client)
+    old_token = client.cookies.get("fm_ai_session")
+    assert old_token
+
+    switched = client.post(
+        "/v1/auth/select-unit",
+        json={"unidade_id": UNIDADE_B},
+    )
+    assert switched.status_code == 200
+
+    replay_client = TestClient(client.app)
+    replay = replay_client.get(
+        "/v1/pdv/produtos",
+        headers={"Authorization": f"Bearer {old_token}"},
+    )
+    assert replay.status_code == 401
+
+    current = client.get("/v1/pdv/produtos")
+    assert current.status_code == 200
+    assert [item["nome"] for item in current.json()["produtos"]] == [
+        "Produto Unidade B"
+    ]
