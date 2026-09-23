@@ -42,10 +42,10 @@ from http_api.auth import AuthSessionRuntime
 from http_api.cardapio_publico import build_cardapio_publico_router
 from http_api.central_pedidos import build_central_pedidos_router
 from http_api.commercial_access import build_commercial_access_router
-from http_api.fmcc_commercial_control import build_fmcc_commercial_control_router
 from http_api.crm import build_crm_router
 from http_api.delivery import build_delivery_router
 from http_api.entrega import build_entrega_router
+from http_api.fmcc_commercial_control import build_fmcc_commercial_control_router
 from http_api.garcom_web import build_garcom_web_router
 from http_api.gerente_ia_web import build_gerente_ia_web_router
 from http_api.marketplaces_web import build_marketplaces_web_router
