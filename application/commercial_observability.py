@@ -208,6 +208,7 @@ class AplicacaoCommercialObservabilityKCA13:
             subscriptions=subscriptions,
             transactions=transactions,
             subscription_events=subscription_events,
+            customer_ids=customer_ids,
         )
         finops_snapshot = self._finops(
             now=now,
@@ -277,6 +278,7 @@ class AplicacaoCommercialObservabilityKCA13:
         subscriptions,
         transactions,
         subscription_events,
+        customer_ids: set[str],
     ) -> dict[str, Any]:
         provenance_signup = ("table:fm_public_signup_intents_v1",)
         provenance_provisioning = ("table:fm_commercial_provisioning_sagas_v1",)
@@ -303,7 +305,7 @@ class AplicacaoCommercialObservabilityKCA13:
         )
         tenant_provisioned = sum(
             row.status == "ready"
-            and row.fm_customer_id is not None
+            and row.fm_customer_id in customer_ids
             and _utc(row.updated_at) >= window_start
             and _utc(row.updated_at) <= now
             for row in provisioning
