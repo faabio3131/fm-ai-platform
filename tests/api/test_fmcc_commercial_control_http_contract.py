@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -70,6 +70,7 @@ def _client(*, token: str | None = TOKEN) -> TestClient:
     )
 
     app = FastAPI()
+    app.state.kca12_session_factory = factory
     app.include_router(
         build_fmcc_commercial_control_router(
             session_factory=factory,
@@ -197,6 +198,52 @@ def test_catalog_command_requires_fresh_step_up() -> None:
     assert preview.status_code == 200
     assert preview.json()["action"] == "plan_version.preview"
     assert "result" in preview.json()
+
+    repeated = client.post(
+        "/v1/control-plane/fmcc/catalog/commands",
+        headers=_headers(),
+        json={
+            "actor": _actor(),
+            "action": "plan_version.create",
+            "resource_id": "KORDENA_PLAN_A",
+            "payload": {
+                "display_name": "Plano A KCA12",
+                "description": "Configurado pelo FMCC",
+                "trial_eligible": True,
+                "marketing_badge": None,
+                "metadata": {},
+                "entitlements": [],
+                "change_reason": "KCA-12 integration test",
+            },
+        },
+    )
+    assert repeated.status_code == 200
+    assert (
+        repeated.json()["result"]["plan_version_id"]
+        == body["result"]["plan_version_id"]
+    )
+
+    factory = client.app.state.kca12_session_factory
+    with factory() as session:
+        version_count = session.scalar(
+            select(func.count(FMCommercialPlanVersionORM.plan_version_id)).where(
+                FMCommercialPlanVersionORM.plan_version_id
+                == body["result"]["plan_version_id"]
+            )
+        )
+        audits = session.scalars(
+            select(CommercialAuditORM).where(
+                CommercialAuditORM.action == "commercial.plan_version.create",
+                CommercialAuditORM.aggregate_id
+                == body["result"]["plan_version_id"],
+            )
+        ).all()
+
+    assert version_count == 1
+    assert body["result"]["version_number"] == 1
+    assert len(audits) == 1
+    assert audits[0].actor_user_id == "fmcc-owner-1"
+    assert audits[0].metadata_safe["version_number"] == 1
 
 
 def test_wrong_service_token_is_rejected_before_command_execution() -> None:
