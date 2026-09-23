@@ -359,3 +359,77 @@ def test_cross_tenant_and_invalid_price_binding_fail_closed() -> None:
             plan_version_id=PLAN_A_VERSION,
             price_id=PRICE_B,
         )
+
+def test_expired_trial_subscription_activation_restores_entitlement_idempotently() -> None:
+    factory = _factory()
+    context, customer, account = _account(factory, tenant_id="tenant-kca11-recovery")
+    trial_app = AplicacaoTrialComercialV1(factory)
+    trial = trial_app.ativar(
+        contexto=context,
+        idempotency_key="kca11-recovery-trial",
+        fm_customer_id=customer.fm_customer_id,
+        product_account_id=account.product_account_id,
+        tenant_id="tenant-kca11-recovery",
+        email_verified=True,
+    ).trial
+    assert trial.ends_at is not None
+
+    expired = trial_app.expirar(
+        contexto=context,
+        trial_id=trial.trial_id,
+        agora=trial.ends_at,
+    )
+    assert expired.status == EstadoTrial.EXPIRED
+
+    blocked = AplicacaoEntitlementComercialV1(factory).avaliar_local(
+        tenant_id="tenant-kca11-recovery",
+        product_account_id=account.product_account_id,
+    )
+    assert blocked.allowed is False
+    assert blocked.access_mode == ModoAcessoComercial.BILLING_ONLY
+
+    app = AplicacaoSubscriptionComercialV1(factory)
+    pending = app.criar_pendente(
+        contexto=context,
+        idempotency_key="kca11-recovery-subscription",
+        fm_customer_id=customer.fm_customer_id,
+        product_account_id=account.product_account_id,
+        tenant_id="tenant-kca11-recovery",
+        plan_code="KORDENA_PLAN_A",
+        plan_version_id=PLAN_A_VERSION,
+        price_id=PRICE_A,
+    )
+    now = datetime.now(timezone.utc)
+    first = app.ativar(
+        contexto=context,
+        subscription_id=pending.subscription_id,
+        expected_version=pending.version,
+        current_period_start=now,
+        current_period_end=now + timedelta(days=30),
+    )
+    assert first.subscription.status == EstadoAssinatura.ACTIVE
+
+    recovered = AplicacaoEntitlementComercialV1(factory).avaliar_local(
+        tenant_id="tenant-kca11-recovery",
+        product_account_id=account.product_account_id,
+    )
+    assert recovered.allowed is True
+    assert recovered.access_mode == ModoAcessoComercial.FULL
+
+    repeated = app.ativar(
+        contexto=context,
+        subscription_id=first.subscription.subscription_id,
+        expected_version=first.subscription.version,
+        current_period_start=now,
+        current_period_end=now + timedelta(days=30),
+    )
+    assert repeated.subscription.subscription_id == first.subscription.subscription_id
+    assert repeated.entitlement_snapshot_id == first.entitlement_snapshot_id
+
+    still_recovered = AplicacaoEntitlementComercialV1(factory).avaliar_local(
+        tenant_id="tenant-kca11-recovery",
+        product_account_id=account.product_account_id,
+    )
+    assert still_recovered.allowed is True
+    assert still_recovered.access_mode == ModoAcessoComercial.FULL
+
