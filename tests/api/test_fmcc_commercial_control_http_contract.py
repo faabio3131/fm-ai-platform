@@ -117,6 +117,7 @@ def test_snapshot_is_authenticated_and_does_not_expose_contact_pii() -> None:
         == "tenant-kca12-a"
     )
     assert payload["coverage"]["mrr"] == "pending_governed_semantics"
+    assert payload["coverage"]["organization_users_units"] == "safe_counts_only"
     assert "secret-contact@example.test" not in response.text
     assert "+5511999999999" not in response.text
 
@@ -179,6 +180,23 @@ def test_catalog_command_requires_fresh_step_up() -> None:
     assert body["action"] == "plan_version.create"
     assert body["result"]["display_name"] == "Plano A KCA12"
     assert body["result"]["status"] == "draft"
+
+    preview = client.post(
+        "/v1/control-plane/fmcc/catalog/commands",
+        headers={
+            **_headers(),
+            "Idempotency-Key": "kca12-command-preview",
+        },
+        json={
+            "actor": _actor(),
+            "action": "plan_version.preview",
+            "resource_id": body["result"]["plan_version_id"],
+            "payload": {},
+        },
+    )
+    assert preview.status_code == 200
+    assert preview.json()["action"] == "plan_version.preview"
+    assert "result" in preview.json()
 
 
 def test_wrong_service_token_is_rejected_before_command_execution() -> None:
