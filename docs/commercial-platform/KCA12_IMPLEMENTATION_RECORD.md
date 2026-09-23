@@ -295,4 +295,20 @@ Não fazem parte do KCA-G12 e permanecem explícitas:
 
 **KCA-G12: PASS no conjunto de candidates funcionais Kordena `b35ba198ecd9a667f0473829c16562e2474a1f31` + FMCC `5d4843d4bd5ac403c59a0d491413f4482a0318f9`.**
 
-Este registro e o tracker criam HEAD(s) documentais novos. O KCA-G12 somente será considerado **encerrado** depois da recertificação desses HEADs documentais, conforme o Prompt Mestre.
+## Recertificação documental e pós-merge
+
+- HEAD documental Kordena: `3beead7c43a54d9d945c1d611f8412726adc379f`.
+- Recertificação documental Kordena: **7/7 GitHub Actions SUCCESS**.
+- Vercel no HEAD documental: **SUCCESS**.
+- HEAD documental FMCC: `f53ad1c449565feee665687b993aed532ff468e7`.
+- FMCC Foundation Gate no HEAD documental: **SUCCESS**.
+- PR Kordena #128: **MERGED** em `staging/kordena-premium`.
+- Data/hora do merge: 2026-09-23T18:21:33Z.
+- Merge commit / HEAD da staging: `9c52fd998e04c4d723171917f3776c9da7295858`.
+- Pós-merge Vercel na staging: **SUCCESS**.
+- Pós-merge Railway na staging: **SUCCESS**.
+- PR FMCC #16 permanece **OPEN/DRAFT**, mergeable e não mergeada; nenhuma alteração de `main` foi realizada por este fechamento.
+
+**KCA-G12: PASS E ENCERRADO no Kordena/staging.**
+
+O bloco cognitivo do FMCC pode prosseguir em branch/PR separada, preservando a dependência explícita da PR #16 do FMCC e sem antecipar KCA-13.
