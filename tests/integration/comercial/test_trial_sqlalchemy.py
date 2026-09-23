@@ -372,4 +372,3 @@ def test_late_expiration_batch_is_reprocessable_and_does_not_extend_trial() -> N
     )
     assert decision.allowed is False
     assert decision.access_mode == ModoAcessoComercial.BILLING_ONLY
-
