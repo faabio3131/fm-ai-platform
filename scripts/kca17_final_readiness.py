@@ -145,7 +145,8 @@ def run(*, output: Path, prerequisites: Path, backup_file: Path) -> None:
     assert signup.status_code == 404
 
     observability = AplicacaoCommercialObservabilityKCA13(factory).snapshot()
-    assert observability["product_code"] == "KORDENA"
+    assert observability["schema_version"] == "kordena.observability.kca13.v1"
+    assert observability["internal_test_excluded"] is True
     assert "health" in observability
     assert "alerts" in observability
     assert "metrics" in observability
