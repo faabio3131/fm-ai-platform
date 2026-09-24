@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import inspect
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
-import inspect
 
 import pytest
 
