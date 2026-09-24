@@ -1,0 +1,224 @@
+name: Kordena KCA16 Full Commercial E2E
+
+on:
+  pull_request:
+    branches:
+      - "staging/kordena-premium"
+    paths:
+      - "scripts/kca16_full_commercial_e2e.py"
+      - "application/**"
+      - "core/**"
+      - "infra/**"
+      - "http_api/**"
+      - "migrations/**"
+      - "tests/**"
+      - "web/**"
+      - "docs/commercial-platform/**"
+      - ".github/workflows/kordena-kca16-full-e2e.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  kca16-full-commercial-e2e:
+    name: KCA-16 full commercial E2E and audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kordena_kca16
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d kordena_kca16"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      FM_AI_ENV: staging
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/kordena_kca16
+      FM_AI_TENANT_ID: kca16-bootstrap
+      FM_AI_UNIDADE_ID: kca16-bootstrap
+      FM_AI_COMMERCIAL_ACCESS_GATE_ENABLED: "1"
+      PYTHONPATH: .
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2 pip-audit
+
+      - name: Generate masked ephemeral E2E secrets
+        shell: bash
+        run: |
+          SESSION_SECRET="$(python - <<'PY'
+          import secrets
+          print(secrets.token_urlsafe(48))
+          PY
+          )"
+          FMCC_TOKEN="$(python - <<'PY'
+          import secrets
+          print(secrets.token_urlsafe(48))
+          PY
+          )"
+          MASTER_KEY="$(python - <<'PY'
+          from cryptography.fernet import Fernet
+          print(Fernet.generate_key().decode("ascii"))
+          PY
+          )"
+          echo "::add-mask::$SESSION_SECRET"
+          echo "::add-mask::$FMCC_TOKEN"
+          echo "::add-mask::$MASTER_KEY"
+          echo "FM_AI_SESSION_SECRET=$SESSION_SECRET" >> "$GITHUB_ENV"
+          echo "FM_AI_FMCC_CONTROL_PLANE_TOKEN=$FMCC_TOKEN" >> "$GITHUB_ENV"
+          echo "FM_AI_SECRET_MASTER_KEY=$MASTER_KEY" >> "$GITHUB_ENV"
+
+      - name: Prove KCA-16 PostgreSQL staging boundary
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          python - <<'PY'
+          from core.runtime.config import RuntimeEnvironment, load_runtime_settings
+          settings = load_runtime_settings()
+          assert settings.environment is RuntimeEnvironment.STAGING
+          assert settings.commercial
+          assert settings.database_url.startswith("postgresql")
+          assert settings.commercial_access_gate_enabled is True
+          print("KCA-16 PostgreSQL staging boundary: PASS")
+          PY
+
+      - name: Static checks for KCA-16 runner
+        run: |
+          python -m py_compile scripts/kca16_full_commercial_e2e.py
+          ruff check scripts/kca16_full_commercial_e2e.py
+          mypy scripts/kca16_full_commercial_e2e.py --follow-imports=skip
+
+      - name: Execute full persisted commercial journey
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          python scripts/kca16_full_commercial_e2e.py             --output evidence/kca16-full-commercial-e2e.json
+
+      - name: Verify KCA-G16 backend evidence
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("evidence/kca16-full-commercial-e2e.json").read_text())
+          assert data["gate"] == "KCA-G16-BACKEND-E2E"
+          assert data["environment"] == "ephemeral_postgresql_staging"
+          assert data["fm_ai_test_mode"] is False
+          assert data["billing_real_used"] is False
+          assert all(value == "pass" for value in data["journey"].values())
+          print("KCA-G16 backend evidence: PASS")
+          PY
+
+      - name: KCA-16 commercial security and integration matrix
+        run: |
+          pytest -q             tests/unit/comercial             tests/integration/comercial             tests/unit/security             tests/integration/seguranca             tests/api/test_auth_http_contract.py             tests/api/test_auth_membership_http_contract.py             tests/api/test_auth_admin_stepup_http_contract.py             tests/api/test_operational_session_sso_http_contract.py             tests/api/test_public_signup_http_contract.py             tests/api/test_commercial_access_http_contract.py             tests/api/test_commercial_billing_webhook_http_contract.py             tests/api/test_fmcc_commercial_control_http_contract.py             tests/fitness/test_f14_transversal_rbac_security_v1.py             tests/fitness/test_kca04_entitlement.py             tests/fitness/test_kca05_provisioning.py             tests/fitness/test_kca06_public_signup.py             tests/fitness/test_kca07_trial.py             tests/fitness/test_kca08_subscription.py             tests/fitness/test_kca09_billing_provider.py             tests/fitness/test_kca09b_billing_configuration.py             tests/fitness/test_kca10_billing_events.py             tests/fitness/test_kca11_paywall_recovery.py             tests/fitness/test_kca12_fmcc_control_plane.py             tests/fitness/test_kca13_observability.py             tests/fitness/test_kca14_security_hardening.py
+
+      - name: Migration manifest and schema baseline
+        run: |
+          python - <<'PY'
+          from migrations.manifest import assert_migration_manifest
+          from migrations.runner import DEFAULT_MIGRATIONS
+          assert_migration_manifest(DEFAULT_MIGRATIONS)
+          print("Migration manifest: PASS")
+          PY
+          python scripts/generate_schema_baseline_v1.py --check
+
+      - name: High-confidence tracked secret scan
+        run: |
+          python - <<'PY'
+          import re
+          import subprocess
+          from pathlib import Path
+
+          patterns = {
+              "google_api_key": re.compile(r"AIza[0-9A-Za-z_-]{35}"),
+              "openai_style_key": re.compile(r"\bsk-[A-Za-z0-9_-]{32,}\b"),
+              "github_pat": re.compile(r"\bgh[pousr]_[A-Za-z0-9]{36,}\b"),
+              "private_key": re.compile(
+                  r"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"
+              ),
+          }
+          files = subprocess.check_output(
+              ["git", "ls-files"], text=True
+          ).splitlines()
+          findings = []
+          for name in files:
+              path = Path(name)
+              try:
+                  text = path.read_text(encoding="utf-8")
+              except (UnicodeDecodeError, OSError):
+                  continue
+              for kind, pattern in patterns.items():
+                  if pattern.search(text):
+                      findings.append(f"{kind}:{name}")
+          if findings:
+              raise SystemExit(
+                  "High-confidence secret patterns found:\n" + "\n".join(findings)
+              )
+          print(f"Tracked secret scan: PASS ({len(files)} files)")
+          PY
+
+      - name: Python dependency audit
+        run: pip-audit -r requirements.txt --progress-spinner off
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: Web ESLint
+        working-directory: web
+        run: npm run lint
+
+      - name: Web TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Web node regression
+        working-directory: web
+        run: node --test tests/*.test.mjs
+
+      - name: Web dependency audit HIGH
+        working-directory: web
+        run: npm audit --audit-level=high
+
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+
+      - name: Full Python regression
+        run: |
+          env             -u FM_AI_ENV             -u DATABASE_URL             -u FM_AI_TENANT_ID             -u FM_AI_UNIDADE_ID             -u FM_AI_COMMERCIAL_ACCESS_GATE_ENABLED             -u FM_AI_FMCC_CONTROL_PLANE_TOKEN             -u FM_AI_SESSION_SECRET             -u FM_AI_SECRET_MASTER_KEY             pytest -q
+
+      - name: Diff whitespace
+        run: git diff --check origin/staging/kordena-premium...HEAD
+
+      - name: Upload KCA-16 backend evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kca16-full-commercial-e2e
+          path: evidence/kca16-full-commercial-e2e.json
+          if-no-files-found: warn
+          retention-days: 14
