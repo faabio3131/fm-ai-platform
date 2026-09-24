@@ -13,7 +13,7 @@
       "status": "PENDING_EVIDENCE",
       "required": true,
       "evidence": null,
-      "note": "Public signup has a VerificationDispatcher boundary, but no approved production transactional-email provider/runtime composition is recorded."
+      "note": "Provider-neutral SMTP runtime composition and unit coverage now exist in the KCA-17 candidate, but no approved production provider/account/credentials or live-delivery evidence is recorded; remains blocked for public release."
     },
     "terms_policies": {
       "status": "PENDING_EVIDENCE",
@@ -50,7 +50,7 @@
       "status": "PENDING_EVIDENCE",
       "required": true,
       "evidence": null,
-      "note": "Kordena↔FMCC contracts are certified and FMCC F21 candidate is green, but the current FMCC readiness PR is still unmerged and live runtime operation has not been evidenced here."
+      "note": "FMCC current main is edb5b872587c02ee41824dc9f593d9cf0d7c4ea2 with no open PRs, and Kordena↔FMCC contracts are certified; live runtime operation is still not evidenced here."
     }
   }
 }
