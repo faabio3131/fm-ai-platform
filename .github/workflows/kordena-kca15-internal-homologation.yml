@@ -127,7 +127,17 @@ jobs:
           python scripts/generate_schema_baseline_v1.py --check
 
       - name: Full Python regression
-        run: pytest -q
+        run: |
+          env \
+            -u FM_AI_ENV \
+            -u DATABASE_URL \
+            -u FM_AI_TENANT_ID \
+            -u FM_AI_UNIDADE_ID \
+            -u FM_AI_COMMERCIAL_ACCESS_GATE_ENABLED \
+            -u FM_AI_FMCC_CONTROL_PLANE_TOKEN \
+            -u FM_AI_SESSION_SECRET \
+            -u KCA15_INTERNAL_PASSWORD \
+            pytest -q
 
       - name: Upload KCA-15 evidence
         if: always()
