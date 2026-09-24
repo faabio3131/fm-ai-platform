@@ -27,13 +27,13 @@ test("KCA-06 trata loading erro e sucesso", () => {
   assert.match(signup, /Confira seu e-mail/);
 });
 
-
 test("KCA-17 fecha a jornada de verificação pública no frontend", () => {
   assert.match(api, /verifySignupEmail/);
   assert.match(api, /\/verify-email/);
   assert.match(api, /encodeURIComponent\(normalizedSignupId\)/);
-  assert.match(verify, /URLSearchParams\\(window\\.location\\.hash/);
-  assert.match(verify, /history\\.replaceState/);\n  assert.match(verify, /history\\.replaceState/);\n  assert.match(verify, /E-mail confirmado/);
+  assert.match(verify, /URLSearchParams\(window\.location\.hash/);
+  assert.match(verify, /history\.replaceState/);
+  assert.match(verify, /E-mail confirmado/);
   assert.match(verify, /Entrar no Kordena/);
   assert.match(verify, /NEXT_PUBLIC_KORDENA_SIGNUP_ENABLED === "true"/);
 });
