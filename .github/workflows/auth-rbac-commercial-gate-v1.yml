@@ -49,6 +49,7 @@ on:
       - "core/pagamentos/**"
       - "tests/unit/security/**"
       - "tests/integration/security/**"
+      - "tests/security/**"
       - "tests/unit/gerente_ia/**"
       - "tests/unit/pdv/**"
       - "tests/unit/kds/**"
