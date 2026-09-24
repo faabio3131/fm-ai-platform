@@ -1,0 +1,149 @@
+name: Kordena KCA15 Internal Homologation
+
+on:
+  pull_request:
+    branches:
+      - "staging/kordena-premium"
+    paths:
+      - "scripts/kca15_internal_homologation.py"
+      - "tests/homologacao/**"
+      - "application/**"
+      - "core/**"
+      - "infra/**"
+      - "http_api/**"
+      - "migrations/**"
+      - "docs/commercial-platform/**"
+      - ".github/workflows/kordena-kca15-internal-homologation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  kca15-internal-homologation:
+    name: KCA-15 PostgreSQL internal homologation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kordena_kca15
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d kordena_kca15"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      FM_AI_ENV: staging
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/kordena_kca15
+      FM_AI_TENANT_ID: kca15-bootstrap
+      FM_AI_UNIDADE_ID: kca15-bootstrap
+      FM_AI_COMMERCIAL_ACCESS_GATE_ENABLED: "1"
+      PYTHONUNBUFFERED: "1"
+      PYTHONPATH: .
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+
+      - name: Generate ephemeral homologation credentials
+        shell: bash
+        run: |
+          python - <<'PY' >> "$GITHUB_ENV"
+          import secrets
+          print("KCA15_INTERNAL_PASSWORD=" + secrets.token_urlsafe(32))
+          print("FM_AI_SESSION_SECRET=" + secrets.token_urlsafe(48))
+          print("FM_AI_FMCC_CONTROL_PLANE_TOKEN=" + secrets.token_urlsafe(48))
+          PY
+
+      - name: Prove real PostgreSQL staging mode
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          python - <<'PY'
+          from core.runtime.config import RuntimeEnvironment, load_runtime_settings
+          settings = load_runtime_settings()
+          assert settings.environment is RuntimeEnvironment.STAGING
+          assert settings.commercial
+          assert settings.database_url.startswith("postgresql")
+          print("KCA-15 PostgreSQL staging runtime: PASS")
+          PY
+
+      - name: Static checks for homologation runner
+        run: |
+          python -m py_compile scripts/kca15_internal_homologation.py
+          ruff check scripts/kca15_internal_homologation.py
+          mypy scripts/kca15_internal_homologation.py --follow-imports=skip
+
+      - name: Execute persisted INTERNAL_TEST homologation
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          python scripts/kca15_internal_homologation.py             --output evidence/kca15-internal-homologation.json
+
+      - name: Verify evidence contract
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("evidence/kca15-internal-homologation.json").read_text())
+          assert data["gate"] == "KCA-G15"
+          assert data["environment"] == "ephemeral_postgresql_staging"
+          assert data["fm_ai_test_mode"] is False
+          assert data["customer"]["account_class"] == "internal_test"
+          assert data["entitlement"]["commercial_state"] == "internal_test"
+          assert data["entitlement"]["access_mode"] == "full"
+          assert data["billing_real_used"] is False
+          assert data["real_customer_used"] is False
+          assert all(value == "pass" for value in data["checks"].values())
+          print("KCA-G15 evidence contract: PASS")
+          PY
+
+      - name: KCA-15 regression matrix
+        run: |
+          pytest -q             tests/api/test_operational_session_sso_http_contract.py             tests/api/test_auth_membership_http_contract.py             tests/api/test_auth_admin_stepup_http_contract.py             tests/api/test_admin_comercial_http_contract.py             tests/api/test_commercial_access_http_contract.py             tests/api/test_fmcc_commercial_control_http_contract.py             tests/api/test_gerente_ia_web_http_contract.py             tests/fitness/test_kca12_fmcc_control_plane.py             tests/fitness/test_kca13_observability.py             tests/fitness/test_kca14_security_hardening.py
+
+      - name: Migration manifest and schema baseline
+        run: |
+          python - <<'PY'
+          from migrations.manifest import assert_migration_manifest
+          from migrations.runner import DEFAULT_MIGRATIONS
+          assert_migration_manifest(DEFAULT_MIGRATIONS)
+          print("Migration manifest: PASS")
+          PY
+          python scripts/generate_schema_baseline_v1.py --check
+
+      - name: Full Python regression
+        run: |
+          env \
+            -u FM_AI_ENV \
+            -u DATABASE_URL \
+            -u FM_AI_TENANT_ID \
+            -u FM_AI_UNIDADE_ID \
+            -u FM_AI_COMMERCIAL_ACCESS_GATE_ENABLED \
+            -u FM_AI_FMCC_CONTROL_PLANE_TOKEN \
+            -u FM_AI_SESSION_SECRET \
+            -u KCA15_INTERNAL_PASSWORD \
+            pytest -q
+
+      - name: Upload KCA-15 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kca15-internal-homologation
+          path: evidence/kca15-internal-homologation.json
+          if-no-files-found: warn
+          retention-days: 14

@@ -31,8 +31,8 @@
 | KCA-12 FM Control Center — Integração + Commercial Control Plane | PASS — `b35ba198ecd9a667f0473829c16562e2474a1f31` |
 | KCA-G12 | PASS — recertificação documental obrigatória |
 | KCA-13 Observability / Antiabuse / FinOps | PASS / MERGED — pré-merge `72cb89feadc2930bf08a22d57edd31afc9bb7c54`; staging `05c65c16ef380158b4602780511a9997e08cb5bb`; pós-merge Vercel + Railway SUCCESS |
-| KCA-14 Security Hardening + Tenant Isolation Audit | PASS CANDIDATE — `c9435f5af7f205457787a592d4a2e885f0f3ec0d`; CRITICAL OPEN=0; HIGH OPEN=0; awaiting exact-head doc recertification + merge |
-| KCA-15+ | NÃO INICIADO |
+| KCA-14 Security Hardening + Tenant Isolation Audit | PASS / MERGED — PR #133; merge `16975a52202ec6602499bb4981d85461977d9952`; pós-merge Vercel + Railway SUCCESS; CRITICAL OPEN=0; HIGH OPEN=0 |
+| KCA-15 Homologação Interna Nova FM | PASS CANDIDATE — `ed79e7ca7f5f5b156e247f37d1c8143e6cc8fd37`; PostgreSQL staging-mode; INTERNAL_TEST real persistido; awaiting exact-head doc recertification + merge |\n| KCA-16 Full Commercial E2E + Audit & Fix | NÃO INICIADO |\n| KCA-17 Final Readiness / Release | NÃO INICIADO |
 
 ## Baseline
 
@@ -522,3 +522,27 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - **HIGH OPEN = 0**.
 - Primeira tentativa do Auth/RBAC gate falhou apenas porque um fitness contract exigia nomes individuais de testes que já eram cobertos por `tests/integration/comercial`; o contrato foi corrigido sem reduzir cobertura e a matriz adversarial subsequente passou.
 - KCA-G14: PASS no candidate funcional; este commit documental ainda deve ser recertificado antes do merge.
+
+
+## Certificação KCA-15 — Homologação Interna Nova FM
+
+- Base canônica: `staging/kordena-premium@16975a52202ec6602499bb4981d85461977d9952`.
+- PR: #134.
+- Candidate técnico: `ed79e7ca7f5f5b156e247f37d1c8143e6cc8fd37`.
+- PostgreSQL 16 efêmero em runtime staging: PASS.
+- `FM_AI_TEST_MODE`: ausente durante homologação.
+- INTERNAL_TEST persistido: PASS.
+- Entitlement INTERNAL_TEST/FULL: PASS.
+- Login/logout, tenant/unit, admin step-up, PDV, Salão, KDS, Gerente IA: PASS.
+- FMCC snapshot/control plane: PASS.
+- Administração de plano/promoção: PASS.
+- INTERNAL_TEST excluído dos KPIs: PASS.
+- Billing real: não utilizado.
+- Cliente externo real: não utilizado.
+- KCA-15 targeted: 49 passed, 1 warning.
+- Full Python: 1819 passed, 5 skipped, 101 warnings.
+- Master Gate: 114 + 182 + 108 targeted passes; full Python 1819 passed, 5 skipped, 101 warnings.
+- Web Node: 16 passed, 0 skipped.
+- Migration manifest/schema baseline/Next build: PASS.
+- KCA15 Homologation #7 / Master #315 / Cleanup #853 / Vercel: SUCCESS.
+- KCA-G15: PASS no candidate técnico; novo HEAD documental deve ser recertificado antes do merge.
