@@ -30,6 +30,7 @@ export default function SignupVerifyPage() {
       setState("error");
       return;
     }
+    window.history.replaceState({}, "", "/signup/verify");
     void verifySignupEmail(signupId, token)
       .then((result) => {
         setState(result.ready ? "ready" : "error");
