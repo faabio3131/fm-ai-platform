@@ -27,7 +27,7 @@ export default function SignupVerifyPage() {
     const signupId = params.get("signup_id") ?? "";
     const token = params.get("token") ?? "";
     if (!signupId || !token) {
-      setState("error");
+      void Promise.resolve().then(() => setState("error"));
       return;
     }
     window.history.replaceState({}, "", "/signup/verify");
