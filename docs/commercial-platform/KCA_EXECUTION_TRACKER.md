@@ -33,8 +33,8 @@
 | KCA-13 Observability / Antiabuse / FinOps | PASS / MERGED — pré-merge `72cb89feadc2930bf08a22d57edd31afc9bb7c54`; staging `05c65c16ef380158b4602780511a9997e08cb5bb`; pós-merge Vercel + Railway SUCCESS |
 | KCA-14 Security Hardening + Tenant Isolation Audit | PASS / MERGED — PR #133; merge `16975a52202ec6602499bb4981d85461977d9952`; pós-merge Vercel + Railway SUCCESS; CRITICAL OPEN=0; HIGH OPEN=0 |
 | KCA-15 Homologação Interna Nova FM | PASS / MERGED — PR #134; merge `37be46177dd2e2d67425e4937b024ed077fadb56`; pós-merge Vercel + Railway SUCCESS |
-| KCA-16 Full Commercial E2E + Audit & Fix | PASS CANDIDATE — `d862342b795a10feede36895259b271e3a16a65f`; jornada comercial integral + auditoria verde; aguardando recertificação documental + merge |
-| KCA-17 Final Readiness / Release | TECHNICAL PASS CANDIDATE — `5b5c483591ad6a8c33ded02876ba4f9ba5ef420d`; public release BLOCKED_EXTERNALLY; awaiting exact-head doc recertification + merge |
+| KCA-16 Full Commercial E2E + Audit & Fix | PASS / MERGED — PR #135; merge `81b5ae32ce340afb38edfcf3c0fa3428c4e25823`; exact-head CI 100% verde; staging pós-merge Vercel + Railway SUCCESS |
+| KCA-17 Final Readiness / Release | TECHNICAL PASS / MERGED — PR #136; merge `0c35b740fb6e37df2ce47b6471853cc7f440da62`; staging pós-merge Vercel + Railway SUCCESS; PUBLIC RELEASE = BLOCKED_EXTERNALLY |
 
 ## Baseline
 
@@ -616,3 +616,18 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - Public release: BLOCKED_EXTERNALLY pelos pré-requisitos registrados em `KCA17_EXTERNAL_PREREQUISITES.json`.
 - KCA-G17 técnico: PASS.
 - Este commit documental deve ser recertificado antes do merge.
+
+
+## Fechamento funcional pré-Visual-Premium — 2026-09-24
+
+- KCA-13: PASS / MERGED.
+- KCA-14: PASS / MERGED; CRITICAL OPEN=0; HIGH OPEN=0.
+- KCA-15: PASS / MERGED; homologação interna PostgreSQL staging-mode + INTERNAL_TEST.
+- KCA-16: PASS / MERGED; jornada comercial E2E integral e auditoria final.
+- KCA-17 technical readiness: PASS / MERGED.
+- Staging canônico: `0c35b740fb6e37df2ce47b6471853cc7f440da62`.
+- Pós-merge KCA-17: Vercel SUCCESS + Railway SUCCESS.
+- PRs históricas funcionais relevantes reconciliadas; PR #132 fechada como superseded/subsumed após recuperação da cobertura exclusiva.
+- Visual Premium permanece deliberadamente fora do escopo funcional encerrado.
+- Public release permanece `BLOCKED_EXTERNALLY` por pré-requisitos não técnicos/externos e pelo gate pré-lançamento comercial canônico.
+- Nenhum GO comercial ou jurídico foi inventado.
