@@ -23,7 +23,7 @@ export default function SignupVerifyPage() {
     if (!SIGNUP_ENABLED) {
       return;
     }
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const signupId = params.get("signup_id") ?? "";
     const token = params.get("token") ?? "";
     if (!signupId || !token) {
