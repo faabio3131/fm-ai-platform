@@ -91,3 +91,8 @@ Nenhuma falha foi mascarada por skip/xfail ou remoção de teste.
 KCA-G15 = PASS no candidate técnico `ed79e7ca7f5f5b156e247f37d1c8143e6cc8fd37`.
 
 Este registro documental gera novo HEAD e, portanto, deve ser recertificado antes do merge. Após merge, `staging/kordena-premium` deve receber verificação pós-merge antes da abertura do KCA-16.
+
+
+### Recertificação documental
+
+Após o candidate técnico `ed79e7ca7f5f5b156e247f37d1c8143e6cc8fd37` ficar 100% verde, este registro e o tracker foram atualizados para refletir o estado real. O commit documental resultante deve receber nova rodada completa de CI antes do merge, conforme a regra de certificação por SHA exato.
