@@ -66,7 +66,7 @@ def test_smtp_verification_dispatcher_sends_encoded_one_time_link() -> None:
     message = fake.messages[0]
     assert message["To"] == "owner@example.test"
     body = message.get_content()
-    assert "https://kordena.example/signup/verify?" in body
+    assert "https://kordena.example/signup/verify#" in body
     assert "signup_id=signup%2Fwith+space" in body
     assert "token=token%2B%2Fwith%3Freserved%3Dvalue" in body
     assert "fixture-only-secret" not in body
