@@ -19,6 +19,7 @@ from infra.administracao.modelos_orm import EmpresaAdminORM, UnidadeAdminORM
 from infra.comercial.catalogo_orm import FMCommercialPlanORM, FMCommercialPlanVersionORM
 from infra.comercial.modelos_orm import CommercialOutboxORM
 from infra.comercial.provisioning_orm import FMCommercialProvisioningSagaORM
+from infra.legacy_product_scope import resolver_loja_id_legada
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 from migrations.runner import run_migrations
 
@@ -109,6 +110,12 @@ def test_happy_path_provisiona_autoridades_com_trial_engine_kca07() -> None:
         assert session.get(
             UnidadeAdminORM, (ready.tenant_id, ready.unidade_id)
         ) is not None
+        legacy_store_id = resolver_loja_id_legada(
+            session,
+            tenant_id=ready.tenant_id,
+            unidade_id=ready.unidade_id,
+        )
+        assert legacy_store_id > 0
         identity = RepositorioIdentidadesSQLAlchemy(session).obter_por_email(
             "owner.kca05@example.com"
         )
