@@ -92,7 +92,7 @@ class SMTPVerificationDispatcher:
         if not signup or not verification_token:
             raise ValueError("signup_verification_link_invalid")
         query = urlencode({"signup_id": signup, "token": verification_token})
-        return f"{self._config.frontend_base_url}/signup/verify?{query}"
+        return f"{self._config.frontend_base_url}/signup/verify#{query}"
 
     def send_verification(self, *, signup_id: str, email: str, token: str) -> None:
         recipient = email.strip().casefold()
