@@ -258,8 +258,9 @@ def run(output: Path) -> None:
     access = client.get("/v1/commercial/access")
     assert access.status_code == 200, access.text
     assert access.json()["operational_allowed"] is True
-    assert access.json()["commercial_state"] == "internal_test"
+    assert access.json()["entitled"] is True
     assert access.json()["access_mode"] == "full"
+    assert access.json()["product_account_id"] == account.product_account_id
 
     pdv = client.get("/v1/pdv/produtos")
     assert pdv.status_code == 200, pdv.text
