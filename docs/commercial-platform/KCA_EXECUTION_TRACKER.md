@@ -32,7 +32,7 @@
 | KCA-G12 | PASS — recertificação documental obrigatória |
 | KCA-13 Observability / Antiabuse / FinOps | PASS / MERGED — pré-merge `72cb89feadc2930bf08a22d57edd31afc9bb7c54`; staging `05c65c16ef380158b4602780511a9997e08cb5bb`; pós-merge Vercel + Railway SUCCESS |
 | KCA-14 Security Hardening + Tenant Isolation Audit | PASS / MERGED — PR #133; merge `16975a52202ec6602499bb4981d85461977d9952`; pós-merge Vercel + Railway SUCCESS; CRITICAL OPEN=0; HIGH OPEN=0 |
-| KCA-15 Homologação Interna Nova FM | PASS CANDIDATE — `ed79e7ca7f5f5b156e247f37d1c8143e6cc8fd37`; PostgreSQL staging-mode; INTERNAL_TEST real persistido; awaiting exact-head doc recertification + merge |
+| KCA-15 Homologação Interna Nova FM | PASS CANDIDATE — `ed79e7ca7f5f5b156e247f37d1c8143e6cc8fd37`; PostgreSQL staging-mode; INTERNAL_TEST real persistido; documentação reconciliada; awaiting exact-head doc recertification + merge |
 | KCA-16 Full Commercial E2E + Audit & Fix | NÃO INICIADO |
 | KCA-17 Final Readiness / Release | NÃO INICIADO |
 
