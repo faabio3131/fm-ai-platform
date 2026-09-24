@@ -5,9 +5,11 @@ from __future__ import annotations
 import os
 import smtplib
 import ssl
+from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass
 from email.message import EmailMessage
-from typing import Any, Callable
+from typing import Any
 from urllib.parse import urlencode, urlparse
 
 from core.seguranca.segredos import SecretStore
@@ -122,10 +124,8 @@ class SMTPVerificationDispatcher:
                 client.login(self._config.username, password)
             client.send_message(message)
         finally:
-            try:
+            with suppress(Exception):
                 client.quit()
-            except Exception:  # noqa: BLE001 - cleanup must not hide primary failure
-                pass
 
 
 def build_smtp_verification_dispatcher_from_env(
