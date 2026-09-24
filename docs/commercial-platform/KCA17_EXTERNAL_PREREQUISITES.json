@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "gate": "KCA-G17",
+  "rule": "External prerequisites may be marked PASS only with concrete evidence. Missing provider, legal, support, domain or credential evidence keeps public release blocked.",
+  "items": {
+    "billing_provider_approved": {
+      "status": "PENDING_EVIDENCE",
+      "required": true,
+      "evidence": null,
+      "note": "KCA-09/09B are provider-neutral and sandbox-certified; no approved production SaaS billing provider is recorded in the canonical Kordena sources."
+    },
+    "transactional_email": {
+      "status": "PENDING_EVIDENCE",
+      "required": true,
+      "evidence": null,
+      "note": "Provider-neutral SMTP runtime composition and unit coverage now exist in the KCA-17 candidate, but no approved production provider/account/credentials or live-delivery evidence is recorded; remains blocked for public release."
+    },
+    "terms_policies": {
+      "status": "PENDING_EVIDENCE",
+      "required": true,
+      "evidence": null,
+      "note": "Signup records acceptance, but approval/publication evidence for applicable commercial terms/privacy policies is not recorded in this repository."
+    },
+    "support_readiness": {
+      "status": "PENDING_EVIDENCE",
+      "required": true,
+      "evidence": null,
+      "note": "No final customer-support operating evidence is recorded for KCA-17."
+    },
+    "final_domain_dns_tls": {
+      "status": "PENDING_EVIDENCE",
+      "required": true,
+      "expected_domain": "kordenaia.com.br",
+      "evidence": null,
+      "note": "Domain ownership is known externally, but DNS/TLS/application binding must be verified before public activation."
+    },
+    "public_release_authorization": {
+      "status": "DEFERRED",
+      "required": true,
+      "evidence": null,
+      "note": "Public trial remains disabled until all KCA-17 prerequisites pass and the Director authorizes rollout. Visual Premium remains outside this functional mission."
+    },
+    "no_external_customer_existing": {
+      "status": "PENDING_EVIDENCE",
+      "required": true,
+      "evidence": null,
+      "note": "The release checklist requires proof that no external customer already exists before controlled public rollout; repository/CI state cannot prove live commercial data absence."
+    },
+    "fmcc_operational_runtime": {
+      "status": "PENDING_EVIDENCE",
+      "required": true,
+      "evidence": null,
+      "note": "FMCC current main is edb5b872587c02ee41824dc9f593d9cf0d7c4ea2 with no open PRs, and Kordena↔FMCC contracts are certified; live runtime operation is still not evidenced here."
+    }
+  }
+}

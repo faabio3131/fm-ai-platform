@@ -52,6 +52,9 @@ from http_api.marketplaces_web import build_marketplaces_web_router
 from http_api.operational_auth import obter_identidade_operacional
 from http_api.pagamentos_web import build_pagamentos_web_router
 from http_api.public_signup import VerificationDispatcher, build_public_signup_router
+from infra.comercial.transactional_email import (
+    build_smtp_verification_dispatcher_from_env,
+)
 from infra.seguranca.session_guard import build_session_factory
 
 DEV_FRONTEND_ORIGINS: tuple[str, ...] = (
@@ -102,7 +105,7 @@ def build_frontend_http_app(
     *,
     settings: RuntimeSettings | None = None,
     fiscal_operations_gateway_factory: Any | None = None,
-    public_signup_enabled: bool = False,
+    public_signup_enabled: bool | None = None,
     signup_verification_dispatcher: VerificationDispatcher | None = None,
     signup_credential_secret_reference: str = "env:FM_AI_SIGNUP_SECRET_KEY",
     commercial_access_gate_enabled: bool | None = None,
@@ -143,6 +146,16 @@ def build_frontend_http_app(
         session_factory,
         enforcement_enabled=gate_enabled,
     )
+    signup_enabled = (
+        resolved_settings.public_signup_enabled
+        if public_signup_enabled is None
+        else public_signup_enabled
+    )
+    verification_dispatcher = signup_verification_dispatcher
+    if signup_enabled and verification_dispatcher is None:
+        verification_dispatcher = build_smtp_verification_dispatcher_from_env(
+            secret_store=secret_store
+        )
 
     @app.middleware("http")
     async def commercial_access_gate(request: Request, call_next):
@@ -211,8 +224,8 @@ def build_frontend_http_app(
         build_public_signup_router(
             session_factory=session_factory,
             secret_store=secret_store,
-            enabled=public_signup_enabled,
-            verification_dispatcher=signup_verification_dispatcher,
+            enabled=signup_enabled,
+            verification_dispatcher=verification_dispatcher,
             credential_secret_reference=signup_credential_secret_reference,
         )
     )

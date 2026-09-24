@@ -20,6 +20,7 @@ on:
       - "core/pagamentos/**"
       - "tests/unit/security/**"
       - "tests/integration/security/**"
+      - "tests/security/**"
       - "tests/unit/gerente_ia/**"
       - "tests/unit/pdv/**"
       - "tests/unit/kds/**"
@@ -48,6 +49,7 @@ on:
       - "core/pagamentos/**"
       - "tests/unit/security/**"
       - "tests/integration/security/**"
+      - "tests/security/**"
       - "tests/unit/gerente_ia/**"
       - "tests/unit/pdv/**"
       - "tests/unit/kds/**"
@@ -93,7 +95,8 @@ jobs:
             pages/7_Integracoes_e_Credenciais.py \
             tests/fitness/test_auth_sensitive_entrypoints_v1.py \
             tests/fitness/test_f14_transversal_rbac_security_v1.py \
-            tests/fitness/test_kca14_security_hardening.py
+            tests/fitness/test_kca14_security_hardening.py \
+            tests/security/test_kca14_auth_session_adversarial.py
       - name: Ruff auth and transversal security surface
         run: |
           ruff check \
@@ -113,7 +116,8 @@ jobs:
             tests/fitness/test_kca14_security_hardening.py \
             tests/api/test_operational_session_sso_http_contract.py \
             tests/api/test_auth_admin_stepup_http_contract.py \
-            tests/api/test_auth_membership_http_contract.py
+            tests/api/test_auth_membership_http_contract.py \
+            tests/security/test_kca14_auth_session_adversarial.py
       - name: Mypy auth surface
         run: |
           mypy \
@@ -133,6 +137,7 @@ jobs:
             tests/api/test_auth_admin_stepup_http_contract.py \
             tests/api/test_auth_membership_http_contract.py \
             tests/api/test_commercial_billing_webhook_http_contract.py \
-            tests/api/test_fmcc_commercial_control_http_contract.py
+            tests/api/test_fmcc_commercial_control_http_contract.py \
+            tests/security/test_kca14_auth_session_adversarial.py
       - name: Full Python regression
         run: pytest -q

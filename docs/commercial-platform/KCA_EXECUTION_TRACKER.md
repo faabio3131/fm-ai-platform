@@ -34,7 +34,7 @@
 | KCA-14 Security Hardening + Tenant Isolation Audit | PASS / MERGED — PR #133; merge `16975a52202ec6602499bb4981d85461977d9952`; pós-merge Vercel + Railway SUCCESS; CRITICAL OPEN=0; HIGH OPEN=0 |
 | KCA-15 Homologação Interna Nova FM | PASS / MERGED — PR #134; merge `37be46177dd2e2d67425e4937b024ed077fadb56`; pós-merge Vercel + Railway SUCCESS |
 | KCA-16 Full Commercial E2E + Audit & Fix | PASS CANDIDATE — `d862342b795a10feede36895259b271e3a16a65f`; jornada comercial integral + auditoria verde; aguardando recertificação documental + merge |
-| KCA-17 Final Readiness / Release | NÃO INICIADO |
+| KCA-17 Final Readiness / Release | TECHNICAL PASS CANDIDATE — `5b5c483591ad6a8c33ded02876ba4f9ba5ef420d`; public release BLOCKED_EXTERNALLY; awaiting exact-head doc recertification + merge |
 
 ## Baseline
 
@@ -596,3 +596,23 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - Cleanup #863: SUCCESS.
 - Vercel: SUCCESS.
 - KCA-G16: PASS no candidate funcional; este commit documental deve ser recertificado antes do merge.
+
+
+## Certificação KCA-17 — Final Readiness / Controlled Release
+
+- Base: `staging/kordena-premium@81b5ae32ce340afb38edfcf3c0fa3428c4e25823`.
+- PR: #136.
+- Candidate técnico: `5b5c483591ad6a8c33ded02876ba4f9ba5ef420d`.
+- Technical readiness: PASS.
+- Backup/restore PostgreSQL: PASS — 132/132 tabelas; tenant integrity PASS.
+- Secret scan: PASS — 1547 arquivos.
+- Dependency audits: PASS.
+- Full Python: 1826 passed, 5 skipped, 101 warnings.
+- Web Node: 17 passed, 0 skipped.
+- ESLint/TypeScript/npm audit HIGH/Next build: PASS.
+- Auth/RBAC adversarial coverage recuperada da PR #132 e incorporada ao gate canônico: PASS.
+- KCA17 #20 / KCA16 #31 / KCA15 #37 / KCA Commercial #328 / Auth-RBAC #33 / Master #347 / Parity #343 / WP031J #226 / WP022 #346 / Runtime Readiness #1165 / Cleanup #885 / Visual structural gate #56 / Vercel: SUCCESS.
+- Public signup: disabled.
+- Public release: BLOCKED_EXTERNALLY pelos pré-requisitos registrados em `KCA17_EXTERNAL_PREREQUISITES.json`.
+- KCA-G17 técnico: PASS.
+- Este commit documental deve ser recertificado antes do merge.

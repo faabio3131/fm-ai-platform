@@ -1,0 +1,290 @@
+name: Kordena KCA17 Final Readiness
+
+on:
+  pull_request:
+    branches:
+      - "staging/kordena-premium"
+    paths:
+      - "scripts/kca17_final_readiness.py"
+      - "docs/commercial-platform/KCA17_EXTERNAL_PREREQUISITES.json"
+      - "docs/runbooks/kca17-final-readiness-release.md"
+      - "docs/commercial-platform/KCA17_IMPLEMENTATION_RECORD.md"
+      - "docs/commercial-platform/KCA_EXECUTION_TRACKER.md"
+      - "core/runtime/**"
+      - "application/commercial_observability.py"
+      - "http_api/**"
+      - "infra/**"
+      - "migrations/**"
+      - "tests/**"
+      - "web/**"
+      - ".github/workflows/kordena-kca17-final-readiness.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  kca17-final-readiness:
+    name: KCA-17 technical readiness and release prerequisites
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kordena_kca17
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d kordena_kca17"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      FM_AI_ENV: staging
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/kordena_kca17
+      RESTORE_DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/kordena_kca17_restore
+      FM_AI_TENANT_ID: kca17-readiness-tenant
+      FM_AI_UNIDADE_ID: kca17-readiness-unit
+      FM_AI_COMMERCIAL_ACCESS_GATE_ENABLED: "1"
+      PYTHONPATH: .
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install PostgreSQL client and Python dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2 pip-audit
+
+      - name: Create isolated restore database
+        env:
+          PGPASSWORD: postgres
+        run: |
+          createdb -h 127.0.0.1 -U postgres kordena_kca17_restore
+          psql -h 127.0.0.1 -U postgres -d postgres -Atc \
+            "SELECT datname FROM pg_database WHERE datname IN ('kordena_kca17','kordena_kca17_restore') ORDER BY datname"
+
+      - name: Generate masked ephemeral runtime secrets
+        shell: bash
+        run: |
+          SESSION_SECRET="$(python - <<'PY'
+          import secrets
+          print(secrets.token_urlsafe(48))
+          PY
+          )"
+          FMCC_TOKEN="$(python - <<'PY'
+          import secrets
+          print(secrets.token_urlsafe(48))
+          PY
+          )"
+          MASTER_KEY="$(python - <<'PY'
+          from cryptography.fernet import Fernet
+          print(Fernet.generate_key().decode("ascii"))
+          PY
+          )"
+          echo "::add-mask::$SESSION_SECRET"
+          echo "::add-mask::$FMCC_TOKEN"
+          echo "::add-mask::$MASTER_KEY"
+          echo "FM_AI_SESSION_SECRET=$SESSION_SECRET" >> "$GITHUB_ENV"
+          echo "FM_AI_FMCC_CONTROL_PLANE_TOKEN=$FMCC_TOKEN" >> "$GITHUB_ENV"
+          echo "FM_AI_SECRET_MASTER_KEY=$MASTER_KEY" >> "$GITHUB_ENV"
+
+      - name: Prove staging boundary and safe release default
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          python - <<'PY'
+          from core.runtime.config import RuntimeEnvironment, load_runtime_settings
+          settings = load_runtime_settings()
+          assert settings.environment is RuntimeEnvironment.STAGING
+          assert settings.commercial
+          assert settings.database_url.startswith("postgresql")
+          assert settings.commercial_access_gate_enabled is True
+          print("KCA-17 staging boundary: PASS")
+          PY
+
+      - name: Static checks for readiness runner
+        run: |
+          python -m py_compile scripts/kca17_final_readiness.py
+          ruff check scripts/kca17_final_readiness.py
+          mypy scripts/kca17_final_readiness.py --follow-imports=skip
+
+      - name: Execute backup restore health and rollback drill
+        run: |
+          test -z "${FM_AI_TEST_MODE:-}"
+          python scripts/kca17_final_readiness.py \
+            --output evidence/kca17-final-readiness.json \
+            --backup-file evidence/kca17-readiness.dump
+
+      - name: Verify technical readiness evidence
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("evidence/kca17-final-readiness.json").read_text())
+          assert data["gate"] == "KCA17-TECHNICAL-READINESS"
+          assert data["technical_readiness"] == "PASS"
+          assert data["environment"] == "ephemeral_postgresql_staging"
+          assert data["fm_ai_test_mode"] is False
+          assert data["backup_restore"]["status"] == "pass"
+          assert data["backup_restore"]["tenant_integrity"] == "pass"
+          assert data["backup_restore"]["source_table_count"] == data["backup_restore"]["restored_table_count"]
+          assert data["backup_restore"]["rpo_rto_claimed"] is False
+          assert data["runtime"]["healthz"] == "pass"
+          assert data["runtime"]["public_signup_default_disabled"] == "pass"
+          assert data["runtime"]["commercial_observability"] == "pass"
+          assert data["public_activation"] == "disabled"
+          assert data["billing_real_used"] is False
+          assert data["external_customer_used"] is False
+          print("KCA-17 technical readiness evidence: PASS")
+          PY
+
+      - name: Verify external prerequisites are not fabricated
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("docs/commercial-platform/KCA17_EXTERNAL_PREREQUISITES.json").read_text())
+          allowed = {"PENDING_EVIDENCE", "DEFERRED", "PASS"}
+          for name, item in data["items"].items():
+              assert item["status"] in allowed, (name, item["status"])
+              if item["status"] == "PASS":
+                  assert item.get("evidence"), f"{name}: PASS sem evidencia"
+          evidence = json.loads(Path("evidence/kca17-final-readiness.json").read_text())
+          blockers = evidence["external_prerequisites"]["blockers"]
+          if blockers:
+              assert evidence["release_gate"] == "BLOCKED_EXTERNALLY"
+              print("KCA-G17 release remains BLOCKED_EXTERNALLY:", ", ".join(blockers))
+          else:
+              assert evidence["release_gate"] == "PASS"
+              print("KCA-G17 external prerequisites: PASS")
+          PY
+
+      - name: Readiness rollback chaos security matrix
+        run: |
+          env \
+            -u FM_AI_ENV \
+            -u DATABASE_URL \
+            -u RESTORE_DATABASE_URL \
+            -u FM_AI_TENANT_ID \
+            -u FM_AI_UNIDADE_ID \
+            -u FM_AI_COMMERCIAL_ACCESS_GATE_ENABLED \
+            -u FM_AI_FMCC_CONTROL_PLANE_TOKEN \
+            -u FM_AI_SESSION_SECRET \
+            -u FM_AI_SECRET_MASTER_KEY \
+            pytest -q \
+              tests/integration/hardening/test_carga_caos_restore.py \
+              tests/integration/pdv/test_rollback.py \
+              tests/fitness/test_commercial_runtime_readiness_v1.py \
+              tests/fitness/test_kca13_observability.py \
+              tests/fitness/test_kca14_security_hardening.py \
+              tests/api/test_public_signup_http_contract.py
+
+      - name: Migration manifest and schema baseline
+        run: |
+          python - <<'PY'
+          from migrations.manifest import assert_migration_manifest
+          from migrations.runner import DEFAULT_MIGRATIONS
+          assert_migration_manifest(DEFAULT_MIGRATIONS)
+          print("Migration manifest: PASS")
+          PY
+          python scripts/generate_schema_baseline_v1.py --check
+
+      - name: Tracked secret scan
+        run: |
+          python - <<'PY'
+          import re
+          import subprocess
+          from pathlib import Path
+          patterns = {
+              "google_api_key": re.compile(r"AIza[0-9A-Za-z_-]{35}"),
+              "openai_style_key": re.compile(r"\bsk-[A-Za-z0-9_-]{32,}\b"),
+              "github_pat": re.compile(r"\bgh[pousr]_[A-Za-z0-9]{36,}\b"),
+              "private_key": re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"),
+          }
+          files = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+          findings = []
+          for name in files:
+              try:
+                  content = Path(name).read_text(encoding="utf-8")
+              except (UnicodeDecodeError, OSError):
+                  continue
+              for kind, pattern in patterns.items():
+                  if pattern.search(content):
+                      findings.append(f"{kind}:{name}")
+          if findings:
+              raise SystemExit("High-confidence secret patterns found:\n" + "\n".join(findings))
+          print(f"Tracked secret scan: PASS ({len(files)} files)")
+          PY
+
+      - name: Python dependency audit
+        run: pip-audit -r requirements.txt --progress-spinner off
+
+      - name: Full Python regression
+        run: |
+          env \
+            -u FM_AI_ENV \
+            -u DATABASE_URL \
+            -u RESTORE_DATABASE_URL \
+            -u FM_AI_TENANT_ID \
+            -u FM_AI_UNIDADE_ID \
+            -u FM_AI_COMMERCIAL_ACCESS_GATE_ENABLED \
+            -u FM_AI_FMCC_CONTROL_PLANE_TOKEN \
+            -u FM_AI_SESSION_SECRET \
+            -u FM_AI_SECRET_MASTER_KEY \
+            pytest -q
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: Web ESLint
+        working-directory: web
+        run: npm run lint
+
+      - name: Web TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Web node regression
+        working-directory: web
+        run: node --test tests/*.test.mjs
+
+      - name: Web dependency audit HIGH
+        working-directory: web
+        run: npm audit --audit-level=high
+
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+
+      - name: Diff whitespace
+        run: git diff --check origin/staging/kordena-premium...HEAD
+
+      - name: Upload KCA-17 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kca17-final-readiness
+          path: |
+            evidence/kca17-final-readiness.json
+            evidence/kca17-readiness.dump.manifest.json
+          if-no-files-found: warn
+          retention-days: 14
