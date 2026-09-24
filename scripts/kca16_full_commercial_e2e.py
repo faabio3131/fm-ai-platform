@@ -487,6 +487,12 @@ def run(output: Path) -> None:
     assert initial_access.json()["operational_allowed"] is True
     assert initial_access.json()["access_mode"] == "full"
 
+    step_up = client.post(
+        "/v1/auth/admin-step-up",
+        json={"senha": PASSWORD},
+    )
+    assert step_up.status_code == 200, step_up.text
+
     onboarding = client.get("/v1/admin/empresa")
     assert onboarding.status_code == 200, onboarding.text
 
@@ -640,6 +646,7 @@ def run(output: Path) -> None:
             "trial_active": "pass",
             "entitlement_initial": "pass",
             "login": "pass",
+            "admin_step_up": "pass",
             "onboarding_scope": "pass",
             "kordena_operations": "pass",
             "trial_expiration": "pass",
