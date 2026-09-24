@@ -32,7 +32,9 @@
 | KCA-G12 | PASS — recertificação documental obrigatória |
 | KCA-13 Observability / Antiabuse / FinOps | PASS / MERGED — pré-merge `72cb89feadc2930bf08a22d57edd31afc9bb7c54`; staging `05c65c16ef380158b4602780511a9997e08cb5bb`; pós-merge Vercel + Railway SUCCESS |
 | KCA-14 Security Hardening + Tenant Isolation Audit | PASS / MERGED — PR #133; merge `16975a52202ec6602499bb4981d85461977d9952`; pós-merge Vercel + Railway SUCCESS; CRITICAL OPEN=0; HIGH OPEN=0 |
-| KCA-15 Homologação Interna Nova FM | PASS CANDIDATE — `ed79e7ca7f5f5b156e247f37d1c8143e6cc8fd37`; PostgreSQL staging-mode; INTERNAL_TEST real persistido; awaiting exact-head doc recertification + merge |\n| KCA-16 Full Commercial E2E + Audit & Fix | NÃO INICIADO |\n| KCA-17 Final Readiness / Release | NÃO INICIADO |
+| KCA-15 Homologação Interna Nova FM | PASS / MERGED — PR #134; merge `37be46177dd2e2d67425e4937b024ed077fadb56`; pós-merge Vercel + Railway SUCCESS |
+| KCA-16 Full Commercial E2E + Audit & Fix | PASS CANDIDATE — `d862342b795a10feede36895259b271e3a16a65f`; jornada comercial integral + auditoria verde; aguardando recertificação documental + merge |
+| KCA-17 Final Readiness / Release | NÃO INICIADO |
 
 ## Baseline
 
@@ -546,3 +548,51 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - Migration manifest/schema baseline/Next build: PASS.
 - KCA15 Homologation #7 / Master #315 / Cleanup #853 / Vercel: SUCCESS.
 - KCA-G15: PASS no candidate técnico; novo HEAD documental deve ser recertificado antes do merge.
+
+
+## Certificação KCA-16 — Full Commercial E2E + Audit & Fix
+
+- Base canônica: `staging/kordena-premium@37be46177dd2e2d67425e4937b024ed077fadb56`.
+- PR: #135.
+- Candidate funcional: `d862342b795a10feede36895259b271e3a16a65f`.
+- Runtime E2E: PostgreSQL 16 efêmero, `FM_AI_ENV=staging`, sem `FM_AI_TEST_MODE`.
+- Jornada backend integral: PASS.
+- Signup: PASS.
+- Email verification: PASS.
+- Customer/Product Account: PASS.
+- Tenant/company/unit/membership provisioning: PASS.
+- Trial ACTIVE: PASS.
+- Entitlement inicial FULL: PASS.
+- Login/onboarding/operations: PASS.
+- Trial expiration: PASS.
+- Paywall/BILLING_ONLY: PASS.
+- Plan selection: PASS.
+- Sandbox checkout: PASS.
+- Payment webhook: PASS.
+- Reconciliation: PASS.
+- Subscription ACTIVE: PASS.
+- Entitlement restored: PASS.
+- Kordena access restored: PASS.
+- FMCC updated: PASS.
+- Observability updated: PASS.
+- Billing real utilizado: NÃO.
+- KCA-16 commercial/security matrix: 241 passed, 1 warning.
+- KCA commercial gate targeted: 254 passed, 1 warning.
+- Migration manifest: PASS.
+- Schema baseline: PASS — 132 tabelas.
+- Secret scan: PASS — 1538 arquivos rastreados.
+- Python dependency audit: 0 vulnerabilidades conhecidas.
+- Playwright E2E/accessibility/responsiveness/performance baseline: 6 passed.
+- Web Node: 16 passed, 0 skipped.
+- npm audit HIGH: 0 vulnerabilidades.
+- Next production build: PASS.
+- Full Python regression: 1819 passed, 5 skipped, 101 warnings.
+- Commercial Runtime Readiness V1 #1147: SUCCESS.
+- KCA-16 Full Commercial E2E #9: SUCCESS.
+- KCA-15 Internal Homologation #15: SUCCESS.
+- KCA Commercial Gate #306: SUCCESS.
+- WP-031 Master Gate #325: SUCCESS.
+- WP-031L Regression Channel Parity #325: SUCCESS.
+- Cleanup #863: SUCCESS.
+- Vercel: SUCCESS.
+- KCA-G16: PASS no candidate funcional; este commit documental deve ser recertificado antes do merge.

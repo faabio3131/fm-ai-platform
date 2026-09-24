@@ -33,6 +33,7 @@ from infra.administracao.repositorio_sqlalchemy import (
 from infra.comercial.modelos_orm import CommercialAuditORM, CommercialOutboxORM
 from infra.comercial.provisioning_orm import FMCommercialProvisioningSagaORM
 from infra.comercial.provisioning_sqlalchemy import RepositorioProvisioningSQLAlchemy
+from infra.legacy_product_scope import garantir_loja_legada_para_escopo
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 
 SessionFactory = Callable[[], Session]
@@ -387,6 +388,12 @@ class AplicacaoProvisioningKordenaV1:
                 unidade_id=saga.unidade_id,
                 nome_empresa=saga.display_name,
                 nome_unidade=saga.display_name,
+            )
+            garantir_loja_legada_para_escopo(
+                session,
+                tenant_id=saga.tenant_id,
+                unidade_id=saga.unidade_id,
+                nome_fantasia=saga.display_name,
             )
         return self._update(
             saga,

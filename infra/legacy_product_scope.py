@@ -13,6 +13,7 @@ from typing import Any, cast
 
 from sqlalchemy import Integer, MetaData, String, Table, insert, select
 from sqlalchemy.engine import CursorResult
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 
@@ -84,6 +85,94 @@ def resolver_loja_id_legada(
         )
 
     return int(resultados[0])
+
+
+def garantir_loja_legada_para_escopo(
+    session: Session,
+    *,
+    tenant_id: str,
+    unidade_id: str,
+    nome_fantasia: str,
+) -> int:
+    """Cria idempotentemente a ponte explícita para uma unidade nova.
+
+    Não infere nem reaproveita lojas existentes. Cada novo escopo recebe uma
+    loja legada própria e a constraint UNIQUE(loja_id) preserva isolamento.
+    Em corrida concorrente, o savepoint é descartado e o vínculo vencedor é
+    relido; nenhum registro de loja órfão é mantido.
+    """
+
+    tenant = str(tenant_id).strip()
+    unidade = str(unidade_id).strip()
+    nome = " ".join(str(nome_fantasia).split())
+    if not tenant:
+        raise ErroEscopoLojaLegada("tenant_id vazio")
+    if not unidade:
+        raise ErroEscopoLojaLegada("unidade_id vazio")
+    if not nome or len(nome) > 255:
+        raise ErroEscopoLojaLegada("nome_fantasia invalido")
+
+    bind = session.connection()
+    try:
+        mapping = Table(_MAPPING_TABLE, MetaData(), autoload_with=bind)
+        lojas = Table("lojas", MetaData(), autoload_with=bind)
+    except Exception as exc:
+        raise ErroEscopoLojaLegada(
+            "estrutura legada de unidade/loja ausente"
+        ) from exc
+
+    def existente() -> int | None:
+        row = session.execute(
+            select(mapping.c.loja_id, mapping.c.ativo)
+            .where(mapping.c.tenant_id == tenant)
+            .where(mapping.c.unidade_id == unidade)
+        ).first()
+        if row is None:
+            return None
+        if not bool(row.ativo):
+            raise ErroEscopoLojaLegada(
+                "mapeamento unidade/loja existente esta inativo"
+            )
+        loja_id = int(row.loja_id)
+        loja_existe = session.execute(
+            select(lojas.c.id).where(lojas.c.id == loja_id)
+        ).scalar_one_or_none()
+        if loja_existe is None:
+            raise ErroEscopoLojaLegada(
+                "mapeamento unidade/loja referencia loja inexistente"
+            )
+        return loja_id
+
+    current = existente()
+    if current is not None:
+        return current
+
+    try:
+        with session.begin_nested():
+            loja_id = int(
+                session.execute(
+                    insert(lojas)
+                    .values(nome_fantasia=nome)
+                    .returning(lojas.c.id)
+                ).scalar_one()
+            )
+            session.execute(
+                insert(mapping).values(
+                    tenant_id=tenant,
+                    unidade_id=unidade,
+                    loja_id=loja_id,
+                    ativo=True,
+                )
+            )
+    except IntegrityError as exc:
+        current = existente()
+        if current is None:
+            raise ErroEscopoLojaLegada(
+                "conflito ao provisionar mapeamento unidade/loja"
+            ) from exc
+        return current
+
+    return loja_id
 
 
 def inserir_produto_legado(
