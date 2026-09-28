@@ -123,17 +123,33 @@ def _png_bytes() -> bytes:
     return arquivo.getvalue()
 
 
-def test_estoque_exige_sessao_e_permissao_visualizar(monkeypatch) -> None:
+def test_estoque_exige_sessao_e_cozinha_pode_visualizar_sem_mutar(monkeypatch) -> None:
     _, client = _infra(monkeypatch)
 
     sem_sessao = client.get("/v1/estoque/insumos")
-    _login(client, COZINHA_EMAIL)
-    sem_permissao = client.get("/v1/estoque/insumos")
-
     assert sem_sessao.status_code == 401
     assert sem_sessao.json() == {"erro": "seguranca.credenciais_invalidas"}
-    assert sem_permissao.status_code == 403
-    assert sem_permissao.json() == {"erro": "seguranca.permissao_insuficiente"}
+
+    _login(client, COZINHA_EMAIL)
+    leitura = client.get("/v1/estoque/insumos")
+    assert leitura.status_code == 200
+    assert [item["id"] for item in leitura.json()["itens"]] == ["11", "12"]
+
+    mutacao = client.post(
+        "/v1/estoque/insumos",
+        json={
+            "nome": "Bloqueado",
+            "unidade_medida": "un",
+            "saldo_atual": 1,
+            "estoque_minimo": 1,
+            "custo_unitario": 1,
+            "data_fabricacao": None,
+            "data_validade": None,
+            "dias_alerta_vencimento": 15,
+        },
+    )
+    assert mutacao.status_code == 403
+    assert mutacao.json() == {"erro": "seguranca.permissao_insuficiente"}
 
 
 def test_estoque_lista_somente_unidade_ativa_e_ignora_headers_spoof(monkeypatch) -> None:
