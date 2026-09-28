@@ -251,10 +251,10 @@ export function DeliveryWorkspace() {
 
   if (auth.status === "authenticated" && !allowed) {
     return (
-      <div className="flex min-h-full items-center justify-center bg-slate-100 p-6">
-        <div className="max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
+      <div className="flex min-h-full items-center justify-center bg-[#06101d] p-6">
+        <div className="max-w-md rounded-3xl border border-slate-700/60 bg-[linear-gradient(145deg,#0f1e33,#081421)] p-7 text-slate-100 shadow-[0_28px_76px_-40px_rgba(0,0,0,0.88)]">
           <ShieldAlert className="size-9 text-amber-500" />
-          <h1 className="mt-4 text-xl font-black text-slate-950">Delivery não liberado</h1>
+          <h1 className="mt-4 text-xl font-black text-slate-50">Delivery não liberado</h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">
             Sua sessão não possui as permissões necessárias para visualizar clientes e pedidos.
           </p>
@@ -267,7 +267,7 @@ export function DeliveryWorkspace() {
   }
 
   return (
-    <div className="min-h-full bg-slate-100 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-full bg-[#06101d] p-4 text-slate-100 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-[1600px] space-y-5">
         <header className="flex flex-col gap-4 rounded-3xl bg-slate-950 p-6 text-white shadow-xl shadow-slate-950/10 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4">
@@ -307,14 +307,14 @@ export function DeliveryWorkspace() {
           </div>
         ) : null}
         {notice ? (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+          <div className="rounded-2xl border border-emerald-300/20 bg-emerald-400/[0.08] px-4 py-3 text-sm font-medium text-emerald-200">
             {notice}
           </div>
         ) : null}
 
         <section className="grid gap-5 xl:grid-cols-[0.95fr_1.35fr]">
           <div className="space-y-5">
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="rounded-3xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] p-5 shadow-[0_22px_56px_-34px_rgba(0,0,0,0.82)]">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-600">Cliente e endereço</p>
               <label className="mt-4 block text-sm font-bold text-slate-700" htmlFor="delivery-client">
                 Cliente CRM
@@ -323,7 +323,7 @@ export function DeliveryWorkspace() {
                 id="delivery-client"
                 value={clientId}
                 onChange={(event) => void selectClient(event.target.value)}
-                className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500"
+                className="mt-2 h-11 w-full rounded-xl border border-slate-700 bg-slate-950/52 px-3 text-sm text-slate-100 outline-none focus:border-sky-400/70 focus:ring-4 focus:ring-sky-500/10"
               >
                 <option value="">Selecione um cliente</option>
                 {clients.map((client) => (
@@ -334,11 +334,11 @@ export function DeliveryWorkspace() {
               </select>
 
               {context ? (
-                <div className="mt-4 rounded-2xl bg-slate-50 p-4">
+                <div className="mt-4 rounded-2xl border border-slate-700/45 bg-slate-950/32 p-4">
                   <div className="flex items-start gap-3">
                     <MapPin className="mt-0.5 size-5 text-blue-600" />
                     <div>
-                      <p className="text-sm font-bold text-slate-950">Endereço validado</p>
+                      <p className="text-sm font-bold text-slate-100">Endereço validado</p>
                       <p className="mt-1 text-sm text-slate-600">{context.endereco.endereco_formatado}</p>
                       <p className="mt-1 text-xs text-slate-500">CEP {context.endereco.cep}</p>
                     </div>
@@ -356,7 +356,7 @@ export function DeliveryWorkspace() {
             </div>
 
             {cart ? (
-              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="rounded-3xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] p-5 shadow-[0_22px_56px_-34px_rgba(0,0,0,0.82)]">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-600">Carrinho</p>
@@ -366,22 +366,22 @@ export function DeliveryWorkspace() {
                 </div>
                 <div className="mt-4 space-y-2">
                   {cart.itens.length ? cart.itens.map((item) => (
-                    <div key={`${item.produto_id}-${item.produto_versao}`} className="flex justify-between gap-3 rounded-xl bg-slate-50 p-3 text-sm">
+                    <div key={`${item.produto_id}-${item.produto_versao}`} className="flex justify-between gap-3 rounded-xl border border-slate-700/45 bg-slate-950/32 p-3 text-sm">
                       <span><strong>{item.quantidade}×</strong> {item.nome}</span>
                       <strong>{money(item.subtotal)}</strong>
                     </div>
                   )) : <p className="text-sm text-slate-500">Nenhum item adicionado.</p>}
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                  <div className="rounded-xl bg-slate-50 p-3"><span className="text-slate-500">Subtotal</span><p className="font-black">{money(cart.subtotal)}</p></div>
-                  <div className="rounded-xl bg-slate-50 p-3"><span className="text-slate-500">Entrega</span><p className="font-black">{money(cart.taxa_entrega)}</p></div>
+                  <div className="rounded-xl border border-slate-700/45 bg-slate-950/32 p-3"><span className="text-slate-500">Subtotal</span><p className="font-black">{money(cart.subtotal)}</p></div>
+                  <div className="rounded-xl border border-slate-700/45 bg-slate-950/32 p-3"><span className="text-slate-500">Entrega</span><p className="font-black">{money(cart.taxa_entrega)}</p></div>
                 </div>
                 {cart.cotacao ? (
                   <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800">
                     {cart.cotacao.nome_area} · {money(cart.cotacao.taxa)} · SLA {cart.cotacao.sla_minutos}–{cart.cotacao.sla_maxutos} min
                   </div>
                 ) : null}
-                <p className="mt-4 text-right text-xl font-black text-slate-950">{money(cart.total)}</p>
+                <p className="mt-4 text-right text-xl font-black text-slate-50">{money(cart.total)}</p>
                 <Button
                   variant="outline"
                   className="mt-4 w-full"
@@ -395,7 +395,7 @@ export function DeliveryWorkspace() {
                   id="delivery-payment"
                   value={paymentMethod}
                   onChange={(event) => setPaymentMethod(event.target.value)}
-                  className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                  className="mt-2 h-11 w-full rounded-xl border border-slate-700 bg-slate-950/52 px-3 text-sm text-slate-100"
                 >
                   {PAYMENT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
@@ -411,7 +411,7 @@ export function DeliveryWorkspace() {
           </div>
 
           <div className="space-y-5">
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="rounded-3xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] p-5 shadow-[0_22px_56px_-34px_rgba(0,0,0,0.82)]">
               <div className="flex items-center gap-3">
                 <PackagePlus className="size-5 text-blue-600" />
                 <div>
@@ -426,9 +426,9 @@ export function DeliveryWorkspace() {
               ) : (
                 <div className="mt-5 grid gap-3 sm:grid-cols-2">
                   {activeProducts.map((product) => (
-                    <div key={product.produto_id} className="rounded-2xl border border-slate-200 p-4">
+                    <div key={product.produto_id} className="rounded-2xl border border-slate-700/60 bg-slate-950/18 p-4">
                       <div className="flex items-start justify-between gap-3">
-                        <div><p className="font-bold text-slate-950">{product.nome}</p><p className="mt-1 text-xs text-slate-500">Estoque {product.estoque_disponivel}</p></div>
+                        <div><p className="font-bold text-slate-50">{product.nome}</p><p className="mt-1 text-xs text-slate-500">Estoque {product.estoque_disponivel}</p></div>
                         <strong>{money(product.preco)}</strong>
                       </div>
                       <Button
@@ -445,11 +445,11 @@ export function DeliveryWorkspace() {
               )}
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="rounded-3xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] p-5 shadow-[0_22px_56px_-34px_rgba(0,0,0,0.82)]">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-600">Acompanhamento</p>
-                  <h2 className="mt-1 text-lg font-black text-slate-950">Pedido e logística</h2>
+                  <h2 className="mt-1 text-lg font-black text-slate-50">Pedido e logística</h2>
                 </div>
                 {tracking ? (
                   <Button variant="outline" size="sm" onClick={() => void refreshTracking()} disabled={actionBusy}>
@@ -462,15 +462,15 @@ export function DeliveryWorkspace() {
               ) : (
                 <div className="mt-5 space-y-4">
                   <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Pedido</p><Badge variant="outline" className={`mt-2 ${statusClass(tracking.status_pedido)}`}>{humanize(tracking.status_pedido)}</Badge></div>
-                    <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Entrega</p><Badge variant="outline" className={`mt-2 ${statusClass(tracking.status_entrega)}`}>{humanize(tracking.status_entrega)}</Badge></div>
-                    <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Total canônico</p><p className="mt-2 font-black">{money(tracking.total)}</p></div>
+                    <div className="rounded-2xl border border-slate-700/45 bg-slate-950/32 p-4"><p className="text-xs text-slate-500">Pedido</p><Badge variant="outline" className={`mt-2 ${statusClass(tracking.status_pedido)}`}>{humanize(tracking.status_pedido)}</Badge></div>
+                    <div className="rounded-2xl border border-slate-700/45 bg-slate-950/32 p-4"><p className="text-xs text-slate-500">Entrega</p><Badge variant="outline" className={`mt-2 ${statusClass(tracking.status_entrega)}`}>{humanize(tracking.status_entrega)}</Badge></div>
+                    <div className="rounded-2xl border border-slate-700/45 bg-slate-950/32 p-4"><p className="text-xs text-slate-500">Total canônico</p><p className="mt-2 font-black">{money(tracking.total)}</p></div>
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-950">Timeline logística</p>
+                    <p className="text-sm font-bold text-slate-100">Timeline logística</p>
                     <div className="mt-2 space-y-2">
                       {tracking.eventos.length ? tracking.eventos.map((event, index) => (
-                        <div key={`${event.tipo}-${event.ocorrido_em}-${index}`} className="rounded-xl border border-slate-200 px-3 py-2 text-sm">
+                        <div key={`${event.tipo}-${event.ocorrido_em}-${index}`} className="rounded-xl border border-slate-700/60 bg-slate-950/24 px-3 py-2 text-sm">
                           <strong>{humanize(event.tipo)}</strong><span className="ml-2 text-slate-500">{humanize(event.status_entrega)}</span>
                         </div>
                       )) : <p className="text-sm text-slate-500">Sem novos eventos.</p>}
@@ -479,7 +479,7 @@ export function DeliveryWorkspace() {
                   {canCancel && tracking.status_pedido !== "cancelado" && tracking.status_entrega !== "entregue" ? (
                     <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
                       <p className="text-sm font-bold text-red-800">Cancelar pedido</p>
-                      <Input className="mt-3 bg-white" placeholder="Informe o motivo" value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} />
+                      <Input className="mt-3 bg-slate-950/52" placeholder="Informe o motivo" value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} />
                       <Button variant="destructive" className="mt-3 w-full" disabled={!cancelReason.trim() || actionBusy} onClick={() => void cancelOrder()}>
                         Cancelar no fluxo canônico
                       </Button>
