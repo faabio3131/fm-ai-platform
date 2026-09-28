@@ -1,5 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
 import {
   Building2,
   CircleDollarSign,
@@ -39,6 +42,12 @@ function describeError(error: unknown): string {
 
 export function CatalogoWorkspace() {
   const auth = useAuthStore();
+  const pathname = usePathname();
+  const adminSurface = pathname.startsWith("/admin/");
+  const canAdminister =
+    adminSurface &&
+    auth.permissions.includes("admin.acessar") &&
+    auth.permissions.includes("configuracao.alterar");
   const [produtos, setProdutos] = useState<CatalogoProduto[]>([]);
   const [categorias, setCategorias] = useState<string[]>([]);
   const [unidades, setUnidades] = useState<AuthUnit[]>([]);
@@ -143,7 +152,7 @@ export function CatalogoWorkspace() {
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-400/20 bg-sky-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-200">
                 <Sparkles className="size-3" />
-                Kordena Backoffice
+                {adminSurface ? "Kordena Backoffice" : "Operação · Consulta"}
               </span>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/[0.08] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-200">
                 <ShieldCheck className="size-3" />
@@ -168,14 +177,22 @@ export function CatalogoWorkspace() {
               <RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} />
               Atualizar
             </button>
-            <button
-              type="button"
-              onClick={() => setModalOpen(true)}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-950/30 transition hover:bg-sky-400 active:scale-[0.98]"
-            >
-              <Plus className="size-4" />
-              Novo produto
-            </button>
+            {canAdminister ? (
+              <button
+                type="button"
+                onClick={() => setModalOpen(true)}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-950/30 transition hover:bg-sky-400 active:scale-[0.98]"
+              >
+                <Plus className="size-4" />
+                Novo produto
+              </button>
+            ) : auth.permissions.includes("admin.acessar") ? (
+              <Link href="/admin/catalogo" className="inline-flex h-10 items-center justify-center rounded-xl border border-amber-300/20 bg-amber-400/[0.07] px-4 text-sm font-semibold text-amber-100">
+                Abrir gestão protegida
+              </Link>
+            ) : (
+              <span className="inline-flex h-10 items-center rounded-xl border border-emerald-300/15 bg-emerald-400/[0.06] px-4 text-xs font-bold text-emerald-200">Consulta operacional</span>
+            )}
           </div>
         </header>
 
@@ -249,10 +266,11 @@ export function CatalogoWorkspace() {
             categorias={categorias}
             updatingIds={updatingIds}
             onToggleAtivo={(produto, ativo) => void handleToggleAtivo(produto, ativo)}
+            readOnly={!canAdminister}
           />
         )}
 
-        {!loading ? (
+        {!loading && canAdminister ? (
           <FichaTecnicaWorkspace
             produtos={produtos}
             categorias={categorias}
@@ -262,12 +280,14 @@ export function CatalogoWorkspace() {
         ) : null}
       </div>
 
-      <NovoProdutoModal
-        open={modalOpen}
-        categorias={categorias}
-        onClose={() => setModalOpen(false)}
-        onCreated={handleCreated}
-      />
+      {canAdminister ? (
+        <NovoProdutoModal
+          open={modalOpen}
+          categorias={categorias}
+          onClose={() => setModalOpen(false)}
+          onCreated={handleCreated}
+        />
+      ) : null}
     </main>
   );
 }
