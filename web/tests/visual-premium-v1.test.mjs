@@ -74,6 +74,10 @@ test("Visual Premium elimina ilhas claras nos workspaces operacionais prioritár
     assert.doesNotMatch(file, /border-slate-200/);
     assert.doesNotMatch(file, /text-slate-950/);
   }
+
+  const orders = source("../src/features/orders/components/OrdersCenterWorkspace.tsx");
+  assert.doesNotMatch(orders, /bg-blue-50/);
+  assert.doesNotMatch(orders, /text-slate-800/);
 });
 
 test("Visual Premium mantém identidade cognitiva consistente entre login e shell", () => {
