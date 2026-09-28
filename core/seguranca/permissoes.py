@@ -50,6 +50,7 @@ class Permissao(StrEnum):
     COMANDA_FECHAR = "comanda.fechar"
     CLIENTE_VISUALIZAR = "cliente.visualizar"
     CLIENTE_EDITAR = "cliente.editar"
+    CATALOGO_VISUALIZAR = "catalogo.visualizar"
     CAMPANHA_CRIAR = "campanha.criar"
     CAMPANHA_APROVAR = "campanha.aprovar"
     CONSENTIMENTO_VISUALIZAR = "consentimento.visualizar"
@@ -110,6 +111,7 @@ MATRIZ_PADRAO: dict[Papel, frozenset[Permissao]] = {
             Permissao.DESCONTO_APLICAR,
             Permissao.CAIXA_ABRIR,
             Permissao.CAIXA_FECHAR,
+            Permissao.CATALOGO_VISUALIZAR,
         }
     ),
     Papel.GARCOM: frozenset(
@@ -119,6 +121,7 @@ MATRIZ_PADRAO: dict[Papel, frozenset[Permissao]] = {
             Permissao.PEDIDO_ALTERAR,
             Permissao.MESA_ABRIR,
             Permissao.COMANDA_ALTERAR,
+            Permissao.CATALOGO_VISUALIZAR,
         }
     ),
     Papel.COZINHA: frozenset(
@@ -128,6 +131,8 @@ MATRIZ_PADRAO: dict[Papel, frozenset[Permissao]] = {
             Permissao.PRODUCAO_ATUALIZAR,
             Permissao.ESTOQUE_BAIXAR,
             Permissao.ESTOQUE_PERDA_REGISTRAR,
+            Permissao.ESTOQUE_VISUALIZAR,
+            Permissao.CATALOGO_VISUALIZAR,
             Permissao.IMPRESSAO_REIMPRIMIR,
         }
     ),
@@ -142,6 +147,7 @@ MATRIZ_PADRAO: dict[Papel, frozenset[Permissao]] = {
             Permissao.CLIENTE_VISUALIZAR,
             Permissao.ATENDIMENTO_VISUALIZAR,
             Permissao.ATENDIMENTO_GERENCIAR,
+            Permissao.CATALOGO_VISUALIZAR,
         }
     ),
     Papel.FINANCEIRO: frozenset(
@@ -158,6 +164,7 @@ MATRIZ_PADRAO: dict[Papel, frozenset[Permissao]] = {
             Permissao.PEDIDO_VISUALIZAR,
             Permissao.GERENTE_IA_CONSULTAR,
             Permissao.GERENTE_IA_PREPARAR_ACAO,
+            Permissao.CATALOGO_VISUALIZAR,
         }
     ),
 }
