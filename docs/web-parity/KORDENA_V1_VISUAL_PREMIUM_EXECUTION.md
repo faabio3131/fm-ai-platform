@@ -1,8 +1,8 @@
 # Kordena V1 — Visual Premium Final — Execution Ledger
 
-**PR:** #138  
-**Branch:** `feat/kordena-v1-visual-premium-final`  
-**Base canônica:** `staging/kordena-premium@023bb8d78495eb5464568543c248e3337019766f`  
+**PR:** #138
+**Branch:** `feat/kordena-v1-visual-premium-final`
+**Base canônica:** `staging/kordena-premium@023bb8d78495eb5464568543c248e3337019766f`
 **Status:** EM EXECUÇÃO
 
 ## Objetivo
