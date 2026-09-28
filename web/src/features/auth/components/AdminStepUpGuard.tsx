@@ -37,7 +37,7 @@ function PremiumGateFrame({ children }: { children: ReactNode }) {
     <main className="kordena-page-dark relative flex min-h-screen items-center justify-center overflow-hidden px-6 py-10 text-white">
       <div className="kordena-grid pointer-events-none absolute inset-0 opacity-40" />
       <div className="pointer-events-none absolute -right-24 top-12 size-72 rounded-full bg-blue-500/12 blur-3xl" />
-      <div className="kordena-enter relative w-full max-w-md rounded-[2rem] border border-white/[0.09] bg-slate-900/78 p-7 shadow-[0_34px_90px_-40px_rgba(0,0,0,0.85)] backdrop-blur-xl">
+      <div className="kordena-enter relative w-full max-w-sm rounded-[2rem] border border-white/[0.09] bg-slate-900/78 p-6 shadow-[0_34px_90px_-40px_rgba(0,0,0,0.85)] backdrop-blur-xl sm:p-7">
         {children}
       </div>
     </main>
@@ -152,7 +152,7 @@ export function AdminStepUpGuard({ children }: { children: ReactNode }) {
             required
             value={senha}
             onChange={(event) => setSenha(event.target.value)}
-            className="h-12 border-slate-700 bg-slate-950/65 text-white"
+            className="h-10 rounded-xl border-slate-700 bg-slate-950/65 px-3 text-sm text-white"
           />
         </div>
 
@@ -160,7 +160,7 @@ export function AdminStepUpGuard({ children }: { children: ReactNode }) {
           <div role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">{error}</div>
         ) : null}
 
-        <Button type="submit" size="lg" className="h-12 w-full" disabled={submitting}>
+        <Button type="submit" size="lg" className="h-11 w-full rounded-xl" disabled={submitting}>
           {submitting ? <Loader2 className="animate-spin" /> : <ShieldCheck />}
           {submitting ? "Confirmando…" : "Desbloquear área Proprietário"}
         </Button>
