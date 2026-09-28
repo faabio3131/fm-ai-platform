@@ -72,8 +72,8 @@ function ModuleCard({ module }: { module: ShellModuleDefinition }) {
               variant="outline"
               className={
                 protectedModule
-                  ? "border-amber-200/80 bg-amber-50/80 text-amber-700"
-                  : "border-emerald-200/80 bg-emerald-50/80 text-emerald-700"
+                  ? "border-amber-300/20 bg-amber-400/[0.08] text-amber-200"
+                  : "border-emerald-300/20 bg-emerald-400/[0.08] text-emerald-200"
               }
             >
               {protectedModule ? "Acesso protegido" : "Disponível"}
@@ -204,7 +204,7 @@ export function DashboardHome() {
           <section>
             <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-300">
                   Gestão protegida
                 </p>
                 <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-50">
