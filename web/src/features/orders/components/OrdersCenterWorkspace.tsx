@@ -120,7 +120,7 @@ function OrderRow({
       onClick={onSelect}
       className={[
         "grid w-full gap-3 border-b border-slate-700/60 px-4 py-4 text-left transition-colors sm:grid-cols-[minmax(0,1.4fr)_0.8fr_0.8fr_0.8fr] sm:items-center",
-        selected ? "bg-blue-50" : "bg-white hover:bg-slate-950/32",
+        selected ? "bg-blue-500/[0.10] ring-1 ring-inset ring-blue-400/20" : "bg-slate-950/30 hover:bg-white/[0.035]",
       ].join(" ")}
     >
       <div className="min-w-0">
@@ -142,7 +142,7 @@ function OrderRow({
         </Badge>
       </div>
       <div className="text-sm">
-        <p className="font-semibold text-slate-800">{humanize(order.canal)}</p>
+        <p className="font-semibold text-slate-200">{humanize(order.canal)}</p>
         <p className="mt-1 text-xs text-slate-500">
           {humanize(order.financeiro.situacao)}
         </p>
