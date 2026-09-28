@@ -101,7 +101,7 @@ test("Visual Premium mantém identidade cognitiva consistente entre login e shel
   assert.match(shell, /KordenaBrand/);
   assert.match(brand, /O CÉREBRO DA SUA OPERAÇÃO/);
   const brain = source("../src/components/brand/KordenaBrainMark.tsx");
-  assert.match(brain, /kordena-brain-mark\.png/);
+  assert.match(brain, /kordena-brain-mark-v2\.png/);
   assert.match(brain, /unoptimized/);
   assert.doesNotMatch(login, /Cognitive Operations/);
   assert.doesNotMatch(shell, /Cognitive Operations/);
@@ -110,9 +110,11 @@ test("Visual Premium mantém identidade cognitiva consistente entre login e shel
 });
 
 test("identidade Kordena usa o cérebro aprovado e elimina slogans antigos globalmente", () => {
-  const asset = fs.readFileSync(new URL("../public/kordena-brain-mark.png", import.meta.url));
+  const asset = fs.readFileSync(new URL("../public/kordena-brain-mark-v2.png", import.meta.url));
   const digest = crypto.createHash("sha256").update(asset).digest("hex");
-  assert.equal(digest, "8e775411ec343026713d583197ae4cffb57a9b0a481c5e775cb0a591fc823a76");
+  assert.equal(digest, "beb2c7f1b092f734489d6535e9be628842bf2ec24b5789cf6e422a4cdca63fc9");
+  assert.equal(asset.length, 8393);
+  assert.equal(asset.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
 
   const sourceRoot = fileURLToPath(new URL("../src/", import.meta.url));
   for (const file of sourceFiles(sourceRoot)) {

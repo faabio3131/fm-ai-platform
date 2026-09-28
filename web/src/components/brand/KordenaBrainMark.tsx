@@ -12,7 +12,7 @@ export function KordenaBrainMark({
   return (
     <span className={`relative inline-flex shrink-0 ${className}`} aria-hidden="true">
       <Image
-        src="/kordena-brain-mark.png"
+        src="/kordena-brain-mark-v2.png"
         alt=""
         width={128}
         height={128}

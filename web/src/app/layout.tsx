@@ -10,8 +10,8 @@ export const metadata: Metadata = {
   title: "Kordena Enterprise",
   description: "Kordena — O cérebro da sua operação.",
   icons: {
-    icon: "/kordena-brain-mark.png",
-    apple: "/kordena-brain-mark.png",
+    icon: "/kordena-brain-mark-v2.png",
+    apple: "/kordena-brain-mark-v2.png",
   },
 };
 
