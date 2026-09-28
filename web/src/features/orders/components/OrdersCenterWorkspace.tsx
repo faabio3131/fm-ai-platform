@@ -119,13 +119,13 @@ function OrderRow({
       type="button"
       onClick={onSelect}
       className={[
-        "grid w-full gap-3 border-b border-slate-200 px-4 py-4 text-left transition-colors sm:grid-cols-[minmax(0,1.4fr)_0.8fr_0.8fr_0.8fr] sm:items-center",
-        selected ? "bg-blue-50" : "bg-white hover:bg-slate-50",
+        "grid w-full gap-3 border-b border-slate-700/60 px-4 py-4 text-left transition-colors sm:grid-cols-[minmax(0,1.4fr)_0.8fr_0.8fr_0.8fr] sm:items-center",
+        selected ? "bg-blue-50" : "bg-white hover:bg-slate-950/32",
       ].join(" ")}
     >
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-bold text-slate-950">
+          <p className="truncate text-sm font-bold text-slate-100">
             {order.pedido_id}
           </p>
           {order.possui_alerta ? (
@@ -147,7 +147,7 @@ function OrderRow({
           {humanize(order.financeiro.situacao)}
         </p>
       </div>
-      <p className="text-sm font-black text-slate-950 sm:text-right">
+      <p className="text-sm font-black text-slate-100 sm:text-right">
         {money(order.total)}
       </p>
     </button>
@@ -346,10 +346,10 @@ export function OrdersCenterWorkspace() {
 
   if (auth.status === "authenticated" && !allowed) {
     return (
-      <div className="flex min-h-full items-center justify-center bg-slate-100 px-6 py-12">
-        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
+      <div className="flex min-h-full items-center justify-center bg-[#06101d] px-6 py-12">
+        <div className="w-full max-w-md rounded-3xl border border-slate-700/60 bg-[linear-gradient(145deg,#0f1e33,#081421)] p-7 text-slate-100 shadow-[0_28px_76px_-40px_rgba(0,0,0,0.88)]">
           <ShieldAlert className="size-9 text-amber-500" />
-          <h1 className="mt-4 text-xl font-black text-slate-950">
+          <h1 className="mt-4 text-xl font-black text-slate-50">
             Central de Pedidos não liberada
           </h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">
@@ -365,7 +365,7 @@ export function OrdersCenterWorkspace() {
   }
 
   return (
-    <div className="min-h-full bg-slate-100 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-full bg-[#06101d] p-4 text-slate-100 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-[1700px] space-y-5">
         <header className="flex flex-col gap-4 rounded-3xl bg-slate-950 p-6 text-white shadow-xl shadow-slate-950/10 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-center gap-4">
@@ -411,7 +411,7 @@ export function OrdersCenterWorkspace() {
 
         <MarketplaceChannelPanel onOrdersChanged={refreshAll} />
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <section className="rounded-3xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] p-4 shadow-[0_22px_56px_-34px_rgba(0,0,0,0.82)] sm:p-5">
           <div className="grid gap-3 lg:grid-cols-[minmax(220px,1.5fr)_minmax(160px,0.8fr)_minmax(160px,0.8fr)_auto_auto]">
             <label className="relative block">
               <Search className="pointer-events-none absolute left-3 top-3.5 size-4 text-slate-400" />
@@ -422,22 +422,22 @@ export function OrdersCenterWorkspace() {
                   if (event.key === "Enter") applyFilters();
                 }}
                 placeholder="Buscar pedido ou cliente"
-                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
+                className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950/52 pl-9 pr-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-sky-400/70 focus:ring-4 focus:ring-sky-500/10"
               />
             </label>
             <input
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
               placeholder="Status"
-              className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-blue-500 focus:bg-white"
+              className="h-11 rounded-xl border border-slate-700 bg-slate-950/52 px-3 text-sm text-slate-100 outline-none focus:border-sky-400/70 focus:ring-4 focus:ring-sky-500/10"
             />
             <input
               value={channelFilter}
               onChange={(event) => setChannelFilter(event.target.value)}
               placeholder="Canal"
-              className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-blue-500 focus:bg-white"
+              className="h-11 rounded-xl border border-slate-700 bg-slate-950/52 px-3 text-sm text-slate-100 outline-none focus:border-sky-400/70 focus:ring-4 focus:ring-sky-500/10"
             />
-            <label className="flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-600">
+            <label className="flex h-11 items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/42 px-3 text-sm font-medium text-slate-300">
               <input
                 type="checkbox"
                 checked={alertsOnly}
@@ -458,16 +458,16 @@ export function OrdersCenterWorkspace() {
           </div>
         ) : null}
         {notice ? (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+          <div className="rounded-2xl border border-emerald-300/20 bg-emerald-400/[0.08] px-4 py-3 text-sm font-semibold text-emerald-200">
             {notice}
           </div>
         ) : null}
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(380px,0.8fr)]">
-          <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
+          <section className="overflow-hidden rounded-3xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] shadow-[0_22px_56px_-34px_rgba(0,0,0,0.82)]">
+            <div className="flex items-center justify-between gap-4 border-b border-slate-700/60 px-5 py-4">
               <div>
-                <h2 className="font-black text-slate-950">Fila unificada</h2>
+                <h2 className="font-black text-slate-50">Fila unificada</h2>
                 <p className="mt-1 text-xs text-slate-500">
                   {orders
                     ? `${orders.total} pedido(s) no conjunto atual`
@@ -496,7 +496,7 @@ export function OrdersCenterWorkspace() {
               ) : null}
             </div>
 
-            <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
+            <div className="flex items-center justify-between border-t border-slate-700/60 px-4 py-3">
               <Button
                 type="button"
                 variant="outline"
@@ -523,7 +523,7 @@ export function OrdersCenterWorkspace() {
             </div>
           </section>
 
-          <aside className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-4 xl:self-start">
+          <aside className="rounded-3xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] p-5 shadow-[0_22px_56px_-34px_rgba(0,0,0,0.82)] xl:sticky xl:top-4 xl:self-start">
             {detailLoading ? (
               <div className="flex min-h-96 items-center justify-center">
                 <RefreshCw className="size-6 animate-spin text-blue-600" />
@@ -535,7 +535,7 @@ export function OrdersCenterWorkspace() {
                     <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">
                       Detalhe operacional
                     </p>
-                    <h2 className="mt-1 truncate text-lg font-black text-slate-950">
+                    <h2 className="mt-1 truncate text-lg font-black text-slate-50">
                       {detail.resumo.pedido_id}
                     </h2>
                     <p className="mt-1 text-xs text-slate-500">
@@ -552,15 +552,15 @@ export function OrdersCenterWorkspace() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-2xl bg-slate-50 p-3">
+                  <div className="rounded-2xl border border-slate-700/45 bg-slate-950/32 p-3">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                       Total
                     </p>
-                    <p className="mt-1 text-lg font-black text-slate-950">
+                    <p className="mt-1 text-lg font-black text-slate-50">
                       {money(detail.resumo.total)}
                     </p>
                   </div>
-                  <div className="rounded-2xl bg-slate-50 p-3">
+                  <div className="rounded-2xl border border-slate-700/45 bg-slate-950/32 p-3">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                       Financeiro
                     </p>
@@ -575,7 +575,7 @@ export function OrdersCenterWorkspace() {
                     {detail.alertas.map((alert, index) => (
                       <div
                         key={`${alert.tipo}-${index}`}
-                        className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+                        className="rounded-xl border border-amber-300/20 bg-amber-400/[0.08] px-3 py-2 text-xs text-amber-200"
                       >
                         <span className="font-bold">
                           {humanize(alert.tipo)}:
@@ -587,15 +587,15 @@ export function OrdersCenterWorkspace() {
                 ) : null}
 
                 <div>
-                  <h3 className="text-sm font-black text-slate-900">Itens</h3>
-                  <div className="mt-2 divide-y divide-slate-100 rounded-2xl border border-slate-200">
+                  <h3 className="text-sm font-black text-slate-100">Itens</h3>
+                  <div className="mt-2 divide-y divide-slate-700/50 rounded-2xl border border-slate-700/60">
                     {detail.itens.map((item) => (
                       <div key={item.item_id} className="px-3 py-3">
                         <div className="flex justify-between gap-3 text-sm">
                           <span className="font-semibold text-slate-800">
                             {item.quantidade}× {item.nome}
                           </span>
-                          <span className="font-bold text-slate-950">
+                          <span className="font-bold text-slate-50">
                             {money(item.subtotal)}
                           </span>
                         </div>
@@ -622,11 +622,11 @@ export function OrdersCenterWorkspace() {
                 <div>
                   <div className="flex items-center gap-2">
                     <CircleDollarSign className="size-4 text-emerald-600" />
-                    <h3 className="text-sm font-black text-slate-900">
+                    <h3 className="text-sm font-black text-slate-100">
                       Pagamento
                     </h3>
                   </div>
-                  <div className="mt-2 rounded-2xl bg-slate-50 p-3 text-xs text-slate-600">
+                  <div className="mt-2 rounded-2xl border border-slate-700/45 bg-slate-950/32 p-3 text-xs text-slate-400">
                     <p>
                       Previsto:{" "}
                       <strong>{money(detail.financeiro.valor_previsto)}</strong>
@@ -638,7 +638,7 @@ export function OrdersCenterWorkspace() {
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-black text-slate-900">
+                  <h3 className="text-sm font-black text-slate-100">
                     Timeline
                   </h3>
                   <div className="mt-2 max-h-44 space-y-2 overflow-auto pr-1">
@@ -694,7 +694,7 @@ export function OrdersCenterWorkspace() {
                       value={cancelReason}
                       onChange={(event) => setCancelReason(event.target.value)}
                       placeholder="Informe o motivo do cancelamento"
-                      className="mt-2 min-h-20 w-full resize-none rounded-xl border border-red-200 bg-white p-3 text-sm outline-none focus:border-red-400"
+                      className="mt-2 min-h-20 w-full resize-none rounded-xl border border-red-400/30 bg-slate-950/52 p-3 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-red-400 focus:ring-4 focus:ring-red-500/10"
                     />
                     <Button
                       type="button"
