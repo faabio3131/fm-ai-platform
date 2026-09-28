@@ -3,11 +3,11 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
-  return <div className="relative w-full overflow-x-auto rounded-xl"><table className={cn("w-full caption-bottom text-sm", className)} {...props} /></div>;
+  return <div className="relative w-full overflow-x-auto rounded-xl border border-slate-700/55 bg-slate-950/24"><table className={cn("w-full caption-bottom text-sm", className)} {...props} /></div>;
 }
 
 function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
-  return <thead className={cn("bg-muted/45 [&_tr]:border-b", className)} {...props} />;
+  return <thead className={cn("bg-slate-950/45 [&_tr]:border-b", className)} {...props} />;
 }
 
 function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
@@ -15,15 +15,15 @@ function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
 }
 
 function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
-  return <tfoot className={cn("border-t bg-muted/60 font-semibold", className)} {...props} />;
+  return <tfoot className={cn("border-t border-slate-700/60 bg-slate-900/60 font-semibold", className)} {...props} />;
 }
 
 function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
-  return <tr className={cn("border-b border-border/70 transition-colors hover:bg-muted/40", className)} {...props} />;
+  return <tr className={cn("border-b border-slate-700/60 transition-colors hover:bg-white/[0.035]", className)} {...props} />;
 }
 
 function TableHead({ className, ...props }: React.ComponentProps<"th">) {
-  return <th className={cn("h-11 px-3 text-left align-middle text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground", className)} {...props} />;
+  return <th className={cn("h-11 px-3 text-left align-middle text-xs font-bold uppercase tracking-[0.08em] text-slate-400", className)} {...props} />;
 }
 
 function TableCell({ className, ...props }: React.ComponentProps<"td">) {

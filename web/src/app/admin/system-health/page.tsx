@@ -63,23 +63,23 @@ export default function SystemHealthPage() {
 
   const badgeClass =
     connection === "online"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      ? "border-emerald-300/20 bg-emerald-400/[0.08] text-emerald-200"
       : connection === "offline"
-        ? "border-red-200 bg-red-50 text-red-700"
-        : "border-amber-200 bg-amber-50 text-amber-700";
+        ? "border-red-300/20 bg-red-500/[0.08] text-red-200"
+        : "border-amber-300/20 bg-amber-400/[0.08] text-amber-200";
 
   return (
-    <div className="min-h-full bg-slate-100 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="kordena-page-dark min-h-full px-4 py-6 text-slate-100 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-6xl space-y-6">
-        <header className="flex flex-col gap-4 rounded-3xl bg-white p-6 shadow-sm sm:flex-row sm:items-end sm:justify-between">
+        <header className="relative overflow-hidden rounded-[2rem] border border-sky-400/15 bg-[linear-gradient(135deg,rgba(47,124,246,0.16),rgba(14,165,233,0.05)_48%,rgba(8,17,31,0.96))] p-6 shadow-[0_28px_70px_-42px_rgba(47,124,246,0.64)] sm:flex sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-300">
               Área protegida
             </p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-50">
               Saúde do sistema
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
               Diagnóstico técnico de conectividade do frontend com o backend. Esta informação permanece fora da home comercial.
             </p>
           </div>
@@ -97,12 +97,12 @@ export default function SystemHealthPage() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardDescription>API base</CardDescription>
-                <Activity className="size-4 text-blue-600" />
+                <Activity className="size-4 text-sky-300" />
               </div>
               <CardTitle className="text-base">FastAPI</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="break-all font-mono text-sm text-slate-500">{API_BASE_URL}</p>
+              <p className="break-all font-mono text-sm text-slate-400">{API_BASE_URL}</p>
             </CardContent>
           </Card>
 
@@ -110,12 +110,12 @@ export default function SystemHealthPage() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardDescription>Health contract</CardDescription>
-                <Database className="size-4 text-emerald-600" />
+                <Database className="size-4 text-emerald-300" />
               </div>
               <CardTitle className="text-base">{health?.endpoint ?? "/health/live"}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-slate-400">
                 {health?.health.backend
                   ? `Backend: ${health.health.backend}`
                   : "Aguardando resposta do backend"}
@@ -127,12 +127,12 @@ export default function SystemHealthPage() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardDescription>Security boundary</CardDescription>
-                <ShieldCheck className="size-4 text-blue-600" />
+                <ShieldCheck className="size-4 text-sky-300" />
               </div>
               <CardTitle className="text-base">Tenant-aware HTTP</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-slate-400">
                 A identidade e o escopo operacional são validados pela sessão assinada no backend.
               </p>
             </CardContent>
@@ -148,13 +148,13 @@ export default function SystemHealthPage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-900">
+              <p className="text-sm font-semibold text-slate-100">
                 Estado: {connection === "online" ? "conectado" : connection === "checking" ? "verificando" : "indisponível"}
               </p>
               {error ? (
-                <p className="mt-1 break-all text-sm text-red-600">{error}</p>
+                <p className="mt-1 break-all text-sm text-red-300">{error}</p>
               ) : (
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-slate-400">
                   {health?.endpoint
                     ? `Resposta validada via ${health.endpoint}`
                     : "Nenhuma resposta validada ainda"}

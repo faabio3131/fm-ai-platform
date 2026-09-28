@@ -66,11 +66,11 @@ export function AuditoriaWorkspace() {
   return (
     <main className="space-y-6 p-4 md:p-6">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">
           WP-033
         </p>
-        <h1 className="text-2xl font-black text-slate-950">Auditoria</h1>
-        <p className="mt-1 text-sm text-slate-600">
+        <h1 className="text-2xl font-black text-slate-50">Auditoria</h1>
+        <p className="mt-1 text-sm text-slate-400">
           Trilha read-only da unidade ativa. Segredos, tokens e metadata interna
           não são expostos nesta superfície.
         </p>
@@ -122,15 +122,15 @@ export function AuditoriaWorkspace() {
             dados.eventos.map((evento) => (
               <article
                 key={evento.audit_id}
-                className="rounded-xl border border-slate-200 p-4"
+                className="rounded-xl border border-slate-700/60 bg-slate-950/24 p-4"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-slate-900">{evento.acao}</p>
+                  <p className="font-semibold text-slate-100">{evento.acao}</p>
                   <time className="text-xs text-slate-500">
                     {new Date(evento.timestamp).toLocaleString("pt-BR")}
                   </time>
                 </div>
-                <p className="mt-1 text-sm text-slate-600">
+                <p className="mt-1 text-sm text-slate-400">
                   {evento.resultado} · {evento.usuario_id} · {evento.recurso_tipo}
                   {evento.recurso_id ? `/${evento.recurso_id}` : ""}
                 </p>

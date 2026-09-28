@@ -1,10 +1,10 @@
 # Kordena V1 — Visual Premium Final — System Design
 
-**Data:** 21/09/2026
-**Branch oficial:** `feat/web-parity-v1-total-original-migration`
-**PR:** #118
-**Baseline funcional autorizado:** `7b588012c5cd09a265f7b955f6d485eaa4c7713d`
-**Baseline CI:** 29/29 workflows SUCCESS; `WP-031 Master Gate` run `35622812468` SUCCESS.
+**Data de reconciliação:** 27/09/2026
+**Branch oficial:** `feat/kordena-v1-visual-premium-final`
+**PR:** #138
+**Baseline funcional autorizado:** `staging/kordena-premium@023bb8d78495eb5464568543c248e3337019766f`
+**Baseline:** KCA-00→KCA-17 integrados; PR #137 mergeada; `staging/kordena-premium` reconciliado no merge `023bb8d78495eb5464568543c248e3337019766f`; release público continua separado e fail-closed nas dependências externas.
 
 ## 1. Objetivo
 
@@ -76,4 +76,25 @@ A fase somente pode ser considerada concluída após:
 - auditoria final de preservação funcional;
 - evidência documental do HEAD certificado.
 
-Merge, deploy e promoção para produção permanecem proibidos nesta fase.
+O merge normal da PR canônica está autorizado automaticamente após 100% dos gates obrigatórios verdes, reconciliação completa e ausência de STOP condition. Deploy/cutover público, ações destrutivas, migrations produtivas irreversíveis, transações financeiras reais e ampliação de privilégios permanecem fora desta autorização.
+
+
+## 7. Ordem executiva vigente — 27/09/2026
+
+Por decisão explícita mais recente do proprietário, o fluxo desta fase e das seguintes é:
+
+`executar → corrigir → testar → certificar → mergear → pós-merge → próximo item do Cronograma Mestre`.
+
+Não é necessária nova autorização intermediária para PR, correção, certificação ou merge normal da PR canônica quando todos os gates exigidos estiverem comprovadamente verdes. A execução só deve parar por STOP condition real ou por ação sensível que mantenha gate próprio.
+
+## 8. CURRENT técnico reconciliado
+
+- repositório: `faabio3131/fm-ai-platform`;
+- base: `staging/kordena-premium`;
+- baseline SHA: `023bb8d78495eb5464568543c248e3337019766f`;
+- branch da fase: `feat/kordena-v1-visual-premium-final`;
+- aplicação visual canônica: `web/` em Next.js;
+- 33/33 Work Packages funcionais certificados antes da fase visual;
+- implementação histórica da PR #47 é somente referência e não será mergeada/rebaseada cegamente;
+- Visual Premium deve preservar regras de negócio, auth, RBAC, tenant/unidade, contratos HTTP, dados, migrations e autoridades de domínio;
+- deploy público não faz parte desta fase.

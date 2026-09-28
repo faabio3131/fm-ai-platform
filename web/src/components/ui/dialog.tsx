@@ -12,7 +12,7 @@ const DialogClose = DialogPrimitive.Close;
 const DialogPortal = DialogPrimitive.Portal;
 
 function DialogOverlay({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
-  return <DialogPrimitive.Overlay className={cn("fixed inset-0 z-50 bg-slate-950/72 backdrop-blur-sm", className)} {...props} />;
+  return <DialogPrimitive.Overlay className={cn("fixed inset-0 z-50 bg-[#020710]/82 backdrop-blur-md", className)} {...props} />;
 }
 
 function DialogContent({ className, children, ...props }: React.ComponentProps<typeof DialogPrimitive.Content>) {
@@ -21,7 +21,7 @@ function DialogContent({ className, children, ...props }: React.ComponentProps<t
       <DialogOverlay />
       <DialogPrimitive.Content
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 overflow-hidden rounded-3xl border border-slate-200/80 bg-background p-6 shadow-[0_34px_90px_-34px_rgba(2,6,23,0.65)] outline-none dark:border-slate-700/80",
+          "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 overflow-hidden rounded-3xl border border-slate-600/45 bg-[linear-gradient(145deg,#0f1e33,#081421)] p-6 text-slate-100 shadow-[0_38px_100px_-38px_rgba(0,0,0,0.92)] outline-none",
           className,
         )}
         {...props}

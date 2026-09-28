@@ -61,14 +61,14 @@ function dateTime(value: string | null): string {
 }
 
 function statusClass(status: string): string {
-  if (status === "entregue") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (status === "entregue") return "border-emerald-300/20 bg-emerald-400/[0.08] text-emerald-200";
   if (["cancelada", "tentativa_falhou"].includes(status)) {
-    return "border-red-200 bg-red-50 text-red-700";
+    return "border-red-300/20 bg-red-500/[0.08] text-red-200";
   }
   if (["coletada", "em_rota", "atribuida"].includes(status)) {
-    return "border-blue-200 bg-blue-50 text-blue-700";
+    return "border-blue-300/20 bg-blue-500/[0.08] text-blue-200";
   }
-  return "border-amber-200 bg-amber-50 text-amber-700";
+  return "border-amber-300/20 bg-amber-400/[0.08] text-amber-200";
 }
 
 export function EntregaWorkspace() {
@@ -193,10 +193,10 @@ export function EntregaWorkspace() {
 
   if (auth.status === "authenticated" && !allowed) {
     return (
-      <div className="flex min-h-full items-center justify-center bg-slate-100 p-6">
-        <div className="max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
+      <div className="flex min-h-full items-center justify-center bg-[#06101d] p-6">
+        <div className="max-w-md rounded-3xl border border-slate-700/60 bg-[linear-gradient(145deg,#0f1e33,#081421)] p-7 text-slate-100 shadow-[0_28px_76px_-40px_rgba(0,0,0,0.88)]">
           <ShieldAlert className="size-9 text-amber-500" />
-          <h1 className="mt-4 text-xl font-black text-slate-950">Expedição e Entrega não liberada</h1>
+          <h1 className="mt-4 text-xl font-black text-slate-50">Expedição e Entrega não liberada</h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">
             Sua sessão é válida, mas não possui a permissão operacional de expedição.
           </p>
@@ -207,7 +207,7 @@ export function EntregaWorkspace() {
   }
 
   return (
-    <div className="min-h-full bg-slate-100 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-full bg-[#06101d] p-4 text-slate-100 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-[1700px] space-y-5">
         <header className="flex flex-col gap-4 rounded-3xl bg-slate-950 p-6 text-white shadow-xl shadow-slate-950/10 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4">
@@ -228,8 +228,8 @@ export function EntregaWorkspace() {
           </div>
         </header>
 
-        {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</div> : null}
-        {notice ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">{notice}</div> : null}
+        {error ? <div className="rounded-2xl border border-red-300/20 bg-red-500/[0.08] px-4 py-3 text-sm font-medium text-red-200">{error}</div> : null}
+        {notice ? <div className="rounded-2xl border border-emerald-300/20 bg-emerald-400/[0.08] px-4 py-3 text-sm font-medium text-emerald-200">{notice}</div> : null}
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
@@ -238,17 +238,17 @@ export function EntregaWorkspace() {
             ["Em rota", counts.get("em_rota") ?? 0],
             ["Entregues", counts.get("entregue") ?? 0],
           ].map(([label, count]) => (
-            <div key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div key={String(label)} className="rounded-2xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] p-4 shadow-[0_22px_56px_-34px_rgba(0,0,0,0.82)]">
               <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p>
-              <p className="mt-2 text-2xl font-black text-slate-950">{count}</p>
+              <p className="mt-2 text-2xl font-black text-slate-50">{count}</p>
             </div>
           ))}
         </div>
 
         <section className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 p-5">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-600">Fila logística</p>
+          <div className="overflow-hidden rounded-3xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] shadow-[0_22px_56px_-34px_rgba(0,0,0,0.82)]">
+            <div className="border-b border-slate-700/60 p-5">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-300">Fila logística</p>
               <p className="mt-1 text-sm text-slate-500">{deliveries.length} entrega(s) na sua alçada.</p>
             </div>
             {deliveries.length === 0 ? (
@@ -258,16 +258,16 @@ export function EntregaWorkspace() {
                 key={delivery.entrega_id}
                 type="button"
                 onClick={() => void openDetail(delivery.entrega_id)}
-                className={`grid w-full gap-3 border-b border-slate-200 p-4 text-left transition-colors sm:grid-cols-[1.3fr_0.8fr_0.8fr] sm:items-center ${selectedId === delivery.entrega_id ? "bg-blue-50" : "hover:bg-slate-50"}`}
+                className={`grid w-full gap-3 border-b border-slate-700/60 p-4 text-left transition-colors sm:grid-cols-[1.3fr_0.8fr_0.8fr] sm:items-center ${selectedId === delivery.entrega_id ? "bg-blue-500/10" : "hover:bg-white/[0.035]"}`}
               >
-                <div className="min-w-0"><p className="truncate text-sm font-black text-slate-950">Pedido {delivery.pedido_id}</p><p className="mt-1 text-xs text-slate-500">Tentativa {delivery.tentativa} · v{delivery.versao}</p></div>
+                <div className="min-w-0"><p className="truncate text-sm font-black text-slate-100">Pedido {delivery.pedido_id}</p><p className="mt-1 text-xs text-slate-500">Tentativa {delivery.tentativa} · v{delivery.versao}</p></div>
                 <Badge variant="outline" className={statusClass(delivery.status)}>{humanize(delivery.status)}</Badge>
-                <p className="truncate text-sm text-slate-600">{delivery.entregador_id ?? "sem entregador"}</p>
+                <p className="truncate text-sm text-slate-400">{delivery.entregador_id ?? "sem entregador"}</p>
               </button>
             ))}
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-3xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] p-5 shadow-[0_22px_56px_-34px_rgba(0,0,0,0.82)]">
             {!selected ? (
               <div className="flex min-h-72 flex-col items-center justify-center text-center"><PackageCheck className="size-9 text-slate-300" /><p className="mt-3 text-sm font-bold text-slate-700">Selecione uma entrega</p><p className="mt-1 text-sm text-slate-500">O detalhe operacional e as ações autorizadas aparecem aqui.</p></div>
             ) : detailLoading ? (
@@ -275,16 +275,16 @@ export function EntregaWorkspace() {
             ) : (
               <div className="space-y-5">
                 <div className="flex items-start justify-between gap-3">
-                  <div><p className="text-xs font-black uppercase tracking-[0.16em] text-blue-600">Detalhe operacional</p><h2 className="mt-1 text-lg font-black text-slate-950">{selected.pedido_id}</h2><p className="mt-1 text-xs text-slate-500">Entrega {selected.entrega_id} · versão {selected.versao}</p></div>
+                  <div><p className="text-xs font-black uppercase tracking-[0.16em] text-sky-300">Detalhe operacional</p><h2 className="mt-1 text-lg font-black text-slate-50">{selected.pedido_id}</h2><p className="mt-1 text-xs text-slate-500">Entrega {selected.entrega_id} · versão {selected.versao}</p></div>
                   <Badge variant="outline" className={statusClass(selected.status)}>{humanize(selected.status)}</Badge>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Entregador</p><p className="mt-1 text-sm font-bold text-slate-950">{selected.entregador_id ?? "não atribuído"}</p></div>
-                  <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Tentativa</p><p className="mt-1 text-sm font-bold text-slate-950">{selected.tentativa}</p></div>
+                  <div className="rounded-2xl border border-slate-700/45 bg-slate-950/32 p-4"><p className="text-xs text-slate-500">Entregador</p><p className="mt-1 text-sm font-bold text-slate-100">{selected.entregador_id ?? "não atribuído"}</p></div>
+                  <div className="rounded-2xl border border-slate-700/45 bg-slate-950/32 p-4"><p className="text-xs text-slate-500">Tentativa</p><p className="mt-1 text-sm font-bold text-slate-100">{selected.tentativa}</p></div>
                 </div>
 
-                <div className="grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
+                <div className="grid gap-2 text-xs text-slate-400 sm:grid-cols-2">
                   <p>Produção pronta: <strong>{dateTime(selected.producao_pronta_em)}</strong></p>
                   <p>Checklist: <strong>{dateTime(selected.checklist_concluido_em)}</strong></p>
                   <p>Coleta: <strong>{dateTime(selected.coletada_em)}</strong></p>
@@ -303,7 +303,7 @@ export function EntregaWorkspace() {
                         <label key={key} className="flex items-center gap-2"><input type="checkbox" checked={checklist[key as "itens" | "embalagem" | "identificacao"] as boolean} onChange={(event) => setChecklist((current) => ({ ...current, [key]: event.target.checked }))} /> {label}</label>
                       ))}
                     </div>
-                    <Input className="mt-3 bg-white" placeholder="Observação operacional (opcional)" value={checklist.observacao} onChange={(event) => setChecklist((current) => ({ ...current, observacao: event.target.value }))} />
+                    <Input className="mt-3 bg-slate-950/52" placeholder="Observação operacional (opcional)" value={checklist.observacao} onChange={(event) => setChecklist((current) => ({ ...current, observacao: event.target.value }))} />
                     <Button className="mt-3 w-full" disabled={!checklist.itens || !checklist.embalagem || !checklist.identificacao || actionBusy} onClick={() => void runAction(() => completeChecklist(selected.entrega_id, selected.versao, { itens_conferidos: checklist.itens, embalagem_conferida: checklist.embalagem, identificacao_conferida: checklist.identificacao, observacao_operacional: checklist.observacao.trim() || undefined }), "Checklist concluído e custódia liberada para a próxima etapa.")}>
                       <CheckCircle2 className="size-4" /> Concluir checklist
                     </Button>
@@ -311,9 +311,9 @@ export function EntregaWorkspace() {
                 ) : null}
 
                 {canAssign ? (
-                  <div className="rounded-2xl border border-slate-200 p-4">
-                    <div className="flex items-center gap-2 text-sm font-black text-slate-950"><UserRoundCheck className="size-4 text-blue-600" /> Atribuição governada</div>
-                    <select value={selectedDriver} onChange={(event) => setSelectedDriver(event.target.value)} className="mt-3 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm">
+                  <div className="rounded-2xl border border-slate-700/60 bg-slate-950/18 p-4">
+                    <div className="flex items-center gap-2 text-sm font-black text-slate-100"><UserRoundCheck className="size-4 text-sky-300" /> Atribuição governada</div>
+                    <select value={selectedDriver} onChange={(event) => setSelectedDriver(event.target.value)} className="mt-3 h-11 w-full rounded-xl border border-slate-700 bg-slate-950/52 px-3 text-sm text-slate-100">
                       <option value="">Selecione um entregador elegível</option>
                       {drivers.map((driver) => <option key={driver.usuario_id} value={driver.usuario_id}>{driver.email}</option>)}
                     </select>
@@ -327,8 +327,8 @@ export function EntregaWorkspace() {
                 {canRoute ? <Button className="w-full" disabled={actionBusy} onClick={() => void runAction(() => startRoute(selected.entrega_id, selected.versao), "Entrega saiu em rota.")}><Route className="size-4" /> Sair em rota</Button> : null}
 
                 {canCloseRoute ? (
-                  <div className="space-y-3 rounded-2xl border border-slate-200 p-4">
-                    <p className="text-sm font-black text-slate-950">Fechamento de rota</p>
+                  <div className="space-y-3 rounded-2xl border border-slate-700/60 bg-slate-950/18 p-4">
+                    <p className="text-sm font-black text-slate-100">Fechamento de rota</p>
                     <Input placeholder="Referência da prova de entrega" value={proofReference} onChange={(event) => setProofReference(event.target.value)} />
                     <Button className="w-full" disabled={!proofReference.trim() || actionBusy} onClick={() => void runAction(() => confirmDelivered(selected.entrega_id, selected.versao, proofReference.trim()), "Entrega confirmada com prova registrada.")}>
                       <CheckCircle2 className="size-4" /> Confirmar entrega
@@ -341,10 +341,10 @@ export function EntregaWorkspace() {
                 ) : null}
 
                 <div>
-                  <p className="text-sm font-black text-slate-950">Timeline</p>
+                  <p className="text-sm font-black text-slate-100">Timeline</p>
                   <div className="mt-2 max-h-64 space-y-2 overflow-auto">
                     {detail?.eventos.length ? detail.eventos.map((event) => (
-                      <div key={event.event_id} className="rounded-xl border border-slate-200 p-3 text-sm"><strong>{humanize(event.tipo)}</strong><p className="mt-1 text-xs text-slate-500">{dateTime(event.ocorrido_em)} · v{event.versao_entrega}</p></div>
+                      <div key={event.event_id} className="rounded-xl border border-slate-700/60 bg-slate-950/24 p-3 text-sm"><strong>{humanize(event.tipo)}</strong><p className="mt-1 text-xs text-slate-500">{dateTime(event.ocorrido_em)} · v{event.versao_entrega}</p></div>
                     )) : <p className="text-sm text-slate-500">Nenhum evento registrado.</p>}
                   </div>
                 </div>

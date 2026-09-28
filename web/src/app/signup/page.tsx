@@ -45,8 +45,8 @@ export default function SignupPage() {
 
   if (!SIGNUP_ENABLED) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#06101d] px-5 text-white">
-        <section className="w-full max-w-lg rounded-[2rem] border border-white/[0.09] bg-slate-900/80 p-8 text-center">
+      <main className="kordena-page-dark relative flex min-h-screen items-center justify-center overflow-hidden px-5 text-white">
+        <section className="kordena-panel-dark relative w-full max-w-lg rounded-[2rem] p-8 text-center">
           <ShieldCheck className="mx-auto size-10 text-blue-300" />
           <h1 className="mt-5 text-2xl font-black">Cadastro em preparação</h1>
           <p className="mt-3 text-sm leading-6 text-slate-400">
@@ -62,8 +62,8 @@ export default function SignupPage() {
 
   if (accepted) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#06101d] px-5 text-white">
-        <section className="w-full max-w-lg rounded-[2rem] border border-white/[0.09] bg-slate-900/80 p-8 text-center">
+      <main className="kordena-page-dark relative flex min-h-screen items-center justify-center overflow-hidden px-5 text-white">
+        <section className="kordena-panel-dark relative w-full max-w-lg rounded-[2rem] p-8 text-center">
           <MailCheck className="mx-auto size-10 text-emerald-300" />
           <h1 className="mt-5 text-2xl font-black">Confira seu e-mail</h1>
           <p className="mt-3 text-sm leading-6 text-slate-400">
@@ -75,8 +75,8 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#06101d] px-5 py-10 text-white">
-      <section className="mx-auto w-full max-w-xl rounded-[2rem] border border-white/[0.09] bg-slate-900/80 p-6 sm:p-8">
+    <main className="kordena-page-dark relative min-h-screen overflow-hidden px-5 py-10 text-white">
+      <section className="kordena-panel-dark relative mx-auto w-full max-w-xl rounded-[2rem] p-6 sm:p-8">
         <Link href="/login" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white">
           <ArrowLeft className="size-4" /> Voltar
         </Link>

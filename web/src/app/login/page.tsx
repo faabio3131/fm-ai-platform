@@ -118,7 +118,7 @@ export default function LoginPage() {
           </span>
           <div>
             <p className="text-sm font-black tracking-[0.1em]">KORDENA</p>
-            <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-slate-500">Enterprise Operations</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-slate-500">Cognitive Operations</p>
           </div>
         </div>
 
@@ -160,7 +160,7 @@ export default function LoginPage() {
             </span>
             <div>
               <p className="text-sm font-black tracking-[0.1em]">KORDENA</p>
-              <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-slate-500">Enterprise Operations</p>
+              <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-slate-500">Cognitive Operations</p>
             </div>
           </div>
 

@@ -152,7 +152,7 @@ export function OrderCart({ onCheckout }: OrderCartProps) {
             </div>
             <div className="flex items-end justify-between border-t pt-3">
               <span className="font-semibold">Total</span>
-              <span className="text-2xl font-black tracking-tight text-slate-950 dark:text-white">
+              <span className="text-2xl font-black tracking-tight text-slate-50">
                 {totals.totalFormatted}
               </span>
             </div>

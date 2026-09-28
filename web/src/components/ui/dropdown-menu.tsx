@@ -19,7 +19,7 @@ function DropdownMenuContent({ className, sideOffset = 6, ...props }: React.Comp
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          "z-50 min-w-40 overflow-hidden rounded-2xl border border-border/80 bg-popover/96 p-1.5 text-popover-foreground shadow-[0_24px_70px_-32px_rgba(2,6,23,0.55)] backdrop-blur-xl",
+          "z-50 min-w-40 overflow-hidden rounded-2xl border border-slate-600/45 bg-[#0b1728]/96 p-1.5 text-slate-100 shadow-[0_28px_80px_-34px_rgba(0,0,0,0.88)] backdrop-blur-xl",
           className,
         )}
         {...props}
@@ -29,7 +29,7 @@ function DropdownMenuContent({ className, sideOffset = 6, ...props }: React.Comp
 }
 
 function DropdownMenuItem({ className, inset, ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Item> & { inset?: boolean }) {
-  return <DropdownMenuPrimitive.Item className={cn("relative flex min-h-9 cursor-default select-none items-center gap-2 rounded-xl px-2.5 py-2 text-sm outline-none transition focus:bg-muted data-[disabled]:pointer-events-none data-[disabled]:opacity-50", inset && "pl-8", className)} {...props} />;
+  return <DropdownMenuPrimitive.Item className={cn("relative flex min-h-9 cursor-default select-none items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-slate-200 outline-none transition focus:bg-white/[0.07] focus:text-white data-[disabled]:pointer-events-none data-[disabled]:opacity-50", inset && "pl-8", className)} {...props} />;
 }
 
 function DropdownMenuLabel({ className, inset, ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Label> & { inset?: boolean }) {

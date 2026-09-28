@@ -5,20 +5,20 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 active:translate-y-px [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-ring/80 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45 active:translate-y-px [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground shadow-[0_10px_24px_-14px_rgba(37,99,235,0.9)] hover:-translate-y-0.5 hover:bg-blue-500 hover:shadow-[0_16px_30px_-16px_rgba(37,99,235,0.8)] active:translate-y-0",
+          "border border-blue-300/10 bg-[linear-gradient(135deg,#2f7cf6,#078bd4_58%,#0ea5e9)] text-white shadow-[0_16px_34px_-18px_rgba(47,124,246,0.92)] hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[0_20px_38px_-18px_rgba(47,124,246,0.8)] active:translate-y-0",
         destructive:
           "bg-destructive text-white shadow-[0_10px_24px_-15px_rgba(220,38,38,0.8)] hover:-translate-y-0.5 hover:bg-red-500 active:translate-y-0",
         outline:
-          "border border-slate-200/90 bg-white/80 text-slate-800 shadow-sm backdrop-blur hover:-translate-y-0.5 hover:border-blue-200 hover:bg-white hover:text-blue-700 hover:shadow-md dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:hover:border-blue-500/40 dark:hover:bg-slate-800 dark:hover:text-white active:translate-y-0",
+          "border border-slate-600/70 bg-slate-950/45 text-slate-100 shadow-[inset_0_1px_rgba(255,255,255,0.035)] backdrop-blur hover:-translate-y-0.5 hover:border-sky-400/35 hover:bg-slate-800/80 hover:text-white hover:shadow-[0_14px_32px_-24px_rgba(56,189,248,0.65)] active:translate-y-0",
         secondary:
-          "bg-secondary text-secondary-foreground shadow-sm hover:-translate-y-0.5 hover:bg-slate-200 dark:hover:bg-slate-700 active:translate-y-0",
+          "border border-slate-600/40 bg-secondary text-secondary-foreground shadow-sm hover:-translate-y-0.5 hover:bg-slate-700 active:translate-y-0",
         ghost:
-          "text-foreground hover:bg-slate-900/5 hover:text-primary dark:hover:bg-white/[0.08] dark:hover:text-white",
+          "text-slate-300 hover:bg-white/[0.065] hover:text-white",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {

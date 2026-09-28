@@ -172,8 +172,8 @@ export function UnifiedAppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#08111f] text-slate-100">
-      <header className="sticky top-0 z-40 border-b border-white/[0.07] bg-[#08111f]/92 px-4 py-3 backdrop-blur-xl lg:px-6">
+    <div className="flex min-h-screen flex-col bg-[#050d18] text-slate-100">
+      <header className="sticky top-0 z-40 border-b border-sky-300/[0.08] bg-[#050d18]/94 px-4 py-3 shadow-[0_18px_42px_-34px_rgba(0,0,0,0.9)] backdrop-blur-2xl lg:px-6">
         <div className="mx-auto flex max-w-[1920px] items-center justify-between gap-4">
           <Link href="/" className="flex min-w-0 items-center gap-3">
             <span className="kordena-brand-mark flex size-10 shrink-0 items-center justify-center rounded-xl">
@@ -184,7 +184,7 @@ export function UnifiedAppShell({ children }: { children: ReactNode }) {
                 KORDENA
               </span>
               <span className="hidden text-[9px] font-bold uppercase tracking-[0.22em] text-slate-500 sm:block">
-                Enterprise Operations
+                Cognitive Operations
               </span>
             </span>
           </Link>
@@ -245,7 +245,7 @@ export function UnifiedAppShell({ children }: { children: ReactNode }) {
       </header>
 
       <div className="mx-auto flex min-h-0 w-full max-w-[1920px] flex-1">
-        <aside className="hidden w-72 shrink-0 flex-col border-r border-white/[0.065] bg-[linear-gradient(180deg,#08111f_0%,#0a1525_55%,#08111f_100%)] p-4 lg:flex">
+        <aside className="hidden w-72 shrink-0 flex-col border-r border-sky-300/[0.07] bg-[linear-gradient(180deg,#050d18_0%,#09172a_48%,#050d18_100%)] p-4 shadow-[18px_0_50px_-42px_rgba(0,0,0,0.95)] lg:flex">
           <nav className="space-y-6" aria-label="Navegação principal">
             <div className="space-y-1">
               <Link
@@ -270,7 +270,7 @@ export function UnifiedAppShell({ children }: { children: ReactNode }) {
 
             {operationModules.length > 0 ? (
               <div>
-                <p className="mb-2 px-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">
+                <p className="mb-2 px-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
                   Operação
                 </p>
                 <div className="space-y-1">
@@ -307,26 +307,26 @@ export function UnifiedAppShell({ children }: { children: ReactNode }) {
                   </span>
                   <span className="min-w-0">
                     <span className="block text-xs font-bold text-white">Gerente IA</span>
-                    <span className="mt-0.5 block truncate text-[10px] text-slate-500">Inteligência operacional governada</span>
+                    <span className="mt-0.5 block truncate text-[10px] text-slate-400">Inteligência operacional governada</span>
                   </span>
                 </div>
               </Link>
             ) : null}
 
-            <div className="rounded-2xl border border-white/[0.065] bg-white/[0.035] p-3.5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600">Unidade operacional</p>
+            <div className="rounded-2xl border border-sky-300/[0.08] bg-[linear-gradient(145deg,rgba(17,34,59,0.58),rgba(8,20,36,0.7))] p-3.5 shadow-[inset_0_1px_rgba(255,255,255,0.025)]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Unidade operacional</p>
               <p className="mt-1.5 truncate text-xs font-semibold text-slate-300">{unitTitle(activeUnit)}</p>
             </div>
           </div>
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col bg-[#f4f7fb]">
-          <nav className="flex gap-2 overflow-x-auto border-b border-slate-200/80 bg-white/92 px-3 py-2.5 shadow-sm backdrop-blur lg:hidden" aria-label="Navegação móvel">
+        <div className="flex min-w-0 flex-1 flex-col bg-[#06101d]">
+          <nav className="flex gap-2 overflow-x-auto border-b border-sky-300/[0.08] bg-[#071321]/94 px-3 py-2.5 shadow-[0_16px_34px_-28px_rgba(0,0,0,0.9)] backdrop-blur-xl lg:hidden" aria-label="Navegação móvel">
             <Link
               href="/"
               className={[
                 "flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold",
-                pathname === "/" ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600",
+                pathname === "/" ? "bg-[linear-gradient(135deg,#2f7cf6,#0ea5e9)] text-white" : "border border-slate-700/60 bg-slate-900/72 text-slate-300",
               ].join(" ")}
             >
               <CircleGauge className="size-4" />
@@ -336,7 +336,7 @@ export function UnifiedAppShell({ children }: { children: ReactNode }) {
               <NavigationLink key={module.id} module={module} pathname={pathname} compact />
             ))}
           </nav>
-          <main className="min-h-0 min-w-0 flex-1 overflow-auto bg-[#f4f7fb] text-slate-950">
+          <main className="min-h-0 min-w-0 flex-1 overflow-auto bg-[#06101d] text-slate-100">
             {children}
           </main>
         </div>

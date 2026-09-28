@@ -81,10 +81,10 @@ export function PDVTouchWorkspace() {
 
   if (!connected) {
     return (
-      <main className="min-h-screen bg-slate-100 px-4 py-6 text-foreground sm:px-6 lg:px-8">
+      <main className="kordena-page-dark min-h-screen px-4 py-6 text-slate-100 sm:px-6 lg:px-8">
         <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-6xl items-center justify-center">
-          <Card className="w-full max-w-xl border-slate-300 shadow-xl">
-            <CardHeader className="space-y-4 border-b bg-slate-950 text-white">
+          <Card className="w-full max-w-xl border-white/10 bg-slate-950/80 shadow-2xl shadow-black/30">
+            <CardHeader className="space-y-4 border-b border-white/10 bg-slate-950/90 text-white">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex size-12 items-center justify-center rounded-2xl bg-primary text-white">
                   <Store className="size-6" />
@@ -146,21 +146,21 @@ export function PDVTouchWorkspace() {
   }
 
   return (
-    <main className="h-screen overflow-hidden bg-slate-100 p-3 text-foreground sm:p-4 lg:p-5">
+    <main className="kordena-page-dark h-screen overflow-hidden p-3 text-slate-100 sm:p-4 lg:p-5">
       <div className="mx-auto flex h-full max-w-[1800px] flex-col gap-3">
-        <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 rounded-2xl border bg-white px-4 py-3 shadow-sm">
+        <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 shadow-xl shadow-black/20 backdrop-blur-xl">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-white">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#2563eb] to-[#0ea5e9] text-white shadow-lg shadow-blue-950/30">
               <Store className="size-5" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="truncate text-lg font-black tracking-tight">PDV Touchscreen</h1>
+                <h1 className="truncate text-lg font-black tracking-tight text-white">PDV Touchscreen</h1>
                 <Badge className="hidden bg-[#10b981]/10 text-[#10b981] hover:bg-[#10b981]/10 sm:inline-flex">
                   Online
                 </Badge>
               </div>
-              <p className="truncate text-xs text-muted-foreground">
+              <p className="truncate text-xs text-slate-500">
                 {tenantId} · {unitId} · contrato /v1/pdv
               </p>
             </div>
@@ -171,7 +171,7 @@ export function PDVTouchWorkspace() {
               <RefreshCw className={loadingCatalog ? "animate-spin" : ""} />
               <span className="hidden sm:inline">Atualizar catálogo</span>
             </Button>
-            <Button type="button" variant="ghost" className="h-11 rounded-xl text-muted-foreground" onClick={disconnect}>
+            <Button type="button" variant="ghost" className="h-11 rounded-xl text-slate-400 hover:bg-white/[0.06] hover:text-white" onClick={disconnect}>
               <LogOut />
               <span className="hidden sm:inline">Encerrar</span>
             </Button>
@@ -185,7 +185,7 @@ export function PDVTouchWorkspace() {
         ) : null}
 
         <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_390px] xl:grid-cols-[minmax(0,1fr)_430px]">
-          <div className="min-h-0 rounded-2xl border bg-white p-3 shadow-sm sm:p-4">
+          <div className="min-h-0 rounded-2xl border border-white/10 bg-slate-950/70 p-3 shadow-xl shadow-black/20 backdrop-blur-xl sm:p-4">
             <ProductCatalog products={catalog} loading={loadingCatalog} />
           </div>
           <OrderCart onCheckout={() => setCheckoutOpen(true)} />

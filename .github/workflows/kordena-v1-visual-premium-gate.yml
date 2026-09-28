@@ -9,11 +9,17 @@ on:
   push:
     branches:
       - feat/web-parity-v1-total-original-migration
+      - staging/kordena-premium
+      - main
     paths:
       - 'web/**'
       - 'docs/web-parity/KORDENA_V1_VISUAL_PREMIUM_**'
       - '.github/workflows/kordena-v1-visual-premium-gate.yml'
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

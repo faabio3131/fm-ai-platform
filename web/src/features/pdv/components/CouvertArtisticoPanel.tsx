@@ -65,7 +65,7 @@ export function CouvertArtisticoPanel() {
   }
 
   return (
-    <section className="rounded-2xl border bg-white p-4 shadow-sm" aria-label="Couvert artístico">
+    <section className="rounded-2xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.97),rgba(8,20,36,0.97))] p-4 text-slate-100 shadow-[0_18px_44px_-30px_rgba(0,0,0,0.78)]" aria-label="Couvert artístico">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">
