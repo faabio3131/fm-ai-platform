@@ -140,6 +140,8 @@ MATRIZ_PADRAO: dict[Papel, frozenset[Permissao]] = {
             Permissao.PEDIDO_CRIAR,
             Permissao.PEDIDO_VISUALIZAR,
             Permissao.CLIENTE_VISUALIZAR,
+            Permissao.ATENDIMENTO_VISUALIZAR,
+            Permissao.ATENDIMENTO_GERENCIAR,
         }
     ),
     Papel.FINANCEIRO: frozenset(

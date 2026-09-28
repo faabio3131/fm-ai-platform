@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
@@ -401,6 +403,8 @@ function ConversaDetailDialog({ conversa }: ConversaDetailDialogProps) {
 }
 
 export function AssistenteAtendimentoWorkspace() {
+  const pathname = usePathname();
+  const adminSurface = pathname.startsWith('/admin/');
   const [identidade, setIdentidade] = useState<IdentidadeAssistente | null>(null);
   const [conversas, setConversas] = useState<ConversaResumo[]>([]);
   const [loadingIdentidade, setLoadingIdentidade] = useState(true);
@@ -845,14 +849,22 @@ export function AssistenteAtendimentoWorkspace() {
               </div>
 
               {!loadingIdentidade && identidade ? (
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" className="mt-4 w-full border-sky-300/10 bg-white/[0.03]">
-                      Configurar identidade
-                    </Button>
-                  </DialogTrigger>
-                  <IdentidadeDialog identidade={identidade} onSave={handleSaveIdentidade} />
-                </Dialog>
+                adminSurface ? (
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="mt-4 w-full border-sky-300/10 bg-white/[0.03]">
+                        Configurar identidade
+                      </Button>
+                    </DialogTrigger>
+                    <IdentidadeDialog identidade={identidade} onSave={handleSaveIdentidade} />
+                  </Dialog>
+                ) : (
+                  <Button asChild variant="outline" className="mt-4 w-full border-sky-300/10 bg-white/[0.03]">
+                    <Link href="/admin/assistente-atendimento">
+                      Abrir configuração protegida
+                    </Link>
+                  </Button>
+                )
               ) : null}
             </div>
 

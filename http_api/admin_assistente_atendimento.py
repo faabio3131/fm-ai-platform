@@ -17,7 +17,8 @@ from application.assistente_atendimento_admin import (
 )
 from core.assistente_atendimento.modelos import ConfiguracaoIdentidadeAssistente
 from core.gerente_ia.erros import ErroGerenteIA
-from core.seguranca.erros import ErroSeguranca
+from core.seguranca.erros import CredenciaisInvalidas, ErroSeguranca
+from core.seguranca.permissoes import Permissao
 from http_api.admin_backoffice import contexto_backoffice
 from http_api.admin_dashboard import _tratar_erro
 from http_api.auth import AuthSessionRuntime
@@ -150,6 +151,24 @@ def _erro_assistente(exc: Exception) -> JSONResponse:
     return _tratar_erro(exc)
 
 
+def _contexto_atendimento_operacional(
+    request: Request,
+    *,
+    auth_runtime: AuthSessionRuntime,
+    origem: str,
+    permissao: Permissao,
+):
+    identidade = auth_runtime.resolver_identidade(request)
+    if identidade is None:
+        raise CredenciaisInvalidas("credenciais invalidas")
+    if permissao not in identidade.permissoes:
+        raise PermissionError(f"seguranca.{permissao.value.replace('.', '_')}_exigido")
+    return identidade.contexto(
+        origem=origem,
+        correlation_id=request.headers.get("x-correlation-id") or None,
+    )
+
+
 def build_admin_assistente_atendimento_router(
     *,
     session_factory: SessionFactory,
@@ -164,10 +183,11 @@ def build_admin_assistente_atendimento_router(
     @router.get("/identidade", response_model=None)
     def obter_identidade(request: Request) -> IdentidadeAssistenteOut | JSONResponse:
         try:
-            contexto = contexto_backoffice(
+            contexto = _contexto_atendimento_operacional(
                 request,
                 auth_runtime=auth_runtime,
-                origem="admin_assistente_atendimento_http_v1.identidade",
+                origem="assistente_atendimento_http_v1.identidade",
+                permissao=Permissao.ATENDIMENTO_VISUALIZAR,
             )
             return _identidade_out(app.obter_identidade(contexto=contexto))
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
@@ -197,10 +217,11 @@ def build_admin_assistente_atendimento_router(
     @router.get("/conversas", response_model=None)
     def listar_conversas(request: Request) -> ConversasListOut | JSONResponse:
         try:
-            contexto = contexto_backoffice(
+            contexto = _contexto_atendimento_operacional(
                 request,
                 auth_runtime=auth_runtime,
-                origem="admin_assistente_atendimento_http_v1.listar_conversas",
+                origem="assistente_atendimento_http_v1.listar_conversas",
+                permissao=Permissao.ATENDIMENTO_VISUALIZAR,
             )
             conversas = app.listar_conversas(contexto=contexto)
             return ConversasListOut(
@@ -215,10 +236,11 @@ def build_admin_assistente_atendimento_router(
         request: Request,
     ) -> ConversaDetalheOut | JSONResponse:
         try:
-            contexto = contexto_backoffice(
+            contexto = _contexto_atendimento_operacional(
                 request,
                 auth_runtime=auth_runtime,
-                origem="admin_assistente_atendimento_http_v1.obter_conversa",
+                origem="assistente_atendimento_http_v1.obter_conversa",
+                permissao=Permissao.ATENDIMENTO_VISUALIZAR,
             )
             return _detalhe_out(
                 app.obter_conversa(
@@ -236,10 +258,11 @@ def build_admin_assistente_atendimento_router(
         request: Request,
     ) -> HandoffOut | JSONResponse:
         try:
-            contexto = contexto_backoffice(
+            contexto = _contexto_atendimento_operacional(
                 request,
                 auth_runtime=auth_runtime,
-                origem="admin_assistente_atendimento_http_v1.forcar_handoff",
+                origem="assistente_atendimento_http_v1.forcar_handoff",
+                permissao=Permissao.ATENDIMENTO_GERENCIAR,
             )
             app.forcar_handoff(
                 contexto=contexto,

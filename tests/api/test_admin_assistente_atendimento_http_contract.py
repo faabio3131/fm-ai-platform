@@ -26,6 +26,7 @@ TENANT = "tenant-assistente-http"
 UNIDADE_A = "unidade-assistente-a"
 UNIDADE_B = "unidade-assistente-b"
 ADMIN_EMAIL = "admin-assistente@example.com"
+ATENDIMENTO_EMAIL = "atendimento-assistente@example.com"
 CONVERSA_A = "conv-assistente-a"
 CONVERSA_B = "conv-assistente-b"
 TELEFONE_A = "5511999990001"
@@ -56,6 +57,16 @@ def _infra(monkeypatch) -> tuple[TestClient, sessionmaker]:
             unidades_permitidas=(UNIDADE_A, UNIDADE_B),
             acesso_admin_sensivel=True,
         )
+        RepositorioIdentidadesSQLAlchemy(session).criar_usuario(
+            usuario_id="atendimento-assistente-user",
+            email=ATENDIMENTO_EMAIL,
+            password=SENHA,
+            tenant_id=TENANT,
+            unidade_padrao_id=UNIDADE_A,
+            papeis=(Papel.ATENDIMENTO,),
+            unidades_permitidas=(UNIDADE_A,),
+            acesso_admin_sensivel=False,
+        )
         session.commit()
 
     app = build_frontend_http_app(
@@ -71,13 +82,18 @@ def _infra(monkeypatch) -> tuple[TestClient, sessionmaker]:
     return TestClient(app), factory
 
 
-def _login(client: TestClient, *, elevar: bool = True) -> None:
+def _login(
+    client: TestClient,
+    *,
+    elevar: bool = True,
+    email: str = ADMIN_EMAIL,
+) -> None:
     response = client.post(
         "/v1/auth/login",
-        json={"email": ADMIN_EMAIL, "senha": SENHA},
+        json={"email": email, "senha": SENHA},
     )
     assert response.status_code == 200
-    if elevar:
+    if elevar and email == ADMIN_EMAIL:
         response = client.post("/v1/auth/admin-step-up", json={"senha": SENHA})
         assert response.status_code == 200
 
@@ -136,16 +152,63 @@ def _seed_conversa(
         session.commit()
 
 
-def test_assistente_admin_exige_sessao_e_stepup(monkeypatch) -> None:
+def test_assistente_leitura_operacional_nao_exige_stepup_mas_configuracao_exige(monkeypatch) -> None:
     client, _ = _infra(monkeypatch)
 
     sem_sessao = client.get("/v1/admin/assistente-atendimento/identidade")
     assert sem_sessao.status_code == 401
 
     _login(client, elevar=False)
-    sem_stepup = client.get("/v1/admin/assistente-atendimento/identidade")
-    assert sem_stepup.status_code == 403
-    assert sem_stepup.json() == {"erro": "seguranca.admin_step_up_exigido"}
+    leitura = client.get("/v1/admin/assistente-atendimento/identidade")
+    assert leitura.status_code == 200
+
+    configuracao = client.put(
+        "/v1/admin/assistente-atendimento/identidade",
+        json={
+            "nome_publico": "Lia",
+            "atributos": {},
+            "versao_esperada": 1,
+        },
+    )
+    assert configuracao.status_code == 403
+    assert configuracao.json() == {"erro": "seguranca.admin_step_up_exigido"}
+
+
+def test_papel_atendimento_visualiza_e_gerencia_handoff_sem_admin(monkeypatch) -> None:
+    client, factory = _infra(monkeypatch)
+    _seed_conversa(
+        factory,
+        tenant_id=TENANT,
+        unidade_id=UNIDADE_A,
+        conversa_id=CONVERSA_A,
+        telefone=TELEFONE_A,
+    )
+    _login(client, elevar=False, email=ATENDIMENTO_EMAIL)
+
+    identidade = client.get("/v1/admin/assistente-atendimento/identidade")
+    assert identidade.status_code == 200
+
+    conversas = client.get("/v1/admin/assistente-atendimento/conversas")
+    assert conversas.status_code == 200
+    assert [item["conversa_id"] for item in conversas.json()["conversas"]] == [
+        CONVERSA_A
+    ]
+
+    handoff = client.post(
+        f"/v1/admin/assistente-atendimento/conversas/{CONVERSA_A}/handoff",
+        json={"motivo": "equipe assumiu atendimento"},
+    )
+    assert handoff.status_code == 200
+
+    configuracao = client.put(
+        "/v1/admin/assistente-atendimento/identidade",
+        json={
+            "nome_publico": "Não permitido",
+            "atributos": {},
+            "versao_esperada": 1,
+        },
+    )
+    assert configuracao.status_code == 403
 
 
 def test_identidade_fallback_bootstrap_e_concorrencia(monkeypatch) -> None:

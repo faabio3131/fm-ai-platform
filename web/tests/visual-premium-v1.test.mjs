@@ -165,3 +165,29 @@ test("Atendente IA expõe sua capacidade operacional e comercial sem inventar sa
   assert.doesNotMatch(assistente, /bg-slate-100/);
   assert.doesNotMatch(assistente, /border-slate-200/);
 });
+
+
+test("Atendente IA fica aberta à operação e mantém configuração administrativa protegida", () => {
+  const registry = source("../src/features/shell/module-registry.ts");
+  const workspace = source("../src/features/backoffice/assistente-atendimento/components/AssistenteAtendimentoWorkspace.tsx");
+  const page = source("../src/app/atendimento-ia/page.tsx");
+
+  assert.match(registry, /id: "assistente-atendimento"[\s\S]*href: "\/atendimento-ia"[\s\S]*group: "operacao"/);
+  assert.match(registry, /id: "assistente-atendimento"[\s\S]*allPermissions: \["atendimento\.visualizar"\]/);
+  assert.match(workspace, /Abrir configuração protegida/);
+  assert.match(workspace, /adminSurface/);
+  assert.match(page, /AssistenteAtendimentoWorkspace/);
+});
+
+test("Marketplaces ficam visíveis à operação sem expor autoridade administrativa", () => {
+  const marketplace = source("../src/features/orders/components/MarketplaceChannelPanel.tsx");
+
+  assert.match(marketplace, /pedido\.visualizar/);
+  assert.match(marketplace, /integracao\.gerenciar/);
+  assert.match(marketplace, /iFood/);
+  assert.match(marketplace, /Keeta/);
+  assert.match(marketplace, /99Food/);
+  assert.match(marketplace, /homologação pendente/);
+  assert.match(marketplace, /Credenciais e sincronização manual permanecem protegidas/);
+  assert.doesNotMatch(marketplace, /if \(!canManage\) return null/);
+});

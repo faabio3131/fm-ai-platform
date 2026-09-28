@@ -275,13 +275,13 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
   },
   {
     id: "assistente-atendimento",
-    label: "Assistente de Atendimento",
-    description: "Identidade configurável, monitoramento de conversas e handoff humano.",
-    href: "/admin/assistente-atendimento",
-    group: "proprietario",
+    label: "Atendente IA",
+    description: "Agente operacional e comercial: conversas, pedidos e handoff humano.",
+    href: "/atendimento-ia",
+    group: "operacao",
     icon: "assistente",
     available: true,
-    allPermissions: ["admin.acessar", "atendimento.visualizar"],
+    allPermissions: ["atendimento.visualizar"],
   },
 ] as const;
 
