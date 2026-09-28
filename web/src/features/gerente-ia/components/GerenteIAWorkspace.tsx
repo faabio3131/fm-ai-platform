@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowUpRight,
   Bot,
   CheckCircle2,
   LoaderCircle,
@@ -8,11 +9,14 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
+import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 
 import { KordenaBrainMark } from "@/components/brand/KordenaBrainMark";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuthStore } from "@/features/auth/store/auth-store";
+import { availableShellModules } from "@/features/shell/module-registry";
 import {
   confirmarGerenteIA,
   GerenteIAResponse,
@@ -34,7 +38,20 @@ function previewOf(response: GerenteIAResponse | null) {
   return { previewId, fingerprint };
 }
 
+const PERGUNTAS_RAPIDAS = [
+  "Resuma a operação da unidade agora.",
+  "Quais pedidos precisam de atenção neste momento?",
+  "Como estão vendas e pagamentos no período disponível?",
+  "Há estoque crítico ou validade exigindo atenção?",
+  "Existe algum atendimento aguardando intervenção humana?",
+] as const;
+
 export function GerenteIAWorkspace() {
+  const auth = useAuthStore();
+  const modulosOperacionais = useMemo(
+    () => availableShellModules(auth.permissions).filter((module) => module.group === "operacao"),
+    [auth.permissions],
+  );
   const [pergunta, setPergunta] = useState("");
   const [resposta, setResposta] = useState<GerenteIAResponse | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -95,7 +112,7 @@ export function GerenteIAWorkspace() {
                 </div>
               </div>
               <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base">
-                Consulte a operação, prepare decisões e confirme ações governadas sem sair do escopo da unidade ativa.
+                Centro operacional cognitivo do Kordena: consulte a operação, navegue pelos módulos autorizados, prepare decisões e confirme ações governadas sem sair do escopo da unidade ativa.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3 text-xs sm:min-w-80">
@@ -112,6 +129,34 @@ export function GerenteIAWorkspace() {
             </div>
           </div>
         </header>
+
+        <section className="kordena-panel-dark rounded-[1.75rem] p-5 sm:p-6">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-300">Centro operacional cognitivo</p>
+            <h2 className="mt-1 text-xl font-black text-white">Toda a operação ao alcance do Gerente IA</h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
+              Acesse os módulos liberados para sua sessão. O Gerente IA não amplia autoridade: cada destino continua obedecendo RBAC, tenant e unidade.
+            </p>
+          </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {modulosOperacionais.map((module) => (
+              <Link key={module.id} href={module.href} className="group flex items-start justify-between gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3 transition hover:border-sky-300/20 hover:bg-white/[0.04]">
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold text-slate-100">{module.label}</span>
+                  <span className="mt-1 block text-xs leading-5 text-slate-500">{module.description}</span>
+                </span>
+                <ArrowUpRight className="mt-0.5 size-4 shrink-0 text-slate-500 transition group-hover:text-sky-300" />
+              </Link>
+            ))}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {PERGUNTAS_RAPIDAS.map((item) => (
+              <button key={item} type="button" onClick={() => setPergunta(item)} className="rounded-full border border-blue-300/15 bg-blue-400/[0.06] px-3 py-1.5 text-xs font-semibold text-blue-100 transition hover:border-blue-300/30 hover:bg-blue-400/[0.1]">
+                {item}
+              </button>
+            ))}
+          </div>
+        </section>
 
         <form onSubmit={perguntar} className="kordena-panel-dark rounded-[1.75rem] p-5 sm:p-6">
           <div className="flex items-start justify-between gap-4">
