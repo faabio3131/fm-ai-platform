@@ -1,4 +1,4 @@
-export type ShellModuleGroup = "operacao" | "proprietario";
+export type ShellModuleGroup = "operacao" | "inteligencia" | "proprietario";
 
 export type ShellModuleIcon =
   | "dashboard"
@@ -107,7 +107,7 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     label: "Gerente IA",
     description: "Consultas gerenciais, decisões assistidas e confirmações governadas.",
     href: "/gerente-ia",
-    group: "operacao",
+    group: "inteligencia",
     icon: "ai",
     available: true,
     allPermissions: ["gerente_ia.consultar"],

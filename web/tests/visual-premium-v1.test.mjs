@@ -130,3 +130,14 @@ test("identidade Kordena usa o cérebro aprovado e elimina slogans antigos globa
   assert.match(shell, /module\.id === "gerente-ia"[\s\S]*KordenaBrainMark/);
   assert.match(gerente, /KordenaBrainMark/);
 });
+
+test("Gerente IA fica separado da operação sob o grupo Inteligência", () => {
+  const registry = source("../src/features/shell/module-registry.ts");
+  const shell = source("../src/features/shell/components/UnifiedAppShell.tsx");
+  const dashboard = source("../src/features/shell/components/DashboardHome.tsx");
+
+  assert.match(registry, /ShellModuleGroup = "operacao" \| "inteligencia" \| "proprietario"/);
+  assert.match(registry, /id: "gerente-ia"[\s\S]*group: "inteligencia"/);
+  assert.match(shell, />\s*Inteligência\s*</);
+  assert.match(dashboard, /Camada cognitiva para consultar a operação/);
+});

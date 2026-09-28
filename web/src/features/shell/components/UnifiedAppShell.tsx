@@ -133,9 +133,9 @@ export function UnifiedAppShell({ children }: { children: ReactNode }) {
 
   const modules = useMemo(() => availableShellModules(auth.permissions), [auth.permissions]);
   const operationModules = modules.filter((module) => module.group === "operacao");
+  const intelligenceModules = modules.filter((module) => module.group === "inteligencia");
   const proprietorModules = modules.filter((module) => module.group === "proprietario");
   const activeUnit = units.find((unit) => unit.id === auth.unitId);
-  const gerenteIaAvailable = modules.some((module) => module.id === "gerente-ia");
 
   useEffect(() => {
     if (pathname === "/login" || publicSurface || auth.status !== "authenticated") return;
@@ -283,6 +283,19 @@ export function UnifiedAppShell({ children }: { children: ReactNode }) {
               </div>
             ) : null}
 
+            {intelligenceModules.length > 0 ? (
+              <div>
+                <p className="mb-2 px-3 text-[10px] font-black uppercase tracking-[0.2em] text-sky-400/75">
+                  Inteligência
+                </p>
+                <div className="space-y-1">
+                  {intelligenceModules.map((module) => (
+                    <NavigationLink key={module.id} module={module} pathname={pathname} />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             {proprietorModules.length > 0 ? (
               <div>
                 <p className="mb-2 px-3 text-[10px] font-black uppercase tracking-[0.2em] text-amber-400/55">
@@ -298,23 +311,6 @@ export function UnifiedAppShell({ children }: { children: ReactNode }) {
           </nav>
 
           <div className="mt-auto space-y-3 pt-6">
-            {gerenteIaAvailable ? (
-              <Link
-                href="/gerente-ia"
-                className="group block overflow-hidden rounded-2xl border border-blue-400/15 bg-[linear-gradient(145deg,rgba(37,99,235,0.15),rgba(14,165,233,0.06))] p-3.5 transition hover:border-blue-400/30 hover:bg-[linear-gradient(145deg,rgba(37,99,235,0.21),rgba(14,165,233,0.09))]"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="flex size-9 items-center justify-center rounded-xl bg-blue-500/10 ring-1 ring-blue-400/20">
-                    <KordenaBrainMark className="size-8" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-xs font-bold text-white">Gerente IA</span>
-                    <span className="mt-0.5 block truncate text-[10px] text-slate-400">Inteligência operacional governada</span>
-                  </span>
-                </div>
-              </Link>
-            ) : null}
-
             <div className="rounded-2xl border border-sky-300/[0.08] bg-[linear-gradient(145deg,rgba(17,34,59,0.58),rgba(8,20,36,0.7))] p-3.5 shadow-[inset_0_1px_rgba(255,255,255,0.025)]">
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Unidade operacional</p>
               <p className="mt-1.5 truncate text-xs font-semibold text-slate-300">{unitTitle(activeUnit)}</p>
@@ -334,7 +330,7 @@ export function UnifiedAppShell({ children }: { children: ReactNode }) {
               <CircleGauge className="size-4" />
               Início
             </Link>
-            {modules.map((module) => (
+            {[...operationModules, ...intelligenceModules, ...proprietorModules].map((module) => (
               <NavigationLink key={module.id} module={module} pathname={pathname} compact />
             ))}
           </nav>

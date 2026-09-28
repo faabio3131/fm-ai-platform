@@ -108,10 +108,13 @@ export function DashboardHome() {
     [auth.permissions],
   );
   const operationModules = modules.filter((module) => module.group === "operacao");
+  const intelligenceModules = modules.filter(
+    (module) => module.group === "inteligencia",
+  );
   const proprietorModules = modules.filter(
     (module) => module.group === "proprietario",
   );
-  const gerenteIa = modules.find((module) => module.id === "gerente-ia");
+  const gerenteIa = intelligenceModules.find((module) => module.id === "gerente-ia");
   const displayName =
     auth.operator?.nome?.trim() || auth.operator?.email || "usuário";
 
@@ -156,16 +159,20 @@ export function DashboardHome() {
               ) : null}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div className="kordena-glass rounded-2xl p-4">
                 <p className="text-3xl font-black tabular-nums text-white">{operationModules.length}</p>
                 <p className="mt-1 text-xs leading-5 text-slate-400">módulos operacionais</p>
               </div>
               <div className="kordena-glass rounded-2xl p-4">
+                <p className="text-3xl font-black tabular-nums text-white">{intelligenceModules.length}</p>
+                <p className="mt-1 text-xs leading-5 text-slate-400">módulo de inteligência</p>
+              </div>
+              <div className="kordena-glass rounded-2xl p-4">
                 <p className="text-3xl font-black tabular-nums text-white">{proprietorModules.length}</p>
                 <p className="mt-1 text-xs leading-5 text-slate-400">módulos de gestão</p>
               </div>
-              <div className="col-span-2 rounded-2xl border border-white/[0.08] bg-white/[0.045] p-4 backdrop-blur">
+              <div className="col-span-3 rounded-2xl border border-white/[0.08] bg-white/[0.045] p-4 backdrop-blur">
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
                   <ShieldCheck className="size-4 text-emerald-300" />
                   Acesso orientado por função e unidade
@@ -198,6 +205,32 @@ export function DashboardHome() {
             </div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {operationModules.map((module) => (
+                <ModuleCard key={module.id} module={module} />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {intelligenceModules.length > 0 ? (
+          <section>
+            <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-300">
+                  Inteligência
+                </p>
+                <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-50">
+                  Gerente IA
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-slate-400">
+                  Camada cognitiva para consultar a operação, analisar contexto e preparar decisões governadas.
+                </p>
+              </div>
+              <Badge variant="outline" className="border-sky-300/20 bg-sky-400/[0.08] text-sky-200">
+                Inteligência operacional
+              </Badge>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {intelligenceModules.map((module) => (
                 <ModuleCard key={module.id} module={module} />
               ))}
             </div>
