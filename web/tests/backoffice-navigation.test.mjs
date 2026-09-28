@@ -16,23 +16,23 @@ test("backoffice e filhos só aparecem com as permissões existentes", () => {
   }
   const admin = availableShellModules(["admin.acessar"]);
   assert.ok(admin.some(m => m.href === "/admin"));
-  assert.ok(admin.some(m => m.href === "/admin/catalogo"));
+  assert.ok(!admin.some(m => m.href === "/catalogo"));
   assert.ok(!admin.some(m => m.href === "/admin/dashboard"));
-  assert.ok(!admin.some(m => m.href === "/admin/estoque"));
+  assert.ok(!admin.some(m => m.href === "/estoque"));
   assert.ok(!admin.some(m => m.href === "/admin/crm"));
   const full = availableShellModules(SHELL_MODULES.flatMap(m => [...(m.allPermissions ?? []), ...(m.anyPermissions ?? [])]));
-  for (const href of ["/admin", "/admin/dashboard", "/admin/catalogo", "/admin/estoque", "/admin/crm", "/admin/ai-finops", "/admin/system-health"]) {
+  for (const href of ["/admin", "/admin/dashboard", "/catalogo", "/estoque", "/admin/crm", "/admin/ai-finops", "/admin/system-health"]) {
     assert.equal(full.filter(m => m.href === href).length, 1);
   }
 });
 
 test("rota filha não marca a landing como página ativa", () => {
   const home = SHELL_MODULES.find(m => m.href === "/admin");
-  const catalogo = SHELL_MODULES.find(m => m.href === "/admin/catalogo");
+  const catalogo = SHELL_MODULES.find(m => m.href === "/catalogo");
   assert.equal(isShellModuleActive("/admin", home), true);
-  assert.equal(isShellModuleActive("/admin/catalogo", home), false);
-  assert.equal(isShellModuleActive("/admin/catalogo", catalogo), true);
-  assert.equal(isShellModuleActive("/admin/catalogo/123", catalogo), true);
+  assert.equal(isShellModuleActive("/catalogo", home), false);
+  assert.equal(isShellModuleActive("/catalogo", catalogo), true);
+  assert.equal(isShellModuleActive("/catalogo/123", catalogo), true);
 });
 
 test("empresa exige admin e configuração no registry único", () => {
