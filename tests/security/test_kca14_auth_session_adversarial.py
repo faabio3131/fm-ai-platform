@@ -5,10 +5,14 @@ from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.permissoes import Papel
 from http_api import frontend_app
+from migrations.runner import run_migrations
 from http_api.auth import (
     _GerenciadorSessaoOperacional,
     _SessaoInvalida,
@@ -44,6 +48,23 @@ def test_session_fixation_is_not_accepted_and_each_session_has_fresh_token() -> 
     assert first_token != second_token
     with pytest.raises(_SessaoInvalida):
         manager.resolver("attacker-fixed-session.attacker-signature")
+
+
+def test_session_token_survives_runtime_restart_with_persistent_store() -> None:
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    run_migrations(engine)
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+
+    first = _GerenciadorSessaoOperacional(SECRET, session_factory=factory)
+    expected, token = first.criar(_identity())
+
+    restarted = _GerenciadorSessaoOperacional(SECRET, session_factory=factory)
+
+    assert restarted.resolver(token) == expected
 
 
 def test_old_session_token_cannot_be_replayed_after_unit_switch() -> None:

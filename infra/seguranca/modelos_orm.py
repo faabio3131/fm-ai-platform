@@ -26,6 +26,10 @@ class GlobalIdentityBase(DeclarativeBase):
     """Schema aditivo da identidade global/memberships KCA-02."""
 
 
+class OperationalSessionBase(DeclarativeBase):
+    """Schema aditivo para sessões operacionais persistentes."""
+
+
 def _agora_utc() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -179,6 +183,27 @@ class IdentityMembershipUnitORM(GlobalIdentityBase):
         index=True,
     )
     unidade_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+
+
+class OperationalSessionORM(OperationalSessionBase):
+    """Sessão autenticada persistente; o cookie guarda apenas id + assinatura."""
+
+    __tablename__ = "fm_operational_sessions_v1"
+    __table_args__ = (
+        Index("ix_fm_operational_session_identity_v1", "identity_user_id"),
+        Index("ix_fm_operational_session_scope_v1", "tenant_id", "unidade_ativa_id"),
+        Index("ix_fm_operational_session_expiry_v1", "expira_em"),
+    )
+
+    session_id: Mapped[str] = mapped_column(String(96), primary_key=True)
+    usuario_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    identity_user_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    membership_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    email: Mapped[str] = mapped_column(String(320), nullable=False)
+    tenant_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    unidade_ativa_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    expira_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    admin_elevado_ate: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class CredencialReferenciaORM(SecurityBase):

@@ -126,6 +126,9 @@ from migrations.marketplace_orders_web_v1 import (
 from migrations.migration_history_integrity_v1 import (
     upgrade_migration_history_integrity_v1,
 )
+from migrations.operational_session_persistence_v1 import (
+    upgrade_operational_session_persistence_v1,
+)
 from migrations.pdv_reconciliation_strategy_width_v1 import (
     upgrade_pdv_reconciliation_strategy_width_v1,
 )
@@ -387,6 +390,10 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         "0058_commercial_billing_events_v1",
         upgrade_commercial_billing_events_v1,
+    ),
+    Migration(
+        "0059_operational_session_persistence_v1",
+        upgrade_operational_session_persistence_v1,
     ),
 )
 

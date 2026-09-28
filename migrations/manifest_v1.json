@@ -236,6 +236,10 @@
     {
       "version": "0058_commercial_billing_events_v1",
       "sha256": "bcda27f3eb312f6af5498c7f7e6d80916a6deb34ef238645c8ee7f108f0a75fe"
+    },
+    {
+      "version": "0059_operational_session_persistence_v1",
+      "sha256": "91e4bfbdee3558565a942fafeb581ac6558cbbd6784b79dbc22c7e588dff9d7a"
     }
   ]
 }

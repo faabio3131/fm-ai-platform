@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Request, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from core.runtime.config import RuntimeSettings
@@ -27,6 +28,7 @@ from core.seguranca.erros import (
 from core.seguranca.permissoes import Permissao
 from core.seguranca.segredos import SecretStore
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
+from infra.seguranca.modelos_orm import OperationalSessionORM
 
 SessionFactory = Callable[[], Session]
 
@@ -76,11 +78,16 @@ class _SegredoSessaoInseguro(RuntimeError):
 
 
 class _GerenciadorSessaoOperacional:
-    def __init__(self, secret: str) -> None:
+    def __init__(
+        self,
+        secret: str,
+        session_factory: SessionFactory | None = None,
+    ) -> None:
         segredo = secret.encode("utf-8")
         if len(segredo) < _MIN_SESSION_SECRET_BYTES:
             raise _SegredoSessaoInseguro("segredo de sessao inseguro")
         self._secret = segredo
+        self._session_factory = session_factory
         self._sessions: dict[str, _SessaoOperacional] = {}
         self._lock = threading.Lock()
 
@@ -104,6 +111,45 @@ class _GerenciadorSessaoOperacional:
             raise _SessaoInvalida("sessao invalida")
         return session_id
 
+    @staticmethod
+    def _normalizar_data(valor: datetime | None) -> datetime | None:
+        if valor is None:
+            return None
+        if valor.tzinfo is None:
+            return valor.replace(tzinfo=timezone.utc)
+        return valor.astimezone(timezone.utc)
+
+    @classmethod
+    def _sessao_do_row(cls, row: OperationalSessionORM) -> _SessaoOperacional:
+        expira_em = cls._normalizar_data(row.expira_em)
+        if expira_em is None:
+            raise _SessaoInvalida("sessao invalida")
+        return _SessaoOperacional(
+            session_id=row.session_id,
+            usuario_id=row.usuario_id,
+            identity_user_id=row.identity_user_id,
+            membership_id=row.membership_id,
+            email=row.email,
+            tenant_id=row.tenant_id,
+            unidade_ativa_id=row.unidade_ativa_id,
+            expira_em=expira_em,
+            admin_elevado_ate=cls._normalizar_data(row.admin_elevado_ate),
+        )
+
+    @staticmethod
+    def _row_da_sessao(sessao: _SessaoOperacional) -> OperationalSessionORM:
+        return OperationalSessionORM(
+            session_id=sessao.session_id,
+            usuario_id=sessao.usuario_id,
+            identity_user_id=sessao.identity_user_id,
+            membership_id=sessao.membership_id,
+            email=sessao.email,
+            tenant_id=sessao.tenant_id,
+            unidade_ativa_id=sessao.unidade_ativa_id,
+            expira_em=sessao.expira_em,
+            admin_elevado_ate=sessao.admin_elevado_ate,
+        )
+
     def _limpar_expiradas_locked(self, agora: datetime) -> None:
         expiradas = [
             session_id
@@ -112,6 +158,14 @@ class _GerenciadorSessaoOperacional:
         ]
         for session_id in expiradas:
             self._sessions.pop(session_id, None)
+
+    @staticmethod
+    def _limpar_expiradas_db(session: Session, agora: datetime) -> None:
+        session.execute(
+            delete(OperationalSessionORM).where(
+                OperationalSessionORM.expira_em <= agora
+            )
+        )
 
     def criar(self, identidade: IdentidadeUsuario) -> tuple[_SessaoOperacional, str]:
         agora = datetime.now(timezone.utc)
@@ -125,20 +179,64 @@ class _GerenciadorSessaoOperacional:
             unidade_ativa_id=identidade.unidade_id,
             expira_em=agora + timedelta(seconds=_SESSION_TTL_SECONDS),
         )
-        with self._lock:
-            self._limpar_expiradas_locked(agora)
-            self._sessions[sessao.session_id] = sessao
+        if self._session_factory is None:
+            with self._lock:
+                self._limpar_expiradas_locked(agora)
+                self._sessions[sessao.session_id] = sessao
+        else:
+            with self._session_factory() as db:
+                with db.begin():
+                    self._limpar_expiradas_db(db, agora)
+                    db.add(self._row_da_sessao(sessao))
         return sessao, self._token(sessao.session_id)
 
     def resolver(self, token: str) -> _SessaoOperacional:
         session_id = self._session_id_do_token(token)
         agora = datetime.now(timezone.utc)
-        with self._lock:
-            self._limpar_expiradas_locked(agora)
-            sessao = self._sessions.get(session_id)
-        if sessao is None:
+        if self._session_factory is None:
+            with self._lock:
+                self._limpar_expiradas_locked(agora)
+                sessao = self._sessions.get(session_id)
+            if sessao is None:
+                raise _SessaoInvalida("sessao invalida")
+            return sessao
+
+        encontrada: _SessaoOperacional | None = None
+        with self._session_factory() as db:
+            with db.begin():
+                self._limpar_expiradas_db(db, agora)
+                row = db.get(OperationalSessionORM, session_id)
+                if row is not None:
+                    encontrada = self._sessao_do_row(row)
+        if encontrada is None or encontrada.expira_em <= agora:
             raise _SessaoInvalida("sessao invalida")
-        return sessao
+        return encontrada
+
+    def _rotacionar(
+        self,
+        sessao: _SessaoOperacional,
+        atualizada: _SessaoOperacional,
+    ) -> tuple[_SessaoOperacional, str]:
+        if self._session_factory is None:
+            with self._lock:
+                corrente = self._sessions.get(sessao.session_id)
+                if corrente != sessao:
+                    raise _SessaoInvalida("sessao invalida")
+                self._sessions.pop(sessao.session_id, None)
+                self._sessions[atualizada.session_id] = atualizada
+            return atualizada, self._token(atualizada.session_id)
+
+        with self._session_factory() as db:
+            with db.begin():
+                removida = db.execute(
+                    delete(OperationalSessionORM).where(
+                        OperationalSessionORM.session_id == sessao.session_id
+                    )
+                )
+                if removida.rowcount != 1:
+                    raise _SessaoInvalida("sessao invalida")
+                db.add(self._row_da_sessao(atualizada))
+        return atualizada, self._token(atualizada.session_id)
 
     def trocar_unidade(
         self,
@@ -152,13 +250,7 @@ class _GerenciadorSessaoOperacional:
             unidade_ativa_id=unidade_id,
             admin_elevado_ate=None,
         )
-        with self._lock:
-            corrente = self._sessions.get(sessao.session_id)
-            if corrente != sessao:
-                raise _SessaoInvalida("sessao invalida")
-            self._sessions.pop(sessao.session_id, None)
-            self._sessions[atualizada.session_id] = atualizada
-        return atualizada, self._token(atualizada.session_id)
+        return self._rotacionar(sessao, atualizada)
 
     def trocar_membership(
         self,
@@ -177,13 +269,7 @@ class _GerenciadorSessaoOperacional:
             unidade_ativa_id=identidade.unidade_id,
             admin_elevado_ate=None,
         )
-        with self._lock:
-            corrente = self._sessions.get(sessao.session_id)
-            if corrente != sessao:
-                raise _SessaoInvalida("sessao invalida")
-            self._sessions.pop(sessao.session_id, None)
-            self._sessions[atualizada.session_id] = atualizada
-        return atualizada, self._token(atualizada.session_id)
+        return self._rotacionar(sessao, atualizada)
 
     def elevar_admin(
         self,
@@ -199,21 +285,24 @@ class _GerenciadorSessaoOperacional:
             session_id=secrets.token_urlsafe(32),
             admin_elevado_ate=elevado_ate,
         )
-        with self._lock:
-            corrente = self._sessions.get(sessao.session_id)
-            if corrente != sessao:
-                raise _SessaoInvalida("sessao invalida")
-            self._sessions.pop(sessao.session_id, None)
-            self._sessions[atualizada.session_id] = atualizada
-        return atualizada, self._token(atualizada.session_id)
+        return self._rotacionar(sessao, atualizada)
 
     def invalidar(self, token: str) -> None:
         try:
             session_id = self._session_id_do_token(token)
         except _SessaoInvalida:
             return
-        with self._lock:
-            self._sessions.pop(session_id, None)
+        if self._session_factory is None:
+            with self._lock:
+                self._sessions.pop(session_id, None)
+            return
+        with self._session_factory() as db:
+            with db.begin():
+                db.execute(
+                    delete(OperationalSessionORM).where(
+                        OperationalSessionORM.session_id == session_id
+                    )
+                )
 
 
 class AuthSessionRuntime:
@@ -236,7 +325,10 @@ class AuthSessionRuntime:
                 secret = self._secret_store.resolve(
                     _SESSION_SECRET_REFERENCE
                 ).reveal()
-                self._gerenciador = _GerenciadorSessaoOperacional(secret)
+                self._gerenciador = _GerenciadorSessaoOperacional(
+                    secret,
+                    session_factory=self._session_factory,
+                )
             return self._gerenciador
 
     @staticmethod
