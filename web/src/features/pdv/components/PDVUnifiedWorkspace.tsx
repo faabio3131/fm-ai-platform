@@ -63,8 +63,8 @@ export function PDVUnifiedWorkspace() {
 
   if (auth.status === "authenticated" && !allowed) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100 px-6">
-        <div className="w-full max-w-md rounded-2xl border bg-white p-6 shadow-xl">
+      <main className="flex min-h-screen items-center justify-center bg-[#06101d] px-6">
+        <div className="w-full max-w-md rounded-2xl border border-slate-700/60 bg-[linear-gradient(145deg,#0f1e33,#081421)] p-6 text-slate-100 shadow-[0_30px_80px_-38px_rgba(0,0,0,0.9)]">
           <ShieldAlert className="size-8 text-amber-500" />
           <h1 className="mt-4 text-xl font-bold">PDV não liberado para este usuário</h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -82,9 +82,9 @@ export function PDVUnifiedWorkspace() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-3 text-foreground sm:p-4 lg:p-5">
+    <main className="min-h-screen bg-[#06101d] p-3 text-slate-100 sm:p-4 lg:p-5">
       <div className="mx-auto flex min-h-[calc(100vh-2rem)] max-w-[1800px] flex-col gap-3">
-        <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 rounded-2xl border bg-white px-4 py-3 shadow-sm">
+        <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.97),rgba(8,20,36,0.97))] px-4 py-3 shadow-[0_18px_44px_-30px_rgba(0,0,0,0.78)]">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-white">
               <Store className="size-5" />
@@ -125,7 +125,7 @@ export function PDVUnifiedWorkspace() {
         <CouvertArtisticoPanel />
 
         <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_390px] xl:grid-cols-[minmax(0,1fr)_430px]">
-          <div className="min-h-0 rounded-2xl border bg-white p-3 shadow-sm sm:p-4">
+          <div className="min-h-0 rounded-2xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.97),rgba(8,20,36,0.97))] p-3 shadow-[0_18px_44px_-30px_rgba(0,0,0,0.78)] sm:p-4">
             <ProductCatalog products={catalog} loading={loadingCatalog} />
           </div>
           <OrderCart onCheckout={() => setCheckoutOpen(true)} />
