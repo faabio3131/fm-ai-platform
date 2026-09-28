@@ -71,14 +71,14 @@ export function MarketplaceChannelPanel({
   if (!canManage) return null;
 
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <section className="rounded-3xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] p-4 shadow-[0_22px_56px_-34px_rgba(0,0,0,0.82)] sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="flex size-10 items-center justify-center rounded-xl bg-violet-50 text-violet-700">
             <Store className="size-5" />
           </div>
           <div>
-            <h2 className="text-sm font-black text-slate-950">
+            <h2 className="text-sm font-black text-slate-100">
               Canais marketplace
             </h2>
             <p className="mt-0.5 text-xs text-slate-500">
@@ -103,11 +103,11 @@ export function MarketplaceChannelPanel({
           {integrations.map((item) => (
             <div
               key={item.configuracao_id}
-              className="rounded-2xl border border-slate-200 bg-slate-50 p-3"
+              className="rounded-2xl border border-slate-700/60 bg-slate-950/32 p-3"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-black capitalize text-slate-900">
+                  <p className="text-sm font-black capitalize text-slate-100">
                     {item.plataforma}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
@@ -119,8 +119,8 @@ export function MarketplaceChannelPanel({
                   variant="outline"
                   className={
                     item.pronta_para_sincronizar
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                      : "border-amber-200 bg-amber-50 text-amber-700"
+                      ? "border-emerald-300/20 bg-emerald-400/[0.08] text-emerald-200"
+                      : "border-amber-300/20 bg-amber-400/[0.08] text-amber-200"
                   }
                 >
                   {item.pronta_para_sincronizar ? "homologado" : "bloqueado"}
