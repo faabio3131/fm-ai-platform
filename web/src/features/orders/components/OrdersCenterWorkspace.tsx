@@ -94,15 +94,15 @@ function humanize(value: string): string {
 
 function statusClass(status: string): string {
   if (["concluido", "pago", "confirmado"].includes(status)) {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    return "border-emerald-300/20 bg-emerald-400/[0.08] text-emerald-200";
   }
   if (["cancelado", "falhou"].includes(status)) {
-    return "border-red-200 bg-red-50 text-red-700";
+    return "border-red-300/20 bg-red-500/[0.08] text-red-200";
   }
   if (["em_preparo", "em_expedicao", "saiu_entrega"].includes(status)) {
-    return "border-blue-200 bg-blue-50 text-blue-700";
+    return "border-blue-300/20 bg-blue-500/[0.08] text-blue-200";
   }
-  return "border-amber-200 bg-amber-50 text-amber-700";
+  return "border-amber-300/20 bg-amber-400/[0.08] text-amber-200";
 }
 
 function OrderRow({
@@ -475,7 +475,7 @@ export function OrdersCenterWorkspace() {
                 </p>
               </div>
               {loading ? (
-                <RefreshCw className="size-4 animate-spin text-blue-600" />
+                <RefreshCw className="size-4 animate-spin text-sky-300" />
               ) : null}
             </div>
 
@@ -526,13 +526,13 @@ export function OrdersCenterWorkspace() {
           <aside className="rounded-3xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] p-5 shadow-[0_22px_56px_-34px_rgba(0,0,0,0.82)] xl:sticky xl:top-4 xl:self-start">
             {detailLoading ? (
               <div className="flex min-h-96 items-center justify-center">
-                <RefreshCw className="size-6 animate-spin text-blue-600" />
+                <RefreshCw className="size-6 animate-spin text-sky-300" />
               </div>
             ) : detail ? (
               <div className="space-y-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-sky-300">
                       Detalhe operacional
                     </p>
                     <h2 className="mt-1 truncate text-lg font-black text-slate-50">
@@ -621,7 +621,7 @@ export function OrdersCenterWorkspace() {
 
                 <div>
                   <div className="flex items-center gap-2">
-                    <CircleDollarSign className="size-4 text-emerald-600" />
+                    <CircleDollarSign className="size-4 text-emerald-300" />
                     <h3 className="text-sm font-black text-slate-100">
                       Pagamento
                     </h3>
