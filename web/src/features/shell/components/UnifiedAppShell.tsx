@@ -28,11 +28,13 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { UnitSelectorModal } from "@/features/auth/components/UnitSelectorModal";
 import {
+  AuthApiError,
   getUnits,
   selectUnit,
   type AuthUnit,
 } from "@/features/auth/services/auth-api";
 import {
+  clearAuthState,
   endAuthSession,
   refreshAuthSession,
   useAuthStore,
@@ -140,8 +142,13 @@ export function UnifiedAppShell({ children }: { children: ReactNode }) {
           setUnitLoadError(false);
         }
       })
-      .catch(() => {
-        if (!cancelled) setUnitLoadError(true);
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        if (error instanceof AuthApiError && error.status === 401) {
+          clearAuthState();
+          return;
+        }
+        setUnitLoadError(true);
       });
     return () => {
       cancelled = true;
