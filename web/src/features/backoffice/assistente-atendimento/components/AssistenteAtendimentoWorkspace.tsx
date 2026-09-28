@@ -15,7 +15,6 @@ import {
   Headphones,
   MapPinned,
   MessageCircle,
-  Mic,
   PackageCheck,
   Search,
   ShieldCheck,
@@ -28,7 +27,6 @@ import {
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
