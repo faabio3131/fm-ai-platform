@@ -128,13 +128,13 @@ export function NotificacoesWorkspace() {
   return (
     <main className="space-y-6 p-4 md:p-6">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">
           WP-032
         </p>
-        <h1 className="text-2xl font-black text-slate-950">
+        <h1 className="text-2xl font-black text-slate-50">
           Notificações internas
         </h1>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="mt-1 text-sm text-slate-400">
           Destinatários e alertas da unidade ativa. Contatos permanecem
           cifrados e são exibidos apenas de forma mascarada.
         </p>
@@ -233,10 +233,10 @@ export function NotificacoesWorkspace() {
               {items.map((item) => (
                 <div
                   key={item.destinatario_id}
-                  className="flex flex-col justify-between gap-3 rounded-xl border border-slate-200 p-4 md:flex-row md:items-center"
+                  className="flex flex-col justify-between gap-3 rounded-xl border border-slate-700/60 bg-slate-950/24 p-4 md:flex-row md:items-center"
                 >
                   <div>
-                    <p className="font-semibold text-slate-900">
+                    <p className="font-semibold text-slate-100">
                       {item.nome_exibicao}
                     </p>
                     <p className="text-sm text-slate-500">
