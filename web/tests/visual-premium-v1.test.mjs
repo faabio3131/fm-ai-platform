@@ -148,6 +148,10 @@ test("Atendente IA expõe sua capacidade operacional e comercial sem inventar sa
   const assistente = source("../src/features/backoffice/assistente-atendimento/components/AssistenteAtendimentoWorkspace.tsx");
 
   assert.match(assistente, /Central de Atendimento IA/);
+  assert.match(
+    assistente,
+    /<h1[^>]*>[\s\S]*Central de Atendimento IA[\s\S]*<\/h1>/,
+  );
   assert.match(assistente, /Agente operacional e comercial conectado ao Kordena/);
   assert.match(assistente, /Pulso operacional/);
   assert.match(assistente, /Fila e conversão em tempo de operação/);
