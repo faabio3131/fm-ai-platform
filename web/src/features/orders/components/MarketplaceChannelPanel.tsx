@@ -90,10 +90,10 @@ export function MarketplaceChannelPanel({
           </div>
           <div>
             <h2 className="text-sm font-black text-slate-100">
-              Canais marketplace
+              Canais de venda integrados
             </h2>
             <p className="mt-0.5 text-xs text-slate-500">
-              iFood, Keeta e 99Food convergem para a mesma Central de Pedidos quando homologados.
+              iFood, Keeta e 99Food convergem para a Central de Pedidos. A equipe acompanha a operação aqui; credenciais e homologação permanecem protegidas.
             </p>
           </div>
         </div>
@@ -135,7 +135,7 @@ export function MarketplaceChannelPanel({
                   }
                 >
                   {item?.pronta_para_sincronizar
-                    ? "homologado"
+                    ? "operação liberada"
                     : item
                       ? "bloqueado"
                       : "não configurado"}
@@ -157,7 +157,7 @@ export function MarketplaceChannelPanel({
               ) : (
                 <div className="mt-3 flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-2 text-[11px] text-slate-500">
                   <LockKeyhole className="size-3.5 shrink-0" />
-                  Credenciais e sincronização manual permanecem protegidas.
+                  Operação visível; credenciais, homologação e sincronização manual permanecem protegidas.
                 </div>
               )}
             </div>
