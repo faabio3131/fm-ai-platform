@@ -159,7 +159,7 @@ test("Atendente IA expõe sua capacidade operacional e comercial sem inventar sa
   assert.match(assistente, /Estoque/);
   assert.match(assistente, /Handoff humano/);
   assert.match(assistente, /depende de integração/);
-  assert.match(assistente, /não apresenta credencial externa como online sem healthcheck real/);
+  assert.match(assistente, /não\s+apresenta credencial externa como online sem healthcheck real/);
   assert.match(assistente, /listarConversas/);
   assert.match(assistente, /forcarHandoff/);
   assert.doesNotMatch(assistente, /bg-slate-100/);
