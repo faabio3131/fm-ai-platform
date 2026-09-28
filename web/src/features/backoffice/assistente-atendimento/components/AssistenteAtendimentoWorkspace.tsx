@@ -187,7 +187,7 @@ function IdentidadeDialog({ identidade, onSave }: IdentidadeDialogProps) {
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="max-w-2xl border-sky-300/10 bg-[#071321] text-slate-100">
         <DialogHeader>
-          <DialogTitle className="text-lg">Configuração administrativa da Atendente IA</DialogTitle>
+          <DialogTitle className="text-lg">Configuração administrativa da Central de Atendimento IA</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 p-6">
           <div>
