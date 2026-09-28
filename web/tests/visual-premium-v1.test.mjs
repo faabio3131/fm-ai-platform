@@ -23,7 +23,8 @@ test("Visual Premium preserva o shell canônico e torna o Core explícito", () =
   assert.match(shell, /availableShellModules/);
   assert.match(shell, /selectUnit/);
   assert.match(shell, /endAuthSession/);
-  assert.match(shell, /Gerente IA/);
+  assert.match(shell, /intelligenceModules/);
+  assert.match(shell, />\s*Inteligência\s*</);
   assert.match(shell, /KordenaBrand/);
 });
 
