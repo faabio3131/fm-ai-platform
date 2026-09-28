@@ -44,7 +44,7 @@ export function BackofficeHome() {
             </div>
             <div className="grid grid-cols-2 gap-3 sm:min-w-72">
               <div className="rounded-2xl border border-slate-700/55 bg-slate-950/32 p-4">
-                <LayoutDashboard className="size-5 text-blue-600" />
+                <LayoutDashboard className="size-5 text-sky-300" />
                 <p className="mt-3 text-2xl font-black text-slate-50">{modules.length}</p>
                 <p className="mt-1 text-xs text-slate-500">áreas disponíveis</p>
               </div>
@@ -68,7 +68,7 @@ export function BackofficeHome() {
                 <span className="flex size-11 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-lg shadow-slate-900/10">
                   <ShieldCheck className="size-5" />
                 </span>
-                <ArrowRight className="size-4 text-slate-400 transition-transform group-hover:translate-x-1 group-hover:text-blue-600" />
+                <ArrowRight className="size-4 text-slate-400 transition-transform group-hover:translate-x-1 group-hover:text-sky-300" />
               </div>
               <h2 className="mt-5 text-lg font-bold tracking-tight text-slate-50 group-hover:text-sky-300">{module.label}</h2>
               <p className="mt-2 min-h-12 text-sm leading-6 text-slate-500">{module.description}</p>
