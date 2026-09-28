@@ -548,7 +548,10 @@ export function AssistenteAtendimentoWorkspace() {
               <h1 className="mt-5 text-3xl font-black tracking-tight text-white sm:text-4xl">
                 Atendente IA
               </h1>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base">
+              <p className="mt-3 text-base font-semibold text-sky-100 sm:text-lg">
+                Agente operacional e comercial conectado ao Kordena
+              </p>
+              <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base">
                 Atendimento inteligente conectado ao fluxo real do Kordena: cliente, catálogo,
                 pedido, estoque, pagamento, produção e entrega, com handoff humano quando a
                 automação precisa devolver o controle à equipe.
@@ -670,7 +673,7 @@ export function AssistenteAtendimentoWorkspace() {
             <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-300">
               Capacidades do agente
             </p>
-            <h2 className="mt-1 text-2xl font-black text-white">O que a Atendente IA realmente faz</h2>
+            <h2 className="mt-1 text-2xl font-black text-white">O que a Central de Atendimento IA realmente faz</h2>
             <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-400">
               Estas capacidades refletem o runtime já implementado. Cartões marcados como dependência
               externa exigem configuração e homologação válidas no Control Plane; esta tela não

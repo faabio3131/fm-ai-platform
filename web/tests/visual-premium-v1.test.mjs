@@ -147,10 +147,10 @@ test("Gerente IA fica separado da operação sob o grupo Inteligência", () => {
 test("Atendente IA expõe sua capacidade operacional e comercial sem inventar saúde externa", () => {
   const assistente = source("../src/features/backoffice/assistente-atendimento/components/AssistenteAtendimentoWorkspace.tsx");
 
-  assert.match(assistente, /Agente operacional e comercial/);
+  assert.match(assistente, /Central de Atendimento IA/);\n  assert.match(assistente, /Agente operacional e comercial conectado ao Kordena/);
   assert.match(assistente, /Pulso operacional/);
   assert.match(assistente, /Fila e conversão em tempo de operação/);
-  assert.match(assistente, /O que a Atendente IA realmente faz/);
+  assert.match(assistente, /O que a Central de Atendimento IA realmente faz/);
   assert.match(assistente, /WhatsApp multimodal/);
   assert.match(assistente, /Core de IA/);
   assert.match(assistente, /Pedidos e checkout/);
@@ -167,7 +167,7 @@ test("Atendente IA expõe sua capacidade operacional e comercial sem inventar sa
 });
 
 
-test("Atendente IA fica aberta à operação e mantém configuração administrativa protegida", () => {
+test("Central de Atendimento IA fica aberta à operação e mantém configuração administrativa protegida", () => {
   const registry = source("../src/features/shell/module-registry.ts");
   const workspace = source("../src/features/backoffice/assistente-atendimento/components/AssistenteAtendimentoWorkspace.tsx");
   const page = source("../src/app/atendimento-ia/page.tsx");

@@ -275,8 +275,8 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
   },
   {
     id: "assistente-atendimento",
-    label: "Atendente IA",
-    description: "Agente operacional e comercial: conversas, pedidos e handoff humano.",
+    label: "Central de Atendimento IA",
+    description: "Agente operacional e comercial conectado ao Kordena.",
     href: "/atendimento-ia",
     group: "operacao",
     icon: "assistente",
