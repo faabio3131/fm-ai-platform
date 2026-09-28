@@ -2,7 +2,6 @@
 
 import {
   Bot,
-  BrainCircuit,
   CheckCircle2,
   LoaderCircle,
   Send,
@@ -11,6 +10,7 @@ import {
 } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 
+import { KordenaBrainMark } from "@/components/brand/KordenaBrainMark";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -86,9 +86,7 @@ export function GerenteIAWorkspace() {
                 Cognição operacional governada
               </div>
               <div className="mt-5 flex items-center gap-4">
-                <div className="kordena-brand-mark flex size-14 items-center justify-center rounded-2xl">
-                  <BrainCircuit className="relative z-10 size-7 text-white" />
-                </div>
+                <KordenaBrainMark className="size-16" priority />
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-300">
                     Kordena Cognitive Core

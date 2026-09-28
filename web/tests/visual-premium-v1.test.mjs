@@ -1,9 +1,21 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
+import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
-function source(path) {
-  return fs.readFileSync(new URL(path, import.meta.url), "utf8");
+function source(relativePath) {
+  return fs.readFileSync(new URL(relativePath, import.meta.url), "utf8");
+}
+
+function sourceFiles(root) {
+  const entries = fs.readdirSync(root, { withFileTypes: true });
+  return entries.flatMap((entry) => {
+    const resolved = path.join(root, entry.name);
+    if (entry.isDirectory()) return sourceFiles(resolved);
+    return /\.(?:ts|tsx|js|mjs)$/.test(entry.name) ? [resolved] : [];
+  });
 }
 
 test("Visual Premium preserva o shell canônico e torna o Core explícito", () => {
@@ -22,6 +34,8 @@ test("Visual Premium preserva contratos funcionais do Gerente IA", () => {
   assert.match(gerente, /preview_id/);
   assert.match(gerente, /idempotency_key/);
   assert.match(gerente, /Cognição operacional governada/);
+  assert.match(gerente, /KordenaBrainMark/);
+  assert.doesNotMatch(gerente, /kordena-brand-mark/);
 });
 
 test("Visual Premium preserva checkout público e autoridade de preço do servidor", () => {
@@ -86,9 +100,31 @@ test("Visual Premium mantém identidade cognitiva consistente entre login e shel
   assert.match(login, /KordenaBrand/);
   assert.match(shell, /KordenaBrand/);
   assert.match(brand, /O CÉREBRO DA SUA OPERAÇÃO/);
-  assert.match(brand, /kordena-brain-mark\.png/);
+  const brain = source("../src/components/brand/KordenaBrainMark.tsx");
+  assert.match(brain, /kordena-brain-mark\.png/);
+  assert.match(brain, /unoptimized/);
   assert.doesNotMatch(login, /Cognitive Operations/);
   assert.doesNotMatch(shell, /Cognitive Operations/);
   assert.doesNotMatch(login, /Enterprise Operations/);
   assert.doesNotMatch(shell, /Enterprise Operations/);
+});
+
+test("identidade Kordena usa o cérebro aprovado e elimina slogans antigos globalmente", () => {
+  const asset = fs.readFileSync(new URL("../public/kordena-brain-mark.png", import.meta.url));
+  const digest = crypto.createHash("sha256").update(asset).digest("hex");
+  assert.equal(digest, "beb2c7f1b092f734489d6535e9be628842bf2ec24b5789cf6e422a4cdca63fc9");
+
+  const sourceRoot = fileURLToPath(new URL("../src/", import.meta.url));
+  for (const file of sourceFiles(sourceRoot)) {
+    const content = fs.readFileSync(file, "utf8");
+    assert.doesNotMatch(content, /Cognitive Operations/, file);
+    assert.doesNotMatch(content, /Enterprise Operations/, file);
+  }
+
+  const dashboard = source("../src/features/shell/components/DashboardHome.tsx");
+  const shell = source("../src/features/shell/components/UnifiedAppShell.tsx");
+  const gerente = source("../src/features/gerente-ia/components/GerenteIAWorkspace.tsx");
+  assert.match(dashboard, /module\.id === "gerente-ia"[\s\S]*KordenaBrainMark/);
+  assert.match(shell, /module\.id === "gerente-ia"[\s\S]*KordenaBrainMark/);
+  assert.match(gerente, /KordenaBrainMark/);
 });

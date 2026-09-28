@@ -14,7 +14,6 @@ import {
   ShieldCheck,
   ShoppingCart,
   SlidersHorizontal,
-  Sparkles,
   Users,
   Utensils,
   Warehouse,
@@ -22,6 +21,7 @@ import {
 import Link from "next/link";
 import { useMemo } from "react";
 
+import { KordenaBrainMark } from "@/components/brand/KordenaBrainMark";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -66,7 +66,11 @@ function ModuleCard({ module }: { module: ShellModuleDefinition }) {
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-4">
             <div className="flex size-11 items-center justify-center rounded-2xl bg-[linear-gradient(145deg,#0f172a,#1e3a5f)] text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.9)] ring-1 ring-white/10 transition group-hover:scale-[1.03] group-hover:bg-[linear-gradient(145deg,#1d4ed8,#0284c7)]">
-              <Icon className="size-5" />
+              {module.id === "gerente-ia" ? (
+                <KordenaBrainMark className="size-7" />
+              ) : (
+                <Icon className="size-5" />
+              )}
             </div>
             <Badge
               variant="outline"
@@ -140,8 +144,8 @@ export function DashboardHome() {
                   href={gerenteIa.href}
                   className="mt-6 inline-flex items-center gap-3 rounded-2xl border border-blue-400/20 bg-blue-500/10 px-4 py-3 text-sm font-semibold text-blue-100 transition hover:-translate-y-0.5 hover:border-blue-300/30 hover:bg-blue-500/15"
                 >
-                  <span className="flex size-9 items-center justify-center rounded-xl bg-blue-500/15 ring-1 ring-blue-400/20">
-                    <Sparkles className="size-4 text-sky-300" />
+                  <span className="flex size-9 items-center justify-center rounded-xl bg-blue-500/10 ring-1 ring-blue-400/20">
+                    <KordenaBrainMark className="size-8" />
                   </span>
                   <span>
                     <span className="block text-xs font-black uppercase tracking-[0.14em] text-blue-300">Gerente IA</span>

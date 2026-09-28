@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { KordenaBrainMark } from "@/components/brand/KordenaBrainMark";
 
 type KordenaBrandProps = {
   compact?: boolean;
@@ -11,22 +11,10 @@ export function KordenaBrand({
 }: KordenaBrandProps) {
   return (
     <span className={`flex min-w-0 items-center gap-3 ${className}`}>
-      <span
-        className={[
-          "relative shrink-0",
-          compact ? "size-10" : "size-11",
-        ].join(" ")}
-        aria-hidden="true"
-      >
-        <Image
-          src="/kordena-brain-mark.png"
-          alt=""
-          width={128}
-          height={128}
-          priority
-          className="size-full object-contain drop-shadow-[0_0_14px_rgba(34,211,238,0.55)]"
-        />
-      </span>
+      <KordenaBrainMark
+        className={compact ? "size-10" : "size-11"}
+        priority
+      />
       <span className="min-w-0">
         <span className="block truncate text-[15px] font-black tracking-[0.08em] text-white">
           KORDENA

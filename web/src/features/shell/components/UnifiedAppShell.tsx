@@ -16,7 +16,6 @@ import {
   ShieldCheck,
   ShoppingCart,
   SlidersHorizontal,
-  Sparkles,
   Users,
   Utensils,
   Warehouse,
@@ -25,6 +24,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
+import { KordenaBrainMark } from "@/components/brand/KordenaBrainMark";
 import { KordenaBrand } from "@/components/brand/KordenaBrand";
 import { Button } from "@/components/ui/button";
 import { UnitSelectorModal } from "@/features/auth/components/UnitSelectorModal";
@@ -107,7 +107,11 @@ function NavigationLink({
           active ? "bg-white/12" : "bg-white/[0.045] group-hover:bg-white/[0.08]",
         ].join(" ")}
       >
-        <Icon className="size-4" />
+        {module.id === "gerente-ia" ? (
+          <KordenaBrainMark className="size-6" />
+        ) : (
+          <Icon className="size-4" />
+        )}
       </span>
       <span className="truncate">{module.label}</span>
       {active && !compact ? (
@@ -300,8 +304,8 @@ export function UnifiedAppShell({ children }: { children: ReactNode }) {
                 className="group block overflow-hidden rounded-2xl border border-blue-400/15 bg-[linear-gradient(145deg,rgba(37,99,235,0.15),rgba(14,165,233,0.06))] p-3.5 transition hover:border-blue-400/30 hover:bg-[linear-gradient(145deg,rgba(37,99,235,0.21),rgba(14,165,233,0.09))]"
               >
                 <div className="flex items-center gap-3">
-                  <span className="flex size-9 items-center justify-center rounded-xl bg-blue-500/15 text-blue-300 ring-1 ring-blue-400/20">
-                    <Sparkles className="size-4" />
+                  <span className="flex size-9 items-center justify-center rounded-xl bg-blue-500/10 ring-1 ring-blue-400/20">
+                    <KordenaBrainMark className="size-8" />
                   </span>
                   <span className="min-w-0">
                     <span className="block text-xs font-bold text-white">Gerente IA</span>
