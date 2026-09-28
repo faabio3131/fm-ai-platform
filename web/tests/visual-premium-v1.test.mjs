@@ -42,10 +42,44 @@ test("Visual Premium preserva autenticação e step-up administrativo", () => {
   assert.match(stepUp, /Desbloquear área Proprietário/);
 });
 
-test("design system Premium inclui acessibilidade e redução de movimento", () => {
+test("design system Premium inclui acessibilidade, dark root e redução de movimento", () => {
   const css = source("../src/app/globals.css");
+  const layout = source("../src/app/layout.tsx");
+  assert.match(css, /color-scheme:\s*dark/);
+  assert.match(css, /--kordena-midnight:/);
+  assert.match(css, /--kordena-cobalt:/);
+  assert.match(css, /--kordena-cyan:/);
   assert.match(css, /prefers-reduced-motion/);
   assert.match(css, /kordena-panel-dark/);
   assert.match(css, /kordena-brand-mark/);
+  assert.match(css, /kordena-surface-raised/);
   assert.match(css, /scrollbar-width/);
+  assert.match(layout, /className="dark"/);
+});
+
+test("Visual Premium elimina ilhas claras nos workspaces operacionais prioritários", () => {
+  const sources = [
+    source("../src/features/shell/components/UnifiedAppShell.tsx"),
+    source("../src/features/shell/components/DashboardHome.tsx"),
+    source("../src/features/backoffice/components/BackofficeHome.tsx"),
+    source("../src/features/pdv/components/PDVUnifiedWorkspace.tsx"),
+    source("../src/features/orders/components/OrdersCenterWorkspace.tsx"),
+    source("../src/features/delivery/components/DeliveryWorkspace.tsx"),
+    source("../src/features/entrega/components/EntregaWorkspace.tsx"),
+  ];
+
+  for (const file of sources) {
+    assert.doesNotMatch(file, /bg-slate-100/);
+    assert.doesNotMatch(file, /border-slate-200/);
+    assert.doesNotMatch(file, /text-slate-950/);
+  }
+});
+
+test("Visual Premium mantém identidade cognitiva consistente entre login e shell", () => {
+  const login = source("../src/app/login/page.tsx");
+  const shell = source("../src/features/shell/components/UnifiedAppShell.tsx");
+  assert.match(login, /Cognitive Operations/);
+  assert.match(shell, /Cognitive Operations/);
+  assert.doesNotMatch(login, /Enterprise Operations/);
+  assert.doesNotMatch(shell, /Enterprise Operations/);
 });
