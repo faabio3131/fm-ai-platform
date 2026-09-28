@@ -46,8 +46,8 @@ export default function SignupVerifyPage() {
 
   if (state === "verifying") {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#06101d] px-5 text-white">
-        <section className="w-full max-w-lg rounded-[2rem] border border-white/[0.09] bg-slate-900/80 p-8 text-center">
+      <main className="kordena-page-dark relative flex min-h-screen items-center justify-center overflow-hidden px-5 text-white">
+        <section className="kordena-panel-dark relative w-full max-w-lg rounded-[2rem] p-8 text-center">
           <Loader2 className="mx-auto size-10 animate-spin text-blue-300" />
           <h1 className="mt-5 text-2xl font-black">Confirmando seu e-mail</h1>
           <p className="mt-3 text-sm text-slate-400">
@@ -60,8 +60,8 @@ export default function SignupVerifyPage() {
 
   if (state === "ready") {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#06101d] px-5 text-white">
-        <section className="w-full max-w-lg rounded-[2rem] border border-white/[0.09] bg-slate-900/80 p-8 text-center">
+      <main className="kordena-page-dark relative flex min-h-screen items-center justify-center overflow-hidden px-5 text-white">
+        <section className="kordena-panel-dark relative w-full max-w-lg rounded-[2rem] p-8 text-center">
           <CheckCircle2 className="mx-auto size-10 text-emerald-300" />
           <h1 className="mt-5 text-2xl font-black">E-mail confirmado</h1>
           <p className="mt-3 text-sm text-slate-400">
@@ -76,8 +76,8 @@ export default function SignupVerifyPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#06101d] px-5 text-white">
-      <section className="w-full max-w-lg rounded-[2rem] border border-white/[0.09] bg-slate-900/80 p-8 text-center">
+    <main className="kordena-page-dark relative flex min-h-screen items-center justify-center overflow-hidden px-5 text-white">
+      <section className="kordena-panel-dark relative w-full max-w-lg rounded-[2rem] p-8 text-center">
         <ShieldAlert className="mx-auto size-10 text-amber-300" />
         <h1 className="mt-5 text-2xl font-black">
           {state === "disabled" ? "Verificação não liberada" : "Link inválido ou expirado"}
