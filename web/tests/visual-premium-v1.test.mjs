@@ -147,7 +147,8 @@ test("Gerente IA fica separado da operação sob o grupo Inteligência", () => {
 test("Atendente IA expõe sua capacidade operacional e comercial sem inventar saúde externa", () => {
   const assistente = source("../src/features/backoffice/assistente-atendimento/components/AssistenteAtendimentoWorkspace.tsx");
 
-  assert.match(assistente, /Central de Atendimento IA/);\n  assert.match(assistente, /Agente operacional e comercial conectado ao Kordena/);
+  assert.match(assistente, /Central de Atendimento IA/);
+  assert.match(assistente, /Agente operacional e comercial conectado ao Kordena/);
   assert.match(assistente, /Pulso operacional/);
   assert.match(assistente, /Fila e conversão em tempo de operação/);
   assert.match(assistente, /O que a Central de Atendimento IA realmente faz/);
