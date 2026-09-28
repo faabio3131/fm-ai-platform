@@ -453,7 +453,7 @@ export function OrdersCenterWorkspace() {
         </section>
 
         {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+          <div className="rounded-2xl border border-red-400/25 bg-red-500/[0.08] px-4 py-3 text-sm font-semibold text-red-200">
             {error}
           </div>
         ) : null}
@@ -564,7 +564,7 @@ export function OrdersCenterWorkspace() {
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                       Financeiro
                     </p>
-                    <p className="mt-1 text-sm font-bold capitalize text-slate-800">
+                    <p className="mt-1 text-sm font-bold capitalize text-slate-200">
                       {humanize(detail.financeiro.situacao)}
                     </p>
                   </div>
@@ -592,7 +592,7 @@ export function OrdersCenterWorkspace() {
                     {detail.itens.map((item) => (
                       <div key={item.item_id} className="px-3 py-3">
                         <div className="flex justify-between gap-3 text-sm">
-                          <span className="font-semibold text-slate-800">
+                          <span className="font-semibold text-slate-200">
                             {item.quantidade}× {item.nome}
                           </span>
                           <span className="font-bold text-slate-50">
@@ -647,7 +647,7 @@ export function OrdersCenterWorkspace() {
                         key={event.evento_id}
                         className="border-l-2 border-blue-200 pl-3 text-xs"
                       >
-                        <p className="font-semibold text-slate-700">
+                        <p className="font-semibold text-slate-300">
                           {humanize(event.tipo)}
                         </p>
                         <p className="mt-0.5 text-slate-400">
@@ -682,9 +682,9 @@ export function OrdersCenterWorkspace() {
                 ) : null}
 
                 {CANCELABLE.has(detail.resumo.status) && canCancelOrder ? (
-                  <div className="rounded-2xl border border-red-100 bg-red-50/50 p-3">
+                  <div className="rounded-2xl border border-red-400/25 bg-red-500/[0.06] p-3">
                     <label
-                      className="text-xs font-bold text-red-800"
+                      className="text-xs font-bold text-red-200"
                       htmlFor="cancel-reason"
                     >
                       Cancelar pedido
@@ -712,7 +712,7 @@ export function OrdersCenterWorkspace() {
             ) : (
               <div className="flex min-h-96 flex-col items-center justify-center px-5 text-center">
                 <ClipboardList className="size-9 text-slate-300" />
-                <p className="mt-3 text-sm font-semibold text-slate-700">
+                <p className="mt-3 text-sm font-semibold text-slate-300">
                   Selecione um pedido
                 </p>
                 <p className="mt-1 text-xs leading-5 text-slate-400">
