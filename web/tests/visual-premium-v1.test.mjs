@@ -193,7 +193,7 @@ test("Marketplaces ficam visíveis à operação sem expor autoridade administra
   assert.match(marketplace, /Keeta/);
   assert.match(marketplace, /99Food/);
   assert.match(marketplace, /homologação pendente/);
-  assert.match(marketplace, /Credenciais e sincronização manual permanecem protegidas/);
+  assert.match(marketplace, /Operação visível; credenciais, homologação e sincronização manual permanecem protegidas/);
   assert.doesNotMatch(marketplace, /if \(!canManage\) return null/);
 });
 
