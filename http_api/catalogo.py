@@ -157,6 +157,8 @@ def build_catalogo_router(
 
     def _contexto(request: Request, *, exigir_escrita: bool) -> Any:
         identidade = _identidade(request)
+        if not exigir_escrita and Permissao.CATALOGO_VISUALIZAR not in identidade.permissoes:
+            raise PermissionError("seguranca.permissao_insuficiente")
         if (
             exigir_escrita
             and Permissao.CONFIGURACAO_ALTERAR not in identidade.permissoes
@@ -260,6 +262,11 @@ def build_catalogo_router(
                 status.HTTP_403_FORBIDDEN,
                 str(exc) or "seguranca.permissao_insuficiente",
             )
+        except PermissionError as exc:
+            return _erro(
+                status.HTTP_403_FORBIDDEN,
+                str(exc) or "seguranca.permissao_insuficiente",
+            )
         except (ReferenciaSegredoInvalida, SegredoAusente):
             return _erro(
                 status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -313,6 +320,11 @@ def build_catalogo_router(
                 status.HTTP_401_UNAUTHORIZED,
                 CredenciaisInvalidas.codigo,
             )
+        except PermissionError as exc:
+            return _erro(
+                status.HTTP_403_FORBIDDEN,
+                str(exc) or "seguranca.permissao_insuficiente",
+            )
         except (ReferenciaSegredoInvalida, SegredoAusente):
             return _erro(
                 status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -348,6 +360,11 @@ def build_catalogo_router(
                 status.HTTP_401_UNAUTHORIZED,
                 CredenciaisInvalidas.codigo,
             )
+        except PermissionError as exc:
+            return _erro(
+                status.HTTP_403_FORBIDDEN,
+                str(exc) or "seguranca.permissao_insuficiente",
+            )
         except (ReferenciaSegredoInvalida, SegredoAusente):
             return _erro(
                 status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -375,6 +392,11 @@ def build_catalogo_router(
             )
         except CredenciaisInvalidas:
             return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
+        except PermissionError as exc:
+            return _erro(
+                status.HTTP_403_FORBIDDEN,
+                str(exc) or "seguranca.permissao_insuficiente",
+            )
         except (ReferenciaSegredoInvalida, SegredoAusente):
             return _erro(
                 status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -451,6 +473,11 @@ def build_catalogo_router(
             )
         except CredenciaisInvalidas:
             return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
+        except PermissionError as exc:
+            return _erro(
+                status.HTTP_403_FORBIDDEN,
+                str(exc) or "seguranca.permissao_insuficiente",
+            )
         except (ReferenciaSegredoInvalida, SegredoAusente):
             return _erro(
                 status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -518,6 +545,11 @@ def build_catalogo_router(
             return _erro(
                 status.HTTP_401_UNAUTHORIZED,
                 CredenciaisInvalidas.codigo,
+            )
+        except PermissionError as exc:
+            return _erro(
+                status.HTTP_403_FORBIDDEN,
+                str(exc) or "seguranca.permissao_insuficiente",
             )
         except PermissionError as exc:
             return _erro(
@@ -603,6 +635,11 @@ def build_catalogo_router(
                 status.HTTP_403_FORBIDDEN,
                 str(exc) or "seguranca.permissao_insuficiente",
             )
+        except PermissionError as exc:
+            return _erro(
+                status.HTTP_403_FORBIDDEN,
+                str(exc) or "seguranca.permissao_insuficiente",
+            )
         except ConflitoIdempotenciaCatalogo:
             return _erro(
                 status.HTTP_409_CONFLICT,
@@ -672,6 +709,11 @@ def build_catalogo_router(
             return _erro(
                 status.HTTP_401_UNAUTHORIZED,
                 CredenciaisInvalidas.codigo,
+            )
+        except PermissionError as exc:
+            return _erro(
+                status.HTTP_403_FORBIDDEN,
+                str(exc) or "seguranca.permissao_insuficiente",
             )
         except PermissionError as exc:
             return _erro(
