@@ -544,7 +544,7 @@ export function AssistenteAtendimentoWorkspace() {
                 </Badge>
               </div>
               <h1 className="mt-5 text-3xl font-black tracking-tight text-white sm:text-4xl">
-                Atendente IA
+                Central de Atendimento IA
               </h1>
               <p className="mt-3 text-base font-semibold text-sky-100 sm:text-lg">
                 Agente operacional e comercial conectado ao Kordena
