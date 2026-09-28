@@ -68,15 +68,15 @@ function errorMessage(caught: unknown, fallback: string): string {
 
 function statusClass(value: string): string {
   if (["confirmado", "entregue"].includes(value)) {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    return "border-emerald-300/20 bg-emerald-400/[0.08] text-emerald-200";
   }
   if (["cancelado", "cancelada", "tentativa_falhou"].includes(value)) {
-    return "border-red-200 bg-red-50 text-red-700";
+    return "border-red-300/20 bg-red-500/[0.08] text-red-200";
   }
   if (["em_rota", "coletada", "aguardando_expedicao"].includes(value)) {
-    return "border-blue-200 bg-blue-50 text-blue-700";
+    return "border-blue-300/20 bg-blue-500/[0.08] text-blue-200";
   }
-  return "border-amber-200 bg-amber-50 text-amber-700";
+  return "border-amber-300/20 bg-amber-400/[0.08] text-amber-200";
 }
 
 export function DeliveryWorkspace() {
@@ -302,7 +302,7 @@ export function DeliveryWorkspace() {
         </header>
 
         {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          <div className="rounded-2xl border border-red-300/20 bg-red-500/[0.08] px-4 py-3 text-sm font-medium text-red-200">
             {error}
           </div>
         ) : null}
@@ -315,8 +315,8 @@ export function DeliveryWorkspace() {
         <section className="grid gap-5 xl:grid-cols-[0.95fr_1.35fr]">
           <div className="space-y-5">
             <div className="rounded-3xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] p-5 shadow-[0_22px_56px_-34px_rgba(0,0,0,0.82)]">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-600">Cliente e endereço</p>
-              <label className="mt-4 block text-sm font-bold text-slate-700" htmlFor="delivery-client">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-300">Cliente e endereço</p>
+              <label className="mt-4 block text-sm font-bold text-slate-300" htmlFor="delivery-client">
                 Cliente CRM
               </label>
               <select
@@ -336,10 +336,10 @@ export function DeliveryWorkspace() {
               {context ? (
                 <div className="mt-4 rounded-2xl border border-slate-700/45 bg-slate-950/32 p-4">
                   <div className="flex items-start gap-3">
-                    <MapPin className="mt-0.5 size-5 text-blue-600" />
+                    <MapPin className="mt-0.5 size-5 text-sky-300" />
                     <div>
                       <p className="text-sm font-bold text-slate-100">Endereço validado</p>
-                      <p className="mt-1 text-sm text-slate-600">{context.endereco.endereco_formatado}</p>
+                      <p className="mt-1 text-sm text-slate-400">{context.endereco.endereco_formatado}</p>
                       <p className="mt-1 text-xs text-slate-500">CEP {context.endereco.cep}</p>
                     </div>
                   </div>
@@ -359,7 +359,7 @@ export function DeliveryWorkspace() {
               <div className="rounded-3xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] p-5 shadow-[0_22px_56px_-34px_rgba(0,0,0,0.82)]">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-600">Carrinho</p>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-300">Carrinho</p>
                     <p className="mt-1 text-sm text-slate-500">versão {cart.versao}</p>
                   </div>
                   <Badge variant="outline">{humanize(cart.status)}</Badge>
@@ -390,7 +390,7 @@ export function DeliveryWorkspace() {
                 >
                   <Truck className="size-4" /> Calcular taxa e SLA
                 </Button>
-                <label className="mt-4 block text-sm font-bold text-slate-700" htmlFor="delivery-payment">Forma de pagamento</label>
+                <label className="mt-4 block text-sm font-bold text-slate-300" htmlFor="delivery-payment">Forma de pagamento</label>
                 <select
                   id="delivery-payment"
                   value={paymentMethod}
@@ -413,9 +413,9 @@ export function DeliveryWorkspace() {
           <div className="space-y-5">
             <div className="rounded-3xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] p-5 shadow-[0_22px_56px_-34px_rgba(0,0,0,0.82)]">
               <div className="flex items-center gap-3">
-                <PackagePlus className="size-5 text-blue-600" />
+                <PackagePlus className="size-5 text-sky-300" />
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-600">Cardápio da unidade</p>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-300">Cardápio da unidade</p>
                   <p className="mt-1 text-sm text-slate-500">Produtos autorizados para o contexto selecionado.</p>
                 </div>
               </div>
@@ -448,7 +448,7 @@ export function DeliveryWorkspace() {
             <div className="rounded-3xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] p-5 shadow-[0_22px_56px_-34px_rgba(0,0,0,0.82)]">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-600">Acompanhamento</p>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-300">Acompanhamento</p>
                   <h2 className="mt-1 text-lg font-black text-slate-50">Pedido e logística</h2>
                 </div>
                 {tracking ? (
