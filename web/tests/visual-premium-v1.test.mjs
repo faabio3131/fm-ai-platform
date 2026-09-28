@@ -142,3 +142,26 @@ test("Gerente IA fica separado da operação sob o grupo Inteligência", () => {
   assert.match(shell, />\s*Inteligência\s*</);
   assert.match(dashboard, /Camada cognitiva para consultar a operação/);
 });
+
+
+test("Atendente IA expõe sua capacidade operacional e comercial sem inventar saúde externa", () => {
+  const assistente = source("../src/features/backoffice/assistente-atendimento/components/AssistenteAtendimentoWorkspace.tsx");
+
+  assert.match(assistente, /Agente operacional e comercial/);
+  assert.match(assistente, /Pulso operacional/);
+  assert.match(assistente, /Fila e conversão em tempo de operação/);
+  assert.match(assistente, /O que a Atendente IA realmente faz/);
+  assert.match(assistente, /WhatsApp multimodal/);
+  assert.match(assistente, /Core de IA/);
+  assert.match(assistente, /Pedidos e checkout/);
+  assert.match(assistente, /Pagamentos/);
+  assert.match(assistente, /Entrega inteligente/);
+  assert.match(assistente, /Estoque/);
+  assert.match(assistente, /Handoff humano/);
+  assert.match(assistente, /depende de integração/);
+  assert.match(assistente, /não apresenta credencial externa como online sem healthcheck real/);
+  assert.match(assistente, /listarConversas/);
+  assert.match(assistente, /forcarHandoff/);
+  assert.doesNotMatch(assistente, /bg-slate-100/);
+  assert.doesNotMatch(assistente, /border-slate-200/);
+});
