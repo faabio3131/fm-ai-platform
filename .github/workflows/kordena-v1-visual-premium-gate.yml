@@ -9,6 +9,8 @@ on:
   push:
     branches:
       - feat/web-parity-v1-total-original-migration
+      - staging/kordena-premium
+      - main
     paths:
       - 'web/**'
       - 'docs/web-parity/KORDENA_V1_VISUAL_PREMIUM_**'
