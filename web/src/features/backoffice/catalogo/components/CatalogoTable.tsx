@@ -16,6 +16,7 @@ interface CatalogoTableProps {
   categorias: string[];
   updatingIds: ReadonlySet<string>;
   onToggleAtivo: (produto: CatalogoProduto, ativo: boolean) => void;
+  readOnly?: boolean;
 }
 
 const moedaBRL = new Intl.NumberFormat("pt-BR", {
@@ -72,6 +73,7 @@ export function CatalogoTable({
   categorias,
   updatingIds,
   onToggleAtivo,
+  readOnly = false,
 }: CatalogoTableProps) {
   const [busca, setBusca] = useState("");
   const [categoria, setCategoria] = useState("todas");
@@ -194,11 +196,17 @@ export function CatalogoTable({
                       {moedaBRL.format(produto.preco)}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <AvailabilitySwitch
+                      {readOnly ? (
+                        <span className={["inline-flex rounded-full border px-2.5 py-1 text-xs font-bold", produto.ativo ? "border-emerald-400/20 bg-emerald-400/[0.08] text-emerald-200" : "border-slate-500/20 bg-slate-500/[0.08] text-slate-400"].join(" ")}>
+                          {produto.ativo ? "Disponível" : "Indisponível"}
+                        </span>
+                      ) : (
+                        <AvailabilitySwitch
                         produto={produto}
                         loading={updatingIds.has(produto.id)}
                         onToggle={(ativo) => onToggleAtivo(produto, ativo)}
                       />
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -222,11 +230,17 @@ export function CatalogoTable({
                   <span className="font-mono text-[11px] tabular-nums text-slate-600">
                     ID {produto.id}
                   </span>
-                  <AvailabilitySwitch
+                  {readOnly ? (
+                        <span className={["inline-flex rounded-full border px-2.5 py-1 text-xs font-bold", produto.ativo ? "border-emerald-400/20 bg-emerald-400/[0.08] text-emerald-200" : "border-slate-500/20 bg-slate-500/[0.08] text-slate-400"].join(" ")}>
+                          {produto.ativo ? "Disponível" : "Indisponível"}
+                        </span>
+                      ) : (
+                        <AvailabilitySwitch
                     produto={produto}
                     loading={updatingIds.has(produto.id)}
                     onToggle={(ativo) => onToggleAtivo(produto, ativo)}
                   />
+                      )}
                 </div>
               </article>
             ))}
