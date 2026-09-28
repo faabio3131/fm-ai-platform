@@ -217,3 +217,37 @@ test("Central de Atendimento IA tem marca visual do WhatsApp e sidecar operacion
   assert.match(whatsapp, /MessageCircle/);
   assert.match(whatsapp, /Phone/);
 });
+
+
+test("Catálogo e Estoque ficam em Operação com mutações protegidas", () => {
+  const registry = source("../src/features/shell/module-registry.ts");
+  const catalogo = source("../src/features/backoffice/catalogo/components/CatalogoWorkspace.tsx");
+  const tabela = source("../src/features/backoffice/catalogo/components/CatalogoTable.tsx");
+  const estoque = source("../src/features/backoffice/estoque/components/EstoqueWorkspace.tsx");
+
+  assert.match(registry, /id: "catalogo"[\s\S]*href: "\/catalogo"[\s\S]*group: "operacao"[\s\S]*catalogo\.visualizar/);
+  assert.match(registry, /id: "estoque"[\s\S]*href: "\/estoque"[\s\S]*group: "operacao"[\s\S]*estoque\.visualizar/);
+  assert.match(catalogo, /Abrir gestão protegida/);
+  assert.match(catalogo, /readOnly=\{!canAdminister\}/);
+  assert.match(tabela, /readOnly = false/);
+  assert.match(estoque, /Visualização operacional ativa/);
+  assert.match(estoque, /Abrir gestão protegida/);
+});
+
+test("Gerente IA é Centro Operacional Cognitivo sem ampliar autoridade", () => {
+  const gerente = source("../src/features/gerente-ia/components/GerenteIAWorkspace.tsx");
+  assert.match(gerente, /Centro operacional cognitivo/);
+  assert.match(gerente, /availableShellModules\(auth\.permissions\)/);
+  assert.match(gerente, /module\.group === "operacao"/);
+  assert.match(gerente, /O Gerente IA não amplia autoridade/);
+  assert.match(gerente, /PERGUNTAS_RAPIDAS/);
+});
+
+test("Marketplaces separam operação de credenciais e homologação", () => {
+  const marketplace = source("../src/features/orders/components/MarketplaceChannelPanel.tsx");
+  assert.match(marketplace, /Canais de venda integrados/);
+  assert.match(marketplace, /operação liberada/);
+  assert.match(marketplace, /Operação visível; credenciais, homologação e sincronização manual permanecem protegidas/);
+  assert.match(marketplace, /99Food/);
+  assert.match(marketplace, /homologação pendente/);
+});
