@@ -251,8 +251,8 @@ export function UnifiedAppShell({ children }: { children: ReactNode }) {
       </header>
 
       <div className="mx-auto flex min-h-0 w-full max-w-[1920px] flex-1">
-        <aside className="hidden w-72 shrink-0 flex-col border-r border-sky-300/[0.07] bg-[linear-gradient(180deg,#050d18_0%,#09172a_48%,#050d18_100%)] p-4 shadow-[18px_0_50px_-42px_rgba(0,0,0,0.95)] lg:flex">
-          <nav className="space-y-6" aria-label="Navegação principal">
+        <aside className="sticky top-[73px] hidden h-[calc(100vh-73px)] w-72 shrink-0 flex-col border-r border-sky-300/[0.07] bg-[linear-gradient(180deg,#050d18_0%,#09172a_48%,#050d18_100%)] p-4 shadow-[18px_0_50px_-42px_rgba(0,0,0,0.95)] lg:flex">
+          <nav className="min-h-0 flex-1 space-y-6 overflow-y-auto pr-1 [scrollbar-gutter:stable]" aria-label="Navegação principal">
             <div className="space-y-1">
               <Link
                 href="/"
@@ -314,7 +314,7 @@ export function UnifiedAppShell({ children }: { children: ReactNode }) {
             ) : null}
           </nav>
 
-          <div className="mt-auto space-y-3 pt-6">
+          <div className="mt-3 shrink-0 space-y-3 border-t border-sky-300/[0.07] pt-3">
             <div className="rounded-2xl border border-sky-300/[0.08] bg-[linear-gradient(145deg,rgba(17,34,59,0.58),rgba(8,20,36,0.7))] p-3.5 shadow-[inset_0_1px_rgba(255,255,255,0.025)]">
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Unidade operacional</p>
               <p className="mt-1.5 truncate text-xs font-semibold text-slate-300">{unitTitle(activeUnit)}</p>
