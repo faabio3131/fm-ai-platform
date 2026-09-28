@@ -2,7 +2,7 @@
 
 **Data de reconciliação:** 27/09/2026
 **Branch oficial:** `feat/kordena-v1-visual-premium-final`
-**PR:** nova PR canônica da fase Visual Premium
+**PR:** #138
 **Baseline funcional autorizado:** `staging/kordena-premium@023bb8d78495eb5464568543c248e3337019766f`
 **Baseline:** KCA-00→KCA-17 integrados; PR #137 mergeada; `staging/kordena-premium` reconciliado no merge `023bb8d78495eb5464568543c248e3337019766f`; release público continua separado e fail-closed nas dependências externas.
 
