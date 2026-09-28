@@ -182,7 +182,7 @@ export function DashboardHome() {
                   Operação
                 </p>
                 <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-50">
-                  Chão de fábrica
+                  Operacional
                 </h2>
                 <p className="mt-1 text-sm leading-6 text-slate-400">
                   Atendimento, produção e execução operacional disponíveis para sua função.
