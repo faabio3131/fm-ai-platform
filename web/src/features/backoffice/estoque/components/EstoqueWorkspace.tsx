@@ -1,5 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
 import {
   BrainCircuit,
   CalendarClock,
@@ -57,6 +60,12 @@ function data(valor: string | null): string {
 
 export function EstoqueWorkspace() {
   const auth = useAuthStore();
+  const pathname = usePathname();
+  const adminSurface = pathname.startsWith("/admin/");
+  const canAdminister =
+    adminSurface &&
+    auth.permissions.includes("admin.acessar") &&
+    auth.permissions.includes("estoque.ajustar");
   const [itens, setItens] = useState<EstoqueInsumo[]>([]);
   const [valorTotal, setValorTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -122,22 +131,26 @@ export function EstoqueWorkspace() {
         <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-300">
-              Retaguarda · Unidade ativa
+              {adminSurface ? "Retaguarda · Unidade ativa" : "Operação · Consulta"}
             </p>
             <h1 className="mt-2 text-3xl font-black tracking-tight">Estoque e Validades</h1>
             <p className="mt-2 max-w-3xl text-sm text-slate-400">
-              Almoxarifado, saldo, custo, mínimo e validade conforme a operação original do Kordena.
+              {adminSurface ? "Almoxarifado, saldo, custo, mínimo e validade conforme a operação original do Kordena." : "Consulta operacional de saldos, mínimos, reposição e validades da unidade ativa."}
             </p>
           </div>
-          <Button variant="outline" onClick={() => void carregar()} disabled={loading || busy}>
-            <RefreshCw className={loading ? "animate-spin" : ""} />
-            Atualizar
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => void carregar()} disabled={loading || busy}>
+              <RefreshCw className={loading ? "animate-spin" : ""} /> Atualizar
+            </Button>
+            {!adminSurface && auth.permissions.includes("admin.acessar") ? (
+              <Button asChild variant="outline"><Link href="/admin/estoque">Abrir gestão protegida</Link></Button>
+            ) : null}
+          </div>
         </header>
 
         <section className="grid gap-3 md:grid-cols-4">
           <Metric label="Insumos" value={String(itens.length)} />
-          <Metric label="Valor em estoque" value={moeda(valorTotal)} />
+          {canAdminister ? <Metric label="Valor em estoque" value={moeda(valorTotal)} /> : <Metric label="Itens OK" value={String(itens.filter((item) => item.status_estoque === "ok").length)} />}
           <Metric label="Reposição" value={String(reposicao)} attention={reposicao > 0} />
           <Metric
             label="Validade em atenção"
@@ -157,7 +170,9 @@ export function EstoqueWorkspace() {
           </div>
         ) : null}
 
-        <section className="rounded-2xl border border-violet-400/20 bg-violet-500/5 p-5">
+        {canAdminister ? (
+          <>
+          <section className="rounded-2xl border border-violet-400/20 bg-violet-500/5 p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="flex items-center gap-2 font-bold text-white">
@@ -223,7 +238,12 @@ export function EstoqueWorkspace() {
           ) : null}
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(340px,1fr)]">
+          </>
+        ) : (
+          <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/[0.05] px-4 py-3 text-sm text-emerald-100">Visualização operacional ativa. Entradas, exclusões, forecasting e leitura por IA permanecem protegidos por autorização administrativa.</div>
+        )}
+
+        <section className={canAdminister ? "grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(340px,1fr)]" : "grid gap-6"}>
           <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
             <div className="flex items-center gap-2 border-b border-slate-800 px-4 py-3">
               <Warehouse className="size-5 text-blue-400" />
@@ -244,10 +264,10 @@ export function EstoqueWorkspace() {
                     <tr>
                       <th className="px-4 py-3">Insumo</th>
                       <th className="px-4 py-3">Saldo / mínimo</th>
-                      <th className="px-4 py-3">Custo / total</th>
+                      {canAdminister ? <th className="px-4 py-3">Custo / total</th> : null}
                       <th className="px-4 py-3">Validade</th>
                       <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3 text-right">Ação</th>
+                      {canAdminister ? <th className="px-4 py-3 text-right">Ação</th> : null}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
@@ -260,12 +280,12 @@ export function EstoqueWorkspace() {
                             mínimo {item.estoque_minimo} {item.unidade_medida}
                           </span>
                         </td>
-                        <td className="px-4 py-3 tabular-nums">
-                          {moeda(item.custo_unitario)}
-                          <span className="block text-xs text-slate-500">
-                            {moeda(item.valor_total)} total
-                          </span>
-                        </td>
+                        {canAdminister ? (
+                          <td className="px-4 py-3 tabular-nums">
+                            {moeda(item.custo_unitario)}
+                            <span className="block text-xs text-slate-500">{moeda(item.valor_total)} total</span>
+                          </td>
+                        ) : null}
                         <td className="px-4 py-3">
                           {data(item.data_validade)}
                           <span className="block text-xs text-slate-500">
@@ -283,7 +303,8 @@ export function EstoqueWorkspace() {
                             {item.status_estoque === "ok" ? "OK" : "Reposição"}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        {canAdminister ? (
+                          <td className="px-4 py-3 text-right">
                           <Button
                             type="button"
                             variant="ghost"
@@ -300,7 +321,8 @@ export function EstoqueWorkspace() {
                           >
                             <Trash2 className="size-4 text-red-300" />
                           </Button>
-                        </td>
+                          </td>
+                        ) : null}
                       </tr>
                     ))}
                   </tbody>
@@ -309,7 +331,8 @@ export function EstoqueWorkspace() {
             )}
           </div>
 
-          <div className="space-y-6">
+          {canAdminister ? (
+            <div className="space-y-6">
             <NovoInsumoForm
               busy={busy}
               onSubmit={(payload) =>
@@ -328,7 +351,8 @@ export function EstoqueWorkspace() {
                 })
               }
             />
-          </div>
+            </div>
+          ) : null}
         </section>
       </div>
     </main>
