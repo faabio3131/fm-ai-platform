@@ -25,6 +25,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
+import { KordenaBrand } from "@/components/brand/KordenaBrand";
 import { Button } from "@/components/ui/button";
 import { UnitSelectorModal } from "@/features/auth/components/UnitSelectorModal";
 import {
@@ -182,18 +183,8 @@ export function UnifiedAppShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen flex-col bg-[#050d18] text-slate-100">
       <header className="sticky top-0 z-40 border-b border-sky-300/[0.08] bg-[#050d18]/94 px-4 py-3 shadow-[0_18px_42px_-34px_rgba(0,0,0,0.9)] backdrop-blur-2xl lg:px-6">
         <div className="mx-auto flex max-w-[1920px] items-center justify-between gap-4">
-          <Link href="/" className="flex min-w-0 items-center gap-3">
-            <span className="kordena-brand-mark flex size-10 shrink-0 items-center justify-center rounded-xl">
-              <BrainCircuit className="relative z-10 size-5 text-white" />
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-[15px] font-black tracking-[0.08em] text-white">
-                KORDENA
-              </span>
-              <span className="hidden text-[9px] font-bold uppercase tracking-[0.22em] text-slate-500 sm:block">
-                Cognitive Operations
-              </span>
-            </span>
+          <Link href="/" aria-label="Kordena — O cérebro da sua operação">
+            <KordenaBrand compact />
           </Link>
 
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">

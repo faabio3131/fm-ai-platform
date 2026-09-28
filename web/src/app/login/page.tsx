@@ -2,7 +2,6 @@
 
 import {
   ArrowRight,
-  BrainCircuit,
   Building2,
   Eye,
   EyeOff,
@@ -16,6 +15,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
+import { KordenaBrand } from "@/components/brand/KordenaBrand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UnitSelectorModal } from "@/features/auth/components/UnitSelectorModal";
@@ -112,15 +112,7 @@ export default function LoginPage() {
       <div className="kordena-grid pointer-events-none absolute inset-0 opacity-35" />
 
       <section className="relative hidden min-h-screen overflow-hidden border-r border-white/[0.07] lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16">
-        <div className="flex items-center gap-3">
-          <span className="kordena-brand-mark flex size-11 items-center justify-center rounded-2xl">
-            <BrainCircuit className="relative z-10 size-5" />
-          </span>
-          <div>
-            <p className="text-sm font-black tracking-[0.1em]">KORDENA</p>
-            <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-slate-500">Cognitive Operations</p>
-          </div>
-        </div>
+        <KordenaBrand />
 
         <div className="max-w-2xl">
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/15 bg-emerald-400/[0.07] px-3 py-1.5 text-xs font-bold text-emerald-200">
@@ -154,15 +146,7 @@ export default function LoginPage() {
 
       <section className="relative flex min-h-screen items-center justify-center px-5 py-10 sm:px-8 lg:px-12">
         <div className="kordena-enter w-full max-w-md">
-          <div className="mb-7 flex items-center gap-3 lg:hidden">
-            <span className="kordena-brand-mark flex size-11 items-center justify-center rounded-2xl">
-              <BrainCircuit className="relative z-10 size-5" />
-            </span>
-            <div>
-              <p className="text-sm font-black tracking-[0.1em]">KORDENA</p>
-              <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-slate-500">Cognitive Operations</p>
-            </div>
-          </div>
+          <KordenaBrand className="mb-7 lg:hidden" />
 
           <div className="rounded-[2rem] border border-white/[0.09] bg-slate-900/72 p-6 shadow-[0_34px_90px_-40px_rgba(0,0,0,0.85)] backdrop-blur-xl sm:p-8">
             <div className="flex items-start justify-between gap-4">

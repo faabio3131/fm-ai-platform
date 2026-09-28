@@ -8,7 +8,11 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Kordena Enterprise",
-  description: "Kordena enterprise operations workspace",
+  description: "Kordena — O cérebro da sua operação.",
+  icons: {
+    icon: "/kordena-brain-mark.png",
+    apple: "/kordena-brain-mark.png",
+  },
 };
 
 export default function RootLayout({

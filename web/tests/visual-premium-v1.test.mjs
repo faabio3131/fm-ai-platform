@@ -12,7 +12,7 @@ test("Visual Premium preserva o shell canônico e torna o Core explícito", () =
   assert.match(shell, /selectUnit/);
   assert.match(shell, /endAuthSession/);
   assert.match(shell, /Gerente IA/);
-  assert.match(shell, /kordena-brand-mark/);
+  assert.match(shell, /KordenaBrand/);
 });
 
 test("Visual Premium preserva contratos funcionais do Gerente IA", () => {
@@ -51,7 +51,6 @@ test("design system Premium inclui acessibilidade, dark root e redução de movi
   assert.match(css, /--kordena-cyan:/);
   assert.match(css, /prefers-reduced-motion/);
   assert.match(css, /kordena-panel-dark/);
-  assert.match(css, /kordena-brand-mark/);
   assert.match(css, /kordena-surface-raised/);
   assert.match(css, /scrollbar-width/);
   assert.match(layout, /className="dark"/);
@@ -83,8 +82,13 @@ test("Visual Premium elimina ilhas claras nos workspaces operacionais prioritár
 test("Visual Premium mantém identidade cognitiva consistente entre login e shell", () => {
   const login = source("../src/app/login/page.tsx");
   const shell = source("../src/features/shell/components/UnifiedAppShell.tsx");
-  assert.match(login, /Cognitive Operations/);
-  assert.match(shell, /Cognitive Operations/);
+  const brand = source("../src/components/brand/KordenaBrand.tsx");
+  assert.match(login, /KordenaBrand/);
+  assert.match(shell, /KordenaBrand/);
+  assert.match(brand, /O CÉREBRO DA SUA OPERAÇÃO/);
+  assert.match(brand, /kordena-brain-mark\.png/);
+  assert.doesNotMatch(login, /Cognitive Operations/);
+  assert.doesNotMatch(shell, /Cognitive Operations/);
   assert.doesNotMatch(login, /Enterprise Operations/);
   assert.doesNotMatch(shell, /Enterprise Operations/);
 });
