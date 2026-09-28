@@ -63,6 +63,7 @@ test("Visual Premium elimina ilhas claras nos workspaces operacionais prioritár
     source("../src/features/shell/components/DashboardHome.tsx"),
     source("../src/features/backoffice/components/BackofficeHome.tsx"),
     source("../src/features/pdv/components/PDVUnifiedWorkspace.tsx"),
+    source("../src/features/pdv/components/PDVTouchWorkspace.tsx"),
     source("../src/features/orders/components/OrdersCenterWorkspace.tsx"),
     source("../src/features/delivery/components/DeliveryWorkspace.tsx"),
     source("../src/features/entrega/components/EntregaWorkspace.tsx"),
