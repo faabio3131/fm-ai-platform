@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
+import { WhatsAppChannelMark } from '@/features/backoffice/assistente-atendimento/components/WhatsAppChannelMark';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -555,7 +556,11 @@ export function AssistenteAtendimentoWorkspace() {
                 automação precisa devolver o controle à equipe.
               </p>
               <div className="mt-5 flex flex-wrap gap-2 text-xs text-slate-300">
-                {['WhatsApp', 'Texto e áudio', 'Core IA', 'CRM', 'Pedidos', 'Pagamentos', 'Delivery'].map(
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/20 bg-emerald-400/[0.07] px-2.5 py-1 text-emerald-100">
+                  <WhatsAppChannelMark className="size-5" />
+                  WhatsApp
+                </span>
+                {['Texto e áudio', 'Core IA', 'CRM', 'Pedidos', 'Pagamentos', 'Delivery'].map(
                   (item) => (
                     <span
                       key={item}

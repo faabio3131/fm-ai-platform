@@ -26,6 +26,8 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import { KordenaBrainMark } from "@/components/brand/KordenaBrainMark";
 import { KordenaBrand } from "@/components/brand/KordenaBrand";
+import { AtendimentoSidecar } from "@/features/backoffice/assistente-atendimento/components/AtendimentoSidecar";
+import { WhatsAppChannelMark } from "@/features/backoffice/assistente-atendimento/components/WhatsAppChannelMark";
 import { Button } from "@/components/ui/button";
 import { UnitSelectorModal } from "@/features/auth/components/UnitSelectorModal";
 import {
@@ -109,6 +111,8 @@ function NavigationLink({
       >
         {module.id === "gerente-ia" ? (
           <KordenaBrainMark className="size-6" />
+        ) : module.id === "assistente-atendimento" ? (
+          <WhatsAppChannelMark className="size-6" />
         ) : (
           <Icon className="size-4" />
         )}
@@ -339,6 +343,15 @@ export function UnifiedAppShell({ children }: { children: ReactNode }) {
           </main>
         </div>
       </div>
+
+      <AtendimentoSidecar
+        enabled={
+          auth.status === "authenticated" &&
+          auth.permissions.includes("atendimento.visualizar")
+        }
+        unitId={auth.unitId}
+        pathname={pathname}
+      />
 
       <UnitSelectorModal
         open={unitModalOpen}

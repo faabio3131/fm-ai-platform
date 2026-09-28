@@ -196,3 +196,24 @@ test("Marketplaces ficam visíveis à operação sem expor autoridade administra
   assert.match(marketplace, /Credenciais e sincronização manual permanecem protegidas/);
   assert.doesNotMatch(marketplace, /if \(!canManage\) return null/);
 });
+
+
+test("Central de Atendimento IA tem marca visual do WhatsApp e sidecar operacional global", () => {
+  const workspace = source("../src/features/backoffice/assistente-atendimento/components/AssistenteAtendimentoWorkspace.tsx");
+  const shell = source("../src/features/shell/components/UnifiedAppShell.tsx");
+  const sidecar = source("../src/features/backoffice/assistente-atendimento/components/AtendimentoSidecar.tsx");
+  const whatsapp = source("../src/features/backoffice/assistente-atendimento/components/WhatsAppChannelMark.tsx");
+
+  assert.match(workspace, /WhatsAppChannelMark/);
+  assert.match(workspace, />\s*WhatsApp\s*</);
+  assert.match(shell, /AtendimentoSidecar/);
+  assert.match(shell, /atendimento\.visualizar/);
+  assert.match(shell, /module\.id === "assistente-atendimento"[\s\S]*WhatsAppChannelMark/);
+  assert.match(sidecar, /fixed bottom-0 right-0/);
+  assert.match(sidecar, /Atualiza automaticamente a cada 15 segundos/);
+  assert.match(sidecar, /listarConversas/);
+  assert.match(sidecar, /Abrir Central completa/);
+  assert.match(sidecar, /pathname\.startsWith\("\/atendimento-ia"\)/);
+  assert.match(whatsapp, /MessageCircle/);
+  assert.match(whatsapp, /Phone/);
+});
