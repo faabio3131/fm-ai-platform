@@ -13,10 +13,10 @@ const SheetClose = SheetPrimitive.Close;
 const SheetPortal = SheetPrimitive.Portal;
 
 function SheetOverlay({ className, ...props }: React.ComponentProps<typeof SheetPrimitive.Overlay>) {
-  return <SheetPrimitive.Overlay className={cn("fixed inset-0 z-50 bg-slate-950/72 backdrop-blur-sm", className)} {...props} />;
+  return <SheetPrimitive.Overlay className={cn("fixed inset-0 z-50 bg-[#020710]/82 backdrop-blur-md", className)} {...props} />;
 }
 
-const sheetVariants = cva("fixed z-50 gap-4 bg-background p-6 shadow-[0_28px_80px_-30px_rgba(2,6,23,0.65)] transition", {
+const sheetVariants = cva("fixed z-50 gap-4 border-slate-600/45 bg-[linear-gradient(160deg,#0f1e33,#081421)] p-6 text-slate-100 shadow-[0_32px_90px_-32px_rgba(0,0,0,0.92)] transition", {
   variants: {
     side: {
       top: "inset-x-0 top-0 rounded-b-3xl border-b",
