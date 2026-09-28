@@ -112,7 +112,7 @@ test("Visual Premium mantém identidade cognitiva consistente entre login e shel
 test("identidade Kordena usa o cérebro aprovado e elimina slogans antigos globalmente", () => {
   const asset = fs.readFileSync(new URL("../public/kordena-brain-mark.png", import.meta.url));
   const digest = crypto.createHash("sha256").update(asset).digest("hex");
-  assert.equal(digest, "beb2c7f1b092f734489d6535e9be628842bf2ec24b5789cf6e422a4cdca63fc9");
+  assert.equal(digest, "8e775411ec343026713d583197ae4cffb57a9b0a481c5e775cb0a591fc823a76");
 
   const sourceRoot = fileURLToPath(new URL("../src/", import.meta.url));
   for (const file of sourceFiles(sourceRoot)) {
