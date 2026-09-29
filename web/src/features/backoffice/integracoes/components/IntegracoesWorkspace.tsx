@@ -418,7 +418,13 @@ function IntegracaoDetailDialog({
               <div className="flex gap-3 pt-4 border-t">
                 <Button
                   onClick={handleHomologar}
-                  disabled={homologating || !config || !config.habilitada || !config.prontidao.pronto}
+                  disabled={
+                    homologating ||
+                    !config ||
+                    !config.habilitada ||
+                    !["configurado", "pronto"].includes(config.prontidao.estado) ||
+                    !homologacaoEvidencia.trim()
+                  }
                   className="flex-1"
                 >
                   {homologating ? 'Homologando...' : 'Homologar'}
