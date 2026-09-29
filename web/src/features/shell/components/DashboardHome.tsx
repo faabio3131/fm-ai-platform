@@ -63,37 +63,37 @@ function ModuleCard({ module }: { module: ShellModuleDefinition }) {
   return (
     <Link href={module.href} className="group block h-full">
       <Card className="h-full overflow-hidden border-slate-700/65 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] transition-all duration-200 hover:-translate-y-1 hover:border-sky-400/28 hover:shadow-[0_28px_62px_-34px_rgba(47,124,246,0.48)]">
-        <CardHeader className="pb-3">
+        <CardHeader className="p-4 pb-2">
           <div className="flex items-start justify-between gap-4">
-            <div className="flex size-11 items-center justify-center rounded-2xl bg-[linear-gradient(145deg,#0f172a,#1e3a5f)] text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.9)] ring-1 ring-white/10 transition group-hover:scale-[1.03] group-hover:bg-[linear-gradient(145deg,#1d4ed8,#0284c7)]">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-[linear-gradient(145deg,#0f172a,#1e3a5f)] text-white shadow-[0_12px_24px_-16px_rgba(15,23,42,0.9)] ring-1 ring-white/10 transition group-hover:scale-[1.03] group-hover:bg-[linear-gradient(145deg,#1d4ed8,#0284c7)]">
               {module.id === "gerente-ia" ? (
-                <KordenaBrainMark className="size-7" />
+                <KordenaBrainMark className="size-6" />
               ) : (
-                <Icon className="size-5" />
+                <Icon className="size-4" />
               )}
             </div>
             <Badge
               variant="outline"
               className={
                 protectedModule
-                  ? "border-amber-300/20 bg-amber-400/[0.08] text-amber-200"
-                  : "border-emerald-300/20 bg-emerald-400/[0.08] text-emerald-200"
+                  ? "border-amber-300/20 bg-amber-400/[0.08] px-2 py-0.5 text-[10px] text-amber-200"
+                  : "border-emerald-300/20 bg-emerald-400/[0.08] px-2 py-0.5 text-[10px] text-emerald-200"
               }
             >
               {protectedModule ? "Acesso protegido" : "Disponível"}
             </Badge>
           </div>
-          <CardTitle className="mt-4 text-lg tracking-tight text-slate-50 transition-colors group-hover:text-sky-300">
+          <CardTitle className="mt-3 text-base tracking-tight text-slate-50 transition-colors group-hover:text-sky-300">
             {module.label}
           </CardTitle>
-          <CardDescription className="min-h-12 leading-6 text-slate-400">
+          <CardDescription className="min-h-10 text-[13px] leading-5 text-slate-400">
             {module.description}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <span className="inline-flex items-center gap-1.5 text-sm font-bold text-sky-300">
+        <CardContent className="px-4 pb-4 pt-0">
+          <span className="inline-flex items-center gap-1.5 text-[13px] font-bold text-sky-300">
             Abrir módulo
-            <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+            <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-1" />
           </span>
         </CardContent>
       </Card>
@@ -120,7 +120,7 @@ export function DashboardHome() {
 
   return (
     <div className="kordena-page min-h-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <div className="kordena-enter mx-auto w-full max-w-7xl space-y-8">
+      <div className="kordena-enter mx-auto w-full max-w-7xl space-y-6">
         <section className="relative overflow-hidden rounded-[2rem] border border-slate-800/80 bg-[#08111f] p-6 text-white shadow-[0_30px_80px_-40px_rgba(2,6,23,0.8)] sm:p-8 lg:p-10">
           <div className="kordena-grid pointer-events-none absolute inset-0 opacity-70" />
           <div className="pointer-events-none absolute -right-28 -top-28 size-80 rounded-full bg-blue-500/22 blur-3xl" />
@@ -187,7 +187,7 @@ export function DashboardHome() {
 
         {operationModules.length > 0 ? (
           <section>
-            <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div className="mb-4 flex flex-col gap-1.5 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-300">
                   Operação
@@ -203,7 +203,7 @@ export function DashboardHome() {
                 {operationModules.length} disponíveis
               </Badge>
             </div>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {operationModules.map((module) => (
                 <ModuleCard key={module.id} module={module} />
               ))}
@@ -213,7 +213,7 @@ export function DashboardHome() {
 
         {intelligenceModules.length > 0 ? (
           <section>
-            <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div className="mb-4 flex flex-col gap-1.5 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-300">
                   Inteligência
@@ -229,7 +229,7 @@ export function DashboardHome() {
                 Inteligência operacional
               </Badge>
             </div>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {intelligenceModules.map((module) => (
                 <ModuleCard key={module.id} module={module} />
               ))}
@@ -239,7 +239,7 @@ export function DashboardHome() {
 
         {proprietorModules.length > 0 ? (
           <section>
-            <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div className="mb-4 flex flex-col gap-1.5 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-300">
                   Gestão protegida
@@ -255,7 +255,7 @@ export function DashboardHome() {
                 Step-up protegido
               </Badge>
             </div>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {proprietorModules.map((module) => (
                 <ModuleCard key={module.id} module={module} />
               ))}
