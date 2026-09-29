@@ -53,6 +53,14 @@ def _classificar_falha_google_maps(exc: Exception) -> str:
             return "google_maps_api_indisponivel"
         if "http 429" in texto:
             return "google_maps_quota_ou_faturamento"
+        if "geocodificacao google maps: billing_not_enabled" in texto:
+            return "google_maps_billing_nao_ativo"
+        if "geocodificacao google maps: api_key_invalid" in texto:
+            return "google_maps_server_key_invalida"
+        if "geocodificacao google maps: api_not_authorized" in texto:
+            return "google_maps_geocoding_nao_autorizado"
+        if "geocodificacao google maps: application_restriction" in texto:
+            return "google_maps_server_key_restricao_aplicacao"
         if "geocodificacao google maps: request_denied" in texto:
             return "google_maps_geocoding_rejeitado"
         if "geocodificacao google maps: over_query_limit" in texto:

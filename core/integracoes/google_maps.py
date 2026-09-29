@@ -181,6 +181,49 @@ class GoogleMapsAdapter:
                 resultado["uf"] = short_name or long_name
         return resultado
 
+    @staticmethod
+    def _classificar_erro_geocoding(payload: Mapping[str, Any]) -> str:
+        """Classifica motivos conhecidos sem propagar a mensagem bruta do provedor."""
+
+        status = str(payload.get("status") or "INVALID").strip().upper()
+        mensagem = str(payload.get("error_message") or "").strip().casefold()
+
+        if status == "REQUEST_DENIED":
+            if "billing" in mensagem or "fatur" in mensagem:
+                return "BILLING_NOT_ENABLED"
+            if "api key" in mensagem and any(
+                termo in mensagem for termo in ("invalid", "not valid", "expired")
+            ):
+                return "API_KEY_INVALID"
+            if any(
+                termo in mensagem
+                for termo in (
+                    "not authorized to use this api",
+                    "not authorized to use this service",
+                    "api project is not authorized",
+                    "has not been used in project",
+                    "is disabled",
+                    "not enabled",
+                )
+            ):
+                return "API_NOT_AUTHORIZED"
+            if any(
+                termo in mensagem
+                for termo in (
+                    "referer restrictions",
+                    "referrer restrictions",
+                    "ip address",
+                    "application restrictions",
+                )
+            ):
+                return "APPLICATION_RESTRICTION"
+            return "REQUEST_DENIED"
+        if status == "OVER_QUERY_LIMIT":
+            return "OVER_QUERY_LIMIT"
+        if status == "INVALID_REQUEST":
+            return "INVALID_REQUEST"
+        return status
+
     def geocodificar(self, endereco: str) -> ResultadoGeocodificacao:
         texto = endereco.strip()
         if not texto:
@@ -196,8 +239,8 @@ class GoogleMapsAdapter:
             },
         )
         if payload.get("status") != "OK":
-            status = payload.get("status", "INVALID")
-            raise ErroGoogleMaps(f"geocodificacao Google Maps: {status}")
+            motivo = self._classificar_erro_geocoding(payload)
+            raise ErroGoogleMaps(f"geocodificacao Google Maps: {motivo}")
         resultados = payload.get("results")
         try:
             primeiro = resultados[0]  # type: ignore[index]

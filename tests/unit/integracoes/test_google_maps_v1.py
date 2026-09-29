@@ -125,3 +125,47 @@ def test_geocodificacao_falha_fechada_com_payload_incompleto(
     http = HTTPFixture([RespostaHTTPMaps(status_code=200, payload=payload)])
     with pytest.raises(ErroGoogleMaps):
         _adapter(http).geocodificar("Rua inexistente")
+
+
+@pytest.mark.parametrize(
+    ("error_message", "codigo"),
+    (
+        (
+            "You must enable Billing on the Google Cloud Project.",
+            "BILLING_NOT_ENABLED",
+        ),
+        (
+            "This API project is not authorized to use this API.",
+            "API_NOT_AUTHORIZED",
+        ),
+        (
+            "The provided API key is invalid.",
+            "API_KEY_INVALID",
+        ),
+        (
+            "API keys with referer restrictions cannot be used with this API.",
+            "APPLICATION_RESTRICTION",
+        ),
+    ),
+)
+def test_geocoding_request_denied_classifica_sem_vazar_mensagem(
+    error_message: str,
+    codigo: str,
+) -> None:
+    http = HTTPFixture(
+        [
+            RespostaHTTPMaps(
+                status_code=200,
+                payload={
+                    "status": "REQUEST_DENIED",
+                    "error_message": error_message,
+                    "results": [],
+                },
+            )
+        ]
+    )
+
+    with pytest.raises(ErroGoogleMaps, match=f"geocodificacao Google Maps: {codigo}") as capturado:
+        _adapter(http).geocodificar("Av. Paulista")
+
+    assert error_message not in str(capturado.value)
