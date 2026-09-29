@@ -16,7 +16,6 @@ from core.seguranca.erros import ErroSeguranca
 from http_api.admin_backoffice import contexto_backoffice
 from http_api.admin_dashboard import _tratar_erro
 from http_api.auth import AuthSessionRuntime
-from infra.legacy_product_scope import garantir_loja_legada_para_escopo
 
 
 class EmpresaIn(BaseModel):
@@ -162,13 +161,6 @@ def build_admin_empresa_router(
                     horarios=_descricao(payload.horarios),
                 ),
             )
-            with session_factory() as session, session.begin():
-                garantir_loja_legada_para_escopo(
-                    session,
-                    tenant_id=contexto.tenant_id,
-                    unidade_id=unidade.unidade_id,
-                    nome_fantasia=unidade.nome_fantasia,
-                )
             return _unidade_out(unidade)
         except Exception as exc:  # noqa: BLE001 - boundary fail-closed
             return _erro_cadastro(exc)
