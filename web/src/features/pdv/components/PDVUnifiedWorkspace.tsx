@@ -82,11 +82,11 @@ export function PDVUnifiedWorkspace() {
   }
 
   return (
-    <main className="min-h-screen bg-[#06101d] p-3 text-slate-100 sm:p-4 lg:p-5">
-      <div className="mx-auto flex min-h-[calc(100vh-2rem)] max-w-[1800px] flex-col gap-3">
-        <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.97),rgba(8,20,36,0.97))] px-4 py-3 shadow-[0_18px_44px_-30px_rgba(0,0,0,0.78)]">
+    <main className="min-h-screen bg-[#06101d] p-2.5 text-slate-100 sm:p-3 lg:p-4">
+      <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-[1800px] flex-col gap-2.5">
+        <header className="flex min-h-14 flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.97),rgba(8,20,36,0.97))] px-3.5 py-2.5 shadow-[0_18px_44px_-30px_rgba(0,0,0,0.78)]">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-white">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-white">
               <Store className="size-5" />
             </div>
             <div className="min-w-0">
@@ -103,11 +103,11 @@ export function PDVUnifiedWorkspace() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button type="button" variant="outline" className="h-11 rounded-xl" onClick={() => void loadCatalog()} disabled={loadingCatalog}>
+            <Button type="button" variant="outline" className="h-9 rounded-xl" onClick={() => void loadCatalog()} disabled={loadingCatalog}>
               <RefreshCw className={loadingCatalog ? "animate-spin" : ""} />
               <span className="hidden sm:inline">Atualizar catálogo</span>
             </Button>
-            <Button asChild type="button" variant="ghost" className="h-11 rounded-xl text-muted-foreground">
+            <Button asChild type="button" variant="ghost" className="h-9 rounded-xl text-muted-foreground">
               <Link href="/">
                 <ArrowLeft />
                 <span className="hidden sm:inline">Dashboard</span>
@@ -124,8 +124,8 @@ export function PDVUnifiedWorkspace() {
 
         <CouvertArtisticoPanel />
 
-        <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_390px] xl:grid-cols-[minmax(0,1fr)_430px]">
-          <div className="min-h-0 rounded-2xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.97),rgba(8,20,36,0.97))] p-3 shadow-[0_18px_44px_-30px_rgba(0,0,0,0.78)] sm:p-4">
+        <div className="grid min-h-0 flex-1 gap-2.5 lg:grid-cols-[minmax(0,1fr)_370px] xl:grid-cols-[minmax(0,1fr)_410px]">
+          <div className="min-h-0 rounded-2xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.97),rgba(8,20,36,0.97))] p-2.5 shadow-[0_18px_44px_-30px_rgba(0,0,0,0.78)] sm:p-3">
             <ProductCatalog products={catalog} loading={loadingCatalog} />
           </div>
           <OrderCart onCheckout={() => setCheckoutOpen(true)} />
