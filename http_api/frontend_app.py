@@ -46,6 +46,9 @@ from http_api.crm import build_crm_router
 from http_api.delivery import build_delivery_router
 from http_api.entrega import build_entrega_router
 from http_api.fmcc_commercial_control import build_fmcc_commercial_control_router
+from http_api.fmcc_platform_integrations import (
+    build_fmcc_platform_integrations_router,
+)
 from http_api.garcom_web import build_garcom_web_router
 from http_api.gerente_ia_web import build_gerente_ia_web_router
 from http_api.marketplaces_web import build_marketplaces_web_router
@@ -202,6 +205,12 @@ def build_frontend_http_app(
 
     app.include_router(
         build_fmcc_commercial_control_router(
+            session_factory=session_factory,
+            control_plane_token=resolved_settings.fmcc_control_plane_token,
+        )
+    )
+    app.include_router(
+        build_fmcc_platform_integrations_router(
             session_factory=session_factory,
             control_plane_token=resolved_settings.fmcc_control_plane_token,
         )
