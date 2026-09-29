@@ -47,10 +47,10 @@ from infra.seguranca.modelos_orm import (
 from migrations.admin_access_authorization_v1 import (
     upgrade_admin_access_authorization_v1,
 )
+from migrations.admin_pin_v1 import upgrade_admin_pin_v1
 from migrations.admin_unit_legacy_store_reconciliation_v1 import (
     upgrade_admin_unit_legacy_store_reconciliation_v1,
 )
-from migrations.admin_pin_v1 import upgrade_admin_pin_v1
 from migrations.administracao_proprietario_v1 import (
     upgrade_administracao_proprietario_v1,
 )
