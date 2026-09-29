@@ -130,7 +130,7 @@ export function GerenteIAWorkspace() {
           </div>
         </header>
 
-        <section className="kordena-panel-dark rounded-[1.4rem] p-4 sm:p-4.5">
+        <section className="kordena-panel-dark rounded-[1.4rem] p-4 sm:p-4">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-300">Centro operacional cognitivo</p>
             <h2 className="mt-1 text-xl font-black text-white">Toda a operação ao alcance do Gerente IA</h2>
@@ -158,7 +158,7 @@ export function GerenteIAWorkspace() {
           </div>
         </section>
 
-        <form onSubmit={perguntar} className="kordena-panel-dark rounded-[1.4rem] p-4 sm:p-4.5">
+        <form onSubmit={perguntar} className="kordena-panel-dark rounded-[1.4rem] p-4 sm:p-4">
           <div className="flex items-start justify-between gap-4">
             <div>
               <label htmlFor="gerente-pergunta" className="text-sm font-bold text-white">
@@ -199,7 +199,7 @@ export function GerenteIAWorkspace() {
         ) : null}
 
         {resposta ? (
-          <article className="kordena-panel-dark rounded-[1.4rem] p-4 sm:p-4.5">
+          <article className="kordena-panel-dark rounded-[1.4rem] p-4 sm:p-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3">
                 <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-300 ring-1 ring-emerald-400/15">
