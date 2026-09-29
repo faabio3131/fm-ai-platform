@@ -1,0 +1,29 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import test from "node:test";
+
+function source(relativePath) {
+  return fs.readFileSync(new URL(relativePath, import.meta.url), "utf8");
+}
+
+test("WP-026 integration enabled toggle reflects native checkbox state", () => {
+  const workspace = source(
+    "../src/features/backoffice/integracoes/components/IntegracoesWorkspace.tsx",
+  );
+
+  assert.match(workspace, /checked=\{formData\.habilitada\}/);
+  assert.match(
+    workspace,
+    /onChange=\{\(e: React\.ChangeEvent<HTMLInputElement>\) => setFormData\(\(prev\) => \(\{ \.\.\.prev, habilitada: e\.target\.checked \}\)\)\}/,
+  );
+  assert.match(
+    workspace,
+    /formData\.habilitada \? 'bg-primary' : 'bg-input'/,
+  );
+  assert.match(
+    workspace,
+    /formData\.habilitada \? 'translate-x-5' : 'translate-x-0'/,
+  );
+  assert.doesNotMatch(workspace, /peer-data-\[state=checked\]/);
+  assert.doesNotMatch(workspace, /peer-data-\[state=unchecked\]/);
+});
