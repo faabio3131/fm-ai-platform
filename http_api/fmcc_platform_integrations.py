@@ -8,8 +8,6 @@ canonical FM platform scope and then consumed by authorized product tenants.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
-
 from fastapi import APIRouter, Header, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
@@ -26,7 +24,6 @@ from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.erros import PermissaoInsuficiente
 from core.seguranca.permissoes import Papel, Permissao
 from http_api.admin_integracoes import (
-    CatalogoItemOut,
     ConfiguracaoSalvaOut,
     HealthcheckOut,
     IntegracaoOut,
