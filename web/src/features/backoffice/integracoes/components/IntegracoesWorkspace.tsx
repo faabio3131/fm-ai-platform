@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { ApiError } from '@/lib/api';
 import {
   Dialog,
   DialogClose,
@@ -31,6 +32,22 @@ import {
   PRONTIDAO_LABELS,
   PRONTIDAO_COLORS,
 } from '../constants';
+
+function mensagemErroIntegracao(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) {
+    if (error.code === 'seguranca.admin_step_up_exigido') {
+      return 'Sessão administrativa expirada. Confirme novamente sua identidade na área Proprietário e tente de novo. Os campos preenchidos foram preservados.';
+    }
+    if (error.code === 'seguranca.admin_acesso_exigido') {
+      return 'Sua sessão não possui acesso administrativo para alterar integrações.';
+    }
+    if (error.code === 'seguranca.integracao_gerenciar_exigido') {
+      return 'Sua sessão não possui permissão para gerenciar integrações.';
+    }
+    if (error.code) return error.code;
+  }
+  return error instanceof Error ? error.message : fallback;
+}
 
 interface IntegracaoDetailDialogProps {
   integracao: Integracao;
@@ -112,7 +129,7 @@ function IntegracaoDetailDialog({
       setHealthcheckResult({ sucesso: true, mensagem: 'Configuração salva com sucesso' });
       onSave(resultado);
     } catch (err: unknown) {
-      const mensagem = err instanceof Error ? err.message : 'Erro ao salvar configuração';
+      const mensagem = mensagemErroIntegracao(err, 'Erro ao salvar configuração');
       setHealthcheckResult({ sucesso: false, mensagem });
     } finally {
       setSaving(false);
@@ -143,8 +160,7 @@ function IntegracaoDetailDialog({
         });
       }
     } catch (err: unknown) {
-      const mensagem =
-        err instanceof Error ? err.message : 'Erro ao executar healthcheck';
+      const mensagem = mensagemErroIntegracao(err, 'Erro ao executar healthcheck');
       setHealthcheckResult({ sucesso: false, mensagem });
     } finally {
       setTesting(false);
@@ -163,7 +179,7 @@ function IntegracaoDetailDialog({
       setHomologacaoError('');
       setHealthcheckResult({ sucesso: true, mensagem: 'Homologação registrada com sucesso' });
     } catch (err: unknown) {
-      const mensagem = err instanceof Error ? err.message : 'Erro ao homologar';
+      const mensagem = mensagemErroIntegracao(err, 'Erro ao homologar');
       setHomologacaoError(mensagem);
     } finally {
       setHomologating(false);
