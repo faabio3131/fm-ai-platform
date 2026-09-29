@@ -82,16 +82,18 @@ def resolver_loja_id_legada(
                 MetaData(),
                 autoload_with=bind,
             )
-            unidade = session.execute(
+            unidade_row = session.execute(
                 select(
                     unidades_admin.c.nome_fantasia,
                     unidades_admin.c.ativa,
                 )
                 .where(unidades_admin.c.tenant_id == tenant)
-                .where(unidades_admin.c.unidade_id == unidade)
+                .where(unidades_admin.c.unidade_id == unidade_id)
             ).first()
-            if unidade is not None and bool(unidade.ativa):
-                nome_fantasia = str(unidade.nome_fantasia or unidade_id).strip()
+            if unidade_row is not None and bool(unidade_row.ativa):
+                nome_fantasia = str(
+                    unidade_row.nome_fantasia or unidade_id
+                ).strip()
                 loja_id = garantir_loja_legada_para_escopo(
                     session,
                     tenant_id=tenant,
