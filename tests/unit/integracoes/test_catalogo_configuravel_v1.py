@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from core.integracoes import CATALOGO_V1, ErroConfiguracaoServico
+from core.integracoes.catalogo import EscopoGestaoIntegracao
 
 
 @pytest.mark.parametrize(
@@ -76,3 +77,24 @@ def test_catalogo_rejeita_provedor_nao_declarado_sem_fallback_silencioso() -> No
         ErroConfiguracaoServico, match="servico_provedor_nao_suportado"
     ):
         CATALOGO_V1.obter("mapas", "provedor-inventado")
+
+
+def test_gemini_e_maps_sao_gerenciados_pela_plataforma() -> None:
+    assert (
+        CATALOGO_V1.obter("ia.generativa", "gemini").escopo_gestao
+        is EscopoGestaoIntegracao.PLATFORM_MANAGED
+    )
+    assert (
+        CATALOGO_V1.obter("mapas", "google_maps").escopo_gestao
+        is EscopoGestaoIntegracao.PLATFORM_MANAGED
+    )
+
+    tenant_specs = CATALOGO_V1.listar_por_escopo(
+        EscopoGestaoIntegracao.TENANT_MANAGED
+    )
+    platform_specs = CATALOGO_V1.listar_por_escopo(
+        EscopoGestaoIntegracao.PLATFORM_MANAGED
+    )
+
+    assert {item.provedor for item in platform_specs} == {"gemini", "google_maps"}
+    assert all(item.provedor not in {"gemini", "google_maps"} for item in tenant_specs)

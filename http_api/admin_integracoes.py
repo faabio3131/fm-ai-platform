@@ -16,7 +16,10 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from application.integracoes_admin_transacoes import AplicacaoIntegracoesAdminV1
-from core.integracoes.catalogo import CATALOGO_V1
+from core.integracoes.catalogo import (
+    CATALOGO_V1,
+    EscopoGestaoIntegracao,
+)
 from core.integracoes.modelos import (
     AmbienteIntegracao,
     ConfiguracaoServicoExterno,
@@ -77,6 +80,7 @@ class CatalogoItemOut(BaseModel):
     parametros_obrigatorios: list[str]
     credenciais_obrigatorias: list[str]
     healthcheck_supported: bool
+    escopo_gestao: str
 
 
 class ConfiguracaoSalvaOut(BaseModel):
@@ -186,6 +190,7 @@ def _catalogo_item_out(spec) -> CatalogoItemOut:
         parametros_obrigatorios=sorted(spec.parametros_obrigatorios),
         credenciais_obrigatorias=sorted(spec.credenciais_obrigatorias),
         healthcheck_supported=provedor_normalizado in _HEALTHCHECK_SUPPORTED,
+        escopo_gestao=spec.escopo_gestao.value,
     )
 
 
@@ -366,7 +371,9 @@ def build_admin_integracoes_router(
                 configs_por_id = {c.configuracao_id: c for c in configuracoes}
 
                 integracoes_out: list[IntegracaoOut] = []
-                for spec in CATALOGO_V1.listar():
+                for spec in CATALOGO_V1.listar_por_escopo(
+                    EscopoGestaoIntegracao.TENANT_MANAGED
+                ):
                     config_id = _config_id(spec.servico, spec.provedor)
                     configuracao = configs_por_id.get(config_id)
                     cat_out = _catalogo_item_out(spec)
@@ -399,6 +406,8 @@ def build_admin_integracoes_router(
             contexto = _resolver_identidade_integracoes(request, auth_runtime)
 
             spec = CATALOGO_V1.obter(payload.servico, payload.provedor)
+            if spec.escopo_gestao is EscopoGestaoIntegracao.PLATFORM_MANAGED:
+                raise PermissionError("seguranca.integracao_gerenciada_pela_plataforma")
             if _config_id(spec.servico, spec.provedor) != config_id:
                 return _tratar_erro_integracoes(ValueError("config_id_nao_confere_com_servico_provedor"))
 
@@ -458,6 +467,12 @@ def build_admin_integracoes_router(
             with session_factory() as session:
                 service, vault = _criar_servico_e_vault(session, master_key)
                 configuracao = service.obter(contexto=contexto, configuracao_id=config_id)
+                spec = CATALOGO_V1.obter(
+                    configuracao.servico,
+                    configuracao.provedor,
+                )
+                if spec.escopo_gestao is EscopoGestaoIntegracao.PLATFORM_MANAGED:
+                    raise PermissionError("seguranca.integracao_gerenciada_pela_plataforma")
                 provedor = configuracao.provedor.strip().casefold()
                 return _executar_healthcheck_por_provedor(
                     session=session,
@@ -496,7 +511,12 @@ def build_admin_integracoes_router(
                 service, _vault = _criar_servico_e_vault(session, master_key)
 
                 configuracao_atual = service.obter(contexto=contexto, configuracao_id=config_id)
-                spec = CATALOGO_V1.obter(configuracao_atual.servico, configuracao_atual.provedor)
+                spec = CATALOGO_V1.obter(
+                    configuracao_atual.servico,
+                    configuracao_atual.provedor,
+                )
+                if spec.escopo_gestao is EscopoGestaoIntegracao.PLATFORM_MANAGED:
+                    raise PermissionError("seguranca.integracao_gerenciada_pela_plataforma")
 
                 homologada = app.homologar(
                     contexto,
