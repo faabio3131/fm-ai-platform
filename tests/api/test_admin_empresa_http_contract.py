@@ -9,6 +9,7 @@ from infra.administracao.repositorio_sqlalchemy import (
 )
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
+from infra.legacy_product_scope import resolver_loja_id_legada
 from tests.api.test_admin_backoffice_http_contract import (
     SENHA,
     TENANT,
@@ -231,6 +232,11 @@ def test_criacao_original_preserva_membership_sem_trocar_unidade_e_recusa_duplic
             usuario_id="backoffice-user"
         )
         assert "nova-filial" in identidade.unidades_permitidas
+        assert resolver_loja_id_legada(
+            session,
+            tenant_id=TENANT,
+            unidade_id="nova-filial",
+        ) > 0
         eventos = RepositorioAuditoriaSQLAlchemy(session).listar(
             tenant_id=TENANT, unidade_id=UNIDADE_A, limite=100
         )
