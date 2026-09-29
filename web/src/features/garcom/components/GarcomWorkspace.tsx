@@ -451,9 +451,9 @@ export function GarcomWorkspace() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 p-3 text-white sm:p-4">
-      <div className="mx-auto max-w-6xl space-y-4">
-        <header className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+    <main className="min-h-screen bg-slate-950 p-2.5 text-white sm:p-3">
+      <div className="mx-auto max-w-6xl space-y-2.5">
+        <header className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
@@ -485,7 +485,7 @@ export function GarcomWorkspace() {
             </div>
           </div>
           {config ? (
-            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
               <Badge variant="outline" className="border-slate-700 text-slate-300">
                 Recebimento: {config.modo_recebimento.replace("_", " ")}
               </Badge>
@@ -500,12 +500,12 @@ export function GarcomWorkspace() {
         </header>
 
         {error ? (
-          <div role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
+          <div role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
             {error}
           </div>
         ) : null}
         {notice ? (
-          <div role="status" className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-200">
+          <div role="status" className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
             {notice}
           </div>
         ) : null}
@@ -536,7 +536,7 @@ export function GarcomWorkspace() {
                     {comanda ? `${comanda.numero} · ${comanda.status}` : mesa.status}
                   </p>
                   {comanda ? (
-                    <p className="mt-2 text-sm font-bold">{brl(comanda.total)}</p>
+                    <p className="mt-1 text-sm font-bold">{brl(comanda.total)}</p>
                   ) : null}
                 </button>
               );
@@ -545,7 +545,7 @@ export function GarcomWorkspace() {
         </section>
 
         {selectedMesa ? (
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-black">Mesa {selectedMesa.codigo}</h2>
@@ -733,7 +733,7 @@ export function GarcomWorkspace() {
           </section>
         ) : null}
 
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
           <div className="flex items-center gap-2">
             <ChefHat className="size-5 text-amber-300" />
             <h2 className="font-black">Prontos para retirada</h2>
