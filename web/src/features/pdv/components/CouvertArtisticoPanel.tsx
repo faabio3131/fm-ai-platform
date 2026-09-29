@@ -65,13 +65,13 @@ export function CouvertArtisticoPanel() {
   }
 
   return (
-    <section className="rounded-2xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.97),rgba(8,20,36,0.97))] p-4 text-slate-100 shadow-[0_18px_44px_-30px_rgba(0,0,0,0.78)]" aria-label="Couvert artístico">
+    <section className="rounded-2xl border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.97),rgba(8,20,36,0.97))] p-3 text-slate-100 shadow-[0_18px_44px_-30px_rgba(0,0,0,0.78)]" aria-label="Couvert artístico">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">
             Couvert artístico
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             Configuração da unidade ativa. Não altera contas já consolidadas.
           </p>
         </div>
@@ -85,11 +85,11 @@ export function CouvertArtisticoPanel() {
           {enabled ? "ATIVADO" : "DESATIVADO"}
         </Button>
       </div>
-      <div className="mt-3 flex flex-wrap items-end gap-3">
+      <div className="mt-2 flex flex-wrap items-end gap-2.5">
         <label className="min-w-44 flex-1 text-sm font-semibold">
           Valor
           <Input
-            className="mt-1 h-11"
+            className="mt-1 h-9"
             type="number"
             min="0"
             step="0.01"
@@ -100,7 +100,7 @@ export function CouvertArtisticoPanel() {
         </label>
         <Button
           type="button"
-          className="h-11"
+          className="h-9"
           onClick={() => void save()}
           disabled={!config || !canEdit || saving}
         >
