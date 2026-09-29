@@ -26,6 +26,47 @@ _PROMPT = "Responda exatamente com KORDENA_GEMINI_OK e nada mais."
 _EXPECTED = "KORDENA_GEMINI_OK"
 
 
+def _classificar_falha_gemini(exc: Exception) -> str:
+    """Classifica falhas do provedor sem devolver corpo, headers ou credenciais."""
+
+    cadeia: list[BaseException] = []
+    atual: BaseException | None = exc
+    for _ in range(6):
+        if atual is None or atual in cadeia:
+            break
+        cadeia.append(atual)
+        atual = atual.__cause__ or atual.__context__
+
+    codigos: set[int] = set()
+    textos: list[str] = []
+    for item in cadeia:
+        for atributo in ("code", "status_code", "status"):
+            valor = getattr(item, atributo, None)
+            if isinstance(valor, int):
+                codigos.add(valor)
+            elif isinstance(valor, str) and valor.isdigit():
+                codigos.add(int(valor))
+        textos.append(str(item).casefold())
+
+    texto = " ".join(textos)
+
+    if 401 in codigos or "api_key_invalid" in texto or "invalid api key" in texto:
+        return "gemini_api_key_invalida"
+    if 403 in codigos or "permission_denied" in texto or "permission denied" in texto:
+        return "gemini_api_key_sem_permissao"
+    if 404 in codigos or "not_found" in texto or "model not found" in texto:
+        return "gemini_modelo_indisponivel"
+    if 429 in codigos or "resource_exhausted" in texto or "quota" in texto:
+        return "gemini_quota_ou_faturamento"
+    if any(codigo >= 500 for codigo in codigos):
+        return "gemini_provedor_indisponivel"
+    if 400 in codigos or "invalid_argument" in texto or "bad request" in texto:
+        return "gemini_requisicao_rejeitada"
+    if isinstance(exc, TimeoutError) or "timeout" in texto:
+        return "gemini_timeout"
+    return "gemini_healthcheck_externo_falhou"
+
+
 @dataclass(frozen=True, kw_only=True)
 class ResultadoHealthcheckGemini:
     evidencia_ref: str
@@ -97,7 +138,7 @@ def executar_healthcheck_gemini(
             timeout_seconds=20.0,
         )
     except Exception as exc:
-        raise ErroConfiguracaoServico("gemini_healthcheck_externo_falhou") from exc
+        raise ErroConfiguracaoServico(_classificar_falha_gemini(exc)) from exc
 
     texto = str(getattr(resposta, "text", "") or "").strip()
     if _EXPECTED not in texto.upper():
