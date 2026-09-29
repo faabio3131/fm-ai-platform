@@ -145,6 +145,10 @@ function IntegracaoDetailDialog({
       );
 
       if (resultado.executado && !resultado.erro) {
+        if (resultado.evidencia_ref) {
+          setHomologacaoEvidencia(resultado.evidencia_ref);
+          setHomologacaoError('');
+        }
         setHealthcheckResult({
           sucesso: true,
           mensagem: 'Healthcheck executado com sucesso',
@@ -188,6 +192,25 @@ function IntegracaoDetailDialog({
 
   const config = integracao.configuracao;
   const spec = integracao.catalogo;
+  const configuracaoSalva = Boolean(config);
+  const configuracaoHabilitada = Boolean(config?.habilitada);
+  const prontidaoHomologavel = Boolean(
+    config && ["configurado", "pronto"].includes(config.prontidao.estado),
+  );
+
+  const blockerHealthcheck = !configuracaoSalva
+    ? 'Salve a configuração antes de executar o teste real.'
+    : !configuracaoHabilitada
+      ? 'Habilite e salve a integração antes de executar o teste real.'
+      : null;
+
+  const blockerHomologacao = !configuracaoSalva
+    ? 'Salve a configuração antes de homologar esta integração.'
+    : !configuracaoHabilitada
+      ? 'Habilite e salve a integração antes de homologar.'
+      : !prontidaoHomologavel
+        ? 'A configuração ainda está incompleta. Corrija os parâmetros ou credenciais pendentes e salve novamente.'
+        : null;
 
   return (
       <DialogContent className="max-w-3xl max-h-[86vh] overflow-y-auto p-0">
@@ -195,7 +218,7 @@ function IntegracaoDetailDialog({
           <DialogTitle className="text-lg flex items-center gap-2">
             {spec.label}
             <Badge variant="secondary" className="ml-2">
-              {PRONTIDAO_LABELS[config?.prontidao.estado || 'desativado']}
+              {config ? PRONTIDAO_LABELS[config.prontidao.estado] : 'Não configurada'}
             </Badge>
           </DialogTitle>
         </DialogHeader>
@@ -218,12 +241,11 @@ function IntegracaoDetailDialog({
               role="tab"
               aria-selected={activeTab === 'healthcheck'}
               onClick={() => setActiveTab('healthcheck')}
-              disabled={!spec.healthcheck_supported}
               className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'healthcheck'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              } ${!spec.healthcheck_supported ? 'opacity-50 cursor-not-allowed' : ''}`}
+              }`}
             >
               Testar Conexão
             </button>
@@ -231,12 +253,11 @@ function IntegracaoDetailDialog({
               role="tab"
               aria-selected={activeTab === 'homologacao'}
               onClick={() => setActiveTab('homologacao')}
-              disabled={!config || !config.habilitada || !["configurado", "pronto"].includes(config.prontidao.estado)}
               className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'homologacao'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              } ${!config || !config.habilitada || !["configurado", "pronto"].includes(config.prontidao.estado) ? 'opacity-50 cursor-not-allowed' : ''}`}
+              }`}
             >
               {config?.homologada ? 'Homologado' : 'Homologar'}
             </button>
@@ -395,9 +416,18 @@ function IntegracaoDetailDialog({
                 Não altera o estado de homologação. Requer PIN administrativo.
               </p>
               {spec.healthcheck_supported ? (
-                <Button onClick={handleHealthcheck} disabled={testing || !config}>
-                  {testing ? 'Testando...' : 'Executar healthcheck real'}
-                </Button>
+                blockerHealthcheck ? (
+                  <div className="space-y-3 rounded-xl border border-amber-400/20 bg-amber-500/10 p-4">
+                    <p className="text-sm font-medium text-amber-200">{blockerHealthcheck}</p>
+                    <Button variant="outline" size="sm" onClick={() => setActiveTab('config')}>
+                      Ir para Configuração
+                    </Button>
+                  </div>
+                ) : (
+                  <Button onClick={handleHealthcheck} disabled={testing}>
+                    {testing ? 'Testando...' : 'Executar healthcheck real'}
+                  </Button>
+                )
               ) : (
                 <div className="p-4 rounded-lg border bg-secondary text-secondary-foreground">
                   <p className="text-sm">Este provedor não possui healthcheck canônico implementado no backend.
@@ -438,6 +468,13 @@ function IntegracaoDetailDialog({
                   </DialogClose>
                 </div>
               </div>
+            ) : blockerHomologacao ? (
+              <div className="space-y-3 rounded-xl border border-amber-400/20 bg-amber-500/10 p-4">
+                <p className="text-sm font-medium text-amber-200">{blockerHomologacao}</p>
+                <Button variant="outline" size="sm" onClick={() => setActiveTab('config')}>
+                  Ir para Configuração
+                </Button>
+              </div>
             ) : (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
@@ -465,13 +502,7 @@ function IntegracaoDetailDialog({
                 <div className="flex gap-3 pt-4 border-t">
                   <Button
                     onClick={handleHomologar}
-                    disabled={
-                      homologating ||
-                      !config ||
-                      !config.habilitada ||
-                      !["configurado", "pronto"].includes(config.prontidao.estado) ||
-                      !homologacaoEvidencia.trim()
-                    }
+                    disabled={homologating || !homologacaoEvidencia.trim()}
                     className="flex-1"
                   >
                     {homologating ? 'Homologando...' : 'Homologar'}
@@ -530,33 +561,8 @@ export function IntegracoesWorkspace() {
   }, []);
 
   const handleHealthcheck = useCallback(async (configId: string) => {
-    try {
-      const result = await executarHealthcheck(configId);
-      setIntegracoes((prev) =>
-        prev.map((i) => {
-          if (i.catalogo.servico + '--' + i.catalogo.provedor !== configId) return i;
-          if (!i.configuracao) return i;
-          return {
-            ...i,
-            configuracao: {
-              ...i.configuracao,
-              prontidao: {
-                ...i.configuracao.prontidao,
-                estado: result.executado ? 'configurado' : i.configuracao.prontidao.estado,
-              },
-            },
-          };
-        })
-      );
-      const integracao = integracoes.find((i) => i.catalogo.servico + '--' + i.catalogo.provedor === configId);
-      if (integracao) {
-        // DialogTrigger uses integracao directly from map, no need to sync selectedIntegracao
-      }
-      return result;
-    } catch (err: unknown) {
-      throw err;
-    }
-  }, [integracoes]);
+    return executarHealthcheck(configId);
+  }, []);
 
   const handleHomologar = useCallback(async (configId: string, evidenciaRef: string) => {
     const result = await homologarIntegracao(configId, evidenciaRef);

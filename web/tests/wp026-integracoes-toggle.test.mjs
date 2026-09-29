@@ -93,18 +93,18 @@ test("WP-026 integrations list is compact and bounded", () => {
 });
 
 
-test("WP-026 homologation button accepts configured state with evidence", () => {
+test("WP-026 homologation accepts configured or ready state with evidence", () => {
   const workspace = source(
     "../src/features/backoffice/integracoes/components/IntegracoesWorkspace.tsx",
   );
 
   assert.match(
     workspace,
-    /!\["configurado", "pronto"\]\.includes\(config\.prontidao\.estado\)/,
+    /\["configurado", "pronto"\]\.includes\(config\.prontidao\.estado\)/,
   );
   assert.match(
     workspace,
-    /!homologacaoEvidencia\.trim\(\)/,
+    /disabled=\{homologating \|\| !homologacaoEvidencia\.trim\(\)\}/,
   );
   assert.doesNotMatch(
     workspace,
@@ -139,5 +139,70 @@ test("WP-026 integrations explain expired administrative step-up", () => {
   assert.match(
     workspace,
     /Sessão administrativa expirada\. Confirme novamente sua identidade na área Proprietário e tente de novo\. Os campos preenchidos foram preservados\./,
+  );
+});
+
+
+test("WP-026 integration action tabs are navigable and explain blockers", () => {
+  const workspace = source(
+    "../src/features/backoffice/integracoes/components/IntegracoesWorkspace.tsx",
+  );
+
+  assert.doesNotMatch(
+    workspace,
+    /disabled=\{!spec\.healthcheck_supported\}/,
+  );
+  assert.doesNotMatch(
+    workspace,
+    /disabled=\{!config \|\| !config\.habilitada/,
+  );
+  assert.match(
+    workspace,
+    /Salve a configuração antes de executar o teste real\./,
+  );
+  assert.match(
+    workspace,
+    /Salve a configuração antes de homologar esta integração\./,
+  );
+  assert.match(
+    workspace,
+    /Ir para Configuração/,
+  );
+});
+
+test("WP-026 healthcheck evidence auto-fills homologation for every provider", () => {
+  const workspace = source(
+    "../src/features/backoffice/integracoes/components/IntegracoesWorkspace.tsx",
+  );
+
+  assert.match(
+    workspace,
+    /if \(resultado\.evidencia_ref\) \{[\s\S]*setHomologacaoEvidencia\(resultado\.evidencia_ref\)/,
+  );
+});
+
+test("WP-026 healthcheck never mutates readiness locally", () => {
+  const workspace = source(
+    "../src/features/backoffice/integracoes/components/IntegracoesWorkspace.tsx",
+  );
+
+  assert.match(
+    workspace,
+    /const handleHealthcheck = useCallback\(async \(configId: string\) => \{[\s\S]*return executarHealthcheck\(configId\);[\s\S]*\}, \[\]\);/,
+  );
+  assert.doesNotMatch(
+    workspace,
+    /estado: result\.executado \? 'configurado'/,
+  );
+});
+
+test("WP-026 missing configuration is labeled correctly in the dialog", () => {
+  const workspace = source(
+    "../src/features/backoffice/integracoes/components/IntegracoesWorkspace.tsx",
+  );
+
+  assert.match(
+    workspace,
+    /config \? PRONTIDAO_LABELS\[config\.prontidao\.estado\] : 'Não configurada'/,
   );
 });
