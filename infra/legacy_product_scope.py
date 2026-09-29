@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from sqlalchemy import Integer, MetaData, String, Table, insert, select
+from sqlalchemy import Integer, MetaData, String, Table, insert, inspect, select
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -75,6 +75,33 @@ def resolver_loja_id_legada(
     resultados = tuple(session.execute(stmt).scalars())
 
     if not resultados:
+        tabelas = set(inspect(bind).get_table_names())
+        if "fm_unidades_admin_v1" in tabelas:
+            unidades_admin = Table(
+                "fm_unidades_admin_v1",
+                MetaData(),
+                autoload_with=bind,
+            )
+            unidade_row = session.execute(
+                select(
+                    unidades_admin.c.nome_fantasia,
+                    unidades_admin.c.ativa,
+                )
+                .where(unidades_admin.c.tenant_id == tenant)
+                .where(unidades_admin.c.unidade_id == unidade_id)
+            ).first()
+            if unidade_row is not None and bool(unidade_row.ativa):
+                nome_fantasia = str(
+                    unidade_row.nome_fantasia or unidade_id
+                ).strip()
+                loja_id = garantir_loja_legada_para_escopo(
+                    session,
+                    tenant_id=tenant,
+                    unidade_id=unidade_id,
+                    nome_fantasia=nome_fantasia or unidade_id,
+                )
+                return int(loja_id)
+
         raise ErroEscopoLojaLegada(
             "nenhuma loja legada mapeada para tenant/unidade autenticados"
         )
@@ -173,6 +200,69 @@ def garantir_loja_legada_para_escopo(
         return current
 
     return loja_id
+
+
+def reconciliar_lojas_legadas_unidades_admin(session: Session) -> int:
+    """Provisiona mappings ausentes para unidades administrativas canônicas ativas.
+
+    Não reutiliza nem infere lojas históricas. Cada unidade sem mapping recebe uma
+    loja legada nova e exclusiva, preservando o isolamento tenant/unidade.
+    Retorna a quantidade de mappings criados.
+    """
+
+    bind = session.connection()
+    tabelas = set(inspect(bind).get_table_names())
+    obrigatorias = {
+        "fm_unidades_admin_v1",
+        "fm_unidade_loja_legacy_v1",
+        "lojas",
+    }
+    if not obrigatorias <= tabelas:
+        return 0
+
+    unidades_admin = Table(
+        "fm_unidades_admin_v1",
+        MetaData(),
+        autoload_with=bind,
+    )
+    mapping = Table(
+        _MAPPING_TABLE,
+        MetaData(),
+        autoload_with=bind,
+    )
+
+    rows = session.execute(
+        select(
+            unidades_admin.c.tenant_id,
+            unidades_admin.c.unidade_id,
+            unidades_admin.c.nome_fantasia,
+        )
+        .where(unidades_admin.c.ativa.is_(True))
+        .order_by(
+            unidades_admin.c.tenant_id,
+            unidades_admin.c.unidade_id,
+        )
+    ).all()
+
+    criados = 0
+    for row in rows:
+        existe = session.execute(
+            select(mapping.c.loja_id)
+            .where(mapping.c.tenant_id == row.tenant_id)
+            .where(mapping.c.unidade_id == row.unidade_id)
+            .where(mapping.c.ativo.is_(True))
+        ).scalar_one_or_none()
+        if existe is not None:
+            continue
+        garantir_loja_legada_para_escopo(
+            session,
+            tenant_id=str(row.tenant_id),
+            unidade_id=str(row.unidade_id),
+            nome_fantasia=str(row.nome_fantasia or row.unidade_id),
+        )
+        criados += 1
+
+    return criados
 
 
 def inserir_produto_legado(

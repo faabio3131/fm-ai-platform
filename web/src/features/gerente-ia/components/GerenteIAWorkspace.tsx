@@ -115,15 +115,15 @@ export function GerenteIAWorkspace() {
                 Centro operacional cognitivo do Kordena: consulte a operação, navegue pelos módulos autorizados, prepare decisões e confirme ações governadas sem sair do escopo da unidade ativa.
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-3 text-xs sm:min-w-80">
+            <div className="grid grid-cols-2 gap-2 text-xs sm:min-w-72">
               <div className="kordena-glass rounded-xl p-3">
                 <ShieldCheck className="size-5 text-emerald-300" />
-                <p className="mt-3 font-bold text-white">Autoridade preservada</p>
+                <p className="mt-2 font-bold text-white">Autoridade preservada</p>
                 <p className="mt-1 leading-5 text-slate-500">A IA recomenda; serviços autorizados executam.</p>
               </div>
               <div className="kordena-glass rounded-xl p-3">
                 <Bot className="size-5 text-sky-300" />
-                <p className="mt-3 font-bold text-white">Contexto operacional</p>
+                <p className="mt-2 font-bold text-white">Contexto operacional</p>
                 <p className="mt-1 leading-5 text-slate-500">Resposta escopada à sessão e unidade ativa.</p>
               </div>
             </div>

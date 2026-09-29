@@ -210,7 +210,7 @@ export function EntregaWorkspace() {
     <div className="min-h-full bg-[#06101d] p-3 text-slate-100 sm:p-4 lg:p-5">
       <div className="mx-auto max-w-[1700px] space-y-3">
         <header className="flex flex-col gap-3 rounded-2xl bg-slate-950 p-4 text-white shadow-xl shadow-slate-950/10 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-xl bg-blue-600"><Truck className="size-5" /></div>
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-300">Logística operacional</p>
@@ -252,7 +252,7 @@ export function EntregaWorkspace() {
               <p className="mt-1 text-sm text-slate-500">{deliveries.length} entrega(s) na sua alçada.</p>
             </div>
             {deliveries.length === 0 ? (
-              <div className="p-8 text-center text-sm text-slate-500">{loading ? "Carregando operação…" : "Nenhuma entrega disponível."}</div>
+              <div className="p-5 text-center text-sm text-slate-500">{loading ? "Carregando operação…" : "Nenhuma entrega disponível."}</div>
             ) : deliveries.map((delivery) => (
               <button
                 key={delivery.entrega_id}
@@ -271,7 +271,7 @@ export function EntregaWorkspace() {
             {!selected ? (
               <div className="flex min-h-48 flex-col items-center justify-center text-center"><PackageCheck className="size-9 text-slate-300" /><p className="mt-3 text-sm font-bold text-slate-700">Selecione uma entrega</p><p className="mt-1 text-sm text-slate-500">O detalhe operacional e as ações autorizadas aparecem aqui.</p></div>
             ) : detailLoading ? (
-              <div className="min-h-72 p-6 text-sm text-slate-500">Carregando detalhe…</div>
+              <div className="min-h-48 p-4 text-sm text-slate-500">Carregando detalhe…</div>
             ) : (
               <div className="space-y-5">
                 <div className="flex items-start justify-between gap-3">

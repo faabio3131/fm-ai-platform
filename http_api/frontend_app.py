@@ -58,6 +58,7 @@ from http_api.public_signup import VerificationDispatcher, build_public_signup_r
 from infra.comercial.transactional_email import (
     build_smtp_verification_dispatcher_from_env,
 )
+from infra.legacy_product_scope import reconciliar_lojas_legadas_unidades_admin
 from infra.seguranca.session_guard import build_session_factory
 
 DEV_FRONTEND_ORIGINS: tuple[str, ...] = (
@@ -123,6 +124,9 @@ def build_frontend_http_app(
         engine=engine,
         commercial=resolved_settings.commercial,
     )
+
+    with session_factory() as session, session.begin():
+        reconciliar_lojas_legadas_unidades_admin(session)
     secret_store = kwargs.get("secret_store") or ReferenceSecretStore()
     auth_runtime = kwargs.get("auth_runtime") or AuthSessionRuntime(
         session_factory=session_factory,

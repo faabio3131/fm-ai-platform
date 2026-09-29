@@ -199,7 +199,7 @@ export function CatalogoWorkspace() {
         <section className="mb-4 grid gap-2.5 lg:grid-cols-[1.25fr_repeat(3,minmax(0,1fr))]">
           <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-3 shadow-xl shadow-black/10 backdrop-blur-xl">
             <div className="flex items-start gap-3">
-              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5 text-sky-300">
+              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2 text-sky-300">
                 <Building2 className="size-5" />
               </div>
               <div className="min-w-0">
@@ -321,7 +321,7 @@ function MetricCard({
           </p>
           <p className="mt-1 text-[11px] text-slate-500">{detail}</p>
         </div>
-        <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5 text-slate-400">
+        <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2 text-slate-400">
           {icon}
         </div>
       </div>

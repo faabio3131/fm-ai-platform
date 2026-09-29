@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from infra.legacy_product_scope import (
     ErroEscopoLojaLegada,
     inserir_produto_legado,
+    reconciliar_lojas_legadas_unidades_admin,
     resolver_loja_id_legada,
 )
 from migrations.unit_legacy_store_mapping_v1 import (
@@ -236,3 +237,184 @@ def test_patch_wiring_inclui_tenant_unidade_e_e_idempotente():
     assert primeira.count(
         "unidade_id=CURRENT_IDENTITY.unidade_id"
     ) == 3
+
+
+def test_unidade_administrativa_ativa_autoprovisiona_loja_sem_inferir_existente():
+    engine = _engine()
+    _preparar_schema(engine)
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE fm_unidades_admin_v1 (
+                    tenant_id VARCHAR(64) NOT NULL,
+                    unidade_id VARCHAR(64) NOT NULL,
+                    nome_fantasia VARCHAR(255) NOT NULL,
+                    ativa BOOLEAN NOT NULL,
+                    PRIMARY KEY (tenant_id, unidade_id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO fm_unidades_admin_v1
+                    (tenant_id, unidade_id, nome_fantasia, ativa)
+                VALUES
+                    ('tenant-a', 'unidade-a', 'Matriz canônica', TRUE)
+                """
+            )
+        )
+
+    with Session(engine) as session:
+        loja_id = resolver_loja_id_legada(
+            session,
+            tenant_id="tenant-a",
+            unidade_id="unidade-a",
+        )
+        session.commit()
+
+        mapping = session.execute(
+            text(
+                """
+                SELECT loja_id
+                FROM fm_unidade_loja_legacy_v1
+                WHERE tenant_id = 'tenant-a'
+                  AND unidade_id = 'unidade-a'
+                  AND ativo = TRUE
+                """
+            )
+        ).scalar_one()
+        nome = session.execute(
+            text("SELECT nome_fantasia FROM lojas WHERE id = :id"),
+            {"id": loja_id},
+        ).scalar_one()
+
+    assert loja_id == mapping
+    assert loja_id != 7
+    assert nome == "Matriz canônica"
+
+
+def test_unidade_administrativa_inativa_nao_autoprovisiona_loja():
+    engine = _engine()
+    _preparar_schema(engine)
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE fm_unidades_admin_v1 (
+                    tenant_id VARCHAR(64) NOT NULL,
+                    unidade_id VARCHAR(64) NOT NULL,
+                    nome_fantasia VARCHAR(255) NOT NULL,
+                    ativa BOOLEAN NOT NULL,
+                    PRIMARY KEY (tenant_id, unidade_id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO fm_unidades_admin_v1
+                    (tenant_id, unidade_id, nome_fantasia, ativa)
+                VALUES
+                    ('tenant-a', 'unidade-a', 'Matriz inativa', FALSE)
+                """
+            )
+        )
+
+    with Session(engine) as session, pytest.raises(
+        ErroEscopoLojaLegada,
+        match="nenhuma loja legada mapeada",
+    ):
+        resolver_loja_id_legada(
+            session,
+            tenant_id="tenant-a",
+            unidade_id="unidade-a",
+        )
+
+
+def test_reconciliacao_startup_persiste_mapping_de_unidade_ativa():
+    engine = _engine()
+    _preparar_schema(engine)
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE fm_unidades_admin_v1 (
+                    tenant_id VARCHAR(64) NOT NULL,
+                    unidade_id VARCHAR(64) NOT NULL,
+                    nome_fantasia VARCHAR(255) NOT NULL,
+                    ativa BOOLEAN NOT NULL,
+                    PRIMARY KEY (tenant_id, unidade_id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO fm_unidades_admin_v1
+                    (tenant_id, unidade_id, nome_fantasia, ativa)
+                VALUES
+                    ('kordena-staging', 'kordena-staging-matriz', 'Matriz Staging', TRUE)
+                """
+            )
+        )
+
+    with Session(engine) as session, session.begin():
+        assert reconciliar_lojas_legadas_unidades_admin(session) == 1
+
+    with Session(engine) as session:
+        loja_id = resolver_loja_id_legada(
+            session,
+            tenant_id="kordena-staging",
+            unidade_id="kordena-staging-matriz",
+        )
+        nome = session.execute(
+            text("SELECT nome_fantasia FROM lojas WHERE id = :id"),
+            {"id": loja_id},
+        ).scalar_one()
+
+    assert loja_id > 0
+    assert loja_id != 7
+    assert nome == "Matriz Staging"
+
+
+def test_reconciliacao_startup_e_idempotente():
+    engine = _engine()
+    _preparar_schema(engine)
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE fm_unidades_admin_v1 (
+                    tenant_id VARCHAR(64) NOT NULL,
+                    unidade_id VARCHAR(64) NOT NULL,
+                    nome_fantasia VARCHAR(255) NOT NULL,
+                    ativa BOOLEAN NOT NULL,
+                    PRIMARY KEY (tenant_id, unidade_id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO fm_unidades_admin_v1
+                    (tenant_id, unidade_id, nome_fantasia, ativa)
+                VALUES
+                    ('tenant-a', 'unidade-a', 'Matriz A', TRUE)
+                """
+            )
+        )
+
+    with Session(engine) as session, session.begin():
+        assert reconciliar_lojas_legadas_unidades_admin(session) == 1
+    with Session(engine) as session, session.begin():
+        assert reconciliar_lojas_legadas_unidades_admin(session) == 0
