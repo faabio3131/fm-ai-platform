@@ -222,7 +222,7 @@ function IntegracaoDetailDialog({
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               } ${!config || !config.habilitada || !["configurado", "pronto"].includes(config.prontidao.estado) ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-              Homologar
+              {config?.homologada ? 'Homologado' : 'Homologar'}
             </button>
           </div>
         </div>
@@ -392,50 +392,82 @@ function IntegracaoDetailDialog({
           )}
 
           {activeTab === 'homologacao' && (
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Registre a homologação após validação real do provedor.
-                Informe uma referência verificável (ticket, log sanitizado, execução de healthcheck).
-                Não cole tokens, chaves, PINs ou segredos neste campo.
-                Requer papel Administrador e PIN administrativo.
-              </p>
-              <div>
-                <Label htmlFor="evidencia_ref">Referência da evidência de homologação</Label>
-                <Input
-                  id="evidencia_ref"
-                  value={homologacaoEvidencia}
-                  onChange={(e) => {
-                    setHomologacaoEvidencia(e.target.value);
-                    setHomologacaoError('');
-                  }}
-                  placeholder="Ex.: healthcheck://meta/2026-08-17/resultado-123"
-                  maxLength={512}
-                />
-                {homologacaoError && (
-                  <p className="text-sm text-red-600 dark:text-red-400 mt-1">{homologacaoError}</p>
-                )}
+            config?.homologada ? (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-4">
+                  <p className="font-semibold text-emerald-300">
+                    Integração homologada e pronta
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-slate-400">
+                    Esta integração já passou pela homologação técnica e está disponível
+                    para os consumidores autorizados do Kordena.
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="evidencia_ref_homologada">
+                    Evidência registrada
+                  </Label>
+                  <Input
+                    id="evidencia_ref_homologada"
+                    value={config.evidencia_homologacao_ref || ''}
+                    readOnly
+                    className="bg-muted"
+                  />
+                </div>
+
+                <div className="flex justify-end pt-4 border-t">
+                  <DialogClose asChild>
+                    <Button>Fechar</Button>
+                  </DialogClose>
+                </div>
               </div>
-              <div className="flex gap-3 pt-4 border-t">
-                <Button
-                  onClick={handleHomologar}
-                  disabled={
-                    homologating ||
-                    !config ||
-                    !config.habilitada ||
-                    !["configurado", "pronto"].includes(config.prontidao.estado) ||
-                    !homologacaoEvidencia.trim()
-                  }
-                  className="flex-1"
-                >
-                  {homologating ? 'Homologando...' : 'Homologar'}
-                </Button>
-                <DialogClose asChild>
-                  <Button variant="outline" disabled={homologating}>
-                    Cancelar
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Registre a homologação após validação real do provedor.
+                  Informe uma referência verificável (ticket, log sanitizado, execução de healthcheck).
+                  Não cole tokens, chaves, PINs ou segredos neste campo.
+                  Requer papel Administrador e PIN administrativo.
+                </p>
+                <div>
+                  <Label htmlFor="evidencia_ref">Referência da evidência de homologação</Label>
+                  <Input
+                    id="evidencia_ref"
+                    value={homologacaoEvidencia}
+                    onChange={(e) => {
+                      setHomologacaoEvidencia(e.target.value);
+                      setHomologacaoError('');
+                    }}
+                    placeholder="Ex.: healthcheck://meta/2026-08-17/resultado-123"
+                    maxLength={512}
+                  />
+                  {homologacaoError && (
+                    <p className="text-sm text-red-600 dark:text-red-400 mt-1">{homologacaoError}</p>
+                  )}
+                </div>
+                <div className="flex gap-3 pt-4 border-t">
+                  <Button
+                    onClick={handleHomologar}
+                    disabled={
+                      homologating ||
+                      !config ||
+                      !config.habilitada ||
+                      !["configurado", "pronto"].includes(config.prontidao.estado) ||
+                      !homologacaoEvidencia.trim()
+                    }
+                    className="flex-1"
+                  >
+                    {homologating ? 'Homologando...' : 'Homologar'}
                   </Button>
-                </DialogClose>
+                  <DialogClose asChild>
+                    <Button variant="outline" disabled={homologating}>
+                      Cancelar
+                    </Button>
+                  </DialogClose>
+                </div>
               </div>
-            </div>
+            )
           )}
         </div>
       </DialogContent>
