@@ -149,7 +149,7 @@ export function GerenteIAWorkspace() {
               </Link>
             ))}
           </div>
-          <div className="mt-3 flex flex-wrap gap-2>
+          <div className="mt-3 flex flex-wrap gap-2">
             {PERGUNTAS_RAPIDAS.map((item) => (
               <button key={item} type="button" onClick={() => setPergunta(item)} className="rounded-full border border-blue-300/15 bg-blue-400/[0.06] px-3 py-1.5 text-xs font-semibold text-blue-100 transition hover:border-blue-300/30 hover:bg-blue-400/[0.1]">
                 {item}
