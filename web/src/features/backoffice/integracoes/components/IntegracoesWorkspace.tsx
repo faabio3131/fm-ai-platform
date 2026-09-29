@@ -123,9 +123,29 @@ function IntegracaoDetailDialog({
     setTesting(true);
     setHealthcheckResult(null);
     try {
-      await onHealthcheck(integracao.catalogo.servico + '--' + integracao.catalogo.provedor);
-    } catch {
-      // error handled in parent
+      const resultado = await onHealthcheck(
+        integracao.catalogo.servico + '--' + integracao.catalogo.provedor,
+      );
+
+      if (resultado.executado && !resultado.erro) {
+        setHealthcheckResult({
+          sucesso: true,
+          mensagem: 'Healthcheck executado com sucesso',
+          detalhes: resultado.detalhes || undefined,
+          evidenciaRef: resultado.evidencia_ref || undefined,
+        });
+      } else {
+        setHealthcheckResult({
+          sucesso: false,
+          mensagem: resultado.erro || 'Healthcheck não foi executado',
+          detalhes: resultado.detalhes || undefined,
+          evidenciaRef: resultado.evidencia_ref || undefined,
+        });
+      }
+    } catch (err: unknown) {
+      const mensagem =
+        err instanceof Error ? err.message : 'Erro ao executar healthcheck';
+      setHealthcheckResult({ sucesso: false, mensagem });
     } finally {
       setTesting(false);
     }
