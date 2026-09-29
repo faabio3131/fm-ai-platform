@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from infra.legacy_product_scope import (
     ErroEscopoLojaLegada,
     inserir_produto_legado,
+    reconciliar_lojas_legadas_unidades_admin,
     resolver_loja_id_legada,
 )
 from migrations.unit_legacy_store_mapping_v1 import (
@@ -334,3 +335,86 @@ def test_unidade_administrativa_inativa_nao_autoprovisiona_loja():
             tenant_id="tenant-a",
             unidade_id="unidade-a",
         )
+
+
+def test_reconciliacao_startup_persiste_mapping_de_unidade_ativa():
+    engine = _engine()
+    _preparar_schema(engine)
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE fm_unidades_admin_v1 (
+                    tenant_id VARCHAR(64) NOT NULL,
+                    unidade_id VARCHAR(64) NOT NULL,
+                    nome_fantasia VARCHAR(255) NOT NULL,
+                    ativa BOOLEAN NOT NULL,
+                    PRIMARY KEY (tenant_id, unidade_id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO fm_unidades_admin_v1
+                    (tenant_id, unidade_id, nome_fantasia, ativa)
+                VALUES
+                    ('kordena-staging', 'kordena-staging-matriz', 'Matriz Staging', TRUE)
+                """
+            )
+        )
+
+    with Session(engine) as session, session.begin():
+        assert reconciliar_lojas_legadas_unidades_admin(session) == 1
+
+    with Session(engine) as session:
+        loja_id = resolver_loja_id_legada(
+            session,
+            tenant_id="kordena-staging",
+            unidade_id="kordena-staging-matriz",
+        )
+        nome = session.execute(
+            text("SELECT nome_fantasia FROM lojas WHERE id = :id"),
+            {"id": loja_id},
+        ).scalar_one()
+
+    assert loja_id > 0
+    assert loja_id != 7
+    assert nome == "Matriz Staging"
+
+
+def test_reconciliacao_startup_e_idempotente():
+    engine = _engine()
+    _preparar_schema(engine)
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE fm_unidades_admin_v1 (
+                    tenant_id VARCHAR(64) NOT NULL,
+                    unidade_id VARCHAR(64) NOT NULL,
+                    nome_fantasia VARCHAR(255) NOT NULL,
+                    ativa BOOLEAN NOT NULL,
+                    PRIMARY KEY (tenant_id, unidade_id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO fm_unidades_admin_v1
+                    (tenant_id, unidade_id, nome_fantasia, ativa)
+                VALUES
+                    ('tenant-a', 'unidade-a', 'Matriz A', TRUE)
+                """
+            )
+        )
+
+    with Session(engine) as session, session.begin():
+        assert reconciliar_lojas_legadas_unidades_admin(session) == 1
+    with Session(engine) as session, session.begin():
+        assert reconciliar_lojas_legadas_unidades_admin(session) == 0
