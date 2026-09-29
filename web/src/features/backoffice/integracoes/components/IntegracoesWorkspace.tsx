@@ -447,7 +447,8 @@ export function IntegracoesWorkspace() {
   const handleSave = useCallback((config: ConfiguracaoSalva) => {
     setIntegracoes((prev) =>
       prev.map((i) =>
-        i.configuracao?.configuracao_id === config.configuracao_id
+        i.catalogo.servico === config.servico &&
+        i.catalogo.provedor === config.provedor
           ? { ...i, configuracao: config }
           : i
       )
