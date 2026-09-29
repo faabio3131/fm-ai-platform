@@ -51,8 +51,11 @@ def test_wp003_module_registry_governs_current_routes_with_rbac() -> None:
 
 def test_wp003_shell_does_not_expose_tenant_technical_id() -> None:
     shell = _read("web/src/features/shell/components/UnifiedAppShell.tsx")
+    brand = _read("web/src/components/brand/KordenaBrand.tsx")
     assert "auth.tenantId" not in shell
-    assert "KORDENA" in shell
+    assert "KordenaBrand" in shell
+    assert "KORDENA" in brand
+    assert "O CÉREBRO DA SUA OPERAÇÃO" in brand
     assert "UnitSelectorModal" in shell
     assert "endAuthSession" in shell
 

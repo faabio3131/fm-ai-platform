@@ -56,6 +56,7 @@ _V0055 = "0055_commercial_trial_v1"
 _V0056 = "0056_commercial_subscription_v1"
 _V0057 = "0057_commercial_billing_config_v1"
 _V0058 = "0058_commercial_billing_events_v1"
+_V0059 = "0059_operational_session_persistence_v1"
 _TENANT = "tenant-reconciliado"
 _UNIDADE = "unidade-reconciliada"
 _LOJA = 71
@@ -259,20 +260,21 @@ def test_reconciliacao_cria_loja_mapping_atomicamente_e_retomada_chega_a_0028(
         _V0043,
         _V0044,
         _V0045,
-            _V0046,
-            _V0047,
-            _V0048,
-            _V0049,
-            _V0050,
-            _V0051,
-            _V0052,
-            _V0053,
-            _V0054,
-            _V0055,
-            _V0056,
-            _V0057,
-            _V0058,
-        )
+        _V0046,
+        _V0047,
+        _V0048,
+        _V0049,
+        _V0050,
+        _V0051,
+        _V0052,
+        _V0053,
+        _V0054,
+        _V0055,
+        _V0056,
+        _V0057,
+        _V0058,
+        _V0059,
+    )
     assert run_migrations(engine) == ()
 
     with engine.begin() as connection:

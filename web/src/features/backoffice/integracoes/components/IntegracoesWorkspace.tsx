@@ -278,8 +278,17 @@ function IntegracaoDetailDialog({
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData((prev) => ({ ...prev, habilitada: e.target.checked }))}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background peer-disabled:cursor-not-allowed peer-disabled:opacity-50 peer-data-[state=checked]:bg-primary peer-data-[state=unchecked]:bg-input peer-data-[state=checked]:bg-primary peer-data-[state=unchecked]:bg-input">
-                    <span className="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform peer-data-[state=checked]:translate-x-5 peer-data-[state=unchecked]:translate-x-0" />
+                  <div
+                    aria-hidden="true"
+                    className={`w-11 h-6 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background peer-disabled:cursor-not-allowed peer-disabled:opacity-50 ${
+                      formData.habilitada ? 'bg-primary' : 'bg-input'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform ${
+                        formData.habilitada ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
                   </div>
                 </label>
                 <Label htmlFor="habilitada" className="cursor-pointer">

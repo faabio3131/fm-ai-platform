@@ -86,6 +86,7 @@ _EXPECTED_MIGRATIONS = (
     "0056_commercial_subscription_v1",
     "0057_commercial_billing_config_v1",
     "0058_commercial_billing_events_v1",
+    "0059_operational_session_persistence_v1",
 )
 
 

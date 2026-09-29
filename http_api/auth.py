@@ -184,10 +184,9 @@ class _GerenciadorSessaoOperacional:
                 self._limpar_expiradas_locked(agora)
                 self._sessions[sessao.session_id] = sessao
         else:
-            with self._session_factory() as db:
-                with db.begin():
-                    self._limpar_expiradas_db(db, agora)
-                    db.add(self._row_da_sessao(sessao))
+            with self._session_factory() as db, db.begin():
+                self._limpar_expiradas_db(db, agora)
+                db.add(self._row_da_sessao(sessao))
         return sessao, self._token(sessao.session_id)
 
     def resolver(self, token: str) -> _SessaoOperacional:
@@ -202,12 +201,11 @@ class _GerenciadorSessaoOperacional:
             return sessao
 
         encontrada: _SessaoOperacional | None = None
-        with self._session_factory() as db:
-            with db.begin():
-                self._limpar_expiradas_db(db, agora)
-                row = db.get(OperationalSessionORM, session_id)
-                if row is not None:
-                    encontrada = self._sessao_do_row(row)
+        with self._session_factory() as db, db.begin():
+            self._limpar_expiradas_db(db, agora)
+            row = db.get(OperationalSessionORM, session_id)
+            if row is not None:
+                encontrada = self._sessao_do_row(row)
         if encontrada is None or encontrada.expira_em <= agora:
             raise _SessaoInvalida("sessao invalida")
         return encontrada
@@ -226,16 +224,15 @@ class _GerenciadorSessaoOperacional:
                 self._sessions[atualizada.session_id] = atualizada
             return atualizada, self._token(atualizada.session_id)
 
-        with self._session_factory() as db:
-            with db.begin():
-                removida = db.execute(
-                    delete(OperationalSessionORM).where(
-                        OperationalSessionORM.session_id == sessao.session_id
-                    )
+        with self._session_factory() as db, db.begin():
+            removida = db.execute(
+                delete(OperationalSessionORM).where(
+                    OperationalSessionORM.session_id == sessao.session_id
                 )
-                if removida.rowcount != 1:
-                    raise _SessaoInvalida("sessao invalida")
-                db.add(self._row_da_sessao(atualizada))
+            )
+            if removida.rowcount != 1:
+                raise _SessaoInvalida("sessao invalida")
+            db.add(self._row_da_sessao(atualizada))
         return atualizada, self._token(atualizada.session_id)
 
     def trocar_unidade(
@@ -296,13 +293,12 @@ class _GerenciadorSessaoOperacional:
             with self._lock:
                 self._sessions.pop(session_id, None)
             return
-        with self._session_factory() as db:
-            with db.begin():
-                db.execute(
-                    delete(OperationalSessionORM).where(
-                        OperationalSessionORM.session_id == session_id
-                    )
+        with self._session_factory() as db, db.begin():
+            db.execute(
+                delete(OperationalSessionORM).where(
+                    OperationalSessionORM.session_id == session_id
                 )
+            )
 
 
 class AuthSessionRuntime:
