@@ -756,3 +756,56 @@ def test_configuracao_outra_unidade_nao_acessivel(app_com_mocks):
     called_context = mocks["service"].listar.call_args[1]["contexto"]
     assert called_context.tenant_id == TENANT
     assert called_context.unidade_id == UNIDADE
+
+def test_put_primeira_configuracao_gemini_aceita_configuracao_inexistente(app_com_mocks):
+    app, mocks = app_com_mocks
+    ident = _identidade_admin()
+    mocks["auth"].resolver_identidade.return_value = ident
+    mocks["auth"].admin_status.return_value = (ident, True, None)
+    mocks["repo"].obter.return_value = None
+
+    config_nova = ConfiguracaoServicoExterno(
+        configuracao_id="ia.generativa--gemini",
+        tenant_id=TENANT,
+        unidade_id=UNIDADE,
+        servico="ia.generativa",
+        provedor="gemini",
+        conta_externa="principal",
+        ambiente=AmbienteIntegracao.SANDBOX,
+        parametros_publicos=(("model", "gemini-test"),),
+        finalidades_credenciais=(("api_key", "ia_generativa_api_key"),),
+        habilitada=True,
+        homologada=False,
+        evidencia_homologacao_ref=None,
+        versao=1,
+        atualizado_por=USUARIO,
+        correlation_id="corr",
+        atualizado_em=AGORA,
+    )
+    mocks["app"].salvar_configuracao.return_value = (config_nova, True)
+    mocks["service"].avaliar.return_value = MagicMock(
+        estado=EstadoProntidaoServico.CONFIGURADO,
+        faltam_parametros=(),
+        faltam_finalidades=(),
+        faltam_credenciais=(),
+        pronto=False,
+    )
+
+    client = TestClient(app)
+    resp = client.put(
+        "/v1/admin/integracoes/ia.generativa--gemini",
+        json={
+            "servico": "ia.generativa",
+            "provedor": "gemini",
+            "conta_externa": "principal",
+            "ambiente": "sandbox",
+            "parametros": [{"nome": "model", "valor": "gemini-test"}],
+            "credenciais": [{"papel": "api_key", "valor": "nova-api-key"}],
+            "habilitada": True,
+            "versao": 0,
+        },
+    )
+
+    assert resp.status_code == 200
+    mocks["app"].salvar_configuracao.assert_called_once()
+    assert mocks["app"].salvar_configuracao.call_args.kwargs["finalidades_atuais"] == {}
