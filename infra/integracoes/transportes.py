@@ -152,7 +152,7 @@ class GoogleGenAITenantGateway:
                 api_key=api_key,
                 http_options=types.HttpOptions(
                     timeout=round(timeout_seconds * 1000),
-                    retry_options=types.HttpRetryOptions(attempts=1),
+                    retry_options=types.HttpRetryOptions(attempts=4),
                 ),
             )
             provider_contents = contents
