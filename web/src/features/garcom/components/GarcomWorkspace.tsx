@@ -500,12 +500,12 @@ export function GarcomWorkspace() {
         </header>
 
         {error ? (
-          <div role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
+          <div role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
             {error}
           </div>
         ) : null}
         {notice ? (
-          <div role="status" className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-200">
+          <div role="status" className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
             {notice}
           </div>
         ) : null}
@@ -529,14 +529,14 @@ export function GarcomWorkspace() {
                   key={mesa.id}
                   type="button"
                   onClick={() => void selectTable(mesa)}
-                  className={`min-h-24 rounded-xl border p-3 text-left transition ${active ? "border-blue-400 bg-blue-500/15" : "border-slate-700 bg-slate-950 active:scale-[0.98]"}`}
+                  className={`min-h-20 rounded-xl border p-2.5 text-left transition ${active ? "border-blue-400 bg-blue-500/15" : "border-slate-700 bg-slate-950 active:scale-[0.98]"}`}
                 >
                   <p className="text-lg font-black">Mesa {mesa.codigo}</p>
                   <p className="mt-1 text-xs text-slate-400">
                     {comanda ? `${comanda.numero} · ${comanda.status}` : mesa.status}
                   </p>
                   {comanda ? (
-                    <p className="mt-2 text-sm font-bold">{brl(comanda.total)}</p>
+                    <p className="mt-1 text-sm font-bold">{brl(comanda.total)}</p>
                   ) : null}
                 </button>
               );
