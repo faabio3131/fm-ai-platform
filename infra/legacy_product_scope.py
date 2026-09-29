@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from sqlalchemy import Integer, MetaData, String, Table, insert, select
+from sqlalchemy import Integer, MetaData, String, Table, insert, inspect, select
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -75,6 +75,31 @@ def resolver_loja_id_legada(
     resultados = tuple(session.execute(stmt).scalars())
 
     if not resultados:
+        tabelas = set(inspect(bind).get_table_names())
+        if "fm_unidades_admin_v1" in tabelas:
+            unidades_admin = Table(
+                "fm_unidades_admin_v1",
+                MetaData(),
+                autoload_with=bind,
+            )
+            unidade = session.execute(
+                select(
+                    unidades_admin.c.nome_fantasia,
+                    unidades_admin.c.ativa,
+                )
+                .where(unidades_admin.c.tenant_id == tenant)
+                .where(unidades_admin.c.unidade_id == unidade)
+            ).first()
+            if unidade is not None and bool(unidade.ativa):
+                nome_fantasia = str(unidade.nome_fantasia or unidade_id).strip()
+                loja_id = garantir_loja_legada_para_escopo(
+                    session,
+                    tenant_id=tenant,
+                    unidade_id=unidade_id,
+                    nome_fantasia=nome_fantasia or unidade_id,
+                )
+                return int(loja_id)
+
         raise ErroEscopoLojaLegada(
             "nenhuma loja legada mapeada para tenant/unidade autenticados"
         )
