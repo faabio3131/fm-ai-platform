@@ -13,6 +13,7 @@ export class ApiError extends Error {
     message: string,
     public readonly status: number,
     public readonly endpoint: string,
+    public readonly code?: string,
   ) {
     super(message);
     this.name = "ApiError";
@@ -54,10 +55,21 @@ export async function apiRequest<T>(
   });
 
   if (!response.ok) {
+    let code: string | undefined;
+    try {
+      const payload = (await response.json()) as { erro?: unknown };
+      if (typeof payload?.erro === "string" && payload.erro.trim()) {
+        code = payload.erro.trim();
+      }
+    } catch {
+      // A fronteira HTTP pode responder sem JSON. O status continua sendo a fonte segura.
+    }
+
     throw new ApiError(
       `Kordena API respondeu HTTP ${response.status}`,
       response.status,
       endpoint,
+      code,
     );
   }
 

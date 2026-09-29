@@ -124,3 +124,20 @@ test("WP-026 completed homologation renders read-only ready state", () => {
   assert.match(workspace, /id="evidencia_ref_homologada"/);
   assert.match(workspace, />Fechar<\/Button>/);
 });
+
+
+test("WP-026 integrations explain expired administrative step-up", () => {
+  const workspace = source(
+    "../src/features/backoffice/integracoes/components/IntegracoesWorkspace.tsx",
+  );
+  const api = source("../src/lib/api.ts");
+
+  assert.match(api, /public readonly code\?: string/);
+  assert.match(api, /const payload = \(await response\.json\(\)\) as \{ erro\?: unknown \}/);
+  assert.match(api, /code = payload\.erro\.trim\(\)/);
+  assert.match(workspace, /error\.code === 'seguranca\.admin_step_up_exigido'/);
+  assert.match(
+    workspace,
+    /Sessão administrativa expirada\. Confirme novamente sua identidade na área Proprietário e tente de novo\. Os campos preenchidos foram preservados\./,
+  );
+});
