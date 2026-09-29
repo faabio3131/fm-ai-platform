@@ -43,3 +43,27 @@ test("WP-026 first save refreshes integration card by catalog identity", () => {
     /i\.configuracao\?\.configuracao_id === config\.configuracao_id/,
   );
 });
+
+
+test("WP-026 healthcheck renders backend result and evidence", () => {
+  const workspace = source(
+    "../src/features/backoffice/integracoes/components/IntegracoesWorkspace.tsx",
+  );
+
+  assert.match(
+    workspace,
+    /const resultado = await onHealthcheck/,
+  );
+  assert.match(
+    workspace,
+    /Healthcheck executado com sucesso/,
+  );
+  assert.match(
+    workspace,
+    /evidenciaRef: resultado\.evidencia_ref \|\| undefined/,
+  );
+  assert.match(
+    workspace,
+    /mensagem: resultado\.erro \|\| 'Healthcheck não foi executado'/,
+  );
+});
