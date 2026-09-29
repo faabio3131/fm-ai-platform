@@ -264,3 +264,15 @@ test("DashboardHome mantém densidade premium sem cards excessivamente altos", (
   assert.match(dashboard, /space-y-6/);
   assert.match(dashboard, /grid gap-3 md:grid-cols-2 xl:grid-cols-3/);
 });
+
+
+test("DashboardHome mantém hero executivo compacto na primeira dobra", () => {
+  const dashboard = source("../src/features/shell/components/DashboardHome.tsx");
+
+  assert.match(dashboard, /rounded-\[1\.75rem\][\s\S]*p-5[\s\S]*sm:p-6[\s\S]*lg:p-7/);
+  assert.match(dashboard, /grid gap-6 lg:grid-cols-\[minmax\(0,1\.5fr\)_minmax\(300px,0\.68fr\)\]/);
+  assert.match(dashboard, /lg:text-\[2\.65rem\]/);
+  assert.match(dashboard, /mt-4 inline-flex items-center gap-2\.5 rounded-xl/);
+  assert.match(dashboard, /grid grid-cols-3 gap-2\.5/);
+  assert.match(dashboard, /kordena-glass rounded-xl p-3/);
+});
