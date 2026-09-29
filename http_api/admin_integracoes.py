@@ -410,7 +410,11 @@ def build_admin_integracoes_router(
             with session_factory() as session:
                 service, _vault = _criar_servico_e_vault(session, master_key)
 
-                existente = service.obter(contexto=contexto, configuracao_id=config_id) if config_id else None
+                existente = RepositorioConfiguracoesExternasSQLAlchemy(session).obter(
+                    tenant_id=contexto.tenant_id,
+                    unidade_id=contexto.unidade_id,
+                    configuracao_id=config_id,
+                )
                 versao_esperada = payload.versao
 
                 finalidades_atuais = dict(existente.credenciais) if existente else {}
