@@ -451,14 +451,14 @@ export function GarcomWorkspace() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 p-3 text-white sm:p-4">
-      <div className="mx-auto max-w-6xl space-y-4">
-        <header className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+    <main className="min-h-screen bg-slate-950 p-2.5 text-white sm:p-3">
+      <div className="mx-auto max-w-6xl space-y-2.5">
+        <header className="rounded-xl border border-slate-800 bg-slate-900 p-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <Utensils className="size-6 text-blue-400" />
-                <h1 className="text-xl font-black sm:text-2xl">Garçom Web</h1>
+                <Utensils className="size-5 text-blue-400" />
+                <h1 className="text-lg font-black sm:text-xl">Garçom Web</h1>
                 <Badge className="bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/15">
                   Sessão única
                 </Badge>
@@ -485,7 +485,7 @@ export function GarcomWorkspace() {
             </div>
           </div>
           {config ? (
-            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
               <Badge variant="outline" className="border-slate-700 text-slate-300">
                 Recebimento: {config.modo_recebimento.replace("_", " ")}
               </Badge>
@@ -510,7 +510,7 @@ export function GarcomWorkspace() {
           </div>
         ) : null}
 
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
+        <section className="rounded-xl border border-slate-800 bg-slate-900 p-3">
           <div className="mb-3 flex items-center justify-between">
             <div>
               <h2 className="font-black">Mesas e comandas</h2>
@@ -545,7 +545,7 @@ export function GarcomWorkspace() {
         </section>
 
         {selectedMesa ? (
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+          <section className="rounded-xl border border-slate-800 bg-slate-900 p-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-black">Mesa {selectedMesa.codigo}</h2>
@@ -561,19 +561,19 @@ export function GarcomWorkspace() {
             </div>
 
             {selectedComanda && details ? (
-              <div className="mt-4 space-y-4">
+              <div className="mt-3 space-y-3">
                 <div className="grid gap-2 sm:grid-cols-3">
                   <div className="rounded-xl bg-slate-950 p-3">
                     <p className="text-xs text-slate-500">Consumo atual</p>
-                    <p className="text-xl font-black">{brl(details.total)}</p>
+                    <p className="text-lg font-black">{brl(details.total)}</p>
                   </div>
                   <div className="rounded-xl bg-slate-950 p-3">
                     <p className="text-xs text-slate-500">Saldo</p>
-                    <p className="text-xl font-black">{brl(details.saldo)}</p>
+                    <p className="text-lg font-black">{brl(details.saldo)}</p>
                   </div>
                   <div className="rounded-xl bg-slate-950 p-3">
                     <p className="text-xs text-slate-500">Pedidos</p>
-                    <p className="text-xl font-black">{details.pedidos.length}</p>
+                    <p className="text-lg font-black">{details.pedidos.length}</p>
                   </div>
                 </div>
 
@@ -733,7 +733,7 @@ export function GarcomWorkspace() {
           </section>
         ) : null}
 
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+        <section className="rounded-xl border border-slate-800 bg-slate-900 p-3">
           <div className="flex items-center gap-2">
             <ChefHat className="size-5 text-amber-300" />
             <h2 className="font-black">Prontos para retirada</h2>

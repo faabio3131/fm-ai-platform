@@ -48,6 +48,9 @@ from migrations.admin_access_authorization_v1 import (
     upgrade_admin_access_authorization_v1,
 )
 from migrations.admin_pin_v1 import upgrade_admin_pin_v1
+from migrations.admin_unit_legacy_store_reconciliation_v1 import (
+    upgrade_admin_unit_legacy_store_reconciliation_v1,
+)
 from migrations.administracao_proprietario_v1 import (
     upgrade_administracao_proprietario_v1,
 )
@@ -394,6 +397,10 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         "0059_operational_session_persistence_v1",
         upgrade_operational_session_persistence_v1,
+    ),
+    Migration(
+        "0060_admin_unit_legacy_store_reconciliation_v1",
+        upgrade_admin_unit_legacy_store_reconciliation_v1,
     ),
 )
 
