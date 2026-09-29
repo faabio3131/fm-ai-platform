@@ -121,63 +121,63 @@ export function DashboardHome() {
   return (
     <div className="kordena-page min-h-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <div className="kordena-enter mx-auto w-full max-w-7xl space-y-6">
-        <section className="relative overflow-hidden rounded-[2rem] border border-slate-800/80 bg-[#08111f] p-6 text-white shadow-[0_30px_80px_-40px_rgba(2,6,23,0.8)] sm:p-8 lg:p-10">
+        <section className="relative overflow-hidden rounded-[1.75rem] border border-slate-800/80 bg-[#08111f] p-5 text-white shadow-[0_26px_64px_-38px_rgba(2,6,23,0.8)] sm:p-6 lg:p-7">
           <div className="kordena-grid pointer-events-none absolute inset-0 opacity-70" />
           <div className="pointer-events-none absolute -right-28 -top-28 size-80 rounded-full bg-blue-500/22 blur-3xl" />
           <div className="pointer-events-none absolute bottom-[-8rem] left-[28%] size-72 rounded-full bg-cyan-400/10 blur-3xl" />
 
-          <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.7fr)] lg:items-end">
+          <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(300px,0.68fr)] lg:items-center">
             <div className="max-w-3xl">
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-400/15 bg-emerald-400/[0.07] px-3 py-1.5 text-xs font-bold text-emerald-200">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-400/15 bg-emerald-400/[0.07] px-3 py-1 text-[11px] font-bold text-emerald-200">
                 <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.95)]" />
                 Sessão corporativa validada
               </div>
               <p className="text-xs font-black uppercase tracking-[0.24em] text-sky-300">
                 Kordena Enterprise
               </p>
-              <h1 className="mt-3 text-3xl font-black tracking-[-0.035em] sm:text-4xl lg:text-5xl">
+              <h1 className="mt-2 text-3xl font-black tracking-[-0.035em] sm:text-4xl lg:text-[2.65rem] lg:leading-[1.05]">
                 Central de operação e gestão
               </h1>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
                 Olá, {displayName}. Acesse somente os módulos liberados para sua função e para a unidade ativa da sessão.
               </p>
 
               {gerenteIa ? (
                 <Link
                   href={gerenteIa.href}
-                  className="mt-6 inline-flex items-center gap-3 rounded-2xl border border-blue-400/20 bg-blue-500/10 px-4 py-3 text-sm font-semibold text-blue-100 transition hover:-translate-y-0.5 hover:border-blue-300/30 hover:bg-blue-500/15"
+                  className="mt-4 inline-flex items-center gap-2.5 rounded-xl border border-blue-400/20 bg-blue-500/10 px-3.5 py-2.5 text-sm font-semibold text-blue-100 transition hover:-translate-y-0.5 hover:border-blue-300/30 hover:bg-blue-500/15"
                 >
-                  <span className="flex size-9 items-center justify-center rounded-xl bg-blue-500/10 ring-1 ring-blue-400/20">
-                    <KordenaBrainMark className="size-8" />
+                  <span className="flex size-8 items-center justify-center rounded-lg bg-blue-500/10 ring-1 ring-blue-400/20">
+                    <KordenaBrainMark className="size-7" />
                   </span>
                   <span>
                     <span className="block text-xs font-black uppercase tracking-[0.14em] text-blue-300">Gerente IA</span>
                     <span className="mt-0.5 block text-xs text-slate-300">Consulte a operação e prepare decisões governadas</span>
                   </span>
-                  <ArrowRight className="ml-2 size-4" />
+                  <ArrowRight className="ml-1 size-3.5" />
                 </Link>
               ) : null}
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div className="kordena-glass rounded-2xl p-4">
-                <p className="text-3xl font-black tabular-nums text-white">{operationModules.length}</p>
-                <p className="mt-1 text-xs leading-5 text-slate-400">módulos operacionais</p>
+            <div className="grid grid-cols-3 gap-2.5">
+              <div className="kordena-glass rounded-xl p-3">
+                <p className="text-2xl font-black tabular-nums text-white">{operationModules.length}</p>
+                <p className="mt-1 text-[11px] leading-4 text-slate-400">módulos operacionais</p>
               </div>
-              <div className="kordena-glass rounded-2xl p-4">
-                <p className="text-3xl font-black tabular-nums text-white">{intelligenceModules.length}</p>
-                <p className="mt-1 text-xs leading-5 text-slate-400">módulo de inteligência</p>
+              <div className="kordena-glass rounded-xl p-3">
+                <p className="text-2xl font-black tabular-nums text-white">{intelligenceModules.length}</p>
+                <p className="mt-1 text-[11px] leading-4 text-slate-400">módulo de inteligência</p>
               </div>
-              <div className="kordena-glass rounded-2xl p-4">
-                <p className="text-3xl font-black tabular-nums text-white">{proprietorModules.length}</p>
-                <p className="mt-1 text-xs leading-5 text-slate-400">módulos de gestão</p>
+              <div className="kordena-glass rounded-xl p-3">
+                <p className="text-2xl font-black tabular-nums text-white">{proprietorModules.length}</p>
+                <p className="mt-1 text-[11px] leading-4 text-slate-400">módulos de gestão</p>
               </div>
-              <div className="col-span-3 rounded-2xl border border-white/[0.08] bg-white/[0.045] p-4 backdrop-blur">
+              <div className="col-span-3 rounded-xl border border-white/[0.08] bg-white/[0.045] p-3 backdrop-blur">
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
                   <ShieldCheck className="size-4 text-emerald-300" />
                   Acesso orientado por função e unidade
                 </div>
-                <p className="mt-2 text-xs leading-5 text-slate-500">
+                <p className="mt-1.5 text-[11px] leading-4 text-slate-500">
                   O shell respeita as permissões da identidade e o escopo operacional da sessão assinada.
                 </p>
               </div>
