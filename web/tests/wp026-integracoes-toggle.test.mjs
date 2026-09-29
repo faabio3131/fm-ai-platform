@@ -67,3 +67,27 @@ test("WP-026 healthcheck renders backend result and evidence", () => {
     /mensagem: resultado\.erro \|\| 'Healthcheck não foi executado'/,
   );
 });
+
+
+test("WP-026 integration editor uses a single dialog context", () => {
+  const workspace = source(
+    "../src/features/backoffice/integracoes/components/IntegracoesWorkspace.tsx",
+  );
+
+  assert.doesNotMatch(workspace, /<Dialog open=\{isOpen\}/);
+  assert.doesNotMatch(workspace, /const \[isOpen, setIsOpen\]/);
+  assert.match(workspace, /<DialogTrigger asChild>/);
+  assert.match(workspace, /<DialogContent className="max-w-3xl/);
+  assert.match(workspace, /<DialogClose asChild>/);
+});
+
+test("WP-026 integrations list is compact and bounded", () => {
+  const workspace = source(
+    "../src/features/backoffice/integracoes/components/IntegracoesWorkspace.tsx",
+  );
+
+  assert.match(workspace, /max-w-5xl space-y-5/);
+  assert.match(workspace, /grid gap-3/);
+  assert.match(workspace, /size="sm"/);
+  assert.match(workspace, /sm:min-w-28/);
+});

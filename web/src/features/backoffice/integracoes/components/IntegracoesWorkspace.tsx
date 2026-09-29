@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -44,7 +45,6 @@ function IntegracaoDetailDialog({
   onHealthcheck,
   onHomologar,
 }: IntegracaoDetailDialogProps) {
-  const [isOpen, setIsOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<'config' | 'healthcheck' | 'homologacao'>('config');
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -170,15 +170,12 @@ function IntegracaoDetailDialog({
     }
   };
 
-  if (!isOpen) return null;
-
   const config = integracao.configuracao;
   const spec = integracao.catalogo;
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0">
-        <DialogHeader className="p-6 border-b">
+      <DialogContent className="max-w-3xl max-h-[86vh] overflow-y-auto p-0">
+        <DialogHeader className="px-5 py-4 border-b">
           <DialogTitle className="text-lg flex items-center gap-2">
             {spec.label}
             <Badge variant="secondary" className="ml-2">
@@ -187,7 +184,7 @@ function IntegracaoDetailDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="border-b px-6 py-3">
+        <div className="border-b px-5 py-2">
           <div className="flex gap-4" role="tablist">
             <button
               role="tab"
@@ -230,7 +227,7 @@ function IntegracaoDetailDialog({
           </div>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-5 space-y-5">
           {healthcheckResult && (
             <div className={`p-4 rounded-lg border ${healthcheckResult.sucesso ? 'bg-green-50 text-green-800 dark:bg-green-900/20 border-green-200' : 'bg-red-50 text-red-800 dark:bg-red-900/20 border-red-200'}`}>
               <p className="font-medium">{healthcheckResult.mensagem}</p>
@@ -366,9 +363,11 @@ function IntegracaoDetailDialog({
                 <Button onClick={handleSave} disabled={saving} className="flex-1">
                   {saving ? 'Salvando...' : 'Salvar / atualizar'}
                 </Button>
-                <Button variant="outline" onClick={() => setIsOpen(false)} disabled={saving}>
-                  Cancelar
-                </Button>
+                <DialogClose asChild>
+                  <Button variant="outline" disabled={saving}>
+                    Cancelar
+                  </Button>
+                </DialogClose>
               </div>
             </div>
           )}
@@ -424,15 +423,16 @@ function IntegracaoDetailDialog({
                 >
                   {homologating ? 'Homologando...' : 'Homologar'}
                 </Button>
-                <Button variant="outline" onClick={() => setIsOpen(false)} disabled={homologating}>
-                  Cancelar
-                </Button>
+                <DialogClose asChild>
+                  <Button variant="outline" disabled={homologating}>
+                    Cancelar
+                  </Button>
+                </DialogClose>
               </div>
             </div>
           )}
         </div>
       </DialogContent>
-    </Dialog>
   );
 }
 
@@ -514,8 +514,8 @@ export function IntegracoesWorkspace() {
   }, []);
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="mx-auto w-full max-w-5xl space-y-5">
+      <div className="space-y-1">
         <h1 className="text-2xl font-bold">Integrações e Credenciais</h1>
         <p className="text-muted-foreground">
           Configure provedores externos do estabelecimento. Cada configuração é isolada pelo tenant e pela unidade autenticados.
@@ -533,53 +533,70 @@ export function IntegracoesWorkspace() {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           {integracoes.map((integracao) => (
-            <Card key={integracao.catalogo.servico + '--' + integracao.catalogo.provedor}>
-              <CardHeader className="flex flex-row items-center justify-between py-3 px-4">
-                <div className="flex items-center gap-3">
-                  <CardTitle className="text-lg">{integracao.catalogo.label}</CardTitle>
-                  {integracao.configuracao && (
-                    <Badge className={PRONTIDAO_COLORS[integracao.configuracao.prontidao.estado] + ' text-xs'}>
-                      {PRONTIDAO_LABELS[integracao.configuracao.prontidao.estado]}
-                    </Badge>
-                  )}
-                  {!integracao.configuracao && (
-                    <Badge variant="secondary" className="text-xs">
-                      Não configurada
-                    </Badge>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  {integracao.configuracao && (
-                    <>
-                      <span>{AMBIENTE_LABELS[integracao.configuracao.ambiente]}</span>
-                      <span className="h-4 w-px bg-border mx-2" />
-                      <span>{integracao.configuracao.habilitada ? 'Habilitada' : 'Desabilitada'}</span>
-                      {integracao.configuracao.homologada && (
-                        <>
-                          <span className="h-4 w-px bg-border mx-2" />
-                          <Badge variant="outline" className="text-xs">Homologada</Badge>
-                        </>
+            <Card
+              key={integracao.catalogo.servico + '--' + integracao.catalogo.provedor}
+              className="overflow-hidden"
+            >
+              <CardContent className="p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <CardTitle className="text-base font-semibold">
+                        {integracao.catalogo.label}
+                      </CardTitle>
+                      {integracao.configuracao ? (
+                        <Badge
+                          className={
+                            PRONTIDAO_COLORS[integracao.configuracao.prontidao.estado] +
+                            ' text-[11px]'
+                          }
+                        >
+                          {PRONTIDAO_LABELS[integracao.configuracao.prontidao.estado]}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-[11px]">
+                          Não configurada
+                        </Badge>
                       )}
-                    </>
-                  )}
+                    </div>
+
+                    {integracao.configuracao && (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span>{AMBIENTE_LABELS[integracao.configuracao.ambiente]}</span>
+                        <span aria-hidden="true">•</span>
+                        <span>
+                          {integracao.configuracao.habilitada ? 'Habilitada' : 'Desabilitada'}
+                        </span>
+                        {integracao.configuracao.homologada && (
+                          <>
+                            <span aria-hidden="true">•</span>
+                            <span>Homologada</span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-9 shrink-0 px-4 sm:min-w-28"
+                      >
+                        {integracao.configuracao ? 'Ver / Editar' : 'Configurar'}
+                      </Button>
+                    </DialogTrigger>
+                    <IntegracaoDetailDialog
+                      integracao={integracao}
+                      onSave={handleSave}
+                      onHealthcheck={handleHealthcheck}
+                      onHomologar={handleHomologar}
+                    />
+                  </Dialog>
                 </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start">
-                      {integracao.configuracao ? 'Ver / Editar' : 'Configurar'}
-                    </Button>
-                  </DialogTrigger>
-                  <IntegracaoDetailDialog
-                    integracao={integracao}
-                    onSave={handleSave}
-                    onHealthcheck={handleHealthcheck}
-                    onHomologar={handleHomologar}
-                  />
-                </Dialog>
               </CardContent>
             </Card>
           ))}
