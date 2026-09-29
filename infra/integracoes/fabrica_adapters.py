@@ -105,8 +105,8 @@ class FabricaAdaptersExternos:
             unidade_id=contexto.unidade_id,
             configuracao_id=configuracao_id,
         )
-        if legado_atual is not None and legado_atual.habilitada and legado_atual.homologada:
-            return legado_atual
+        if legado_atual is not None:
+            return self._validar_config(legado_atual)
 
         candidatos = tuple(
             config
