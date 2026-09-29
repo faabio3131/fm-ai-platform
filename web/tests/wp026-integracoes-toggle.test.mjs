@@ -111,3 +111,16 @@ test("WP-026 homologation button accepts configured state with evidence", () => 
     /!config\.prontidao\.pronto/,
   );
 });
+
+
+test("WP-026 completed homologation renders read-only ready state", () => {
+  const workspace = source(
+    "../src/features/backoffice/integracoes/components/IntegracoesWorkspace.tsx",
+  );
+
+  assert.match(workspace, /config\?\.homologada \? 'Homologado' : 'Homologar'/);
+  assert.match(workspace, /Integração homologada e pronta/);
+  assert.match(workspace, /value=\{config\.evidencia_homologacao_ref \|\| ''\}/);
+  assert.match(workspace, /id="evidencia_ref_homologada"/);
+  assert.match(workspace, />Fechar<\/Button>/);
+});
