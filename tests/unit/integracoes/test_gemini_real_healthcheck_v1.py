@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from infra.integracoes.gemini_healthcheck import _evidencia
+from infra.integracoes.gemini_healthcheck import _classificar_falha_gemini, _evidencia
 from scripts.wire_gemini_real_healthcheck_v1 import aplicar
 
 
@@ -41,3 +41,26 @@ def test_patch_ui_adiciona_healthcheck_sem_auto_homologar_e_e_idempotente() -> N
     assert "Testar Gemini real antes de homologar" in primeira
     assert "registrar_homologacao" not in primeira
 
+
+
+class _ErroHTTP(Exception):
+    def __init__(self, code: int, message: str = "") -> None:
+        super().__init__(message)
+        self.code = code
+
+
+def test_classificacao_gemini_e_sanitizada_por_status() -> None:
+    assert _classificar_falha_gemini(_ErroHTTP(401)) == "gemini_api_key_invalida"
+    assert _classificar_falha_gemini(_ErroHTTP(403)) == "gemini_api_key_sem_permissao"
+    assert _classificar_falha_gemini(_ErroHTTP(404)) == "gemini_modelo_indisponivel"
+    assert _classificar_falha_gemini(_ErroHTTP(429)) == "gemini_quota_ou_faturamento"
+    assert _classificar_falha_gemini(_ErroHTTP(500)) == "gemini_provedor_indisponivel"
+    assert _classificar_falha_gemini(_ErroHTTP(400)) == "gemini_requisicao_rejeitada"
+
+
+def test_classificacao_gemini_inspeciona_causa_sem_vazar_mensagem() -> None:
+    causa = _ErroHTTP(403, "segredo-que-nao-pode-vazar")
+    try:
+        raise ConnectionError("falha segura no gateway Gemini") from causa
+    except ConnectionError as exc:
+        assert _classificar_falha_gemini(exc) == "gemini_api_key_sem_permissao"
