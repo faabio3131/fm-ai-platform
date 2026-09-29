@@ -284,12 +284,12 @@ export function SalaoUnifiedWorkspace() {
   const occupiedCount = floorMap.mesas.filter((mesa) => mesa.status === "OCUPADA").length;
 
   return (
-    <main className="dark min-h-screen bg-[#0f172a] p-3 text-slate-100 sm:p-4 lg:p-5">
-      <div className="mx-auto flex min-h-[calc(100vh-2rem)] max-w-[1900px] flex-col gap-4">
-        <header className="rounded-2xl border border-slate-700 bg-[#1e293b] p-4 shadow-xl shadow-black/10">
+    <main className="dark min-h-screen bg-[#0f172a] p-2.5 text-slate-100 sm:p-3 lg:p-4">
+      <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-[1900px] flex-col gap-2.5">
+        <header className="rounded-2xl border border-slate-700 bg-[#1e293b] px-3.5 py-3 shadow-xl shadow-black/10">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-[#2563eb] text-white"><LayoutGrid className="size-6" /></div>
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#2563eb] text-white"><LayoutGrid className="size-6" /></div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2"><h1 className="text-xl font-black tracking-tight text-white sm:text-2xl">Mapa de Salão</h1><Badge className="border border-[#10b981]/30 bg-[#10b981]/10 text-[#6ee7b7] hover:bg-[#10b981]/10">Sessão única</Badge></div>
                 <p className="mt-1 truncate text-xs text-slate-400">{auth.tenantId ?? "—"} · {auth.unitId ?? "—"} · {auth.operator?.email ?? "—"}</p>
@@ -297,24 +297,24 @@ export function SalaoUnifiedWorkspace() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" className="h-11 rounded-xl border-slate-600 bg-slate-900 text-slate-100 hover:bg-slate-700" onClick={() => void Promise.all([refreshMap(), refreshProducts()])} disabled={loading || refreshing || productsLoading}>
+              <Button type="button" variant="outline" className="h-9 rounded-xl border-slate-600 bg-slate-900 text-slate-100 hover:bg-slate-700" onClick={() => void Promise.all([refreshMap(), refreshProducts()])} disabled={loading || refreshing || productsLoading}>
                 <RefreshCw className={loading || refreshing || productsLoading ? "animate-spin" : ""} /><span className="hidden sm:inline">Atualizar</span>
               </Button>
-              <Button asChild variant="ghost" className="h-11 rounded-xl text-slate-300 hover:bg-slate-700 hover:text-white"><Link href="/"><ArrowLeft /><span className="hidden sm:inline">Dashboard</span></Link></Button>
+              <Button asChild variant="ghost" className="h-9 rounded-xl text-slate-300 hover:bg-slate-700 hover:text-white"><Link href="/"><ArrowLeft /><span className="hidden sm:inline">Dashboard</span></Link></Button>
             </div>
           </div>
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-3">
-            <div className="rounded-xl border border-slate-700 bg-slate-950/45 px-4 py-3"><p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Livres</p><p className="mt-1 text-2xl font-black tabular-nums text-slate-100">{freeCount}</p></div>
-            <div className="rounded-xl border border-[#2563eb]/30 bg-[#2563eb]/10 px-4 py-3"><p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-300">Ocupadas</p><p className="mt-1 text-2xl font-black tabular-nums text-white">{occupiedCount}</p></div>
-            <div className="rounded-xl border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-4 py-3"><p className="text-xs font-bold uppercase tracking-[0.14em] text-amber-300">Contas solicitadas</p><p className="mt-1 text-2xl font-black tabular-nums text-white">{billCount}</p></div>
+          <div className="mt-2.5 grid gap-2 sm:grid-cols-3">
+            <div className="rounded-xl border border-slate-700 bg-slate-950/45 px-3.5 py-2"><p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Livres</p><p className="mt-0.5 text-xl font-black tabular-nums text-slate-100">{freeCount}</p></div>
+            <div className="rounded-xl border border-[#2563eb]/30 bg-[#2563eb]/10 px-3.5 py-2"><p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-300">Ocupadas</p><p className="mt-0.5 text-xl font-black tabular-nums text-white">{occupiedCount}</p></div>
+            <div className="rounded-xl border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-3.5 py-2"><p className="text-xs font-bold uppercase tracking-[0.14em] text-amber-300">Contas solicitadas</p><p className="mt-0.5 text-xl font-black tabular-nums text-white">{billCount}</p></div>
           </div>
         </header>
 
         {error ? <div className="rounded-xl border border-[#ef4444]/40 bg-[#ef4444]/10 px-4 py-3 text-sm font-semibold text-[#fca5a5]">{error}</div> : null}
 
         <section className="flex-1 rounded-2xl border border-slate-800 bg-slate-950/35 p-3 sm:p-4">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="mb-2.5 flex flex-wrap items-center justify-between gap-3">
             <div><h2 className="font-black text-white">Mesas da unidade</h2><p className="mt-1 text-xs text-slate-500">Toque em uma mesa para abrir a comanda, lançar itens ou consultar o extrato.</p></div>
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-400"><UsersRound className="size-4 text-[#2563eb]" />{floorMap.mesas.length} mesa(s)</div>
           </div>
