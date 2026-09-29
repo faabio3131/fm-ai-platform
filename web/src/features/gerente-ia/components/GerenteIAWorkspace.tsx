@@ -92,36 +92,36 @@ export function GerenteIAWorkspace() {
   }
 
   return (
-    <section className="kordena-page-dark min-h-full px-4 py-6 text-slate-100 sm:px-6 lg:px-8">
-      <div className="kordena-enter mx-auto flex w-full max-w-6xl flex-col gap-6">
-        <header className="relative overflow-hidden rounded-[2rem] border border-blue-400/15 bg-[linear-gradient(135deg,rgba(37,99,235,0.18),rgba(14,165,233,0.05)_45%,rgba(8,17,31,0.96))] p-6 shadow-[0_30px_70px_-42px_rgba(37,99,235,0.75)] sm:p-8">
+    <section className="kordena-page-dark min-h-full px-4 py-4 text-slate-100 sm:px-5 lg:px-6">
+      <div className="kordena-enter mx-auto flex w-full max-w-6xl flex-col gap-3.5">
+        <header className="relative overflow-hidden rounded-[1.5rem] border border-blue-400/15 bg-[linear-gradient(135deg,rgba(37,99,235,0.18),rgba(14,165,233,0.05)_45%,rgba(8,17,31,0.96))] p-4 shadow-[0_30px_70px_-42px_rgba(37,99,235,0.75)] sm:p-5">
           <div className="kordena-grid pointer-events-none absolute inset-0 opacity-60" />
-          <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+          <div className="relative flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
             <div className="max-w-3xl">
               <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-400/10 px-3 py-1.5 text-xs font-bold text-blue-200">
                 <Sparkles className="size-3.5" />
                 Cognição operacional governada
               </div>
-              <div className="mt-5 flex items-center gap-4">
-                <KordenaBrainMark className="size-16" priority />
+              <div className="mt-3 flex items-center gap-3">
+                <KordenaBrainMark className="size-12" priority />
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-300">
                     Kordena Cognitive Core
                   </p>
-                  <h1 className="mt-1 text-3xl font-black tracking-[-0.035em] sm:text-4xl">Gerente IA</h1>
+                  <h1 className="mt-0.5 text-2xl font-black tracking-[-0.035em] sm:text-3xl">Gerente IA</h1>
                 </div>
               </div>
-              <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base">
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300 sm:text-base">
                 Centro operacional cognitivo do Kordena: consulte a operação, navegue pelos módulos autorizados, prepare decisões e confirme ações governadas sem sair do escopo da unidade ativa.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3 text-xs sm:min-w-80">
-              <div className="kordena-glass rounded-2xl p-4">
+              <div className="kordena-glass rounded-xl p-3">
                 <ShieldCheck className="size-5 text-emerald-300" />
                 <p className="mt-3 font-bold text-white">Autoridade preservada</p>
                 <p className="mt-1 leading-5 text-slate-500">A IA recomenda; serviços autorizados executam.</p>
               </div>
-              <div className="kordena-glass rounded-2xl p-4">
+              <div className="kordena-glass rounded-xl p-3">
                 <Bot className="size-5 text-sky-300" />
                 <p className="mt-3 font-bold text-white">Contexto operacional</p>
                 <p className="mt-1 leading-5 text-slate-500">Resposta escopada à sessão e unidade ativa.</p>
@@ -130,7 +130,7 @@ export function GerenteIAWorkspace() {
           </div>
         </header>
 
-        <section className="kordena-panel-dark rounded-[1.75rem] p-5 sm:p-6">
+        <section className="kordena-panel-dark rounded-[1.35rem] p-4 sm:p-4">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-300">Centro operacional cognitivo</p>
             <h2 className="mt-1 text-xl font-black text-white">Toda a operação ao alcance do Gerente IA</h2>
@@ -138,7 +138,7 @@ export function GerenteIAWorkspace() {
               Acesse os módulos liberados para sua sessão. O Gerente IA não amplia autoridade: cada destino continua obedecendo RBAC, tenant e unidade.
             </p>
           </div>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {modulosOperacionais.map((module) => (
               <Link key={module.id} href={module.href} className="group flex items-start justify-between gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3 transition hover:border-sky-300/20 hover:bg-white/[0.04]">
                 <span className="min-w-0">
@@ -149,7 +149,7 @@ export function GerenteIAWorkspace() {
               </Link>
             ))}
           </div>
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap gap-2>
             {PERGUNTAS_RAPIDAS.map((item) => (
               <button key={item} type="button" onClick={() => setPergunta(item)} className="rounded-full border border-blue-300/15 bg-blue-400/[0.06] px-3 py-1.5 text-xs font-semibold text-blue-100 transition hover:border-blue-300/30 hover:bg-blue-400/[0.1]">
                 {item}
@@ -158,7 +158,7 @@ export function GerenteIAWorkspace() {
           </div>
         </section>
 
-        <form onSubmit={perguntar} className="kordena-panel-dark rounded-[1.75rem] p-5 sm:p-6">
+        <form onSubmit={perguntar} className="kordena-panel-dark rounded-[1.35rem] p-4 sm:p-4">
           <div className="flex items-start justify-between gap-4">
             <div>
               <label htmlFor="gerente-pergunta" className="text-sm font-bold text-white">
@@ -176,12 +176,12 @@ export function GerenteIAWorkspace() {
             id="gerente-pergunta"
             value={pergunta}
             onChange={(event) => setPergunta(event.target.value)}
-            rows={6}
+            rows={4}
             maxLength={4000}
-            className="mt-4 min-h-36 resize-y border-slate-700 bg-slate-950/70 text-base leading-7 text-white placeholder:text-slate-600"
+            className="mt-3 min-h-24 resize-y border-slate-700 bg-slate-950/70 text-base leading-7 text-white placeholder:text-slate-600"
             placeholder="Ex.: quais pedidos estão atrasados agora?"
           />
-          <div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-3 flex flex-col-reverse gap-2.5 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs leading-5 text-slate-500">
               Ações sensíveis continuam sujeitas a preview, confirmação e idempotência.
             </p>
@@ -199,7 +199,7 @@ export function GerenteIAWorkspace() {
         ) : null}
 
         {resposta ? (
-          <article className="kordena-panel-dark rounded-[1.75rem] p-5 sm:p-6">
+          <article className="kordena-panel-dark rounded-[1.35rem] p-4 sm:p-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3">
                 <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-300 ring-1 ring-emerald-400/15">
