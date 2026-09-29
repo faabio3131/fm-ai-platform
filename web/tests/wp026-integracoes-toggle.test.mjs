@@ -91,3 +91,23 @@ test("WP-026 integrations list is compact and bounded", () => {
   assert.match(workspace, /size="sm"/);
   assert.match(workspace, /sm:min-w-28/);
 });
+
+
+test("WP-026 homologation button accepts configured state with evidence", () => {
+  const workspace = source(
+    "../src/features/backoffice/integracoes/components/IntegracoesWorkspace.tsx",
+  );
+
+  assert.match(
+    workspace,
+    /!\["configurado", "pronto"\]\.includes\(config\.prontidao\.estado\)/,
+  );
+  assert.match(
+    workspace,
+    /!homologacaoEvidencia\.trim\(\)/,
+  );
+  assert.doesNotMatch(
+    workspace,
+    /!config\.prontidao\.pronto/,
+  );
+});
