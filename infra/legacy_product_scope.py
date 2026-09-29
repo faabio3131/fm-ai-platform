@@ -202,6 +202,69 @@ def garantir_loja_legada_para_escopo(
     return loja_id
 
 
+def reconciliar_lojas_legadas_unidades_admin(session: Session) -> int:
+    """Provisiona mappings ausentes para unidades administrativas canônicas ativas.
+
+    Não reutiliza nem infere lojas históricas. Cada unidade sem mapping recebe uma
+    loja legada nova e exclusiva, preservando o isolamento tenant/unidade.
+    Retorna a quantidade de mappings criados.
+    """
+
+    bind = session.connection()
+    tabelas = set(inspect(bind).get_table_names())
+    obrigatorias = {
+        "fm_unidades_admin_v1",
+        "fm_unidade_loja_legacy_v1",
+        "lojas",
+    }
+    if not obrigatorias <= tabelas:
+        return 0
+
+    unidades_admin = Table(
+        "fm_unidades_admin_v1",
+        MetaData(),
+        autoload_with=bind,
+    )
+    mapping = Table(
+        _MAPPING_TABLE,
+        MetaData(),
+        autoload_with=bind,
+    )
+
+    rows = session.execute(
+        select(
+            unidades_admin.c.tenant_id,
+            unidades_admin.c.unidade_id,
+            unidades_admin.c.nome_fantasia,
+        )
+        .where(unidades_admin.c.ativa.is_(True))
+        .order_by(
+            unidades_admin.c.tenant_id,
+            unidades_admin.c.unidade_id,
+        )
+    ).all()
+
+    criados = 0
+    for row in rows:
+        existe = session.execute(
+            select(mapping.c.loja_id)
+            .where(mapping.c.tenant_id == row.tenant_id)
+            .where(mapping.c.unidade_id == row.unidade_id)
+            .where(mapping.c.ativo.is_(True))
+        ).scalar_one_or_none()
+        if existe is not None:
+            continue
+        garantir_loja_legada_para_escopo(
+            session,
+            tenant_id=str(row.tenant_id),
+            unidade_id=str(row.unidade_id),
+            nome_fantasia=str(row.nome_fantasia or row.unidade_id),
+        )
+        criados += 1
+
+    return criados
+
+
 def inserir_produto_legado(
     session: Session,
     *,
