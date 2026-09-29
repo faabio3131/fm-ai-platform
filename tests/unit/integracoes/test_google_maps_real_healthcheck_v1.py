@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
-from infra.integracoes.google_maps_healthcheck import _evidencia
+from core.integracoes.google_maps import ErroGoogleMaps, ErroGoogleMapsTransitorio
+from infra.integracoes.google_maps_healthcheck import _classificar_falha_google_maps, _evidencia
 from scripts.wire_google_maps_real_healthcheck_v1 import aplicar
 
 
@@ -46,3 +47,21 @@ def test_patch_ui_adiciona_maps_sem_auto_homologar_e_e_idempotente() -> None:
     assert "Testar Google Maps real (servidor)" in primeira
     assert "A chave de navegador ainda precisa de prova real no navegador" in primeira
     assert "registrar_homologacao" not in primeira
+
+
+def test_classificacao_google_maps_e_sanitizada_e_acionavel() -> None:
+    assert _classificar_falha_google_maps(
+        ErroGoogleMaps("Google Maps rejeitou requisicao HTTP 403")
+    ) == "google_maps_server_key_sem_permissao"
+    assert _classificar_falha_google_maps(
+        ErroGoogleMaps("geocodificacao Google Maps: REQUEST_DENIED")
+    ) == "google_maps_geocoding_rejeitado"
+    assert _classificar_falha_google_maps(
+        ErroGoogleMaps("geocodificacao Google Maps: OVER_QUERY_LIMIT")
+    ) == "google_maps_quota_ou_faturamento"
+    assert _classificar_falha_google_maps(
+        ErroGoogleMapsTransitorio("Google Maps respondeu HTTP 503 apos retries")
+    ) == "google_maps_provedor_indisponivel"
+    assert _classificar_falha_google_maps(
+        ErroGoogleMapsTransitorio("Google Maps respondeu HTTP 429 apos retries")
+    ) == "google_maps_quota_ou_faturamento"
