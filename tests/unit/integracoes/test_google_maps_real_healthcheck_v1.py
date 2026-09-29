@@ -57,6 +57,18 @@ def test_classificacao_google_maps_e_sanitizada_e_acionavel() -> None:
         ErroGoogleMaps("geocodificacao Google Maps: REQUEST_DENIED")
     ) == "google_maps_geocoding_rejeitado"
     assert _classificar_falha_google_maps(
+        ErroGoogleMaps("geocodificacao Google Maps: BILLING_NOT_ENABLED")
+    ) == "google_maps_billing_nao_ativo"
+    assert _classificar_falha_google_maps(
+        ErroGoogleMaps("geocodificacao Google Maps: API_NOT_AUTHORIZED")
+    ) == "google_maps_geocoding_nao_autorizado"
+    assert _classificar_falha_google_maps(
+        ErroGoogleMaps("geocodificacao Google Maps: API_KEY_INVALID")
+    ) == "google_maps_server_key_invalida"
+    assert _classificar_falha_google_maps(
+        ErroGoogleMaps("geocodificacao Google Maps: APPLICATION_RESTRICTION")
+    ) == "google_maps_server_key_restricao_aplicacao"
+    assert _classificar_falha_google_maps(
         ErroGoogleMaps("geocodificacao Google Maps: OVER_QUERY_LIMIT")
     ) == "google_maps_quota_ou_faturamento"
     assert _classificar_falha_google_maps(
