@@ -361,23 +361,23 @@ def test_spoof_header_nao_altera_escopo(app_com_mocks):
     assert called_context.unidade_id == UNIDADE
 
 
+
 def test_get_nunca_retorna_segredo(app_com_mocks):
     app, mocks = app_com_mocks
     ident = _identidade_admin()
     mocks["auth"].resolver_identidade.return_value = ident
     mocks["auth"].admin_status.return_value = (ident, True, None)
 
-
     config = ConfiguracaoServicoExterno(
-        configuracao_id="ia.generativa--gemini",
+        configuracao_id="pagamentos.pix--pagbank",
         tenant_id=TENANT,
         unidade_id=UNIDADE,
-        servico="ia.generativa",
-        provedor="gemini",
+        servico="pagamentos.pix",
+        provedor="pagbank",
         conta_externa="principal",
         ambiente=AmbienteIntegracao.SANDBOX,
-        parametros_publicos=(("model", "gemini-test"),),
-        finalidades_credenciais=(("api_key", "purpose_1"),),
+        parametros_publicos=(("notification_url", "https://example.test/webhook"),),
+        finalidades_credenciais=(("api_token", "purpose_1"),),
         habilitada=True,
         homologada=False,
         evidencia_homologacao_ref=None,
@@ -402,14 +402,13 @@ def test_get_nunca_retorna_segredo(app_com_mocks):
     integracao = next(
         item
         for item in data["integracoes"]
-        if item["catalogo"]["servico"] == "ia.generativa"
-        and item["catalogo"]["provedor"] == "gemini"
+        if item["catalogo"]["servico"] == "pagamentos.pix"
+        and item["catalogo"]["provedor"] == "pagbank"
     )
     assert integracao["configuracao"] is not None
-    assert "credenciais_estado" in integracao["configuracao"]
-    assert integracao["configuracao"]["credenciais_estado"]["api_key"] is True
-    assert "parametros" in integracao["configuracao"]
-    assert "model" in integracao["configuracao"]["parametros"]
+    assert integracao["configuracao"]["credenciais_estado"]["api_token"] is True
+    assert "notification_url" in integracao["configuracao"]["parametros"]
+    assert "purpose_1" not in resp.text
 
 
 def test_put_credencial_vazia_preserva_existente(app_com_mocks):
@@ -418,17 +417,16 @@ def test_put_credencial_vazia_preserva_existente(app_com_mocks):
     mocks["auth"].resolver_identidade.return_value = ident
     mocks["auth"].admin_status.return_value = (ident, True, None)
 
-
     config_existente = ConfiguracaoServicoExterno(
-        configuracao_id="ia.generativa--gemini",
+        configuracao_id="pagamentos.pix--pagbank",
         tenant_id=TENANT,
         unidade_id=UNIDADE,
-        servico="ia.generativa",
-        provedor="gemini",
+        servico="pagamentos.pix",
+        provedor="pagbank",
         conta_externa="principal",
         ambiente=AmbienteIntegracao.SANDBOX,
-        parametros_publicos=(("model", "gemini-test"),),
-        finalidades_credenciais=(("api_key", "purpose_1"),),
+        parametros_publicos=(("notification_url", "https://example.test/webhook"),),
+        finalidades_credenciais=(("api_token", "purpose_1"),),
         habilitada=True,
         homologada=False,
         evidencia_homologacao_ref=None,
@@ -437,45 +435,56 @@ def test_put_credencial_vazia_preserva_existente(app_com_mocks):
         correlation_id="corr",
         atualizado_em=AGORA,
     )
-    mocks["service"].obter.return_value = config_existente
+    mocks["repo"].obter.return_value = config_existente
 
-    mocks["app"].salvar_configuracao.return_value = (
-        ConfiguracaoServicoExterno(
-            configuracao_id="ia.generativa--gemini",
-            tenant_id=TENANT,
-            unidade_id=UNIDADE,
-            servico="ia.generativa",
-            provedor="gemini",
-            conta_externa="principal",
-            ambiente=AmbienteIntegracao.SANDBOX,
-            parametros_publicos=(("model", "gemini-test"),),
-            finalidades_credenciais=(("api_key", "purpose_1"),),
-            habilitada=True,
-            homologada=False,
-            evidencia_homologacao_ref=None,
-            versao=2,
-            atualizado_por=USUARIO,
-            correlation_id="corr",
-            atualizado_em=AGORA,
-        ),
-        False,
+    config_nova = ConfiguracaoServicoExterno(
+        configuracao_id="pagamentos.pix--pagbank",
+        tenant_id=TENANT,
+        unidade_id=UNIDADE,
+        servico="pagamentos.pix",
+        provedor="pagbank",
+        conta_externa="principal",
+        ambiente=AmbienteIntegracao.SANDBOX,
+        parametros_publicos=(("notification_url", "https://example.test/webhook"),),
+        finalidades_credenciais=(("api_token", "purpose_1"),),
+        habilitada=True,
+        homologada=False,
+        evidencia_homologacao_ref=None,
+        versao=2,
+        atualizado_por=USUARIO,
+        correlation_id="corr",
+        atualizado_em=AGORA,
+    )
+    mocks["app"].salvar_configuracao.return_value = (config_nova, False)
+    mocks["service"].avaliar.return_value = MagicMock(
+        estado=EstadoProntidaoServico.CONFIGURADO,
+        faltam_parametros=(),
+        faltam_finalidades=(),
+        faltam_credenciais=(),
+        pronto=False,
     )
 
     client = TestClient(app)
     resp = client.put(
-        "/v1/admin/integracoes/ia.generativa--gemini",
+        "/v1/admin/integracoes/pagamentos.pix--pagbank",
         json={
-            "servico": "ia.generativa",
-            "provedor": "gemini",
+            "servico": "pagamentos.pix",
+            "provedor": "pagbank",
             "conta_externa": "principal",
             "ambiente": "sandbox",
-            "parametros": [{"nome": "model", "valor": "gemini-test"}],
-            "credenciais": [{"papel": "api_key", "valor": ""}],
+            "parametros": [
+                {"nome": "notification_url", "valor": "https://example.test/webhook"}
+            ],
+            "credenciais": [{"papel": "api_token", "valor": ""}],
             "habilitada": True,
             "versao": 1,
         },
     )
     assert resp.status_code == 200
+    assert (
+        mocks["app"].salvar_configuracao.call_args.kwargs["finalidades_atuais"]
+        == {"api_token": "purpose_1"}
+    )
 
 
 def test_put_nova_credencial_usa_write_canonico(app_com_mocks):
@@ -484,17 +493,16 @@ def test_put_nova_credencial_usa_write_canonico(app_com_mocks):
     mocks["auth"].resolver_identidade.return_value = ident
     mocks["auth"].admin_status.return_value = (ident, True, None)
 
-
     config_existente = ConfiguracaoServicoExterno(
-        configuracao_id="ia.generativa--gemini",
+        configuracao_id="pagamentos.pix--pagbank",
         tenant_id=TENANT,
         unidade_id=UNIDADE,
-        servico="ia.generativa",
-        provedor="gemini",
+        servico="pagamentos.pix",
+        provedor="pagbank",
         conta_externa="principal",
         ambiente=AmbienteIntegracao.SANDBOX,
-        parametros_publicos=(("model", "gemini-test"),),
-        finalidades_credenciais=(("api_key", "purpose_1"),),
+        parametros_publicos=(("notification_url", "https://example.test/webhook"),),
+        finalidades_credenciais=(("api_token", "purpose_1"),),
         habilitada=True,
         homologada=False,
         evidencia_homologacao_ref=None,
@@ -503,18 +511,18 @@ def test_put_nova_credencial_usa_write_canonico(app_com_mocks):
         correlation_id="corr",
         atualizado_em=AGORA,
     )
-    mocks["service"].obter.return_value = config_existente
+    mocks["repo"].obter.return_value = config_existente
 
     config_nova = ConfiguracaoServicoExterno(
-        configuracao_id="ia.generativa--gemini",
+        configuracao_id="pagamentos.pix--pagbank",
         tenant_id=TENANT,
         unidade_id=UNIDADE,
-        servico="ia.generativa",
-        provedor="gemini",
+        servico="pagamentos.pix",
+        provedor="pagbank",
         conta_externa="principal",
         ambiente=AmbienteIntegracao.SANDBOX,
-        parametros_publicos=(("model", "gemini-test"),),
-        finalidades_credenciais=(("api_key", "purpose_2"),),
+        parametros_publicos=(("notification_url", "https://example.test/webhook"),),
+        finalidades_credenciais=(("api_token", "purpose_2"),),
         habilitada=True,
         homologada=False,
         evidencia_homologacao_ref=None,
@@ -524,17 +532,26 @@ def test_put_nova_credencial_usa_write_canonico(app_com_mocks):
         atualizado_em=AGORA,
     )
     mocks["app"].salvar_configuracao.return_value = (config_nova, True)
+    mocks["service"].avaliar.return_value = MagicMock(
+        estado=EstadoProntidaoServico.CONFIGURADO,
+        faltam_parametros=(),
+        faltam_finalidades=(),
+        faltam_credenciais=(),
+        pronto=False,
+    )
 
     client = TestClient(app)
     resp = client.put(
-        "/v1/admin/integracoes/ia.generativa--gemini",
+        "/v1/admin/integracoes/pagamentos.pix--pagbank",
         json={
-            "servico": "ia.generativa",
-            "provedor": "gemini",
+            "servico": "pagamentos.pix",
+            "provedor": "pagbank",
             "conta_externa": "principal",
             "ambiente": "sandbox",
-            "parametros": [{"nome": "model", "valor": "gemini-test"}],
-            "credenciais": [{"papel": "api_key", "valor": "nova-api-key"}],
+            "parametros": [
+                {"nome": "notification_url", "valor": "https://example.test/webhook"}
+            ],
+            "credenciais": [{"papel": "api_token", "valor": "novo-segredo"}],
             "habilitada": True,
             "versao": 1,
         },
@@ -549,17 +566,16 @@ def test_put_habilitar_desabilitar_usa_put_sem_endpoint_paralelo(app_com_mocks):
     mocks["auth"].resolver_identidade.return_value = ident
     mocks["auth"].admin_status.return_value = (ident, True, None)
 
-
     config_existente = ConfiguracaoServicoExterno(
-        configuracao_id="ia.generativa--gemini",
+        configuracao_id="pagamentos.pix--pagbank",
         tenant_id=TENANT,
         unidade_id=UNIDADE,
-        servico="ia.generativa",
-        provedor="gemini",
+        servico="pagamentos.pix",
+        provedor="pagbank",
         conta_externa="principal",
         ambiente=AmbienteIntegracao.SANDBOX,
-        parametros_publicos=(("model", "gemini-test"),),
-        finalidades_credenciais=(("api_key", "purpose_1"),),
+        parametros_publicos=(("notification_url", "https://example.test/webhook"),),
+        finalidades_credenciais=(("api_token", "purpose_1"),),
         habilitada=False,
         homologada=False,
         evidencia_homologacao_ref=None,
@@ -568,18 +584,18 @@ def test_put_habilitar_desabilitar_usa_put_sem_endpoint_paralelo(app_com_mocks):
         correlation_id="corr",
         atualizado_em=AGORA,
     )
-    mocks["service"].obter.return_value = config_existente
+    mocks["repo"].obter.return_value = config_existente
 
     config_nova = ConfiguracaoServicoExterno(
-        configuracao_id="ia.generativa--gemini",
+        configuracao_id="pagamentos.pix--pagbank",
         tenant_id=TENANT,
         unidade_id=UNIDADE,
-        servico="ia.generativa",
-        provedor="gemini",
+        servico="pagamentos.pix",
+        provedor="pagbank",
         conta_externa="principal",
         ambiente=AmbienteIntegracao.SANDBOX,
-        parametros_publicos=(("model", "gemini-test"),),
-        finalidades_credenciais=(("api_key", "purpose_1"),),
+        parametros_publicos=(("notification_url", "https://example.test/webhook"),),
+        finalidades_credenciais=(("api_token", "purpose_1"),),
         habilitada=True,
         homologada=False,
         evidencia_homologacao_ref=None,
@@ -589,16 +605,25 @@ def test_put_habilitar_desabilitar_usa_put_sem_endpoint_paralelo(app_com_mocks):
         atualizado_em=AGORA,
     )
     mocks["app"].salvar_configuracao.return_value = (config_nova, False)
+    mocks["service"].avaliar.return_value = MagicMock(
+        estado=EstadoProntidaoServico.CONFIGURADO,
+        faltam_parametros=(),
+        faltam_finalidades=(),
+        faltam_credenciais=(),
+        pronto=False,
+    )
 
     client = TestClient(app)
     resp = client.put(
-        "/v1/admin/integracoes/ia.generativa--gemini",
+        "/v1/admin/integracoes/pagamentos.pix--pagbank",
         json={
-            "servico": "ia.generativa",
-            "provedor": "gemini",
+            "servico": "pagamentos.pix",
+            "provedor": "pagbank",
             "conta_externa": "principal",
             "ambiente": "sandbox",
-            "parametros": [{"nome": "model", "valor": "gemini-test"}],
+            "parametros": [
+                {"nome": "notification_url", "valor": "https://example.test/webhook"}
+            ],
             "credenciais": [],
             "habilitada": True,
             "versao": 1,
@@ -614,17 +639,19 @@ def test_healthcheck_suportado_funciona(app_com_mocks):
     mocks["auth"].resolver_identidade.return_value = ident
     mocks["auth"].admin_status.return_value = (ident, True, None)
 
-
     config = ConfiguracaoServicoExterno(
-        configuracao_id="ia.generativa--gemini",
+        configuracao_id="pagamentos.pix--mercado_pago",
         tenant_id=TENANT,
         unidade_id=UNIDADE,
-        servico="ia.generativa",
-        provedor="gemini",
+        servico="pagamentos.pix",
+        provedor="mercado_pago",
         conta_externa="principal",
         ambiente=AmbienteIntegracao.SANDBOX,
-        parametros_publicos=(("model", "gemini-test"),),
-        finalidades_credenciais=(("api_key", "purpose_1"),),
+        parametros_publicos=(("notification_url", "https://example.test/webhook"),),
+        finalidades_credenciais=(
+            ("access_token", "purpose_access"),
+            ("webhook_secret", "purpose_webhook"),
+        ),
         habilitada=True,
         homologada=False,
         evidencia_homologacao_ref=None,
@@ -636,14 +663,15 @@ def test_healthcheck_suportado_funciona(app_com_mocks):
     mocks["service"].obter.return_value = config
 
     client = TestClient(app)
-    resp = client.post("/v1/admin/integracoes/ia.generativa--gemini/healthcheck")
+    resp = client.post(
+        "/v1/admin/integracoes/pagamentos.pix--mercado_pago/healthcheck"
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert data["executado"] is True
     assert data["suportado"] is True
-    assert data["provedor"] == "gemini"
+    assert data["provedor"] == "mercado_pago"
     assert data["evidencia_ref"] is not None
-
 
 def test_healthcheck_nao_suportado_retorna_contrato_sanitizado(app_com_mocks):
     app, mocks = app_com_mocks
@@ -697,23 +725,23 @@ def test_erro_dominio_resposta_sanitizada(app_com_mocks):
     assert "erro" in resp.json()
 
 
+
 def test_concorrencia_versionamento_preservados(app_com_mocks):
     app, mocks = app_com_mocks
     ident = _identidade_admin()
     mocks["auth"].resolver_identidade.return_value = ident
     mocks["auth"].admin_status.return_value = (ident, True, None)
 
-
     config_existente = ConfiguracaoServicoExterno(
-        configuracao_id="ia.generativa--gemini",
+        configuracao_id="pagamentos.pix--pagbank",
         tenant_id=TENANT,
         unidade_id=UNIDADE,
-        servico="ia.generativa",
-        provedor="gemini",
+        servico="pagamentos.pix",
+        provedor="pagbank",
         conta_externa="principal",
         ambiente=AmbienteIntegracao.SANDBOX,
-        parametros_publicos=(("model", "gemini-test"),),
-        finalidades_credenciais=(("api_key", "purpose_1"),),
+        parametros_publicos=(("notification_url", "https://example.test/webhook"),),
+        finalidades_credenciais=(("api_token", "purpose_1"),),
         habilitada=True,
         homologada=False,
         evidencia_homologacao_ref=None,
@@ -722,25 +750,28 @@ def test_concorrencia_versionamento_preservados(app_com_mocks):
         correlation_id="corr",
         atualizado_em=AGORA,
     )
-    mocks["service"].obter.return_value = config_existente
-    mocks["app"].salvar_configuracao.side_effect = ErroConfiguracaoServico("versao_configuracao_divergente")
+    mocks["repo"].obter.return_value = config_existente
+    mocks["app"].salvar_configuracao.side_effect = ErroConfiguracaoServico(
+        "versao_configuracao_divergente"
+    )
 
     client = TestClient(app)
     resp = client.put(
-        "/v1/admin/integracoes/ia.generativa--gemini",
+        "/v1/admin/integracoes/pagamentos.pix--pagbank",
         json={
-            "servico": "ia.generativa",
-            "provedor": "gemini",
+            "servico": "pagamentos.pix",
+            "provedor": "pagbank",
             "conta_externa": "principal",
             "ambiente": "sandbox",
-            "parametros": [{"nome": "model", "valor": "gemini-test"}],
+            "parametros": [
+                {"nome": "notification_url", "valor": "https://example.test/webhook"}
+            ],
             "credenciais": [],
             "habilitada": True,
             "versao": 1,
         },
     )
     assert resp.status_code == 409
-
 
 def test_configuracao_outra_unidade_nao_acessivel(app_com_mocks):
     app, mocks = app_com_mocks
@@ -757,7 +788,8 @@ def test_configuracao_outra_unidade_nao_acessivel(app_com_mocks):
     assert called_context.tenant_id == TENANT
     assert called_context.unidade_id == UNIDADE
 
-def test_put_primeira_configuracao_gemini_aceita_configuracao_inexistente(app_com_mocks):
+
+def test_put_primeira_configuracao_tenant_managed_aceita_configuracao_inexistente(app_com_mocks):
     app, mocks = app_com_mocks
     ident = _identidade_admin()
     mocks["auth"].resolver_identidade.return_value = ident
@@ -765,15 +797,15 @@ def test_put_primeira_configuracao_gemini_aceita_configuracao_inexistente(app_co
     mocks["repo"].obter.return_value = None
 
     config_nova = ConfiguracaoServicoExterno(
-        configuracao_id="ia.generativa--gemini",
+        configuracao_id="pagamentos.pix--pagbank",
         tenant_id=TENANT,
         unidade_id=UNIDADE,
-        servico="ia.generativa",
-        provedor="gemini",
+        servico="pagamentos.pix",
+        provedor="pagbank",
         conta_externa="principal",
         ambiente=AmbienteIntegracao.SANDBOX,
-        parametros_publicos=(("model", "gemini-test"),),
-        finalidades_credenciais=(("api_key", "ia_generativa_api_key"),),
+        parametros_publicos=(("notification_url", "https://example.test/webhook"),),
+        finalidades_credenciais=(("api_token", "pagamentos_pix_api_token"),),
         habilitada=True,
         homologada=False,
         evidencia_homologacao_ref=None,
@@ -793,14 +825,16 @@ def test_put_primeira_configuracao_gemini_aceita_configuracao_inexistente(app_co
 
     client = TestClient(app)
     resp = client.put(
-        "/v1/admin/integracoes/ia.generativa--gemini",
+        "/v1/admin/integracoes/pagamentos.pix--pagbank",
         json={
-            "servico": "ia.generativa",
-            "provedor": "gemini",
+            "servico": "pagamentos.pix",
+            "provedor": "pagbank",
             "conta_externa": "principal",
             "ambiente": "sandbox",
-            "parametros": [{"nome": "model", "valor": "gemini-test"}],
-            "credenciais": [{"papel": "api_key", "valor": "nova-api-key"}],
+            "parametros": [
+                {"nome": "notification_url", "valor": "https://example.test/webhook"}
+            ],
+            "credenciais": [{"papel": "api_token", "valor": "novo-token"}],
             "habilitada": True,
             "versao": 0,
         },
@@ -809,3 +843,50 @@ def test_put_primeira_configuracao_gemini_aceita_configuracao_inexistente(app_co
     assert resp.status_code == 200
     mocks["app"].salvar_configuracao.assert_called_once()
     assert mocks["app"].salvar_configuracao.call_args.kwargs["finalidades_atuais"] == {}
+
+
+
+def test_get_oculta_integracoes_gerenciadas_pela_plataforma(app_com_mocks):
+    app, mocks = app_com_mocks
+    ident = _identidade_admin()
+    mocks["auth"].resolver_identidade.return_value = ident
+    mocks["auth"].admin_status.return_value = (ident, True, None)
+    mocks["service"].listar.return_value = ()
+
+    response = TestClient(app).get("/v1/admin/integracoes")
+
+    assert response.status_code == 200
+    providers = {
+        item["catalogo"]["provedor"]
+        for item in response.json()["integracoes"]
+    }
+    assert "gemini" not in providers
+    assert "google_maps" not in providers
+    assert "meta" in providers
+
+
+def test_put_integracao_platform_managed_e_bloqueado_no_tenant(app_com_mocks):
+    app, mocks = app_com_mocks
+    ident = _identidade_admin()
+    mocks["auth"].resolver_identidade.return_value = ident
+    mocks["auth"].admin_status.return_value = (ident, True, None)
+
+    response = TestClient(app).put(
+        "/v1/admin/integracoes/ia.generativa--gemini",
+        json={
+            "servico": "ia.generativa",
+            "provedor": "gemini",
+            "conta_externa": "principal",
+            "ambiente": "sandbox",
+            "parametros": [{"nome": "model", "valor": "gemini-test"}],
+            "credenciais": [{"papel": "api_key", "valor": "secret"}],
+            "habilitada": True,
+            "versao": 0,
+        },
+    )
+
+    assert response.status_code == 403
+    assert (
+        response.json()["erro"]
+        == "seguranca.integracao_gerenciada_pela_plataforma"
+    )
