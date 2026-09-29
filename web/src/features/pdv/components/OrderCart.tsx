@@ -23,14 +23,14 @@ export function OrderCart({ onCheckout }: OrderCartProps) {
   const totals = useCartTotals();
 
   return (
-    <Card className="flex min-h-0 flex-col overflow-hidden border-slate-300 shadow-lg lg:h-[calc(100vh-8.5rem)]">
-      <CardHeader className="border-b bg-slate-950 text-white">
+    <Card className="flex min-h-0 flex-col overflow-hidden border-slate-300 shadow-lg lg:h-[calc(100vh-7rem)]">
+      <CardHeader className="border-b bg-slate-950 px-4 py-3 text-white">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
               Pedido balcão
             </p>
-            <CardTitle className="mt-1 flex items-center gap-2 text-xl text-white">
+            <CardTitle className="mt-0.5 flex items-center gap-2 text-lg text-white">
               <ReceiptText className="size-5" />
               Carrinho
             </CardTitle>
@@ -42,9 +42,9 @@ export function OrderCart({ onCheckout }: OrderCartProps) {
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 flex-col p-0">
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+        <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-3">
           {cart.itens.length === 0 ? (
-            <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed bg-muted/40 p-6 text-center">
+            <div className="flex min-h-40 flex-col items-center justify-center rounded-2xl border border-dashed bg-muted/40 p-6 text-center">
               <ReceiptText className="mb-3 size-8 text-muted-foreground" />
               <p className="font-medium">Carrinho vazio</p>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -117,7 +117,7 @@ export function OrderCart({ onCheckout }: OrderCartProps) {
           )}
         </div>
 
-        <div className="border-t bg-card p-4">
+        <div className="border-t bg-card p-3">
           <div className="grid grid-cols-2 gap-3">
             <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Desconto
@@ -161,7 +161,7 @@ export function OrderCart({ onCheckout }: OrderCartProps) {
           <Button
             type="button"
             size="lg"
-            className="mt-4 h-14 w-full rounded-xl text-base font-bold"
+            className="mt-3 h-11 w-full rounded-xl text-sm font-bold"
             disabled={cart.itens.length === 0 || totals.totalCents < 0}
             onClick={onCheckout}
           >
