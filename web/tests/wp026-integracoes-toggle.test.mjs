@@ -27,3 +27,19 @@ test("WP-026 integration enabled toggle reflects native checkbox state", () => {
   assert.doesNotMatch(workspace, /peer-data-\[state=checked\]/);
   assert.doesNotMatch(workspace, /peer-data-\[state=unchecked\]/);
 });
+
+
+test("WP-026 first save refreshes integration card by catalog identity", () => {
+  const workspace = source(
+    "../src/features/backoffice/integracoes/components/IntegracoesWorkspace.tsx",
+  );
+
+  assert.match(
+    workspace,
+    /i\.catalogo\.servico === config\.servico[\s\S]*i\.catalogo\.provedor === config\.provedor/,
+  );
+  assert.doesNotMatch(
+    workspace,
+    /i\.configuracao\?\.configuracao_id === config\.configuracao_id/,
+  );
+});
