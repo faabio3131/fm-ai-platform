@@ -251,3 +251,16 @@ test("Marketplaces separam operação de credenciais e homologação", () => {
   assert.match(marketplace, /99Food/);
   assert.match(marketplace, /homologação pendente/);
 });
+
+
+test("DashboardHome mantém densidade premium sem cards excessivamente altos", () => {
+  const dashboard = source("../src/features/shell/components/DashboardHome.tsx");
+
+  assert.match(dashboard, /<CardHeader className="p-4 pb-2">/);
+  assert.match(dashboard, /size-10 items-center justify-center rounded-xl/);
+  assert.match(dashboard, /mt-3 text-base tracking-tight/);
+  assert.match(dashboard, /min-h-10 text-\[13px\] leading-5/);
+  assert.match(dashboard, /<CardContent className="px-4 pb-4 pt-0">/);
+  assert.match(dashboard, /space-y-6/);
+  assert.match(dashboard, /grid gap-3 md:grid-cols-2 xl:grid-cols-3/);
+});
