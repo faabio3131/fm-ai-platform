@@ -19,7 +19,9 @@ WORKFLOW = ROOT / ".github/workflows/kordena-kca-commercial-gate.yml"
 
 def test_kca10_migration_is_canonical_and_additive() -> None:
     versions = tuple(migration.version for migration in DEFAULT_MIGRATIONS)
-    assert versions[-1] == "0058_commercial_billing_events_v1"
+    billing_events_index = versions.index("0058_commercial_billing_events_v1")
+    assert versions[billing_events_index - 1] == "0057_commercial_billing_config_v1"
+    assert versions[billing_events_index + 1] == "0059_operational_session_persistence_v1"
 
     engine = create_engine("sqlite:///:memory:")
     run_migrations(engine)
