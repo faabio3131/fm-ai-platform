@@ -133,7 +133,11 @@ export function UnifiedAppShell({ children }: { children: ReactNode }) {
   const [unitModalOpen, setUnitModalOpen] = useState(false);
   const [busyUnitId, setBusyUnitId] = useState<string | null>(null);
   const [unitLoadError, setUnitLoadError] = useState(false);
-  const publicSurface = pathname === "/cardapio" || pathname.startsWith("/cardapio/");
+  const publicSurface =
+    pathname === "/signup" ||
+    pathname.startsWith("/signup/") ||
+    pathname === "/cardapio" ||
+    pathname.startsWith("/cardapio/");
 
   const modules = useMemo(() => availableShellModules(auth.permissions), [auth.permissions]);
   const operationModules = modules.filter((module) => module.group === "operacao");
