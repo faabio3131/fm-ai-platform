@@ -101,12 +101,12 @@ def test_internal_test_accounts_are_excluded_from_commercial_summary() -> None:
         SimpleNamespace(
             fm_customer_id="customer-real",
             status="active",
-            ends_at=NOW,
+            ends_at=datetime(2026, 9, 24, 16, 0, tzinfo=timezone.utc),
         ),
         SimpleNamespace(
             fm_customer_id="customer-internal",
             status="active",
-            ends_at=NOW,
+            ends_at=datetime(2026, 9, 24, 16, 0, tzinfo=timezone.utc),
         ),
     )
     subscriptions = (
@@ -150,7 +150,7 @@ def test_internal_test_accounts_are_excluded_from_commercial_summary() -> None:
     assert summary == {
         "customers": 1,
         "internal_test_customers": 1,
-        "active_trials": 0,
+        "active_trials": 1,
         "active_subscriptions": 1,
         "past_due_subscriptions": 0,
         "suspended_subscriptions": 0,
