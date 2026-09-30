@@ -47,10 +47,10 @@
       "note": "The release checklist requires proof that no external customer already exists before controlled public rollout; repository/CI state cannot prove live commercial data absence."
     },
     "fmcc_operational_runtime": {
-      "status": "PENDING_EVIDENCE",
+      "status": "PASS",
       "required": true,
-      "evidence": null,
-      "note": "FMCC current main is edb5b872587c02ee41824dc9f593d9cf0d7c4ea2 with no open PRs, and Kordena↔FMCC contracts are certified; live runtime operation is still not evidenced here."
+      "evidence": "docs/finalization/KF03_KORDENA_COMMAND_RUNTIME_LIVE_CERTIFICATION.md; Render service srv-danhfirtqb8s73bug4ag live at commit 847ed0167086a041fa4446fde2d64e4b29c690f3; 2026-09-30T22:43:29.832Z kordena_runtime_bootstrap_verified; source 7409d6f8-db3a-432a-8623-bb904913f6fe; idempotent state source_count=1 sync_count=1 completed_sync_count=1 fact_count=0",
+      "note": "Live Kordena↔FM Command S2S runtime was verified again on 2026-09-30 against the current Kordena release runtime. The verification was idempotent and bootstrap flags were restored to false after the smoke."
     }
   }
 }
