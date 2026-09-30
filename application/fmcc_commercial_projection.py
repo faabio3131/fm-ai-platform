@@ -342,41 +342,16 @@ class AplicacaoFMCCCommercialProjectionV1:
                 }
                 for tenant_id in tenant_ids
             ],
-            "summary": {
-                "customers": len(customers),
-                "internal_test_customers": sum(
-                    row.account_class == "internal_test" for row in customers
-                ),
-                "active_trials": sum(
-                    row.status == "active"
-                    and row.ends_at is not None
-                    and _after(row.ends_at, instante)
-                    for row in trials
-                ),
-                "active_subscriptions": sum(
-                    row.status == "active" for row in subscriptions
-                ),
-                "past_due_subscriptions": sum(
-                    row.status == "past_due" for row in subscriptions
-                ),
-                "suspended_subscriptions": sum(
-                    row.status == "suspended" for row in subscriptions
-                ),
-                "confirmed_payments": sum(
-                    row.transaction_type == "payment" and row.status == "succeeded"
-                    for row in transactions
-                ),
-                "failed_payments": sum(
-                    row.transaction_type == "payment" and row.status == "failed"
-                    for row in transactions
-                ),
-                "reconciled_transactions": sum(
-                    row.reconciliation_status in {"in_sync", "repaired"}
-                    for row in transactions
-                ),
-                "users": sum(int(value) for value in membership_counts.values()),
-                "units": sum(int(value) for value in unit_counts.values()),
-            },
+            "summary": self._summary(
+                customers=customers,
+                accounts=accounts,
+                trials=trials,
+                subscriptions=subscriptions,
+                transactions=transactions,
+                membership_counts=membership_counts,
+                unit_counts=unit_counts,
+                instante=instante,
+            ),
             "facts": facts,
             "observability": observability,
             "coverage": {
@@ -394,6 +369,89 @@ class AplicacaoFMCCCommercialProjectionV1:
                 ),
                 "support": "owned_by_dedicated_support_source",
             },
+        }
+
+    @staticmethod
+    def _summary(
+        *,
+        customers,
+        accounts,
+        trials,
+        subscriptions,
+        transactions,
+        membership_counts,
+        unit_counts,
+        instante: datetime,
+    ) -> dict[str, int]:
+        internal_customer_ids = {
+            row.fm_customer_id
+            for row in customers
+            if row.account_class == "internal_test"
+        }
+        external_tenant_ids = {
+            row.product_tenant_id
+            for row in accounts
+            if row.fm_customer_id not in internal_customer_ids
+            and row.product_tenant_id is not None
+        }
+        subscription_customer = {
+            row.subscription_id: row.fm_customer_id for row in subscriptions
+        }
+        commercial_transactions = tuple(
+            row
+            for row in transactions
+            if subscription_customer.get(row.subscription_id)
+            not in internal_customer_ids
+        )
+
+        return {
+            "customers": sum(
+                row.fm_customer_id not in internal_customer_ids
+                for row in customers
+            ),
+            "internal_test_customers": len(internal_customer_ids),
+            "active_trials": sum(
+                row.fm_customer_id not in internal_customer_ids
+                and row.status == "active"
+                and row.ends_at is not None
+                and _after(row.ends_at, instante)
+                for row in trials
+            ),
+            "active_subscriptions": sum(
+                row.fm_customer_id not in internal_customer_ids
+                and row.status == "active"
+                for row in subscriptions
+            ),
+            "past_due_subscriptions": sum(
+                row.fm_customer_id not in internal_customer_ids
+                and row.status == "past_due"
+                for row in subscriptions
+            ),
+            "suspended_subscriptions": sum(
+                row.fm_customer_id not in internal_customer_ids
+                and row.status == "suspended"
+                for row in subscriptions
+            ),
+            "confirmed_payments": sum(
+                row.transaction_type == "payment" and row.status == "succeeded"
+                for row in commercial_transactions
+            ),
+            "failed_payments": sum(
+                row.transaction_type == "payment" and row.status == "failed"
+                for row in commercial_transactions
+            ),
+            "reconciled_transactions": sum(
+                row.reconciliation_status in {"in_sync", "repaired"}
+                for row in commercial_transactions
+            ),
+            "users": sum(
+                int(membership_counts.get(tenant_id, 0))
+                for tenant_id in external_tenant_ids
+            ),
+            "units": sum(
+                int(unit_counts.get(tenant_id, 0))
+                for tenant_id in external_tenant_ids
+            ),
         }
 
     @staticmethod
