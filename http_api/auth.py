@@ -10,11 +10,13 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
+from typing import Any, cast
 
 from fastapi import APIRouter, Request, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import delete
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
 from core.runtime.config import RuntimeSettings
@@ -225,9 +227,12 @@ class _GerenciadorSessaoOperacional:
             return atualizada, self._token(atualizada.session_id)
 
         with self._session_factory() as db, db.begin():
-            removida = db.execute(
+            removida = cast(
+                CursorResult[Any],
+                db.execute(
                 delete(OperationalSessionORM).where(
                     OperationalSessionORM.session_id == sessao.session_id
+                )
                 )
             )
             if removida.rowcount != 1:
