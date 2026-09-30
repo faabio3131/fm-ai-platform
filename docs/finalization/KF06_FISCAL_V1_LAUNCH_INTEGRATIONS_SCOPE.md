@@ -1,7 +1,7 @@
 # KF-06 — Fiscal V1 e integrações de lançamento
 
-Data: 2026-09-30  
-Baseline de auditoria: `577babfa977463929d66387c60f75fb68a079494`  
+Data: 2026-09-30
+Baseline de auditoria: `577babfa977463929d66387c60f75fb68a079494`
 Autoridade: Cronograma Mestre de Finalização V1 Comercial
 
 ## Resultado executivo
