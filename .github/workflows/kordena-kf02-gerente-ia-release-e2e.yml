@@ -103,6 +103,7 @@ jobs:
         shell: bash
         run: |
           python - <<'PY'
+          import os
           import secrets
           from pathlib import Path
           values = {
@@ -110,7 +111,7 @@ jobs:
               "session": secrets.token_urlsafe(48),
               "fmcc": secrets.token_urlsafe(48),
           }
-          with Path("$GITHUB_OUTPUT").open("a", encoding="utf-8") as out:
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as out:
               for key, value in values.items():
                   print(f"::add-mask::{value}")
                   out.write(f"{key}={value}\n")
