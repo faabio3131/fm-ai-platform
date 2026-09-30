@@ -1,7 +1,7 @@
 # KF-05 — Certificação de domínio, runtime de produção e configuração segura
 
-Data: 2026-09-30  
-Branch base: `staging/kordena-premium`  
+Data: 2026-09-30
+Branch base: `staging/kordena-premium`
 Baseline auditada: `577babfa977463929d66387c60f75fb68a079494`
 
 ## Resultado executivo
