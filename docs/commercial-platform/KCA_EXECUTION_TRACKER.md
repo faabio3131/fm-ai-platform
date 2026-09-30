@@ -631,3 +631,10 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - Visual Premium permanece deliberadamente fora do escopo funcional encerrado.
 - Public release permanece `BLOCKED_EXTERNALLY` por pré-requisitos não técnicos/externos e pelo gate pré-lançamento comercial canônico.
 - Nenhum GO comercial ou jurídico foi inventado.
+
+## KF-07 — Final regression trigger
+
+- Baseline requested: `d3b512395fd2b49876131f4f28d71484017ec85c`
+- Purpose: trigger the current-head KCA commercial, KCA-15, KCA-16 and KCA-17 certification workflows for the Master Finalization Schedule.
+- This marker does not declare PASS by itself; GitHub Actions evidence remains authoritative.
+- Public signup/release authorization is not changed by this marker.
