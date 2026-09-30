@@ -638,3 +638,12 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - Purpose: trigger the current-head KCA commercial, KCA-15, KCA-16 and KCA-17 certification workflows for the Master Finalization Schedule.
 - This marker does not declare PASS by itself; GitHub Actions evidence remains authoritative.
 - Public signup/release authorization is not changed by this marker.
+
+## KF-09 — Master Commercial E2E final trigger
+
+- Baseline: `7a1d07985a0388d7f143bb7770416c3ceb729747`
+- Public signup no release runtime permanece OFF.
+- Executar novamente KCA Commercial, KCA-15, KCA-16 full commercial E2E e KCA-17 no current head.
+- KCA-16 deve provar a jornada completa com provider sandbox: signup → verification → provisioning → trial → paywall → checkout → payment webhook → subscription ACTIVE → entitlement/access restored → FMCC/observability updated.
+- Billing real permanece proibido sem autorização explícita.
+- Este marcador não declara `MASTER_COMMERCIAL_E2E_PASS`; os workflows e a evidência de runtime/Command são a autoridade.
