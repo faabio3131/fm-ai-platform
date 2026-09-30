@@ -1,10 +1,10 @@
 # KORDENA — CRONOGRAMA MESTRE DE FINALIZAÇÃO V1 COMERCIAL
 
-**Versão:** 2.0 — Final Reconciliada  
-**Data-base:** 30/09/2026  
-**Empresa:** Nova FM Tecnologia  
-**Produto:** Kordena  
-**Escopo:** conclusão integral do Kordena V1 para operação comercial controlada.  
+**Versão:** 2.0 — Final Reconciliada
+**Data-base:** 30/09/2026
+**Empresa:** Nova FM Tecnologia
+**Produto:** Kordena
+**Escopo:** conclusão integral do Kordena V1 para operação comercial controlada.
 **Exclusão deliberada:** integração/cutover Kordena → NFCore. Essa integração será executada posteriormente em cronograma próprio.
 
 ---
