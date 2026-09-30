@@ -116,6 +116,13 @@ class ConsultasGerenciaisFake:
     def consultar_estoque(self, *, tenant_id: str, unidade_id: str, filtros: dict[str, ValorPrimitivo]):
         return self._retornar("estoque", tenant_id=tenant_id, unidade_id=unidade_id, filtros=filtros)
 
+    def consultar_fiscal(
+        self, *, tenant_id: str, unidade_id: str, filtros: dict[str, ValorPrimitivo]
+    ) -> tuple[RegistroGerencial, ...]:
+        del filtros
+        self.escopos.append(("fiscal", tenant_id, unidade_id))
+        return ()
+
     def sugerir_compra(self, *, tenant_id: str, unidade_id: str, filtros: dict[str, ValorPrimitivo]):
         return self._retornar("compra", tenant_id=tenant_id, unidade_id=unidade_id, filtros=filtros)
 

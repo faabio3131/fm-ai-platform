@@ -12,12 +12,12 @@ from sqlalchemy.pool import StaticPool
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.permissoes import Papel
 from http_api import frontend_app
-from migrations.runner import run_migrations
 from http_api.auth import (
     _GerenciadorSessaoOperacional,
     _SessaoInvalida,
     build_auth_router,
 )
+from migrations.runner import run_migrations
 
 SECRET = "kca14-session-hardening-secret-0123456789-abcdef"
 TENANT = "tenant-kca14"

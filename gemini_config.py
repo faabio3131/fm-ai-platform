@@ -14,7 +14,6 @@ from typing import Any
 
 from google import genai
 
-
 # O padrão só é escolhido depois de confirmar que foi retornado pela chave atual.
 DEFAULT_MODEL = "gemini-3.6-flash"
 DECOMMISSIONED_MODELS = frozenset({"gemini-2.0-flash", "gemini-2.0-flash-001"})
@@ -54,7 +53,7 @@ def _runtime_commercial() -> bool:
         from core.runtime import load_runtime_settings
 
         return bool(load_runtime_settings().commercial)
-    except Exception:
+    except RuntimeError:
         # Falha fechada apenas para a decisão de usar o caminho comercial. Testes
         # unitários isolados de gemini_config continuam exercitando o gateway legado.
         return False
@@ -209,8 +208,8 @@ def _commercial_generate_content(*, contents: Any, config: Any | None) -> Any:
         from core.runtime import build_engine, load_runtime_settings
         from core.seguranca.autenticacao import IdentidadeUsuario
         from infra.integracoes import FabricaAdaptersExternos
-        from infra.seguranca.session_guard import build_session_factory
         from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
+        from infra.seguranca.session_guard import build_session_factory
 
         identity = st.session_state.get("_fm_ai_authenticated_identity_v1")
         if not isinstance(identity, IdentidadeUsuario) or not identity.ativo:

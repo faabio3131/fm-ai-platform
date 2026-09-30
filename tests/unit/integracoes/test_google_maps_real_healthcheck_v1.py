@@ -1,7 +1,10 @@
 from datetime import datetime, timezone
 
 from core.integracoes.google_maps import ErroGoogleMaps, ErroGoogleMapsTransitorio
-from infra.integracoes.google_maps_healthcheck import _classificar_falha_google_maps, _evidencia
+from infra.integracoes.google_maps_healthcheck import (
+    _classificar_falha_google_maps,
+    _evidencia,
+)
 from scripts.wire_google_maps_real_healthcheck_v1 import aplicar
 
 
