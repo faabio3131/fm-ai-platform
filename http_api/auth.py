@@ -230,10 +230,10 @@ class _GerenciadorSessaoOperacional:
             removida = cast(
                 CursorResult[Any],
                 db.execute(
-                delete(OperationalSessionORM).where(
-                    OperationalSessionORM.session_id == sessao.session_id
-                )
-                )
+                    delete(OperationalSessionORM).where(
+                        OperationalSessionORM.session_id == sessao.session_id
+                    )
+                ),
             )
             if removida.rowcount != 1:
                 raise _SessaoInvalida("sessao invalida")
