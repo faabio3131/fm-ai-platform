@@ -37,3 +37,13 @@ test("KCA-17 fecha a jornada de verificação pública no frontend", () => {
   assert.match(verify, /Entrar no Kordena/);
   assert.match(verify, /NEXT_PUBLIC_KORDENA_SIGNUP_ENABLED === "true"/);
 });
+
+
+test("KF-08 mantém signup e verificação como superfícies públicas sem shell autenticado", () => {
+  const guard = fs.readFileSync("src/features/auth/components/AuthSessionGuard.tsx", "utf8");
+  const shell = fs.readFileSync("src/features/shell/components/UnifiedAppShell.tsx", "utf8");
+
+  assert.match(guard, /PUBLIC_PATHS = \["\/login", "\/signup", "\/cardapio"\]/);
+  assert.match(shell, /pathname === "\/signup"/);
+  assert.match(shell, /pathname\.startsWith\("\/signup\/"\)/);
+});
