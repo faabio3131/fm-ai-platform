@@ -50,6 +50,30 @@ export function getCommercialPlans(): Promise<CommercialPlan[]> {
 }
 
 
+export interface CommercialSubscription {
+  subscription_id: string;
+  product_account_id: string;
+  status: "pending" | "active" | "past_due" | "suspended" | "canceled" | string;
+  plan_code: string;
+  plan_version_id: string;
+  price_id: string;
+  currency: string;
+  billing_period: string;
+  contracted_amount: string;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  version: number;
+}
+
+export interface CommercialSubscriptionResponse {
+  subscription: CommercialSubscription | null;
+}
+
+export function getCommercialSubscription(): Promise<CommercialSubscriptionResponse> {
+  return commercialRequest<CommercialSubscriptionResponse>("/v1/commercial/subscription");
+}
+
 export type CommercialPaymentMethod = "pix" | "card" | "boleto" | "bank_transfer";
 
 export interface CommercialCheckoutResult {

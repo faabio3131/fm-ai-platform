@@ -153,6 +153,16 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     allPermissions: ["admin.acessar", "financeiro.visualizar"],
   },
   {
+    id: "assinatura",
+    label: "Plano e Assinatura",
+    description: "Entitlement, assinatura e catálogo comercial da conta Kordena.",
+    href: "/admin/assinatura",
+    group: "proprietario",
+    icon: "financeiro",
+    available: true,
+    allPermissions: ["admin.acessar"],
+  },
+  {
     id: "ai-finops",
     label: "AI FinOps",
     description: "Uso, custo, eficiência e mix dos modelos de IA.",
