@@ -118,12 +118,15 @@ export function CommercialAccountWorkspace() {
   }, [auth.status, auth.tenantId, load]);
 
   useEffect(() => {
-    const params = new URL(window.location.href).searchParams;
-    if (params.get("commercial_checkout") === "success") {
-      setNotice("Checkout concluído no provedor. O status da assinatura será atualizado pela autoridade de billing.");
-    } else if (params.get("commercial_checkout") === "cancel") {
-      setNotice("Checkout cancelado. Nenhuma alteração comercial foi presumida pelo Kordena.");
-    }
+    const timer = window.setTimeout(() => {
+      const params = new URL(window.location.href).searchParams;
+      if (params.get("commercial_checkout") === "success") {
+        setNotice("Checkout concluído no provedor. O status da assinatura será atualizado pela autoridade de billing.");
+      } else if (params.get("commercial_checkout") === "cancel") {
+        setNotice("Checkout cancelado. Nenhuma alteração comercial foi presumida pelo Kordena.");
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   const currentPlan = useMemo(
