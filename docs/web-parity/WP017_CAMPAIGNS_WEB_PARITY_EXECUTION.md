@@ -96,13 +96,55 @@ O tool `PREPARAR_CAMPANHA` continua capaz apenas de criar **rascunho**. A UI pas
 
 **Gate WM-01:** `CAMPAIGN_WEB_BOUNDARY_APPROVED`.
 
-## Ordem restante
+## WM-02 → WM-05 — Implementação concluída
 
-- WM-02 — API governada;
-- WM-03 — Central Web;
-- WM-04 — CRM → Campanhas;
-- WM-05 — Gerente IA → rascunho;
-- WM-06 — regressão estrutural 33/33;
-- WM-07 — certificação final e reconciliação do ledger.
+A PR #174 implementou sobre as autoridades acima:
 
-A promoção de WP-017 novamente para `CERTIFIED` só pode ocorrer após evidência verde de WM-02→WM-07.
+- API Web governada `/v1/campanhas` para listar, criar/editar rascunho, audiência, submissão, aprovação, publicação, despacho e histórico;
+- Central Web first-class em `/admin/campanhas`;
+- handoff CRM → Campanhas criando rascunho + audiência sem transformar o CRM em segunda autoridade;
+- integração Gerente IA → rascunho, sem endpoint/tool de aprovação, publicação ou despacho direto pelo LLM;
+- idempotência e replay-safe para mutações e efeito externo;
+- tenant/unidade derivados da sessão confiável, RBAC/step-up e auditoria preservados.
+
+**Gate de implementação:** `Kordena WP017 Campaign Web Parity` run `36918120350` (#11) — SUCCESS no HEAD `e0837d7651c942da69cbb4a7e6666144340d4a5e`.
+
+Evidência da rodada:
+
+- matriz dirigida: **31 passed**;
+- regressão Python completa: **1862 passed / 5 skipped / 0 failed**;
+- mypy: PASS;
+- TypeScript: PASS;
+- Web structural tests: PASS;
+- Next production build: PASS;
+- diff whitespace: PASS;
+- matriz completa do commit: **24/24 workflows SUCCESS**.
+
+A PR #174 foi mergeada em `staging/kordena-premium` no commit `e0f6b146e6c785a894a83a6044944c98fd55d5b3`.
+
+Pós-merge já comprovado:
+
+- `Kordena V1 Visual Premium Gate` run `36920068824` — SUCCESS;
+- Vercel — SUCCESS;
+- Railway `fm-ai-platform` — SUCCESS.
+
+## WM-06 — Regressão estrutural 33/33
+
+O contrato `tests/contract/test_kordena_pdf_web_parity_33.py` materializa as 33 superfícies Web oficiais e passa a exigir também, para **WP-001→WP-033**:
+
+- estado `CERTIFIED` no State Ledger;
+- `certified_sha` presente;
+- evidência de certificação presente.
+
+Isso impede que uma capacidade volte a desaparecer da Web ou seja tratada como certificada apenas por narrativa.
+
+## WM-07 — Certificação final e reconciliação
+
+Nesta branch de certificação:
+
+- WP-017 é promovido no ledger para `CERTIFIED` somente com evidência real da PR #174;
+- Checklist Operacional é reconciliado para `CERTIFICADO`;
+- Inventário Mestre é reconciliado para **34 capacidades certificadas** (33 WPs do PDF + WP-034 Conta Comercial);
+- o handoff CRM usa `next/navigation` em vez de navegação interna por `window.location.assign`, eliminando o warning de lint detectado na rodada anterior.
+
+**Gate final desta branch:** todos os checks obrigatórios da PR de certificação devem permanecer verdes antes do merge. Se qualquer gate falhar, o estado não pode chegar a `staging/kordena-premium`.

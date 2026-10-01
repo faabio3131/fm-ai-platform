@@ -11,6 +11,7 @@ import {
   Send,
   Users,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { criarCampanha, definirAudiencia } from "@/features/backoffice/campanhas/services/campanhas-api";
 
@@ -56,6 +57,7 @@ function mensagemErro(error: unknown): string {
 }
 
 export function CrmWorkspace() {
+  const router = useRouter();
   const auth = useAuthStore();
   const [clientes, setClientes] = useState<CrmCliente[]>([]);
   const [resgates, setResgates] = useState<ResgateClienteInativo[]>([]);
@@ -173,7 +175,7 @@ export function CrmWorkspace() {
         [oportunidade.cliente_id],
         `crm-rescue-audience-${crypto.randomUUID()}`,
       );
-      window.location.assign(`/admin/campanhas?campanha=${encodeURIComponent(draft.campanha_id)}`);
+      router.push(`/admin/campanhas?campanha=${encodeURIComponent(draft.campanha_id)}`);
     } catch (error) {
       setErro(mensagemErro(error));
       setResgateEmEnvio(null);

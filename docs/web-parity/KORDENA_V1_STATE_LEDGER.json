@@ -181,14 +181,19 @@
     },
     "WP-017": {
       "name": "Marketing / Resgate / Campanhas",
-      "state": "IMPLEMENTED_UNCERTIFIED",
+      "state": "CERTIFIED",
       "historical_certified_sha": "66a5dcd3d97e860709a373bb99c384ae28400e2f",
+      "certified_sha": "e0837d7651c942da69cbb4a7e6666144340d4a5e",
       "evidence": [
         "WP017_MARKETING_RESGATE_CERTIFICACAO.md — certificação histórica do resgate/WhatsApp em /admin/crm",
-        "Auditoria profunda PDF × Web de 01/10/2026 — identificou ausência de superfície Web para o lifecycle completo de campanhas",
-        "Baseline reaberto em staging/kordena-premium@ce63748c8a8495067262b2577e63ebc4fda9b38b"
+        "Auditoria profunda PDF × Web de 01/10/2026 — gap integral do lifecycle identificado e WM-00 aberto",
+        "PR #174 — Central Web /admin/campanhas + API /v1/campanhas + CRM handoff + Gerente IA draft integration",
+        "Kordena WP017 Campaign Web Parity run 36918120350 (#11) — SUCCESS: 31 targeted PASS; full Python 1862 PASS / 5 SKIP; TypeScript/Web/build/diff verdes",
+        "Commit e0837d7651c942da69cbb4a7e6666144340d4a5e — 24/24 workflows SUCCESS",
+        "PR #174 merge e0f6b146e6c785a894a83a6044944c98fd55d5b3 — pós-merge Visual Premium Gate run 36920068824 SUCCESS",
+        "Merge e0f6b146e6c785a894a83a6044944c98fd55d5b3 — Vercel SUCCESS e Railway fm-ai-platform SUCCESS"
       ],
-      "reason": "A certificação histórica provou seleção de inativos, Gemini/fallback, consentimento e despacho idempotente dentro do CRM, mas não provou uma Central Web capaz de criar/listar/editar campanha, persistir audiência, submeter, aprovar, publicar/despachar e consultar histórico. O estado foi rebaixado de CERTIFIED até a conclusão WM-00→WM-07."
+      "reason": "WM-00→WM-07 concluídos: lifecycle Web first-class de campanhas implementado sobre autoridades canônicas, com audiência/consentimento, submissão, aprovação/publicação humanas, despacho idempotente e replay-safe, histórico, integração CRM e Gerente IA apenas para rascunho. A matriz de paridade 33/33 passa a exigir estado CERTIFIED + certified_sha + evidência para todos os WPs."
     },
     "WP-018": {
       "name": "Dashboard Financeiro / Indicadores",
