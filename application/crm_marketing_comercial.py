@@ -262,3 +262,82 @@ def despachar_resgate_whatsapp_legado(
         )
     finally:
         session.close()
+
+
+def despachar_campanha_whatsapp_cliente(
+    *,
+    session_factory: Callable[[], Session],
+    contexto: ContextoExecucao,
+    cliente_id: str,
+    campanha_ref: str,
+    texto: str,
+    idempotency_key: str,
+    envio: PortaEnvioMarketing | None = None,
+) -> ResultadoMarketingCRMComercial:
+    """Despacha campanha Web para um ClienteCRM, revalidando consentimento no efeito."""
+
+    cliente = cliente_id.strip()
+    if not cliente:
+        raise MarketingCRMComercialInvalido("cliente_id_obrigatorio")
+    session = session_factory()
+    uow = UnitOfWorkV1.adotar_session(session)
+
+    def persistir_despacho() -> None:
+        uow.commit()
+
+    def reverter_despacho() -> None:
+        uow.rollback()
+
+    try:
+        transporte_base = envio or EnvioWhatsAppMarketingComercial(
+            session=session,
+            contexto=contexto,
+            campanha_ref=campanha_ref,
+            texto=texto,
+        )
+        transporte = EnvioMarketingIdempotenteSQLAlchemy(
+            session=session,
+            contexto=contexto,
+            cliente_id=cliente,
+            texto=texto,
+            transporte=transporte_base,
+            persistir=persistir_despacho,
+            reverter=reverter_despacho,
+        )
+        nao_usado = cast(Any, object())
+        servico = ServicoCRM(
+            clientes=cast(Any, LeitorClientesCRMSQLAlchemy(session)),
+            marketplace_clientes=nao_usado,
+            consentimentos=cast(
+                Any, LeitorConsentimentosMarketingSQLAlchemy(session)
+            ),
+            funil=nao_usado,
+            beneficios=nao_usado,
+            hash_identidade=nao_usado,
+            auditoria=None,
+        )
+        resultado = servico.despachar_marketing(
+            tenant_id=contexto.tenant_id,
+            unidade_id=contexto.unidade_id,
+            cliente_id=cliente,
+            canal=CanalMarketing.WHATSAPP,
+            finalidade=FinalidadeMarketing.PROMOCOES,
+            campanha_ref=campanha_ref,
+            idempotency_key=idempotency_key,
+            envio=transporte,
+        )
+        if transporte.acionado:
+            return ResultadoMarketingCRMComercial(
+                cliente_id=cliente,
+                enviado=transporte.enviado,
+                motivo=transporte.motivo,
+                mensagem_id=transporte.mensagem_id,
+            )
+        return ResultadoMarketingCRMComercial(
+            cliente_id=cliente,
+            enviado=resultado.enviado,
+            motivo=resultado.motivo,
+            mensagem_id=None,
+        )
+    finally:
+        session.close()
