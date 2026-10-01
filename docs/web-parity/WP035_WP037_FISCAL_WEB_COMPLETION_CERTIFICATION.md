@@ -1,8 +1,8 @@
 # WP-035 → WP-037 — Fiscal Web Completion
 
-**Data:** 01/10/2026  
-**PR:** #173  
-**Branch:** `feat/kordena-wp035-wp037-fiscal-web-completion`  
+**Data:** 01/10/2026
+**PR:** #173
+**Branch:** `feat/kordena-wp035-wp037-fiscal-web-completion`
 **Estado:** IMPLEMENTED_UNCERTIFIED
 
 ## Gap reconciliado
