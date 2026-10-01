@@ -3,7 +3,7 @@
 **Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`
 **Data original:** 08/09/2026
 **Reconciliação:** 01/10/2026
-**Versão do inventário:** 4.2 — auditoria profunda reabre paridade completa do WP-017 Campanhas
+**Versão do inventário:** 4.3 — WP-017 Campanhas reconciliado e certificado após WM-00→WM-07
 **Status:** DOCUMENTO MESTRE DE EXECUÇÃO
 
 ## 1. Regra constitucional deste inventário
@@ -15,12 +15,12 @@ Existir no backend, possuir UI candidata ou ter E2E legado **não** significa es
 ## 2. Diagnóstico executivo reconciliado
 
 - Capacidades inventariadas: **34**.
-- Estado canônico atual no ledger desta branch: **33 CERTIFIED**, **1 IMPLEMENTED_UNCERTIFIED** e **0 PENDING**. A única reabertura é WP-017, porque a certificação histórica cobria resgate/WhatsApp em CRM, mas não o lifecycle Web completo de campanhas.
+- Estado canônico atual no ledger desta branch: **34 CERTIFIED**, **0 IMPLEMENTED_UNCERTIFIED** e **0 PENDING**. WP-017 foi recertificado após implementação do lifecycle Web completo de campanhas; WP-034 permanece certificado como capacidade comercial adicional.
 - **WP-008** está certificado em `/garcom`; após o gate de implementação no HEAD `9daaacc9ef4754558ad570bd568a316367b9260d`, recebeu certificação independente no `Kordena V1 Non-Fiscal Master Gate` run `35380670582`, HEAD `74530f13c8bd9c95b61b9b9da4192094a230c2d3`.
 - **WP-018** foi certificado em `/admin/dashboard` no SHA `b7a64b2dc5a47763a86fded903a15fd2be2cc23d`.
 - **WP-012**, **WP-031**, **WP-032**, **WP-033** e **WP-034** estão tecnicamente certificados. A auditoria produto × SaaS de 01/10/2026 encontrou e fechou o gap **WP-034 — Conta Comercial / Plano e Assinatura**, preservando a autoridade KCA existente.
 - **WP-031 Fiscal** está concluído/certificado na PR #118: WP-031A→L estão certificados e o Master Gate fechou SUCCESS no HEAD `09f1f0b4e21c0751e3828f7480239bd1720dcc6d`, workflow `WP-031 Master Gate` run `35618240783`.
-- GAP HTTP/WEB conhecido: **1** — WP-017 necessita uma Central Web de Campanhas para completar rascunho → audiência → submissão → aprovação → publicação/despacho → histórico. WP-034 continua fechado e certificado.
+- GAP HTTP/WEB conhecido: **0**. WP-017 possui agora Central Web first-class em `/admin/campanhas`, com lifecycle governado completo e integrações CRM/Gerente IA certificadas; WP-034 continua fechado e certificado.
 - A VERIFICAR: **0**.
 
 A rota `/` usa Home/Dashboard comercial real dentro do Shell Corporativo Unificado. A Central de Pedidos está certificada em `/pedidos`. O Cardápio Digital público/autosserviço foi certificado em `/cardapio/{publicId}/{slug}`, com administração da publicação por unidade em `/admin/empresa`.
@@ -75,7 +75,7 @@ A retaguarda WP-013 a WP-017 e o WP-031 Fiscal estão formalmente certificados. 
 | WP-014 | Engenharia de Cardápio + Ficha Técnica | legacy_cardapio_transacoes + legacy_cardapio_gemini | Ficha/Gemini/preço sugerido certificados | `/admin/catalogo` | MIGRADO | Preservar regra original e aplicação explícita do preço sugerido. |
 | WP-015 | Estoque / Almoxarifado / Validades | core/estoque + boundaries legados governados | HTTP/Web certificados | `/admin/estoque` | MIGRADO | Preservar; lote físico/FEFO seguem fora do escopo atual. |
 | WP-016 | CRM / Clientes / Cashback | core/crm + application/crm_cashback_comercial + ledger canônico | HTTP session-aware certificado | `/admin/crm` | MIGRADO | Preservar ledger, mapping, isolamento e step-up. |
-| WP-017 | Marketing / Resgate / Campanhas | application/crm_marketing_comercial + infra/crm + Outbox V1 + UnitOfWorkV1 | Boundary governado e replay-safe certificado | `/admin/crm` | MIGRADO | Preservar consentimento, escopo e proteção at-most-once do efeito externo. |
+| WP-017 | Marketing / Resgate / Campanhas | campanha canônica Gerente IA + CRM/consentimento + Outbox V1 + UnitOfWorkV1 | API `/v1/campanhas` + Central Web governada + despacho replay-safe certificados | `/admin/campanhas` + atalho em `/admin/crm` | CERTIFIED | Preservar aprovação/publicação humanas, consentimento, escopo tenant/unidade e proteção at-most-once do efeito externo. |
 | WP-018 | Dashboard Financeiro / Indicadores | administracao_proprietario.painel_executivo | HTTP read model certificado com step-up administrativo | `/admin/dashboard` | CERTIFIED | Preservar. |
 | WP-019 | AI FinOps | core/ai_finops + read model | HTTP read-only certificado | `/admin/ai-finops` | CERTIFIED | Preservar; não inventar custos. |
 | WP-020 | Área Proprietário / Backoffice | registrar_acesso + registry/guards | Landing/auditoria certificadas | `/admin` | CERTIFIED | Preservar. |
