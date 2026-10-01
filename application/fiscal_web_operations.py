@@ -29,7 +29,9 @@ from core.procurement.modelos import ItemPedidoCompra, ItemRecebido
 from core.procurement.servicos import ServicoProcurement
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import Permissao
-from infra.administracao.repositorio_sqlalchemy import RepositorioAdministracaoSQLAlchemy
+from infra.administracao.repositorio_sqlalchemy import (
+    RepositorioAdministracaoSQLAlchemy,
+)
 from infra.eventos.adaptador_sqlalchemy import RepositorioOutboxSQLAlchemy
 from infra.fiscal.inbound_sqlalchemy import FiscalInboundStoreSQLAlchemy
 from infra.fiscal.intake_ai import GeminiFiscalIntakeExtractor
