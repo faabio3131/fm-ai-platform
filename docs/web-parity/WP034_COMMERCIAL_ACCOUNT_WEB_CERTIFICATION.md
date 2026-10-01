@@ -1,10 +1,10 @@
 # WP-034 — Certificação Conta Comercial / Plano e Assinatura Web
 
-**Data:** 01/10/2026  
-**PR:** #172  
-**Branch:** `feat/kordena-wp034-plano-assinatura-web`  
-**HEAD funcional certificado:** `23c78e9cee8a375258a27140122bc0934e1206d1`  
-**Workflow:** `Web Parity WP034 Commercial Account`  
+**Data:** 01/10/2026
+**PR:** #172
+**Branch:** `feat/kordena-wp034-plano-assinatura-web`
+**HEAD funcional certificado:** `23c78e9cee8a375258a27140122bc0934e1206d1`
+**Workflow:** `Web Parity WP034 Commercial Account`
 **Run:** `36873075897` — **SUCCESS**
 
 ## Gap reconciliado
