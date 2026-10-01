@@ -115,9 +115,13 @@ export interface FiscalWorkspaceResponse {
     certificate: boolean;
     cancel: boolean;
     inutilize: boolean;
+    query: boolean;
     manifest: boolean;
     purchases_view: boolean;
     purchases_receive: boolean;
+    purchase_approve: boolean;
+    financial_register: boolean;
+    tax_decide: boolean;
     archive_view: boolean;
   };
 }
