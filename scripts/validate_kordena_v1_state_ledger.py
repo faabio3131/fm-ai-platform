@@ -23,7 +23,7 @@ def main() -> None:
     ledger = json.loads(LEDGER_PATH.read_text(encoding="utf-8"))
     packages = ledger.get("work_packages", {})
 
-    expected = {f"WP-{number:03d}" for number in range(1, 35)}
+    expected = {f"WP-{number:03d}" for number in range(1, 38)}
     actual = set(packages)
     if actual != expected:
         fail(f"WP set mismatch. missing={sorted(expected-actual)} extra={sorted(actual-expected)}")
