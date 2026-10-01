@@ -135,3 +135,36 @@ def test_edicao_de_canal_invalida_audiencia_anterior() -> None:
             agora=AGORA,
         )
         assert row.audiencia_elegivel == 0
+
+
+def test_replay_de_audiencia_com_payload_diferente_falha_fechado() -> None:
+    from core.gerente_ia.erros import ErroGerenteIA
+
+    factory = _factory()
+    with factory() as session:
+        repo = CampanhasWebSQLAlchemy(session)
+        repo.definir_audiencia(
+            tenant_id="tenant-1",
+            unidade_id="unidade-1",
+            campanha_id="camp-web-1",
+            cliente_ids=("cliente-1",),
+            usuario_id="admin-1",
+            correlation_id="corr-audience",
+            idempotency_key="audience-stable",
+            agora=AGORA,
+        )
+        try:
+            repo.definir_audiencia(
+                tenant_id="tenant-1",
+                unidade_id="unidade-1",
+                campanha_id="camp-web-1",
+                cliente_ids=("cliente-2",),
+                usuario_id="admin-1",
+                correlation_id="corr-audience-2",
+                idempotency_key="audience-stable",
+                agora=AGORA,
+            )
+        except ErroGerenteIA as exc:
+            assert exc.codigo == "conflito_idempotencia"
+        else:
+            raise AssertionError("replay divergente deveria falhar fechado")

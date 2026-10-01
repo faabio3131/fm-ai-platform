@@ -149,6 +149,25 @@ def criar_campanha_web(
     texto_base: str,
     idempotency_key: str,
 ) -> CampanhaWeb:
+    with session_factory() as replay_session:
+        replay_repo = CampanhasWebSQLAlchemy(replay_session)
+        existente = replay_repo.obter_por_criacao_idempotente(
+            tenant_id=contexto.tenant_id,
+            unidade_id=contexto.unidade_id,
+            idempotency_key=idempotency_key,
+        )
+        if existente is not None:
+            esperado = (canal, finalidade, objetivo, texto_base)
+            registrado = (
+                existente.canal,
+                existente.finalidade,
+                existente.objetivo,
+                existente.texto_base,
+            )
+            if registrado != esperado:
+                raise ErroGerenteIA("conflito_idempotencia")
+            return _web(replay_repo, existente)
+
     with UnitOfWorkV1(session_factory) as uow:
         session = _session(uow)
         resultado = _service(session).executar_tool(

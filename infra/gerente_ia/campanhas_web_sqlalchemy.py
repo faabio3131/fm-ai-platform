@@ -41,6 +41,22 @@ class CampanhasWebSQLAlchemy(CampanhasGovernadasSQLAlchemy):
             campanha_id=campanha_id,
         )
 
+    def obter_por_criacao_idempotente(
+        self, *, tenant_id: str, unidade_id: str, idempotency_key: str
+    ) -> RascunhoCampanhaORM | None:
+        return self._session_governada.scalar(
+            select(RascunhoCampanhaORM).where(
+                RascunhoCampanhaORM.tenant_id == tenant_id,
+                RascunhoCampanhaORM.unidade_id == unidade_id,
+                RascunhoCampanhaORM.idempotency_key == idempotency_key,
+            )
+        )
+
+    @staticmethod
+    def request_hash(*values: str) -> str:
+        material = "\x1f".join(values).encode("utf-8")
+        return sha256(material).hexdigest()
+
     @staticmethod
     def fingerprint(row: RascunhoCampanhaORM) -> str:
         return fingerprint_campanha(
@@ -77,6 +93,7 @@ class CampanhasWebSQLAlchemy(CampanhasGovernadasSQLAlchemy):
         campanha_id: str,
         idempotency_key: str,
         event_type: str,
+        request_hash: str | None = None,
     ) -> EventoCoreORM | None:
         evento = self._evento_idempotente(
             tenant_id=tenant_id,
@@ -87,6 +104,10 @@ class CampanhasWebSQLAlchemy(CampanhasGovernadasSQLAlchemy):
             return None
         if evento.event_type != event_type or evento.aggregate_id != campanha_id:
             raise ErroGerenteIA("conflito_idempotencia")
+        if request_hash is not None:
+            registrado = dict(evento.payload_seguro).get("request_hash")
+            if registrado != request_hash:
+                raise ErroGerenteIA("conflito_idempotencia")
         return evento
 
     def atualizar_rascunho(
@@ -104,12 +125,14 @@ class CampanhasWebSQLAlchemy(CampanhasGovernadasSQLAlchemy):
         idempotency_key: str,
         agora: datetime,
     ) -> RascunhoCampanhaORM:
+        request_hash = self.request_hash(canal, finalidade, objetivo, texto_base)
         replay = self._replay(
             tenant_id=tenant_id,
             unidade_id=unidade_id,
             campanha_id=campanha_id,
             idempotency_key=idempotency_key,
             event_type="campanha.rascunho_atualizado",
+            request_hash=request_hash,
         )
         row = self._row(
             tenant_id=tenant_id,
@@ -159,6 +182,7 @@ class CampanhasWebSQLAlchemy(CampanhasGovernadasSQLAlchemy):
                 "campanha_id": campanha_id,
                 "atualizado_por": usuario_id,
                 "audiencia_invalidada": escopo_audiencia_mudou,
+                "request_hash": request_hash,
                 "fingerprint": self.fingerprint(row),
             },
             versao=1,
@@ -178,12 +202,14 @@ class CampanhasWebSQLAlchemy(CampanhasGovernadasSQLAlchemy):
         idempotency_key: str,
         agora: datetime,
     ) -> RascunhoCampanhaORM:
+        request_hash = self.request_hash(*sorted(cliente_ids))
         replay = self._replay(
             tenant_id=tenant_id,
             unidade_id=unidade_id,
             campanha_id=campanha_id,
             idempotency_key=idempotency_key,
             event_type="campanha.audiencia_definida",
+            request_hash=request_hash,
         )
         row = self._row(
             tenant_id=tenant_id,
@@ -208,6 +234,7 @@ class CampanhasWebSQLAlchemy(CampanhasGovernadasSQLAlchemy):
                 "cliente_ids": list(cliente_ids),
                 "quantidade": len(cliente_ids),
                 "definido_por": usuario_id,
+                "request_hash": request_hash,
                 "fingerprint": self.fingerprint(row),
             },
             versao=1,
