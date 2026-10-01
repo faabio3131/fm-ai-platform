@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
+
 from core.gerente_ia.erros import ErroGerenteIA
 from core.gerente_ia.modelos import fingerprint_campanha
 from infra.gerente_ia.campanhas_governadas_sqlalchemy import (
