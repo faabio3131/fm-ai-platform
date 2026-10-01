@@ -505,7 +505,7 @@ def despachar_campanha_web(
                     "mensagem_id": resultado.mensagem_id,
                 }
             )
-        except Exception as exc:  # efeito externo: preservar falha por destinatário
+        except Exception as exc:  # noqa: BLE001 — preservar falha externa por destinatário
             resultados.append(
                 {
                     "cliente_id": cliente_id,
