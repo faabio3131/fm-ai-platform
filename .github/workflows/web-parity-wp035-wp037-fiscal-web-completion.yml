@@ -1,0 +1,91 @@
+name: Web Parity WP035-WP037 Fiscal Web Completion
+
+on:
+  pull_request:
+    paths:
+      - 'application/fiscal_web_operations.py'
+      - 'http_api/admin_fiscal.py'
+      - 'http_api/admin_fiscal_operations.py'
+      - 'http_api/frontend_app.py'
+      - 'tests/api/test_admin_fiscal_operations_web_contract.py'
+      - 'web/src/features/backoffice/fiscal/**'
+      - 'web/tests/wp035-wp037-fiscal-web-completion.test.mjs'
+      - 'docs/web-parity/**'
+      - 'scripts/validate_kordena_v1_state_ledger.py'
+      - '.github/workflows/web-parity-wp035-wp037-fiscal-web-completion.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fiscal-web-completion:
+    name: Fiscal Inbox + Procurement + Financial Web certification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Compile changed Python boundaries
+        run: |
+          python -m py_compile application/fiscal_web_operations.py
+          python -m py_compile http_api/admin_fiscal.py
+          python -m py_compile http_api/admin_fiscal_operations.py
+          python -m py_compile http_api/frontend_app.py
+
+      - name: Ruff changed Python boundaries
+        run: |
+          python -m ruff check             application/fiscal_web_operations.py             http_api/admin_fiscal.py             http_api/admin_fiscal_operations.py             tests/api/test_admin_fiscal_operations_web_contract.py
+
+      - name: WP035-WP037 HTTP boundary contract
+        run: pytest -q tests/api/test_admin_fiscal_operations_web_contract.py
+
+      - name: Fiscal and procurement regression
+        run: pytest -q tests -k "fiscal or procurement"
+
+      - name: Validate canonical state ledger
+        run: python scripts/validate_kordena_v1_state_ledger.py
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: WP035-WP037 Web contract
+        working-directory: web
+        run: node --test tests/wp035-wp037-fiscal-web-completion.test.mjs
+
+      - name: Full Web node regression
+        working-directory: web
+        run: node --test tests/*.test.mjs
+
+      - name: ESLint
+        working-directory: web
+        run: npm run lint
+
+      - name: TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+
+      - name: Diff whitespace
+        run: git diff --check origin/staging/kordena-premium...HEAD
