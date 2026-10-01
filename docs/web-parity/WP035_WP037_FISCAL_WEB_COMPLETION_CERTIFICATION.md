@@ -3,7 +3,7 @@
 **Data:** 01/10/2026
 **PR:** #173
 **Branch:** `feat/kordena-wp035-wp037-fiscal-web-completion`
-**Estado:** IMPLEMENTED_UNCERTIFIED
+**Estado:** CERTIFIED
 
 ## Gap reconciliado
 
@@ -61,15 +61,29 @@ A obrigação não executa pagamento. As mutações financeiro-tributárias são
 
 Workflow dedicado: `Web Parity WP035-WP037 Fiscal Web Completion`.
 
-O estado só poderá ser promovido a `CERTIFIED` depois de:
+## Certificação final
 
-- contrato HTTP dirigido verde;
-- regressão fiscal/procurement verde;
-- State Ledger verde;
-- contrato Web verde;
-- regressão Node verde;
-- ESLint verde;
-- TypeScript verde;
-- Next build verde;
-- diff check verde;
-- demais gates obrigatórios da PR verdes.
+**HEAD funcional certificado:** `71fd559170c8efa3952232d6b0245d317bf3dfec`
+
+**Workflow dedicado:** `Web Parity WP035-WP037 Fiscal Web Completion`  
+**Run:** `36896722715` — SUCCESS
+
+Matriz dirigida comprovada:
+
+- compile Python — PASS;
+- Ruff — PASS;
+- contrato HTTP WP-035→WP-037 — PASS;
+- regressão fiscal/procurement — PASS;
+- State Ledger — PASS;
+- contrato Web WP-035→WP-037 — PASS;
+- regressão Node completa — PASS;
+- ESLint — PASS;
+- TypeScript — PASS;
+- Next production build — PASS;
+- diff whitespace — PASS.
+
+Matriz ampliada da PR no mesmo HEAD: **23/23 workflows GitHub Actions SUCCESS**, incluindo WP-031 Master, WP-031E→L, KCA-15/16/17, KF-02, Visual Premium, Commercial Runtime, State Ledger, WP-022 e WP-034.
+
+**Vercel:** SUCCESS no mesmo HEAD.
+
+Conclusão: WP-035, WP-036 e WP-037 estão certificados internamente como paridade Web do Fiscal V1. Esta certificação não declara homologação externa SEFAZ/provider nem inicia NFCore/cutover.
