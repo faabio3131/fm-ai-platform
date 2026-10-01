@@ -54,7 +54,7 @@ class CampanhasWebSQLAlchemy(CampanhasGovernadasSQLAlchemy):
 
     @staticmethod
     def request_hash(*values: str) -> str:
-        material = "\x1f".join(values).encode("utf-8")
+        material = "\x1f".join(values).encode()
         return sha256(material).hexdigest()
 
     @staticmethod
