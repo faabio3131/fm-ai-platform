@@ -5,6 +5,7 @@ import {
   Bot,
   CheckCircle2,
   LoaderCircle,
+  Megaphone,
   Send,
   ShieldCheck,
   Sparkles,
@@ -27,6 +28,14 @@ function recordOf(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
+}
+
+function campaignDraftOf(response: GerenteIAResponse | null) {
+  const result = recordOf(response?.resultado);
+  if (!result) return null;
+  const campanhaId = result.rascunho_id;
+  if (response?.tipo !== "RascunhoCampanha" || typeof campanhaId !== "string") return null;
+  return campanhaId;
 }
 
 function previewOf(response: GerenteIAResponse | null) {
@@ -57,6 +66,11 @@ export function GerenteIAWorkspace() {
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
   const preview = useMemo(() => previewOf(resposta), [resposta]);
+  const campaignDraftId = useMemo(() => campaignDraftOf(resposta), [resposta]);
+  const canOpenCampaigns = useMemo(
+    () => availableShellModules(auth.permissions).some((module) => module.href === "/admin/campanhas"),
+    [auth.permissions],
+  );
 
   async function perguntar(event: FormEvent) {
     event.preventDefault();
@@ -213,12 +227,22 @@ export function GerenteIAWorkspace() {
                   ) : null}
                 </div>
               </div>
-              {preview ? (
-                <Button type="button" onClick={confirmar} disabled={carregando}>
-                  <ShieldCheck />
-                  Confirmar ação governada
-                </Button>
-              ) : null}
+              <div className="flex flex-wrap gap-2">
+                {campaignDraftId && canOpenCampaigns ? (
+                  <Button asChild variant="outline">
+                    <Link href={`/admin/campanhas?campanha=${encodeURIComponent(campaignDraftId)}`}>
+                      <Megaphone className="size-4" />
+                      Abrir rascunho em Campanhas
+                    </Link>
+                  </Button>
+                ) : null}
+                {preview ? (
+                  <Button type="button" onClick={confirmar} disabled={carregando}>
+                    <ShieldCheck />
+                    Confirmar ação governada
+                  </Button>
+                ) : null}
+              </div>
             </div>
             <pre className="mt-5 max-h-[34rem] overflow-auto rounded-2xl border border-white/[0.07] bg-[#06101d] p-4 text-xs leading-6 text-slate-300 shadow-inner">
               {JSON.stringify(resposta.resultado, null, 2)}
