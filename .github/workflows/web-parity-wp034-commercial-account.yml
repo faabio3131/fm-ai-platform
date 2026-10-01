@@ -38,7 +38,7 @@ jobs:
 
       - name: Commercial HTTP regression
         run: |
-          pytest -q tests/api/test_commercial_access_http_contract.py tests/fitness/test_kca11_paywall_recovery.py
+          pytest -q tests/api/test_commercial_access_http_contract.py tests/unit/comercial/test_commercial_access.py tests/fitness/test_kca04_entitlement.py tests/fitness/test_kca08_subscription.py
 
       - name: Validate canonical state ledger
         run: python scripts/validate_kordena_v1_state_ledger.py
