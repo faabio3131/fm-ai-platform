@@ -2,8 +2,8 @@
   "schema_version": 1,
   "product": "Kordena V1",
   "authority": "canonical-state-ledger",
-  "branch": "feat/web-parity-v1-total-original-migration",
-  "reconciled_from_head": "09f1f0b4e21c0751e3828f7480239bd1720dcc6d",
+  "branch": "feat/kordena-wp034-plano-assinatura-web",
+  "reconciled_from_head": "7962df6a4735dfcbaf3fc762c9b5d238d4688023",
   "rules": {
     "allowed_states": [
       "PENDING",
@@ -332,6 +332,18 @@
         "Web Parity WP033 Auditoria run 35376561635 — SUCCESS"
       ],
       "reason": "consulta Web read-only certificada sobre RepositorioAuditoriaSQLAlchemy; tenant/unit scoped e payload minimizado"
+    },
+    "WP-034": {
+      "name": "Conta Comercial / Plano e Assinatura",
+      "state": "IMPLEMENTED_UNCERTIFIED",
+      "implementation_sha": "8ffc0ff679b379300257d9ca4989599f4fb7a741",
+      "evidence": [
+        "web/src/app/admin/assinatura/page.tsx",
+        "web/src/features/commercial/components/CommercialAccountWorkspace.tsx",
+        "web/tests/wp034-commercial-account.test.mjs",
+        ".github/workflows/web-parity-wp034-commercial-account.yml"
+      ],
+      "reason": "gap pós-auditoria: KCA já possuía access/plans/subscription/checkout no backend e paywall, mas não havia superfície Next.js dedicada nem entrada de navegação para a conta ativa; implementação criada e aguarda gate WP-034"
     }
   }
 }
