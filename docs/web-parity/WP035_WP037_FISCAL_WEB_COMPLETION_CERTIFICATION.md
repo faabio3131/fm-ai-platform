@@ -65,7 +65,7 @@ Workflow dedicado: `Web Parity WP035-WP037 Fiscal Web Completion`.
 
 **HEAD funcional certificado:** `71fd559170c8efa3952232d6b0245d317bf3dfec`
 
-**Workflow dedicado:** `Web Parity WP035-WP037 Fiscal Web Completion`  
+**Workflow dedicado:** `Web Parity WP035-WP037 Fiscal Web Completion`
 **Run:** `36896722715` — SUCCESS
 
 Matriz dirigida comprovada:
