@@ -1,0 +1,75 @@
+name: Web Parity WP034 Commercial Account
+
+on:
+  pull_request:
+    paths:
+      - 'web/src/app/admin/assinatura/**'
+      - 'web/src/features/commercial/**'
+      - 'web/src/features/shell/module-registry.ts'
+      - 'web/tests/wp034-commercial-account.test.mjs'
+      - 'docs/web-parity/**'
+      - 'scripts/validate_kordena_v1_state_ledger.py'
+      - '.github/workflows/web-parity-wp034-commercial-account.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wp034:
+    name: Plano e Assinatura Web certification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Commercial HTTP regression
+        run: |
+          pytest -q tests/api/test_commercial_access_http_contract.py tests/fitness/test_kca11_paywall_recovery.py
+
+      - name: Validate canonical state ledger
+        run: python scripts/validate_kordena_v1_state_ledger.py
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: WP034 Web contract
+        working-directory: web
+        run: node --test tests/wp034-commercial-account.test.mjs
+
+      - name: Full Web node regression
+        working-directory: web
+        run: node --test tests/*.test.mjs
+
+      - name: ESLint
+        working-directory: web
+        run: npm run lint
+
+      - name: TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+
+      - name: Diff whitespace
+        run: git diff --check origin/staging/kordena-premium...HEAD
