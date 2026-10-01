@@ -32,6 +32,7 @@ from http_api.admin_configuracao import build_admin_configuracao_router
 from http_api.admin_dashboard import build_admin_dashboard_router
 from http_api.admin_empresa import build_admin_empresa_router
 from http_api.admin_fiscal import build_admin_fiscal_router
+from http_api.admin_fiscal_operations import build_admin_fiscal_operations_router
 from http_api.admin_impressao import build_admin_impressao_router
 from http_api.admin_integracoes import build_admin_integracoes_router
 from http_api.admin_notificacoes import build_admin_notificacoes_router
@@ -272,6 +273,14 @@ def build_frontend_http_app(
             session_factory=session_factory,
             auth_runtime=auth_runtime,
             operations_gateway_factory=fiscal_operations_gateway_factory,
+        )
+    )
+    app.include_router(
+        build_admin_fiscal_operations_router(
+            session_factory=session_factory,
+            auth_runtime=auth_runtime,
+            operations_gateway_factory=fiscal_operations_gateway_factory,
+            intake_extractor_factory=kwargs.get("fiscal_intake_extractor_factory"),
         )
     )
     app.include_router(
