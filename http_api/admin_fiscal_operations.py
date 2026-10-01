@@ -5,9 +5,10 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+from collections.abc import Callable
 from datetime import date
 from decimal import Decimal
-from typing import Annotated, Any, Callable
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, Query, Request, status
 from fastapi.responses import JSONResponse
