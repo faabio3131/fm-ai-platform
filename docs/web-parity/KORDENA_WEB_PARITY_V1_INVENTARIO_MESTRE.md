@@ -3,7 +3,7 @@
 **Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`
 **Data original:** 08/09/2026
 **Reconciliação:** 01/10/2026
-**Versão do inventário:** 4.1 — gap WP-034 Conta Comercial / Plano e Assinatura reconciliado
+**Versão do inventário:** 4.2 — gaps fiscais Web WP-035→WP-037 em certificação
 **Status:** DOCUMENTO MESTRE DE EXECUÇÃO
 
 ## 1. Regra constitucional deste inventário
@@ -14,13 +14,13 @@ Existir no backend, possuir UI candidata ou ter E2E legado **não** significa es
 
 ## 2. Diagnóstico executivo reconciliado
 
-- Capacidades inventariadas: **34**.
-- Estado canônico atual no ledger desta branch: **34 CERTIFIED**, **0 IMPLEMENTED_UNCERTIFIED** e **0 PENDING**.
+- Capacidades inventariadas: **37**.
+- Estado canônico atual no ledger desta branch: **34 CERTIFIED**, **3 IMPLEMENTED_UNCERTIFIED** e **0 PENDING**.
 - **WP-008** está certificado em `/garcom`; após o gate de implementação no HEAD `9daaacc9ef4754558ad570bd568a316367b9260d`, recebeu certificação independente no `Kordena V1 Non-Fiscal Master Gate` run `35380670582`, HEAD `74530f13c8bd9c95b61b9b9da4192094a230c2d3`.
 - **WP-018** foi certificado em `/admin/dashboard` no SHA `b7a64b2dc5a47763a86fded903a15fd2be2cc23d`.
 - **WP-012**, **WP-031**, **WP-032**, **WP-033** e **WP-034** estão tecnicamente certificados. A auditoria produto × SaaS de 01/10/2026 encontrou e fechou o gap **WP-034 — Conta Comercial / Plano e Assinatura**, preservando a autoridade KCA existente.
 - **WP-031 Fiscal** está concluído/certificado na PR #118: WP-031A→L estão certificados e o Master Gate fechou SUCCESS no HEAD `09f1f0b4e21c0751e3828f7480239bd1720dcc6d`, workflow `WP-031 Master Gate` run `35618240783`.
-- GAP HTTP/WEB conhecido: **0 após a certificação do WP-034**. A lacuna histórica de superfície Web dedicada para access/plans/subscription/checkout KCA foi fechada sem duplicar billing.
+- GAP HTTP/WEB conhecido: **3 em certificação (WP-035→WP-037)**. A auditoria produto × SaaS identificou que capacidades fiscais de entrada, procurement e bridge financeiro-fiscal já existentes no backend não estavam integralmente operáveis pela Web. A implementação está presente na PR #173, sem criação de novas autoridades.
 - A VERIFICAR: **0**.
 
 A rota `/` usa Home/Dashboard comercial real dentro do Shell Corporativo Unificado. A Central de Pedidos está certificada em `/pedidos`. O Cardápio Digital público/autosserviço foi certificado em `/cardapio/{publicId}/{slug}`, com administração da publicação por unidade em `/admin/empresa`.
@@ -54,6 +54,9 @@ A retaguarda WP-013 a WP-017 e o WP-031 Fiscal estão formalmente certificados. 
 - **WP-030 — Cardápio Digital público / Autosserviço**: `/cardapio/{publicId}/{slug}` + administração por unidade em `/admin/empresa`.
 - **WP-031 — Fiscal / NFC-e / SAT**: `/admin/fiscal` + `/admin/integracoes` + Core canônico — CERTIFIED pelo Master Gate fiscal.
 - **WP-034 — Conta Comercial / Plano e Assinatura**: `/admin/assinatura` — CERTIFIED sobre `/v1/commercial/access`, `/plans`, `/subscription` e `/checkout`, sem segunda autoridade de billing.
+- **WP-035 — Fiscal Inbox / Smart Intake / Manifestação Web**: `/admin/fiscal` — IMPLEMENTED_UNCERTIFIED.
+- **WP-036 — Procurement Fiscal / Compras / Recebimento Web**: `/admin/fiscal` — IMPLEMENTED_UNCERTIFIED.
+- **WP-037 — Bridge Financeiro-Fiscal / Crédito Tributário Web**: `/admin/fiscal` — IMPLEMENTED_UNCERTIFIED.
 
 ## 4. Matriz mestre de paridade reconciliada
 
@@ -93,6 +96,9 @@ A retaguarda WP-013 a WP-017 e o WP-031 Fiscal estão formalmente certificados. 
 | WP-032 | Notificações Internas | core/notificacoes_internas + application/notificacoes_internas + diretório SQL cifrado | Superfície Web administrativa certificada, session-aware e tenant/unit-safe | Backoffice administrativo | CERTIFIED | Preservar serviço canônico; sem inbox/feed/badge paralelo. |
 | WP-033 | Auditoria / Histórico administrativo | core/seguranca/auditoria.py + RepositorioAuditoriaSQLAlchemy | Consulta Backoffice read-only certificada, tenant-safe, com RBAC + step-up | Backoffice administrativo | CERTIFIED | Preservar auditoria canônica e não expor metadata interna/segredos. |
 | WP-034 | Conta Comercial / Plano e Assinatura | KCA Commercial Access + Subscription + Checkout canônicos | HTTP `/v1/commercial/access`, `/plans`, `/subscription`, `/checkout` | `/admin/assinatura` | CERTIFIED | Preservar; billing SaaS continua separado dos pagamentos operacionais e provider de produção exige evidência própria. |
+| WP-035 | Fiscal Inbox / Smart Intake / Manifestação Web | Fiscal V1 Inbound + Smart Intake + gateway já certificados | `/v1/admin/fiscal/inbound/*`, `/intake/*`, `/documents/*/query` | `/admin/fiscal` | IMPLEMENTED_UNCERTIFIED | Certificar PR #173; preservar XML/DF-e oficial como autoridade e IA como evidência preliminar. |
+| WP-036 | Procurement Fiscal / Compras / Recebimento Web | ServicoProcurement + repositórios + ledger de estoque canônicos | `/v1/admin/fiscal/procurement/*` | `/admin/fiscal` | IMPLEMENTED_UNCERTIFIED | Certificar PR #173; preservar RBAC, idempotência, tenant/unidade e recebimento físico separado do documento fiscal. |
+| WP-037 | Bridge Financeiro-Fiscal / Crédito Tributário Web | ServicoBridgeFinanceiroFiscal canônico | `/v1/admin/fiscal/financial/*` | `/admin/fiscal` | IMPLEMENTED_UNCERTIFIED | Certificar PR #173; obrigação não equivale a pagamento e crédito tributário permanece determinístico/versionado. |
 
 ## 5. Capacidades históricas comprovadas na UI Streamlit
 
@@ -100,10 +106,11 @@ O `app.py` legado comprova abas para Engenharia de Cardápio, CRM/Resgate/Cashba
 
 ## 6. Gaps e pendências que ainda devem ser fechados
 
-1. **WP-031 — Fiscal:** baseline V1 localizado, congelado e vendorizado. WP-031A→L estão implementados/certificados; o WP-031L foi certificado no gate `WP-031L Regression Channel Parity` run `35556451970`, HEAD `c990d1e92f87a6eea2110f4bc3141bff4321f6c8`, com 28/28 workflows SUCCESS. Somente o WP-031 Master Gate permanece pendente.
-2. **Ledger histórico:** WP-001 a WP-007 possuem estados CERTIFIED sem campos de evidência exigidos pelo validador atual; reconciliar somente com evidência histórica real.
+1. **WP-035 — Fiscal Inbox / Smart Intake / Manifestação Web:** implementação presente na PR #173; aguarda gate dirigido e regressões.
+2. **WP-036 — Procurement Fiscal / Compras / Recebimento Web:** implementação presente na PR #173; aguarda gate dirigido e regressões.
+3. **WP-037 — Bridge Financeiro-Fiscal / Crédito Tributário Web:** implementação presente na PR #173; aguarda gate dirigido e regressões.
 
-WP-008, WP-012, WP-018, WP-032 e WP-033 já possuem certificação posterior registrada neste documento e não são gaps CURRENT.
+O WP-031 Master Gate histórico já está certificado; esta rodada não reabre a arquitetura fiscal nem declara homologação externa de provider/SEFAZ.
 
 ## 7. Ordem Mestre reconciliada
 
@@ -297,3 +304,16 @@ Nenhum merge, deploy, force push ou alteração da main foi realizado.
 - Homologação externa de provider/SEFAZ, credenciais reais, deploy e produção não são inferidos por esta certificação interna.
 - PR #118 permanece OPEN/DRAFT, sem merge e sem deploy.
 - Próximo bloco autorizado pela sequência oficial: **Visual Premium final**.
+
+
+## 19. Reconciliação pós-auditoria produto × SaaS — 01/10/2026
+
+A comparação entre a apresentação funcional e o CURRENT Web revelou que a certificação histórica do WP-031 comprovava o domínio/backend fiscal, mas a tela `/admin/fiscal` ainda não oferecia toda a operação de entrada, compras/recebimento e bridge financeiro-fiscal ao usuário autorizado.
+
+Para eliminar esse gap sem reescrever o WP-031, foram criados três WPs de paridade de superfície:
+
+- **WP-035:** Fiscal Inbox / Smart Intake / Manifestação Web;
+- **WP-036:** Procurement Fiscal / Compras / Recebimento Web;
+- **WP-037:** Bridge Financeiro-Fiscal / Crédito Tributário Web.
+
+A implementação reutiliza as autoridades canônicas existentes e está em PR #173. O estado permanece `IMPLEMENTED_UNCERTIFIED` até o gate dedicado e as regressões ficarem verdes.
