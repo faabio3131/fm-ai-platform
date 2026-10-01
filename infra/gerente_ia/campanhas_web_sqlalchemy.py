@@ -82,7 +82,7 @@ class CampanhasWebSQLAlchemy(CampanhasGovernadasSQLAlchemy):
                 )
             )
         )
-        material = f"{self.fingerprint(row)}\n{audiencia}".encode("utf-8")
+        material = f"{self.fingerprint(row)}\n{audiencia}".encode()
         return sha256(material).hexdigest()
 
     def _replay(
