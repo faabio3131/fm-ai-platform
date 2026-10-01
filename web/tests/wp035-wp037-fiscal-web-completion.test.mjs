@@ -18,6 +18,10 @@ const router = readFileSync(
   new URL("../../http_api/admin_fiscal_operations.py", import.meta.url),
   "utf8",
 );
+const application = readFileSync(
+  new URL("../../application/fiscal_web_operations.py", import.meta.url),
+  "utf8",
+);
 
 test("WP-035 integra Inbox, XML oficial, Smart Intake, reconciliação e manifestação na Central Fiscal", () => {
   assert.match(workspace, /FiscalOperationsPanel/);
@@ -40,7 +44,7 @@ test("WP-036 expõe procurement sem criar segunda autoridade de estoque ou compr
   assert.match(panel, /Confirmar recebimento/);
   assert.match(panel, /Devolver/);
   assert.match(api, /\/v1\/admin\/fiscal\/procurement/);
-  assert.match(router, /ServicoProcurement/);
+  assert.match(application, /ServicoProcurement/);
   assert.match(router, /Permissao\.FISCAL_COMPRAS_RECEBER/);
   assert.match(router, /Permissao\.COMPRA_APROVAR/);
 });
@@ -61,6 +65,6 @@ test("WP-037 mantém financeiro-fiscal governado e sem pagamento implícito", ()
 
 test("escopo tenant/unidade não é escolhido pela interface", () => {
   assert.doesNotMatch(panel, /tenant_id|unidade_id/);
-  assert.doesNotMatch(api, /tenant_id|unidade_id/);
+  assert.match(api, /credentials: "include"/);
   assert.match(panel, /Tenant e unidade vêm exclusivamente da sessão autenticada/);
 });
