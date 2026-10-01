@@ -39,6 +39,7 @@ from http_api.admin_usuarios import build_admin_usuarios_router
 from http_api.ai_finops import build_ai_finops_router
 from http_api.app import build_http_app
 from http_api.auth import AuthSessionRuntime
+from http_api.campanhas_web import build_campanhas_web_router
 from http_api.cardapio_publico import build_cardapio_publico_router
 from http_api.central_pedidos import build_central_pedidos_router
 from http_api.commercial_access import build_commercial_access_router
@@ -256,6 +257,7 @@ def build_frontend_http_app(
         build_admin_usuarios_router,
         build_ai_finops_router,
         build_cardapio_publico_router,
+        build_campanhas_web_router,
         build_central_pedidos_router,
         build_crm_router,
         build_delivery_router,

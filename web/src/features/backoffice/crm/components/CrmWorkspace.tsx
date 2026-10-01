@@ -12,6 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { criarCampanha, definirAudiencia } from "@/features/backoffice/campanhas/services/campanhas-api";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -152,6 +153,33 @@ export function CrmWorkspace() {
     }
   }
 
+  async function criarCampanhaResgate(oportunidade: ResgateClienteInativo) {
+    if (resgateEmEnvio !== null) return;
+    setResgateEmEnvio(oportunidade.legacy_cliente_id);
+    setErro(null);
+    setAviso(null);
+    try {
+      const draft = await criarCampanha(
+        {
+          canal: "whatsapp",
+          finalidade: "promocoes",
+          objetivo: `Reativação · ${oportunidade.nome}`,
+          texto_base: oportunidade.mensagem_sugerida,
+        },
+        `crm-rescue-campaign-${crypto.randomUUID()}`,
+      );
+      await definirAudiencia(
+        draft.campanha_id,
+        [oportunidade.cliente_id],
+        `crm-rescue-audience-${crypto.randomUUID()}`,
+      );
+      window.location.assign(`/admin/campanhas?campanha=${encodeURIComponent(draft.campanha_id)}`);
+    } catch (error) {
+      setErro(mensagemErro(error));
+      setResgateEmEnvio(null);
+    }
+  }
+
   async function enviarResgate(oportunidade: ResgateClienteInativo) {
     if (resgateEmEnvio !== null) return;
     setResgateEmEnvio(oportunidade.legacy_cliente_id);
@@ -251,19 +279,30 @@ export function CrmWorkspace() {
                   <p className="mt-3 rounded-lg border border-violet-500/20 bg-violet-500/10 p-3 text-sm text-violet-100">
                     {oportunidade.mensagem_sugerida}
                   </p>
-                  <Button
-                    type="button"
-                    className="mt-4 w-full"
-                    disabled={resgateEmEnvio !== null}
-                    onClick={() => void enviarResgate(oportunidade)}
-                  >
-                    {resgateEmEnvio === oportunidade.legacy_cliente_id ? (
-                      <LoaderCircle className="animate-spin" />
-                    ) : (
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    <Button
+                      type="button"
+                      disabled={resgateEmEnvio !== null}
+                      onClick={() => void criarCampanhaResgate(oportunidade)}
+                    >
+                      {resgateEmEnvio === oportunidade.legacy_cliente_id ? (
+                        <LoaderCircle className="animate-spin" />
+                      ) : (
+                        <MessageCircle />
+                      )}
+                      Criar campanha
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={resgateEmEnvio !== null}
+                      onClick={() => void enviarResgate(oportunidade)}
+                      title="Fluxo rápido legado preservado; campanhas completas devem usar a Central de Campanhas."
+                    >
                       <Send />
-                    )}
-                    Disparar campanha WhatsApp
-                  </Button>
+                      Envio rápido
+                    </Button>
+                  </div>
                 </article>
               ))}
             </div>

@@ -140,7 +140,7 @@ class CampanhasGovernadasSQLAlchemy(CampanhasGerenciaisSQLAlchemy):
             unidade_id=unidade_id,
             campanha_id=campanha_id,
         )
-        if row.status != "rascunho":
+        if row.status not in {"rascunho", "aguardando_aprovacao"}:
             raise ErroGerenteIA("campanha_nao_esta_em_rascunho")
         fingerprint = self._fingerprint(row)
         row.status = "aprovada"
