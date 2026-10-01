@@ -400,10 +400,16 @@ def build_admin_fiscal_router(
                     "certificate": Permissao.FISCAL_CERTIFICADO in identidade.permissoes,
                     "cancel": Permissao.FISCAL_CANCELAR in identidade.permissoes,
                     "inutilize": Permissao.FISCAL_INUTILIZAR in identidade.permissoes,
+                    "query": Permissao.FISCAL_VISUALIZAR in identidade.permissoes,
                     "manifest": Permissao.FISCAL_MANIFESTAR in identidade.permissoes,
                     "purchases_view": Permissao.FISCAL_COMPRAS_VISUALIZAR
                     in identidade.permissoes,
                     "purchases_receive": Permissao.FISCAL_COMPRAS_RECEBER
+                    in identidade.permissoes,
+                    "purchase_approve": Permissao.COMPRA_APROVAR in identidade.permissoes,
+                    "financial_register": Permissao.FINANCEIRO_COMPRAS_REGISTRAR
+                    in identidade.permissoes,
+                    "tax_decide": Permissao.FINANCEIRO_TRIBUTOS_DECIDIR
                     in identidade.permissoes,
                     "archive_view": Permissao.FISCAL_ARCHIVE_VISUALIZAR
                     in identidade.permissoes,
