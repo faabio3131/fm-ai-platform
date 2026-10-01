@@ -2,8 +2,8 @@
   "schema_version": 1,
   "product": "Kordena V1",
   "authority": "canonical-state-ledger",
-  "branch": "feat/kordena-wp034-plano-assinatura-web",
-  "reconciled_from_head": "7962df6a4735dfcbaf3fc762c9b5d238d4688023",
+  "branch": "feat/kordena-wp035-wp037-fiscal-web-completion",
+  "reconciled_from_head": "f99e0ce6519f5acce1e65f1cc5029559224b8aeb",
   "rules": {
     "allowed_states": [
       "PENDING",
@@ -344,6 +344,37 @@
         "web/tests/wp034-commercial-account.test.mjs"
       ],
       "certified_sha": "23c78e9cee8a375258a27140122bc0934e1206d1"
+    },
+    "WP-035": {
+      "name": "Fiscal Inbox / Smart Intake / Manifestacao Web",
+      "state": "IMPLEMENTED_UNCERTIFIED",
+      "reason": "Capacidades fiscais de entrada existentes foram expostas na Web nesta PR; certificacao dirigida e regressao ainda precisam concluir no HEAD corrente.",
+      "evidence": [
+        "application/fiscal_web_operations.py",
+        "http_api/admin_fiscal_operations.py",
+        "web/src/features/backoffice/fiscal/components/FiscalOperationsPanel.tsx",
+        "web/tests/wp035-wp037-fiscal-web-completion.test.mjs"
+      ]
+    },
+    "WP-036": {
+      "name": "Procurement Fiscal / Compras / Recebimento Web",
+      "state": "IMPLEMENTED_UNCERTIFIED",
+      "reason": "Fornecedor, vinculos, pedido, aprovacao, recebimento e devolucao usam autoridades canônicas, mas aguardam gate dedicado e regressao da PR.",
+      "evidence": [
+        "application/fiscal_web_operations.py",
+        "http_api/admin_fiscal_operations.py",
+        "web/src/features/backoffice/fiscal/components/FiscalOperationsPanel.tsx"
+      ]
+    },
+    "WP-037": {
+      "name": "Bridge Financeiro-Fiscal / Credito Tributario Web",
+      "state": "IMPLEMENTED_UNCERTIFIED",
+      "reason": "Obrigacoes, ajustes e decisao tributaria foram expostos na Web sobre o bridge canônico; aguardam gate dedicado e regressao da PR.",
+      "evidence": [
+        "application/fiscal_web_operations.py",
+        "http_api/admin_fiscal_operations.py",
+        "web/src/features/backoffice/fiscal/components/FiscalOperationsPanel.tsx"
+      ]
     }
   }
 }
