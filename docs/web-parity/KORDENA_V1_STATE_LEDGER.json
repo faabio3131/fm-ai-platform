@@ -335,15 +335,15 @@
     },
     "WP-034": {
       "name": "Conta Comercial / Plano e Assinatura",
-      "state": "IMPLEMENTED_UNCERTIFIED",
-      "implementation_sha": "8ffc0ff679b379300257d9ca4989599f4fb7a741",
+      "state": "CERTIFIED",
       "evidence": [
+        "WP034_COMMERCIAL_ACCOUNT_WEB_CERTIFICATION.md",
+        "Web Parity WP034 Commercial Account run 36873075897 — SUCCESS",
         "web/src/app/admin/assinatura/page.tsx",
         "web/src/features/commercial/components/CommercialAccountWorkspace.tsx",
-        "web/tests/wp034-commercial-account.test.mjs",
-        ".github/workflows/web-parity-wp034-commercial-account.yml"
+        "web/tests/wp034-commercial-account.test.mjs"
       ],
-      "reason": "gap pós-auditoria: KCA já possuía access/plans/subscription/checkout no backend e paywall, mas não havia superfície Next.js dedicada nem entrada de navegação para a conta ativa; implementação criada e aguarda gate WP-034"
+      "certified_sha": "23c78e9cee8a375258a27140122bc0934e1206d1"
     }
   }
 }
