@@ -7,9 +7,9 @@ scope.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date
 from decimal import Decimal
-from typing import Callable
 from xml.etree import ElementTree
 
 from sqlalchemy.orm import Session
