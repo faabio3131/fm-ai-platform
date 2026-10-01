@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { FiscalOperationsPanel } from "@/features/backoffice/fiscal/components/FiscalOperationsPanel";
 import { Input } from "@/components/ui/input";
 import {
   cancelFiscalDocument,
@@ -409,6 +410,12 @@ export function FiscalWorkspace() {
               )}
             </article>
           </section>
+
+          <FiscalOperationsPanel
+            environment={environment}
+            capabilities={data.capabilities}
+            onChanged={() => load(environment)}
+          />
 
           <section className="rounded-xl border border-slate-800 bg-slate-900 p-5 text-sm">
             <h2 className="font-semibold">Operações sensíveis</h2>
