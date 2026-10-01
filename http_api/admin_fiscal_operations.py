@@ -265,11 +265,14 @@ def build_admin_fiscal_operations_router(
     session_factory: SessionFactory,
     auth_runtime: AuthSessionRuntime,
     operations_gateway_factory: FiscalOperationsGatewayFactory | None = None,
+    intake_extractor_factory: Callable[[Any], GeminiFiscalIntakeExtractor] | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/v1/admin/fiscal", tags=["admin-fiscal-operations"])
     app = AplicacaoFiscalWebOperationsV1(session_factory)
 
     def extractor(contexto: Any) -> GeminiFiscalIntakeExtractor:
+        if intake_extractor_factory is not None:
+            return intake_extractor_factory(contexto)
         with session_factory() as session:
             vault = EncryptedSQLAlchemySecretStore(session)
             adapter = FabricaAdaptersExternos(
