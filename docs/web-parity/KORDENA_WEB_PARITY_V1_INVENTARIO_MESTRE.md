@@ -2,8 +2,8 @@
 
 **Baseline auditada:** `main @ 5a17b0c8a1cb6dad576ce5b089166748b138900c`
 **Data original:** 08/09/2026
-**Reconciliação:** 21/09/2026
-**Versão do inventário:** 4.0 — WP-031 + Master Gate certificados
+**Reconciliação:** 01/10/2026
+**Versão do inventário:** 4.1 — gap WP-034 Conta Comercial / Plano e Assinatura reconciliado
 **Status:** DOCUMENTO MESTRE DE EXECUÇÃO
 
 ## 1. Regra constitucional deste inventário
@@ -14,13 +14,13 @@ Existir no backend, possuir UI candidata ou ter E2E legado **não** significa es
 
 ## 2. Diagnóstico executivo reconciliado
 
-- Capacidades inventariadas: **33**.
-- Estado canônico atual no ledger: **33 CERTIFIED**, **0 IMPLEMENTED_UNCERTIFIED** e **0 PENDING**.
+- Capacidades inventariadas: **34**.
+- Estado canônico atual no ledger desta branch: **33 CERTIFIED**, **1 IMPLEMENTED_UNCERTIFIED** e **0 PENDING**.
 - **WP-008** está certificado em `/garcom`; após o gate de implementação no HEAD `9daaacc9ef4754558ad570bd568a316367b9260d`, recebeu certificação independente no `Kordena V1 Non-Fiscal Master Gate` run `35380670582`, HEAD `74530f13c8bd9c95b61b9b9da4192094a230c2d3`.
 - **WP-018** foi certificado em `/admin/dashboard` no SHA `b7a64b2dc5a47763a86fded903a15fd2be2cc23d`.
-- **WP-012**, **WP-032**, **WP-033** e **WP-031 Fiscal** estão tecnicamente certificados; não há Work Package funcional pendente no ledger.
+- **WP-012**, **WP-032**, **WP-033** e **WP-031 Fiscal** permanecem certificados. A auditoria produto × SaaS de 01/10/2026 encontrou o gap **WP-034 — Conta Comercial / Plano e Assinatura**: backend KCA existente sem superfície Web dedicada; a implementação candidata aguarda certificação.
 - **WP-031 Fiscal** está concluído/certificado na PR #118: WP-031A→L estão certificados e o Master Gate fechou SUCCESS no HEAD `09f1f0b4e21c0751e3828f7480239bd1720dcc6d`, workflow `WP-031 Master Gate` run `35618240783`.
-- GAP HTTP/WEB/PÚBLICO: **0** — WP-030 foi concluído e certificado.
+- GAP HTTP/WEB conhecido: **WP-034 identificado e implementado nesta branch, aguardando certificação**. O gap consiste na ausência histórica de uma superfície Web dedicada para access/plans/subscription/checkout já existentes no KCA.
 - A VERIFICAR: **0**.
 
 A rota `/` usa Home/Dashboard comercial real dentro do Shell Corporativo Unificado. A Central de Pedidos está certificada em `/pedidos`. O Cardápio Digital público/autosserviço foi certificado em `/cardapio/{publicId}/{slug}`, com administração da publicação por unidade em `/admin/empresa`.
@@ -53,6 +53,7 @@ A retaguarda WP-013 a WP-017 e o WP-031 Fiscal estão formalmente certificados. 
 - **WP-029 — Pagamentos / PIX / Provedores**: `/pagamentos`.
 - **WP-030 — Cardápio Digital público / Autosserviço**: `/cardapio/{publicId}/{slug}` + administração por unidade em `/admin/empresa`.
 - **WP-031 — Fiscal / NFC-e / SAT**: `/admin/fiscal` + `/admin/integracoes` + Core canônico — CERTIFIED pelo Master Gate fiscal.
+- **WP-034 — Conta Comercial / Plano e Assinatura**: `/admin/assinatura` — implementação candidata sobre `/v1/commercial/access`, `/plans`, `/subscription` e `/checkout`; aguarda gate dedicado.
 
 ## 4. Matriz mestre de paridade reconciliada
 
@@ -91,6 +92,7 @@ A retaguarda WP-013 a WP-017 e o WP-031 Fiscal estão formalmente certificados. 
 | WP-031 | Fiscal / NFC-e / SAT | Fiscal V1 congelado `b336def47ad4f5188307102203f4e04b98406014` vendorizado; WP-031A→L + Master Gate certificados | Persistência, outbound, perfis, inbound, intake, procurement, financeiro/tributário, signer/gateway governado, Web/UX funcional, Cognitive Fiscal e paridade de canais certificados; sem homologação externa presumida | `/admin/fiscal` + `/admin/integracoes` + Core canônico | CERTIFIED | Preservar; Visual Premium final é o próximo bloco autorizado. |
 | WP-032 | Notificações Internas | core/notificacoes_internas + application/notificacoes_internas + diretório SQL cifrado | Superfície Web administrativa certificada, session-aware e tenant/unit-safe | Backoffice administrativo | CERTIFIED | Preservar serviço canônico; sem inbox/feed/badge paralelo. |
 | WP-033 | Auditoria / Histórico administrativo | core/seguranca/auditoria.py + RepositorioAuditoriaSQLAlchemy | Consulta Backoffice read-only certificada, tenant-safe, com RBAC + step-up | Backoffice administrativo | CERTIFIED | Preservar auditoria canônica e não expor metadata interna/segredos. |
+| WP-034 | Conta Comercial / Plano e Assinatura | KCA Commercial Access + Subscription + Checkout canônicos | HTTP `/v1/commercial/access`, `/plans`, `/subscription`, `/checkout` já existentes | `/admin/assinatura` | IMPLEMENTAÇÃO PRESENTE — AGUARDA CERTIFICAÇÃO | Executar gate WP-034; não duplicar billing nem misturar com pagamentos operacionais. |
 
 ## 5. Capacidades históricas comprovadas na UI Streamlit
 
