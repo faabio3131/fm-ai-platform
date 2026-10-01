@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -47,6 +48,30 @@ def test_pdf_web_parity_keeps_all_33_surfaces_materialized() -> None:
         if not (ROOT / path).is_file()
     }
     assert missing == {}
+
+
+def test_all_33_pdf_work_packages_are_certified_with_evidence() -> None:
+    ledger = json.loads(
+        (ROOT / "docs/web-parity/KORDENA_V1_STATE_LEDGER.json").read_text()
+    )
+    expected = set(SURFACES)
+    work_packages = ledger["work_packages"]
+    assert expected.issubset(work_packages)
+
+    invalid = {
+        work_package: {
+            "state": work_packages[work_package].get("state"),
+            "certified_sha": work_packages[work_package].get("certified_sha"),
+            "evidence": work_packages[work_package].get("evidence"),
+        }
+        for work_package in sorted(expected)
+        if (
+            work_packages[work_package].get("state") != "CERTIFIED"
+            or not work_packages[work_package].get("certified_sha")
+            or not work_packages[work_package].get("evidence")
+        )
+    }
+    assert invalid == {}
 
 
 def test_wp017_is_first_class_web_surface_and_not_only_crm_button() -> None:
