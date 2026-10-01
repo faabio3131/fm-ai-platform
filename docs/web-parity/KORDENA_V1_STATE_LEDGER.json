@@ -3,7 +3,7 @@
   "product": "Kordena V1",
   "authority": "canonical-state-ledger",
   "branch": "feat/kordena-wp035-wp037-fiscal-web-completion",
-  "reconciled_from_head": "f99e0ce6519f5acce1e65f1cc5029559224b8aeb",
+  "reconciled_from_head": "71fd559170c8efa3952232d6b0245d317bf3dfec",
   "rules": {
     "allowed_states": [
       "PENDING",
@@ -347,34 +347,43 @@
     },
     "WP-035": {
       "name": "Fiscal Inbox / Smart Intake / Manifestacao Web",
-      "state": "IMPLEMENTED_UNCERTIFIED",
-      "reason": "Capacidades fiscais de entrada existentes foram expostas na Web nesta PR; certificacao dirigida e regressao ainda precisam concluir no HEAD corrente.",
+      "state": "CERTIFIED",
       "evidence": [
+        "WP035_WP037_FISCAL_WEB_COMPLETION_CERTIFICATION.md",
+        "Web Parity WP035-WP037 Fiscal Web Completion run 36896722715 — SUCCESS",
+        "PR #173 — fiscal Web parity implementation and certification",
         "application/fiscal_web_operations.py",
         "http_api/admin_fiscal_operations.py",
         "web/src/features/backoffice/fiscal/components/FiscalOperationsPanel.tsx",
         "web/tests/wp035-wp037-fiscal-web-completion.test.mjs"
-      ]
+      ],
+      "certified_sha": "71fd559170c8efa3952232d6b0245d317bf3dfec"
     },
     "WP-036": {
       "name": "Procurement Fiscal / Compras / Recebimento Web",
-      "state": "IMPLEMENTED_UNCERTIFIED",
-      "reason": "Fornecedor, vinculos, pedido, aprovacao, recebimento e devolucao usam autoridades canônicas, mas aguardam gate dedicado e regressao da PR.",
+      "state": "CERTIFIED",
       "evidence": [
+        "WP035_WP037_FISCAL_WEB_COMPLETION_CERTIFICATION.md",
+        "Web Parity WP035-WP037 Fiscal Web Completion run 36896722715 — SUCCESS",
+        "PR #173 — fiscal Web parity implementation and certification",
         "application/fiscal_web_operations.py",
         "http_api/admin_fiscal_operations.py",
         "web/src/features/backoffice/fiscal/components/FiscalOperationsPanel.tsx"
-      ]
+      ],
+      "certified_sha": "71fd559170c8efa3952232d6b0245d317bf3dfec"
     },
     "WP-037": {
       "name": "Bridge Financeiro-Fiscal / Credito Tributario Web",
-      "state": "IMPLEMENTED_UNCERTIFIED",
-      "reason": "Obrigacoes, ajustes e decisao tributaria foram expostos na Web sobre o bridge canônico; aguardam gate dedicado e regressao da PR.",
+      "state": "CERTIFIED",
       "evidence": [
+        "WP035_WP037_FISCAL_WEB_COMPLETION_CERTIFICATION.md",
+        "Web Parity WP035-WP037 Fiscal Web Completion run 36896722715 — SUCCESS",
+        "PR #173 — fiscal Web parity implementation and certification",
         "application/fiscal_web_operations.py",
         "http_api/admin_fiscal_operations.py",
         "web/src/features/backoffice/fiscal/components/FiscalOperationsPanel.tsx"
-      ]
+      ],
+      "certified_sha": "71fd559170c8efa3952232d6b0245d317bf3dfec"
     }
   }
 }
