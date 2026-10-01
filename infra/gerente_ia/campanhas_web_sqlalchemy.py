@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from hashlib import sha256
 from typing import Any
 
 from sqlalchemy import select
@@ -27,6 +28,7 @@ class CampanhasWebSQLAlchemy(CampanhasGovernadasSQLAlchemy):
                     RascunhoCampanhaORM.unidade_id == unidade_id,
                 )
                 .order_by(RascunhoCampanhaORM.criado_em.desc())
+                .limit(200)
             )
         )
 
@@ -51,6 +53,21 @@ class CampanhasWebSQLAlchemy(CampanhasGovernadasSQLAlchemy):
             texto_base=row.texto_base,
             audiencia_elegivel=row.audiencia_elegivel,
         )
+
+    def fingerprint_web(self, row: RascunhoCampanhaORM) -> str:
+        """Vincula a revisão Web ao conteúdo e aos destinatários selecionados."""
+
+        audiencia = "\n".join(
+            sorted(
+                self.audiencia_ids(
+                    tenant_id=row.tenant_id,
+                    unidade_id=row.unidade_id,
+                    campanha_id=row.rascunho_id,
+                )
+            )
+        )
+        material = f"{self.fingerprint(row)}\n{audiencia}".encode("utf-8")
+        return sha256(material).hexdigest()
 
     def _replay(
         self,

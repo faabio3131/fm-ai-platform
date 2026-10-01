@@ -56,6 +56,13 @@ def test_audiencia_e_submissao_preservam_mesmo_aggregate() -> None:
             unidade_id="unidade-1",
             campanha_id="camp-web-1",
         ) == ("cliente-1", "cliente-2")
+        row_antes = repo.obter_web(
+            tenant_id="tenant-1",
+            unidade_id="unidade-1",
+            campanha_id="camp-web-1",
+        )
+        fingerprint_com_audiencia = repo.fingerprint_web(row_antes)
+        assert fingerprint_com_audiencia != repo.fingerprint(row_antes)
         row = repo.submeter(
             tenant_id="tenant-1",
             unidade_id="unidade-1",
@@ -66,6 +73,7 @@ def test_audiencia_e_submissao_preservam_mesmo_aggregate() -> None:
             agora=AGORA,
         )
         assert row.status == "aguardando_aprovacao"
+        assert repo.fingerprint_web(row) == fingerprint_com_audiencia
         aprovado = repo.aprovar(
             tenant_id="tenant-1",
             unidade_id="unidade-1",

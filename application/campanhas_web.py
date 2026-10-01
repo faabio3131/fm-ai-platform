@@ -98,7 +98,7 @@ def _web(repo: CampanhasWebSQLAlchemy, row) -> CampanhaWeb:
         criado_em=row.criado_em,
         criado_por=row.criado_por,
         status=row.status,
-        fingerprint=repo.fingerprint(row),
+        fingerprint=repo.fingerprint_web(row),
         campanha_ref=repo.campanha_ref(
             tenant_id=row.tenant_id,
             unidade_id=row.unidade_id,
