@@ -14,7 +14,7 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -504,7 +504,7 @@ function Metric({
   label,
   value,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
 }) {
@@ -527,7 +527,7 @@ function ActionCard({
 }: {
   title: string;
   detail: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   enabled: boolean;
   busy: boolean;
   onClick: () => void;

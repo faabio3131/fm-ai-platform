@@ -113,6 +113,24 @@ class CampanhasWebSQLAlchemy(CampanhasGovernadasSQLAlchemy):
         row.texto_base = texto_base
         if escopo_audiencia_mudou:
             row.audiencia_elegivel = 0
+            self._registrar_transicao(
+                tenant_id=tenant_id,
+                unidade_id=unidade_id,
+                campanha_id=campanha_id,
+                event_type="campanha.audiencia_definida",
+                correlation_id=correlation_id,
+                idempotency_key=f"{idempotency_key}:audiencia-invalidada",
+                ocorrido_em=agora,
+                payload={
+                    "campanha_id": campanha_id,
+                    "cliente_ids": [],
+                    "quantidade": 0,
+                    "definido_por": usuario_id,
+                    "motivo": "escopo_da_campanha_alterado",
+                    "fingerprint": self.fingerprint(row),
+                },
+                versao=1,
+            )
         self._registrar_transicao(
             tenant_id=tenant_id,
             unidade_id=unidade_id,

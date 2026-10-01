@@ -203,6 +203,16 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     allPermissions: ["admin.acessar", "cliente.visualizar"],
   },
   {
+    id: "campanhas",
+    label: "Campanhas",
+    description: "Rascunhos, audiência, aprovação e despacho de marketing governado.",
+    href: "/admin/campanhas",
+    group: "proprietario",
+    icon: "crm",
+    available: true,
+    allPermissions: ["admin.acessar", "cliente.visualizar", "campanha.criar"],
+  },
+  {
     id: "saude-sistema",
     label: "Saúde do sistema",
     description: "Conectividade e diagnóstico técnico protegido.",

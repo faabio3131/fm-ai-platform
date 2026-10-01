@@ -337,24 +337,13 @@ def submeter_campanha_web(
     campanha_id: str,
     idempotency_key: str,
 ) -> CampanhaWeb:
-    selecionados = {
-        item.cliente_id
-        for item in listar_audiencia_campanha(
-            session_factory=session_factory,
-            contexto=contexto,
-            campanha_id=campanha_id,
-        )
-        if item.selecionado
-    }
-    elegiveis = {
-        item.cliente_id
-        for item in listar_audiencia_campanha(
-            session_factory=session_factory,
-            contexto=contexto,
-            campanha_id=campanha_id,
-        )
-        if item.elegivel
-    }
+    audiencia = listar_audiencia_campanha(
+        session_factory=session_factory,
+        contexto=contexto,
+        campanha_id=campanha_id,
+    )
+    selecionados = {item.cliente_id for item in audiencia if item.selecionado}
+    elegiveis = {item.cliente_id for item in audiencia if item.elegivel}
     if not selecionados or not selecionados.issubset(elegiveis):
         raise ErroGerenteIA("campanha_audiencia_desatualizada")
     with UnitOfWorkV1(session_factory) as uow:
