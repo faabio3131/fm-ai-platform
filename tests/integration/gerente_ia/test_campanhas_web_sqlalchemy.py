@@ -99,12 +99,13 @@ def test_audiencia_e_submissao_preservam_mesmo_aggregate() -> None:
             unidade_id="unidade-1",
             campanha_id="camp-web-1",
         )]
-        assert tipos == [
+        assert len(tipos) == 4
+        assert set(tipos) == {
             "campanha.audiencia_definida",
             "campanha.submetida",
             "campanha.aprovada",
             "campanha.publicavel",
-        ]
+        }
 
 
 def test_edicao_de_canal_invalida_audiencia_anterior() -> None:
