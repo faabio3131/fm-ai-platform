@@ -153,6 +153,16 @@ def test_signup_rejeita_trilha_juridica_incompleta() -> None:
     assert dispatcher.sent == []
 
 
+def test_signup_nao_aceita_documento_juridico_disfarcado_de_consentimento_opcional() -> None:
+    client, dispatcher = _client(enabled=True)
+    payload = _payload("consent-boundary@example.com")
+    payload["consents"]["terms"] = True
+    response = client.post("/v1/public/signup", json=payload)
+    assert response.status_code == 422
+    assert response.json()["erro"] == "signup_optional_consent_invalid"
+    assert dispatcher.sent == []
+
+
 def test_payload_nao_pode_injetar_autoridades() -> None:
     client, _ = _client(enabled=True)
     payload = _payload("forged@example.com")
