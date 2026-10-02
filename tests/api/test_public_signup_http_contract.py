@@ -153,7 +153,7 @@ def test_signup_rejeita_trilha_juridica_incompleta() -> None:
     assert dispatcher.sent == []
 
 
-def test_signup_nao_aceita_documento_juridico_disfarcado_de_consentimento_opcional() -> None:
+def test_signup_rejeita_documento_juridico_em_consentimento_opcional() -> None:
     client, dispatcher = _client(enabled=True)
     payload = _payload("consent-boundary@example.com")
     payload["consents"]["terms"] = True
