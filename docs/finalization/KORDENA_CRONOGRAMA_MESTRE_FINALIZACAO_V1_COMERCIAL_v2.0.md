@@ -110,6 +110,21 @@ Portanto: **não reconstruir KCA-00→17.** As fases deste cronograma são fecha
 
 Os 33 Work Packages funcionais da V1 estão certificados internamente. Não reabrir funcionalidade certificada sem regressão objetiva no CURRENT.
 
+### 3.2.1 WP-017 — Marketing / Campanhas — escopo V1 congelado
+
+```text
+WP-017 V1 = CERTIFIED
+ESCOPO = CAMPANHAS ORGÂNICAS/DIRETAS
+MÍDIA PAGA = OUT_OF_SCOPE
+PENDÊNCIA V1 = NENHUMA
+```
+
+Para a V1 comercial, campanhas significam ações sem compra de mídia, baseadas em CRM/base própria, consentimento e canais efetivamente suportados. O canal externo comprovado no CURRENT certificado é o WhatsApp comercial.
+
+Meta Ads, Instagram Ads, Google Ads, orçamento de mídia, bidding, CPC/CPM/CPA/ROAS, conjuntos de anúncios e gestão de tráfego pago **não são requisitos da V1** e não podem ser reclassificados como gap, bloqueio ou pendência do WP-017.
+
+Referência normativa: `docs/web-parity/WP017_V1_ORGANIC_CAMPAIGNS_SCOPE_DECISION.md`.
+
 ### 3.3 Gemini e Google Maps
 
 ```text

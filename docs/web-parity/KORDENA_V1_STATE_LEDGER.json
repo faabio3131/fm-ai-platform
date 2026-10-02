@@ -191,9 +191,13 @@
         "Kordena WP017 Campaign Web Parity run 36918120350 (#11) — SUCCESS: 31 targeted PASS; full Python 1862 PASS / 5 SKIP; TypeScript/Web/build/diff verdes",
         "Commit e0837d7651c942da69cbb4a7e6666144340d4a5e — 24/24 workflows SUCCESS",
         "PR #174 merge e0f6b146e6c785a894a83a6044944c98fd55d5b3 — pós-merge Visual Premium Gate run 36920068824 SUCCESS",
-        "Merge e0f6b146e6c785a894a83a6044944c98fd55d5b3 — Vercel SUCCESS e Railway fm-ai-platform SUCCESS"
+        "Merge e0f6b146e6c785a894a83a6044944c98fd55d5b3 — Vercel SUCCESS e Railway fm-ai-platform SUCCESS",
+        "WP017_V1_ORGANIC_CAMPAIGNS_SCOPE_DECISION.md — decisão normativa: V1 limitada a campanhas orgânicas/diretas; mídia paga OUT_OF_SCOPE"
       ],
-      "reason": "WM-00→WM-07 concluídos: lifecycle Web first-class de campanhas implementado sobre autoridades canônicas, com audiência/consentimento, submissão, aprovação/publicação humanas, despacho idempotente e replay-safe, histórico, integração CRM e Gerente IA apenas para rascunho. A matriz de paridade 33/33 passa a exigir estado CERTIFIED + certified_sha + evidência para todos os WPs."
+      "reason": "WM-00→WM-07 concluídos: lifecycle Web first-class de campanhas implementado sobre autoridades canônicas, com audiência/consentimento, submissão, aprovação/publicação humanas, despacho idempotente e replay-safe, histórico, integração CRM e Gerente IA apenas para rascunho. Escopo V1 congelado em 02/10/2026 como campanhas orgânicas/diretas sem mídia paga; tráfego pago é OUT_OF_SCOPE e não constitui pendência V1.",
+      "v1_scope": "ORGANIC_DIRECT_CAMPAIGNS",
+      "paid_media_v1": "OUT_OF_SCOPE",
+      "v1_pending": []
     },
     "WP-018": {
       "name": "Dashboard Financeiro / Indicadores",

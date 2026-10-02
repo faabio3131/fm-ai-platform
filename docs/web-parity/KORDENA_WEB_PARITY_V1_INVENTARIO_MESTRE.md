@@ -15,7 +15,7 @@ Existir no backend, possuir UI candidata ou ter E2E legado **não** significa es
 ## 2. Diagnóstico executivo reconciliado
 
 - Capacidades inventariadas: **34**.
-- Estado canônico atual no ledger desta branch: **34 CERTIFIED**, **0 IMPLEMENTED_UNCERTIFIED** e **0 PENDING**. WP-017 foi recertificado após implementação do lifecycle Web completo de campanhas; WP-034 permanece certificado como capacidade comercial adicional.
+- Estado canônico atual no ledger desta branch: **34 CERTIFIED**, **0 IMPLEMENTED_UNCERTIFIED** e **0 PENDING**. WP-017 foi recertificado após implementação do lifecycle Web completo de campanhas e, por decisão normativa de 02/10/2026, seu escopo V1 está fechado como **campanhas orgânicas/diretas sem mídia paga**; WP-034 permanece certificado como capacidade comercial adicional.
 - **WP-008** está certificado em `/garcom`; após o gate de implementação no HEAD `9daaacc9ef4754558ad570bd568a316367b9260d`, recebeu certificação independente no `Kordena V1 Non-Fiscal Master Gate` run `35380670582`, HEAD `74530f13c8bd9c95b61b9b9da4192094a230c2d3`.
 - **WP-018** foi certificado em `/admin/dashboard` no SHA `b7a64b2dc5a47763a86fded903a15fd2be2cc23d`.
 - **WP-012**, **WP-031**, **WP-032**, **WP-033** e **WP-034** estão tecnicamente certificados. A auditoria produto × SaaS de 01/10/2026 encontrou e fechou o gap **WP-034 — Conta Comercial / Plano e Assinatura**, preservando a autoridade KCA existente.
@@ -26,6 +26,15 @@ Existir no backend, possuir UI candidata ou ter E2E legado **não** significa es
 A rota `/` usa Home/Dashboard comercial real dentro do Shell Corporativo Unificado. A Central de Pedidos está certificada em `/pedidos`. O Cardápio Digital público/autosserviço foi certificado em `/cardapio/{publicId}/{slug}`, com administração da publicação por unidade em `/admin/empresa`.
 
 A retaguarda WP-013 a WP-017 e o WP-031 Fiscal estão formalmente certificados. As condições funcionais previstas para reabrir a Arquitetura Visual Premium foram satisfeitas; qualquer trabalho visual deve preservar a mesma linha arquitetural e não pode reconstruir autoridades já certificadas.
+
+## 2.1 Decisão de escopo — WP-017 V1
+
+- **WP-017 V1:** CONCLUÍDO / CERTIFIED.
+- **Escopo obrigatório:** campanhas orgânicas/diretas, base própria/CRM, consentimento e canais suportados.
+- **Canal externo comprovado no CURRENT:** WhatsApp comercial.
+- **Mídia paga:** OUT_OF_SCOPE da V1.
+- Meta Ads, Instagram Ads, Google Ads, gestão de verba, bidding e métricas de tráfego pago não são gaps do WP-017 V1.
+- Referência normativa: `WP017_V1_ORGANIC_CAMPAIGNS_SCOPE_DECISION.md`.
 
 ## 3. Capacidades já migradas/preservadas
 
