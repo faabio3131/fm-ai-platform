@@ -1,0 +1,96 @@
+name: Kordena Legal Acceptance V1
+
+on:
+  pull_request:
+    paths:
+      - "application/public_signup.py"
+      - "core/comercial/legal.py"
+      - "http_api/public_legal.py"
+      - "http_api/public_signup.py"
+      - "http_api/frontend_app.py"
+      - "docs/legal/**"
+      - "docs/finalization/KORDENA_LEGAL_VERSIONING_ACCEPTANCE_V1.md"
+      - "tests/unit/comercial/test_legal_documents.py"
+      - "tests/integration/comercial/test_public_signup_sqlalchemy.py"
+      - "tests/api/test_public_legal_http_contract.py"
+      - "tests/api/test_public_signup_http_contract.py"
+      - "web/src/app/legal/**"
+      - "web/src/app/signup/page.tsx"
+      - "web/src/features/legal/**"
+      - "web/src/features/auth/components/AuthSessionGuard.tsx"
+      - "web/src/features/auth/services/signup-api.ts"
+      - "web/src/features/commercial/components/CommercialAccessGuard.tsx"
+      - "web/src/features/shell/components/UnifiedAppShell.tsx"
+      - "web/tests/kca06-signup.test.mjs"
+      - ".github/workflows/kordena-legal-acceptance-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  legal-acceptance-certification:
+    name: Legal versioning and acceptance trail
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+
+      - name: Compile legal and signup surfaces
+        run: |
+          python -m compileall -q application/public_signup.py core/comercial/legal.py http_api/public_legal.py http_api/public_signup.py http_api/frontend_app.py
+
+      - name: Ruff legal and signup surfaces
+        run: |
+          ruff check application/public_signup.py core/comercial/legal.py http_api/public_legal.py http_api/public_signup.py tests/unit/comercial/test_legal_documents.py tests/integration/comercial/test_public_signup_sqlalchemy.py tests/api/test_public_legal_http_contract.py tests/api/test_public_signup_http_contract.py
+
+      - name: Mypy legal and signup surfaces
+        run: |
+          mypy application/public_signup.py core/comercial/legal.py http_api/public_legal.py http_api/public_signup.py --follow-imports=skip
+
+      - name: Legal targeted tests
+        run: |
+          pytest -q             tests/unit/comercial/test_legal_documents.py             tests/integration/comercial/test_public_signup_sqlalchemy.py             tests/api/test_public_legal_http_contract.py             tests/api/test_public_signup_http_contract.py
+
+      - name: Full Python regression
+        run: pytest -q
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: Web ESLint
+        working-directory: web
+        run: npm run lint
+
+      - name: Web TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Legal Web contract
+        working-directory: web
+        run: node --test tests/kca06-signup.test.mjs
+
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+
+      - name: Diff whitespace
+        run: git diff --check origin/staging/kordena-premium...HEAD
