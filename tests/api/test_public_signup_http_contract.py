@@ -8,6 +8,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from core.comercial.legal import active_legal_acceptance_claims
 from core.runtime.config import RuntimeEnvironment, RuntimeSettings
 from core.seguranca.segredos import ReferenceSecretStore
 from infra.comercial.catalogo_orm import FMCommercialPlanORM, FMCommercialPlanVersionORM
@@ -94,6 +95,7 @@ def _payload(email: str = "signup-http@example.com"):
         "establishment_name": "Restaurante HTTP",
         "segment": "restaurante",
         "terms_accepted": True,
+        "legal_documents": active_legal_acceptance_claims(),
         "consents": {"marketing": False},
     }
 
@@ -129,6 +131,26 @@ def test_signup_verifica_email_e_provisiona() -> None:
         json={"token": token},
     )
     assert replay.status_code == 400
+
+
+def test_signup_rejeita_versao_juridica_divergente() -> None:
+    client, dispatcher = _client(enabled=True)
+    payload = _payload("stale-legal@example.com")
+    payload["legal_documents"]["terms"]["version"] = "0.9"
+    response = client.post("/v1/public/signup", json=payload)
+    assert response.status_code == 422
+    assert response.json()["erro"] == "signup_legal_document_version_invalid"
+    assert dispatcher.sent == []
+
+
+def test_signup_rejeita_trilha_juridica_incompleta() -> None:
+    client, dispatcher = _client(enabled=True)
+    payload = _payload("missing-legal@example.com")
+    payload["legal_documents"].pop("privacy")
+    response = client.post("/v1/public/signup", json=payload)
+    assert response.status_code == 422
+    assert response.json()["erro"] == "signup_legal_documents_required"
+    assert dispatcher.sent == []
 
 
 def test_payload_nao_pode_injetar_autoridades() -> None:
