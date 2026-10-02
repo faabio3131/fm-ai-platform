@@ -19,6 +19,16 @@ Por isso o ledger foi rebaixado temporariamente para `IMPLEMENTED_UNCERTIFIED`. 
 
 **Gate WM-00:** `WEB_PARITY_BASELINE_CONFIRMED`.
 
+## Decisão normativa de escopo V1 — 02/10/2026
+
+Para a V1 comercial, o WP-017 está fechado como **campanhas orgânicas/diretas, sem mídia paga**.
+
+Definição operacional: campanha orgânica V1 é campanha sem compra de mídia, baseada na base própria/CRM, consentimento e canais efetivamente suportados pelo produto. O canal externo comprovado no CURRENT certificado é o fluxo comercial de WhatsApp.
+
+Não são requisitos da V1 e não constituem pendência deste WP: Meta Ads, Instagram Ads, Google Ads, compra de mídia, gestão de orçamento, bidding, CPC/CPM/CPA/ROAS, conjuntos de anúncios ou qualquer automação de tráfego pago.
+
+A decisão completa está registrada em `WP017_V1_ORGANIC_CAMPAIGNS_SCOPE_DECISION.md`. Mídia paga somente poderá entrar em versão posterior por novo escopo formal e não reabre o WP-017 V1.
+
 ## WM-01 — System Design cirúrgico
 
 ### Autoridades reutilizadas
