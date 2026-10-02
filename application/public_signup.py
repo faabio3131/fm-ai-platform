@@ -122,6 +122,10 @@ class AplicacaoPublicSignupV1:
         if not terms_accepted:
             raise DadoComercialInvalido("signup_terms_required")
         legal_snapshots = validate_legal_acceptance_claims(legal_documents)
+        unknown_consents = set(consent_json) - {"marketing"}
+        if unknown_consents:
+            raise DadoComercialInvalido("signup_optional_consent_invalid")
+        consent_json = {"marketing": bool(consent_json.get("marketing", False))}
         name = _clean(owner_name, field="owner_name", max_length=255)
         establishment = _clean(
             establishment_name, field="establishment_name", max_length=255
