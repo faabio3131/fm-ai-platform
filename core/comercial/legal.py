@@ -43,7 +43,10 @@ class LegalDocumentDefinition:
         moment = at.astimezone(timezone.utc)
         if moment < self.effective_at.astimezone(timezone.utc):
             return False
-        if self.expires_at is not None and moment >= self.expires_at.astimezone(timezone.utc):
+        if (
+            self.expires_at is not None
+            and moment >= self.expires_at.astimezone(timezone.utc)
+        ):
             return False
         return True
 
@@ -101,7 +104,8 @@ def _read_content(definition: LegalDocumentDefinition) -> str:
     path = _repo_root() / definition.repository_path
     if not path.is_file():
         raise RuntimeError(
-            f"legal_document_missing:{definition.document_type.value}:{definition.version}"
+            "legal_document_missing:"
+            f"{definition.document_type.value}:{definition.version}"
         )
     return path.read_text(encoding="utf-8")
 
@@ -130,11 +134,15 @@ def active_legal_documents(
         candidates = [
             definition
             for definition in LEGAL_DOCUMENT_VERSIONS
-            if definition.document_type is document_type and definition.is_active(moment)
+            if (
+                definition.document_type is document_type
+                and definition.is_active(moment)
+            )
         ]
         if len(candidates) != 1:
             raise RuntimeError(
-                f"legal_document_active_version_invalid:{document_type.value}:{len(candidates)}"
+                "legal_document_active_version_invalid:"
+                f"{document_type.value}:{len(candidates)}"
             )
         resolved.append(_snapshot(candidates[0]))
     return tuple(resolved)
