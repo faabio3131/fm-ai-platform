@@ -140,7 +140,10 @@ def build_public_signup_router(
                 segment=payload.segment,
                 terms_accepted=payload.terms_accepted,
                 legal_documents={
-                    key: claim.model_dump()
+                    key: {
+                        "version": claim.version,
+                        "sha256": claim.sha256,
+                    }
                     for key, claim in payload.legal_documents.items()
                 },
                 consent_json=payload.consents,
