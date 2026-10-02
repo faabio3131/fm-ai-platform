@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from application.commercial_provisioning import AplicacaoProvisioningKordenaV1
 from core.comercial.erros import DadoComercialInvalido, RegistroComercialDuplicado
+from core.comercial.legal import validate_legal_acceptance_claims
 from core.comercial.signup import EstadoSignup, SignupIntent
 from core.seguranca.segredos import SecretStore
 from infra.comercial.modelos_orm import CommercialAuditORM
@@ -113,12 +114,14 @@ class AplicacaoPublicSignupV1:
         establishment_name: str,
         segment: str,
         terms_accepted: bool,
+        legal_documents: dict[str, dict[str, str]],
         consent_json: dict[str, bool],
         correlation_id: str,
     ) -> SignupCreationResult:
         email = _normalize_email(owner_email)
         if not terms_accepted:
             raise DadoComercialInvalido("signup_terms_required")
+        legal_snapshots = validate_legal_acceptance_claims(legal_documents)
         name = _clean(owner_name, field="owner_name", max_length=255)
         establishment = _clean(
             establishment_name, field="establishment_name", max_length=255
@@ -186,6 +189,45 @@ class AplicacaoPublicSignupV1:
                         correlation_id=signup.correlation_id,
                         causation_id=None,
                         metadata_safe={"status": signup.status.value},
+                        timestamp=now,
+                    )
+                )
+                for document in legal_snapshots:
+                    session.add(
+                        CommercialAuditORM(
+                            audit_id=str(uuid4()),
+                            actor_user_id="public-signup-v1",
+                            action=f"commercial.legal.{document.acceptance_action.value}",
+                            aggregate_type="public_signup",
+                            aggregate_id=signup.signup_id,
+                            result="success",
+                            reason="Kordena V1 legal document trail",
+                            correlation_id=signup.correlation_id,
+                            causation_id=None,
+                            metadata_safe={
+                                "document_type": document.document_type.value,
+                                "document_version": document.version,
+                                "document_sha256": document.content_sha256,
+                                "public_path": document.public_path,
+                                "acceptance_action": document.acceptance_action.value,
+                            },
+                            timestamp=now,
+                        )
+                    )
+                session.add(
+                    CommercialAuditORM(
+                        audit_id=str(uuid4()),
+                        actor_user_id="public-signup-v1",
+                        action="commercial.signup.optional_consent.recorded",
+                        aggregate_type="public_signup",
+                        aggregate_id=signup.signup_id,
+                        result="success",
+                        reason="Kordena V1 optional consent trail",
+                        correlation_id=signup.correlation_id,
+                        causation_id=None,
+                        metadata_safe={
+                            "marketing": bool(consent_json.get("marketing", False)),
+                        },
                         timestamp=now,
                     )
                 )
