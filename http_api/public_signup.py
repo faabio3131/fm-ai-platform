@@ -35,6 +35,13 @@ class VerificationDispatcher(Protocol):
     ) -> None: ...
 
 
+class LegalDocumentClaimIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version: str = Field(min_length=1, max_length=32)
+    sha256: str = Field(min_length=64, max_length=64)
+
+
 class SignupIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -45,6 +52,7 @@ class SignupIn(BaseModel):
     establishment_name: str = Field(min_length=1, max_length=255)
     segment: str = Field(min_length=1, max_length=96)
     terms_accepted: bool
+    legal_documents: dict[str, LegalDocumentClaimIn]
     consents: dict[str, bool] = Field(default_factory=dict)
     website: str = Field(default="", max_length=255)
 
@@ -131,6 +139,10 @@ def build_public_signup_router(
                 establishment_name=payload.establishment_name,
                 segment=payload.segment,
                 terms_accepted=payload.terms_accepted,
+                legal_documents={
+                    key: claim.model_dump()
+                    for key, claim in payload.legal_documents.items()
+                },
                 consent_json=payload.consents,
                 correlation_id=request.headers.get("x-correlation-id")
                 or f"signup:{uuid4()}",
