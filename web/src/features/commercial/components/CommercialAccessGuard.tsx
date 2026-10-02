@@ -16,7 +16,7 @@ import {
 } from "@/features/commercial/services/commercial-access-api";
 import { endAuthSession, useAuthStore } from "@/features/auth/store/auth-store";
 
-const EXEMPT_PATHS = ["/login", "/signup", "/cardapio"] as const;
+const EXEMPT_PATHS = ["/login", "/signup", "/cardapio", "/legal"] as const;
 const SUPPORT_URL = process.env.NEXT_PUBLIC_SUPPORT_URL?.trim() || null;
 
 function isProtectedPath(pathname: string): boolean {
