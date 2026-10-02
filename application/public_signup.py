@@ -201,7 +201,10 @@ class AplicacaoPublicSignupV1:
                         CommercialAuditORM(
                             audit_id=str(uuid4()),
                             actor_user_id="public-signup-v1",
-                            action=f"commercial.legal.{document.acceptance_action.value}",
+                            action=(
+                                "commercial.legal."
+                                f"{document.acceptance_action.value}"
+                            ),
                             aggregate_type="public_signup",
                             aggregate_id=signup.signup_id,
                             result="success",
