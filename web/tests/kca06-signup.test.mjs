@@ -43,7 +43,25 @@ test("KF-08 mantém signup e verificação como superfícies públicas sem shell
   const guard = fs.readFileSync("src/features/auth/components/AuthSessionGuard.tsx", "utf8");
   const shell = fs.readFileSync("src/features/shell/components/UnifiedAppShell.tsx", "utf8");
 
-  assert.match(guard, /PUBLIC_PATHS = \["\/login", "\/signup", "\/cardapio"\]/);
+  assert.match(guard, /PUBLIC_PATHS = \["\/login", "\/signup", "\/cardapio", "\/legal"\]/);
   assert.match(shell, /pathname === "\/signup"/);
   assert.match(shell, /pathname\.startsWith\("\/signup\/"\)/);
+  assert.match(shell, /pathname === "\/legal"/);
+  assert.match(shell, /pathname\.startsWith\("\/legal\/"\)/);
+});
+
+test("Legal V1 vincula cadastro a versões e hashes oficiais sem misturar marketing", () => {
+  const legalApi = fs.readFileSync("src/features/legal/services/legal-api.ts", "utf8");
+  const legalPage = fs.readFileSync("src/features/legal/components/PublicLegalDocument.tsx", "utf8");
+
+  assert.match(signup, /getActiveLegalDocuments/);
+  assert.match(signup, /legal_documents: Object\.fromEntries/);
+  assert.match(signup, /Termos de Uso v/);
+  assert.match(signup, /Política de Privacidade v/);
+  assert.match(signup, /DPA v/);
+  assert.match(signup, /comunicações comerciais opcionais/);
+  assert.match(signup, /independente do aceite necessário/);
+  assert.match(api, /legal_documents:/);
+  assert.match(legalApi, /\/v1\/public\/legal\/documents/);
+  assert.match(legalPage, /SHA-256:/);
 });
