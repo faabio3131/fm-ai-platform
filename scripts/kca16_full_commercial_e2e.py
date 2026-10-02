@@ -57,6 +57,7 @@ from core.seguranca.segredos import ReferenceSecretStore, SecretValue
 from http_api.frontend_app import build_frontend_http_app
 from infra.comercial.billing_events_orm import FMBillingTransactionORM
 from infra.comercial.catalogo_orm import FMCommercialPlanORM
+from infra.comercial.modelos_orm import CommercialAuditORM
 from infra.comercial.provisioning_orm import FMCommercialProvisioningSagaORM
 from infra.comercial.signup_orm import FMPublicSignupIntentORM
 from infra.comercial.subscription_orm import FMCommercialSubscriptionORM
@@ -477,6 +478,44 @@ def run(output: Path) -> None:
         trial_ends_at = trial.ends_at
         assert trial_ends_at is not None
 
+        legal_events = list(
+            session.scalars(
+                select(CommercialAuditORM)
+                .where(
+                    CommercialAuditORM.aggregate_type == "public_signup",
+                    CommercialAuditORM.aggregate_id == signup_id,
+                    CommercialAuditORM.action.in_(
+                        (
+                            "commercial.legal.accepted",
+                            "commercial.legal.acknowledged",
+                            "commercial.legal.incorporated",
+                        )
+                    ),
+                )
+                .order_by(CommercialAuditORM.timestamp.asc())
+            )
+        )
+        assert len(legal_events) == 3
+        assert {
+            str(row.metadata_safe["document_type"])
+            for row in legal_events
+        } == {"terms", "privacy", "dpa"}
+        legal_acceptance_evidence = [
+            {
+                "signup_id": signup_id,
+                "correlation_id": row.correlation_id,
+                "action": row.action,
+                "document_type": str(row.metadata_safe["document_type"]),
+                "version": str(row.metadata_safe["document_version"]),
+                "sha256": str(row.metadata_safe["document_sha256"]),
+                "acceptance_action": str(
+                    row.metadata_safe["acceptance_action"]
+                ),
+                "recorded_at": row.timestamp.isoformat(),
+            }
+            for row in legal_events
+        ]
+
     login = client.post("/v1/auth/login", json={"email": EMAIL, "senha": PASSWORD})
     assert login.status_code == 200, login.text
     me = client.get("/v1/auth/me")
@@ -642,6 +681,7 @@ def run(output: Path) -> None:
         "fm_ai_test_mode": False,
         "journey": {
             "signup": "pass",
+            "legal_versioning_acceptance": "pass",
             "email_verification": "pass",
             "customer_product_account": "pass",
             "tenant_company_unit_membership": "pass",
@@ -664,6 +704,7 @@ def run(output: Path) -> None:
             "observability_updated": "pass",
             "logout": "pass",
         },
+        "legal_acceptance": legal_acceptance_evidence,
         "billing_real_used": False,
         "provider": PROVIDER_CODE,
         "tenant_id": tenant_id,
