@@ -11,8 +11,8 @@ from sqlalchemy.pool import StaticPool
 from core.comercial.legal import active_legal_acceptance_claims
 from core.runtime.config import RuntimeEnvironment, RuntimeSettings
 from core.seguranca.segredos import ReferenceSecretStore
-from infra.comercial.catalogo_orm import FMCommercialPlanORM, FMCommercialPlanVersionORM
 from http_api.frontend_app import build_frontend_http_app
+from infra.comercial.catalogo_orm import FMCommercialPlanORM, FMCommercialPlanVersionORM
 from migrations.runner import run_migrations
 
 KEY = "obShALmcxtf1vGcUP3xIs6mVnxov9bHzsOSQ_r9SXI4="
