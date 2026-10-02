@@ -8,6 +8,7 @@ on:
       - "http_api/public_legal.py"
       - "http_api/public_signup.py"
       - "http_api/frontend_app.py"
+      - "scripts/kca16_full_commercial_e2e.py"
       - "docs/legal/**"
       - "docs/finalization/KORDENA_LEGAL_VERSIONING_ACCEPTANCE_V1.md"
       - "tests/unit/comercial/test_legal_documents.py"
@@ -51,7 +52,7 @@ jobs:
 
       - name: Compile legal and signup surfaces
         run: |
-          python -m compileall -q application/public_signup.py core/comercial/legal.py http_api/public_legal.py http_api/public_signup.py http_api/frontend_app.py
+          python -m compileall -q application/public_signup.py core/comercial/legal.py http_api/public_legal.py http_api/public_signup.py http_api/frontend_app.py scripts/kca16_full_commercial_e2e.py
 
       - name: Ruff legal and signup surfaces
         run: |
