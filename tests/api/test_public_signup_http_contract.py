@@ -133,6 +133,16 @@ def test_signup_verifica_email_e_provisiona() -> None:
     assert replay.status_code == 400
 
 
+def test_signup_sem_aceite_obrigatorio_nao_avanca() -> None:
+    client, dispatcher = _client(enabled=True)
+    payload = _payload("no-terms@example.com")
+    payload["terms_accepted"] = False
+    response = client.post("/v1/public/signup", json=payload)
+    assert response.status_code == 422
+    assert response.json()["erro"] == "signup_terms_required"
+    assert dispatcher.sent == []
+
+
 def test_signup_rejeita_versao_juridica_divergente() -> None:
     client, dispatcher = _client(enabled=True)
     payload = _payload("stale-legal@example.com")
