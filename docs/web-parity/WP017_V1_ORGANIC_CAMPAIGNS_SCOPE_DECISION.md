@@ -1,8 +1,8 @@
 # WP-017 — Decisão de Escopo V1: Campanhas Orgânicas
 
-**Status:** CONCLUÍDO / CERTIFIED PARA A V1  
-**Data da decisão:** 02/10/2026  
-**Produto:** Kordena  
+**Status:** CONCLUÍDO / CERTIFIED PARA A V1
+**Data da decisão:** 02/10/2026
+**Produto:** Kordena
 **Work Package:** WP-017 — Marketing / Resgate / Campanhas
 
 ## 1. Decisão executiva
