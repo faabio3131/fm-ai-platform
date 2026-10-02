@@ -1,6 +1,6 @@
 # Kordena V1 — Legal Versioning & Acceptance Trail
 
-**Estado:** IMPLEMENTADO — aguardando certificação da PR  
+**Estado:** IMPLEMENTADO — aguardando certificação da PR
 **Data:** 02/10/2026
 
 ## Autoridade
