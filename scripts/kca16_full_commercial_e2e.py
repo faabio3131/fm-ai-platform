@@ -49,6 +49,7 @@ from core.comercial.billing_events import (
     NormalizedBillingEvent,
 )
 from core.comercial.catalogo import PoliticaMudancaPreco
+from core.comercial.legal import active_legal_acceptance_claims
 from core.runtime.config import RuntimeEnvironment, RuntimeSettings
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import Papel, Permissao
@@ -434,6 +435,7 @@ def run(output: Path) -> None:
             "establishment_name": "Restaurante KCA-16",
             "segment": "restaurante",
             "terms_accepted": True,
+            "legal_documents": active_legal_acceptance_claims(),
             "consents": {"marketing": False},
         },
     )
