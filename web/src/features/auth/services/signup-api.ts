@@ -10,6 +10,7 @@ export interface SignupInput {
   establishment_name: string;
   segment: string;
   terms_accepted: boolean;
+  legal_documents: Record<string, { version: string; sha256: string }>;
   consents: Record<string, boolean>;
 }
 
