@@ -43,12 +43,10 @@ class LegalDocumentDefinition:
         moment = at.astimezone(timezone.utc)
         if moment < self.effective_at.astimezone(timezone.utc):
             return False
-        if (
+        return not (
             self.expires_at is not None
             and moment >= self.expires_at.astimezone(timezone.utc)
-        ):
-            return False
-        return True
+        )
 
 
 @dataclass(frozen=True, kw_only=True)
