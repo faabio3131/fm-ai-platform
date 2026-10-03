@@ -364,7 +364,7 @@ def test_provider_account_supports_pf_and_pj_without_storing_document() -> None:
     assert pj.legal_entity_ref == "company-profile-pj"
 
 
-def test_production_provider_cannot_activate_without_holder_profile() -> None:
+def test_production_provider_cannot_activate_without_holder_type() -> None:
     provider = FakeConfigProvider("PROVIDER_ALPHA")
     _, _, app = _infra(provider)
 
@@ -391,7 +391,7 @@ def test_production_provider_cannot_activate_without_holder_profile() -> None:
 
     with pytest.raises(
         DadoComercialInvalido,
-        match="production_legal_entity_required",
+        match="production_legal_entity_type_required",
     ):
         app.transicionar_provider_account(
             contexto=_context(),
