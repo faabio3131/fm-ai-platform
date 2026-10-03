@@ -287,6 +287,23 @@ class PedidosInternosMarketplaceSQLAlchemy:
             },
         )
 
+    def sincronizar_logistica_marketplace(
+        self,
+        *,
+        tenant_id: str,
+        unidade_id: str,
+        pedido_id: str,
+        snapshot: PedidoMarketplaceSnapshot,
+        idempotency_key: str,
+    ) -> None:
+        self._garantir_entrega_marketplace(
+            tenant_id=tenant_id,
+            unidade_id=unidade_id,
+            pedido_id=pedido_id,
+            snapshot=snapshot,
+            idempotency_key=idempotency_key,
+        )
+
     def criar_ou_obter(
         self,
         *,
