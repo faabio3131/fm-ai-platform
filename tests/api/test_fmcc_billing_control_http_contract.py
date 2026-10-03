@@ -327,7 +327,7 @@ def test_command_billing_can_activate_and_route_configured_product(
     )
 
 
-def test_command_billing_production_activation_fails_without_pf_pj_profile(
+def test_command_billing_production_activation_fails_without_pf_pj_type(
     monkeypatch,
 ) -> None:
     client, _factory, _provider = _client(monkeypatch)
@@ -382,5 +382,5 @@ def test_command_billing_production_activation_fails_without_pf_pj_profile(
     assert activated.status_code == 400
     assert (
         activated.json()["error"]
-        == "billing_provider_production_legal_entity_required"
+        == "billing_provider_production_legal_entity_type_required"
     )
