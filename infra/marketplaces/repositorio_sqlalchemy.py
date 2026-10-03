@@ -23,11 +23,19 @@ from core.dominio.ids import (
 )
 from core.dominio.pedidos import ItemPedido, Pedido
 from core.dominio.tipos import QuantidadeItem
+from core.entrega import (
+    Entrega,
+    ModalidadeEntrega,
+    RepositorioEntregaSQLAlchemy,
+    ServicoEntrega,
+    StatusEntrega,
+)
 from core.marketplaces.erros import ErroMarketplace
 from core.marketplaces.modelos import (
     PedidoExterno,
     PedidoMarketplaceSnapshot,
     PlataformaMarketplace,
+    ResponsavelEntregaMarketplace,
     StatusPedidoExterno,
 )
 from core.marketplaces.repositorios import RepositorioPedidosExternos
@@ -175,6 +183,79 @@ class PedidosInternosMarketplaceSQLAlchemy:
             ),
         )
 
+    def _garantir_entrega_marketplace(
+        self,
+        *,
+        tenant_id: str,
+        unidade_id: str,
+        pedido_id: str,
+        snapshot: PedidoMarketplaceSnapshot,
+        idempotency_key: str,
+    ) -> None:
+        """Converge todo pedido DELIVERY do marketplace para a Expedição canônica."""
+
+        if snapshot.order_type != "DELIVERY":
+            return
+
+        repositorio = RepositorioEntregaSQLAlchemy(self._session)
+        if repositorio.buscar_por_pedido(tenant_id, unidade_id, pedido_id) is not None:
+            return
+
+        modalidade = {
+            ResponsavelEntregaMarketplace.MERCHANT: ModalidadeEntrega.PROPRIA,
+            ResponsavelEntregaMarketplace.IFOOD: ModalidadeEntrega.PARCEIRO,
+        }.get(snapshot.delivered_by, ModalidadeEntrega.INDEFINIDA)
+        responsavel = {
+            ModalidadeEntrega.PROPRIA: "loja",
+            ModalidadeEntrega.PARCEIRO: "marketplace",
+            ModalidadeEntrega.INDEFINIDA: "desconhecido",
+        }[modalidade]
+
+        contexto = self._contexto(
+            tenant_id=tenant_id,
+            unidade_id=unidade_id,
+            idempotency_key=f"{idempotency_key}:logistica",
+        )
+        entrega = Entrega(
+            entrega_id=self._id(
+                "mkt-ent",
+                f"{tenant_id}:{unidade_id}:{self._plataforma.value}:{snapshot.id_externo}",
+            ),
+            tenant_id=tenant_id,
+            unidade_id=unidade_id,
+            pedido_id=pedido_id,
+            endereco_id=self._id(
+                "mkt-end",
+                f"{self._plataforma.value}:{snapshot.id_externo}",
+            ),
+            modalidade=modalidade,
+            status=StatusEntrega.AGUARDANDO_PRODUCAO,
+            versao=1,
+        )
+        ServicoEntrega(
+            repositorio,
+            financeiro_resolvido=lambda *_: False,
+            pedido_cancelado=lambda *_: False,
+        ).criar(
+            entrega,
+            contexto=contexto,
+            idempotency_key=f"marketplace:entrega:{self._plataforma.value}:{snapshot.id_externo}",
+            metadata_origem={
+                "canal_origem": self._plataforma.value,
+                "pedido_externo_id": snapshot.id_externo,
+                "order_type": snapshot.order_type,
+                "delivery_mode": snapshot.delivery_mode or "UNKNOWN",
+                "delivered_by": snapshot.delivered_by.value,
+                "responsavel_original": responsavel,
+                "autoridade_logistica": self._plataforma.value,
+                "delivery_datetime": (
+                    snapshot.delivery_datetime.isoformat()
+                    if snapshot.delivery_datetime is not None
+                    else None
+                ),
+            },
+        )
+
     def criar_ou_obter(
         self,
         *,
@@ -190,6 +271,13 @@ class PedidosInternosMarketplaceSQLAlchemy:
         chave = IdempotencyKey(idempotency_key)
         existente = self._pedidos.buscar_por_idempotencia(tenant, unidade, chave)
         if existente is not None:
+            self._garantir_entrega_marketplace(
+                tenant_id=tenant_id,
+                unidade_id=unidade_id,
+                pedido_id=str(existente.id),
+                snapshot=snapshot,
+                idempotency_key=idempotency_key,
+            )
             return str(existente.id), True
 
         itens: list[ItemPedido] = []
@@ -258,6 +346,13 @@ class PedidosInternosMarketplaceSQLAlchemy:
             repositorio=self._pedidos,
             outbox=self._outbox,
             auditoria=self._auditoria,
+        )
+        self._garantir_entrega_marketplace(
+            tenant_id=tenant_id,
+            unidade_id=unidade_id,
+            pedido_id=str(resultado.pedido.id),
+            snapshot=snapshot,
+            idempotency_key=idempotency_key,
         )
         return str(resultado.pedido.id), resultado.idempotente
 
