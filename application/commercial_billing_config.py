@@ -651,6 +651,17 @@ class AplicacaoBillingConfigurationV1:
                 status,
                 last_test_status=current.last_test_status,
             )
+            if (
+                status == BillingProviderAccountStatus.ACTIVE
+                and current.environment == BillingEnvironment.PRODUCTION
+                and (
+                    current.legal_entity_type is None
+                    or not (current.legal_entity_ref or "").strip()
+                )
+            ):
+                raise DadoComercialInvalido(
+                    "billing_provider_production_legal_entity_required"
+                )
             updated = repo.atualizar_provider_account(
                 provider_account_id=account_id,
                 expected_version=expected_version,
