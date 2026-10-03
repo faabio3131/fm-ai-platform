@@ -137,18 +137,18 @@ def _validate_linked_identity(connection: Connection) -> None:
             text(
                 f"""
                 SELECT COUNT(*)
-                FROM {_TRANSACTION_TABLE} AS transaction
+                FROM {_TRANSACTION_TABLE} AS tx
                 JOIN {_SUBSCRIPTION_TABLE} AS subscription
-                  ON subscription.subscription_id = transaction.subscription_id
+                  ON subscription.subscription_id = tx.subscription_id
                 JOIN {_PRODUCT_ACCOUNT_TABLE} AS account
                   ON account.product_account_id = subscription.product_account_id
-                WHERE transaction.fm_customer_id IS NOT NULL
+                WHERE tx.fm_customer_id IS NOT NULL
                   AND (
-                    transaction.fm_customer_id <> subscription.fm_customer_id
-                    OR transaction.product_account_id <>
+                    tx.fm_customer_id <> subscription.fm_customer_id
+                    OR tx.product_account_id <>
                        subscription.product_account_id
-                    OR transaction.tenant_id <> subscription.tenant_id
-                    OR transaction.product_code <> account.product_code
+                    OR tx.tenant_id <> subscription.tenant_id
+                    OR tx.product_code <> account.product_code
                   )
                 """
             )
