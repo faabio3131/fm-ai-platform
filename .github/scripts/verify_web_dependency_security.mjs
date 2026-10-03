@@ -156,7 +156,8 @@ for (const exception of exceptions) {
   const stillObserved = accepted.some((item) =>
     item.roots.some((rootAdvisory) =>
       rootAdvisory.package === exception.package &&
-      rootAdvisory.advisory_id === exception.advisory_id
+      String(rootAdvisory.advisory_id || "").toUpperCase() ===
+        String(exception.advisory_id || "").toUpperCase()
     )
   );
   if (!stillObserved) {
