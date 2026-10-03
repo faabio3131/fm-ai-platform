@@ -163,6 +163,23 @@ class FMBillingTransactionORM(BillingEventsBase):
             "reconciliation_status",
             "last_reconciled_at",
         ),
+        Index(
+            "ix_fm_billing_tx_customer_product_v1",
+            "fm_customer_id",
+            "product_code",
+            "updated_at",
+        ),
+        Index(
+            "ix_fm_billing_tx_product_account_v1",
+            "product_account_id",
+            "updated_at",
+        ),
+        Index(
+            "ix_fm_billing_tx_tenant_product_v1",
+            "tenant_id",
+            "product_code",
+            "updated_at",
+        ),
     )
 
     billing_transaction_id: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -170,6 +187,10 @@ class FMBillingTransactionORM(BillingEventsBase):
     provider_code: Mapped[str] = mapped_column(String(64), nullable=False)
     external_transaction_ref: Mapped[str] = mapped_column(String(255), nullable=False)
     subscription_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    fm_customer_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    product_account_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    product_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    tenant_id: Mapped[str | None] = mapped_column(String(64), index=True)
     transaction_type: Mapped[str] = mapped_column(String(32), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
