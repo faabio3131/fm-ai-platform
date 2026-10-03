@@ -65,6 +65,9 @@ from migrations.cardapio_publico_identity_v1 import upgrade_cardapio_publico_ide
 from migrations.client_payment_identity_v1 import upgrade_client_payment_identity_v1
 from migrations.commercial_billing_config_v1 import upgrade_commercial_billing_config_v1
 from migrations.commercial_billing_events_v1 import upgrade_commercial_billing_events_v1
+from migrations.commercial_billing_transaction_identity_v1 import (
+    upgrade_commercial_billing_transaction_identity_v1,
+)
 from migrations.commercial_catalog_v1 import upgrade_commercial_catalog_v1
 from migrations.commercial_entitlement_v1 import upgrade_commercial_entitlement_v1
 from migrations.commercial_provisioning_v1 import upgrade_commercial_provisioning_v1
@@ -401,6 +404,10 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         "0060_admin_unit_legacy_store_reconciliation_v1",
         upgrade_admin_unit_legacy_store_reconciliation_v1,
+    ),
+    Migration(
+        "0061_commercial_billing_transaction_identity_v1",
+        upgrade_commercial_billing_transaction_identity_v1,
     ),
 )
 
