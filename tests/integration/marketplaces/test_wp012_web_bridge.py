@@ -9,12 +9,14 @@ from sqlalchemy.pool import StaticPool
 
 from core.dominio.enums import PedidoStatus
 from core.dominio.ids import PedidoId, TenantId, UnidadeId
+from core.entrega import DeliveryBase, ModalidadeEntrega, RepositorioEntregaSQLAlchemy
 from core.integracoes.catalogo import CATALOGO_V1
 from core.marketplaces.modelos import (
     ItemMarketplace,
     PedidoExterno,
     PedidoMarketplaceSnapshot,
     PlataformaMarketplace,
+    ResponsavelEntregaMarketplace,
     StatusPedidoExterno,
 )
 from core.pedidos.adaptador_sqlalchemy import RepositorioPedidosSQLAlchemy
@@ -44,6 +46,7 @@ def _factory():
     OrdersBase.metadata.create_all(engine)
     EventBusBase.metadata.create_all(engine)
     CoreRuntimeBase.metadata.create_all(engine)
+    DeliveryBase.metadata.create_all(engine)
     MarketplaceBase.metadata.create_all(engine)
     return sessionmaker(bind=engine, expire_on_commit=False)
 
@@ -206,3 +209,99 @@ def test_vinculo_externo_e_isolado_por_unidade() -> None:
             integracao_id=pedido.integracao_id,
             id_externo=pedido.id_externo,
         ) == pedido
+
+
+def test_marketplace_delivery_converge_para_expedicao_com_responsabilidade_ifood() -> None:
+    factory = _factory()
+    snapshot = PedidoMarketplaceSnapshot(
+        id_externo="ifood-delivery-1",
+        merchant_id="merchant-1",
+        status=StatusPedidoExterno.CONFIRMADO,
+        total=Decimal("42.00"),
+        itens=(
+            ItemMarketplace(
+                item_id_externo="item-delivery-1",
+                sku="SKU-1",
+                nome="Combo delivery",
+                quantidade=Decimal(1),
+                preco_unitario=Decimal("42.00"),
+            ),
+        ),
+        atualizado_em=AGORA,
+        order_type="DELIVERY",
+        delivery_mode="DEFAULT",
+        delivered_by=ResponsavelEntregaMarketplace.IFOOD,
+    )
+
+    with factory() as session:
+        adapter = PedidosInternosMarketplaceSQLAlchemy(
+            session,
+            plataforma=PlataformaMarketplace.IFOOD,
+        )
+        pedido_id, _ = adapter.criar_ou_obter(
+            tenant_id=TENANT,
+            unidade_id=UNIDADE,
+            integracao_id="marketplace.pedidos--ifood",
+            snapshot=snapshot,
+            idempotency_key="marketplace:pedido:ifood:delivery-1",
+        )
+
+        entrega = RepositorioEntregaSQLAlchemy(session).buscar_por_pedido(
+            TENANT,
+            UNIDADE,
+            pedido_id,
+        )
+        assert entrega is not None
+        assert entrega.modalidade is ModalidadeEntrega.PARCEIRO
+        eventos = RepositorioEntregaSQLAlchemy(session).listar_eventos(
+            TENANT,
+            UNIDADE,
+            entrega.entrega_id,
+        )
+        assert eventos[0].tipo == "entrega.criada"
+        assert eventos[0].payload_seguro["canal_origem"] == "ifood"
+        assert eventos[0].payload_seguro["delivered_by"] == "IFOOD"
+        assert eventos[0].payload_seguro["responsavel_original"] == "marketplace"
+
+
+def test_marketplace_delivery_merchant_converge_para_entrega_propria() -> None:
+    factory = _factory()
+    snapshot = PedidoMarketplaceSnapshot(
+        id_externo="ifood-delivery-merchant-1",
+        merchant_id="merchant-1",
+        status=StatusPedidoExterno.CONFIRMADO,
+        total=Decimal("35.00"),
+        itens=(
+            ItemMarketplace(
+                item_id_externo="item-delivery-merchant-1",
+                sku="SKU-2",
+                nome="Pizza",
+                quantidade=Decimal(1),
+                preco_unitario=Decimal("35.00"),
+            ),
+        ),
+        atualizado_em=AGORA,
+        order_type="DELIVERY",
+        delivery_mode="DEFAULT",
+        delivered_by=ResponsavelEntregaMarketplace.MERCHANT,
+    )
+
+    with factory() as session:
+        adapter = PedidosInternosMarketplaceSQLAlchemy(
+            session,
+            plataforma=PlataformaMarketplace.IFOOD,
+        )
+        pedido_id, _ = adapter.criar_ou_obter(
+            tenant_id=TENANT,
+            unidade_id=UNIDADE,
+            integracao_id="marketplace.pedidos--ifood",
+            snapshot=snapshot,
+            idempotency_key="marketplace:pedido:ifood:delivery-merchant-1",
+        )
+        entrega = RepositorioEntregaSQLAlchemy(session).buscar_por_pedido(
+            TENANT,
+            UNIDADE,
+            pedido_id,
+        )
+        assert entrega is not None
+        assert entrega.modalidade is ModalidadeEntrega.PROPRIA
