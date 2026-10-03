@@ -14,6 +14,7 @@ from core.comercial.billing import BillingConnectionTestResult
 from core.comercial.billing_config import (
     BillingConnectionTestStatus,
     BillingEnvironment,
+    BillingLegalEntityType,
     BillingPaymentMethod,
     BillingProviderAccountStatus,
 )
@@ -120,7 +121,8 @@ def _create_account(
         idempotency_key=key,
         provider_code=provider_code,
         display_name=f"Conta {provider_code}",
-        legal_entity_ref=None,
+        legal_entity_type=BillingLegalEntityType.INDIVIDUAL,
+        legal_entity_ref="fm-owner-profile-test",
         environment=environment,
         credential_secret_reference=secret_ref,
         supported_payment_methods=methods,
