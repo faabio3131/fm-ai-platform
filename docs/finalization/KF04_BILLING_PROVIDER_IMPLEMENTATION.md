@@ -137,6 +137,52 @@ diferentes usam o mesmo provider ou a mesma conta bancária da FM.
 - períodos de cobrança desconhecidos falham fechado;
 - nenhuma credencial real incluída no repositório.
 
+## Configuração futura no Command
+
+A conta recebedora da FM permanece deliberadamente não configurada nesta PR.
+Nenhum dado bancário, CPF, CNPJ, Access Token ou Webhook Secret real foi
+incluído.
+
+O Command passa a expor uma fronteira privada para configuração governada:
+
+```text
+/v1/control-plane/fmcc/billing
+```
+
+A configuração é provider-neutral e orientada pelo registry runtime. O próprio
+adapter publica os campos de credencial necessários, evitando hardcode da UI
+para um fornecedor específico.
+
+Para o Mercado Pago Subscriptions, os campos atuais são apresentados pelo
+adapter como:
+
+- Access Token;
+- Webhook Secret.
+
+A interface administrativa deve permitir selecionar:
+
+- provider disponível;
+- titular **Pessoa Física (PF)** ou **Pessoa Jurídica (PJ)**;
+- ambiente sandbox/produção;
+- formas de pagamento;
+- recorrência;
+- webhooks;
+- prioridade/routing.
+
+Credenciais são armazenadas somente pelo fluxo cifrado de Vault. A UI/API retorna
+apenas `credential_configured=true/false`, nunca o segredo resolvido.
+
+Uma provider account de produção pode permanecer em `DRAFT` ou
+`VALIDATING` sem os dados externos. A promoção a `ACTIVE` exige:
+
+1. tipo de titular PF/PJ explícito;
+2. credencial configurada;
+3. connection test válido;
+4. transição governada de status.
+
+`legal_entity_ref` é opcional até existir um perfil jurídico canônico. Não se
+inventa identificador para preencher a configuração.
+
 ## Estado externo
 
 Este bloco técnico **não** promove o gate final:
