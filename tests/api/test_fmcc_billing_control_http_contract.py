@@ -100,6 +100,26 @@ def _create_body(*, holder_type: str, holder_ref: str) -> dict:
     }
 
 
+def test_command_billing_configuration_options_are_provider_driven(
+    monkeypatch,
+) -> None:
+    client, _factory, _provider = _client(monkeypatch)
+
+    response = client.get(
+        "/v1/control-plane/fmcc/billing/configuration-options",
+        headers=_headers(),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["provider_codes"] == ["PROVIDER_TEST"]
+    assert response.json()["legal_entity_types"] == [
+        {"value": "individual", "label": "Pessoa Física"},
+        {"value": "company", "label": "Pessoa Jurídica"},
+    ]
+    assert "pix" in response.json()["payment_methods"]
+    assert "production" in response.json()["environments"]
+
+
 def test_command_billing_requires_service_auth(monkeypatch) -> None:
     client, _factory, _provider = _client(monkeypatch)
 
