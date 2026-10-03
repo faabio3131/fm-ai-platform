@@ -36,9 +36,11 @@ from infra.comercial.billing_config_orm import FMBillingProviderAccountORM
 from infra.comercial.billing_payload_crypto import BillingWebhookPayloadCipher
 from infra.comercial.billing_events_orm import (
     FMBillingReconciliationRunORM,
+    FMBillingSubscriptionBindingORM,
     FMBillingTransactionORM,
     FMBillingWebhookInboxORM,
 )
+from infra.comercial.modelos_orm import FMCustomerORM, FMProductAccountORM
 from infra.comercial.subscription_orm import FMCommercialSubscriptionORM
 from migrations.runner import run_migrations
 
@@ -46,6 +48,8 @@ from migrations.runner import run_migrations
 NOW = datetime(2026, 9, 22, 21, 45, tzinfo=timezone.utc)
 ACCOUNT_ID = "billing-provider-account-test"
 SUBSCRIPTION_ID = "subscription-kca10-test"
+PAYMENT_SUBSCRIPTION_ID = "subscription-kca10-payment"
+PAYMENT_EXTERNAL_SUBSCRIPTION_REF = "external-sub-kca10-payment"
 
 
 class FakeBillingProviderKCA10:
@@ -197,6 +201,79 @@ def _infra(*, max_attempts: int = 5):
                 updated_at=NOW,
             )
         )
+        session.add(
+            FMCustomerORM(
+                fm_customer_id="customer-kca10-payment",
+                customer_code="KCA10PAY",
+                display_name="Cliente Billing KCA10",
+                legal_name=None,
+                status="active",
+                account_class="paid",
+                primary_contact_email="billing-kca10@example.com",
+                primary_contact_phone=None,
+                created_by="test",
+                updated_by="test",
+                version=1,
+                created_at=NOW,
+                updated_at=NOW,
+            )
+        )
+        session.add(
+            FMProductAccountORM(
+                product_account_id="product-account-kca10-payment",
+                fm_customer_id="customer-kca10-payment",
+                product_code="KORDENA",
+                product_tenant_id="tenant-kca10-payment",
+                status="active",
+                created_by="test",
+                updated_by="test",
+                version=1,
+                created_at=NOW,
+                updated_at=NOW,
+                activated_at=NOW,
+                suspended_at=None,
+                closed_at=None,
+            )
+        )
+        session.add(
+            FMCommercialSubscriptionORM(
+                subscription_id=PAYMENT_SUBSCRIPTION_ID,
+                fm_customer_id="customer-kca10-payment",
+                product_account_id="product-account-kca10-payment",
+                tenant_id="tenant-kca10-payment",
+                plan_code="KORDENA_PLAN_A",
+                plan_version_id="plan-version-kca10-payment",
+                price_id="price-kca10-payment",
+                currency="BRL",
+                billing_period="monthly",
+                contracted_amount=Decimal("99.90"),
+                status="active",
+                current_period_start=NOW,
+                current_period_end=NOW + timedelta(days=30),
+                cancel_at_period_end=False,
+                canceled_at=None,
+                activated_at=NOW,
+                suspended_at=None,
+                version=1,
+                correlation_id="corr-subscription-payment",
+                created_at=NOW,
+                updated_at=NOW,
+            )
+        )
+        session.add(
+            FMBillingSubscriptionBindingORM(
+                billing_binding_id="binding-kca10-payment",
+                provider_account_id=ACCOUNT_ID,
+                provider_code=provider.provider_code,
+                subscription_id=PAYMENT_SUBSCRIPTION_ID,
+                external_subscription_ref=PAYMENT_EXTERNAL_SUBSCRIPTION_REF,
+                external_customer_ref="external-customer-kca10-payment",
+                version=1,
+                correlation_id="corr-binding-payment",
+                created_at=NOW,
+                updated_at=NOW,
+            )
+        )
     app = AplicacaoBillingEventsV1(
         factory,
         adapter_registry=registry,
@@ -220,6 +297,11 @@ def _payload(
     amount: str | None = None,
     occurred_at: datetime = NOW,
 ) -> bytes:
+    resolved_subscription_ref = (
+        PAYMENT_EXTERNAL_SUBSCRIPTION_REF
+        if transaction_ref is not None and subscription_ref is None
+        else subscription_ref
+    )
     data = {
         "id": event_id,
         "type": f"fake.{canonical.value}",
@@ -227,7 +309,7 @@ def _payload(
         "occurred_at": occurred_at.isoformat(),
         "sequence": sequence,
         "transaction_ref": transaction_ref,
-        "subscription_ref": subscription_ref,
+        "subscription_ref": resolved_subscription_ref,
         "amount": amount,
         "currency": "BRL" if amount is not None else None,
     }
