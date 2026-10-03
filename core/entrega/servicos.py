@@ -16,6 +16,7 @@ from .erros import ErroEntrega
 from .modelos import (
     ChecklistExpedicao,
     Entrega,
+    ModalidadeEntrega,
     ProvaEntrega,
     StatusEntrega,
     TentativaEntrega,
@@ -101,6 +102,7 @@ class ServicoEntrega:
         *,
         contexto: ContextoExecucao,
         idempotency_key: str,
+        metadata_origem: Mapping[str, object] | None = None,
     ) -> Entrega:
         _autorizar_expedicao(contexto, f"entrega:{entrega.entrega_id}")
         self._validar_escopo(entrega, contexto)
@@ -125,7 +127,10 @@ class ServicoEntrega:
             idempotency_key=idempotency_key,
             fingerprint=fingerprint,
             instante=instante,
-            payload={"modalidade": criada.modalidade.value},
+            payload={
+                "modalidade": criada.modalidade.value,
+                **dict(metadata_origem or {}),
+            },
         )
         return criada
 
@@ -209,25 +214,37 @@ class ServicoEntrega:
         }:
             raise ErroEntrega("transicao_entrega_invalida")
         instante = self._agora()
+        if atual.status is StatusEntrega.AGUARDANDO_EXPEDICAO:
+            destino = {
+                ModalidadeEntrega.PROPRIA: StatusEntrega.AGUARDANDO_ENTREGADOR,
+                ModalidadeEntrega.PARCEIRO: StatusEntrega.AGUARDANDO_COLETA_PARCEIRO,
+                ModalidadeEntrega.INDEFINIDA: StatusEntrega.AGUARDANDO_DEFINICAO_LOGISTICA,
+            }.get(atual.modalidade, StatusEntrega.AGUARDANDO_DEFINICAO_LOGISTICA)
+        else:
+            destino = atual.status
         nova = replace(
             atual,
-            status=(
-                StatusEntrega.AGUARDANDO_ENTREGADOR
-                if atual.status is StatusEntrega.AGUARDANDO_EXPEDICAO
-                else atual.status
-            ),
+            status=destino,
             checklist_concluido_em=instante,
             versao=atual.versao + 1,
         )
+        tipo = {
+            StatusEntrega.AGUARDANDO_ENTREGADOR: "entrega.aguardando_entregador",
+            StatusEntrega.AGUARDANDO_COLETA_PARCEIRO: "entrega.aguardando_coleta_parceiro",
+            StatusEntrega.AGUARDANDO_DEFINICAO_LOGISTICA: "entrega.aguardando_definicao_logistica",
+        }.get(destino, "entrega.checklist_concluido")
         return self._persistir_evento(
             atual,
             nova,
             contexto=contexto,
-            tipo="entrega.aguardando_entregador",
+            tipo=tipo,
             idempotency_key=idempotency_key,
             fingerprint=fingerprint,
             instante=instante,
-            payload={"checklist_completo": True},
+            payload={
+                "checklist_completo": True,
+                "modalidade": atual.modalidade.value,
+            },
         )
 
     def atribuir(
@@ -246,6 +263,8 @@ class ServicoEntrega:
         if not entregador:
             raise ErroEntrega("entregador_invalido")
         atual = self._obter(entrega_id, contexto)
+        if atual.modalidade is not ModalidadeEntrega.PROPRIA:
+            raise ErroEntrega("atribuicao_indisponivel_modalidade")
         dados = {
             "entrega_id": entrega_id,
             "entregador_id": entregador,
