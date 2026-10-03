@@ -68,6 +68,9 @@ from migrations.commercial_billing_events_v1 import upgrade_commercial_billing_e
 from migrations.commercial_billing_transaction_identity_v1 import (
     upgrade_commercial_billing_transaction_identity_v1,
 )
+from migrations.commercial_billing_provider_legal_entity_v1 import (
+    upgrade_commercial_billing_provider_legal_entity_v1,
+)
 from migrations.commercial_catalog_v1 import upgrade_commercial_catalog_v1
 from migrations.commercial_entitlement_v1 import upgrade_commercial_entitlement_v1
 from migrations.commercial_provisioning_v1 import upgrade_commercial_provisioning_v1
@@ -408,6 +411,10 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         "0061_commercial_billing_transaction_identity_v1",
         upgrade_commercial_billing_transaction_identity_v1,
+    ),
+    Migration(
+        "0062_commercial_billing_provider_legal_entity_v1",
+        upgrade_commercial_billing_provider_legal_entity_v1,
     ),
 )
 
