@@ -6,6 +6,7 @@ Canonical schedule:
 `docs/finalization/KORDENA_CRONOGRAMA_MESTRE_FINALIZACAO_V1_COMERCIAL_v2.0.md`
 
 Execution date: 2026-09-30
+Reconciliation date: 2026-10-02
 
 ## PROJECT
 
@@ -35,11 +36,11 @@ No real financial charge is authorized by this block.
 
 ## RESULT
 
-KF-04 is **BLOCKED_EXTERNAL**.
+KF-04 remains **BLOCKED_EXTERNAL**, but the legal blocker identified in the original audit is now closed.
 
-This is not a code-regression result. The internal platform contains substantial commercial infrastructure, but the production provider/account/legal/support evidence required by the Master Schedule is not currently present in the live Kordena runtime.
+This is not a code-regression result. Billing production, transactional e-mail, support readiness and a fresh external-customer baseline still require external/operational evidence.
 
-No missing item is converted into PASS.
+The legal package was implemented and certified after this audit by PR #177 and is reconciled below as PASS. No other missing item is converted into PASS.
 
 ---
 
@@ -158,47 +159,44 @@ Required external evidence:
 
 # 3. Terms / Privacy / LGPD
 
-## What exists
+## Reconciliation after PR #177
 
-The signup backend requires:
+The blocker recorded by the original 2026-09-30 audit was resolved by the versioned legal package and acceptance-trail implementation.
 
-`terms_accepted = true`
+Canonical legal sources:
 
-and accepts a consent map.
+- Terms 1.0: `docs/legal/01_TERMOS_DE_USO_KORDENA_V1.md`;
+- Privacy 1.0: `docs/legal/02_POLITICA_PRIVACIDADE_LGPD_KORDENA_V1.md`;
+- DPA 1.0: `docs/legal/03_DPA_TRATAMENTO_DADOS_KORDENA_V1.md`.
 
-The frontend currently displays a required checkbox:
+Certified behavior:
 
-`Li e aceito os termos aplicáveis ao cadastro.`
+- stable public routes `/legal/termos`, `/legal/privacidade` and `/legal/dpa`;
+- public legal API exposes the ACTIVE version metadata;
+- signup displays and submits the exact active legal versions and SHA-256 hashes;
+- backend recalculates the legal authority and fails closed on missing, nonexistent, expired or mismatched versions/hashes;
+- append-only commercial audit events record document type, version, hash, signup/correlation identifiers and server timestamp;
+- marketing consent remains optional and separate from mandatory legal acceptance.
 
-## Finding
+Certification evidence:
 
-No customer-facing legal route was found under the current Next.js app for:
+- PR #177 HEAD: `58fefed17a3025d72b8355113f6325442c00b8ee`;
+- pre-merge matrix: 15/15 applicable workflows `SUCCESS`, 0 failures;
+- merge SHA: `eac2292cd6699e00552af2a867daaab0f66911e1`;
+- post-merge Vercel: `SUCCESS`;
+- post-merge Railway deployment `acc5cbb9-b61f-4966-8c22-d6135a659af7`: `SUCCESS`.
 
-- Terms of Use;
-- Privacy Policy;
-- LGPD/privacy notice;
-- support/contact policy associated with those documents.
-
-No versioned legal-document identifier is bound to the signup acceptance in the current contract.
-
-Therefore a boolean acceptance exists, but the exact document accepted by a future customer is not yet evidenced/versioned.
+This is a technical/project-governance certification of the approved launch documents and acceptance mechanism. It does not claim an external legal opinion.
 
 ## Status
 
 ```text
-LEGAL_TERMS_READY = BLOCKED_EXTERNAL
+LEGAL_TERMS_READY = PASS
+LEGAL_VERSIONING_PASS = PASS
+LEGAL_ACCEPTANCE_TRAIL_PASS = PASS
+PRIVACY_DISCLOSURE_PASS = PASS
+OPTIONAL_CONSENT_SEPARATION_PASS = PASS
 ```
-
-Required evidence:
-- approved Terms of Use;
-- approved Privacy Policy/LGPD notice;
-- legal-controller/contact identity;
-- document versions/effective dates;
-- frontend routes/links;
-- signup persistence of accepted legal version(s);
-- legal review/approval appropriate for launch jurisdiction.
-
-No legal content is invented by this audit.
 
 ---
 
@@ -311,8 +309,9 @@ It does not currently contain names evidencing production setup for:
 - transactional SMTP;
 - public signup;
 - public web URL for verification;
-- support channel;
-- legal document versions.
+- support channel.
+
+Legal document authority/versioning is repository-backed and was certified by PR #177; it does not depend on a Railway environment-variable name.
 
 Values remain redacted by the connected Railway permission model.
 
@@ -325,6 +324,7 @@ REAL_CHARGE_EXECUTED = NO
 FAKE_BILLING_PASS = NO
 FAKE_EMAIL_PASS = NO
 FAKE_LEGAL_PASS = NO
+LEGAL_EVIDENCE_CERTIFIED = PASS
 FAKE_SUPPORT_PASS = NO
 SECRET_LIKE_ENV_KEY_REMOVED = PASS
 RAILWAY_APP_HEALTH_AFTER_CLEANUP = PASS
@@ -339,7 +339,11 @@ PUBLIC_SIGNUP = OFF / NOT CONFIGURED
 ```text
 BILLING_PRODUCTION_READY = BLOCKED_EXTERNAL
 TRANSACTIONAL_EMAIL_READY = BLOCKED_EXTERNAL
-LEGAL_TERMS_READY = BLOCKED_EXTERNAL
+LEGAL_TERMS_READY = PASS
+LEGAL_VERSIONING_PASS = PASS
+LEGAL_ACCEPTANCE_TRAIL_PASS = PASS
+PRIVACY_DISCLOSURE_PASS = PASS
+OPTIONAL_CONSENT_SEPARATION_PASS = PASS
 SUPPORT_READY = BLOCKED_EXTERNAL
 LIVE_CUSTOMER_BASELINE_KNOWN = BLOCKED_EXTERNAL
 
@@ -356,7 +360,7 @@ This gate must not be promoted to PASS until the missing external evidence exist
 2. Provide/configure its production credentials and webhook registration.
 3. Authorize any real-money verification separately.
 4. Provision transactional e-mail/SMTP and authorize sender/domain.
-5. Approve Terms of Use + Privacy/LGPD content and legal identity/contact.
+5. Legal package/versioned acceptance: CLOSED by PR #171 + PR #177 certification.
 6. Define official support channel and launch support runbook.
 7. Execute a fresh governed external-customer baseline check.
 

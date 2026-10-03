@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "policy": "Web runtime HIGH/CRITICAL vulnerabilities are never allowlisted. Development-only exceptions must resolve to an exact advisory, be absent from the production dependency tree, and expire for mandatory review.",
+  "exceptions": [
+    {
+      "id": "CVE-2026-93687",
+      "advisory_id": "GHSA-vfj7-8cjw-p6xm",
+      "package": "braces",
+      "severity": "high",
+      "scope": "development-only",
+      "reason": "Transitive dependency of the Next.js ESLint toolchain. The production dependency audit must remain clean and the package must be absent from the production tree.",
+      "introduced_at": "2026-10-02",
+      "review_deadline": "2026-10-10",
+      "removal_condition": "Remove immediately when the dependency tree no longer reports the advisory or an upstream patched release can be adopted without reducing security."
+    }
+  ]
+}

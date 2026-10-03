@@ -1,7 +1,9 @@
 # Kordena V1 — Legal Versioning & Acceptance Trail
 
-**Estado:** IMPLEMENTADO — aguardando certificação da PR
+**Estado:** CERTIFICADO — PASS
 **Data:** 02/10/2026
+**PR de implementação/certificação:** #177
+**Merge SHA:** `eac2292cd6699e00552af2a867daaab0f66911e1`
 
 ## Autoridade
 
@@ -40,14 +42,35 @@ Cada evento jurídico preserva signup_id, correlation_id, tipo, versão, SHA-256
 
 Marketing permanece opcional e independente. O backend rejeita chaves desconhecidas em consents para impedir que aceite jurídico seja misturado com consentimento comercial.
 
+## Evidência de certificação
+
+A PR #177 foi certificada no HEAD `58fefed17a3025d72b8355113f6325442c00b8ee` com a matriz aplicável integralmente verde antes do merge:
+
+- 15/15 workflows concluídos com `SUCCESS`;
+- 0 workflows com falha;
+- Kordena Legal Acceptance V1: `SUCCESS`;
+- Kordena KCA16 Full Commercial E2E: `SUCCESS`;
+- Kordena KCA17 Final Readiness: `SUCCESS`;
+- Vercel da PR: `SUCCESS`.
+
+A PR #177 foi mergeada em `staging/kordena-premium` no SHA `eac2292cd6699e00552af2a867daaab0f66911e1`.
+
+No pós-merge do mesmo SHA:
+
+- Vercel: `SUCCESS`;
+- Railway deployment `acc5cbb9-b61f-4966-8c22-d6135a659af7`: `SUCCESS`;
+- branch implantada: `staging/kordena-premium`.
+
+A certificação acima é evidência técnica e operacional do pacote jurídico/versionamento/aceite. Ela não declara parecer jurídico externo por profissional habilitado.
+
 ## Gates
 
-A promoção final exige CI/E2E real:
+```text
+LEGAL_TERMS_READY = PASS
+LEGAL_VERSIONING_PASS = PASS
+LEGAL_ACCEPTANCE_TRAIL_PASS = PASS
+PRIVACY_DISCLOSURE_PASS = PASS
+OPTIONAL_CONSENT_SEPARATION_PASS = PASS
+```
 
-- LEGAL_TERMS_READY
-- LEGAL_VERSIONING_PASS
-- LEGAL_ACCEPTANCE_TRAIL_PASS
-- PRIVACY_DISCLOSURE_PASS
-- OPTIONAL_CONSENT_SEPARATION_PASS
-
-Nenhum gate será marcado PASS sem evidência da PR e do pós-merge.
+Esses gates estão encerrados com evidência da PR #177, do merge e do pós-merge.
