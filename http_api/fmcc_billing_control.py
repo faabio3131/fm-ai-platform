@@ -218,8 +218,22 @@ def build_fmcc_billing_control_router(
         denied = auth(authorization)
         if denied is not None:
             return denied
+        provider_codes = list(adapter_registry.available_provider_codes())
         return {
-            "provider_codes": list(adapter_registry.available_provider_codes()),
+            "provider_codes": provider_codes,
+            "provider_options": [
+                {
+                    "provider_code": code,
+                    "credential_fields": list(
+                        getattr(
+                            adapter_registry.resolve(code),
+                            "credential_schema",
+                            (),
+                        )
+                    ),
+                }
+                for code in provider_codes
+            ],
             "legal_entity_types": [
                 {
                     "value": BillingLegalEntityType.INDIVIDUAL.value,
