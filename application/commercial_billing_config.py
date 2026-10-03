@@ -192,6 +192,11 @@ class AplicacaoBillingConfigurationV1:
         key = _key(idempotency_key)
         code = normalizar_provider_code(provider_code)
         name = _clean(display_name, field="display_name", max_length=128)
+        entity_type = (
+            BillingLegalEntityType(legal_entity_type)
+            if legal_entity_type is not None
+            else None
+        )
         legal_ref = _optional(legal_entity_ref, max_length=128)
         secret_ref = (
             normalizar_secret_reference(credential_secret_reference)
