@@ -1,0 +1,338 @@
+export type ShellModuleGroup = "operacao" | "inteligencia" | "proprietario";
+
+export type ShellModuleIcon =
+  | "dashboard"
+  | "pdv"
+  | "salao"
+  | "garcom"
+  | "kds"
+  | "catalogo"
+  | "estoque"
+  | "crm"
+  | "financeiro"
+  | "ai"
+  | "saude"
+  | "usuarios"
+  | "configuracao"
+  | "impressao"
+  | "integracoes"
+  | "assistente";
+
+export interface ShellModuleDefinition {
+  id: string;
+  label: string;
+  description: string;
+  href: string;
+  group: ShellModuleGroup;
+  icon: ShellModuleIcon;
+  available: boolean;
+  allPermissions?: readonly string[];
+  anyPermissions?: readonly string[];
+}
+
+export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
+  {
+    id: "pdv",
+    label: "PDV Touch",
+    description: "Balcão, caixa e finalização de pedidos.",
+    href: "/pdv",
+    group: "operacao",
+    icon: "pdv",
+    available: true,
+    allPermissions: ["pdv.operar"],
+  },
+  {
+    id: "salao",
+    label: "Salão",
+    description: "Mesas, comandas e atendimento do salão.",
+    href: "/salao",
+    group: "operacao",
+    icon: "salao",
+    available: true,
+    allPermissions: ["pedido.visualizar"],
+    anyPermissions: ["mesa.abrir", "comanda.alterar"],
+  },
+  {
+    id: "garcom",
+    label: "Garçom Web",
+    description: "Atendimento mobile/tablet, comandas e fechamento governado.",
+    href: "/garcom",
+    group: "operacao",
+    icon: "garcom",
+    available: true,
+    allPermissions: ["pedido.visualizar", "comanda.alterar"],
+  },
+  {
+    id: "pedidos",
+    label: "Central de Pedidos",
+    description: "Visão unificada de pedidos, canais, alertas e situação financeira.",
+    href: "/pedidos",
+    group: "operacao",
+    icon: "dashboard",
+    available: true,
+    allPermissions: ["pedido.visualizar"],
+  },
+  {
+    id: "delivery",
+    label: "Delivery Próprio",
+    description: "Pedidos do canal próprio, cotação, checkout e acompanhamento.",
+    href: "/delivery",
+    group: "operacao",
+    icon: "pdv",
+    available: true,
+    allPermissions: ["cliente.visualizar", "pedido.visualizar"],
+  },
+  {
+    id: "kds",
+    label: "KDS Cozinha",
+    description: "Fila de produção e acompanhamento da cozinha.",
+    href: "/kds",
+    group: "operacao",
+    icon: "kds",
+    available: true,
+    allPermissions: ["producao.visualizar"],
+  },
+  {
+    id: "entrega",
+    label: "Expedição e Entrega",
+    description: "Checklist, entregadores, custódia, rota e prova de entrega.",
+    href: "/entrega",
+    group: "operacao",
+    icon: "salao",
+    available: true,
+    allPermissions: ["expedicao.operar"],
+  },
+  {
+    id: "gerente-ia",
+    label: "Gerente IA",
+    description: "Consultas gerenciais, decisões assistidas e confirmações governadas.",
+    href: "/gerente-ia",
+    group: "inteligencia",
+    icon: "ai",
+    available: true,
+    allPermissions: ["gerente_ia.consultar"],
+  },
+  {
+    id: "pagamentos",
+    label: "Pagamentos e PIX",
+    description: "Ledger financeiro, status de PIX e reconciliação PagBank governada.",
+    href: "/pagamentos",
+    group: "operacao",
+    icon: "financeiro",
+    available: true,
+    allPermissions: ["financeiro.visualizar"],
+  },
+  {
+    id: "backoffice",
+    label: "Centro Administrativo",
+    description: "Acesso às áreas de administração do estabelecimento.",
+    href: "/admin",
+    group: "proprietario",
+    icon: "dashboard",
+    available: true,
+    allPermissions: ["admin.acessar"],
+  },
+  {
+    id: "empresa",
+    label: "Empresa e Unidades",
+    description: "Cadastro da empresa, matriz, filiais e unidades.",
+    href: "/admin/empresa",
+    group: "proprietario",
+    icon: "dashboard",
+    available: true,
+    allPermissions: ["admin.acessar", "configuracao.alterar"],
+  },
+  {
+    id: "indicadores",
+    label: "Indicadores",
+    description: "Visão executiva, financeiro e operação consolidada.",
+    href: "/admin/dashboard",
+    group: "proprietario",
+    icon: "financeiro",
+    available: true,
+    allPermissions: ["admin.acessar", "financeiro.visualizar"],
+  },
+  {
+    id: "assinatura",
+    label: "Plano e Assinatura",
+    description: "Entitlement, assinatura e catálogo comercial da conta Kordena.",
+    href: "/admin/assinatura",
+    group: "proprietario",
+    icon: "financeiro",
+    available: true,
+    allPermissions: ["admin.acessar"],
+  },
+  {
+    id: "ai-finops",
+    label: "AI FinOps",
+    description: "Uso, custo, eficiência e mix dos modelos de IA.",
+    href: "/admin/ai-finops",
+    group: "proprietario",
+    icon: "ai",
+    available: true,
+    allPermissions: ["admin.acessar"],
+  },
+  {
+    id: "catalogo",
+    label: "Catálogo",
+    description: "Produtos, preços e disponibilidade; alterações seguem autoridade administrativa.",
+    href: "/catalogo",
+    group: "operacao",
+    icon: "catalogo",
+    available: true,
+    allPermissions: ["catalogo.visualizar"],
+  },
+  {
+    id: "estoque",
+    label: "Estoque e Validades",
+    description: "Saldos, mínimos e validades; ajustes permanecem governados.",
+    href: "/estoque",
+    group: "operacao",
+    icon: "estoque",
+    available: true,
+    allPermissions: ["estoque.visualizar"],
+  },
+  {
+    id: "crm",
+    label: "CRM e Cashback",
+    description: "Clientes, histórico e fidelidade da unidade.",
+    href: "/admin/crm",
+    group: "proprietario",
+    icon: "crm",
+    available: true,
+    allPermissions: ["admin.acessar", "cliente.visualizar"],
+  },
+  {
+    id: "campanhas",
+    label: "Campanhas",
+    description: "Rascunhos, audiência, aprovação e despacho de marketing governado.",
+    href: "/admin/campanhas",
+    group: "proprietario",
+    icon: "crm",
+    available: true,
+    allPermissions: ["admin.acessar", "cliente.visualizar", "campanha.criar"],
+  },
+  {
+    id: "saude-sistema",
+    label: "Saúde do sistema",
+    description: "Conectividade e diagnóstico técnico protegido.",
+    href: "/admin/system-health",
+    group: "proprietario",
+    icon: "saude",
+    available: true,
+    allPermissions: ["admin.acessar"],
+  },
+  {
+    id: "usuarios",
+    label: "Usuários e Permissões",
+    description: "Cadastro, papéis, unidades permitidas e unidade padrão.",
+    href: "/admin/usuarios",
+    group: "proprietario",
+    icon: "usuarios",
+    available: true,
+    allPermissions: ["admin.acessar", "usuario.gerenciar"],
+  },
+  {
+    id: "configuracao",
+    label: "Parâmetros Financeiros",
+    description: "Formas de pagamento, taxa de serviço e parâmetros operacionais por unidade.",
+    href: "/admin/configuracao",
+    group: "proprietario",
+    icon: "configuracao",
+    available: true,
+    allPermissions: ["admin.acessar", "configuracao.alterar"],
+  },
+  {
+    id: "impressao",
+    label: "Impressão Operacional",
+    description: "Spool de impressão, status e reimpressão por setor.",
+    href: "/admin/impressao",
+    group: "proprietario",
+    icon: "impressao",
+    available: true,
+    allPermissions: ["admin.acessar"],
+    anyPermissions: ["producao.visualizar", "impressao.reimprimir"],
+  },
+  {
+    id: "fiscal",
+    label: "Fiscal",
+    description: "Documentos fiscais, entradas, compras, manifestações e reconciliação.",
+    href: "/admin/fiscal",
+    group: "proprietario",
+    icon: "financeiro",
+    available: true,
+    allPermissions: ["admin.acessar", "fiscal.visualizar"],
+  },
+  {
+    id: "integracoes",
+    label: "Integrações e Credenciais",
+    description: "Provedores externos, cofre de segredos, healthchecks e homologação.",
+    href: "/admin/integracoes",
+    group: "proprietario",
+    icon: "integracoes",
+    available: true,
+    allPermissions: ["admin.acessar", "integracao.gerenciar"],
+  },
+  {
+    id: "notificacoes",
+    label: "Notificações Internas",
+    description: "Destinatários e preferências dos alertas internos da unidade.",
+    href: "/admin/notificacoes",
+    group: "proprietario",
+    icon: "assistente",
+    available: true,
+    allPermissions: ["admin.acessar", "notificacao_interna.gerenciar"],
+  },
+  {
+    id: "auditoria",
+    label: "Auditoria",
+    description: "Trilha de ações e decisões administrativas da unidade.",
+    href: "/admin/auditoria",
+    group: "proprietario",
+    icon: "saude",
+    available: true,
+    allPermissions: ["admin.acessar", "auditoria.visualizar"],
+  },
+  {
+    id: "assistente-atendimento",
+    label: "Central de Atendimento IA",
+    description: "Agente operacional e comercial conectado ao Kordena.",
+    href: "/atendimento-ia",
+    group: "operacao",
+    icon: "assistente",
+    available: true,
+    allPermissions: ["atendimento.visualizar"],
+  },
+] as const;
+
+export function canAccessShellModule(
+  permissions: readonly string[],
+  module: ShellModuleDefinition,
+): boolean {
+  const permissionSet = new Set(permissions);
+  const allAllowed = (module.allPermissions ?? []).every((permission) =>
+    permissionSet.has(permission),
+  );
+  const anyRequired = module.anyPermissions ?? [];
+  const anyAllowed =
+    anyRequired.length === 0 ||
+    anyRequired.some((permission) => permissionSet.has(permission));
+
+  return allAllowed && anyAllowed;
+}
+
+export function availableShellModules(
+  permissions: readonly string[],
+): ShellModuleDefinition[] {
+  return SHELL_MODULES.filter(
+    (module) => module.available && canAccessShellModule(permissions, module),
+  );
+}
+
+export function isShellModuleActive(
+  pathname: string,
+  module: ShellModuleDefinition,
+): boolean {
+  return pathname === module.href ||
+    (module.href !== "/admin" && pathname.startsWith(`${module.href}/`));
+}
