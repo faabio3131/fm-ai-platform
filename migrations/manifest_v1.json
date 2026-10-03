@@ -244,6 +244,10 @@
     {
       "version": "0060_admin_unit_legacy_store_reconciliation_v1",
       "sha256": "0f57af2300f9a6b20564af110837cfc32e003d027715072fc001dd361276605c"
+    },
+    {
+      "version": "0061_commercial_billing_transaction_identity_v1",
+      "sha256": "084369eb836820e25b351cc18239a67380dbb0b6dde9f7a9e7eff9ba327a651e"
     }
   ]
 }
