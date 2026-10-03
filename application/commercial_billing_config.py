@@ -388,6 +388,9 @@ class AplicacaoBillingConfigurationV1:
                 expected_version=expected_version,
                 values={
                     "display_name": name,
+                    "legal_entity_type": (
+                        entity_type.value if entity_type is not None else None
+                    ),
                     "legal_entity_ref": legal_ref,
                     "credential_secret_reference": (
                         requested_secret_ref
