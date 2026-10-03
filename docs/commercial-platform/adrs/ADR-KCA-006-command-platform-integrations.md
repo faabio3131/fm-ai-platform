@@ -31,7 +31,44 @@ Na V1, são `platform_managed`:
 - Google Maps / Geocoding / Routes / browser map key.
 
 As demais integrações do catálogo permanecem `tenant_managed`, incluindo Meta,
-WhatsApp, marketplaces, pagamentos e fiscal, salvo decisão arquitetural futura.
+WhatsApp, marketplaces, pagamentos operacionais do estabelecimento e fiscal.
+
+### Billing SaaS da FM
+
+A partir do fechamento comercial KF-04, fica explicitamente separado um terceiro
+caso que não deve ser confundido com os gateways do estabelecimento:
+
+- pagamentos operacionais do restaurante continuam `tenant_managed`;
+- recebimentos de licença/assinatura dos produtos da FM Tecnologia são
+  `platform_managed` pelo Command.
+
+Cada produto da FM possui um Billing Profile isolado por `product_code`.
+Kordena, IRON, CampaIA e produtos futuros podem usar o mesmo provider físico ou
+a mesma conta bancária, mas não compartilham identidade financeira, roteamento,
+ledger, receivables ou reconciliação lógica.
+
+O produto incorpora a experiência de contratação, status da assinatura,
+paywall/entitlement e retorno de checkout. O Command é a autoridade de gestão
+da conta recebedora da FM, credenciais, provider accounts, healthcheck,
+homologação, roteamento, fallback, receivables, settlement e monitoramento.
+
+O vínculo mínimo de cada recebimento SaaS é:
+
+```text
+product_code
+fm_customer_id
+product_account_id
+tenant_id
+subscription_id
+receivable_id        # quando o Receivables Ledger estiver materializado
+billing_transaction_id
+provider_account_id
+external_transaction_ref
+```
+
+Nenhum evento externo pode reatribuir uma transação já ligada a outro
+cliente/produto/assinatura. Pagamento sem binding canônico permanece fora do
+ledger financeiro até reconciliação governada.
 
 ## Superfície do tenant
 
