@@ -1,6 +1,6 @@
 # Kordena — Web Dependency Security Isolation
 
-**Data:** 02/10/2026  
+**Data:** 02/10/2026
 **Status:** controle compensatório temporário, bloqueante e auditável
 
 ## Contexto
