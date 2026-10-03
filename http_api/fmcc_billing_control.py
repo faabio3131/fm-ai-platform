@@ -7,6 +7,7 @@ license revenue for Nova FM products.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timezone
 from typing import Any
 
@@ -22,6 +23,7 @@ from core.comercial.billing_config import (
     BillingPaymentMethod,
     BillingProviderAccountStatus,
 )
+from core.seguranca.permissoes import Permissao
 from core.seguranca.segredos import SecretStore
 from http_api.fmcc_commercial_control import (
     FMCCActorIn,
@@ -177,6 +179,11 @@ def _mutation_context(
         actor=actor,
         correlation_id=_correlation_id(request, now),
         requested_at=now,
+    )
+    contexto = replace(
+        contexto,
+        permissoes=contexto.permissoes
+        | frozenset({Permissao.INTEGRACAO_GERENCIAR}),
     )
     if not _fresh_step_up(actor, now=now):
         return (
