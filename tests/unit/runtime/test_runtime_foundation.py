@@ -88,6 +88,8 @@ _EXPECTED_MIGRATIONS = (
     "0058_commercial_billing_events_v1",
     "0059_operational_session_persistence_v1",
     "0060_admin_unit_legacy_store_reconciliation_v1",
+    "0061_commercial_billing_transaction_identity_v1",
+    "0062_commercial_billing_provider_legal_entity_v1",
 )
 
 
