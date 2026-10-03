@@ -305,3 +305,64 @@ def test_marketplace_delivery_merchant_converge_para_entrega_propria() -> None:
         )
         assert entrega is not None
         assert entrega.modalidade is ModalidadeEntrega.PROPRIA
+
+
+def test_marketplace_resync_atualiza_responsabilidade_sem_criar_segunda_entrega() -> None:
+    factory = _factory()
+    base = dict(
+        id_externo="ifood-flex-1",
+        merchant_id="merchant-1",
+        status=StatusPedidoExterno.CONFIRMADO,
+        total=Decimal("30.00"),
+        itens=(
+            ItemMarketplace(
+                item_id_externo="item-flex-1",
+                sku="SKU-FLEX",
+                nome="Pedido flexível",
+                quantidade=Decimal(1),
+                preco_unitario=Decimal("30.00"),
+            ),
+        ),
+        atualizado_em=AGORA,
+        order_type="DELIVERY",
+        delivery_mode="DEFAULT",
+    )
+    with factory() as session:
+        adapter = PedidosInternosMarketplaceSQLAlchemy(
+            session,
+            plataforma=PlataformaMarketplace.IFOOD,
+        )
+        pedido_id, _ = adapter.criar_ou_obter(
+            tenant_id=TENANT,
+            unidade_id=UNIDADE,
+            integracao_id="marketplace.pedidos--ifood",
+            snapshot=PedidoMarketplaceSnapshot(
+                **base,
+                delivered_by=ResponsavelEntregaMarketplace.IFOOD,
+            ),
+            idempotency_key="marketplace:pedido:ifood:flex-1",
+        )
+        repositorio = RepositorioEntregaSQLAlchemy(session)
+        original = repositorio.buscar_por_pedido(TENANT, UNIDADE, pedido_id)
+        assert original is not None
+        assert original.modalidade is ModalidadeEntrega.PARCEIRO
+
+        mesmo_id, repetido = adapter.criar_ou_obter(
+            tenant_id=TENANT,
+            unidade_id=UNIDADE,
+            integracao_id="marketplace.pedidos--ifood",
+            snapshot=PedidoMarketplaceSnapshot(
+                **base,
+                delivered_by=ResponsavelEntregaMarketplace.MERCHANT,
+            ),
+            idempotency_key="marketplace:pedido:ifood:flex-1",
+        )
+        atualizado = repositorio.buscar_por_pedido(TENANT, UNIDADE, pedido_id)
+        assert repetido is True
+        assert mesmo_id == pedido_id
+        assert atualizado is not None
+        assert atualizado.entrega_id == original.entrega_id
+        assert atualizado.modalidade is ModalidadeEntrega.PROPRIA
+        eventos = repositorio.listar_eventos(TENANT, UNIDADE, original.entrega_id)
+        assert [evento.tipo for evento in eventos][-1] == "entrega.responsavel_logistico_atualizado"
+        assert eventos[-1].payload_seguro["delivered_by"] == "MERCHANT"
