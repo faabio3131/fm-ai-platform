@@ -341,6 +341,7 @@ class AplicacaoBillingConfigurationV1:
         provider_account_id: str,
         expected_version: int,
         display_name: str,
+        legal_entity_type: BillingLegalEntityType | None,
         legal_entity_ref: str | None,
         credential_secret_reference: str | None,
         supported_payment_methods: tuple[BillingPaymentMethod, ...],
@@ -350,6 +351,11 @@ class AplicacaoBillingConfigurationV1:
     ) -> BillingProviderAccount:
         account_id = provider_account_id.strip()
         name = _clean(display_name, field="display_name", max_length=128)
+        entity_type = (
+            BillingLegalEntityType(legal_entity_type)
+            if legal_entity_type is not None
+            else None
+        )
         legal_ref = _optional(legal_entity_ref, max_length=128)
         requested_secret_ref = (
             normalizar_secret_reference(credential_secret_reference)
