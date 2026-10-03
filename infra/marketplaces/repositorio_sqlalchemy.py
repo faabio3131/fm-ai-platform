@@ -198,13 +198,40 @@ class PedidosInternosMarketplaceSQLAlchemy:
             return
 
         repositorio = RepositorioEntregaSQLAlchemy(self._session)
-        if repositorio.buscar_por_pedido(tenant_id, unidade_id, pedido_id) is not None:
-            return
-
         modalidade = {
             ResponsavelEntregaMarketplace.MERCHANT: ModalidadeEntrega.PROPRIA,
             ResponsavelEntregaMarketplace.IFOOD: ModalidadeEntrega.PARCEIRO,
         }.get(snapshot.delivered_by, ModalidadeEntrega.INDEFINIDA)
+        existente = repositorio.buscar_por_pedido(tenant_id, unidade_id, pedido_id)
+        if existente is not None:
+            if existente.modalidade is not modalidade:
+                contexto = self._contexto(
+                    tenant_id=tenant_id,
+                    unidade_id=unidade_id,
+                    idempotency_key=f"{idempotency_key}:logistica-sync",
+                )
+                ServicoEntrega(
+                    repositorio,
+                    financeiro_resolvido=lambda *_: False,
+                    pedido_cancelado=lambda *_: False,
+                ).sincronizar_responsavel_externo(
+                    existente.entrega_id,
+                    modalidade,
+                    versao_esperada=existente.versao,
+                    contexto=contexto,
+                    idempotency_key=(
+                        f"marketplace:entrega:responsavel:{self._plataforma.value}:"
+                        f"{snapshot.id_externo}:{snapshot.delivered_by.value}"
+                    ),
+                    evidencia={
+                        "canal_origem": self._plataforma.value,
+                        "pedido_externo_id": snapshot.id_externo,
+                        "delivered_by": snapshot.delivered_by.value,
+                        "delivery_mode": snapshot.delivery_mode or "UNKNOWN",
+                    },
+                )
+            return
+
         responsavel = {
             ModalidadeEntrega.PROPRIA: "loja",
             ModalidadeEntrega.PARCEIRO: "marketplace",
