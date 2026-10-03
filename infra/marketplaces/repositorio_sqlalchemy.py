@@ -219,9 +219,13 @@ class PedidosInternosMarketplaceSQLAlchemy:
                     modalidade,
                     versao_esperada=existente.versao,
                     contexto=contexto,
-                    idempotency_key=(
-                        f"marketplace:entrega:responsavel:{self._plataforma.value}:"
-                        f"{snapshot.id_externo}:{snapshot.delivered_by.value}"
+                    idempotency_key=self._id(
+                        "mkt-log",
+                        (
+                            f"{self._plataforma.value}:{snapshot.id_externo}:"
+                            f"{snapshot.delivered_by.value}:"
+                            f"{snapshot.versao_externa or snapshot.atualizado_em.isoformat()}"
+                        ),
                     ),
                     evidencia={
                         "canal_origem": self._plataforma.value,
