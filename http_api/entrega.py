@@ -27,13 +27,13 @@ from core.entrega import (
     financeiro_resolvido_sqlalchemy,
     pedido_cancelado_sqlalchemy,
 )
+from core.entrega.modelos_orm import EventoEntregaORM
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.erros import CredenciaisInvalidas, ErroSeguranca
 from http_api.auth import AuthSessionRuntime
 from http_api.operational_auth import obter_identidade_operacional
 from infra.marketplaces.modelos_orm import PedidoExternoMarketplaceORM
-from core.entrega.modelos_orm import EventoEntregaORM
 
 SessionFactory = Callable[[], Session]
 _MAX_IDEMPOTENCY_KEY = 96
@@ -185,7 +185,27 @@ def _contexto_logistico(session: Session, entrega: Any) -> dict[str, Any]:
         .limit(1)
     )
     payload = dict(evento_criacao.payload_seguro or {}) if evento_criacao else {}
-    canal = str(payload.get("canal_origem") or "").strip()
+    evento_responsavel = session.scalar(
+        select(EventoEntregaORM)
+        .where(
+            EventoEntregaORM.tenant_id == entrega.tenant_id,
+            EventoEntregaORM.unidade_id == entrega.unidade_id,
+            EventoEntregaORM.entrega_id == entrega.entrega_id,
+            EventoEntregaORM.tipo == "entrega.responsavel_logistico_atualizado",
+        )
+        .order_by(EventoEntregaORM.ocorrido_em.desc(), EventoEntregaORM.event_id.desc())
+        .limit(1)
+    )
+    payload_responsavel = (
+        dict(evento_responsavel.payload_seguro or {})
+        if evento_responsavel is not None
+        else {}
+    )
+    canal = str(
+        payload_responsavel.get("canal_origem")
+        or payload.get("canal_origem")
+        or ""
+    ).strip()
     if not canal and marketplace is not None:
         canal = str(marketplace.integracao_id).rsplit("--", 1)[-1]
     if not canal:
@@ -225,8 +245,14 @@ def _contexto_logistico(session: Session, entrega: Any) -> dict[str, Any]:
         "autoridade_logistica": str(
             payload.get("autoridade_logistica") or ("kordena" if not externo else canal)
         ),
-        "delivery_mode_externo": payload.get("delivery_mode"),
-        "delivered_by_externo": payload.get("delivered_by"),
+        "delivery_mode_externo": (
+            payload_responsavel.get("delivery_mode")
+            or payload.get("delivery_mode")
+        ),
+        "delivered_by_externo": (
+            payload_responsavel.get("delivered_by")
+            or payload.get("delivered_by")
+        ),
         "troca_logistica_permitida": False,
         "alternativas_logisticas": [],
         "motivo_bloqueio_troca": motivo_bloqueio,
