@@ -2,6 +2,7 @@
 
 import {
   ArrowLeft,
+  ArrowLeftRight,
   CheckCircle2,
   ClipboardCheck,
   PackageCheck,
@@ -58,6 +59,24 @@ function dateTime(value: string | null): string {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+}
+
+function canalLabel(value: string): string {
+  return {
+    delivery_proprio: "Delivery próprio",
+    ifood: "iFood",
+    keeta: "Keeta",
+    "99food": "99Food",
+    interno: "Kordena",
+  }[value] ?? value;
+}
+
+function responsavelLabel(value: string): string {
+  return {
+    loja: "Loja",
+    marketplace: "Marketplace",
+    desconhecido: "A confirmar",
+  }[value] ?? value;
 }
 
 function statusClass(status: string): string {
@@ -234,7 +253,7 @@ export function EntregaWorkspace() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
             ["Aguardando expedição", counts.get("aguardando_expedicao") ?? 0],
-            ["Aguardando entregador", counts.get("aguardando_entregador") ?? 0],
+            ["Aguardando coleta/entregador", (counts.get("aguardando_entregador") ?? 0) + (counts.get("aguardando_coleta_parceiro") ?? 0) + (counts.get("aguardando_definicao_logistica") ?? 0)],
             ["Em rota", counts.get("em_rota") ?? 0],
             ["Entregues", counts.get("entregue") ?? 0],
           ].map(([label, count]) => (
@@ -260,7 +279,13 @@ export function EntregaWorkspace() {
                 onClick={() => void openDetail(delivery.entrega_id)}
                 className={`grid w-full gap-3 border-b border-slate-700/60 p-4 text-left transition-colors sm:grid-cols-[1.3fr_0.8fr_0.8fr] sm:items-center ${selectedId === delivery.entrega_id ? "bg-blue-500/10" : "hover:bg-white/[0.035]"}`}
               >
-                <div className="min-w-0"><p className="truncate text-sm font-black text-slate-100">Pedido {delivery.pedido_id}</p><p className="mt-1 text-xs text-slate-500">Tentativa {delivery.tentativa} · v{delivery.versao}</p></div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-slate-100">Pedido {delivery.pedido_id}</p>
+                  <p className="mt-1 text-xs font-semibold text-sky-300">
+                    {canalLabel(delivery.canal_origem)} · entrega {responsavelLabel(delivery.responsavel_atual)}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">Tentativa {delivery.tentativa} · v{delivery.versao}</p>
+                </div>
                 <Badge variant="outline" className={statusClass(delivery.status)}>{humanize(delivery.status)}</Badge>
                 <p className="truncate text-sm text-slate-400">{delivery.entregador_id ?? "sem entregador"}</p>
               </button>
@@ -279,10 +304,48 @@ export function EntregaWorkspace() {
                   <Badge variant="outline" className={statusClass(selected.status)}>{humanize(selected.status)}</Badge>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-slate-700/45 bg-slate-950/32 p-4"><p className="text-xs text-slate-500">Entregador</p><p className="mt-1 text-sm font-bold text-slate-100">{selected.entregador_id ?? "não atribuído"}</p></div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-2xl border border-slate-700/45 bg-slate-950/32 p-4">
+                    <p className="text-xs text-slate-500">Origem do pedido</p>
+                    <p className="mt-1 text-sm font-bold text-slate-100">{canalLabel(selected.canal_origem)}</p>
+                    {selected.pedido_externo_id ? <p className="mt-1 truncate text-[11px] text-slate-500">{selected.pedido_externo_id}</p> : null}
+                  </div>
+                  <div className="rounded-2xl border border-slate-700/45 bg-slate-950/32 p-4">
+                    <p className="text-xs text-slate-500">Responsável pela entrega</p>
+                    <p className="mt-1 text-sm font-bold text-slate-100">{responsavelLabel(selected.responsavel_atual)}</p>
+                    {selected.delivered_by_externo ? <p className="mt-1 text-[11px] text-slate-500">Origem externa: {selected.delivered_by_externo}</p> : null}
+                  </div>
+                  <div className="rounded-2xl border border-slate-700/45 bg-slate-950/32 p-4"><p className="text-xs text-slate-500">Entregador</p><p className="mt-1 text-sm font-bold text-slate-100">{selected.entregador_id ?? (selected.responsavel_atual === "marketplace" ? "gerenciado pelo parceiro" : "não atribuído")}</p></div>
                   <div className="rounded-2xl border border-slate-700/45 bg-slate-950/32 p-4"><p className="text-xs text-slate-500">Tentativa</p><p className="mt-1 text-sm font-bold text-slate-100">{selected.tentativa}</p></div>
                 </div>
+
+                {selected.pedido_externo_id ? (
+                  <div className="rounded-2xl border border-violet-300/15 bg-violet-500/[0.05] p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="flex items-center gap-2 text-sm font-black text-slate-100">
+                          <ArrowLeftRight className="size-4 text-violet-300" /> Forma de entrega
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400">
+                          O Kordena respeita a autoridade do marketplace e só confirma uma troca depois da confirmação externa.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={!selected.troca_logistica_permitida || actionBusy}
+                        title={selected.motivo_bloqueio_troca ?? "Alterar forma de entrega"}
+                      >
+                        <ArrowLeftRight className="size-4" /> Alterar forma de entrega
+                      </Button>
+                    </div>
+                    {selected.motivo_bloqueio_troca ? (
+                      <p className="mt-3 rounded-xl border border-amber-300/15 bg-amber-400/[0.05] px-3 py-2 text-xs text-amber-100">
+                        {selected.motivo_bloqueio_troca}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 <div className="grid gap-2 text-xs text-slate-400 sm:grid-cols-2">
                   <p>Produção pronta: <strong>{dateTime(selected.producao_pronta_em)}</strong></p>
