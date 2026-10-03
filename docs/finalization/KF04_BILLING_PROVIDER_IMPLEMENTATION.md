@@ -83,6 +83,48 @@ O valor não é persistido pelo adapter e não é incluído em repr/logs.
 - subscription event normalization;
 - payment event normalization.
 
+
+## Identidade canônica por recebimento
+
+Nenhum pagamento SaaS novo pode entrar no ledger sem vínculo resolvido com a
+assinatura interna. O envelope de identidade financeira é:
+
+```text
+product_code
+fm_customer_id
+product_account_id
+tenant_id
+subscription_id
+billing_transaction_id
+provider_account_id
+external_transaction_ref
+last_external_event_id
+correlation_id
+```
+
+Regras:
+
+- `fm_customer_id` é a identidade comercial global do cliente na FM;
+- `product_account_id` separa a relação desse cliente com cada produto;
+- `product_code` impede misturar Kordena, IRON, CampaIA ou produtos futuros;
+- `tenant_id` mantém o escopo operacional do produto;
+- `subscription_id` identifica o contrato recorrente;
+- `billing_transaction_id` identifica o lançamento canônico interno;
+- `provider_account_id + external_transaction_ref` identifica univocamente a
+  transação no provider;
+- rebind de uma transação existente para outro cliente/produto/assinatura é
+  proibido;
+- pagamento sem binding de assinatura permanece fora do ledger financeiro e é
+  tratado como pendência/retry governado;
+- transações históricas sem evidência suficiente não recebem identidade
+  inventada durante migration;
+- batches, inadimplência, reconciliação e métricas do Command devem agrupar
+  primeiro por `product_code` e depois por `fm_customer_id` /
+  `product_account_id`, nunca somente por nome, e-mail ou referência externa.
+
+Isso mantém o recebimento de cada produto segregado mesmo quando produtos
+diferentes usam o mesmo provider ou a mesma conta bancária da FM.
+
 ## Segurança
 
 - `X-Idempotency-Key` em mutações;
