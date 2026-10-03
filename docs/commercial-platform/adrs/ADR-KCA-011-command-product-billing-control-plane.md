@@ -120,6 +120,38 @@ O gateway usado pela FM para receber licenças de uso permanece
 As duas classes não compartilham tela, credencial, provider account lógico,
 routing policy, ledger ou reconciliação.
 
+## Configuração da conta recebedora
+
+Nenhuma conta da FM é hardcoded.
+
+O Command deve permitir criar e editar provider accounts em estado inicial não
+ativo, deixando dados externos para configuração posterior. A configuração
+mínima inclui:
+
+- provider;
+- ambiente;
+- tipo do titular: `individual` (Pessoa Física) ou `company` (Pessoa Jurídica);
+- referência segura ao perfil do titular;
+- métodos de pagamento;
+- recorrência;
+- webhooks;
+- prioridade;
+- credencial armazenada pelo fluxo de Vault;
+- teste de conexão;
+- ativação governada.
+
+Uma conta de produção não pode ser promovida a `ACTIVE` sem tipo de titular e
+referência de titular configurados e sem connection test válido.
+
+`legal_entity_ref` é uma referência opaca. CPF, CNPJ, número de conta,
+credenciais, tokens e dados bancários sensíveis não devem ser gravados em texto
+aberto na tabela de billing. Dados exigidos por um provider devem permanecer no
+provider ou em armazenamento cifrado apropriado.
+
+A UI brasileira do Command deve apresentar os rótulos **Pessoa Física (PF)** e
+**Pessoa Jurídica (PJ)**, mantendo o contrato interno provider-neutral
+`individual/company`.
+
 ## Segurança
 
 - segredos ficam em Vault e nunca retornam pela API/UI;
