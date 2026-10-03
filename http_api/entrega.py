@@ -13,6 +13,7 @@ from typing import Any
 from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from application.entrega_composicao import listar_entregadores_elegiveis
@@ -31,6 +32,8 @@ from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.erros import CredenciaisInvalidas, ErroSeguranca
 from http_api.auth import AuthSessionRuntime
 from http_api.operational_auth import obter_identidade_operacional
+from infra.marketplaces.modelos_orm import PedidoExternoMarketplaceORM
+from core.entrega.modelos_orm import EventoEntregaORM
 
 SessionFactory = Callable[[], Session]
 _MAX_IDEMPOTENCY_KEY = 96
@@ -151,8 +154,91 @@ def _erro_http(exc: Exception) -> JSONResponse:
     )
 
 
-def _entrega_out(entrega: Any) -> dict[str, Any]:
+def _responsavel_atual(modalidade: str) -> str:
     return {
+        "propria": "loja",
+        "parceiro": "marketplace",
+        "indefinida": "desconhecido",
+    }.get(modalidade, "desconhecido")
+
+
+def _contexto_logistico(session: Session, entrega: Any) -> dict[str, Any]:
+    marketplace = session.scalar(
+        select(PedidoExternoMarketplaceORM)
+        .where(
+            PedidoExternoMarketplaceORM.tenant_id == entrega.tenant_id,
+            PedidoExternoMarketplaceORM.unidade_id == entrega.unidade_id,
+            PedidoExternoMarketplaceORM.pedido_id == entrega.pedido_id,
+        )
+        .order_by(PedidoExternoMarketplaceORM.ultima_ocorrencia_em.desc())
+        .limit(1)
+    )
+    evento_criacao = session.scalar(
+        select(EventoEntregaORM)
+        .where(
+            EventoEntregaORM.tenant_id == entrega.tenant_id,
+            EventoEntregaORM.unidade_id == entrega.unidade_id,
+            EventoEntregaORM.entrega_id == entrega.entrega_id,
+            EventoEntregaORM.tipo == "entrega.criada",
+        )
+        .order_by(EventoEntregaORM.ocorrido_em.asc())
+        .limit(1)
+    )
+    payload = dict(evento_criacao.payload_seguro or {}) if evento_criacao else {}
+    canal = str(payload.get("canal_origem") or "").strip()
+    if not canal and marketplace is not None:
+        canal = str(marketplace.integracao_id).rsplit("--", 1)[-1]
+    if not canal:
+        canal = "delivery_proprio" if entrega.modalidade.value == "propria" else "interno"
+
+    responsavel = _responsavel_atual(entrega.modalidade.value)
+    original = str(payload.get("responsavel_original") or responsavel)
+    externo = marketplace is not None
+    motivo_bloqueio: str | None = None
+    if externo and canal == "ifood":
+        if responsavel == "marketplace":
+            motivo_bloqueio = (
+                "Troca iFood para entrega própria depende de capacidade oficial "
+                "homologada pelo parceiro; o Kordena não presume essa transição."
+            )
+        elif responsavel == "loja":
+            motivo_bloqueio = (
+                "A Shipping API do iFood oferece contratação de entregador, mas "
+                "essa composição ainda precisa de homologação específica no Kordena."
+            )
+    elif externo:
+        motivo_bloqueio = (
+            "Mudanças logísticas externas só são liberadas quando o adapter do "
+            "marketplace declarar a capacidade homologada."
+        )
+
+    return {
+        "canal_origem": canal,
+        "pedido_externo_id": (
+            marketplace.id_externo if marketplace is not None else None
+        ),
+        "status_externo": (
+            marketplace.status_externo if marketplace is not None else None
+        ),
+        "responsavel_original": original,
+        "responsavel_atual": responsavel,
+        "autoridade_logistica": str(
+            payload.get("autoridade_logistica") or ("kordena" if not externo else canal)
+        ),
+        "delivery_mode_externo": payload.get("delivery_mode"),
+        "delivered_by_externo": payload.get("delivered_by"),
+        "troca_logistica_permitida": False,
+        "alternativas_logisticas": [],
+        "motivo_bloqueio_troca": motivo_bloqueio,
+    }
+
+
+def _entrega_out(
+    entrega: Any,
+    *,
+    logistica: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    base = {
         "entrega_id": entrega.entrega_id,
         "pedido_id": entrega.pedido_id,
         "endereco_id": entrega.endereco_id,
@@ -169,11 +255,33 @@ def _entrega_out(entrega: Any) -> dict[str, Any]:
         "entregue_em": entrega.entregue_em,
         "prova_entrega_ref": entrega.prova_entrega_ref,
     }
+    base.update(
+        logistica
+        or {
+            "canal_origem": "interno",
+            "pedido_externo_id": None,
+            "status_externo": None,
+            "responsavel_original": _responsavel_atual(entrega.modalidade.value),
+            "responsavel_atual": _responsavel_atual(entrega.modalidade.value),
+            "autoridade_logistica": "kordena",
+            "delivery_mode_externo": None,
+            "delivered_by_externo": None,
+            "troca_logistica_permitida": False,
+            "alternativas_logisticas": [],
+            "motivo_bloqueio_troca": None,
+        }
+    )
+    return base
 
 
-def _detalhe_out(entrega: Any, eventos: tuple[Any, ...]) -> dict[str, Any]:
+def _detalhe_out(
+    entrega: Any,
+    eventos: tuple[Any, ...],
+    *,
+    logistica: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     return {
-        "entrega": _entrega_out(entrega),
+        "entrega": _entrega_out(entrega, logistica=logistica),
         "eventos": [
             {
                 "event_id": evento.event_id,
@@ -223,7 +331,15 @@ def build_entrega_router(
                     auth_runtime=auth_runtime,
                 )
                 entregas = _servico(session).listar(contexto)
-                return {"itens": [_entrega_out(entrega) for entrega in entregas]}
+                return {
+                    "itens": [
+                        _entrega_out(
+                            entrega,
+                            logistica=_contexto_logistico(session, entrega),
+                        )
+                        for entrega in entregas
+                    ]
+                }
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _erro_http(exc)
 
@@ -268,7 +384,11 @@ def build_entrega_router(
                     contexto.unidade_id,
                     entrega.entrega_id,
                 )
-                return _detalhe_out(entrega, eventos)
+                return _detalhe_out(
+                    entrega,
+                    eventos,
+                    logistica=_contexto_logistico(session, entrega),
+                )
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _erro_http(exc)
 
