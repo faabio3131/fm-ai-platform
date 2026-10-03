@@ -46,6 +46,7 @@ from http_api.commercial_access import build_commercial_access_router
 from http_api.crm import build_crm_router
 from http_api.delivery import build_delivery_router
 from http_api.entrega import build_entrega_router
+from http_api.fmcc_billing_control import build_fmcc_billing_control_router
 from http_api.fmcc_commercial_control import build_fmcc_commercial_control_router
 from http_api.fmcc_platform_integrations import (
     build_fmcc_platform_integrations_router,
@@ -218,6 +219,14 @@ def build_frontend_http_app(
         build_fmcc_commercial_control_router(
             session_factory=session_factory,
             control_plane_token=resolved_settings.fmcc_control_plane_token,
+        )
+    )
+    app.include_router(
+        build_fmcc_billing_control_router(
+            session_factory=session_factory,
+            control_plane_token=resolved_settings.fmcc_control_plane_token,
+            adapter_registry=billing_adapter_registry,
+            secret_store=secret_store,
         )
     )
     app.include_router(
