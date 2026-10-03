@@ -165,12 +165,21 @@ class ServicoEntrega:
         self._validar_versao(atual, versao_esperada)
         if atual.modalidade is modalidade:
             return atual
+        if atual.status in {
+            StatusEntrega.COLETADA,
+            StatusEntrega.EM_ROTA,
+            StatusEntrega.ENTREGUE,
+            StatusEntrega.CANCELADA,
+        }:
+            raise ErroEntrega("troca_logistica_fora_janela")
 
         status = atual.status
         if atual.checklist_concluido_em is not None and status in {
             StatusEntrega.AGUARDANDO_ENTREGADOR,
             StatusEntrega.AGUARDANDO_COLETA_PARCEIRO,
             StatusEntrega.AGUARDANDO_DEFINICAO_LOGISTICA,
+            StatusEntrega.ATRIBUIDA,
+            StatusEntrega.TENTATIVA_FALHOU,
         }:
             status = {
                 ModalidadeEntrega.PROPRIA: StatusEntrega.AGUARDANDO_ENTREGADOR,
