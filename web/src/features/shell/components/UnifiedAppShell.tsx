@@ -137,7 +137,9 @@ export function UnifiedAppShell({ children }: { children: ReactNode }) {
     pathname === "/signup" ||
     pathname.startsWith("/signup/") ||
     pathname === "/cardapio" ||
-    pathname.startsWith("/cardapio/");
+    pathname.startsWith("/cardapio/") ||
+    pathname === "/legal" ||
+    pathname.startsWith("/legal/");
 
   const modules = useMemo(() => availableShellModules(auth.permissions), [auth.permissions]);
   const operationModules = modules.filter((module) => module.group === "operacao");

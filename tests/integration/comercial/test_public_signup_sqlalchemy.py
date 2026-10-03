@@ -8,9 +8,11 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from application.public_signup import AplicacaoPublicSignupV1, SignupVerificationError
+from core.comercial.legal import active_legal_acceptance_claims
 from core.comercial.signup import EstadoSignup
 from core.seguranca.segredos import ReferenceSecretStore
 from infra.comercial.catalogo_orm import FMCommercialPlanORM, FMCommercialPlanVersionORM
+from infra.comercial.modelos_orm import CommercialAuditORM
 from infra.comercial.signup_orm import FMPublicSignupIntentORM
 from migrations.runner import run_migrations
 
@@ -80,6 +82,7 @@ def _create(app, email="novo@example.com"):
         establishment_name="Restaurante Teste",
         segment="restaurante",
         terms_accepted=True,
+        legal_documents=active_legal_acceptance_claims(),
         consent_json={"marketing": False},
         correlation_id="corr-kca06",
     )
@@ -96,6 +99,45 @@ def test_signup_persiste_token_hash_e_credencial_cifrada() -> None:
         assert PASSWORD not in row.credential_ciphertext
         assert created.verification_token not in row.verification_token_sha256
         assert len(row.verification_token_sha256) == 64
+
+
+def test_signup_persiste_trilha_juridica_versionada_e_consentimento_separado() -> None:
+    factory = _factory()
+    app = _app(factory)
+    created = _create(app, "legal-trail@example.com")
+    with factory() as session:
+        rows = list(
+            session.scalars(
+                select(CommercialAuditORM)
+                .where(
+                    CommercialAuditORM.aggregate_type == "public_signup",
+                    CommercialAuditORM.aggregate_id == created.signup.signup_id,
+                )
+                .order_by(CommercialAuditORM.timestamp.asc())
+            )
+        )
+
+    legal_rows = [row for row in rows if row.action.startswith("commercial.legal.")]
+    assert {row.action for row in legal_rows} == {
+        "commercial.legal.accepted",
+        "commercial.legal.acknowledged",
+        "commercial.legal.incorporated",
+    }
+    assert {row.metadata_safe["document_type"] for row in legal_rows} == {
+        "terms",
+        "privacy",
+        "dpa",
+    }
+    assert all(row.metadata_safe["document_version"] == "1.0" for row in legal_rows)
+    assert all(len(row.metadata_safe["document_sha256"]) == 64 for row in legal_rows)
+    assert all(row.timestamp is not None for row in legal_rows)
+
+    optional = next(
+        row
+        for row in rows
+        if row.action == "commercial.signup.optional_consent.recorded"
+    )
+    assert optional.metadata_safe == {"marketing": False}
 
 
 def test_verificacao_provisiona_e_remove_credencial_transitoria() -> None:

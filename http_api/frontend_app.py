@@ -55,6 +55,7 @@ from http_api.gerente_ia_web import build_gerente_ia_web_router
 from http_api.marketplaces_web import build_marketplaces_web_router
 from http_api.operational_auth import obter_identidade_operacional
 from http_api.pagamentos_web import build_pagamentos_web_router
+from http_api.public_legal import build_public_legal_router
 from http_api.public_signup import VerificationDispatcher, build_public_signup_router
 from infra.comercial.transactional_email import (
     build_smtp_verification_dispatcher_from_env,
@@ -234,6 +235,7 @@ def build_frontend_http_app(
             ),
         )
     )
+    app.include_router(build_public_legal_router())
     app.include_router(
         build_public_signup_router(
             session_factory=session_factory,
