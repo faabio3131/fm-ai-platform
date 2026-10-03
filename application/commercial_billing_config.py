@@ -341,7 +341,7 @@ class AplicacaoBillingConfigurationV1:
         provider_account_id: str,
         expected_version: int,
         display_name: str,
-        legal_entity_type: BillingLegalEntityType | None,
+        legal_entity_type: BillingLegalEntityType | None = None,
         legal_entity_ref: str | None,
         credential_secret_reference: str | None,
         supported_payment_methods: tuple[BillingPaymentMethod, ...],
