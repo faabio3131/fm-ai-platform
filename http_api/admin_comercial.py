@@ -21,6 +21,7 @@ from application.commercial_billing_events import AplicacaoBillingEventsV1
 from application.commercial_catalog import AplicacaoCatalogoComercialV1
 from core.comercial.billing_config import (
     BillingEnvironment,
+    BillingLegalEntityType,
     BillingPaymentMethod,
     BillingProviderAccountStatus,
 )
@@ -154,6 +155,7 @@ class BillingProviderAccountCreateIn(BaseModel):
 
     provider_code: str = Field(min_length=1, max_length=64)
     display_name: str = Field(min_length=1, max_length=128)
+    legal_entity_type: BillingLegalEntityType | None = None
     legal_entity_ref: str | None = Field(default=None, max_length=128)
     environment: BillingEnvironment
     credential_secret_reference: str | None = Field(
@@ -170,6 +172,7 @@ class BillingProviderAccountUpdateIn(BaseModel):
 
     expected_version: int = Field(ge=1)
     display_name: str = Field(min_length=1, max_length=128)
+    legal_entity_type: BillingLegalEntityType | None = None
     legal_entity_ref: str | None = Field(default=None, max_length=128)
     credential_secret_reference: str | None = Field(
         default=None, min_length=3, max_length=255
@@ -266,6 +269,11 @@ def _billing_provider_out(account: Any) -> dict[str, Any]:
         "provider_account_id": account.provider_account_id,
         "provider_code": account.provider_code,
         "display_name": account.display_name,
+        "legal_entity_type": (
+            account.legal_entity_type.value
+            if account.legal_entity_type is not None
+            else None
+        ),
         "legal_entity_ref": account.legal_entity_ref,
         "environment": account.environment.value,
         "status": account.status.value,
@@ -876,6 +884,7 @@ def build_admin_comercial_router(
                 idempotency_key=idempotency_key,
                 provider_code=payload.provider_code,
                 display_name=payload.display_name,
+                legal_entity_type=payload.legal_entity_type,
                 legal_entity_ref=payload.legal_entity_ref,
                 environment=payload.environment,
                 credential_secret_reference=payload.credential_secret_reference,
@@ -915,6 +924,7 @@ def build_admin_comercial_router(
                     provider_account_id=provider_account_id,
                     expected_version=payload.expected_version,
                     display_name=payload.display_name,
+                    legal_entity_type=payload.legal_entity_type,
                     legal_entity_ref=payload.legal_entity_ref,
                     credential_secret_reference=payload.credential_secret_reference,
                     supported_payment_methods=tuple(
