@@ -220,6 +220,18 @@ class MercadoPagoSubscriptionsBillingProvider:
     """Mercado Pago Subscriptions API behind the canonical billing contract."""
 
     provider_code = _PROVIDER_CODE
+    credential_schema = (
+        {
+            "key": "access_token",
+            "label": "Access Token",
+            "secret": True,
+        },
+        {
+            "key": "webhook_secret",
+            "label": "Webhook Secret",
+            "secret": True,
+        },
+    )
 
     def __init__(
         self,
