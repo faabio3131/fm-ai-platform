@@ -37,6 +37,10 @@ class FMBillingProviderAccountORM(BillingConfigBase):
             name="ck_fm_billing_provider_status_v1",
         ),
         CheckConstraint(
+            "legal_entity_type IS NULL OR legal_entity_type IN ('individual','company')",
+            name="ck_fm_billing_provider_legal_entity_type_v1",
+        ),
+        CheckConstraint(
             "last_test_status IN ('never','pass','fail')",
             name="ck_fm_billing_provider_test_status_v1",
         ),
@@ -53,6 +57,7 @@ class FMBillingProviderAccountORM(BillingConfigBase):
     provider_account_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     provider_code: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     display_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    legal_entity_type: Mapped[str | None] = mapped_column(String(16))
     legal_entity_ref: Mapped[str | None] = mapped_column(String(128))
     environment: Mapped[str] = mapped_column(String(32), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
