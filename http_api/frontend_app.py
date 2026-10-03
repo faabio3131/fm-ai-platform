@@ -57,6 +57,9 @@ from http_api.operational_auth import obter_identidade_operacional
 from http_api.pagamentos_web import build_pagamentos_web_router
 from http_api.public_legal import build_public_legal_router
 from http_api.public_signup import VerificationDispatcher, build_public_signup_router
+from infra.comercial.mercado_pago_subscriptions import (
+    MercadoPagoSubscriptionsBillingProvider,
+)
 from infra.comercial.transactional_email import (
     build_smtp_verification_dispatcher_from_env,
 )
@@ -137,7 +140,9 @@ def build_frontend_http_app(
 
     billing_adapter_registry = kwargs.get(
         "commercial_billing_adapter_registry"
-    ) or BillingProviderAdapterRegistryV1()
+    ) or BillingProviderAdapterRegistryV1(
+        (MercadoPagoSubscriptionsBillingProvider(),)
+    )
 
     kwargs["engine"] = engine
     kwargs["session_factory"] = session_factory
