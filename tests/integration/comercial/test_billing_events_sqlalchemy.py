@@ -380,6 +380,64 @@ def test_valid_webhook_is_persisted_encrypted_before_normalization_effects() -> 
         assert row.normalized_payload is not None
         assert row.body_hash
 
+def test_payment_ledger_materializes_canonical_customer_identity() -> None:
+    _, factory, _, app = _infra()
+    processed = _receive(
+        app,
+        _payload(
+            event_id="evt-identity",
+            canonical=BillingCanonicalEventType.PAYMENT_SUCCEEDED,
+            sequence=1,
+            transaction_ref="tx-identity",
+            amount="99.90",
+        ),
+    )
+    assert processed.status == BillingWebhookInboxStatus.PROCESSED.value
+
+    with factory() as session:
+        tx = session.scalar(
+            select(FMBillingTransactionORM).where(
+                FMBillingTransactionORM.external_transaction_ref == "tx-identity"
+            )
+        )
+        assert tx is not None
+        assert tx.subscription_id == PAYMENT_SUBSCRIPTION_ID
+        assert tx.fm_customer_id == "customer-kca10-payment"
+        assert tx.product_account_id == "product-account-kca10-payment"
+        assert tx.product_code == "KORDENA"
+        assert tx.tenant_id == "tenant-kca10-payment"
+
+
+def test_payment_without_subscription_binding_never_enters_financial_ledger() -> None:
+    _, factory, _, app = _infra()
+    payload = json.dumps(
+        {
+            "id": "evt-orphan-payment",
+            "type": "fake.payment_succeeded",
+            "canonical": BillingCanonicalEventType.PAYMENT_SUCCEEDED.value,
+            "occurred_at": NOW.isoformat(),
+            "sequence": 1,
+            "transaction_ref": "tx-orphan-payment",
+            "subscription_ref": None,
+            "amount": "19.90",
+            "currency": "BRL",
+        },
+        sort_keys=True,
+    ).encode("utf-8")
+
+    row = _receive(app, payload)
+
+    assert row.status == BillingWebhookInboxStatus.FAILED_RETRYABLE.value
+    assert row.last_error_code == "billing_transaction_subscription_binding_required"
+    with factory() as session:
+        assert (
+            session.scalar(
+                select(func.count()).select_from(FMBillingTransactionORM)
+            )
+            == 0
+        )
+
+
 def test_forged_signature_is_durable_rejected_without_financial_effect() -> None:
     _, factory, _, app = _infra()
     row = _receive(
