@@ -140,8 +140,10 @@ mínima inclui:
 - teste de conexão;
 - ativação governada.
 
-Uma conta de produção não pode ser promovida a `ACTIVE` sem tipo de titular e
-referência de titular configurados e sem connection test válido.
+Uma conta de produção não pode ser promovida a `ACTIVE` sem tipo de titular
+(PF/PJ) configurado e sem connection test válido. `legal_entity_ref` permanece
+opcional enquanto não existir um perfil jurídico canônico que justifique essa
+referência; o sistema não inventa CPF, CNPJ ou identificador de titular.
 
 `legal_entity_ref` é uma referência opaca. CPF, CNPJ, número de conta,
 credenciais, tokens e dados bancários sensíveis não devem ser gravados em texto
