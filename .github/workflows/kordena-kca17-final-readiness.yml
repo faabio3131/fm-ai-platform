@@ -18,6 +18,8 @@ on:
       - "tests/**"
       - "web/**"
       - ".github/workflows/kordena-kca17-final-readiness.yml"
+      - ".github/scripts/verify_web_dependency_security.mjs"
+      - ".github/security/web-dev-audit-exceptions.json"
   workflow_dispatch:
 
 concurrency:
@@ -271,9 +273,8 @@ jobs:
         working-directory: web
         run: node --test tests/*.test.mjs
 
-      - name: Web dependency audit HIGH
-        working-directory: web
-        run: npm audit --audit-level=high
+      - name: Web dependency security isolation gate
+        run: node .github/scripts/verify_web_dependency_security.mjs
 
       - name: Next production build
         working-directory: web
@@ -290,5 +291,6 @@ jobs:
           path: |
             evidence/kca17-final-readiness.json
             evidence/kca17-readiness.dump.manifest.json
+            evidence/web-dependency-security.json
           if-no-files-found: warn
           retention-days: 14
