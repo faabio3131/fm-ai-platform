@@ -211,6 +211,33 @@ def build_fmcc_billing_control_router(
     def auth(authorization: str | None) -> JSONResponse | None:
         return _authorize(authorization, control_plane_token)
 
+    @router.get("/configuration-options", response_model=None)
+    def configuration_options(
+        authorization: str | None = Header(default=None, alias="Authorization"),
+    ) -> dict[str, Any] | JSONResponse:
+        denied = auth(authorization)
+        if denied is not None:
+            return denied
+        return {
+            "provider_codes": list(adapter_registry.available_provider_codes()),
+            "legal_entity_types": [
+                {
+                    "value": BillingLegalEntityType.INDIVIDUAL.value,
+                    "label": "Pessoa Física",
+                },
+                {
+                    "value": BillingLegalEntityType.COMPANY.value,
+                    "label": "Pessoa Jurídica",
+                },
+            ],
+            "payment_methods": [
+                item.value for item in BillingPaymentMethod
+            ],
+            "environments": [
+                item.value for item in BillingEnvironment
+            ],
+        }
+
     @router.get("/provider-accounts", response_model=None)
     def list_provider_accounts(
         authorization: str | None = Header(default=None, alias="Authorization"),
