@@ -21,6 +21,7 @@ from core.comercial.billing import BillingCallContext, BillingProviderError
 from core.comercial.billing_config import (
     BillingConnectionTestStatus,
     BillingEnvironment,
+    BillingLegalEntityType,
     BillingPaymentMethod,
     BillingProviderAccount,
     BillingProviderAccountStatus,
