@@ -209,6 +209,9 @@ class AplicacaoBillingConfigurationV1:
         payload = {
             "provider_code": code,
             "display_name": name,
+            "legal_entity_type": (
+                entity_type.value if entity_type is not None else None
+            ),
             "legal_entity_ref": legal_ref,
             "environment": environment.value,
             "credential_secret_reference": secret_ref,
@@ -255,6 +258,9 @@ class AplicacaoBillingConfigurationV1:
                         provider_account_id=account_id,
                         provider_code=code,
                         display_name=name,
+                        legal_entity_type=(
+                            entity_type.value if entity_type is not None else None
+                        ),
                         legal_entity_ref=legal_ref,
                         environment=environment.value,
                         status=BillingProviderAccountStatus.DRAFT.value,
@@ -291,6 +297,9 @@ class AplicacaoBillingConfigurationV1:
                         reason="kca09b_provider_account_create",
                         metadata_safe={
                             "provider_code": code,
+                            "legal_entity_type": (
+                                entity_type.value if entity_type is not None else None
+                            ),
                             "environment": environment.value,
                             "status": account.status.value,
                             "payment_methods": [item.value for item in methods],
