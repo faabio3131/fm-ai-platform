@@ -134,6 +134,77 @@ class ServicoEntrega:
         )
         return criada
 
+    def sincronizar_responsavel_externo(
+        self,
+        entrega_id: str,
+        modalidade: ModalidadeEntrega,
+        *,
+        versao_esperada: int,
+        contexto: ContextoExecucao,
+        idempotency_key: str,
+        evidencia: Mapping[str, object] | None = None,
+    ) -> Entrega:
+        """Atualiza responsabilidade logística somente a partir de fonte externa confiável."""
+
+        if not contexto.identidade_sistema:
+            raise ErroEntrega("sincronizacao_logistica_exige_sistema")
+        atual = self._obter(entrega_id, contexto)
+        dados = {
+            "entrega_id": entrega_id,
+            "versao_esperada": versao_esperada,
+            "modalidade": modalidade.value,
+        }
+        fingerprint = _hash_comando(
+            "sincronizar_responsavel_externo",
+            contexto.usuario_id,
+            dados,
+        )
+        repetida = self._repeticao(contexto, idempotency_key, fingerprint)
+        if repetida is not None:
+            return repetida
+        self._validar_versao(atual, versao_esperada)
+        if atual.modalidade is modalidade:
+            return atual
+
+        status = atual.status
+        if atual.checklist_concluido_em is not None and status in {
+            StatusEntrega.AGUARDANDO_ENTREGADOR,
+            StatusEntrega.AGUARDANDO_COLETA_PARCEIRO,
+            StatusEntrega.AGUARDANDO_DEFINICAO_LOGISTICA,
+        }:
+            status = {
+                ModalidadeEntrega.PROPRIA: StatusEntrega.AGUARDANDO_ENTREGADOR,
+                ModalidadeEntrega.PARCEIRO: StatusEntrega.AGUARDANDO_COLETA_PARCEIRO,
+                ModalidadeEntrega.INDEFINIDA: StatusEntrega.AGUARDANDO_DEFINICAO_LOGISTICA,
+            }.get(modalidade, StatusEntrega.AGUARDANDO_DEFINICAO_LOGISTICA)
+
+        instante = self._agora()
+        nova = replace(
+            atual,
+            modalidade=modalidade,
+            status=status,
+            entregador_id=(
+                atual.entregador_id
+                if modalidade is ModalidadeEntrega.PROPRIA
+                else None
+            ),
+            versao=atual.versao + 1,
+        )
+        return self._persistir_evento(
+            atual,
+            nova,
+            contexto=contexto,
+            tipo="entrega.responsavel_logistico_atualizado",
+            idempotency_key=idempotency_key,
+            fingerprint=fingerprint,
+            instante=instante,
+            payload={
+                "modalidade_anterior": atual.modalidade.value,
+                "modalidade_atual": modalidade.value,
+                **dict(evidencia or {}),
+            },
+        )
+
     def marcar_pedido_pronto(
         self,
         entrega_id: str,
