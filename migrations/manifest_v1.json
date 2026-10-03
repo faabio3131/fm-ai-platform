@@ -248,6 +248,10 @@
     {
       "version": "0061_commercial_billing_transaction_identity_v1",
       "sha256": "084369eb836820e25b351cc18239a67380dbb0b6dde9f7a9e7eff9ba327a651e"
+    },
+    {
+      "version": "0062_commercial_billing_provider_legal_entity_v1",
+      "sha256": "7c78b543695984dff0b5a4c0b6fef6182d22ae59c4537754070dfe7ce8af6998"
     }
   ]
 }
