@@ -88,8 +88,8 @@ _EXPECTED_MIGRATIONS = (
     "0058_commercial_billing_events_v1",
     "0059_operational_session_persistence_v1",
     "0060_admin_unit_legacy_store_reconciliation_v1",
-    "0063_google_federated_identity_v1",
     "0064_password_recovery_v1",
+    "0065_google_federated_identity_v1",
 )
 
 
@@ -253,6 +253,19 @@ def test_sqlite_health_and_versioned_migration_are_idempotent(
         "fm_password_recovery_tokens_v1",
     ):
         assert table in tables
+
+
+def test_password_recovery_history_accepts_google_as_next_migration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_runtime_env(monkeypatch)
+    monkeypatch.setenv("FM_AI_TEST_MODE", "1")
+    engine = build_engine(load_runtime_settings(test_database_url="sqlite:///:memory:"))
+
+    assert run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:-1]) == _EXPECTED_MIGRATIONS[:-1]
+    assert pending_versions(engine) == ("0065_google_federated_identity_v1",)
+    assert run_migrations(engine) == ("0065_google_federated_identity_v1",)
+    assert pending_versions(engine) == ()
 
 
 def test_migration_0011_upgrade_downgrade_and_reapply_are_atomic(

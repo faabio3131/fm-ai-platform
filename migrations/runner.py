@@ -407,12 +407,12 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
         upgrade_admin_unit_legacy_store_reconciliation_v1,
     ),
     Migration(
-        "0063_google_federated_identity_v1",
-        upgrade_google_federated_identity_v1,
-    ),
-    Migration(
         "0064_password_recovery_v1",
         upgrade_password_recovery_v1,
+    ),
+    Migration(
+        "0065_google_federated_identity_v1",
+        upgrade_google_federated_identity_v1,
     ),
 )
 
