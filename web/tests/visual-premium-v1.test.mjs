@@ -132,7 +132,7 @@ test("identidade Kordena usa o cérebro aprovado e elimina slogans antigos globa
   assert.match(gerente, /KordenaBrainMark/);
 });
 
-test("Gerente IA fica separado da operação sob o grupo Inteligência", () => {
+test("Gerente IA permanece no grupo Inteligência e ocupa a grade principal sem lacuna", () => {
   const registry = source("../src/features/shell/module-registry.ts");
   const shell = source("../src/features/shell/components/UnifiedAppShell.tsx");
   const dashboard = source("../src/features/shell/components/DashboardHome.tsx");
@@ -140,9 +140,10 @@ test("Gerente IA fica separado da operação sob o grupo Inteligência", () => {
   assert.match(registry, /ShellModuleGroup = "operacao" \| "inteligencia" \| "proprietario"/);
   assert.match(registry, /id: "gerente-ia"[\s\S]*group: "inteligencia"/);
   assert.match(shell, />\s*Inteligência\s*</);
-  assert.match(dashboard, /Camada cognitiva para consultar a operação/);
+  assert.match(dashboard, /overviewInsertAt/);
+  assert.match(dashboard, /\.\.\.intelligenceModules/);
+  assert.match(dashboard, /Operação e Inteligência/);
 });
-
 
 test("Atendente IA expõe sua capacidade operacional e comercial sem inventar saúde externa", () => {
   const assistente = source("../src/features/backoffice/assistente-atendimento/components/AssistenteAtendimentoWorkspace.tsx");
@@ -253,26 +254,56 @@ test("Marketplaces separam operação de credenciais e homologação", () => {
 });
 
 
-test("DashboardHome mantém densidade premium sem cards excessivamente altos", () => {
+test("DashboardHome mantém densidade premium com três linhas mais enxutas", () => {
   const dashboard = source("../src/features/shell/components/DashboardHome.tsx");
 
-  assert.match(dashboard, /<CardHeader className="p-4 pb-2">/);
-  assert.match(dashboard, /size-10 items-center justify-center rounded-xl/);
-  assert.match(dashboard, /mt-3 text-base tracking-tight/);
-  assert.match(dashboard, /min-h-10 text-\[13px\] leading-5/);
-  assert.match(dashboard, /<CardContent className="px-4 pb-4 pt-0">/);
-  assert.match(dashboard, /space-y-6/);
-  assert.match(dashboard, /grid gap-3 md:grid-cols-2 xl:grid-cols-3/);
+  assert.match(dashboard, /<CardHeader className="p-3 pb-1\.5">/);
+  assert.match(dashboard, /size-9 items-center justify-center rounded-lg/);
+  assert.match(dashboard, /mt-2 text-\[15px\] tracking-tight/);
+  assert.match(dashboard, /min-h-8 text-xs leading-4/);
+  assert.match(dashboard, /<CardContent className="px-3 pb-3 pt-0">/);
+  assert.match(dashboard, /space-y-4/);
+  assert.match(dashboard, /grid gap-2\.5 md:grid-cols-2 xl:grid-cols-3/);
+  assert.match(dashboard, /overviewInsertAt/);
 });
-
 
 test("DashboardHome mantém hero executivo compacto na primeira dobra", () => {
   const dashboard = source("../src/features/shell/components/DashboardHome.tsx");
 
-  assert.match(dashboard, /rounded-\[1\.75rem\][\s\S]*p-5[\s\S]*sm:p-6[\s\S]*lg:p-7/);
-  assert.match(dashboard, /grid gap-6 lg:grid-cols-\[minmax\(0,1\.5fr\)_minmax\(300px,0\.68fr\)\]/);
-  assert.match(dashboard, /lg:text-\[2\.65rem\]/);
-  assert.match(dashboard, /mt-4 inline-flex items-center gap-2\.5 rounded-xl/);
-  assert.match(dashboard, /grid grid-cols-3 gap-2\.5/);
-  assert.match(dashboard, /kordena-glass rounded-xl p-3/);
+  assert.match(dashboard, /rounded-\[1\.5rem\][\s\S]*p-4[\s\S]*sm:p-4[\s\S]*lg:p-5/);
+  assert.match(dashboard, /grid gap-4 lg:grid-cols-\[minmax\(0,1\.62fr\)_minmax\(280px,0\.62fr\)\]/);
+  assert.match(dashboard, /lg:text-\[2\.25rem\]/);
+  assert.match(dashboard, /mt-3 inline-flex items-center gap-2 rounded-xl/);
+  assert.match(dashboard, /grid grid-cols-3 gap-2/);
+  assert.match(dashboard, /kordena-glass rounded-xl p-2\.5/);
+});
+
+test("Telas administrativas principais mantêm densidade compacta sem alterar contratos funcionais", () => {
+  const backoffice = source("../src/features/backoffice/components/BackofficeHome.tsx");
+  const dashboard = source("../src/features/backoffice/dashboard/components/ExecutiveDashboardWorkspace.tsx");
+  const assinatura = source("../src/features/commercial/components/CommercialAccountWorkspace.tsx");
+  const crm = source("../src/features/backoffice/crm/components/CrmWorkspace.tsx");
+  const campanhas = source("../src/features/backoffice/campanhas/components/CampanhasWorkspace.tsx");
+
+  assert.match(backoffice, /max-w-\[1500px\] space-y-4/);
+  assert.match(backoffice, /grid gap-2\.5 md:grid-cols-2 xl:grid-cols-3/);
+  assert.match(backoffice, /API_BASE_URL/);
+  assert.match(backoffice, /\/v1\/admin\/acesso/);
+
+  assert.match(dashboard, /min-h-full p-4/);
+  assert.match(dashboard, /kordena-panel-dark group rounded-\[1\.25rem\] p-3\.5/);
+  assert.match(dashboard, /obterPainelExecutivo/);
+
+  assert.match(assinatura, /max-w-\[1500px\] space-y-4/);
+  assert.match(assinatura, /grid gap-3 xl:grid-cols-\[0\.9fr_1\.6fr\]/);
+  assert.match(assinatura, /startCommercialCheckout/);
+
+  assert.match(crm, /min-h-full bg-slate-950 p-4/);
+  assert.match(crm, /grid gap-3 xl:grid-cols-\[minmax\(0,1\.4fr\)_minmax\(340px,0\.9fr\)\]/);
+  assert.match(crm, /listarClientesCrm/);
+
+  assert.match(campanhas, /grid gap-4 xl:grid-cols-\[320px_minmax\(0,1fr\)\]/);
+  assert.match(campanhas, /min-h-\[360px\]/);
+  assert.match(campanhas, /criarCampanha/);
+  assert.match(campanhas, /despacharCampanha/);
 });

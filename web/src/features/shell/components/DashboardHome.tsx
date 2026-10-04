@@ -59,13 +59,14 @@ const iconByName: Record<ShellModuleIcon, typeof ShoppingCart> = {
 function ModuleCard({ module }: { module: ShellModuleDefinition }) {
   const Icon = iconByName[module.icon];
   const protectedModule = module.group === "proprietario";
+  const intelligenceModule = module.group === "inteligencia";
 
   return (
     <Link href={module.href} className="group block h-full">
       <Card className="h-full overflow-hidden border-slate-700/65 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] transition-all duration-200 hover:-translate-y-1 hover:border-sky-400/28 hover:shadow-[0_28px_62px_-34px_rgba(47,124,246,0.48)]">
-        <CardHeader className="p-4 pb-2">
+        <CardHeader className="p-3 pb-1.5">
           <div className="flex items-start justify-between gap-4">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-[linear-gradient(145deg,#0f172a,#1e3a5f)] text-white shadow-[0_12px_24px_-16px_rgba(15,23,42,0.9)] ring-1 ring-white/10 transition group-hover:scale-[1.03] group-hover:bg-[linear-gradient(145deg,#1d4ed8,#0284c7)]">
+            <div className="flex size-9 items-center justify-center rounded-lg bg-[linear-gradient(145deg,#0f172a,#1e3a5f)] text-white shadow-[0_12px_24px_-16px_rgba(15,23,42,0.9)] ring-1 ring-white/10 transition group-hover:scale-[1.03] group-hover:bg-[linear-gradient(145deg,#1d4ed8,#0284c7)]">
               {module.id === "gerente-ia" ? (
                 <KordenaBrainMark className="size-6" />
               ) : (
@@ -77,21 +78,23 @@ function ModuleCard({ module }: { module: ShellModuleDefinition }) {
               className={
                 protectedModule
                   ? "border-amber-300/20 bg-amber-400/[0.08] px-2 py-0.5 text-[10px] text-amber-200"
-                  : "border-emerald-300/20 bg-emerald-400/[0.08] px-2 py-0.5 text-[10px] text-emerald-200"
+                  : intelligenceModule
+                    ? "border-sky-300/20 bg-sky-400/[0.08] px-2 py-0.5 text-[10px] text-sky-200"
+                    : "border-emerald-300/20 bg-emerald-400/[0.08] px-2 py-0.5 text-[10px] text-emerald-200"
               }
             >
-              {protectedModule ? "Acesso protegido" : "Disponível"}
+              {protectedModule ? "Acesso protegido" : intelligenceModule ? "Inteligência" : "Disponível"}
             </Badge>
           </div>
-          <CardTitle className="mt-3 text-base tracking-tight text-slate-50 transition-colors group-hover:text-sky-300">
+          <CardTitle className="mt-2 text-[15px] tracking-tight text-slate-50 transition-colors group-hover:text-sky-300">
             {module.label}
           </CardTitle>
-          <CardDescription className="min-h-10 text-[13px] leading-5 text-slate-400">
+          <CardDescription className="min-h-8 text-xs leading-4 text-slate-400">
             {module.description}
           </CardDescription>
         </CardHeader>
-        <CardContent className="px-4 pb-4 pt-0">
-          <span className="inline-flex items-center gap-1.5 text-[13px] font-bold text-sky-300">
+        <CardContent className="px-3 pb-3 pt-0">
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-sky-300">
             Abrir módulo
             <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-1" />
           </span>
@@ -114,38 +117,45 @@ export function DashboardHome() {
   const proprietorModules = modules.filter(
     (module) => module.group === "proprietario",
   );
+  const overviewInsertAt =
+    operationModules.length - (operationModules.length % 3);
+  const overviewModules = [
+    ...operationModules.slice(0, overviewInsertAt),
+    ...intelligenceModules,
+    ...operationModules.slice(overviewInsertAt),
+  ];
   const gerenteIa = intelligenceModules.find((module) => module.id === "gerente-ia");
   const displayName =
     auth.operator?.nome?.trim() || auth.operator?.email || "usuário";
 
   return (
-    <div className="kordena-page min-h-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <div className="kordena-enter mx-auto w-full max-w-7xl space-y-6">
-        <section className="relative overflow-hidden rounded-[1.75rem] border border-slate-800/80 bg-[#08111f] p-5 text-white shadow-[0_26px_64px_-38px_rgba(2,6,23,0.8)] sm:p-6 lg:p-7">
+    <div className="kordena-page min-h-full px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
+      <div className="kordena-enter mx-auto w-full max-w-[1500px] space-y-4">
+        <section className="relative overflow-hidden rounded-[1.5rem] border border-slate-800/80 bg-[#08111f] p-4 text-white shadow-[0_24px_56px_-38px_rgba(2,6,23,0.8)] sm:p-4 lg:p-5">
           <div className="kordena-grid pointer-events-none absolute inset-0 opacity-70" />
           <div className="pointer-events-none absolute -right-28 -top-28 size-80 rounded-full bg-blue-500/22 blur-3xl" />
           <div className="pointer-events-none absolute bottom-[-8rem] left-[28%] size-72 rounded-full bg-cyan-400/10 blur-3xl" />
 
-          <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(300px,0.68fr)] lg:items-center">
+          <div className="relative grid gap-4 lg:grid-cols-[minmax(0,1.62fr)_minmax(280px,0.62fr)] lg:items-center">
             <div className="max-w-3xl">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-400/15 bg-emerald-400/[0.07] px-3 py-1 text-[11px] font-bold text-emerald-200">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-400/15 bg-emerald-400/[0.07] px-2.5 py-0.5 text-[10px] font-bold text-emerald-200">
                 <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.95)]" />
                 Sessão corporativa validada
               </div>
               <p className="text-xs font-black uppercase tracking-[0.24em] text-sky-300">
                 Kordena Enterprise
               </p>
-              <h1 className="mt-2 text-3xl font-black tracking-[-0.035em] sm:text-4xl lg:text-[2.65rem] lg:leading-[1.05]">
+              <h1 className="mt-1.5 text-3xl font-black tracking-[-0.035em] sm:text-[2.15rem] lg:text-[2.25rem] lg:leading-[1.04]">
                 Central de operação e gestão
               </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
+              <p className="mt-2 max-w-2xl text-[13px] leading-5 text-slate-300">
                 Olá, {displayName}. Acesse somente os módulos liberados para sua função e para a unidade ativa da sessão.
               </p>
 
               {gerenteIa ? (
                 <Link
                   href={gerenteIa.href}
-                  className="mt-4 inline-flex items-center gap-2.5 rounded-xl border border-blue-400/20 bg-blue-500/10 px-3.5 py-2.5 text-sm font-semibold text-blue-100 transition hover:-translate-y-0.5 hover:border-blue-300/30 hover:bg-blue-500/15"
+                  className="mt-3 inline-flex items-center gap-2 rounded-xl border border-blue-400/20 bg-blue-500/10 px-3 py-2 text-sm font-semibold text-blue-100 transition hover:-translate-y-0.5 hover:border-blue-300/30 hover:bg-blue-500/15"
                 >
                   <span className="flex size-8 items-center justify-center rounded-lg bg-blue-500/10 ring-1 ring-blue-400/20">
                     <KordenaBrainMark className="size-7" />
@@ -159,25 +169,25 @@ export function DashboardHome() {
               ) : null}
             </div>
 
-            <div className="grid grid-cols-3 gap-2.5">
-              <div className="kordena-glass rounded-xl p-3">
-                <p className="text-2xl font-black tabular-nums text-white">{operationModules.length}</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="kordena-glass rounded-xl p-2.5">
+                <p className="text-xl font-black tabular-nums text-white">{operationModules.length}</p>
                 <p className="mt-1 text-[11px] leading-4 text-slate-400">módulos operacionais</p>
               </div>
-              <div className="kordena-glass rounded-xl p-3">
-                <p className="text-2xl font-black tabular-nums text-white">{intelligenceModules.length}</p>
+              <div className="kordena-glass rounded-xl p-2.5">
+                <p className="text-xl font-black tabular-nums text-white">{intelligenceModules.length}</p>
                 <p className="mt-1 text-[11px] leading-4 text-slate-400">módulo de inteligência</p>
               </div>
-              <div className="kordena-glass rounded-xl p-3">
-                <p className="text-2xl font-black tabular-nums text-white">{proprietorModules.length}</p>
+              <div className="kordena-glass rounded-xl p-2.5">
+                <p className="text-xl font-black tabular-nums text-white">{proprietorModules.length}</p>
                 <p className="mt-1 text-[11px] leading-4 text-slate-400">módulos de gestão</p>
               </div>
-              <div className="col-span-3 rounded-xl border border-white/[0.08] bg-white/[0.045] p-3 backdrop-blur">
+              <div className="col-span-3 rounded-xl border border-white/[0.08] bg-white/[0.045] p-2.5 backdrop-blur">
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
                   <ShieldCheck className="size-4 text-emerald-300" />
                   Acesso orientado por função e unidade
                 </div>
-                <p className="mt-1.5 text-[11px] leading-4 text-slate-500">
+                <p className="mt-1 text-[10px] leading-4 text-slate-500">
                   O shell respeita as permissões da identidade e o escopo operacional da sessão assinada.
                 </p>
               </div>
@@ -185,52 +195,26 @@ export function DashboardHome() {
           </div>
         </section>
 
-        {operationModules.length > 0 ? (
+        {overviewModules.length > 0 ? (
           <section>
-            <div className="mb-4 flex flex-col gap-1.5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="mb-2.5 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-300">
-                  Operação
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-sky-300">
+                  Operação integrada
                 </p>
-                <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-50">
-                  Operacional
+                <h2 className="mt-0.5 text-xl font-black tracking-tight text-slate-50">
+                  Operação e Inteligência
                 </h2>
-                <p className="mt-1 text-sm leading-6 text-slate-400">
-                  Atendimento, produção e execução operacional disponíveis para sua função.
+                <p className="mt-0.5 text-[13px] leading-5 text-slate-400">
+                  Atendimento, produção, execução operacional e inteligência disponíveis para sua função.
                 </p>
               </div>
               <Badge variant="outline" className="border-slate-600/60 bg-slate-950/38 text-slate-300">
-                {operationModules.length} disponíveis
+                {overviewModules.length} disponíveis
               </Badge>
             </div>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {operationModules.map((module) => (
-                <ModuleCard key={module.id} module={module} />
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        {intelligenceModules.length > 0 ? (
-          <section>
-            <div className="mb-4 flex flex-col gap-1.5 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-300">
-                  Inteligência
-                </p>
-                <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-50">
-                  Gerente IA
-                </h2>
-                <p className="mt-1 text-sm leading-6 text-slate-400">
-                  Camada cognitiva para consultar a operação, analisar contexto e preparar decisões governadas.
-                </p>
-              </div>
-              <Badge variant="outline" className="border-sky-300/20 bg-sky-400/[0.08] text-sky-200">
-                Inteligência operacional
-              </Badge>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {intelligenceModules.map((module) => (
+            <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
+              {overviewModules.map((module) => (
                 <ModuleCard key={module.id} module={module} />
               ))}
             </div>
@@ -239,15 +223,15 @@ export function DashboardHome() {
 
         {proprietorModules.length > 0 ? (
           <section>
-            <div className="mb-4 flex flex-col gap-1.5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="mb-2.5 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-300">
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-300">
                   Gestão protegida
                 </p>
-                <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-50">
+                <h2 className="mt-0.5 text-xl font-black tracking-tight text-slate-50">
                   Área do Proprietário
                 </h2>
-                <p className="mt-1 text-sm leading-6 text-slate-400">
+                <p className="mt-0.5 text-[13px] leading-5 text-slate-400">
                   A entrada permanece sujeita à permissão administrativa e à reautenticação temporária.
                 </p>
               </div>
@@ -255,7 +239,7 @@ export function DashboardHome() {
                 Step-up protegido
               </Badge>
             </div>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
               {proprietorModules.map((module) => (
                 <ModuleCard key={module.id} module={module} />
               ))}
@@ -264,7 +248,7 @@ export function DashboardHome() {
         ) : null}
 
         {modules.length === 0 ? (
-          <section className="rounded-3xl border border-amber-300/20 bg-amber-400/[0.07] p-6 text-amber-100 shadow-[0_20px_48px_-34px_rgba(245,166,35,0.28)]">
+          <section className="rounded-3xl border border-amber-300/20 bg-amber-400/[0.07] p-5 text-amber-100 shadow-[0_20px_48px_-34px_rgba(245,166,35,0.28)]">
             <h2 className="text-lg font-bold">Nenhum módulo liberado para esta identidade</h2>
             <p className="mt-2 text-sm leading-6 text-amber-200/80">
               Sua sessão está autenticada, porém não há módulos Web disponíveis para as permissões atuais. Solicite ao administrador a revisão do seu papel e das suas permissões.

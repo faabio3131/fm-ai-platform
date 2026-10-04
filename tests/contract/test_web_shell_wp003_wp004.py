@@ -24,7 +24,7 @@ def test_wp003_root_layout_mounts_persistent_shell() -> None:
 def test_wp003_auth_guard_is_fail_closed_by_default() -> None:
     guard = _read("web/src/features/auth/components/AuthSessionGuard.tsx")
     assert (
-        'const PUBLIC_PATHS = ["/login", "/signup", "/cardapio", "/legal"] as const;'
+        'const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password", "/cardapio", "/legal"] as const;'
         in guard
     )
     assert "return !PUBLIC_PATHS.some" in guard
@@ -41,7 +41,6 @@ def test_wp003_module_registry_governs_current_routes_with_rbac() -> None:
         'id: "salao"': '"pedido.visualizar"',
         'id: "kds"': '"producao.visualizar"',
         'id: "catalogo"': '"admin.acessar"',
-        'id: "saude-sistema"': '"admin.acessar"',
     }
     for module_id, permission in required_contracts.items():
         assert module_id in registry
@@ -70,9 +69,12 @@ def test_wp004_dashboard_only_uses_rbac_filtered_modules() -> None:
     assert "WP-" not in dashboard
 
 
-def test_wp004_technical_health_is_preserved_behind_admin() -> None:
-    health = _read("web/src/app/admin/system-health/page.tsx")
+def test_wp004_technical_health_is_not_exposed_to_tenant_ui() -> None:
+    registry = _read("web/src/features/shell/module-registry.ts")
     admin_layout = _read("web/src/app/admin/layout.tsx")
-    assert "checkBackendHealth" in health
-    assert "Saúde do sistema" in health
+    health_page = ROOT / "web/src/app/admin/system-health/page.tsx"
+
+    assert 'id: "saude-sistema"' not in registry
+    assert 'href: "/admin/system-health"' not in registry
+    assert not health_page.exists()
     assert "AdminStepUpGuard" in admin_layout

@@ -169,3 +169,120 @@ def build_smtp_verification_dispatcher_from_env(
         ),
         secret_store=secret_store,
     )
+
+class SMTPPasswordRecoveryDispatcher:
+    """Envio SMTP para redefinição de senha e aviso de segurança."""
+
+    def __init__(
+        self,
+        *,
+        config: SMTPVerificationConfig,
+        secret_store: SecretStore,
+        smtp_factory: SMTPFactory = _default_smtp_factory,
+    ) -> None:
+        self._config = config
+        self._secret_store = secret_store
+        self._smtp_factory = smtp_factory
+
+    def password_reset_url(self, *, token: str) -> str:
+        raw = token.strip()
+        if not raw:
+            raise ValueError("password_recovery_link_invalid")
+        # Fragment evita que o token seja enviado ao servidor web em logs de URL.
+        fragment = urlencode({"token": raw})
+        return f"{self._config.frontend_base_url}/reset-password#{fragment}"
+
+    def _send(self, message: EmailMessage) -> None:
+        client = self._smtp_factory(self._config)
+        try:
+            if self._config.security == "starttls":
+                client.starttls(context=ssl.create_default_context())
+            if self._config.username:
+                reference = self._config.password_secret_reference
+                if reference is None:
+                    raise RuntimeError("transactional_email_secret_reference_missing")
+                password = self._secret_store.resolve(reference).reveal()
+                client.login(self._config.username, password)
+            client.send_message(message)
+        finally:
+            with suppress(Exception):
+                client.quit()
+
+    def send_password_reset(self, *, email: str, token: str) -> None:
+        recipient = email.strip().casefold()
+        if not recipient or "@" not in recipient:
+            raise ValueError("transactional_email_recipient_invalid")
+        link = self.password_reset_url(token=token)
+        message = EmailMessage()
+        message["Subject"] = "Redefina sua senha do Kordena"
+        message["From"] = self._config.from_email
+        message["To"] = recipient
+        message.set_content(
+            "Recebemos uma solicitação para redefinir a senha do seu acesso Kordena.\n\n"
+            f"{link}\n\n"
+            "Este link expira em 30 minutos e só pode ser usado uma vez.\n"
+            "Se você não solicitou a redefinição, ignore esta mensagem."
+        )
+        self._send(message)
+
+    def send_password_changed(self, *, email: str) -> None:
+        recipient = email.strip().casefold()
+        if not recipient or "@" not in recipient:
+            raise ValueError("transactional_email_recipient_invalid")
+        message = EmailMessage()
+        message["Subject"] = "Sua senha do Kordena foi alterada"
+        message["From"] = self._config.from_email
+        message["To"] = recipient
+        message.set_content(
+            "A senha do seu acesso Kordena foi alterada com sucesso.\n\n"
+            "Todas as sessões anteriores foram encerradas por segurança.\n"
+            "Se você não realizou esta alteração, contate o suporte imediatamente."
+        )
+        self._send(message)
+
+
+def build_smtp_password_recovery_dispatcher_from_env(
+    *,
+    secret_store: SecretStore,
+    required: bool = False,
+) -> SMTPPasswordRecoveryDispatcher | None:
+    host = os.getenv("FM_AI_TRANSACTIONAL_EMAIL_SMTP_HOST", "").strip()
+    sender = os.getenv("FM_AI_TRANSACTIONAL_EMAIL_FROM", "").strip()
+    base_url = os.getenv("FM_AI_PUBLIC_WEB_BASE_URL", "").strip()
+    if not host or not sender or not base_url:
+        if required:
+            raise RuntimeError("transactional_email_runtime_not_configured")
+        return None
+
+    raw_port = os.getenv("FM_AI_TRANSACTIONAL_EMAIL_SMTP_PORT", "587").strip()
+    raw_timeout = os.getenv("FM_AI_TRANSACTIONAL_EMAIL_TIMEOUT_SECONDS", "10").strip()
+    try:
+        port = int(raw_port)
+        timeout = float(raw_timeout)
+    except ValueError as exc:
+        raise RuntimeError("transactional_email_runtime_invalid") from exc
+
+    username = os.getenv("FM_AI_TRANSACTIONAL_EMAIL_USERNAME", "").strip() or None
+    secret_reference = (
+        os.getenv(
+            "FM_AI_TRANSACTIONAL_EMAIL_PASSWORD_SECRET_REF",
+            "env:FM_AI_TRANSACTIONAL_EMAIL_PASSWORD",
+        ).strip()
+        if username
+        else None
+    )
+    return SMTPPasswordRecoveryDispatcher(
+        config=SMTPVerificationConfig(
+            host=host,
+            port=port,
+            from_email=sender,
+            frontend_base_url=base_url,
+            security=os.getenv(
+                "FM_AI_TRANSACTIONAL_EMAIL_SECURITY", "starttls"
+            ).strip(),
+            username=username,
+            password_secret_reference=secret_reference,
+            timeout_seconds=timeout,
+        ),
+        secret_store=secret_store,
+    )

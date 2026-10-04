@@ -136,6 +136,8 @@ export function UnifiedAppShell({ children }: { children: ReactNode }) {
   const publicSurface =
     pathname === "/signup" ||
     pathname.startsWith("/signup/") ||
+    pathname === "/forgot-password" ||
+    pathname === "/reset-password" ||
     pathname === "/cardapio" ||
     pathname.startsWith("/cardapio/") ||
     pathname === "/legal" ||

@@ -113,6 +113,9 @@ from migrations.fiscal_smart_intake_v1 import upgrade_fiscal_smart_intake_v1
 from migrations.global_identity_membership_v1 import (
     upgrade_global_identity_membership_v1,
 )
+from migrations.google_federated_identity_v1 import (
+    upgrade_google_federated_identity_v1,
+)
 from migrations.history_guard import MigrationHistoryError, assert_applied_history
 from migrations.integration_secret_vault_v1 import upgrade_integration_secret_vault_v1
 from migrations.internal_notification_recipients_v1 import (
@@ -138,6 +141,7 @@ from migrations.migration_history_integrity_v1 import (
 from migrations.operational_session_persistence_v1 import (
     upgrade_operational_session_persistence_v1,
 )
+from migrations.password_recovery_v1 import upgrade_password_recovery_v1
 from migrations.pdv_reconciliation_strategy_width_v1 import (
     upgrade_pdv_reconciliation_strategy_width_v1,
 )
@@ -409,11 +413,19 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
         upgrade_admin_unit_legacy_store_reconciliation_v1,
     ),
     Migration(
-        "0061_commercial_billing_transaction_identity_v1",
+        "0064_password_recovery_v1",
+        upgrade_password_recovery_v1,
+    ),
+    Migration(
+        "0065_google_federated_identity_v1",
+        upgrade_google_federated_identity_v1,
+    ),
+    Migration(
+        "0066_commercial_billing_transaction_identity_v1",
         upgrade_commercial_billing_transaction_identity_v1,
     ),
     Migration(
-        "0062_commercial_billing_provider_legal_entity_v1",
+        "0067_commercial_billing_provider_legal_entity_v1",
         upgrade_commercial_billing_provider_legal_entity_v1,
     ),
 )

@@ -246,12 +246,20 @@
       "sha256": "0f57af2300f9a6b20564af110837cfc32e003d027715072fc001dd361276605c"
     },
     {
-      "version": "0061_commercial_billing_transaction_identity_v1",
-      "sha256": "084369eb836820e25b351cc18239a67380dbb0b6dde9f7a9e7eff9ba327a651e"
+      "version": "0064_password_recovery_v1",
+      "sha256": "f56db3e244ce0983de8a5c4ce70384a96e4cbedae01a443b397175da6a2c5868"
     },
     {
-      "version": "0062_commercial_billing_provider_legal_entity_v1",
-      "sha256": "7c78b543695984dff0b5a4c0b6fef6182d22ae59c4537754070dfe7ce8af6998"
+      "version": "0065_google_federated_identity_v1",
+      "sha256": "7ffa551b326c1c10235dc5ab895259415c05d0d8738f0425872a93c4af1c5293"
+    },
+    {
+      "version": "0066_commercial_billing_transaction_identity_v1",
+      "sha256": "40e89e67939da9fbf92e3e0b4cb2ffc69d79c05822e28110dd533530cf1672ff"
+    },
+    {
+      "version": "0067_commercial_billing_provider_legal_entity_v1",
+      "sha256": "5a58159d2b16b4055988a3527a500c9e7bc799380d5ed5c57f869389041a1970"
     }
   ]
 }

@@ -161,7 +161,7 @@ export function CommercialAccountWorkspace() {
 
   if (loading) {
     return (
-      <main className="kordena-page min-h-full px-4 py-6 text-slate-100 sm:px-6 lg:px-8">
+      <main className="kordena-page min-h-full px-4 py-4 text-slate-100 sm:px-5 lg:px-6">
         <div className="mx-auto flex min-h-72 max-w-6xl items-center justify-center gap-3 rounded-3xl border border-slate-700/60 bg-slate-900/70 text-sm text-slate-300">
           <Loader2 className="size-5 animate-spin text-sky-300" />
           Carregando plano e assinatura…
@@ -171,20 +171,20 @@ export function CommercialAccountWorkspace() {
   }
 
   return (
-    <main className="kordena-page min-h-full px-4 py-6 text-slate-100 sm:px-6 lg:px-8">
-      <div className="kordena-enter mx-auto w-full max-w-7xl space-y-6">
-        <header className="relative overflow-hidden rounded-[2rem] border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] p-6 shadow-[0_28px_76px_-40px_rgba(0,0,0,0.88)] sm:p-8">
+    <main className="kordena-page min-h-full px-4 py-4 text-slate-100 sm:px-5 lg:px-6">
+      <div className="kordena-enter mx-auto w-full max-w-[1500px] space-y-4">
+        <header className="relative overflow-hidden rounded-[1.5rem] border border-slate-700/60 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] p-4 shadow-[0_24px_60px_-40px_rgba(0,0,0,0.88)] sm:p-5">
           <div className="pointer-events-none absolute -right-20 -top-24 size-64 rounded-full bg-sky-500/10 blur-3xl" />
-          <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-sky-300/20 bg-sky-400/[0.08] px-3 py-1.5 text-xs font-bold text-sky-200">
+              <div className="inline-flex items-center gap-2 rounded-full border border-sky-300/20 bg-sky-400/[0.08] px-2.5 py-1 text-[11px] font-bold text-sky-200">
                 <CreditCard className="size-3.5" />
                 Conta comercial Kordena
               </div>
-              <h1 className="mt-5 text-3xl font-black tracking-[-0.035em] text-slate-50 sm:text-4xl">
+              <h1 className="mt-3 text-2xl font-black tracking-[-0.035em] text-slate-50 sm:text-3xl">
                 Plano e Assinatura
               </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-400">
+              <p className="mt-1.5 max-w-2xl text-[13px] leading-5 text-slate-400">
                 Consulte entitlement, assinatura e ofertas do Kordena usando a mesma autoridade comercial que governa trial, paywall e billing.
               </p>
             </div>
@@ -208,7 +208,7 @@ export function CommercialAccountWorkspace() {
           </div>
         ) : null}
 
-        <section className="grid gap-4 md:grid-cols-3">
+        <section className="grid gap-2.5 md:grid-cols-3">
           <Metric
             icon={<ShieldCheck className="size-5" />}
             label="Acesso comercial"
@@ -229,13 +229,13 @@ export function CommercialAccountWorkspace() {
           />
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[0.9fr_1.6fr]">
-          <article className="rounded-3xl border border-slate-700/60 bg-slate-900/70 p-6">
+        <section className="grid gap-3 xl:grid-cols-[0.9fr_1.6fr]">
+          <article className="rounded-2xl border border-slate-700/60 bg-slate-900/70 p-4">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-300">
               Assinatura atual
             </p>
             {subscription ? (
-              <div className="mt-5 space-y-5">
+              <div className="mt-3 space-y-3">
                 <div>
                   <p className="text-2xl font-black text-white">
                     {currentPlan?.display_name ?? subscription.plan_code}
@@ -260,27 +260,27 @@ export function CommercialAccountWorkspace() {
                 </p>
               </div>
             ) : (
-              <div className="mt-5 rounded-2xl border border-slate-700/60 bg-slate-950/45 p-5 text-sm leading-6 text-slate-400">
+              <div className="mt-3 rounded-xl border border-slate-700/60 bg-slate-950/45 p-4 text-[13px] leading-5 text-slate-400">
                 Nenhuma assinatura foi encontrada para a conta de produto deste tenant. O catálogo abaixo continua sendo lido da autoridade comercial.
               </div>
             )}
           </article>
 
-          <article className="rounded-3xl border border-slate-700/60 bg-slate-900/70 p-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <article className="rounded-2xl border border-slate-700/60 bg-slate-900/70 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-300">
                   Catálogo comercial
                 </p>
-                <h2 className="mt-2 text-2xl font-black text-white">Planos disponíveis</h2>
-                <p className="mt-2 text-sm text-slate-400">
+                <h2 className="mt-1.5 text-xl font-black text-white">Planos disponíveis</h2>
+                <p className="mt-1 text-[13px] leading-5 text-slate-400">
                   Nomes, preços e versões vêm do catálogo versionado; nenhum valor comercial é hardcoded nesta tela.
                 </p>
               </div>
               <label className="text-xs font-semibold text-slate-400">
                 Forma de pagamento
                 <select
-                  className="mt-1 block h-10 rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white"
+                  className="mt-1 block h-9 rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white"
                   value={paymentMethod}
                   onChange={(event) => setPaymentMethod(event.target.value as CommercialPaymentMethod)}
                   disabled={!checkoutAllowed}
@@ -294,17 +294,17 @@ export function CommercialAccountWorkspace() {
             </div>
 
             {!checkoutAllowed ? (
-              <p className="mt-5 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.07] p-3 text-sm text-emerald-100">
+              <p className="mt-3 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.07] p-2.5 text-xs leading-5 text-emerald-100">
                 O acesso operacional está liberado. Para evitar duplicidade de assinatura, esta superfície mantém o checkout bloqueado enquanto o entitlement atual estiver válido.
               </p>
             ) : null}
 
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
               {plans.map((plan) => (
                 <article
                   key={plan.plan_code}
                   className={[
-                    "rounded-2xl border p-5",
+                    "rounded-xl border p-4",
                     plan.plan_code === subscription?.plan_code
                       ? "border-sky-400/30 bg-sky-400/[0.07]"
                       : "border-slate-700/60 bg-slate-950/45",
@@ -323,15 +323,15 @@ export function CommercialAccountWorkspace() {
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-2 min-h-10 text-sm leading-5 text-slate-400">
+                  <p className="mt-1.5 min-h-8 text-xs leading-4 text-slate-400">
                     {plan.description ?? "Plano comercial Kordena."}
                   </p>
-                  <div className="mt-4 space-y-3">
+                  <div className="mt-3 space-y-2">
                     {plan.prices.map((price) => {
                       const key = `${plan.plan_code}:${price.price_id}`;
                       const busy = checkoutKey === key;
                       return (
-                        <div key={price.price_id} className="rounded-xl border border-slate-700/60 bg-slate-950/55 p-3">
+                        <div key={price.price_id} className="rounded-lg border border-slate-700/60 bg-slate-950/55 p-2.5">
                           <div className="flex items-center gap-2">
                             <CircleDollarSign className="size-4 text-emerald-300" />
                             <span className="font-bold text-white">
@@ -382,10 +382,10 @@ function Metric({
   detail: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-700/60 bg-slate-900/70 p-5">
+    <div className="rounded-xl border border-slate-700/60 bg-slate-900/70 p-3.5">
       <div className="flex items-center gap-2 text-sky-300">{icon}</div>
-      <p className="mt-4 text-xs font-bold uppercase tracking-[0.15em] text-slate-500">{label}</p>
-      <p className="mt-2 text-xl font-black text-white">{value}</p>
+      <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">{label}</p>
+      <p className="mt-1.5 text-lg font-black text-white">{value}</p>
       <p className="mt-1 truncate text-xs text-slate-500">{detail}</p>
     </div>
   );

@@ -25,6 +25,12 @@ from application.public_signup import (
 )
 from core.comercial.erros import DadoComercialInvalido, RegistroComercialDuplicado
 from core.seguranca.segredos import SecretStore
+from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
+from infra.seguranca.google_oidc import (
+    GoogleIdentityError,
+    GoogleIdentityUnavailable,
+    verify_google_id_token,
+)
 
 SessionFactory = Callable[[], Session]
 
@@ -62,6 +68,18 @@ class VerifyEmailIn(BaseModel):
     token: str = Field(min_length=16, max_length=512)
 
 
+class GoogleSignupIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    credential: str = Field(min_length=20, max_length=8192)
+    phone: str | None = Field(default=None, max_length=64)
+    establishment_name: str = Field(min_length=1, max_length=255)
+    segment: str = Field(min_length=1, max_length=96)
+    terms_accepted: bool
+    legal_documents: dict[str, LegalDocumentClaimIn]
+    consents: dict[str, bool] = Field(default_factory=dict)
+
+
 class _SlidingWindowLimiter:
     def __init__(self, *, limit: int = 5, window_seconds: int = 600) -> None:
         self._limit = limit
@@ -89,6 +107,7 @@ def build_public_signup_router(
     enabled: bool = False,
     verification_dispatcher: VerificationDispatcher | None = None,
     credential_secret_reference: str = "env:FM_AI_SIGNUP_SECRET_KEY",
+    google_oauth_client_id: str | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/v1/public/signup", tags=["public-signup"])
     if not enabled:
@@ -122,6 +141,11 @@ def build_public_signup_router(
 
     @router.post("")
     def create_signup(payload: SignupIn, request: Request) -> JSONResponse:
+        if verification_dispatcher is None:
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"erro": "signup_email_temporariamente_indisponivel"},
+            )
         remote = request.client.host if request.client else "unknown"
         if not limiter.allow(f"ip:{remote}"):
             return JSONResponse(
@@ -163,6 +187,95 @@ def build_public_signup_router(
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 content={"erro": "signup_temporariamente_indisponivel"},
+            )
+
+    @router.post("/google")
+    def create_google_signup(
+        payload: GoogleSignupIn,
+        request: Request,
+    ) -> JSONResponse:
+        remote = request.client.host if request.client else "unknown"
+        if not limiter.allow(f"google-ip:{remote}"):
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={"erro": "signup_rate_limited"},
+            )
+        if not google_oauth_client_id:
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"erro": "auth.google_indisponivel"},
+            )
+        try:
+            claims = verify_google_id_token(
+                payload.credential,
+                client_id=google_oauth_client_id,
+            )
+        except GoogleIdentityUnavailable as exc:
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"erro": str(exc)},
+            )
+        except GoogleIdentityError as exc:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"erro": str(exc)},
+            )
+
+        try:
+            signup = app.criar_e_provisionar_google(
+                owner_name=claims.name or claims.email.split("@", 1)[0],
+                owner_email=claims.email,
+                primary_contact_phone=payload.phone,
+                establishment_name=payload.establishment_name,
+                segment=payload.segment,
+                terms_accepted=payload.terms_accepted,
+                legal_documents={
+                    key: {
+                        "version": claim.version,
+                        "sha256": claim.sha256,
+                    }
+                    for key, claim in payload.legal_documents.items()
+                },
+                consent_json=payload.consents,
+                correlation_id=request.headers.get("x-correlation-id")
+                or f"google-signup:{uuid4()}",
+            )
+            with session_factory() as session, session.begin():
+                repo = RepositorioIdentidadesSQLAlchemy(session)
+                identity_user_id = repo.obter_identity_user_id_por_email(
+                    claims.email
+                )
+                if identity_user_id is None:
+                    raise RuntimeError("google_signup_identity_missing")
+                repo.vincular_provedor(
+                    identity_user_id=identity_user_id,
+                    provider="google",
+                    provider_subject=claims.subject,
+                    email_at_link=claims.email,
+                    hosted_domain=claims.hosted_domain,
+                )
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "signup_id": signup.signup_id,
+                    "status": signup.status.value,
+                    "ready": signup.status.value == "ready",
+                },
+            )
+        except RegistroComercialDuplicado:
+            return JSONResponse(
+                status_code=status.HTTP_409_CONFLICT,
+                content={"erro": "auth.google_account_exists"},
+            )
+        except DadoComercialInvalido as exc:
+            return JSONResponse(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                content={"erro": str(exc)},
+            )
+        except (ValueError, RuntimeError, SQLAlchemyError):
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"erro": "signup_provisioning_pending"},
             )
 
     @router.post("/{signup_id}/resend-verification")

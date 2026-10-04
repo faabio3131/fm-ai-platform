@@ -21,7 +21,6 @@ from core.comercial.billing import (
     BillingValidationError,
     BillingWebhookInvalid,
     CheckoutRequest,
-    WebhookVerificationResult,
 )
 from core.comercial.billing_events import (
     BillingCanonicalEventType,

@@ -1,4 +1,4 @@
-"""Migration 0062 — tipo de titular configurável da conta recebedora SaaS."""
+"""Migration 0067 — tipo de titular configurável da conta recebedora SaaS."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ def upgrade_commercial_billing_provider_legal_entity_v1(
     inspector = inspect(connection)
     if _TABLE not in inspector.get_table_names():
         raise RuntimeError(
-            "billing provider accounts ausente antes da migration 0062"
+            "billing provider accounts ausente antes da migration 0067"
         )
 
     columns = {
@@ -40,7 +40,7 @@ def upgrade_commercial_billing_provider_legal_entity_v1(
     }
     if _COLUMN not in final_columns:
         raise RuntimeError(
-            "billing provider legal_entity_type ausente após migration 0062"
+            "billing provider legal_entity_type ausente após migration 0067"
         )
 
     invalid = int(

@@ -1,4 +1,4 @@
-"""Migration 0061 — identidade comercial explícita por transação SaaS.
+"""Migration 0066 — identidade comercial explícita por transação SaaS.
 
 Materializa no ledger financeiro a identidade canônica do cliente/produto já
 presente na assinatura. A migration não inventa vínculos para transações
@@ -47,7 +47,7 @@ def _require_tables(connection: Connection) -> None:
     } - tables
     if missing:
         raise RuntimeError(
-            "schema comercial incompleto antes da migration 0061: "
+            "schema comercial incompleto antes da migration 0066: "
             + ", ".join(sorted(missing))
         )
 
@@ -168,7 +168,7 @@ def _validate_linked_identity(connection: Connection) -> None:
     }
     if missing_columns:
         raise RuntimeError(
-            "migration 0061 não materializou colunas: "
+            "migration 0066 não materializou colunas: "
             + ", ".join(sorted(missing_columns))
         )
 
@@ -181,7 +181,7 @@ def _validate_linked_identity(connection: Connection) -> None:
     }
     if missing_indexes:
         raise RuntimeError(
-            "migration 0061 não materializou índices: "
+            "migration 0066 não materializou índices: "
             + ", ".join(sorted(missing_indexes))
         )
 

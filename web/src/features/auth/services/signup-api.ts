@@ -14,6 +14,16 @@ export interface SignupInput {
   consents: Record<string, boolean>;
 }
 
+export interface GoogleSignupInput {
+  credential: string;
+  phone?: string;
+  establishment_name: string;
+  segment: string;
+  terms_accepted: boolean;
+  legal_documents: Record<string, { version: string; sha256: string }>;
+  consents: Record<string, boolean>;
+}
+
 export interface SignupAccepted {
   accepted: boolean;
   signup_id: string;
@@ -33,7 +43,7 @@ export class SignupApiError extends Error {
 export async function createSignup(input: SignupInput): Promise<SignupAccepted> {
   const response = await fetch(`${API_BASE_URL}/v1/public/signup`, {
     method: "POST",
-    credentials: "omit",
+    credentials: "same-origin",
     cache: "no-store",
     headers: {
       Accept: "application/json",
@@ -45,6 +55,26 @@ export async function createSignup(input: SignupInput): Promise<SignupAccepted> 
     throw new SignupApiError("signup_request_failed", response.status);
   }
   return (await response.json()) as SignupAccepted;
+}
+
+
+export async function createGoogleSignup(
+  input: GoogleSignupInput,
+): Promise<SignupVerificationResult> {
+  const response = await fetch(API_BASE_URL + "/v1/public/signup/google", {
+    method: "POST",
+    credentials: "same-origin",
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    throw new SignupApiError("google_signup_request_failed", response.status);
+  }
+  return (await response.json()) as SignupVerificationResult;
 }
 
 
@@ -67,7 +97,7 @@ export async function verifySignupEmail(
     `${API_BASE_URL}/v1/public/signup/${encodeURIComponent(normalizedSignupId)}/verify-email`,
     {
       method: "POST",
-      credentials: "omit",
+      credentials: "same-origin",
       cache: "no-store",
       headers: {
         Accept: "application/json",

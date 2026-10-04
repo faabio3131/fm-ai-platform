@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from sqlalchemy import delete, inspect, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from core.seguranca.autenticacao import (
@@ -21,6 +22,7 @@ from core.seguranca.autenticacao import (
 )
 from core.seguranca.permissoes import Papel
 
+from .federated_identity_orm import FederatedIdentityORM
 from .modelos_orm import (
     IdentityMembershipORM,
     IdentityMembershipRoleORM,
@@ -199,6 +201,125 @@ class RepositorioIdentidadesSQLAlchemy:
         return self._session.scalar(
             select(IdentityUserORM.identity_user_id).where(IdentityUserORM.email == email)
         )
+
+    def obter_por_identity_user_id(
+        self,
+        *,
+        identity_user_id: str,
+        product_code: str = _PRODUCT_CODE_KORDENA,
+    ) -> IdentidadeUsuario | None:
+        identity_id = identity_user_id.strip()
+        product = product_code.strip().upper()
+        if not identity_id or not product or not self._global_disponivel():
+            return None
+        membership = self._session.scalar(
+            select(IdentityMembershipORM)
+            .where(
+                IdentityMembershipORM.identity_user_id == identity_id,
+                IdentityMembershipORM.product_code == product,
+                IdentityMembershipORM.ativo.is_(True),
+            )
+            .order_by(
+                IdentityMembershipORM.padrao.desc(),
+                IdentityMembershipORM.membership_id,
+            )
+        )
+        if membership is None:
+            return None
+        identidade = self._membership_para_identidade(membership)
+        return identidade if identidade.ativo else None
+
+    def obter_identity_user_id_por_provedor(
+        self,
+        *,
+        provider: str,
+        provider_subject: str,
+    ) -> str | None:
+        provedor = provider.strip().casefold()
+        subject = provider_subject.strip()
+        if not provedor or not subject:
+            return None
+        try:
+            return self._session.scalar(
+                select(FederatedIdentityORM.identity_user_id).where(
+                    FederatedIdentityORM.provider == provedor,
+                    FederatedIdentityORM.provider_subject == subject,
+                )
+            )
+        except SQLAlchemyError:
+            # A autenticação federada só é habilitada depois da migration 0063.
+            return None
+
+    def vincular_provedor(
+        self,
+        *,
+        identity_user_id: str,
+        provider: str,
+        provider_subject: str,
+        email_at_link: str,
+        hosted_domain: str | None = None,
+    ) -> None:
+        identity_id = identity_user_id.strip()
+        provedor = provider.strip().casefold()
+        subject = provider_subject.strip()
+        email = email_at_link.strip().casefold()
+        if (
+            not identity_id
+            or not provedor
+            or not subject
+            or not email
+            or "@" not in email
+        ):
+            raise ValueError("federated_identity_invalida")
+        if not self._global_disponivel():
+            raise RuntimeError("global_identity_schema_ausente")
+        if self._session.get(IdentityUserORM, identity_id) is None:
+            raise ValueError("identidade_global_inexistente")
+
+        agora = _agora()
+        existente_subject = self._session.scalar(
+            select(FederatedIdentityORM).where(
+                FederatedIdentityORM.provider == provedor,
+                FederatedIdentityORM.provider_subject == subject,
+            )
+        )
+        if existente_subject is not None:
+            if existente_subject.identity_user_id != identity_id:
+                raise ValueError("federated_identity_subject_conflito")
+            existente_subject.email_at_link = email
+            existente_subject.hosted_domain = hosted_domain
+            existente_subject.last_login_at = agora
+            self._session.flush()
+            return
+
+        existente_identity = self._session.scalar(
+            select(FederatedIdentityORM).where(
+                FederatedIdentityORM.provider == provedor,
+                FederatedIdentityORM.identity_user_id == identity_id,
+            )
+        )
+        if existente_identity is not None:
+            if existente_identity.provider_subject != subject:
+                raise ValueError("federated_identity_identity_conflito")
+            existente_identity.email_at_link = email
+            existente_identity.hosted_domain = hosted_domain
+            existente_identity.last_login_at = agora
+            self._session.flush()
+            return
+
+        self._session.add(
+            FederatedIdentityORM(
+                link_id=str(uuid4()),
+                provider=provedor,
+                provider_subject=subject,
+                identity_user_id=identity_id,
+                email_at_link=email,
+                hosted_domain=hosted_domain,
+                created_at=agora,
+                last_login_at=agora,
+            )
+        )
+        self._session.flush()
 
     def obter_por_email(self, email_normalizado: str) -> IdentidadeUsuario | None:
         email = email_normalizado.strip().casefold()

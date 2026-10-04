@@ -33,17 +33,16 @@ from core.comercial.erros import ConflitoIdempotenciaComercial
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.segredos import ReferenceSecretStore, SecretValue
 from infra.comercial.billing_config_orm import FMBillingProviderAccountORM
-from infra.comercial.billing_payload_crypto import BillingWebhookPayloadCipher
 from infra.comercial.billing_events_orm import (
     FMBillingReconciliationRunORM,
     FMBillingSubscriptionBindingORM,
     FMBillingTransactionORM,
     FMBillingWebhookInboxORM,
 )
+from infra.comercial.billing_payload_crypto import BillingWebhookPayloadCipher
 from infra.comercial.modelos_orm import FMCustomerORM, FMProductAccountORM
 from infra.comercial.subscription_orm import FMCommercialSubscriptionORM
 from migrations.runner import run_migrations
-
 
 NOW = datetime(2026, 9, 22, 21, 45, tzinfo=timezone.utc)
 ACCOUNT_ID = "billing-provider-account-test"
@@ -150,7 +149,6 @@ class FakeSubscriptionApplication:
         motivo: str,
     ):
         self.calls.append(("suspender", subscription_id, expected_version))
-        return None
 
 
 def _context() -> ContextoExecucao:
@@ -557,7 +555,7 @@ def test_verification_timeout_has_no_partial_financial_state() -> None:
 def test_retry_processes_after_subscription_binding_appears() -> None:
     _, factory, _, app = _infra()
     fake_subscription = FakeSubscriptionApplication()
-    app._subscription = fake_subscription  # noqa: SLF001
+    app._subscription = fake_subscription
     payload = _payload(
         event_id="evt-retry",
         canonical=BillingCanonicalEventType.SUBSCRIPTION_SUSPENDED,
@@ -588,7 +586,7 @@ def test_retry_processes_after_subscription_binding_appears() -> None:
 def test_retry_exhaustion_goes_dlq_and_controlled_replay_rechecks_binding() -> None:
     _, factory, _, app = _infra(max_attempts=2)
     fake_subscription = FakeSubscriptionApplication()
-    app._subscription = fake_subscription  # noqa: SLF001
+    app._subscription = fake_subscription
     payload = _payload(
         event_id="evt-dlq",
         canonical=BillingCanonicalEventType.SUBSCRIPTION_SUSPENDED,

@@ -18,11 +18,13 @@ import { FormEvent, useEffect, useState } from "react";
 import { KordenaBrand } from "@/components/brand/KordenaBrand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { GoogleSignInButton } from "@/features/auth/components/GoogleSignInButton";
 import { UnitSelectorModal } from "@/features/auth/components/UnitSelectorModal";
 import {
   AuthApiError,
   getMe,
   getUnits,
+  googleLogin,
   login,
   selectUnit,
   type AuthUnit,
@@ -47,6 +49,21 @@ function errorMessage(error: unknown): string {
   return "Não foi possível entrar agora. Verifique a conexão e tente novamente.";
 }
 
+function googleErrorMessage(error: unknown): string {
+  if (error instanceof AuthApiError) {
+    if (error.code === "auth.google_indisponivel") {
+      return "Entrar com Google está temporariamente indisponível.";
+    }
+    if (error.status === 401) {
+      return "Não foi possível validar esta Conta do Google.";
+    }
+    if (error.status === 503) {
+      return "O serviço de autenticação do Google está temporariamente indisponível.";
+    }
+  }
+  return "Não foi possível entrar com Google agora. Tente novamente.";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const auth = useAuthStore();
@@ -54,6 +71,7 @@ export default function LoginPage() {
   const [senha, setSenha] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [units, setUnits] = useState<AuthUnit[]>([]);
   const [unitModalOpen, setUnitModalOpen] = useState(false);
@@ -67,24 +85,52 @@ export default function LoginPage() {
     router.replace(safeDestination());
   }
 
+  async function hydrateAuthenticatedSession(): Promise<void> {
+    const [operator, allowedUnits] = await Promise.all([getMe(), getUnits()]);
+    setAuthenticated(operator);
+    setUnits(allowedUnits);
+    if (allowedUnits.length > 1) {
+      setUnitModalOpen(true);
+      return;
+    }
+    await finishLogin();
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     setSubmitting(true);
     setError(null);
     try {
       await login(email.trim(), senha);
-      const [operator, allowedUnits] = await Promise.all([getMe(), getUnits()]);
-      setAuthenticated(operator);
-      setUnits(allowedUnits);
-      if (allowedUnits.length > 1) {
-        setUnitModalOpen(true);
-        return;
-      }
-      await finishLogin();
+      await hydrateAuthenticatedSession();
     } catch (submitError: unknown) {
       setError(errorMessage(submitError));
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleGoogleCredential(credential: string): Promise<void> {
+    if (googleSubmitting || submitting) return;
+    setGoogleSubmitting(true);
+    setError(null);
+    try {
+      const result = await googleLogin(credential);
+      if (result.status === "signup_required") {
+        if (process.env.NEXT_PUBLIC_KORDENA_SIGNUP_ENABLED !== "true") {
+          setError(
+            "Esta Conta do Google ainda não está vinculada a um acesso Kordena.",
+          );
+          return;
+        }
+        router.push("/signup?mode=google");
+        return;
+      }
+      await hydrateAuthenticatedSession();
+    } catch (googleError: unknown) {
+      setError(googleErrorMessage(googleError));
+    } finally {
+      setGoogleSubmitting(false);
     }
   }
 
@@ -165,7 +211,23 @@ export default function LoginPage() {
               </span>
             </div>
 
-            <form className="mt-7 space-y-5" onSubmit={(event) => void handleSubmit(event)}>
+            <div className="mt-7">
+              <GoogleSignInButton
+                onCredential={(credential) => void handleGoogleCredential(credential)}
+                disabled={submitting || googleSubmitting}
+              />
+              {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? (
+                <div className="my-5 flex items-center gap-3" aria-hidden="true">
+                  <span className="h-px flex-1 bg-slate-800" />
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                    ou use e-mail e senha
+                  </span>
+                  <span className="h-px flex-1 bg-slate-800" />
+                </div>
+              ) : null}
+            </div>
+
+            <form className="mt-0 space-y-5" onSubmit={(event) => void handleSubmit(event)}>
               <div className="space-y-2">
                 <label htmlFor="email" className="text-sm font-semibold text-slate-200">E-mail</label>
                 <div className="relative">
@@ -185,7 +247,15 @@ export default function LoginPage() {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="senha" className="text-sm font-semibold text-slate-200">Senha</label>
+                <div className="flex items-center justify-between gap-3">
+                  <label htmlFor="senha" className="text-sm font-semibold text-slate-200">Senha</label>
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs font-semibold text-blue-300 transition hover:text-blue-200"
+                  >
+                    Esqueci minha senha
+                  </Link>
+                </div>
                 <div className="relative">
                   <LockKeyhole className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
                   <Input
@@ -215,7 +285,7 @@ export default function LoginPage() {
                 </div>
               ) : null}
 
-              <Button type="submit" size="lg" className="h-12 w-full text-base" disabled={submitting}>
+              <Button type="submit" size="lg" className="h-12 w-full text-base" disabled={submitting || googleSubmitting}>
                 {submitting ? <><Loader2 className="animate-spin" />Validando acesso…</> : <>Entrar<ArrowRight /></>}
               </Button>
             </form>
