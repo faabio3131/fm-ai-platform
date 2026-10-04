@@ -257,6 +257,13 @@ class ServicoMarketplaces:
             if status_evento is StatusPedidoExterno.DESCONHECIDO
             else status_evento
         )
+        self._pedidos_internos.sincronizar_logistica_marketplace(
+            tenant_id=integracao.tenant_id,
+            unidade_id=integracao.unidade_id,
+            pedido_id=pedido_id,
+            snapshot=snapshot,
+            idempotency_key=f"marketplace:logistica:{mensagem.idempotency_key}",
+        )
         status_interno = self._pedidos_internos.atualizar_status_marketplace(
             tenant_id=integracao.tenant_id,
             unidade_id=integracao.unidade_id,
@@ -292,6 +299,13 @@ class ServicoMarketplaces:
     ) -> ResultadoReconciliacao:
         if snapshot.atualizado_em < existente.ultima_ocorrencia_em:
             return ResultadoReconciliacao(existente, False)
+        self._pedidos_internos.sincronizar_logistica_marketplace(
+            tenant_id=integracao.tenant_id,
+            unidade_id=integracao.unidade_id,
+            pedido_id=existente.pedido_id,
+            snapshot=snapshot,
+            idempotency_key=f"{idempotency_key}:logistica",
+        )
         status_interno = self._pedidos_internos.reconciliar_marketplace(
             tenant_id=integracao.tenant_id,
             unidade_id=integracao.unidade_id,

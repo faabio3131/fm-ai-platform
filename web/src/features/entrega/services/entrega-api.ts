@@ -18,6 +18,17 @@ export interface EntregaItem {
   saiu_em: string | null;
   entregue_em: string | null;
   prova_entrega_ref: string | null;
+  canal_origem: string;
+  pedido_externo_id: string | null;
+  status_externo: string | null;
+  responsavel_original: string;
+  responsavel_atual: string;
+  autoridade_logistica: string;
+  delivery_mode_externo: string | null;
+  delivered_by_externo: string | null;
+  troca_logistica_permitida: boolean;
+  alternativas_logisticas: string[];
+  motivo_bloqueio_troca: string | null;
 }
 
 export interface EntregaEvent {

@@ -22,6 +22,7 @@ from .modelos import (
     ItemMarketplace,
     PedidoMarketplaceSnapshot,
     PlataformaMarketplace,
+    ResponsavelEntregaMarketplace,
     StatusPedidoExterno,
     hash_payload,
 )
@@ -254,6 +255,29 @@ class IfoodHttpAdapter:
         atualizado = bruto.get("updatedAt") or bruto.get("createdAt")
         if not atualizado:
             raise ErroMarketplace("pedido_ifood_sem_timestamp")
+
+        order_type = str(bruto.get("orderType", "UNKNOWN")).upper()
+        delivery = bruto.get("delivery")
+        delivery_mode: str | None = None
+        delivered_by = ResponsavelEntregaMarketplace.DESCONHECIDO
+        pickup_code: str | None = None
+        delivery_datetime = None
+        if order_type == "DELIVERY":
+            if not isinstance(delivery, Mapping):
+                raise ErroMarketplace("pedido_ifood_delivery_invalido")
+            delivery_mode = str(delivery.get("mode", "")).strip().upper() or None
+            delivered_by_raw = str(delivery.get("deliveredBy", "")).strip().upper()
+            delivered_by = {
+                "IFOOD": ResponsavelEntregaMarketplace.IFOOD,
+                "MERCHANT": ResponsavelEntregaMarketplace.MERCHANT,
+            }.get(delivered_by_raw, ResponsavelEntregaMarketplace.DESCONHECIDO)
+            pickup_code = str(delivery.get("pickupCode", "")).strip() or None
+            delivery_at = delivery.get("deliveryDateTime")
+            if delivery_at:
+                delivery_datetime = datetime.fromisoformat(
+                    str(delivery_at).replace("Z", "+00:00")
+                )
+
         return PedidoMarketplaceSnapshot(
             id_externo=str(bruto.get("id", pedido_id_externo)),
             merchant_id=merchant_id,
@@ -262,6 +286,11 @@ class IfoodHttpAdapter:
             itens=tuple(itens),
             atualizado_em=datetime.fromisoformat(str(atualizado).replace("Z", "+00:00")),
             versao_externa=(str(bruto["version"]) if bruto.get("version") else None),
+            order_type=order_type,
+            delivery_mode=delivery_mode,
+            delivered_by=delivered_by,
+            pickup_code=pickup_code,
+            delivery_datetime=delivery_datetime,
         )
 
     def _comando(
