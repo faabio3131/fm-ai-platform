@@ -28,7 +28,7 @@ class FakeDispatcher:
         self.sent.append((signup_id, email, token))
 
 
-def _client(*, enabled: bool):
+def _client(*, enabled: bool, with_dispatcher: bool = True):
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -82,7 +82,7 @@ def _client(*, enabled: bool):
         session_factory=factory,
         secret_store=ReferenceSecretStore(mapping={"signup": KEY}),
         public_signup_enabled=enabled,
-        signup_verification_dispatcher=dispatcher,
+        signup_verification_dispatcher=(dispatcher if with_dispatcher else None),
         signup_credential_secret_reference="mapping:signup",
     )
     return TestClient(app), dispatcher
@@ -105,6 +105,50 @@ def _payload(email: str = "signup-http@example.com"):
 def test_signup_publico_fica_desativado_por_padrao() -> None:
     client, _ = _client(enabled=False)
     assert client.post("/v1/public/signup", json=_payload()).status_code == 404
+
+
+def test_google_signup_funciona_sem_smtp_configurado(monkeypatch) -> None:
+    for name in (
+        "FM_AI_TRANSACTIONAL_EMAIL_SMTP_HOST",
+        "FM_AI_TRANSACTIONAL_EMAIL_FROM",
+        "FM_AI_PUBLIC_WEB_BASE_URL",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    client, dispatcher = _client(enabled=True, with_dispatcher=False)
+
+    email_response = client.post(
+        "/v1/public/signup",
+        json=_payload("sem-smtp@example.com"),
+    )
+    assert email_response.status_code == 503
+    assert email_response.json()["erro"] == "signup_email_temporariamente_indisponivel"
+
+    monkeypatch.setattr(
+        "http_api.public_signup.verify_google_id_token",
+        lambda credential, client_id: GoogleIdentityClaims(
+            subject="google-signup-sub-sem-smtp",
+            email="owner.google.sem.smtp@gmail.com",
+            name="Dono Google sem SMTP",
+            hosted_domain=None,
+        ),
+    )
+    response = client.post(
+        "/v1/public/signup/google",
+        json={
+            "credential": "google-credential-signup-sem-smtp-1234567890",
+            "phone": "+5511999999999",
+            "establishment_name": "Restaurante Google sem SMTP",
+            "segment": "restaurante",
+            "terms_accepted": True,
+            "legal_documents": active_legal_acceptance_claims(),
+            "consents": {"marketing": False},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["ready"] is True
+    assert dispatcher.sent == []
 
 
 def test_signup_verifica_email_e_provisiona() -> None:
