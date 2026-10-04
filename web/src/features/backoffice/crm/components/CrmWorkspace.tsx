@@ -205,15 +205,15 @@ export function CrmWorkspace() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 p-4 text-slate-100 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-[1500px] space-y-6">
-        <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <main className="min-h-full bg-slate-950 p-4 text-slate-100 sm:p-5 lg:p-6">
+      <div className="mx-auto max-w-[1500px] space-y-4">
+        <header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-300">
               Retaguarda · Unidade ativa
             </p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight">CRM, Clientes e Cashback</h1>
-            <p className="mt-2 max-w-3xl text-sm text-slate-400">
+            <h1 className="mt-1.5 text-2xl font-black tracking-tight">CRM, Clientes e Cashback</h1>
+            <p className="mt-1 max-w-3xl text-[13px] text-slate-400">
               Clientes escopados, histórico e saldo produzidos pelas autoridades canônicas do CRM.
             </p>
           </div>
@@ -227,7 +227,7 @@ export function CrmWorkspace() {
           </Button>
         </header>
 
-        <section className="grid gap-3 md:grid-cols-3">
+        <section className="grid gap-2.5 md:grid-cols-3">
           <Metric label="Clientes no escopo" value={String(clientes.length)} />
           <Metric label="Saldo total de cashback" value={moeda(saldoTotal)} />
           <Metric
@@ -240,7 +240,7 @@ export function CrmWorkspace() {
         {aviso ? <Feedback tone="success">{aviso}</Feedback> : null}
 
         <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
-          <div className="flex items-center gap-2 border-b border-slate-800 px-5 py-4">
+          <div className="flex items-center gap-2 border-b border-slate-800 px-4 py-3">
             <MessageCircle className="size-5 text-violet-400" />
             <div>
               <h2 className="font-bold">Marketing · Resgate de clientes inativos</h2>
@@ -250,15 +250,15 @@ export function CrmWorkspace() {
             </div>
           </div>
           {loading ? (
-            <div className="flex min-h-36 items-center justify-center gap-2 text-sm text-slate-400">
+            <div className="flex min-h-24 items-center justify-center gap-2 text-sm text-slate-400">
               <LoaderCircle className="size-5 animate-spin" /> Carregando oportunidades…
             </div>
           ) : resgates.length === 0 ? (
-            <p className="p-5 text-sm text-slate-400">
+            <p className="p-4 text-sm text-slate-400">
               Nenhum cliente elegível para resgate nesta unidade.
             </p>
           ) : (
-            <div className="grid gap-4 p-5 lg:grid-cols-2">
+            <div className="grid gap-3 p-4 lg:grid-cols-2">
               {resgates.map((oportunidade) => (
                 <article
                   key={oportunidade.cliente_id}
@@ -311,7 +311,7 @@ export function CrmWorkspace() {
           )}
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,1fr)]">
+        <section className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_minmax(340px,0.9fr)]">
           <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
             <div className="flex flex-col gap-3 border-b border-slate-800 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2">
@@ -372,20 +372,20 @@ export function CrmWorkspace() {
             )}
           </div>
 
-          <aside className="space-y-6">
-            <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+          <aside className="space-y-3">
+            <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
               <div className="flex items-center gap-2">
                 <BadgeDollarSign className="size-5 text-emerald-400" />
                 <h2 className="font-bold">Fidelidade e cashback</h2>
               </div>
               {!clienteSelecionado ? (
-                <p className="mt-5 text-sm text-slate-400">Selecione um cliente para consultar o ledger.</p>
+                <p className="mt-3 text-sm text-slate-400">Selecione um cliente para consultar o ledger.</p>
               ) : (
                 <>
-                  <p className="mt-5 text-sm text-slate-400">
+                  <p className="mt-3 text-sm text-slate-400">
                     {clienteSelecionado.nome || clienteSelecionado.cliente_id}
                   </p>
-                  <p className="mt-1 text-3xl font-black tabular-nums text-white">
+                  <p className="mt-1 text-2xl font-black tabular-nums text-white">
                     {moeda(detalhe?.saldo ?? clienteSelecionado.saldo_cashback)}
                   </p>
 
@@ -418,13 +418,13 @@ export function CrmWorkspace() {
             </section>
 
             <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
-              <div className="border-b border-slate-800 px-5 py-4">
+              <div className="border-b border-slate-800 px-4 py-3">
                 <h2 className="font-bold">Histórico do ledger</h2>
               </div>
               {!detalhe ? (
-                <p className="p-5 text-sm text-slate-400">Selecione um cliente para ver os movimentos.</p>
+                <p className="p-4 text-sm text-slate-400">Selecione um cliente para ver os movimentos.</p>
               ) : detalhe.movimentos.length === 0 ? (
-                <p className="p-5 text-sm text-slate-400">Nenhum movimento de cashback registrado.</p>
+                <p className="p-4 text-sm text-slate-400">Nenhum movimento de cashback registrado.</p>
               ) : (
                 <div className="max-h-[420px] divide-y divide-slate-800 overflow-y-auto">
                   {[...detalhe.movimentos].reverse().map((movimento) => {
@@ -460,7 +460,7 @@ function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
       <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-black tabular-nums text-white">{value}</p>
+      <p className="mt-1.5 text-xl font-black tabular-nums text-white">{value}</p>
     </div>
   );
 }
