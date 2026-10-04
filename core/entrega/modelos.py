@@ -20,6 +20,8 @@ def _utc(valor: datetime | None) -> datetime | None:
 class StatusEntrega(StrEnum):
     AGUARDANDO_PRODUCAO = "aguardando_producao"
     AGUARDANDO_EXPEDICAO = "aguardando_expedicao"
+    AGUARDANDO_DEFINICAO_LOGISTICA = "aguardando_definicao_logistica"
+    AGUARDANDO_COLETA_PARCEIRO = "aguardando_coleta_parceiro"
     AGUARDANDO_ENTREGADOR = "aguardando_entregador"
     ATRIBUIDA = "atribuida"
     COLETADA = "coletada"
@@ -32,6 +34,7 @@ class StatusEntrega(StrEnum):
 class ModalidadeEntrega(StrEnum):
     PROPRIA = "propria"
     PARCEIRO = "parceiro"
+    INDEFINIDA = "indefinida"
     RETIRADA = "retirada"
 
 

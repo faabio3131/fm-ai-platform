@@ -77,3 +77,21 @@ def test_wp010_shell_exposes_delivery_without_fake_permission_ids() -> None:
     assert "delivery.despachar" not in registry
     assert "entrega.atribuir" not in registry
     assert "WP-" not in registry
+
+
+def test_wp011_expedicao_expoe_contexto_logistico_omnichannel_sem_forcar_troca() -> None:
+    router = _read("http_api/entrega.py")
+    workspace = _read("web/src/features/entrega/components/EntregaWorkspace.tsx")
+    api = _read("web/src/features/entrega/services/entrega-api.ts")
+
+    assert "canal_origem" in router
+    assert "responsavel_atual" in router
+    assert "pedido_externo_id" in router
+    assert "delivery_mode_externo" in router
+    assert "delivered_by_externo" in router
+    assert "troca_logistica_permitida" in router
+    assert "Origem do pedido" in workspace
+    assert "Responsável pela entrega" in workspace
+    assert "Alterar forma de entrega" in workspace
+    assert "troca_logistica_permitida" in api
+    assert "motivo_bloqueio_troca" in api

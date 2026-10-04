@@ -225,15 +225,15 @@ export function CampanhasWorkspace() {
   }
 
   return (
-    <main className="kordena-page min-h-full px-4 py-6 text-slate-100 sm:px-6 lg:px-8">
-      <div className="kordena-enter mx-auto w-full max-w-[1500px] space-y-6">
-        <header className="relative overflow-hidden rounded-[2rem] border border-violet-400/15 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] p-6 shadow-[0_28px_76px_-40px_rgba(0,0,0,0.88)]">
+    <main className="kordena-page min-h-full px-4 py-4 text-slate-100 sm:px-5 lg:px-6">
+      <div className="kordena-enter mx-auto w-full max-w-[1500px] space-y-4">
+        <header className="relative overflow-hidden rounded-[1.5rem] border border-violet-400/15 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] p-4 shadow-[0_24px_60px_-40px_rgba(0,0,0,0.88)] sm:p-5">
           <div className="pointer-events-none absolute -right-20 -top-24 size-64 rounded-full bg-violet-500/10 blur-3xl" />
-          <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="relative flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-300">WP-017 · Marketing governado</p>
-              <h1 className="mt-2 text-3xl font-black tracking-tight">Central de Campanhas</h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-violet-300">WP-017 · Marketing governado</p>
+              <h1 className="mt-1.5 text-2xl font-black tracking-tight">Central de Campanhas</h1>
+              <p className="mt-1 max-w-3xl text-[13px] leading-5 text-slate-400">
                 Rascunho, audiência, aprovação humana e despacho no mesmo fluxo. Consentimento é revalidado antes de cada efeito externo.
               </p>
             </div>
@@ -243,7 +243,7 @@ export function CampanhasWorkspace() {
           </div>
         </header>
 
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
           <Metric icon={<Megaphone />} label="Campanhas" value={String(campanhas.length)} />
           <Metric icon={<Clock3 />} label="Rascunhos" value={String(statusCounts.get("rascunho") ?? 0)} />
           <Metric icon={<ShieldCheck />} label="Aguardando aprovação" value={String(statusCounts.get("aguardando_aprovacao") ?? 0)} />
@@ -253,9 +253,9 @@ export function CampanhasWorkspace() {
         {erro ? <Feedback tone="error">{erro}</Feedback> : null}
         {aviso ? <Feedback tone="success">{aviso}</Feedback> : null}
 
-        <section className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-          <aside className="space-y-4">
-            <form onSubmit={(event) => void criar(event)} className="rounded-3xl border border-slate-700/60 bg-slate-900/70 p-5">
+        <section className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
+          <aside className="space-y-3">
+            <form onSubmit={(event) => void criar(event)} className="rounded-xl border border-slate-700/60 bg-slate-900/70 p-3">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-violet-300">Nova campanha</p>
               <h2 className="mt-2 text-lg font-black">Criar rascunho</h2>
               <p className="mt-1 text-xs leading-5 text-slate-500">
@@ -268,7 +268,7 @@ export function CampanhasWorkspace() {
             </form>
 
             <div className="overflow-hidden rounded-3xl border border-slate-700/60 bg-slate-900/70">
-              <div className="border-b border-slate-800 px-5 py-4">
+              <div className="border-b border-slate-800 px-4 py-3">
                 <h2 className="font-bold">Campanhas da unidade</h2>
               </div>
               {loading ? (
@@ -278,13 +278,13 @@ export function CampanhasWorkspace() {
               ) : campanhas.length === 0 ? (
                 <p className="p-5 text-sm text-slate-500">Nenhuma campanha criada.</p>
               ) : (
-                <div className="max-h-[560px] divide-y divide-slate-800 overflow-y-auto">
+                <div className="max-h-[460px] divide-y divide-slate-800 overflow-y-auto">
                   {campanhas.map((item) => (
                     <button
                       key={item.campanha_id}
                       type="button"
                       onClick={() => void carregarDetalhe(item.campanha_id)}
-                      className={`w-full p-4 text-left transition ${selecionada?.campanha_id === item.campanha_id ? "bg-violet-400/[0.08]" : "hover:bg-white/[0.03]"}`}
+                      className={`w-full p-3 text-left transition ${selecionada?.campanha_id === item.campanha_id ? "bg-violet-400/[0.08]" : "hover:bg-white/[0.03]"}`}
                     >
                       <p className="truncate text-sm font-bold text-white">{item.objetivo}</p>
                       <p className="mt-1 text-xs text-slate-500">{statusLabel(item.status)} · {item.audiencia_elegivel} pessoa(s)</p>
@@ -296,12 +296,12 @@ export function CampanhasWorkspace() {
           </aside>
 
           {!selecionada ? (
-            <div className="flex min-h-[520px] items-center justify-center rounded-3xl border border-dashed border-slate-700 bg-slate-900/35 p-8 text-center text-sm text-slate-500">
+            <div className="flex min-h-[360px] items-center justify-center rounded-2xl border border-dashed border-slate-700 bg-slate-900/35 p-6 text-center text-sm text-slate-500">
               Selecione uma campanha ou crie o primeiro rascunho.
             </div>
           ) : (
-            <div className="space-y-5">
-              <section className="rounded-3xl border border-slate-700/60 bg-slate-900/70 p-5">
+            <div className="space-y-3">
+              <section className="rounded-2xl border border-slate-700/60 bg-slate-900/70 p-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-300">Lifecycle governado</p>
@@ -327,7 +327,7 @@ export function CampanhasWorkspace() {
                 )}
               </section>
 
-              <section className="rounded-3xl border border-slate-700/60 bg-slate-900/70 p-5">
+              <section className="rounded-2xl border border-slate-700/60 bg-slate-900/70 p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-300">Audiência e consentimento</p>
@@ -365,7 +365,7 @@ export function CampanhasWorkspace() {
                 </div>
               </section>
 
-              <section className="rounded-3xl border border-slate-700/60 bg-slate-900/70 p-5">
+              <section className="rounded-2xl border border-slate-700/60 bg-slate-900/70 p-4">
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-300">Aprovação e execução</p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <ActionCard
@@ -415,7 +415,7 @@ export function CampanhasWorkspace() {
                 </p>
               </section>
 
-              <section className="rounded-3xl border border-slate-700/60 bg-slate-900/70 p-5">
+              <section className="rounded-2xl border border-slate-700/60 bg-slate-900/70 p-4">
                 <div className="flex items-center gap-2">
                   <History className="size-5 text-sky-300" />
                   <h2 className="text-lg font-black">Histórico auditável</h2>
@@ -452,13 +452,13 @@ function CampaignFields({
   onChange: (next: CampanhaConteudo) => void;
 }) {
   return (
-    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+    <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
       <label className="text-xs font-semibold text-slate-400">
         Canal
         <select
           value={value.canal}
           onChange={(event) => onChange({ ...value, canal: event.target.value })}
-          className="mt-1 h-10 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white"
+          className="mt-1 h-9 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white"
         >
           <option value="whatsapp">WhatsApp</option>
         </select>
@@ -468,7 +468,7 @@ function CampaignFields({
         <select
           value={value.finalidade}
           onChange={(event) => onChange({ ...value, finalidade: event.target.value })}
-          className="mt-1 h-10 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white"
+          className="mt-1 h-9 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white"
         >
           <option value="promocoes">Promoções</option>
         </select>
@@ -480,7 +480,7 @@ function CampaignFields({
           onChange={(event) => onChange({ ...value, objetivo: event.target.value })}
           maxLength={240}
           required
-          className="mt-1 h-10 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white"
+          className="mt-1 h-9 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white"
         />
       </label>
       <label className="text-xs font-semibold text-slate-400 sm:col-span-2">
@@ -489,7 +489,7 @@ function CampaignFields({
           value={value.texto_base}
           onChange={(event) => onChange({ ...value, texto_base: event.target.value })}
           maxLength={2000}
-          rows={5}
+          rows={4}
           required
           className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm leading-6 text-white"
           placeholder="Escreva ou cole a mensagem da campanha."
@@ -511,8 +511,8 @@ function Metric({
   return (
     <div className="rounded-2xl border border-slate-700/60 bg-slate-900/70 p-4">
       <span className="text-violet-300">{icon}</span>
-      <p className="mt-3 text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-black text-white">{value}</p>
+      <p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-1 text-xl font-black text-white">{value}</p>
     </div>
   );
 }
@@ -537,7 +537,7 @@ function ActionCard({
       type="button"
       disabled={!enabled || busy}
       onClick={onClick}
-      className="rounded-2xl border border-slate-700/60 bg-slate-950/45 p-4 text-left transition enabled:hover:border-violet-400/25 enabled:hover:bg-violet-400/[0.05] disabled:opacity-45"
+      className="rounded-xl border border-slate-700/60 bg-slate-950/45 p-3 text-left transition enabled:hover:border-violet-400/25 enabled:hover:bg-violet-400/[0.05] disabled:opacity-45"
     >
       <span className="text-violet-300">{busy && enabled ? <LoaderCircle className="animate-spin" /> : icon}</span>
       <span className="mt-3 block text-sm font-black text-white">{title}</span>

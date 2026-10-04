@@ -113,6 +113,7 @@ class RepositorioEntregaSQLAlchemy:
                     EntregaORM.versao == versao_esperada,
                 )
                 .values(
+                    modalidade=entrega.modalidade.value,
                     status=entrega.status.value,
                     versao=entrega.versao,
                     tentativa=entrega.tentativa,
