@@ -309,3 +309,101 @@ def test_cancelamento_exige_pedido_cancelado_e_alcada():
             idempotency_key="x2",
         )
         assert final.status is StatusEntrega.CANCELADA
+
+
+def test_entrega_parceiro_vai_para_coleta_do_marketplace_e_bloqueia_entregador_local():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    DeliveryBase.metadata.create_all(engine)
+
+    with Session(engine) as session:
+        repositorio = RepositorioEntregaSQLAlchemy(session)
+        servico = ServicoEntrega(
+            repositorio,
+            financeiro_resolvido=lambda *_: True,
+            pedido_cancelado=lambda *_: False,
+            agora=lambda: BASE,
+        )
+        expedicao = _contexto(Papel.EXPEDICAO, "expedicao-1")
+        parceiro = Entrega(
+            entrega_id="entrega-parceiro-1",
+            tenant_id="tenant-1",
+            unidade_id="unidade-1",
+            pedido_id="pedido-parceiro-1",
+            endereco_id="endereco-parceiro-1",
+            modalidade=ModalidadeEntrega.PARCEIRO,
+            status=StatusEntrega.AGUARDANDO_PRODUCAO,
+            versao=1,
+        )
+        atual = servico.criar(
+            parceiro,
+            contexto=expedicao,
+            idempotency_key="parceiro-criar-1",
+        )
+        atual = servico.marcar_pedido_pronto(
+            atual.entrega_id,
+            versao_esperada=atual.versao,
+            contexto=_sistema(),
+            idempotency_key="parceiro-pronto-1",
+        )
+        atual = servico.concluir_checklist(
+            atual.entrega_id,
+            ChecklistExpedicao(True, True, True),
+            versao_esperada=atual.versao,
+            contexto=expedicao,
+            idempotency_key="parceiro-checklist-1",
+        )
+
+        assert atual.status is StatusEntrega.AGUARDANDO_COLETA_PARCEIRO
+        with pytest.raises(ErroEntrega) as erro:
+            servico.atribuir(
+                atual.entrega_id,
+                "driver-local",
+                versao_esperada=atual.versao,
+                contexto=expedicao,
+                idempotency_key="parceiro-atribuir-1",
+            )
+        assert erro.value.codigo == "atribuicao_indisponivel_modalidade"
+
+
+def test_entrega_com_responsavel_desconhecido_falha_fechado_na_expedicao():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    DeliveryBase.metadata.create_all(engine)
+
+    with Session(engine) as session:
+        servico = ServicoEntrega(
+            RepositorioEntregaSQLAlchemy(session),
+            financeiro_resolvido=lambda *_: True,
+            pedido_cancelado=lambda *_: False,
+            agora=lambda: BASE,
+        )
+        expedicao = _contexto(Papel.EXPEDICAO, "expedicao-1")
+        indefinida = Entrega(
+            entrega_id="entrega-indefinida-1",
+            tenant_id="tenant-1",
+            unidade_id="unidade-1",
+            pedido_id="pedido-indefinido-1",
+            endereco_id="endereco-indefinido-1",
+            modalidade=ModalidadeEntrega.INDEFINIDA,
+            status=StatusEntrega.AGUARDANDO_PRODUCAO,
+            versao=1,
+        )
+        atual = servico.criar(
+            indefinida,
+            contexto=expedicao,
+            idempotency_key="indefinida-criar-1",
+        )
+        atual = servico.marcar_pedido_pronto(
+            atual.entrega_id,
+            versao_esperada=atual.versao,
+            contexto=_sistema(),
+            idempotency_key="indefinida-pronto-1",
+        )
+        atual = servico.concluir_checklist(
+            atual.entrega_id,
+            ChecklistExpedicao(True, True, True),
+            versao_esperada=atual.versao,
+            contexto=expedicao,
+            idempotency_key="indefinida-checklist-1",
+        )
+
+        assert atual.status is StatusEntrega.AGUARDANDO_DEFINICAO_LOGISTICA

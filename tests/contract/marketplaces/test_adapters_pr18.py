@@ -96,8 +96,15 @@ class HttpFake:
                 {
                     "id": "pedido-1",
                     "status": "CONFIRMED",
+                    "orderType": "DELIVERY",
                     "createdAt": "2026-08-11T20:00:00Z",
                     "merchant": {"id": "merchant-1", "name": "Loja"},
+                    "delivery": {
+                        "mode": "DEFAULT",
+                        "deliveredBy": "IFOOD",
+                        "pickupCode": "1234",
+                        "deliveryDateTime": "2026-08-11T21:00:00Z",
+                    },
                     "items": [
                         {
                             "id": "item-cat-1",
@@ -230,6 +237,11 @@ def test_ifood_http_mapeia_snapshot_sem_persistir_pii() -> None:
     assert snapshot.merchant_id == "merchant-1"
     assert snapshot.status is StatusPedidoExterno.CONFIRMADO
     assert snapshot.total == Decimal("40.00")
+    assert snapshot.order_type == "DELIVERY"
+    assert snapshot.delivery_mode == "DEFAULT"
+    assert snapshot.delivered_by.value == "IFOOD"
+    assert snapshot.pickup_code == "1234"
+    assert snapshot.delivery_datetime == datetime(2026, 8, 11, 21, 0, tzinfo=timezone.utc)
     assert snapshot.itens[0].sku == "SKU-1"
     assert snapshot.itens[0].quantidade == Decimal(2)
 

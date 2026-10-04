@@ -16,6 +16,7 @@ from .erros import ErroEntrega
 from .modelos import (
     ChecklistExpedicao,
     Entrega,
+    ModalidadeEntrega,
     ProvaEntrega,
     StatusEntrega,
     TentativaEntrega,
@@ -101,6 +102,7 @@ class ServicoEntrega:
         *,
         contexto: ContextoExecucao,
         idempotency_key: str,
+        metadata_origem: Mapping[str, object] | None = None,
     ) -> Entrega:
         _autorizar_expedicao(contexto, f"entrega:{entrega.entrega_id}")
         self._validar_escopo(entrega, contexto)
@@ -125,9 +127,92 @@ class ServicoEntrega:
             idempotency_key=idempotency_key,
             fingerprint=fingerprint,
             instante=instante,
-            payload={"modalidade": criada.modalidade.value},
+            payload={
+                "modalidade": criada.modalidade.value,
+                **dict(metadata_origem or {}),
+            },
         )
         return criada
+
+    def sincronizar_responsavel_externo(
+        self,
+        entrega_id: str,
+        modalidade: ModalidadeEntrega,
+        *,
+        versao_esperada: int,
+        contexto: ContextoExecucao,
+        idempotency_key: str,
+        evidencia: Mapping[str, object] | None = None,
+    ) -> Entrega:
+        """Atualiza responsabilidade logística somente a partir de fonte externa confiável."""
+
+        if not contexto.identidade_sistema:
+            raise ErroEntrega("sincronizacao_logistica_exige_sistema")
+        atual = self._obter(entrega_id, contexto)
+        dados = {
+            "entrega_id": entrega_id,
+            "versao_esperada": versao_esperada,
+            "modalidade": modalidade.value,
+        }
+        fingerprint = _hash_comando(
+            "sincronizar_responsavel_externo",
+            contexto.usuario_id,
+            dados,
+        )
+        repetida = self._repeticao(contexto, idempotency_key, fingerprint)
+        if repetida is not None:
+            return repetida
+        self._validar_versao(atual, versao_esperada)
+        if atual.modalidade is modalidade:
+            return atual
+        if atual.status in {
+            StatusEntrega.COLETADA,
+            StatusEntrega.EM_ROTA,
+            StatusEntrega.ENTREGUE,
+            StatusEntrega.CANCELADA,
+        }:
+            raise ErroEntrega("troca_logistica_fora_janela")
+
+        status = atual.status
+        if atual.checklist_concluido_em is not None and status in {
+            StatusEntrega.AGUARDANDO_ENTREGADOR,
+            StatusEntrega.AGUARDANDO_COLETA_PARCEIRO,
+            StatusEntrega.AGUARDANDO_DEFINICAO_LOGISTICA,
+            StatusEntrega.ATRIBUIDA,
+            StatusEntrega.TENTATIVA_FALHOU,
+        }:
+            status = {
+                ModalidadeEntrega.PROPRIA: StatusEntrega.AGUARDANDO_ENTREGADOR,
+                ModalidadeEntrega.PARCEIRO: StatusEntrega.AGUARDANDO_COLETA_PARCEIRO,
+                ModalidadeEntrega.INDEFINIDA: StatusEntrega.AGUARDANDO_DEFINICAO_LOGISTICA,
+            }.get(modalidade, StatusEntrega.AGUARDANDO_DEFINICAO_LOGISTICA)
+
+        instante = self._agora()
+        nova = replace(
+            atual,
+            modalidade=modalidade,
+            status=status,
+            entregador_id=(
+                atual.entregador_id
+                if modalidade is ModalidadeEntrega.PROPRIA
+                else None
+            ),
+            versao=atual.versao + 1,
+        )
+        return self._persistir_evento(
+            atual,
+            nova,
+            contexto=contexto,
+            tipo="entrega.responsavel_logistico_atualizado",
+            idempotency_key=idempotency_key,
+            fingerprint=fingerprint,
+            instante=instante,
+            payload={
+                "modalidade_anterior": atual.modalidade.value,
+                "modalidade_atual": modalidade.value,
+                **dict(evidencia or {}),
+            },
+        )
 
     def marcar_pedido_pronto(
         self,
@@ -209,25 +294,37 @@ class ServicoEntrega:
         }:
             raise ErroEntrega("transicao_entrega_invalida")
         instante = self._agora()
+        if atual.status is StatusEntrega.AGUARDANDO_EXPEDICAO:
+            destino = {
+                ModalidadeEntrega.PROPRIA: StatusEntrega.AGUARDANDO_ENTREGADOR,
+                ModalidadeEntrega.PARCEIRO: StatusEntrega.AGUARDANDO_COLETA_PARCEIRO,
+                ModalidadeEntrega.INDEFINIDA: StatusEntrega.AGUARDANDO_DEFINICAO_LOGISTICA,
+            }.get(atual.modalidade, StatusEntrega.AGUARDANDO_DEFINICAO_LOGISTICA)
+        else:
+            destino = atual.status
         nova = replace(
             atual,
-            status=(
-                StatusEntrega.AGUARDANDO_ENTREGADOR
-                if atual.status is StatusEntrega.AGUARDANDO_EXPEDICAO
-                else atual.status
-            ),
+            status=destino,
             checklist_concluido_em=instante,
             versao=atual.versao + 1,
         )
+        tipo = {
+            StatusEntrega.AGUARDANDO_ENTREGADOR: "entrega.aguardando_entregador",
+            StatusEntrega.AGUARDANDO_COLETA_PARCEIRO: "entrega.aguardando_coleta_parceiro",
+            StatusEntrega.AGUARDANDO_DEFINICAO_LOGISTICA: "entrega.aguardando_definicao_logistica",
+        }.get(destino, "entrega.checklist_concluido")
         return self._persistir_evento(
             atual,
             nova,
             contexto=contexto,
-            tipo="entrega.aguardando_entregador",
+            tipo=tipo,
             idempotency_key=idempotency_key,
             fingerprint=fingerprint,
             instante=instante,
-            payload={"checklist_completo": True},
+            payload={
+                "checklist_completo": True,
+                "modalidade": atual.modalidade.value,
+            },
         )
 
     def atribuir(
@@ -246,6 +343,8 @@ class ServicoEntrega:
         if not entregador:
             raise ErroEntrega("entregador_invalido")
         atual = self._obter(entrega_id, contexto)
+        if atual.modalidade is not ModalidadeEntrega.PROPRIA:
+            raise ErroEntrega("atribuicao_indisponivel_modalidade")
         dados = {
             "entrega_id": entrega_id,
             "entregador_id": entregador,

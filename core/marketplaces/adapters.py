@@ -82,6 +82,16 @@ class PortaPedidosMarketplaceInternos(Protocol):
         idempotency_key: str,
     ) -> tuple[str, bool]: ...
 
+    def sincronizar_logistica_marketplace(
+        self,
+        *,
+        tenant_id: str,
+        unidade_id: str,
+        pedido_id: str,
+        snapshot: PedidoMarketplaceSnapshot,
+        idempotency_key: str,
+    ) -> None: ...
+
     def atualizar_status_marketplace(
         self,
         *,
