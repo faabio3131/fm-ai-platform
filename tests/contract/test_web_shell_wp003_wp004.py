@@ -24,7 +24,7 @@ def test_wp003_root_layout_mounts_persistent_shell() -> None:
 def test_wp003_auth_guard_is_fail_closed_by_default() -> None:
     guard = _read("web/src/features/auth/components/AuthSessionGuard.tsx")
     assert (
-        'const PUBLIC_PATHS = ["/login", "/signup", "/cardapio", "/legal"] as const;'
+        'const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password", "/cardapio", "/legal"] as const;'
         in guard
     )
     assert "return !PUBLIC_PATHS.some" in guard

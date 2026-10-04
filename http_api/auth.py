@@ -5,8 +5,10 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import logging
 import secrets
 import threading
+from collections import defaultdict, deque
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
@@ -19,8 +21,17 @@ from sqlalchemy import delete
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
+from application.password_recovery import (
+    AplicacaoPasswordRecoveryV1,
+    PasswordRecoveryDispatcher,
+    PasswordRecoveryError,
+)
 from core.runtime.config import RuntimeSettings
-from core.seguranca.autenticacao import IdentidadeUsuario, ServicoAutenticacao
+from core.seguranca.autenticacao import (
+    IdentidadeUsuario,
+    ServicoAutenticacao,
+    verify_password,
+)
 from core.seguranca.erros import (
     CredenciaisInvalidas,
     ErroSeguranca,
@@ -34,6 +45,8 @@ from infra.seguranca.modelos_orm import OperationalSessionORM
 
 SessionFactory = Callable[[], Session]
 
+logger = logging.getLogger(__name__)
+
 _SESSION_COOKIE = "fm_ai_session"
 _SESSION_SECRET_REFERENCE = "env:FM_AI_SESSION_SECRET"
 _SESSION_TTL_SECONDS = 8 * 60 * 60
@@ -44,6 +57,20 @@ _MIN_SESSION_SECRET_BYTES = 32
 class LoginIn(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     senha: str = Field(min_length=1, max_length=1024)
+
+
+class ForgotPasswordIn(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+
+
+class ResetPasswordIn(BaseModel):
+    token: str = Field(min_length=16, max_length=1024)
+    nova_senha: str = Field(min_length=10, max_length=1024)
+
+
+class ChangePasswordIn(BaseModel):
+    senha_atual: str = Field(min_length=1, max_length=1024)
+    nova_senha: str = Field(min_length=10, max_length=1024)
 
 
 class SelecionarUnidadeIn(BaseModel):
@@ -77,6 +104,26 @@ class _SessaoInvalida(ValueError):
 
 class _SegredoSessaoInseguro(RuntimeError):
     pass
+
+
+class _PasswordRecoveryLimiter:
+    def __init__(self, *, limit: int = 5, window_seconds: int = 600) -> None:
+        self._limit = limit
+        self._window = timedelta(seconds=window_seconds)
+        self._events: dict[str, deque[datetime]] = defaultdict(deque)
+        self._lock = threading.Lock()
+
+    def allow(self, key: str) -> bool:
+        now = datetime.now(timezone.utc)
+        cutoff = now - self._window
+        with self._lock:
+            bucket = self._events[key]
+            while bucket and bucket[0] <= cutoff:
+                bucket.popleft()
+            if len(bucket) >= self._limit:
+                return False
+            bucket.append(now)
+            return True
 
 
 class _GerenciadorSessaoOperacional:
@@ -289,6 +336,27 @@ class _GerenciadorSessaoOperacional:
         )
         return self._rotacionar(sessao, atualizada)
 
+    def invalidar_identidade(self, identity_user_id: str) -> None:
+        identity_id = identity_user_id.strip()
+        if not identity_id:
+            return
+        if self._session_factory is None:
+            with self._lock:
+                removidas = [
+                    session_id
+                    for session_id, sessao in self._sessions.items()
+                    if sessao.identity_user_id == identity_id
+                ]
+                for session_id in removidas:
+                    self._sessions.pop(session_id, None)
+            return
+        with self._session_factory() as db, db.begin():
+            db.execute(
+                delete(OperationalSessionORM).where(
+                    OperationalSessionORM.identity_user_id == identity_id
+                )
+            )
+
     def invalidar(self, token: str) -> None:
         try:
             session_id = self._session_id_do_token(token)
@@ -395,6 +463,9 @@ class AuthSessionRuntime:
         except _SessaoInvalida as exc:
             raise CredenciaisInvalidas("credenciais invalidas") from exc
 
+    def invalidar_identidade(self, identity_user_id: str) -> None:
+        self._obter_gerenciador().invalidar_identidade(identity_user_id)
+
     def admin_status(
         self,
         request: Request,
@@ -416,6 +487,7 @@ def build_auth_router(
     settings: RuntimeSettings,
     secret_store: SecretStore,
     runtime: AuthSessionRuntime | None = None,
+    password_recovery_dispatcher: PasswordRecoveryDispatcher | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/v1/auth", tags=["auth"])
     runtime = runtime or AuthSessionRuntime(
@@ -445,6 +517,21 @@ def build_auth_router(
 
     def _erro(http_status: int, codigo: str) -> JSONResponse:
         return JSONResponse(status_code=http_status, content={"erro": codigo})
+
+    password_recovery = AplicacaoPasswordRecoveryV1(session_factory)
+    password_recovery_limiter = _PasswordRecoveryLimiter()
+
+    def _password_recovery_accepted() -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_202_ACCEPTED,
+            content={
+                "accepted": True,
+                "message": (
+                    "Se existir uma conta elegível com este e-mail, "
+                    "enviaremos as instruções de recuperação."
+                ),
+            },
+        )
 
     def _operador(
         identidade: IdentidadeUsuario,
@@ -488,6 +575,116 @@ def build_auth_router(
             return _erro(status.HTTP_503_SERVICE_UNAVAILABLE, "auth.sessao_indisponivel")
         except ErroSeguranca:
             return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
+
+    @router.post("/forgot-password")
+    def forgot_password(payload: ForgotPasswordIn, request: Request) -> JSONResponse:
+        remote = request.client.host if request.client else "unknown"
+        email_key = hashlib.sha256(
+            payload.email.strip().casefold().encode("utf-8")
+        ).hexdigest()
+        if not (
+            password_recovery_limiter.allow(f"ip:{remote}")
+            and password_recovery_limiter.allow(f"email:{email_key}")
+        ):
+            return _password_recovery_accepted()
+
+        try:
+            requested = password_recovery.solicitar(
+                email=payload.email,
+                correlation_id=request.headers.get("x-correlation-id")
+                or f"password-recovery:{secrets.token_urlsafe(12)}",
+            )
+        except ValueError:
+            return _password_recovery_accepted()
+
+        if requested is not None and password_recovery_dispatcher is not None:
+            try:
+                password_recovery_dispatcher.send_password_reset(
+                    email=requested.email,
+                    token=requested.token,
+                )
+            except Exception as exc:  # noqa: BLE001 - provedor externo não altera resposta pública
+                logger.warning(
+                    "Falha ao enviar e-mail de recuperação de senha",
+                    extra={"erro_tipo": type(exc).__name__},
+                )
+        return _password_recovery_accepted()
+
+    @router.post("/reset-password")
+    def reset_password(payload: ResetPasswordIn, request: Request) -> JSONResponse:
+        try:
+            result = password_recovery.redefinir(
+                token=payload.token,
+                nova_senha=payload.nova_senha,
+                correlation_id=request.headers.get("x-correlation-id")
+                or f"password-reset:{secrets.token_urlsafe(12)}",
+            )
+        except PasswordRecoveryError as exc:
+            code = str(exc)
+            http_status = (
+                status.HTTP_422_UNPROCESSABLE_ENTITY
+                if code == "password_recovery_password_invalid"
+                else status.HTTP_400_BAD_REQUEST
+            )
+            return _erro(http_status, code)
+
+        runtime.invalidar_identidade(result.identity_user_id)
+        if password_recovery_dispatcher is not None:
+            try:
+                password_recovery_dispatcher.send_password_changed(
+                    email=result.email,
+                )
+            except Exception as exc:  # noqa: BLE001 - notificação é best-effort
+                logger.warning(
+                    "Falha ao enviar aviso de alteração de senha",
+                    extra={"erro_tipo": type(exc).__name__},
+                )
+        response = JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={"ok": True},
+        )
+        _limpar_cookie(response)
+        return response
+
+    @router.post("/change-password")
+    def change_password(payload: ChangePasswordIn, request: Request) -> JSONResponse:
+        try:
+            _, _, identidade = runtime.sessao_autenticada(request)
+        except _SessaoInvalida:
+            return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
+        except (ReferenciaSegredoInvalida, SegredoAusente, _SegredoSessaoInseguro):
+            return _erro(status.HTTP_503_SERVICE_UNAVAILABLE, "auth.sessao_indisponivel")
+
+        if not verify_password(payload.senha_atual, identidade.senha_hash):
+            return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
+
+        try:
+            result = password_recovery.alterar_senha_autenticada(
+                identity=identidade,
+                nova_senha=payload.nova_senha,
+                correlation_id=request.headers.get("x-correlation-id")
+                or f"password-change:{secrets.token_urlsafe(12)}",
+            )
+        except PasswordRecoveryError as exc:
+            return _erro(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+
+        runtime.invalidar_identidade(result.identity_user_id)
+        if password_recovery_dispatcher is not None:
+            try:
+                password_recovery_dispatcher.send_password_changed(
+                    email=result.email,
+                )
+            except Exception as exc:  # noqa: BLE001 - notificação é best-effort
+                logger.warning(
+                    "Falha ao enviar aviso de alteração de senha",
+                    extra={"erro_tipo": type(exc).__name__},
+                )
+        response = JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={"ok": True, "reauthentication_required": True},
+        )
+        _limpar_cookie(response)
+        return response
 
     @router.get("/me")
     def me(request: Request) -> JSONResponse:
