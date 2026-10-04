@@ -890,3 +890,26 @@ def test_put_integracao_platform_managed_e_bloqueado_no_tenant(app_com_mocks):
         response.json()["erro"]
         == "seguranca.integracao_gerenciada_pela_plataforma"
     )
+
+
+def test_get_lista_mercado_pago_do_cliente_e_oculta_servicos_de_plataforma(
+    app_com_mocks,
+) -> None:
+    app, mocks = app_com_mocks
+    ident = _identidade_admin()
+    mocks["auth"].resolver_identidade.return_value = ident
+    mocks["auth"].admin_status.return_value = (ident, True, None)
+    mocks["service"].listar.return_value = ()
+
+    client = TestClient(app)
+    resp = client.get("/v1/admin/integracoes")
+
+    assert resp.status_code == 200
+    providers = {
+        item["catalogo"]["provedor"]
+        for item in resp.json()["integracoes"]
+    }
+    assert "mercado_pago" in providers
+    assert "pagbank" in providers
+    assert "gemini" not in providers
+    assert "google_maps" not in providers

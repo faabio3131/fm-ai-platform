@@ -213,16 +213,6 @@ export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
     allPermissions: ["admin.acessar", "cliente.visualizar", "campanha.criar"],
   },
   {
-    id: "saude-sistema",
-    label: "Saúde do sistema",
-    description: "Conectividade e diagnóstico técnico protegido.",
-    href: "/admin/system-health",
-    group: "proprietario",
-    icon: "saude",
-    available: true,
-    allPermissions: ["admin.acessar"],
-  },
-  {
     id: "usuarios",
     label: "Usuários e Permissões",
     description: "Cadastro, papéis, unidades permitidas e unidade padrão.",

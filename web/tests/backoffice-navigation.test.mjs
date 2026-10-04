@@ -21,9 +21,10 @@ test("backoffice e filhos só aparecem com as permissões existentes", () => {
   assert.ok(!admin.some(m => m.href === "/estoque"));
   assert.ok(!admin.some(m => m.href === "/admin/crm"));
   const full = availableShellModules(SHELL_MODULES.flatMap(m => [...(m.allPermissions ?? []), ...(m.anyPermissions ?? [])]));
-  for (const href of ["/admin", "/admin/dashboard", "/catalogo", "/estoque", "/admin/crm", "/admin/campanhas", "/admin/ai-finops", "/admin/system-health"]) {
+  for (const href of ["/admin", "/admin/dashboard", "/catalogo", "/estoque", "/admin/crm", "/admin/campanhas", "/admin/ai-finops"]) {
     assert.equal(full.filter(m => m.href === href).length, 1);
   }
+  assert.equal(full.some(m => m.href === "/admin/system-health"), false);
 });
 
 test("rota filha não marca a landing como página ativa", () => {

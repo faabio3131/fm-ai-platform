@@ -41,7 +41,6 @@ def test_wp003_module_registry_governs_current_routes_with_rbac() -> None:
         'id: "salao"': '"pedido.visualizar"',
         'id: "kds"': '"producao.visualizar"',
         'id: "catalogo"': '"admin.acessar"',
-        'id: "saude-sistema"': '"admin.acessar"',
     }
     for module_id, permission in required_contracts.items():
         assert module_id in registry
@@ -70,9 +69,12 @@ def test_wp004_dashboard_only_uses_rbac_filtered_modules() -> None:
     assert "WP-" not in dashboard
 
 
-def test_wp004_technical_health_is_preserved_behind_admin() -> None:
-    health = _read("web/src/app/admin/system-health/page.tsx")
+def test_wp004_technical_health_is_not_exposed_to_tenant_ui() -> None:
+    registry = _read("web/src/features/shell/module-registry.ts")
     admin_layout = _read("web/src/app/admin/layout.tsx")
-    assert "checkBackendHealth" in health
-    assert "Saúde do sistema" in health
+    health_page = ROOT / "web/src/app/admin/system-health/page.tsx"
+
+    assert 'id: "saude-sistema"' not in registry
+    assert 'href: "/admin/system-health"' not in registry
+    assert not health_page.exists()
     assert "AdminStepUpGuard" in admin_layout

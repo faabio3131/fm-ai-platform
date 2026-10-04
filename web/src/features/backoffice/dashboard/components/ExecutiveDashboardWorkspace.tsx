@@ -67,26 +67,26 @@ export function ExecutiveDashboardWorkspace() {
   }, [auth.status, auth.unitId, carregar]);
 
   return (
-    <main className="kordena-page-dark min-h-screen p-4 text-slate-100 sm:p-6 lg:p-8">
-      <div className="kordena-enter mx-auto max-w-[1500px] space-y-6">
-        <header className="relative overflow-hidden rounded-[2rem] border border-blue-400/15 bg-[linear-gradient(135deg,rgba(37,99,235,0.15),rgba(14,165,233,0.04)_48%,rgba(8,17,31,0.96))] p-6 shadow-[0_28px_70px_-42px_rgba(37,99,235,0.72)] sm:p-8">
+    <main className="kordena-page-dark min-h-full p-4 text-slate-100 sm:p-5 lg:p-6">
+      <div className="kordena-enter mx-auto max-w-[1500px] space-y-4">
+        <header className="relative overflow-hidden rounded-[1.5rem] border border-blue-400/15 bg-[linear-gradient(135deg,rgba(37,99,235,0.15),rgba(14,165,233,0.04)_48%,rgba(8,17,31,0.96))] p-4 shadow-[0_24px_58px_-42px_rgba(37,99,235,0.62)] sm:p-5">
           <div className="kordena-grid pointer-events-none absolute inset-0 opacity-55" />
-          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/15 bg-amber-400/[0.07] px-3 py-1.5 text-xs font-bold text-amber-200">
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/15 bg-amber-400/[0.07] px-2.5 py-1 text-[11px] font-bold text-amber-200">
                 <ShieldCheck className="size-3.5" />
                 Proprietário · Unidade ativa
               </div>
-              <p className="mt-5 text-xs font-black uppercase tracking-[0.2em] text-sky-300">Intelligence cockpit</p>
-              <h1 className="mt-2 text-3xl font-black tracking-[-0.035em] sm:text-4xl">
+              <p className="mt-3 text-[11px] font-black uppercase tracking-[0.2em] text-sky-300">Intelligence cockpit</p>
+              <h1 className="mt-1.5 text-2xl font-black tracking-[-0.035em] sm:text-3xl">
                 Dashboard Financeiro e Indicadores
               </h1>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-400">
+              <p className="mt-1.5 max-w-3xl text-[13px] leading-5 text-slate-400">
                 Dados consolidados pelas autoridades existentes de pedidos, pagamentos, estoque e entrega.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:items-center">
-              <div className="hidden items-center gap-2 rounded-2xl border border-blue-400/15 bg-blue-400/[0.06] px-4 py-3 text-xs text-slate-400 xl:flex">
+              <div className="hidden items-center gap-2 rounded-xl border border-blue-400/15 bg-blue-400/[0.06] px-3 py-2 text-[11px] text-slate-400 xl:flex">
                 <Sparkles className="size-4 text-sky-300" />
                 Fonte de verdade preservada
               </div>
@@ -114,7 +114,7 @@ export function ExecutiveDashboardWorkspace() {
           </div>
         ) : painel ? (
           <>
-            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <section className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
               <Metric icon={CircleDollarSign} label="Vendas reconhecidas" value={moeda(painel.financeiro.vendas_reconhecidas)} accent="emerald" />
               <Metric icon={ReceiptText} label="Ticket médio" value={moeda(painel.financeiro.ticket_medio)} />
               <Metric icon={BadgeDollarSign} label="Pagamentos recebidos" value={moeda(painel.financeiro.pagamentos_pagos)} accent="sky" />
@@ -125,7 +125,7 @@ export function ExecutiveDashboardWorkspace() {
               <Metric icon={CircleDollarSign} label="Pagamentos estornados" value={moeda(painel.financeiro.pagamentos_estornados)} accent="amber" />
             </section>
 
-            <section className="grid gap-6 xl:grid-cols-2">
+            <section className="grid gap-3 xl:grid-cols-2">
               <Panel title="CMV e margem atuais" icon={CircleDollarSign}>
                 <DataRow label="CMV estimado atual" value={moeda(painel.financeiro.cmv_estimado_atual)} />
                 <DataRow label="Margem estimada atual" value={moeda(painel.financeiro.margem_estimada_atual)} />
@@ -145,11 +145,11 @@ export function ExecutiveDashboardWorkspace() {
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   {painel.operacional.entregas_por_status.map((item) => (
-                    <div key={item.status} className="rounded-2xl border border-white/[0.06] bg-slate-950/55 p-4">
+                    <div key={item.status} className="rounded-xl border border-white/[0.06] bg-slate-950/55 p-3">
                       <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
                         {rotuloStatus(item.status)}
                       </p>
-                      <p className="mt-2 text-3xl font-black tabular-nums text-white">{item.quantidade}</p>
+                      <p className="mt-1.5 text-2xl font-black tabular-nums text-white">{item.quantidade}</p>
                     </div>
                   ))}
                 </div>
@@ -181,33 +181,33 @@ function Metric({
   }[accent];
 
   return (
-    <div className="kordena-panel-dark group rounded-[1.5rem] p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-400/20">
-      <div className={`flex size-10 items-center justify-center rounded-xl ring-1 ${accentClass}`}>
+    <div className="kordena-panel-dark group rounded-[1.25rem] p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-400/20">
+      <div className={`flex size-9 items-center justify-center rounded-lg ring-1 ${accentClass}`}>
         <Icon className="size-5" />
       </div>
-      <p className="mt-5 text-[10px] font-black uppercase tracking-[0.13em] text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-black tabular-nums tracking-tight text-white">{value}</p>
+      <p className="mt-3 text-[10px] font-black uppercase tracking-[0.13em] text-slate-500">{label}</p>
+      <p className="mt-1.5 text-xl font-black tabular-nums tracking-tight text-white">{value}</p>
     </div>
   );
 }
 
 function Panel({ title, icon: Icon, children }: { title: string; icon: typeof CircleDollarSign; children: ReactNode }) {
   return (
-    <section className="kordena-panel-dark rounded-[1.75rem] p-5 sm:p-6">
-      <div className="mb-5 flex items-center gap-3">
+    <section className="kordena-panel-dark rounded-[1.5rem] p-4">
+      <div className="mb-3 flex items-center gap-2.5">
         <span className="flex size-9 items-center justify-center rounded-xl bg-blue-400/10 text-blue-300 ring-1 ring-blue-400/15">
           <Icon className="size-4" />
         </span>
         <h2 className="font-bold text-white">{title}</h2>
       </div>
-      <div className="space-y-3">{children}</div>
+      <div className="space-y-2">{children}</div>
     </section>
   );
 }
 
 function DataRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/[0.05] bg-slate-950/50 px-4 py-3.5">
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-white/[0.05] bg-slate-950/50 px-3.5 py-2.5">
       <span className="text-sm text-slate-400">{label}</span>
       <strong className="text-right tabular-nums text-white">{value}</strong>
     </div>

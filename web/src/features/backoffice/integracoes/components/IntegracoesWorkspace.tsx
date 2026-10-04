@@ -578,7 +578,29 @@ export function IntegracoesWorkspace() {
       <div className="space-y-1">
         <h1 className="text-2xl font-bold">Integrações e Credenciais</h1>
         <p className="text-muted-foreground">
-          Configure provedores externos do estabelecimento. Cada configuração é isolada pelo tenant e pela unidade autenticados.
+          Configure as credenciais e contas que pertencem ao seu estabelecimento. Cada configuração é isolada pelo tenant e pela unidade autenticados.
+        </p>
+      </div>
+
+      <Card className="border-blue-400/20 bg-blue-500/[0.06]">
+        <CardContent className="space-y-3 p-4">
+          <div>
+            <CardTitle className="text-base font-semibold">Serviços fornecidos pela Kordena</CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Google Gemini e Google Maps são serviços de plataforma administrados pela FM Tecnologia. O estabelecimento usa essas capacidades sem cadastrar chaves próprias nesta área.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="secondary">Google Gemini · gerenciado pela plataforma</Badge>
+            <Badge variant="secondary">Google Maps · gerenciado pela plataforma</Badge>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="space-y-1">
+        <h2 className="text-lg font-semibold">Credenciais do estabelecimento</h2>
+        <p className="text-sm text-muted-foreground">
+          Mercado Pago, PagBank, Meta/WhatsApp, marketplaces, fiscal e demais contas do negócio são configurados pelo Proprietário/Administrador.
         </p>
       </div>
 
