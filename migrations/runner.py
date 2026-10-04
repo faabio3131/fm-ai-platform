@@ -132,6 +132,7 @@ from migrations.migration_history_integrity_v1 import (
 from migrations.operational_session_persistence_v1 import (
     upgrade_operational_session_persistence_v1,
 )
+from migrations.password_recovery_v1 import upgrade_password_recovery_v1
 from migrations.pdv_reconciliation_strategy_width_v1 import (
     upgrade_pdv_reconciliation_strategy_width_v1,
 )
@@ -401,6 +402,10 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         "0060_admin_unit_legacy_store_reconciliation_v1",
         upgrade_admin_unit_legacy_store_reconciliation_v1,
+    ),
+    Migration(
+        "0064_password_recovery_v1",
+        upgrade_password_recovery_v1,
     ),
 )
 

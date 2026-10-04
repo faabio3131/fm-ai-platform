@@ -6,6 +6,7 @@ import pytest
 
 from core.seguranca.segredos import ReferenceSecretStore
 from infra.comercial.transactional_email import (
+    SMTPPasswordRecoveryDispatcher,
     SMTPVerificationConfig,
     SMTPVerificationDispatcher,
 )
@@ -34,6 +35,24 @@ class FakeSMTP:
 
 def _dispatcher(fake: FakeSMTP) -> SMTPVerificationDispatcher:
     return SMTPVerificationDispatcher(
+        config=SMTPVerificationConfig(
+            host="smtp.example.test",
+            port=587,
+            from_email="no-reply@kordena.example",
+            frontend_base_url="https://kordena.example",
+            username="smtp-user",
+            password_secret_reference="mapping:smtp-password",
+        ),
+        secret_store=ReferenceSecretStore(
+            mapping={"smtp-password": "fixture-only-secret"}
+        ),
+        smtp_factory=lambda _config: fake,
+    )
+
+
+
+def _password_dispatcher(fake: FakeSMTP) -> SMTPPasswordRecoveryDispatcher:
+    return SMTPPasswordRecoveryDispatcher(
         config=SMTPVerificationConfig(
             host="smtp.example.test",
             port=587,
@@ -81,3 +100,23 @@ def test_smtp_config_requires_auth_secret_when_username_is_present() -> None:
             frontend_base_url="https://kordena.example",
             username="smtp-user",
         )
+
+
+def test_password_recovery_dispatcher_uses_fragment_and_security_notice() -> None:
+    fake = FakeSMTP()
+    dispatcher = _password_dispatcher(fake)
+
+    dispatcher.send_password_reset(
+        email="OWNER@EXAMPLE.TEST",
+        token="reset+/with?reserved=value",
+    )
+    dispatcher.send_password_changed(email="OWNER@EXAMPLE.TEST")
+
+    assert len(fake.messages) == 2
+    reset_body = fake.messages[0].get_content()
+    assert "https://kordena.example/reset-password#" in reset_body
+    assert "token=reset%2B%2Fwith%3Freserved%3Dvalue" in reset_body
+    assert "30 minutos" in reset_body
+    assert fake.messages[1]["Subject"] == "Sua senha do Kordena foi alterada"
+    assert "sessões anteriores foram encerradas" in fake.messages[1].get_content()
+    assert "fixture-only-secret" not in reset_body
