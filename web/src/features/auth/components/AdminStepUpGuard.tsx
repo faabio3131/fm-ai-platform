@@ -11,6 +11,8 @@ import {
 import Link from "next/link";
 import { FormEvent, type ReactNode, useEffect, useState } from "react";
 
+import { ADMIN_STEP_UP_REQUIRED_EVENT } from "@/lib/api";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -77,6 +79,37 @@ export function AdminStepUpGuard({ children }: { children: ReactNode }) {
       window.clearTimeout(timeoutId);
     };
   }, [auth.status, auth.unitId]);
+
+  useEffect(() => {
+    const requireStepUp = () => {
+      setStatus((current) =>
+        current
+          ? { ...current, elevado: false, expira_em: null }
+          : current,
+      );
+    };
+    window.addEventListener(ADMIN_STEP_UP_REQUIRED_EVENT, requireStepUp);
+    return () => {
+      window.removeEventListener(ADMIN_STEP_UP_REQUIRED_EVENT, requireStepUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!status?.elevado || !status.expira_em) return;
+
+    const expiresAt = new Date(status.expira_em).getTime();
+    if (!Number.isFinite(expiresAt)) return;
+
+    const timer = window.setTimeout(() => {
+      setStatus((current) =>
+        current
+          ? { ...current, elevado: false, expira_em: null }
+          : current,
+      );
+    }, Math.max(0, expiresAt - Date.now() + 250));
+
+    return () => window.clearTimeout(timer);
+  }, [status?.elevado, status?.expira_em]);
 
   async function handleStepUp(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
