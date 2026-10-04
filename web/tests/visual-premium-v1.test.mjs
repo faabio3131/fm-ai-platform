@@ -277,3 +277,33 @@ test("DashboardHome mantém hero executivo compacto na primeira dobra", () => {
   assert.match(dashboard, /grid grid-cols-3 gap-2/);
   assert.match(dashboard, /kordena-glass rounded-xl p-2\.5/);
 });
+
+test("Telas administrativas principais mantêm densidade compacta sem alterar contratos funcionais", () => {
+  const backoffice = source("../src/features/backoffice/components/BackofficeHome.tsx");
+  const dashboard = source("../src/features/backoffice/dashboard/components/ExecutiveDashboardWorkspace.tsx");
+  const assinatura = source("../src/features/commercial/components/CommercialAccountWorkspace.tsx");
+  const crm = source("../src/features/backoffice/crm/components/CrmWorkspace.tsx");
+  const campanhas = source("../src/features/backoffice/campanhas/components/CampanhasWorkspace.tsx");
+
+  assert.match(backoffice, /max-w-\[1500px\] space-y-4/);
+  assert.match(backoffice, /grid gap-2\.5 md:grid-cols-2 xl:grid-cols-3/);
+  assert.match(backoffice, /API_BASE_URL/);
+  assert.match(backoffice, /\/v1\/admin\/acesso/);
+
+  assert.match(dashboard, /min-h-full p-4/);
+  assert.match(dashboard, /kordena-panel-dark group rounded-\[1\.25rem\] p-3\.5/);
+  assert.match(dashboard, /obterPainelExecutivo/);
+
+  assert.match(assinatura, /max-w-\[1500px\] space-y-4/);
+  assert.match(assinatura, /grid gap-3 xl:grid-cols-\[0\.9fr_1\.6fr\]/);
+  assert.match(assinatura, /startCommercialCheckout/);
+
+  assert.match(crm, /min-h-full bg-slate-950 p-4/);
+  assert.match(crm, /grid gap-3 xl:grid-cols-\[minmax\(0,1\.4fr\)_minmax\(340px,0\.9fr\)\]/);
+  assert.match(crm, /listarClientesCrm/);
+
+  assert.match(campanhas, /grid gap-4 xl:grid-cols-\[320px_minmax\(0,1fr\)\]/);
+  assert.match(campanhas, /min-h-\[360px\]/);
+  assert.match(campanhas, /criarCampanha/);
+  assert.match(campanhas, /despacharCampanha/);
+});
