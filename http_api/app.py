@@ -32,6 +32,7 @@ from application.pagbank import (
     PagBankAplicacaoInvalida,
     processar_webhook_pagbank,
 )
+from application.password_recovery import PasswordRecoveryDispatcher
 from application.pdv_legacy_projection import ProjecaoLegadaInvalida
 from core.gerente_ia.erros import ErroGerenteIA
 from core.gerente_ia.modelos import ChamadaTool
@@ -56,6 +57,9 @@ from http_api.estoque import build_estoque_router
 from http_api.kds import build_kds_router
 from http_api.pdv import build_pdv_router
 from http_api.salao import build_salao_router
+from infra.comercial.transactional_email import (
+    build_smtp_password_recovery_dispatcher_from_env,
+)
 from infra.integracoes.fabrica_adapters import FabricaAdaptersExternos
 from infra.pagamentos.pagbank_runtime import (
     CredencialPagBankNaoConfigurada,
@@ -120,6 +124,7 @@ def build_http_app(
     whatsapp_runtime: RuntimeCanalWhatsAppV1 | None = None,
     auth_runtime: AuthSessionRuntime | None = None,
     commercial_billing_adapter_registry: BillingProviderAdapterRegistryV1 | None = None,
+    password_recovery_dispatcher: PasswordRecoveryDispatcher | None = None,
 ) -> FastAPI:
     settings = settings or load_runtime_settings()
     engine = engine or build_engine(settings)
@@ -133,6 +138,13 @@ def build_http_app(
         or (lambda session: EncryptedSQLAlchemySecretStore(session))
     )
     canal_whatsapp = whatsapp_runtime or RuntimeCanalWhatsAppV1(session_factory)
+    password_recovery_dispatcher = (
+        password_recovery_dispatcher
+        or build_smtp_password_recovery_dispatcher_from_env(
+            secret_store=secret_store,
+            required=False,
+        )
+    )
 
     app = FastAPI(
         title="F&M Gerente AI — Integration API",
@@ -151,6 +163,7 @@ def build_http_app(
             settings=settings,
             secret_store=secret_store,
             runtime=auth_runtime,
+            password_recovery_dispatcher=password_recovery_dispatcher,
         )
     )
     app.include_router(

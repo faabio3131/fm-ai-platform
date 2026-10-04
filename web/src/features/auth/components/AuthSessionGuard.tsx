@@ -10,7 +10,7 @@ import {
   useAuthStore,
 } from "@/features/auth/store/auth-store";
 
-const PUBLIC_PATHS = ["/login", "/signup", "/cardapio", "/legal"] as const;
+const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password", "/cardapio", "/legal"] as const;
 
 function isProtectedPath(pathname: string): boolean {
   return !PUBLIC_PATHS.some(
