@@ -1,7 +1,7 @@
 # Kordena — Logística Omnichannel V1
 
-**Status:** arquitetura implementada em candidata isolada; sem merge/deploy  
-**Data:** 2026-10-03  
+**Status:** arquitetura implementada em candidata isolada; sem merge/deploy
+**Data:** 2026-10-03
 **Objetivo:** fazer Expedição e Entrega serem uma única superfície operacional para Delivery Próprio e marketplaces, preservando a autoridade real de cada parceiro.
 
 ## 1. Fundamento
