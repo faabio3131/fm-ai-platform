@@ -127,7 +127,7 @@ def _payload(event_id: str, transaction_ref: str) -> dict[str, str]:
     }
 
 
-def test_valid_webhook_is_accepted_without_echoing_payload_or_secret() -> None:
+def test_valid_orphan_payment_webhook_is_durably_accepted_without_echoing_payload_or_secret() -> None:
     client = _client()
     response = client.post(
         "/v1/commercial/billing/webhooks/provider-http-account",
@@ -137,7 +137,10 @@ def test_valid_webhook_is_accepted_without_echoing_payload_or_secret() -> None:
     assert response.status_code == 202
     body = response.json()
     assert body["accepted"] is True
-    assert body["status"] == "processed"
+    # A cryptographically valid payment event is durably accepted into the inbox,
+    # but an unknown transaction must not be materialized in the billing ledger.
+    # It remains retryable so a legitimate binding can arrive later.
+    assert body["status"] == "failed_retryable"
     assert body["event_id"] == "evt-http-ok"
     assert "fake-http-secret" not in response.text
     assert "transaction_ref" not in response.text

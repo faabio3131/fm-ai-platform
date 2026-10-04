@@ -33,19 +33,22 @@ from core.comercial.erros import ConflitoIdempotenciaComercial
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.segredos import ReferenceSecretStore, SecretValue
 from infra.comercial.billing_config_orm import FMBillingProviderAccountORM
-from infra.comercial.billing_payload_crypto import BillingWebhookPayloadCipher
 from infra.comercial.billing_events_orm import (
     FMBillingReconciliationRunORM,
+    FMBillingSubscriptionBindingORM,
     FMBillingTransactionORM,
     FMBillingWebhookInboxORM,
 )
+from infra.comercial.billing_payload_crypto import BillingWebhookPayloadCipher
+from infra.comercial.modelos_orm import FMCustomerORM, FMProductAccountORM
 from infra.comercial.subscription_orm import FMCommercialSubscriptionORM
 from migrations.runner import run_migrations
-
 
 NOW = datetime(2026, 9, 22, 21, 45, tzinfo=timezone.utc)
 ACCOUNT_ID = "billing-provider-account-test"
 SUBSCRIPTION_ID = "subscription-kca10-test"
+PAYMENT_SUBSCRIPTION_ID = "subscription-kca10-payment"
+PAYMENT_EXTERNAL_SUBSCRIPTION_REF = "external-sub-kca10-payment"
 
 
 class FakeBillingProviderKCA10:
@@ -146,7 +149,6 @@ class FakeSubscriptionApplication:
         motivo: str,
     ):
         self.calls.append(("suspender", subscription_id, expected_version))
-        return None
 
 
 def _context() -> ContextoExecucao:
@@ -197,6 +199,79 @@ def _infra(*, max_attempts: int = 5):
                 updated_at=NOW,
             )
         )
+        session.add(
+            FMCustomerORM(
+                fm_customer_id="customer-kca10-payment",
+                customer_code="KCA10PAY",
+                display_name="Cliente Billing KCA10",
+                legal_name=None,
+                status="active",
+                account_class="paid",
+                primary_contact_email="billing-kca10@example.com",
+                primary_contact_phone=None,
+                created_by="test",
+                updated_by="test",
+                version=1,
+                created_at=NOW,
+                updated_at=NOW,
+            )
+        )
+        session.add(
+            FMProductAccountORM(
+                product_account_id="product-account-kca10-payment",
+                fm_customer_id="customer-kca10-payment",
+                product_code="KORDENA",
+                product_tenant_id="tenant-kca10-payment",
+                status="active",
+                created_by="test",
+                updated_by="test",
+                version=1,
+                created_at=NOW,
+                updated_at=NOW,
+                activated_at=NOW,
+                suspended_at=None,
+                closed_at=None,
+            )
+        )
+        session.add(
+            FMCommercialSubscriptionORM(
+                subscription_id=PAYMENT_SUBSCRIPTION_ID,
+                fm_customer_id="customer-kca10-payment",
+                product_account_id="product-account-kca10-payment",
+                tenant_id="tenant-kca10-payment",
+                plan_code="KORDENA_PLAN_A",
+                plan_version_id="plan-version-kca10-payment",
+                price_id="price-kca10-payment",
+                currency="BRL",
+                billing_period="monthly",
+                contracted_amount=Decimal("99.90"),
+                status="active",
+                current_period_start=NOW,
+                current_period_end=NOW + timedelta(days=30),
+                cancel_at_period_end=False,
+                canceled_at=None,
+                activated_at=NOW,
+                suspended_at=None,
+                version=1,
+                correlation_id="corr-subscription-payment",
+                created_at=NOW,
+                updated_at=NOW,
+            )
+        )
+        session.add(
+            FMBillingSubscriptionBindingORM(
+                billing_binding_id="binding-kca10-payment",
+                provider_account_id=ACCOUNT_ID,
+                provider_code=provider.provider_code,
+                subscription_id=PAYMENT_SUBSCRIPTION_ID,
+                external_subscription_ref=PAYMENT_EXTERNAL_SUBSCRIPTION_REF,
+                external_customer_ref="external-customer-kca10-payment",
+                version=1,
+                correlation_id="corr-binding-payment",
+                created_at=NOW,
+                updated_at=NOW,
+            )
+        )
     app = AplicacaoBillingEventsV1(
         factory,
         adapter_registry=registry,
@@ -220,6 +295,11 @@ def _payload(
     amount: str | None = None,
     occurred_at: datetime = NOW,
 ) -> bytes:
+    resolved_subscription_ref = (
+        PAYMENT_EXTERNAL_SUBSCRIPTION_REF
+        if transaction_ref is not None and subscription_ref is None
+        else subscription_ref
+    )
     data = {
         "id": event_id,
         "type": f"fake.{canonical.value}",
@@ -227,7 +307,7 @@ def _payload(
         "occurred_at": occurred_at.isoformat(),
         "sequence": sequence,
         "transaction_ref": transaction_ref,
-        "subscription_ref": subscription_ref,
+        "subscription_ref": resolved_subscription_ref,
         "amount": amount,
         "currency": "BRL" if amount is not None else None,
     }
@@ -297,6 +377,64 @@ def test_valid_webhook_is_persisted_encrypted_before_normalization_effects() -> 
         assert raw_payload.decode("utf-8") not in row.payload_ciphertext
         assert row.normalized_payload is not None
         assert row.body_hash
+
+def test_payment_ledger_materializes_canonical_customer_identity() -> None:
+    _, factory, _, app = _infra()
+    processed = _receive(
+        app,
+        _payload(
+            event_id="evt-identity",
+            canonical=BillingCanonicalEventType.PAYMENT_SUCCEEDED,
+            sequence=1,
+            transaction_ref="tx-identity",
+            amount="99.90",
+        ),
+    )
+    assert processed.status == BillingWebhookInboxStatus.PROCESSED.value
+
+    with factory() as session:
+        tx = session.scalar(
+            select(FMBillingTransactionORM).where(
+                FMBillingTransactionORM.external_transaction_ref == "tx-identity"
+            )
+        )
+        assert tx is not None
+        assert tx.subscription_id == PAYMENT_SUBSCRIPTION_ID
+        assert tx.fm_customer_id == "customer-kca10-payment"
+        assert tx.product_account_id == "product-account-kca10-payment"
+        assert tx.product_code == "KORDENA"
+        assert tx.tenant_id == "tenant-kca10-payment"
+
+
+def test_payment_without_subscription_binding_never_enters_financial_ledger() -> None:
+    _, factory, _, app = _infra()
+    payload = json.dumps(
+        {
+            "id": "evt-orphan-payment",
+            "type": "fake.payment_succeeded",
+            "canonical": BillingCanonicalEventType.PAYMENT_SUCCEEDED.value,
+            "occurred_at": NOW.isoformat(),
+            "sequence": 1,
+            "transaction_ref": "tx-orphan-payment",
+            "subscription_ref": None,
+            "amount": "19.90",
+            "currency": "BRL",
+        },
+        sort_keys=True,
+    ).encode("utf-8")
+
+    row = _receive(app, payload)
+
+    assert row.status == BillingWebhookInboxStatus.FAILED_RETRYABLE.value
+    assert row.last_error_code == "billing_transaction_subscription_binding_required"
+    with factory() as session:
+        assert (
+            session.scalar(
+                select(func.count()).select_from(FMBillingTransactionORM)
+            )
+            == 0
+        )
+
 
 def test_forged_signature_is_durable_rejected_without_financial_effect() -> None:
     _, factory, _, app = _infra()
@@ -417,7 +555,7 @@ def test_verification_timeout_has_no_partial_financial_state() -> None:
 def test_retry_processes_after_subscription_binding_appears() -> None:
     _, factory, _, app = _infra()
     fake_subscription = FakeSubscriptionApplication()
-    app._subscription = fake_subscription  # noqa: SLF001
+    app._subscription = fake_subscription
     payload = _payload(
         event_id="evt-retry",
         canonical=BillingCanonicalEventType.SUBSCRIPTION_SUSPENDED,
@@ -448,7 +586,7 @@ def test_retry_processes_after_subscription_binding_appears() -> None:
 def test_retry_exhaustion_goes_dlq_and_controlled_replay_rechecks_binding() -> None:
     _, factory, _, app = _infra(max_attempts=2)
     fake_subscription = FakeSubscriptionApplication()
-    app._subscription = fake_subscription  # noqa: SLF001
+    app._subscription = fake_subscription
     payload = _payload(
         event_id="evt-dlq",
         canonical=BillingCanonicalEventType.SUBSCRIPTION_SUSPENDED,

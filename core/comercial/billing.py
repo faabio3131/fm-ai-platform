@@ -21,6 +21,41 @@ def _required(value: str, field: str, *, max_length: int = 255) -> str:
     return cleaned
 
 
+def _optional(
+    value: str | None,
+    field: str,
+    *,
+    max_length: int = 255,
+) -> str | None:
+    if value is None:
+        return None
+    cleaned = value.strip()
+    if not cleaned:
+        return None
+    if len(cleaned) > max_length:
+        raise DadoComercialInvalido(f"billing_{field}_excede_limite")
+    return cleaned
+
+
+def _optional_amount(value: Decimal | None) -> Decimal | None:
+    if value is None:
+        return None
+    amount = Decimal(value).quantize(Decimal("0.01"))
+    if amount <= 0:
+        raise DadoComercialInvalido("billing_amount_invalido")
+    return amount
+
+
+def _optional_currency(value: str | None) -> str | None:
+    cleaned = _optional(value, "currency", max_length=3)
+    if cleaned is None:
+        return None
+    currency = cleaned.upper()
+    if len(currency) != 3 or not currency.isalpha():
+        raise DadoComercialInvalido("billing_currency_invalida")
+    return currency
+
+
 @dataclass(frozen=True, kw_only=True)
 class BillingCallContext:
     idempotency_key: str
@@ -86,6 +121,11 @@ class CheckoutRequest:
     success_url: str
     cancel_url: str
     subscription_id: str | None = None
+    contact_email: str | None = None
+    amount: Decimal | None = None
+    currency: str | None = None
+    billing_period: str | None = None
+    description: str | None = None
 
     def __post_init__(self) -> None:
         for field in ("fm_customer_id", "product_account_id", "price_id"):
@@ -102,6 +142,23 @@ class CheckoutRequest:
                 "subscription_id",
                 _required(self.subscription_id, "subscription_id"),
             )
+        object.__setattr__(
+            self,
+            "contact_email",
+            _optional(self.contact_email, "contact_email", max_length=320),
+        )
+        object.__setattr__(self, "amount", _optional_amount(self.amount))
+        object.__setattr__(self, "currency", _optional_currency(self.currency))
+        object.__setattr__(
+            self,
+            "billing_period",
+            _optional(self.billing_period, "billing_period", max_length=32),
+        )
+        object.__setattr__(
+            self,
+            "description",
+            _optional(self.description, "description", max_length=255),
+        )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -119,6 +176,11 @@ class BillingSubscriptionRequest:
     product_account_id: str
     external_customer_ref: str
     price_id: str
+    contact_email: str | None = None
+    amount: Decimal | None = None
+    currency: str | None = None
+    billing_period: str | None = None
+    description: str | None = None
 
     def __post_init__(self) -> None:
         for field in (
@@ -128,12 +190,32 @@ class BillingSubscriptionRequest:
             "price_id",
         ):
             object.__setattr__(self, field, _required(getattr(self, field), field))
+        object.__setattr__(
+            self,
+            "contact_email",
+            _optional(self.contact_email, "contact_email", max_length=320),
+        )
+        object.__setattr__(self, "amount", _optional_amount(self.amount))
+        object.__setattr__(self, "currency", _optional_currency(self.currency))
+        object.__setattr__(
+            self,
+            "billing_period",
+            _optional(self.billing_period, "billing_period", max_length=32),
+        )
+        object.__setattr__(
+            self,
+            "description",
+            _optional(self.description, "description", max_length=255),
+        )
 
 
 @dataclass(frozen=True, kw_only=True)
 class BillingSubscriptionChangeRequest:
     external_subscription_ref: str
     price_id: str
+    amount: Decimal | None = None
+    currency: str | None = None
+    billing_period: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -142,6 +224,13 @@ class BillingSubscriptionChangeRequest:
             _required(self.external_subscription_ref, "external_subscription_ref"),
         )
         object.__setattr__(self, "price_id", _required(self.price_id, "price_id"))
+        object.__setattr__(self, "amount", _optional_amount(self.amount))
+        object.__setattr__(self, "currency", _optional_currency(self.currency))
+        object.__setattr__(
+            self,
+            "billing_period",
+            _optional(self.billing_period, "billing_period", max_length=32),
+        )
 
 
 @dataclass(frozen=True, kw_only=True)

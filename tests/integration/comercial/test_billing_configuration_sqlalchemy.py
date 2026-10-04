@@ -14,6 +14,7 @@ from core.comercial.billing import BillingConnectionTestResult
 from core.comercial.billing_config import (
     BillingConnectionTestStatus,
     BillingEnvironment,
+    BillingLegalEntityType,
     BillingPaymentMethod,
     BillingProviderAccountStatus,
 )
@@ -120,7 +121,8 @@ def _create_account(
         idempotency_key=key,
         provider_code=provider_code,
         display_name=f"Conta {provider_code}",
-        legal_entity_ref=None,
+        legal_entity_type=BillingLegalEntityType.INDIVIDUAL,
+        legal_entity_ref="fm-owner-profile-test",
         environment=environment,
         credential_secret_reference=secret_ref,
         supported_payment_methods=methods,
@@ -320,6 +322,82 @@ def test_routing_rejects_environment_method_and_duplicates() -> None:
             primary_provider_account_id=no_recurring.provider_account_id,
             requires_recurring=True,
             requires_webhooks=True,
+        )
+
+
+def test_provider_account_supports_pf_and_pj_without_storing_document() -> None:
+    provider = FakeConfigProvider("PROVIDER_ALPHA")
+    _, _, app = _infra(provider)
+
+    pf = app.criar_provider_account(
+        contexto=_context(),
+        idempotency_key="holder-pf",
+        provider_code="PROVIDER_ALPHA",
+        display_name="Conta PF",
+        legal_entity_type=BillingLegalEntityType.INDIVIDUAL,
+        legal_entity_ref="owner-profile-pf",
+        environment=BillingEnvironment.SANDBOX,
+        credential_secret_reference="mapping:alpha",
+        supported_payment_methods=(BillingPaymentMethod.PIX,),
+        supports_recurring=True,
+        supports_webhooks=True,
+        priority=10,
+    )
+    pj = app.criar_provider_account(
+        contexto=_context(),
+        idempotency_key="holder-pj",
+        provider_code="PROVIDER_ALPHA",
+        display_name="Conta PJ",
+        legal_entity_type=BillingLegalEntityType.COMPANY,
+        legal_entity_ref="company-profile-pj",
+        environment=BillingEnvironment.SANDBOX,
+        credential_secret_reference="mapping:alpha",
+        supported_payment_methods=(BillingPaymentMethod.PIX,),
+        supports_recurring=True,
+        supports_webhooks=True,
+        priority=20,
+    )
+
+    assert pf.legal_entity_type == BillingLegalEntityType.INDIVIDUAL
+    assert pf.legal_entity_ref == "owner-profile-pf"
+    assert pj.legal_entity_type == BillingLegalEntityType.COMPANY
+    assert pj.legal_entity_ref == "company-profile-pj"
+
+
+def test_production_provider_cannot_activate_without_holder_type() -> None:
+    provider = FakeConfigProvider("PROVIDER_ALPHA")
+    _, _, app = _infra(provider)
+
+    account = app.criar_provider_account(
+        contexto=_context(),
+        idempotency_key="production-no-holder",
+        provider_code="PROVIDER_ALPHA",
+        display_name="Conta sem titular",
+        legal_entity_type=None,
+        legal_entity_ref=None,
+        environment=BillingEnvironment.PRODUCTION,
+        credential_secret_reference="mapping:alpha",
+        supported_payment_methods=(BillingPaymentMethod.PIX,),
+        supports_recurring=True,
+        supports_webhooks=True,
+        priority=10,
+    )
+    tested = app.testar_conexao(
+        contexto=_context(),
+        provider_account_id=account.provider_account_id,
+        expected_version=account.version,
+    )
+    assert tested.ok is True
+
+    with pytest.raises(
+        DadoComercialInvalido,
+        match="production_legal_entity_type_required",
+    ):
+        app.transicionar_provider_account(
+            contexto=_context(),
+            provider_account_id=account.provider_account_id,
+            expected_version=tested.account.version,
+            status=BillingProviderAccountStatus.ACTIVE,
         )
 
 

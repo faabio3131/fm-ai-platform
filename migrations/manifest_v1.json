@@ -252,6 +252,14 @@
     {
       "version": "0065_google_federated_identity_v1",
       "sha256": "7ffa551b326c1c10235dc5ab895259415c05d0d8738f0425872a93c4af1c5293"
+    },
+    {
+      "version": "0066_commercial_billing_transaction_identity_v1",
+      "sha256": "40e89e67939da9fbf92e3e0b4cb2ffc69d79c05822e28110dd533530cf1672ff"
+    },
+    {
+      "version": "0067_commercial_billing_provider_legal_entity_v1",
+      "sha256": "5a58159d2b16b4055988a3527a500c9e7bc799380d5ed5c57f869389041a1970"
     }
   ]
 }

@@ -90,6 +90,8 @@ _EXPECTED_MIGRATIONS = (
     "0060_admin_unit_legacy_store_reconciliation_v1",
     "0064_password_recovery_v1",
     "0065_google_federated_identity_v1",
+    "0066_commercial_billing_transaction_identity_v1",
+    "0067_commercial_billing_provider_legal_entity_v1",
 )
 
 
@@ -255,16 +257,33 @@ def test_sqlite_health_and_versioned_migration_are_idempotent(
         assert table in tables
 
 
-def test_password_recovery_history_accepts_google_as_next_migration(
+def test_password_recovery_history_accepts_google_then_billing_migrations(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _clear_runtime_env(monkeypatch)
     monkeypatch.setenv("FM_AI_TEST_MODE", "1")
     engine = build_engine(load_runtime_settings(test_database_url="sqlite:///:memory:"))
 
-    assert run_migrations(engine, migrations=DEFAULT_MIGRATIONS[:-1]) == _EXPECTED_MIGRATIONS[:-1]
-    assert pending_versions(engine) == ("0065_google_federated_identity_v1",)
-    assert run_migrations(engine) == ("0065_google_federated_identity_v1",)
+    google_index = _EXPECTED_MIGRATIONS.index("0065_google_federated_identity_v1")
+    assert run_migrations(
+        engine,
+        migrations=DEFAULT_MIGRATIONS[:google_index],
+    ) == _EXPECTED_MIGRATIONS[:google_index]
+    assert pending_versions(engine) == _EXPECTED_MIGRATIONS[google_index:]
+
+    assert run_migrations(
+        engine,
+        migrations=DEFAULT_MIGRATIONS[: google_index + 1],
+    ) == ("0065_google_federated_identity_v1",)
+    assert pending_versions(engine) == (
+        "0066_commercial_billing_transaction_identity_v1",
+        "0067_commercial_billing_provider_legal_entity_v1",
+    )
+
+    assert run_migrations(engine) == (
+        "0066_commercial_billing_transaction_identity_v1",
+        "0067_commercial_billing_provider_legal_entity_v1",
+    )
     assert pending_versions(engine) == ()
 
 

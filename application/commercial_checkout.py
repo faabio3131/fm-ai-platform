@@ -193,6 +193,16 @@ class AplicacaoCheckoutComercialV1:
         if not secret_ref:
             raise DadoComercialInvalido("billing_credential_not_configured")
 
+        with self._session_factory() as session:
+            customer = RepositorioComercialSQLAlchemy(session).obter_cliente(
+                subscription.fm_customer_id
+            )
+        if customer is None:
+            raise RegistroComercialNaoEncontrado("customer_not_found")
+        contact_email = customer.primary_contact_email.strip()
+        if not contact_email:
+            raise DadoComercialInvalido("billing_contact_email_required")
+
         provider = self._adapter_registry.resolve(account.provider_code)
         call_context = BillingCallContext(
             idempotency_key=_idempotency("checkout", idempotency_key),
@@ -206,6 +216,11 @@ class AplicacaoCheckoutComercialV1:
             success_url=success_url,
             cancel_url=cancel_url,
             subscription_id=subscription.subscription_id,
+            contact_email=contact_email,
+            amount=subscription.contracted_amount,
+            currency=subscription.currency,
+            billing_period=subscription.billing_period,
+            description=f"Kordena {subscription.plan_code}",
         )
 
         if secret_ref.startswith("vault:"):

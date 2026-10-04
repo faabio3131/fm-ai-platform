@@ -850,6 +850,11 @@ class AplicacaoBillingEventsV1:
             raise DadoComercialInvalido(
                 "billing_external_transaction_ref_obrigatoria"
             )
+        if not subscription_id:
+            raise BillingBindingPending(
+                "billing_transaction_subscription_binding_required"
+            )
+
         status = event.transaction_status or transaction_status_for_event(
             event.canonical_event_type
         )
@@ -861,14 +866,59 @@ class AplicacaoBillingEventsV1:
             == BillingCanonicalEventType.PAYMENT_REFUNDED
             else BillingTransactionType.PAYMENT
         )
+
         with self._session_factory() as session, session.begin():
+            subscription = RepositorioSubscriptionComercialSQLAlchemy(
+                session
+            ).obter(subscription_id)
+            if subscription is None:
+                raise RegistroComercialNaoEncontrado(
+                    "billing_transaction_subscription_not_found"
+                )
+            commercial = RepositorioComercialSQLAlchemy(session)
+            product_account = commercial.obter_conta_produto(
+                subscription.product_account_id
+            )
+            if product_account is None:
+                raise RegistroComercialNaoEncontrado(
+                    "billing_transaction_product_account_not_found"
+                )
+            if (
+                product_account.fm_customer_id != subscription.fm_customer_id
+                or product_account.product_tenant_id != subscription.tenant_id
+            ):
+                raise DadoComercialInvalido(
+                    "billing_transaction_commercial_identity_mismatch"
+                )
+            product_code = product_account.product_code.strip().upper()
+            if not product_code:
+                raise DadoComercialInvalido(
+                    "billing_transaction_product_code_missing"
+                )
+
+            identity = {
+                "subscription_id": subscription.subscription_id,
+                "fm_customer_id": subscription.fm_customer_id,
+                "product_account_id": subscription.product_account_id,
+                "product_code": product_code,
+                "tenant_id": subscription.tenant_id,
+            }
+
             repo = RepositorioBillingEventsSQLAlchemy(session)
             current = repo.obter_transacao_por_external(
                 provider_account_id=inbox.provider_account_id,
                 external_transaction_ref=event.external_transaction_ref,
             )
+            if current is not None:
+                for field, expected in identity.items():
+                    persisted = getattr(current, field, None)
+                    if persisted is not None and str(persisted) != str(expected):
+                        raise DadoComercialInvalido(
+                            "billing_transaction_identity_rebinding_forbidden"
+                        )
+
             values: dict[str, object] = {
-                "subscription_id": subscription_id,
+                **identity,
                 "transaction_type": transaction_type.value,
                 "status": status.value,
                 "amount": event.amount,
@@ -881,13 +931,17 @@ class AplicacaoBillingEventsV1:
                 "correlation_id": contexto.correlation_id,
             }
             if current is None:
-                repo.adicionar_transacao(
+                transaction = repo.adicionar_transacao(
                     FMBillingTransactionORM(
                         billing_transaction_id=str(uuid4()),
                         provider_account_id=inbox.provider_account_id,
                         provider_code=inbox.provider_code,
                         external_transaction_ref=event.external_transaction_ref,
-                        subscription_id=subscription_id,
+                        subscription_id=subscription.subscription_id,
+                        fm_customer_id=subscription.fm_customer_id,
+                        product_account_id=subscription.product_account_id,
+                        product_code=product_code,
+                        tenant_id=subscription.tenant_id,
                         transaction_type=transaction_type.value,
                         status=status.value,
                         amount=event.amount,
@@ -910,11 +964,35 @@ class AplicacaoBillingEventsV1:
                     raise DadoComercialInvalido(
                         "billing_transaction_provider_mismatch"
                     )
-                repo.atualizar_transacao(
+                transaction = repo.atualizar_transacao(
                     billing_transaction_id=current.billing_transaction_id,
                     expected_version=current.version,
                     values=values,
                 )
+
+            commercial.adicionar_auditoria(
+                self._audit(
+                    contexto=contexto,
+                    action="commercial.billing.transaction.upsert",
+                    aggregate_type="billing_transaction",
+                    aggregate_id=transaction.billing_transaction_id,
+                    result="success",
+                    reason="KCA-10 canonical payment identity",
+                    metadata_safe={
+                        "provider_account_id": inbox.provider_account_id,
+                        "provider_code": inbox.provider_code,
+                        "external_transaction_ref": event.external_transaction_ref,
+                        "subscription_id": subscription.subscription_id,
+                        "fm_customer_id": subscription.fm_customer_id,
+                        "product_account_id": subscription.product_account_id,
+                        "product_code": product_code,
+                        "tenant_id": subscription.tenant_id,
+                        "transaction_status": status.value,
+                        "transaction_type": transaction_type.value,
+                    },
+                    instante=_now(),
+                )
+            )
 
     def _apply_subscription_event(
         self,

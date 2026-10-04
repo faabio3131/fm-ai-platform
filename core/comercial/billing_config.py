@@ -21,6 +21,11 @@ class BillingPaymentMethod(StrEnum):
     BANK_TRANSFER = "bank_transfer"
 
 
+class BillingLegalEntityType(StrEnum):
+    INDIVIDUAL = "individual"
+    COMPANY = "company"
+
+
 class BillingProviderAccountStatus(StrEnum):
     DRAFT = "draft"
     VALIDATING = "validating"
@@ -124,6 +129,7 @@ class BillingProviderAccount:
     provider_account_id: str
     provider_code: str
     display_name: str
+    legal_entity_type: BillingLegalEntityType | None
     legal_entity_ref: str | None
     environment: BillingEnvironment
     status: BillingProviderAccountStatus

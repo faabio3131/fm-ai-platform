@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from core.comercial.billing_config import (
     BillingConnectionTestStatus,
     BillingEnvironment,
+    BillingLegalEntityType,
     BillingPaymentMethod,
     BillingProviderAccount,
     BillingProviderAccountStatus,
@@ -36,6 +37,11 @@ def _provider_account(row: FMBillingProviderAccountORM) -> BillingProviderAccoun
         provider_account_id=row.provider_account_id,
         provider_code=row.provider_code,
         display_name=row.display_name,
+        legal_entity_type=(
+            BillingLegalEntityType(row.legal_entity_type)
+            if row.legal_entity_type is not None
+            else None
+        ),
         legal_entity_ref=row.legal_entity_ref,
         environment=BillingEnvironment(row.environment),
         status=BillingProviderAccountStatus(row.status),

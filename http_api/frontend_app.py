@@ -46,6 +46,7 @@ from http_api.commercial_access import build_commercial_access_router
 from http_api.crm import build_crm_router
 from http_api.delivery import build_delivery_router
 from http_api.entrega import build_entrega_router
+from http_api.fmcc_billing_control import build_fmcc_billing_control_router
 from http_api.fmcc_commercial_control import build_fmcc_commercial_control_router
 from http_api.fmcc_platform_integrations import (
     build_fmcc_platform_integrations_router,
@@ -57,6 +58,9 @@ from http_api.operational_auth import obter_identidade_operacional
 from http_api.pagamentos_web import build_pagamentos_web_router
 from http_api.public_legal import build_public_legal_router
 from http_api.public_signup import VerificationDispatcher, build_public_signup_router
+from infra.comercial.mercado_pago_subscriptions import (
+    MercadoPagoSubscriptionsBillingProvider,
+)
 from infra.comercial.transactional_email import (
     build_smtp_verification_dispatcher_from_env,
 )
@@ -137,7 +141,9 @@ def build_frontend_http_app(
 
     billing_adapter_registry = kwargs.get(
         "commercial_billing_adapter_registry"
-    ) or BillingProviderAdapterRegistryV1()
+    ) or BillingProviderAdapterRegistryV1(
+        (MercadoPagoSubscriptionsBillingProvider(),)
+    )
 
     kwargs["engine"] = engine
     kwargs["session_factory"] = session_factory
@@ -217,6 +223,14 @@ def build_frontend_http_app(
         build_fmcc_commercial_control_router(
             session_factory=session_factory,
             control_plane_token=resolved_settings.fmcc_control_plane_token,
+        )
+    )
+    app.include_router(
+        build_fmcc_billing_control_router(
+            session_factory=session_factory,
+            control_plane_token=resolved_settings.fmcc_control_plane_token,
+            adapter_registry=billing_adapter_registry,
+            secret_store=secret_store,
         )
     )
     app.include_router(

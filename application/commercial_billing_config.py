@@ -21,6 +21,7 @@ from core.comercial.billing import BillingCallContext, BillingProviderError
 from core.comercial.billing_config import (
     BillingConnectionTestStatus,
     BillingEnvironment,
+    BillingLegalEntityType,
     BillingPaymentMethod,
     BillingProviderAccount,
     BillingProviderAccountStatus,
@@ -179,6 +180,7 @@ class AplicacaoBillingConfigurationV1:
         idempotency_key: str,
         provider_code: str,
         display_name: str,
+        legal_entity_type: BillingLegalEntityType | None = None,
         legal_entity_ref: str | None,
         environment: BillingEnvironment,
         credential_secret_reference: str | None,
@@ -190,6 +192,11 @@ class AplicacaoBillingConfigurationV1:
         key = _key(idempotency_key)
         code = normalizar_provider_code(provider_code)
         name = _clean(display_name, field="display_name", max_length=128)
+        entity_type = (
+            BillingLegalEntityType(legal_entity_type)
+            if legal_entity_type is not None
+            else None
+        )
         legal_ref = _optional(legal_entity_ref, max_length=128)
         secret_ref = (
             normalizar_secret_reference(credential_secret_reference)
@@ -202,6 +209,9 @@ class AplicacaoBillingConfigurationV1:
         payload = {
             "provider_code": code,
             "display_name": name,
+            "legal_entity_type": (
+                entity_type.value if entity_type is not None else None
+            ),
             "legal_entity_ref": legal_ref,
             "environment": environment.value,
             "credential_secret_reference": secret_ref,
@@ -248,6 +258,9 @@ class AplicacaoBillingConfigurationV1:
                         provider_account_id=account_id,
                         provider_code=code,
                         display_name=name,
+                        legal_entity_type=(
+                            entity_type.value if entity_type is not None else None
+                        ),
                         legal_entity_ref=legal_ref,
                         environment=environment.value,
                         status=BillingProviderAccountStatus.DRAFT.value,
@@ -284,6 +297,9 @@ class AplicacaoBillingConfigurationV1:
                         reason="kca09b_provider_account_create",
                         metadata_safe={
                             "provider_code": code,
+                            "legal_entity_type": (
+                                entity_type.value if entity_type is not None else None
+                            ),
                             "environment": environment.value,
                             "status": account.status.value,
                             "payment_methods": [item.value for item in methods],
@@ -325,6 +341,7 @@ class AplicacaoBillingConfigurationV1:
         provider_account_id: str,
         expected_version: int,
         display_name: str,
+        legal_entity_type: BillingLegalEntityType | None = None,
         legal_entity_ref: str | None,
         credential_secret_reference: str | None,
         supported_payment_methods: tuple[BillingPaymentMethod, ...],
@@ -334,6 +351,11 @@ class AplicacaoBillingConfigurationV1:
     ) -> BillingProviderAccount:
         account_id = provider_account_id.strip()
         name = _clean(display_name, field="display_name", max_length=128)
+        entity_type = (
+            BillingLegalEntityType(legal_entity_type)
+            if legal_entity_type is not None
+            else None
+        )
         legal_ref = _optional(legal_entity_ref, max_length=128)
         requested_secret_ref = (
             normalizar_secret_reference(credential_secret_reference)
@@ -366,6 +388,9 @@ class AplicacaoBillingConfigurationV1:
                 expected_version=expected_version,
                 values={
                     "display_name": name,
+                    "legal_entity_type": (
+                        entity_type.value if entity_type is not None else None
+                    ),
                     "legal_entity_ref": legal_ref,
                     "credential_secret_reference": (
                         requested_secret_ref
@@ -626,6 +651,14 @@ class AplicacaoBillingConfigurationV1:
                 status,
                 last_test_status=current.last_test_status,
             )
+            if (
+                status == BillingProviderAccountStatus.ACTIVE
+                and current.environment == BillingEnvironment.PRODUCTION
+                and current.legal_entity_type is None
+            ):
+                raise DadoComercialInvalido(
+                    "billing_provider_production_legal_entity_type_required"
+                )
             updated = repo.atualizar_provider_account(
                 provider_account_id=account_id,
                 expected_version=expected_version,
