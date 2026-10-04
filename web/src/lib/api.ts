@@ -2,6 +2,18 @@ export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   (process.env.NODE_ENV === "production" ? "/backend" : "http://localhost:8000");
 
+export const ADMIN_STEP_UP_REQUIRED_EVENT = "kordena:admin-step-up-required";
+
+function notifyAdminStepUpRequired(status: number, code?: string): void {
+  if (
+    status === 403 &&
+    code === "seguranca.admin_step_up_exigido" &&
+    typeof window !== "undefined"
+  ) {
+    window.dispatchEvent(new Event(ADMIN_STEP_UP_REQUIRED_EVENT));
+  }
+}
+
 export interface ApiContext {
   token?: string;
   tenantId?: string;
@@ -64,6 +76,8 @@ export async function apiRequest<T>(
     } catch {
       // A fronteira HTTP pode responder sem JSON. O status continua sendo a fonte segura.
     }
+
+    notifyAdminStepUpRequired(response.status, code);
 
     throw new ApiError(
       `Kordena API respondeu HTTP ${response.status}`,

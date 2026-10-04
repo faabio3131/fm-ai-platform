@@ -8,8 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/features/auth/store/auth-store";
-import { API_BASE_URL } from "@/lib/api";
 import {
+  obterCadastroEmpresa,
   obterConfiguracao,
   salvarConfiguracao,
   type ConfiguracaoFinanceira,
@@ -68,23 +68,27 @@ export function ConfiguracaoWorkspace() {
   });
 
   const fetchUnidades = useCallback(async () => {
+    setState((s) => ({ ...s, loading: true, erro: null }));
     try {
-      const res = await fetch(`${API_BASE_URL}/v1/admin/empresa`, {
-        credentials: "include",
-        headers: { Accept: "application/json" },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setState((s) => ({
-          ...s,
-          unidades: data.unidades.map((u: UnidadeResumo) => ({
-            unidade_id: u.unidade_id,
-            nome_fantasia: u.nome_fantasia,
-          })),
-        }));
-      }
-    } catch {
-      // silencioso
+      const data = await obterCadastroEmpresa();
+      const unidades = data.unidades.map((u: UnidadeResumo) => ({
+        unidade_id: u.unidade_id,
+        nome_fantasia: u.nome_fantasia,
+      }));
+      setState((s) => ({
+        ...s,
+        unidades,
+        loading: unidades.length === 0 ? false : s.loading,
+      }));
+    } catch (error) {
+      setState((s) => ({
+        ...s,
+        unidades: [],
+        loading: false,
+        erro: error instanceof Error
+          ? error.message
+          : "Erro ao carregar unidades administrativas",
+      }));
     }
   }, []);
 
@@ -206,7 +210,8 @@ export function ConfiguracaoWorkspace() {
   }, [state.editingUnidadeId, state.form, state.configuracoes, fetchConfiguracao, handleCloseEdit]);
 
   useEffect(() => {
-    fetchUnidades();
+    if (!auth.tenantId || !auth.unitId) return;
+    void fetchUnidades();
   }, [fetchUnidades, auth.tenantId, auth.unitId]);
 
   useEffect(() => {
