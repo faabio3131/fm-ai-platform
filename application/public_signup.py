@@ -242,6 +242,41 @@ class AplicacaoPublicSignupV1:
             raise RegistroComercialDuplicado("signup_indisponivel") from exc
         return SignupCreationResult(signup=signup, verification_token=token)
 
+    def criar_e_provisionar_google(
+        self,
+        *,
+        owner_name: str,
+        owner_email: str,
+        primary_contact_phone: str | None,
+        establishment_name: str,
+        segment: str,
+        terms_accepted: bool,
+        legal_documents: dict[str, dict[str, str]],
+        consent_json: dict[str, bool],
+        correlation_id: str,
+    ) -> SignupIntent:
+        # A senha interna é aleatória e nunca é entregue ao usuário. A identidade
+        # federada Google será vinculada após o provisioning e será o método de
+        # entrada até que o proprietário configure uma senha própria.
+        internal_password = secrets.token_urlsafe(48)
+        created = self.criar_intencao(
+            owner_name=owner_name,
+            owner_email=owner_email,
+            owner_password=internal_password,
+            primary_contact_phone=primary_contact_phone,
+            establishment_name=establishment_name,
+            segment=segment,
+            terms_accepted=terms_accepted,
+            legal_documents=legal_documents,
+            consent_json=consent_json,
+            correlation_id=correlation_id,
+        )
+        return self.verificar_e_provisionar(
+            signup_id=created.signup.signup_id,
+            verification_token=created.verification_token,
+            verification_source="google",
+        )
+
     def obter_status(self, *, signup_id: str) -> SignupIntent | None:
         with self._session_factory() as session:
             return RepositorioPublicSignupSQLAlchemy(session).obter(signup_id.strip())
@@ -277,6 +312,7 @@ class AplicacaoPublicSignupV1:
         *,
         signup_id: str,
         verification_token: str,
+        verification_source: str = "email",
     ) -> SignupIntent:
         now = _now()
         with self._session_factory() as session, session.begin():
@@ -302,15 +338,26 @@ class AplicacaoPublicSignupV1:
                     ),
                 },
             )
+            source = verification_source.strip().casefold()
+            if source not in {"email", "google"}:
+                raise SignupVerificationError("signup_verification_source_invalid")
             session.add(
                 CommercialAuditORM(
                     audit_id=str(uuid4()),
                     actor_user_id="public-signup-v1",
-                    action="commercial.signup.email_verified",
+                    action=(
+                        "commercial.signup.google_verified"
+                        if source == "google"
+                        else "commercial.signup.email_verified"
+                    ),
                     aggregate_type="public_signup",
                     aggregate_id=signup.signup_id,
                     result="success",
-                    reason="KCA-06 email verification",
+                    reason=(
+                        "Google Identity verified email"
+                        if source == "google"
+                        else "KCA-06 email verification"
+                    ),
                     correlation_id=signup.correlation_id,
                     causation_id=None,
                     metadata_safe={"status": signup.status.value},

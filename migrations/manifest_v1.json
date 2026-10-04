@@ -244,6 +244,10 @@
     {
       "version": "0060_admin_unit_legacy_store_reconciliation_v1",
       "sha256": "0f57af2300f9a6b20564af110837cfc32e003d027715072fc001dd361276605c"
+    },
+    {
+      "version": "0063_google_federated_identity_v1",
+      "sha256": "9ecf71e859345744d152d3ab68320b41c616fa188df8f2c0abed63ebb63044db"
     }
   ]
 }

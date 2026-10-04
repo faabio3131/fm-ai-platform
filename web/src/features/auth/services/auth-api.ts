@@ -18,6 +18,15 @@ export interface AuthUnit {
   nome: string | null;
 }
 
+export interface GoogleSignupProfile {
+  email: string;
+  name: string | null;
+}
+
+export type GoogleLoginResult =
+  | { status: "authenticated"; operator: AuthOperator }
+  | { status: "signup_required"; profile: GoogleSignupProfile };
+
 export interface LogoutResult {
   ok: boolean;
 }
@@ -93,6 +102,40 @@ export async function login(email: string, senha: string): Promise<AuthOperator>
     method: "POST",
     body: JSON.stringify({ email, senha }),
   });
+}
+
+export async function googleLogin(
+  credential: string,
+): Promise<GoogleLoginResult> {
+  const response = await fetch(`${API_BASE_URL}/v1/auth/google`, {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ credential }),
+  });
+
+  if (response.status === 404) {
+    const body = (await response.json()) as {
+      erro?: string;
+      profile?: GoogleSignupProfile;
+    };
+    if (body.erro === "auth.google_signup_required" && body.profile) {
+      return { status: "signup_required", profile: body.profile };
+    }
+  }
+
+  if (!response.ok) {
+    throw await readApiError(response);
+  }
+
+  return {
+    status: "authenticated",
+    operator: (await response.json()) as AuthOperator,
+  };
 }
 
 export async function getMe(): Promise<AuthOperator> {
