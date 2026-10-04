@@ -67,6 +67,15 @@ test("Legal V1 vincula cadastro a versões e hashes oficiais sem misturar market
   assert.match(legalPage, /SHA-256:/);
 });
 
+test("KCA-06 preserva autenticação do preview nas APIs públicas same-origin", () => {
+  const legalApi = fs.readFileSync("src/features/legal/services/legal-api.ts", "utf8");
+
+  assert.match(api, /credentials: "same-origin"/);
+  assert.doesNotMatch(api, /credentials: "omit"/);
+  assert.match(legalApi, /credentials: "same-origin"/);
+  assert.doesNotMatch(legalApi, /credentials: "omit"/);
+});
+
 test("Google Identity Services oferece login e cadastro federado sem client secret no browser", () => {
   const googleButton = fs.readFileSync(
     "src/features/auth/components/GoogleSignInButton.tsx",

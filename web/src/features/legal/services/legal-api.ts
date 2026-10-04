@@ -21,7 +21,7 @@ export interface LegalDocumentDetail extends LegalDocumentMetadata {
 export async function getActiveLegalDocuments(): Promise<LegalDocumentMetadata[]> {
   const response = await fetch(API_BASE_URL + "/v1/public/legal/documents", {
     method: "GET",
-    credentials: "omit",
+    credentials: "same-origin",
     cache: "no-store",
     headers: { Accept: "application/json" },
   });
@@ -39,7 +39,7 @@ export async function getLegalDocument(
     API_BASE_URL + "/v1/public/legal/documents/" + encodeURIComponent(documentType),
     {
       method: "GET",
-      credentials: "omit",
+      credentials: "same-origin",
       cache: "no-store",
       headers: { Accept: "application/json" },
     },

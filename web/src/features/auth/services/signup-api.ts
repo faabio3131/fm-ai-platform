@@ -43,7 +43,7 @@ export class SignupApiError extends Error {
 export async function createSignup(input: SignupInput): Promise<SignupAccepted> {
   const response = await fetch(`${API_BASE_URL}/v1/public/signup`, {
     method: "POST",
-    credentials: "omit",
+    credentials: "same-origin",
     cache: "no-store",
     headers: {
       Accept: "application/json",
@@ -63,7 +63,7 @@ export async function createGoogleSignup(
 ): Promise<SignupVerificationResult> {
   const response = await fetch(API_BASE_URL + "/v1/public/signup/google", {
     method: "POST",
-    credentials: "omit",
+    credentials: "same-origin",
     cache: "no-store",
     headers: {
       Accept: "application/json",
@@ -97,7 +97,7 @@ export async function verifySignupEmail(
     `${API_BASE_URL}/v1/public/signup/${encodeURIComponent(normalizedSignupId)}/verify-email`,
     {
       method: "POST",
-      credentials: "omit",
+      credentials: "same-origin",
       cache: "no-store",
       headers: {
         Accept: "application/json",
