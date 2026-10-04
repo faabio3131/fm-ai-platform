@@ -248,6 +248,10 @@
     {
       "version": "0063_google_federated_identity_v1",
       "sha256": "9ecf71e859345744d152d3ab68320b41c616fa188df8f2c0abed63ebb63044db"
+    },
+    {
+      "version": "0064_password_recovery_v1",
+      "sha256": "f56db3e244ce0983de8a5c4ce70384a96e4cbedae01a443b397175da6a2c5868"
     }
   ]
 }

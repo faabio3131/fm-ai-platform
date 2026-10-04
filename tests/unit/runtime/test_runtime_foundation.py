@@ -89,6 +89,7 @@ _EXPECTED_MIGRATIONS = (
     "0059_operational_session_persistence_v1",
     "0060_admin_unit_legacy_store_reconciliation_v1",
     "0063_google_federated_identity_v1",
+    "0064_password_recovery_v1",
 )
 
 
@@ -249,6 +250,7 @@ def test_sqlite_health_and_versioned_migration_are_idempotent(
         "crm_cashback_movimentos_v1",
         "delivery_carrinhos_v1",
         "fm_federated_identities_v1",
+        "fm_password_recovery_tokens_v1",
     ):
         assert table in tables
 

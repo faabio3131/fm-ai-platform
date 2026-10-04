@@ -43,7 +43,7 @@ test("KF-08 mantém signup e verificação como superfícies públicas sem shell
   const guard = fs.readFileSync("src/features/auth/components/AuthSessionGuard.tsx", "utf8");
   const shell = fs.readFileSync("src/features/shell/components/UnifiedAppShell.tsx", "utf8");
 
-  assert.match(guard, /PUBLIC_PATHS = \["\/login", "\/signup", "\/cardapio", "\/legal"\]/);
+  assert.match(guard, /PUBLIC_PATHS = \["\/login", "\/signup", "\/forgot-password", "\/reset-password", "\/cardapio", "\/legal"\]/);
   assert.match(shell, /pathname === "\/signup"/);
   assert.match(shell, /pathname\.startsWith\("\/signup\/"\)/);
   assert.match(shell, /pathname === "\/legal"/);

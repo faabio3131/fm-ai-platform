@@ -167,3 +167,43 @@ export async function elevateAdminSession(senha: string): Promise<AdminStepUpRes
 export async function logout(): Promise<LogoutResult> {
   return authRequest<LogoutResult>("/v1/auth/logout", { method: "POST" });
 }
+
+export interface PasswordRecoveryAccepted {
+  accepted: boolean;
+  message: string;
+}
+
+export async function requestPasswordRecovery(
+  email: string,
+): Promise<PasswordRecoveryAccepted> {
+  return authRequest<PasswordRecoveryAccepted>("/v1/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetPassword(
+  token: string,
+  novaSenha: string,
+): Promise<{ ok: boolean }> {
+  return authRequest<{ ok: boolean }>("/v1/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, nova_senha: novaSenha }),
+  });
+}
+
+export async function changePassword(
+  senhaAtual: string,
+  novaSenha: string,
+): Promise<{ ok: boolean; reauthentication_required: boolean }> {
+  return authRequest<{ ok: boolean; reauthentication_required: boolean }>(
+    "/v1/auth/change-password",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        senha_atual: senhaAtual,
+        nova_senha: novaSenha,
+      }),
+    },
+  );
+}
