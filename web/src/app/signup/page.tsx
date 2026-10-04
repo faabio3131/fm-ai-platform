@@ -175,23 +175,23 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="kordena-page-dark relative min-h-screen overflow-hidden px-5 py-10 text-white">
-      <section className="kordena-panel-dark relative mx-auto w-full max-w-xl rounded-[2rem] p-6 sm:p-8">
-        <Link href="/login" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white">
+    <main className="kordena-page-dark relative min-h-screen overflow-hidden px-4 py-6 text-white sm:px-5 sm:py-7">
+      <section className="kordena-panel-dark relative mx-auto w-full max-w-lg rounded-[1.75rem] p-5 sm:p-6">
+        <Link href="/login" className="inline-flex items-center gap-1.5 text-[13px] text-slate-400 hover:text-white">
           <ArrowLeft className="size-4" /> Voltar
         </Link>
-        <h1 className="mt-6 text-3xl font-black">Começar teste grátis</h1>
-        <p className="mt-2 text-sm leading-6 text-slate-400">
+        <h1 className="mt-4 text-[1.7rem] font-black leading-tight tracking-[-0.02em]">Começar teste grátis</h1>
+        <p className="mt-1.5 text-[13px] leading-5 text-slate-400">
           Crie sua conta para iniciar o processo seguro de ativação do Kordena.
         </p>
 
         {legalFailed ? (
-          <div role="alert" className="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-100">
+          <div role="alert" className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-[13px] leading-5 text-amber-100">
             Não foi possível validar os documentos jurídicos oficiais. Por segurança, o cadastro está bloqueado.
           </div>
         ) : null}
 
-        <div className="mt-6">
+        <div className="mt-4">
           {!googleProfile ? (
             <>
               <GoogleSignInButton
@@ -200,7 +200,7 @@ export default function SignupPage() {
                 disabled={googleBusy || submitting}
               />
               {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? (
-                <div className="my-5 flex items-center gap-3" aria-hidden="true">
+                <div className="my-4 flex items-center gap-3" aria-hidden="true">
                   <span className="h-px flex-1 bg-slate-800" />
                   <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
                     ou cadastre com e-mail
@@ -210,17 +210,17 @@ export default function SignupPage() {
               ) : null}
             </>
           ) : (
-            <div className="rounded-2xl border border-blue-400/20 bg-blue-400/[0.07] p-4">
+            <div className="rounded-xl border border-blue-400/20 bg-blue-400/[0.07] p-3.5">
               <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-300">
                 Conta Google verificada
               </p>
-              <p className="mt-2 font-bold text-white">
+              <p className="mt-1.5 text-sm font-bold text-white">
                 {googleProfile.name || googleProfile.email}
               </p>
               <p className="mt-1 text-sm text-slate-400">{googleProfile.email}</p>
               <button
                 type="button"
-                className="mt-3 text-xs font-semibold text-blue-300 hover:text-blue-200"
+                className="mt-2 text-xs font-semibold text-blue-300 hover:text-blue-200"
                 onClick={() => {
                   setGoogleCredential(null);
                   setGoogleProfile(null);
@@ -232,21 +232,21 @@ export default function SignupPage() {
           )}
         </div>
 
-        <form className="mt-5 space-y-4" onSubmit={(event) => void submit(event)}>
+        <form className="mt-4 space-y-3" onSubmit={(event) => void submit(event)}>
           {!googleProfile ? (
             <>
-              <Input name="owner_name" aria-label="Nome do responsável" placeholder="Nome do responsável" required maxLength={255} />
-              <Input name="email" aria-label="E-mail" type="email" placeholder="E-mail" required maxLength={320} />
-              <Input name="password" aria-label="Senha" type="password" autoComplete="new-password" placeholder="Senha" required minLength={8} maxLength={1024} />
+              <Input className="h-10 sm:h-9" name="owner_name" aria-label="Nome do responsável" placeholder="Nome do responsável" required maxLength={255} />
+              <Input className="h-10 sm:h-9" name="email" aria-label="E-mail" type="email" placeholder="E-mail" required maxLength={320} />
+              <Input className="h-10 sm:h-9" name="password" aria-label="Senha" type="password" autoComplete="new-password" placeholder="Senha" required minLength={8} maxLength={1024} />
             </>
           ) : null}
-          <Input name="phone" aria-label="Telefone ou WhatsApp" placeholder="Telefone ou WhatsApp" maxLength={64} />
-          <Input name="establishment_name" aria-label="Nome do estabelecimento" placeholder="Nome do estabelecimento" required maxLength={255} />
-          <Input name="segment" aria-label="Segmento" placeholder="Segmento" required maxLength={96} />
+          <Input className="h-10 sm:h-9" name="phone" aria-label="Telefone ou WhatsApp" placeholder="Telefone ou WhatsApp" maxLength={64} />
+          <Input className="h-10 sm:h-9" name="establishment_name" aria-label="Nome do estabelecimento" placeholder="Nome do estabelecimento" required maxLength={255} />
+          <Input className="h-10 sm:h-9" name="segment" aria-label="Segmento" placeholder="Segmento" required maxLength={96} />
 
-          <div className="rounded-2xl border border-blue-400/15 bg-blue-400/[0.05] p-4">
+          <div className="rounded-xl border border-blue-400/15 bg-blue-400/[0.05] p-3">
             {legalReady ? (
-              <label className="flex items-start gap-3 text-sm leading-6 text-slate-300">
+              <label className="flex items-start gap-2.5 text-[13px] leading-5 text-slate-300">
                 <input name="terms_accepted" type="checkbox" required className="mt-1.5" />
                 <span>
                   Li e aceito os{" "}
@@ -272,15 +272,15 @@ export default function SignupPage() {
             )}
           </div>
 
-          <label className="flex items-start gap-3 rounded-2xl border border-white/5 p-4 text-sm text-slate-400">
+          <label className="flex items-start gap-2.5 rounded-xl border border-white/5 p-3 text-[13px] leading-5 text-slate-400">
             <input name="marketing" type="checkbox" className="mt-1" />
             <span>
               Aceito receber comunicações comerciais opcionais. Esta escolha é independente do aceite necessário para criar a conta.
             </span>
           </label>
 
-          {error ? <div role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm">{error}</div> : null}
-          <Button type="submit" className="h-12 w-full" disabled={submitting || googleBusy || !legalReady}>
+          {error ? <div role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 p-2.5 text-[13px] leading-5">{error}</div> : null}
+          <Button type="submit" className="h-10 w-full" disabled={submitting || googleBusy || !legalReady}>
             {submitting ? (
               <><Loader2 className="animate-spin" />Enviando…</>
             ) : googleProfile ? (
