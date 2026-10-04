@@ -141,6 +141,11 @@ def build_public_signup_router(
 
     @router.post("")
     def create_signup(payload: SignupIn, request: Request) -> JSONResponse:
+        if verification_dispatcher is None:
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"erro": "signup_email_temporariamente_indisponivel"},
+            )
         remote = request.client.host if request.client else "unknown"
         if not limiter.allow(f"ip:{remote}"):
             return JSONResponse(

@@ -162,9 +162,13 @@ def build_frontend_http_app(
     )
     verification_dispatcher = signup_verification_dispatcher
     if signup_enabled and verification_dispatcher is None:
-        verification_dispatcher = build_smtp_verification_dispatcher_from_env(
-            secret_store=secret_store
-        )
+        try:
+            verification_dispatcher = build_smtp_verification_dispatcher_from_env(
+                secret_store=secret_store
+            )
+        except RuntimeError as exc:
+            if str(exc) != "transactional_email_runtime_not_configured":
+                raise
 
     @app.middleware("http")
     async def commercial_access_gate(request: Request, call_next):
