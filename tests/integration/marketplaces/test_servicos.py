@@ -8,6 +8,7 @@ from core.marketplaces.erros import ErroMarketplace
 from core.marketplaces.modelos import (
     ItemMarketplace,
     PedidoMarketplaceSnapshot,
+    ResponsavelEntregaMarketplace,
     StatusPedidoExterno,
 )
 from core.marketplaces.runtime_teste import RuntimeMarketplaceTeste
@@ -251,3 +252,35 @@ def test_inbox_nao_persiste_payload_bruto_com_pii() -> None:
     assert "Nome Sensivel" not in serializado
     assert "+551199999999" not in serializado
     assert "payload_hash" in serializado
+
+
+def test_sincronizacao_reavalia_responsabilidade_logistica_em_eventos_sucessivos() -> None:
+    runtime = RuntimeMarketplaceTeste()
+    t0 = datetime.now(timezone.utc)
+    inicial = replace(
+        _snapshot(atualizado_em=t0, versao="1"),
+        order_type="DELIVERY",
+        delivery_mode="DEFAULT",
+        delivered_by=ResponsavelEntregaMarketplace.IFOOD,
+    )
+    runtime.transport.semear_pedido(inicial, evento_id="evt-log-1", ocorrido_em=t0)
+    assert _sync(runtime).processados == 1
+    assert runtime.pedidos_internos.logistica_sincronizada[-1][1] == "IFOOD"
+
+    atualizado = replace(
+        inicial,
+        delivered_by=ResponsavelEntregaMarketplace.MERCHANT,
+        atualizado_em=t0 + timedelta(minutes=5),
+        versao_externa="2",
+    )
+    runtime.transport.atualizar_snapshot(atualizado)
+    runtime.transport.emitir_evento(
+        pedido_id="order-1",
+        merchant_id=MERCHANT,
+        codigo="CFM",
+        evento_id="evt-log-2",
+        ocorrido_em=t0 + timedelta(minutes=5),
+        versao_externa="2",
+    )
+    assert _sync(runtime).processados == 1
+    assert runtime.pedidos_internos.logistica_sincronizada[-1][1] == "MERCHANT"

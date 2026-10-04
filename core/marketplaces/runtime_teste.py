@@ -47,6 +47,7 @@ class PedidosInternosSandbox:
         self.dados: dict[tuple[str, str, str, str], PedidoInternoSandbox] = {}
         self.falhas_criacao_restantes = 0
         self.atualizacoes: list[tuple[str, StatusPedidoExterno, str]] = []
+        self.logistica_sincronizada: list[tuple[str, str, str]] = []
 
     def criar_ou_obter(
         self,
@@ -75,6 +76,20 @@ class PedidosInternosSandbox:
             status=snapshot.status.value,
         )
         return pedido_id, False
+
+    def sincronizar_logistica_marketplace(
+        self,
+        *,
+        tenant_id: str,
+        unidade_id: str,
+        pedido_id: str,
+        snapshot: PedidoMarketplaceSnapshot,
+        idempotency_key: str,
+    ) -> None:
+        del tenant_id, unidade_id
+        self.logistica_sincronizada.append(
+            (pedido_id, snapshot.delivered_by.value, idempotency_key)
+        )
 
     def atualizar_status_marketplace(
         self,
