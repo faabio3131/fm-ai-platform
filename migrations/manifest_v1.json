@@ -246,12 +246,12 @@
       "sha256": "0f57af2300f9a6b20564af110837cfc32e003d027715072fc001dd361276605c"
     },
     {
-      "version": "0063_google_federated_identity_v1",
-      "sha256": "9ecf71e859345744d152d3ab68320b41c616fa188df8f2c0abed63ebb63044db"
-    },
-    {
       "version": "0064_password_recovery_v1",
       "sha256": "f56db3e244ce0983de8a5c4ce70384a96e4cbedae01a443b397175da6a2c5868"
+    },
+    {
+      "version": "0065_google_federated_identity_v1",
+      "sha256": "7ffa551b326c1c10235dc5ab895259415c05d0d8738f0425872a93c4af1c5293"
     }
   ]
 }
