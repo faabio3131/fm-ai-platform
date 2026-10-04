@@ -13,6 +13,7 @@ from core.runtime.config import RuntimeEnvironment, RuntimeSettings
 from core.seguranca.segredos import ReferenceSecretStore
 from http_api.frontend_app import build_frontend_http_app
 from infra.comercial.catalogo_orm import FMCommercialPlanORM, FMCommercialPlanVersionORM
+from infra.seguranca.google_oidc import GoogleIdentityClaims
 from migrations.runner import run_migrations
 
 KEY = "obShALmcxtf1vGcUP3xIs6mVnxov9bHzsOSQ_r9SXI4="
@@ -75,6 +76,7 @@ def _client(*, enabled: bool):
             database_url="sqlite://",
             tenant_id="bootstrap",
             unidade_id="bootstrap",
+            google_oauth_client_id="google-client-test",
         ),
         engine=engine,
         session_factory=factory,
@@ -204,3 +206,58 @@ def test_rate_limit_bloqueia_excesso_por_origem() -> None:
     ]
     assert statuses[:5] == [202] * 5
     assert statuses[5] == 429
+
+
+def test_google_signup_pula_senha_e_verificacao_por_email(monkeypatch) -> None:
+    client, dispatcher = _client(enabled=True)
+    monkeypatch.setattr(
+        "http_api.public_signup.verify_google_id_token",
+        lambda credential, client_id: GoogleIdentityClaims(
+            subject="google-signup-sub-1",
+            email="owner.google@gmail.com",
+            name="Dono Google",
+            hosted_domain=None,
+        ),
+    )
+
+    payload = {
+        "credential": "google-credential-signup-valid-1234567890",
+        "phone": "+5511999999999",
+        "establishment_name": "Restaurante Google",
+        "segment": "restaurante",
+        "terms_accepted": True,
+        "legal_documents": active_legal_acceptance_claims(),
+        "consents": {"marketing": False},
+    }
+    response = client.post("/v1/public/signup/google", json=payload)
+
+    assert response.status_code == 200
+    assert response.json()["ready"] is True
+    assert response.json()["status"] == "ready"
+    assert dispatcher.sent == []
+
+
+def test_google_signup_continua_exigindo_aceite_juridico(monkeypatch) -> None:
+    client, _ = _client(enabled=True)
+    monkeypatch.setattr(
+        "http_api.public_signup.verify_google_id_token",
+        lambda credential, client_id: GoogleIdentityClaims(
+            subject="google-signup-sub-2",
+            email="owner.google2@gmail.com",
+            name="Dono Google 2",
+            hosted_domain=None,
+        ),
+    )
+
+    payload = {
+        "credential": "google-credential-signup-valid-abcdefghij",
+        "establishment_name": "Restaurante Google 2",
+        "segment": "restaurante",
+        "terms_accepted": False,
+        "legal_documents": active_legal_acceptance_claims(),
+        "consents": {"marketing": False},
+    }
+    response = client.post("/v1/public/signup/google", json=payload)
+
+    assert response.status_code == 422
+    assert response.json()["erro"] == "signup_terms_required"

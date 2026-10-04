@@ -243,6 +243,7 @@ def build_frontend_http_app(
             enabled=signup_enabled,
             verification_dispatcher=verification_dispatcher,
             credential_secret_reference=signup_credential_secret_reference,
+            google_oauth_client_id=resolved_settings.google_oauth_client_id,
         )
     )
     for router_builder in (

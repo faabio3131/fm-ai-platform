@@ -9,6 +9,7 @@ from core.runtime.config import RuntimeEnvironment, RuntimeSettings
 from core.seguranca.permissoes import Papel
 from http_api.app import build_http_app
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
+from infra.seguranca.google_oidc import GoogleIdentityClaims
 from migrations.runner import run_migrations
 
 SESSION_SECRET = "auth-http-contract-secret-0123456789-abcdef"
@@ -48,6 +49,7 @@ def _infra(monkeypatch):
         database_url="sqlite://",
         tenant_id=TENANT,
         unidade_id=UNIDADE_A,
+        google_oauth_client_id="google-client-test",
     )
     app = build_http_app(
         settings=settings,
@@ -181,3 +183,54 @@ def test_logout_expira_cookie_e_invalida_sessao(monkeypatch) -> None:
         headers={"Authorization": f"Bearer {token}"},
     )
     assert revogada.status_code == 401
+
+
+def test_google_login_vincula_conta_existente_e_emite_sessao(monkeypatch) -> None:
+    client = _infra(monkeypatch)
+    monkeypatch.setattr(
+        "http_api.auth.verify_google_id_token",
+        lambda credential, client_id: GoogleIdentityClaims(
+            subject="google-sub-existing",
+            email=EMAIL,
+            name="Operador Google",
+            hosted_domain="example.com",
+        ),
+    )
+
+    response = client.post(
+        "/v1/auth/google",
+        json={"credential": "google-credential-valid-1234567890"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["email"] == EMAIL
+    assert client.cookies.get("fm_ai_session")
+    assert client.get("/v1/auth/me").status_code == 200
+
+
+def test_google_login_conta_nova_encaminha_para_signup_sem_criar_sessao(monkeypatch) -> None:
+    client = _infra(monkeypatch)
+    monkeypatch.setattr(
+        "http_api.auth.verify_google_id_token",
+        lambda credential, client_id: GoogleIdentityClaims(
+            subject="google-sub-new",
+            email="novo.usuario@gmail.com",
+            name="Novo Usuário",
+            hosted_domain=None,
+        ),
+    )
+
+    response = client.post(
+        "/v1/auth/google",
+        json={"credential": "google-credential-new-1234567890"},
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "erro": "auth.google_signup_required",
+        "profile": {
+            "email": "novo.usuario@gmail.com",
+            "name": "Novo Usuário",
+        },
+    }
+    assert client.cookies.get("fm_ai_session") is None

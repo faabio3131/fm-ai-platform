@@ -41,6 +41,11 @@ from core.seguranca.erros import (
 from core.seguranca.permissoes import Permissao
 from core.seguranca.segredos import SecretStore
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
+from infra.seguranca.google_oidc import (
+    GoogleIdentityError,
+    GoogleIdentityUnavailable,
+    verify_google_id_token,
+)
 from infra.seguranca.modelos_orm import OperationalSessionORM
 
 SessionFactory = Callable[[], Session]
@@ -57,6 +62,10 @@ _MIN_SESSION_SECRET_BYTES = 32
 class LoginIn(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     senha: str = Field(min_length=1, max_length=1024)
+
+
+class GoogleCredentialIn(BaseModel):
+    credential: str = Field(min_length=20, max_length=8192)
 
 
 class ForgotPasswordIn(BaseModel):
@@ -575,6 +584,98 @@ def build_auth_router(
             return _erro(status.HTTP_503_SERVICE_UNAVAILABLE, "auth.sessao_indisponivel")
         except ErroSeguranca:
             return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
+
+    @router.post("/google")
+    def google_login(payload: GoogleCredentialIn) -> JSONResponse:
+        client_id = settings.google_oauth_client_id
+        if not client_id:
+            return _erro(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "auth.google_indisponivel",
+            )
+        try:
+            claims = verify_google_id_token(
+                payload.credential,
+                client_id=client_id,
+            )
+        except GoogleIdentityUnavailable as exc:
+            return _erro(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc))
+        except GoogleIdentityError as exc:
+            return _erro(status.HTTP_401_UNAUTHORIZED, str(exc))
+
+        try:
+            with session_factory() as session, session.begin():
+                repo = RepositorioIdentidadesSQLAlchemy(session)
+                identity_user_id = repo.obter_identity_user_id_por_provedor(
+                    provider="google",
+                    provider_subject=claims.subject,
+                )
+                identidade = (
+                    repo.obter_por_identity_user_id(
+                        identity_user_id=identity_user_id,
+                    )
+                    if identity_user_id is not None
+                    else None
+                )
+                if identidade is None and identity_user_id is None:
+                    identidade = repo.obter_por_email(claims.email)
+                    if identidade is None:
+                        return JSONResponse(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            content={
+                                "erro": "auth.google_signup_required",
+                                "profile": {
+                                    "email": claims.email,
+                                    "name": claims.name,
+                                },
+                            },
+                        )
+                    repo.vincular_provedor(
+                        identity_user_id=identidade.global_identity_id,
+                        provider="google",
+                        provider_subject=claims.subject,
+                        email_at_link=claims.email,
+                        hosted_domain=claims.hosted_domain,
+                    )
+                elif identidade is not None:
+                    repo.vincular_provedor(
+                        identity_user_id=identidade.global_identity_id,
+                        provider="google",
+                        provider_subject=claims.subject,
+                        email_at_link=claims.email,
+                        hosted_domain=claims.hosted_domain,
+                    )
+
+            if identidade is None or not identidade.ativo:
+                return _erro(
+                    status.HTTP_401_UNAUTHORIZED,
+                    CredenciaisInvalidas.codigo,
+                )
+            manager = runtime._obter_gerenciador()
+            sessao, token = manager.criar(identidade)
+            identidade_ativa = identidade.no_escopo_ativo(
+                tenant_id=sessao.tenant_id,
+                unidade_id=sessao.unidade_ativa_id,
+            )
+            response = JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content=_operador(
+                    identidade_ativa,
+                    incluir_permissoes=False,
+                ),
+            )
+            _aplicar_cookie(response, token)
+            return response
+        except (ReferenciaSegredoInvalida, SegredoAusente, _SegredoSessaoInseguro):
+            return _erro(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "auth.sessao_indisponivel",
+            )
+        except (RuntimeError, ValueError):
+            return _erro(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "auth.google_vinculo_indisponivel",
+            )
 
     @router.post("/forgot-password")
     def forgot_password(payload: ForgotPasswordIn, request: Request) -> JSONResponse:

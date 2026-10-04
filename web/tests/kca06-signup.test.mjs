@@ -55,7 +55,8 @@ test("Legal V1 vincula cadastro a versões e hashes oficiais sem misturar market
   const legalPage = fs.readFileSync("src/features/legal/components/PublicLegalDocument.tsx", "utf8");
 
   assert.match(signup, /getActiveLegalDocuments/);
-  assert.match(signup, /legal_documents: Object\.fromEntries/);
+  assert.match(signup, /const legalClaims = Object\.fromEntries/);
+  assert.match(signup, /legal_documents: legalClaims/);
   assert.match(signup, /Termos de Uso v/);
   assert.match(signup, /Política de Privacidade v/);
   assert.match(signup, /DPA v/);
@@ -64,4 +65,28 @@ test("Legal V1 vincula cadastro a versões e hashes oficiais sem misturar market
   assert.match(api, /legal_documents:/);
   assert.match(legalApi, /\/v1\/public\/legal\/documents/);
   assert.match(legalPage, /SHA-256:/);
+});
+
+test("Google Identity Services oferece login e cadastro federado sem client secret no browser", () => {
+  const googleButton = fs.readFileSync(
+    "src/features/auth/components/GoogleSignInButton.tsx",
+    "utf8",
+  );
+  const authApi = fs.readFileSync(
+    "src/features/auth/services/auth-api.ts",
+    "utf8",
+  );
+
+  assert.match(login, /GoogleSignInButton/);
+  assert.match(login, /googleLogin/);
+  assert.doesNotMatch(login, /sessionStorage.*google/i);
+  assert.match(signup, /GoogleSignInButton/);
+  assert.match(signup, /createGoogleSignup/);
+  assert.match(signup, /Conta Google verificada/);
+  assert.doesNotMatch(signup, /sessionStorage.*google/i);
+  assert.match(api, /\/v1\/public\/signup\/google/);
+  assert.match(authApi, /\/v1\/auth\/google/);
+  assert.match(googleButton, /NEXT_PUBLIC_GOOGLE_CLIENT_ID/);
+  assert.match(googleButton, /accounts\.google\.com\/gsi\/client/);
+  assert.doesNotMatch(googleButton, /CLIENT_SECRET|client_secret/);
 });
