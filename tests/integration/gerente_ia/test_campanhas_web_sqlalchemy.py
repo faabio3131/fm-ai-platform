@@ -169,3 +169,65 @@ def test_replay_de_audiencia_com_payload_diferente_falha_fechado() -> None:
             assert exc.codigo == "conflito_idempotencia"
         else:
             raise AssertionError("replay divergente deveria falhar fechado")
+
+
+def test_facebook_pode_submeter_sem_audiencia_crm() -> None:
+    factory = _factory()
+    with factory() as session:
+        row = session.get(RascunhoCampanhaORM, "camp-web-1")
+        assert row is not None
+        row.canal = "facebook"
+        row.audiencia_elegivel = 0
+        session.commit()
+
+    with factory() as session:
+        repo = CampanhasWebSQLAlchemy(session)
+        submetida = repo.submeter(
+            tenant_id="tenant-1",
+            unidade_id="unidade-1",
+            campanha_id="camp-web-1",
+            usuario_id="admin-1",
+            correlation_id="corr-submit-social",
+            idempotency_key="submit-social-1",
+            agora=AGORA,
+        )
+        assert submetida.status == "aguardando_aprovacao"
+
+
+def test_whatsapp_continua_exigindo_audiencia_antes_de_submeter() -> None:
+    from core.gerente_ia.erros import ErroGerenteIA
+
+    factory = _factory()
+    with factory() as session:
+        repo = CampanhasWebSQLAlchemy(session)
+        try:
+            repo.submeter(
+                tenant_id="tenant-1",
+                unidade_id="unidade-1",
+                campanha_id="camp-web-1",
+                usuario_id="admin-1",
+                correlation_id="corr-submit-empty",
+                idempotency_key="submit-empty-1",
+                agora=AGORA,
+            )
+        except ErroGerenteIA as exc:
+            assert exc.codigo == "campanha_audiencia_obrigatoria"
+        else:
+            raise AssertionError("WhatsApp sem audiência deveria falhar fechado")
+
+
+def test_midia_instagram_participa_do_fingerprint_aprovavel() -> None:
+    factory = _factory()
+    with factory() as session:
+        repo = CampanhasWebSQLAlchemy(session)
+        row = repo.obter_web(
+            tenant_id="tenant-1",
+            unidade_id="unidade-1",
+            campanha_id="camp-web-1",
+        )
+        row.canal = "instagram"
+        row.midia_url = "https://example.test/a.jpg"
+        primeiro = repo.fingerprint(row)
+        row.midia_url = "https://example.test/b.jpg"
+        segundo = repo.fingerprint(row)
+        assert primeiro != segundo

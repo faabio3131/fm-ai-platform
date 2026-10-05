@@ -12,6 +12,7 @@ export interface CampanhaWeb {
   status: "rascunho" | "aguardando_aprovacao" | "aprovada" | "publicavel" | string;
   fingerprint: string;
   campanha_ref: string | null;
+  midia_url: string | null;
 }
 
 export interface AudienciaCampanha {
@@ -35,17 +36,21 @@ export interface CampanhaConteudo {
   finalidade: string;
   objetivo: string;
   texto_base: string;
+  midia_url?: string | null;
 }
 
 export interface DespachoCampanha {
   campanha_id: string;
+  canal: string;
   total: number;
   enviados: number;
   resultados: Array<{
-    cliente_id: string;
+    cliente_id: string | null;
+    canal: string;
     enviado: boolean;
     motivo: string;
     mensagem_id: string | null;
+    publicacao_id: string | null;
   }>;
 }
 

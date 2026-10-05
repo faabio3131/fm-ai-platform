@@ -60,7 +60,7 @@ ESPECIFICACOES: dict[ToolGerenteIA, EspecificacaoTool] = {
     ),
     ToolGerenteIA.PREPARAR_CAMPANHA: EspecificacaoTool(
         NaturezaTool.RASCUNHO,
-        frozenset({"canal", "finalidade", "objetivo", "texto_base", "idempotency_key"}),
+        frozenset({"canal", "finalidade", "objetivo", "texto_base", "midia_url", "idempotency_key"}),
         frozenset({"canal", "finalidade", "objetivo", "texto_base", "idempotency_key"}),
     ),
     ToolGerenteIA.PRIORIZAR_PEDIDO: EspecificacaoTool(
@@ -148,6 +148,7 @@ def validar_argumentos(
         "finalidade",
         "objetivo",
         "texto_base",
+        "midia_url",
         "pedido_id",
         "produto_id",
         "motivo",

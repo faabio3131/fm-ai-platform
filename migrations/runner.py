@@ -61,6 +61,7 @@ from migrations.ai_finops_read_model_v1 import (
 from migrations.assistente_channel_runtime_v1 import (
     upgrade_assistente_channel_runtime_v1,
 )
+from migrations.campaign_organic_media_v1 import upgrade_campaign_organic_media_v1
 from migrations.cardapio_publico_identity_v1 import upgrade_cardapio_publico_identity_v1
 from migrations.client_payment_identity_v1 import upgrade_client_payment_identity_v1
 from migrations.commercial_billing_config_v1 import upgrade_commercial_billing_config_v1
@@ -427,6 +428,10 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         "0067_commercial_billing_provider_legal_entity_v1",
         upgrade_commercial_billing_provider_legal_entity_v1,
+    ),
+    Migration(
+        "0068_campaign_organic_media_v1",
+        upgrade_campaign_organic_media_v1,
     ),
 )
 

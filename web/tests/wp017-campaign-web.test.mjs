@@ -78,6 +78,22 @@ test("Central Web cobre o lifecycle exigido pela auditoria", () => {
   }
 });
 
+test("WP-017 V1 expõe WhatsApp, Facebook e Instagram somente em modo orgânico", () => {
+  for (const fragment of [
+    '<option value="whatsapp">WhatsApp</option>',
+    '<option value="facebook">Facebook</option>',
+    '<option value="instagram">Instagram</option>',
+    "URL HTTPS da imagem",
+    "Publicação orgânica",
+    "A V1 não executa mídia paga",
+    'selecionada.canal === "whatsapp"',
+  ]) {
+    assert.ok(workspace.includes(fragment), fragment);
+  }
+  assert.match(api, /midia_url/);
+  assert.doesNotMatch(workspace, /CPC|CPM|ROAS|orçamento de mídia paga/i);
+});
+
 test("CRM cria rascunho governado e Gerente IA abre o draft sem publicar sozinho", () => {
   assert.match(crm, /criarCampanhaResgate/);
   assert.match(crm, /definirAudiencia/);

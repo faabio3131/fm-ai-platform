@@ -262,6 +262,7 @@ class CampanhasGerenciaisFake:
         usuario_id: str,
         correlation_id: str,
         idempotency_key: str,
+        midia_url: str | None = None,
     ) -> RascunhoCampanha:
         del correlation_id
         chave = (tenant_id, unidade_id, idempotency_key)
@@ -280,6 +281,7 @@ class CampanhasGerenciaisFake:
             audiencia_elegivel=12,
             criado_em=datetime.now(timezone.utc),
             criado_por=usuario_id,
+            midia_url=midia_url,
         )
         self._rascunhos[chave] = rascunho
         return rascunho
