@@ -118,6 +118,7 @@ class PortaCampanhasGerenciais(Protocol):
         usuario_id: str,
         correlation_id: str,
         idempotency_key: str,
+        midia_url: str | None = None,
     ) -> RascunhoCampanha: ...
 
 

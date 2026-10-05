@@ -26,13 +26,18 @@ from application.campanhas_web import (
 )
 from core.crm.erros import ErroCRM
 from core.gerente_ia.erros import ErroGerenteIA
+from core.integracoes.modelos import ErroConfiguracaoServico
+from core.integracoes.provedores import ErroProvedorExterno
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.erros import CredenciaisInvalidas, ErroSeguranca
 from core.seguranca.permissoes import Permissao
+from core.seguranca.segredos import SecretStore
 from http_api.auth import AuthSessionRuntime
 from http_api.operational_auth import obter_identidade_operacional
+from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
 
 SessionFactory = Callable[[], Session]
+SecretStoreFactory = Callable[[Session], SecretStore]
 _MAX_IDEMPOTENCY_KEY = 160
 
 
@@ -42,6 +47,7 @@ class CampanhaConteudoIn(BaseModel):
     finalidade: str = Field(min_length=1, max_length=64)
     objetivo: str = Field(min_length=1, max_length=240)
     texto_base: str = Field(min_length=1, max_length=2000)
+    midia_url: str | None = Field(default=None, max_length=2048)
 
 
 class AudienciaIn(BaseModel):
@@ -116,6 +122,10 @@ def _tratar_erro(exc: Exception) -> JSONResponse:
             status.HTTP_403_FORBIDDEN,
             str(getattr(exc, "codigo", str(exc) or "seguranca.permissao_insuficiente")),
         )
+    if isinstance(exc, ErroConfiguracaoServico):
+        return _erro(status.HTTP_409_CONFLICT, str(exc))
+    if isinstance(exc, ErroProvedorExterno):
+        return _erro(status.HTTP_502_BAD_GATEWAY, str(exc))
     if isinstance(exc, ValueError):
         return _erro(status.HTTP_400_BAD_REQUEST, str(exc))
     if isinstance(exc, ErroGerenteIA):
@@ -155,8 +165,13 @@ def build_campanhas_web_router(
     *,
     session_factory: SessionFactory,
     auth_runtime: AuthSessionRuntime,
+    integration_secret_store_factory: SecretStoreFactory | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/v1/campanhas", tags=["campanhas-web"])
+    integration_secret_store_factory = (
+        integration_secret_store_factory
+        or (lambda session: EncryptedSQLAlchemySecretStore(session))
+    )
 
     def identidade(request: Request) -> tuple[IdentidadeUsuario, str]:
         with session_factory() as session:
@@ -193,6 +208,7 @@ def build_campanhas_web_router(
                 objetivo=payload.objetivo,
                 texto_base=payload.texto_base,
                 idempotency_key=_idempotency_key(request),
+                midia_url=payload.midia_url,
             )
             return _out(value)
         except Exception as exc:  # noqa: BLE001
@@ -228,6 +244,7 @@ def build_campanhas_web_router(
                     objetivo=payload.objetivo,
                     texto_base=payload.texto_base,
                     idempotency_key=_idempotency_key(request),
+                    midia_url=payload.midia_url,
                 )
             )
         except Exception as exc:  # noqa: BLE001
@@ -345,6 +362,7 @@ def build_campanhas_web_router(
                 campanha_id=campanha_id,
                 fingerprint=payload.fingerprint,
                 idempotency_key=_idempotency_key(request),
+                secret_store_factory=integration_secret_store_factory,
             )
         except Exception as exc:  # noqa: BLE001
             return _tratar_erro(exc)

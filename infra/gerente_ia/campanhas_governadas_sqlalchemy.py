@@ -58,6 +58,7 @@ class CampanhasGovernadasSQLAlchemy(CampanhasGerenciaisSQLAlchemy):
             objetivo=row.objetivo,
             texto_base=row.texto_base,
             audiencia_elegivel=row.audiencia_elegivel,
+            midia_url=row.midia_url,
         )
 
     def _evento_idempotente(
