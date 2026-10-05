@@ -127,7 +127,7 @@ class CampanhasWebSQLAlchemy(CampanhasGovernadasSQLAlchemy):
         agora: datetime,
         midia_url: str | None = None,
     ) -> RascunhoCampanhaORM:
-        hash_values = (canal, finalidade, objetivo, texto_base)
+        hash_values: tuple[str, ...] = (canal, finalidade, objetivo, texto_base)
         if midia_url:
             hash_values += (midia_url,)
         request_hash = self.request_hash(*hash_values)

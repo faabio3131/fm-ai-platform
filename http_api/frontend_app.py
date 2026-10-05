@@ -9,6 +9,7 @@ fail-closed para origens localhost.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from fastapi import FastAPI, Request, status
@@ -142,7 +143,15 @@ def build_frontend_http_app(
     billing_adapter_registry = kwargs.get(
         "commercial_billing_adapter_registry"
     ) or BillingProviderAdapterRegistryV1(
-        (MercadoPagoSubscriptionsBillingProvider(),)
+        (
+            MercadoPagoSubscriptionsBillingProvider(
+                default_back_url=os.getenv(
+                    "FM_AI_PUBLIC_WEB_BASE_URL",
+                    "",
+                ).strip()
+                or None,
+            ),
+        )
     )
 
     kwargs["engine"] = engine
