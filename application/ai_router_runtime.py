@@ -25,6 +25,10 @@ from core.ai_router import (
     SolicitacaoIA,
 )
 from core.integracoes.modelos import ErroConfiguracaoServico
+from core.integracoes.platform_scope import (
+    FM_PLATFORM_TENANT_ID,
+    FM_PLATFORM_UNIT_ID,
+)
 from core.integracoes.provedores import (
     ErroProvedorExterno,
     ErroProvedorTransitorio,
@@ -289,16 +293,67 @@ def _prioridade(*, provider: str, parametros: dict[str, Any]) -> int:
     return valor
 
 
+def _config_ia_resolvida(
+    *,
+    repo: RepositorioConfiguracoesExternasSQLAlchemy,
+    contexto: ContextoExecucao,
+    provider: str,
+):
+    """Espelha a autoridade platform-managed usada pela fábrica de adapters."""
+
+    configuracao_id = f"ia.generativa--{provider}"
+    central = repo.obter(
+        tenant_id=FM_PLATFORM_TENANT_ID,
+        unidade_id=FM_PLATFORM_UNIT_ID,
+        configuracao_id=configuracao_id,
+    )
+    if central is not None:
+        return central
+
+    legado_atual = repo.obter(
+        tenant_id=contexto.tenant_id,
+        unidade_id=contexto.unidade_id,
+        configuracao_id=configuracao_id,
+    )
+    if legado_atual is not None:
+        return legado_atual
+
+    candidatos = tuple(
+        config
+        for config in repo.listar_homologadas_por_configuracao_id(
+            configuracao_id=configuracao_id,
+        )
+        if not (
+            config.tenant_id == FM_PLATFORM_TENANT_ID
+            and config.unidade_id == FM_PLATFORM_UNIT_ID
+        )
+    )
+    if not candidatos:
+        return None
+    if len(candidatos) != 1:
+        raise ErroConfiguracaoServico(
+            "configuracao_plataforma_legada_ambigua"
+        )
+    return candidatos[0]
+
+
 def _rotas_homologadas(
     *,
     session: Session,
     contexto: ContextoExecucao,
 ) -> tuple[RotaIA, ...]:
-    configs = RepositorioConfiguracoesExternasSQLAlchemy(
-        session
-    ).listar(
-        tenant_id=contexto.tenant_id,
-        unidade_id=contexto.unidade_id,
+    repo = RepositorioConfiguracoesExternasSQLAlchemy(session)
+    configs = tuple(
+        config
+        for provider in ("openai", "gemini")
+        for config in (
+            _config_ia_resolvida(
+                repo=repo,
+                contexto=contexto,
+                provider=provider,
+            ),
+        )
+        if config is not None
     )
 
     rotas: list[RotaIA] = []
@@ -307,6 +362,8 @@ def _rotas_homologadas(
         if config.servico != "ia.generativa":
             continue
 
+        # A presença de uma configuração canônica desabilitada/não homologada
+        # bloqueia a rota; não fazemos fallback silencioso para credencial antiga.
         if not config.habilitada or not config.homologada:
             continue
 
