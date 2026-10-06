@@ -16,7 +16,6 @@ from core.integracoes.servicos import ServicoConfiguracoesExternas
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.permissoes import Papel, Permissao
 from infra.integracoes.gemini_healthcheck import executar_healthcheck_gemini
-from infra.integracoes.openai_healthcheck import executar_healthcheck_openai
 from infra.integracoes.google_maps_browser_healthcheck import (
     obter_evidencia_confirmada_google_maps,
     preparar_healthcheck_browser_google_maps,
@@ -41,7 +40,6 @@ _LABELS = {
     ("pagamentos.pix", "pagbank"): "PagBank · PIX",
     ("pagamentos.pix", "mercado_pago"): "Mercado Pago · PIX",
     ("ia.generativa", "gemini"): "Google Gemini",
-    ("ia.generativa", "openai"): "OpenAI · GPT-5.6 Luna",
 }
 
 _PARAM_LABELS = {
@@ -230,11 +228,8 @@ def _render_one(
         ultima_evidencia_real = st.session_state.get(
             _key(spec, "last_real_healthcheck_evidence")
         )
-        if spec.provedor in {"gemini", "openai"} and ultima_evidencia_real:
-            nome_provider = "Gemini" if spec.provedor == "gemini" else "OpenAI"
-            st.success(
-                f"Último healthcheck externo real do {nome_provider} concluído com sucesso."
-            )
+        if spec.provedor == "gemini" and ultima_evidencia_real:
+            st.success("Último healthcheck externo real do Gemini concluído com sucesso.")
             st.code(str(ultima_evidencia_real), language=None)
             st.caption(
                 "Copie esta referência para o campo de evidência abaixo. Ela não contém a API key nem conteúdo sensível."
@@ -597,53 +592,6 @@ def _render_one(
                         spec,
                         "error",
                         "O healthcheck externo real do Gemini falhou. A integração continua não homologada; revise o modelo, a credencial e a disponibilidade da conta. Nenhum segredo foi exposto.",
-                    )
-                    st.rerun()
-
-        if spec.provedor == "openai" and existing is not None:
-            st.caption(
-                "O teste abaixo faz uma chamada mínima real à OpenAI usando somente a credencial já salva no cofre. "
-                "Ele valida o modelo configurado, gera uma referência sanitizada e não homologa automaticamente."
-            )
-            if st.button(
-                "Testar OpenAI real antes de homologar",
-                key=_key(spec, "real_healthcheck"),
-            ):
-                pin_ok = _critical_pin_ok(
-                    identidade=identidade,
-                    pin=critical_pin,
-                    session_factory=session_factory,
-                )
-                _consume_sensitive_inputs(spec)
-                if not pin_ok:
-                    _set_flash(
-                        spec,
-                        "error",
-                        "PIN administrativo inválido. O healthcheck externo não foi executado.",
-                    )
-                    st.rerun()
-                try:
-                    resultado_openai = executar_healthcheck_openai(
-                        session=session,
-                        secret_store=vault,
-                        contexto=contexto,
-                        configuracao_id=config_id,
-                    )
-                    st.session_state[_key(spec, "last_real_healthcheck_evidence")] = (
-                        resultado_openai.evidencia_ref
-                    )
-                    _set_flash(
-                        spec,
-                        "success",
-                        f"Healthcheck externo real concluído com sucesso usando o modelo {resultado_openai.model}. "
-                        "A referência sanitizada foi gerada abaixo para a homologação.",
-                    )
-                    st.rerun()
-                except Exception:  # noqa: BLE001 - fronteira de UI sanitiza falhas externas
-                    _set_flash(
-                        spec,
-                        "error",
-                        "O healthcheck externo real da OpenAI falhou. A integração continua não homologada; revise o modelo, a credencial e a disponibilidade da conta. Nenhum segredo foi exposto.",
                     )
                     st.rerun()
 
