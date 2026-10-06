@@ -21,12 +21,15 @@ from core.integracoes.provedores import (
     ConfiguracaoGeminiTenant,
     ConfiguracaoMercadoPago,
     ConfiguracaoMeta,
+    ConfiguracaoOpenAITenant,
     GeminiTenantAdapter,
     MercadoPagoAdapter,
     MetaAdapter,
+    OpenAITenantAdapter,
     PortaDownloadBinario,
     PortaGeminiTenant,
     PortaHTTPProvedor,
+    PortaOpenAITenant,
 )
 from core.pagamentos.pagbank import (
     AdapterPagBank,
@@ -40,6 +43,7 @@ from infra.seguranca.modelos_orm import CredencialReferenciaORM
 from .repositorio_sqlalchemy import RepositorioConfiguracoesExternasSQLAlchemy
 from .transportes import (
     GoogleGenAITenantGateway,
+    OpenAIChatTenantGateway,
     RequestsBinaryTransport,
     RequestsGoogleMapsTransport,
     RequestsProviderTransport,
@@ -307,5 +311,26 @@ class FabricaAdaptersExternos:
                 model=str(config.parametros["model"]),
             ),
             gateway=gateway or GoogleGenAITenantGateway(),
+            sleep=sleep,
+        )
+
+
+    def openai(
+        self,
+        *,
+        contexto: ContextoExecucao,
+        configuracao_id: str,
+        gateway: PortaOpenAITenant | None = None,
+        sleep: Callable[[float], None] = lambda _: None,
+    ) -> OpenAITenantAdapter:
+        config = self._config_plataforma_ou_legado(contexto, configuracao_id)
+        if (config.servico, config.provedor) != ("ia.generativa", "openai"):
+            raise ErroConfiguracaoServico("adapter_incompativel")
+        return OpenAITenantAdapter(
+            configuracao=ConfiguracaoOpenAITenant(
+                api_key=self._credencial_por_papel(config, "api_key"),
+                model=str(config.parametros["model"]),
+            ),
+            gateway=gateway or OpenAIChatTenantGateway(),
             sleep=sleep,
         )
