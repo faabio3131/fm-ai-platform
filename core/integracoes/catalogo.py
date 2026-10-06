@@ -137,6 +137,13 @@ CATALOGO_V1 = CatalogoServicosExternos(
         ),
         EspecificacaoServico(
             servico="ia.generativa",
+            provedor="openai",
+            escopo_gestao=EscopoGestaoIntegracao.PLATFORM_MANAGED,
+            parametros_obrigatorios=frozenset({"model"}),
+            credenciais_obrigatorias=frozenset({"api_key"}),
+        ),
+        EspecificacaoServico(
+            servico="ia.generativa",
             provedor="gemini",
             escopo_gestao=EscopoGestaoIntegracao.PLATFORM_MANAGED,
             # O runtime Gemini baseado em API key usa somente o modelo como
