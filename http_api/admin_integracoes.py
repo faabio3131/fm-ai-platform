@@ -41,6 +41,7 @@ from infra.integracoes.gemini_healthcheck import executar_healthcheck_gemini
 from infra.integracoes.google_maps_healthcheck import executar_healthcheck_google_maps
 from infra.integracoes.mercado_pago_healthcheck import executar_healthcheck_mercado_pago
 from infra.integracoes.meta_healthcheck import executar_healthcheck_meta
+from infra.integracoes.openai_healthcheck import executar_healthcheck_openai
 from infra.integracoes.repositorio_sqlalchemy import (
     ProntidaoCredenciaisSQLAlchemy,
     RepositorioConfiguracoesExternasSQLAlchemy,
@@ -157,6 +158,7 @@ _LABELS = {
     ("pagamentos.pix", "pagbank"): "PagBank · PIX",
     ("pagamentos.pix", "mercado_pago"): "Mercado Pago · PIX",
     ("ia.generativa", "gemini"): "Google Gemini",
+    ("ia.generativa", "openai"): "OpenAI · GPT-5.6 Luna",
     ("marketplace.pedidos", "ifood"): "Marketplace · iFood",
     ("marketplace.pedidos", "keeta"): "Marketplace · Keeta",
     ("fiscal.documentos", "sefaz"): "Fiscal · SEFAZ",
@@ -164,6 +166,7 @@ _LABELS = {
 
 _HEALTHCHECK_SUPPORTED = {
     "gemini",
+    "openai",
     "google_maps",
     "mercado_pago",
     "meta",
@@ -275,6 +278,20 @@ def _executar_healthcheck_por_provedor(
                 provedor="gemini",
                 evidencia_ref=resultado_gemini.evidencia_ref,
                 detalhes={"model": resultado_gemini.model},
+            )
+        if provedor == "openai":
+            resultado_openai = executar_healthcheck_openai(
+                session=session,
+                secret_store=secret_store,
+                contexto=contexto,
+                configuracao_id=configuracao_id,
+            )
+            return HealthcheckOut(
+                executado=True,
+                suportado=True,
+                provedor="openai",
+                evidencia_ref=resultado_openai.evidencia_ref,
+                detalhes={"model": resultado_openai.model},
             )
         if provedor == "google_maps":
             resultado_google_maps = executar_healthcheck_google_maps(
