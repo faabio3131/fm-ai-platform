@@ -136,23 +136,21 @@ class ExecutorControlPlaneIA:
                 secret_store=self._secret_store,
             )
             if rota.provider == "openai":
-                adapter = factory.openai(
+                resposta = factory.openai(
                     contexto=self._contexto,
                     configuracao_id=rota.configuracao_id,
                     gateway=self._openai_gateway,
-                )
+                ).gerar(solicitacao.conteudo)
             elif rota.provider == "gemini":
-                adapter = factory.gemini(
+                resposta = factory.gemini(
                     contexto=self._contexto,
                     configuracao_id=rota.configuracao_id,
                     gateway=self._gemini_gateway,
-                )
+                ).gerar(solicitacao.conteudo)
             else:
                 raise FalhaRotaDefinitiva(
                     "ai_router.provider_adapter_indisponivel"
                 )
-
-            resposta = adapter.gerar(solicitacao.conteudo)
 
         except ErroProvedorTransitorio as exc:
             raise FalhaRotaTransitoria(
