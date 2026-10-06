@@ -76,6 +76,22 @@ class _GeminiGateway:
         return {"text": "ok"}
 
 
+class _OpenAIGateway:
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    def create_chat_completion(self, **kwargs):
+        self.calls.append(kwargs)
+        return {
+            "text": '{"tool":"consultar_pedidos","argumentos":{}}',
+            "usage_metadata": {
+                "prompt_token_count": 10,
+                "candidates_token_count": 4,
+                "cached_content_token_count": 0,
+            },
+        }
+
+
 def _service(session: Session, store: ReferenceSecretStore):
     return ServicoConfiguracoesExternas(
         repositorio=RepositorioConfiguracoesExternasSQLAlchemy(session),
@@ -151,6 +167,31 @@ def _seed_legacy_fm_platform_configs(
         versao_esperada=1,
     )
 
+    credentials.rotacionar(
+        contexto=contexto,
+        provedor="openai",
+        finalidade="ia_generativa_openai_api_key",
+        nova_referencia="mapping:openai",
+    )
+    service.configurar(
+        contexto=contexto,
+        configuracao_id="ia.generativa--openai",
+        servico="ia.generativa",
+        provedor="openai",
+        conta_externa="principal",
+        ambiente=AmbienteIntegracao.HOMOLOGACAO,
+        parametros_publicos={"model": "gpt-5.6-luna"},
+        finalidades_credenciais={"api_key": "ia_generativa_openai_api_key"},
+        habilitada=True,
+        versao_esperada=0,
+    )
+    service.registrar_homologacao(
+        contexto=contexto,
+        configuracao_id="ia.generativa--openai",
+        evidencia_ref="healthcheck://openai/legacy",
+        versao_esperada=1,
+    )
+
 
 def test_novo_tenant_consumidor_usa_ponte_unica_fm_sem_copiar_segredos() -> None:
     engine = create_engine("sqlite:///:memory:")
@@ -161,6 +202,7 @@ def test_novo_tenant_consumidor_usa_ponte_unica_fm_sem_copiar_segredos() -> None
             "maps-browser": "browser-fm",
             "maps-server": "server-fm",
             "gemini": "gemini-fm",
+            "openai": "openai-fm",
         }
     )
     consumidor = _contexto("tenant-novo", "unidade-nova", "user-novo")
@@ -194,6 +236,19 @@ def test_novo_tenant_consumidor_usa_ponte_unica_fm_sem_copiar_segredos() -> None
         assert gateway.calls[0]["api_key"] == "gemini-fm"
         assert gateway.calls[0]["model"] == "gemini-test"
 
+        openai_gateway = _OpenAIGateway()
+        openai = factory.openai(
+            contexto=consumidor,
+            configuracao_id="ia.generativa--openai",
+            gateway=openai_gateway,
+        )
+        resposta = openai.gerar(
+            {"system": "Responda JSON.", "user": "Consulte pedidos."}
+        )
+        assert resposta["usage_metadata"]["prompt_token_count"] == 10
+        assert openai_gateway.calls[0]["api_key"] == "openai-fm"
+        assert openai_gateway.calls[0]["model"] == "gpt-5.6-luna"
+
 
 def test_ponte_legada_falha_fechada_se_houver_mais_de_uma_autoridade() -> None:
     engine = create_engine("sqlite:///:memory:")
@@ -204,6 +259,7 @@ def test_ponte_legada_falha_fechada_se_houver_mais_de_uma_autoridade() -> None:
             "maps-browser": "browser-fm",
             "maps-server": "server-fm",
             "gemini": "gemini-fm",
+            "openai": "openai-fm",
             "maps-browser-2": "browser-fm-2",
             "maps-server-2": "server-fm-2",
         }

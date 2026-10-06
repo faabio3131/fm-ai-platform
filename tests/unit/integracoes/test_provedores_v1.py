@@ -11,11 +11,13 @@ from core.integracoes.provedores import (
     ConfiguracaoGeminiTenant,
     ConfiguracaoMercadoPago,
     ConfiguracaoMeta,
+    ConfiguracaoOpenAITenant,
     ErroProvedorExterno,
     ErroProvedorTransitorio,
     GeminiTenantAdapter,
     MercadoPagoAdapter,
     MetaAdapter,
+    OpenAITenantAdapter,
     RespostaProvedor,
 )
 
@@ -222,3 +224,51 @@ def test_retry_esgotado_sanitiza_excecao_do_provedor() -> None:
     assert "access-secret" not in str(capturado.value)
     assert "reconciliacao obrigatoria" in str(capturado.value)
     assert len(http.chamadas) == 1
+
+
+
+class OpenAIFixture:
+    def __init__(self) -> None:
+        self.tentativas = 0
+        self.chamadas: list[dict[str, Any]] = []
+
+    def create_chat_completion(self, **kwargs: Any) -> Any:
+        self.tentativas += 1
+        self.chamadas.append(kwargs)
+        if self.tentativas < 2:
+            raise TimeoutError("openai-secret-nao-vazar")
+        return {
+            "text": '{"tool":"consultar_pedidos","argumentos":{}}',
+            "usage_metadata": {
+                "prompt_token_count": 11,
+                "candidates_token_count": 5,
+                "cached_content_token_count": 0,
+            },
+        }
+
+
+def test_openai_por_plataforma_aplica_retry_e_nao_expoe_chave() -> None:
+    gateway = OpenAIFixture()
+    sleeps: list[float] = []
+    config = ConfiguracaoOpenAITenant(
+        api_key="openai-secret",
+        model="gpt-5.6-luna",
+    )
+    adapter = OpenAITenantAdapter(
+        configuracao=config,
+        gateway=gateway,
+        sleep=sleeps.append,
+    )
+
+    resposta = adapter.gerar(
+        {
+            "system": "Responda JSON.",
+            "user": "Consulte pedidos.",
+        }
+    )
+
+    assert resposta["usage_metadata"]["prompt_token_count"] == 11
+    assert sleeps == [0.25]
+    assert gateway.chamadas[-1]["api_key"] == "openai-secret"
+    assert gateway.chamadas[-1]["model"] == "gpt-5.6-luna"
+    assert "openai-secret" not in repr(config)

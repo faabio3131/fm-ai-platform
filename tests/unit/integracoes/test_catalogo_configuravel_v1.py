@@ -51,6 +51,12 @@ from core.integracoes.catalogo import EscopoGestaoIntegracao
             {"model"},
             {"api_key"},
         ),
+        (
+            "ia.generativa",
+            "openai",
+            {"model"},
+            {"api_key"},
+        ),
     ),
 )
 def test_catalogo_declara_contrato_minimo_por_servico_e_provedor(
@@ -79,9 +85,13 @@ def test_catalogo_rejeita_provedor_nao_declarado_sem_fallback_silencioso() -> No
         CATALOGO_V1.obter("mapas", "provedor-inventado")
 
 
-def test_gemini_e_maps_sao_gerenciados_pela_plataforma() -> None:
+def test_provedores_ia_e_maps_sao_gerenciados_pela_plataforma() -> None:
     assert (
         CATALOGO_V1.obter("ia.generativa", "gemini").escopo_gestao
+        is EscopoGestaoIntegracao.PLATFORM_MANAGED
+    )
+    assert (
+        CATALOGO_V1.obter("ia.generativa", "openai").escopo_gestao
         is EscopoGestaoIntegracao.PLATFORM_MANAGED
     )
     assert (
@@ -96,5 +106,12 @@ def test_gemini_e_maps_sao_gerenciados_pela_plataforma() -> None:
         EscopoGestaoIntegracao.PLATFORM_MANAGED
     )
 
-    assert {item.provedor for item in platform_specs} == {"gemini", "google_maps"}
-    assert all(item.provedor not in {"gemini", "google_maps"} for item in tenant_specs)
+    assert {item.provedor for item in platform_specs} == {
+        "gemini",
+        "openai",
+        "google_maps",
+    }
+    assert all(
+        item.provedor not in {"gemini", "openai", "google_maps"}
+        for item in tenant_specs
+    )

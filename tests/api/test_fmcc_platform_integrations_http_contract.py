@@ -75,7 +75,7 @@ def test_command_lista_somente_integracoes_gerenciadas_pela_fm() -> None:
         item["catalogo"]["provedor"]
         for item in response.json()["integracoes"]
     }
-    assert providers == {"gemini", "google_maps"}
+    assert providers == {"gemini", "openai", "google_maps"}
     assert all(
         item["catalogo"]["escopo_gestao"] == "platform_managed"
         for item in response.json()["integracoes"]
@@ -145,6 +145,54 @@ def test_command_configura_e_homologa_gemini_no_escopo_canonico_fm() -> None:
             select(ServicoExternoConfigORM).where(
                 ServicoExternoConfigORM.configuracao_id
                 == "ia.generativa--gemini"
+            )
+        )
+        assert row is not None
+        assert row.tenant_id == FM_PLATFORM_TENANT_ID
+        assert row.unidade_id == FM_PLATFORM_UNIT_ID
+
+
+
+def test_command_configura_e_homologa_openai_no_escopo_canonico_fm() -> None:
+    client, factory = _client()
+    configured = client.put(
+        "/v1/control-plane/fmcc/integrations/ia.generativa--openai",
+        headers=_headers(),
+        json={
+            "actor": _actor(),
+            "configuracao": {
+                "servico": "ia.generativa",
+                "provedor": "openai",
+                "conta_externa": "principal",
+                "ambiente": "homologacao",
+                "parametros": [{"nome": "model", "valor": "gpt-5.6-luna"}],
+                "credenciais": [{"papel": "api_key", "valor": "secret-test"}],
+                "habilitada": True,
+                "versao": 0,
+            },
+        },
+    )
+    assert configured.status_code == 200
+    assert configured.json()["prontidao"]["estado"] == "configurado"
+    assert configured.json()["credenciais_estado"]["api_key"] is True
+
+    homologated = client.post(
+        "/v1/control-plane/fmcc/integrations/ia.generativa--openai/homologar",
+        headers=_headers(),
+        json={
+            "actor": _actor(),
+            "evidencia_ref": "healthcheck://openai/command-test",
+        },
+    )
+    assert homologated.status_code == 200
+    assert homologated.json()["homologada"] is True
+    assert homologated.json()["prontidao"]["estado"] == "pronto"
+
+    with factory() as session:
+        row = session.scalar(
+            select(ServicoExternoConfigORM).where(
+                ServicoExternoConfigORM.configuracao_id
+                == "ia.generativa--openai"
             )
         )
         assert row is not None

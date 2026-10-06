@@ -25,10 +25,15 @@ from core.ai_router import (
     SolicitacaoIA,
 )
 from core.integracoes.modelos import ErroConfiguracaoServico
+from core.integracoes.platform_scope import (
+    FM_PLATFORM_TENANT_ID,
+    FM_PLATFORM_UNIT_ID,
+)
 from core.integracoes.provedores import (
     ErroProvedorExterno,
     ErroProvedorTransitorio,
     PortaGeminiTenant,
+    PortaOpenAITenant,
 )
 from core.seguranca.auditoria import EventoAuditoria, sanitizar_metadata
 from core.seguranca.contexto import ContextoExecucao
@@ -79,9 +84,15 @@ def _usage_metadata(
 
 
 def _conteudo_neutro(resposta: Any) -> Any:
+    if isinstance(resposta, dict):
+        texto_dict = resposta.get("text")
+        if isinstance(texto_dict, str):
+            return texto_dict
+        return resposta
+
     if isinstance(
         resposta,
-        (str, dict, list, int, float, bool, type(None)),
+        (str, list, int, float, bool, type(None)),
     ):
         return resposta
 
@@ -105,11 +116,13 @@ class ExecutorControlPlaneIA:
         contexto: ContextoExecucao,
         secret_store: SecretStore,
         gemini_gateway: PortaGeminiTenant | None = None,
+        openai_gateway: PortaOpenAITenant | None = None,
     ) -> None:
         self._session = session
         self._contexto = contexto
         self._secret_store = secret_store
         self._gemini_gateway = gemini_gateway
+        self._openai_gateway = openai_gateway
 
     def executar(
         self,
@@ -117,22 +130,27 @@ class ExecutorControlPlaneIA:
         rota: RotaIA,
         solicitacao: SolicitacaoIA,
     ) -> RespostaModeloIA:
-        if rota.provider != "gemini":
-            raise FalhaRotaDefinitiva(
-                "ai_router.provider_adapter_indisponivel"
-            )
-
         try:
-            adapter = FabricaAdaptersExternos(
+            factory = FabricaAdaptersExternos(
                 session=self._session,
                 secret_store=self._secret_store,
-            ).gemini(
-                contexto=self._contexto,
-                configuracao_id=rota.configuracao_id,
-                gateway=self._gemini_gateway,
             )
-
-            resposta = adapter.gerar(solicitacao.conteudo)
+            if rota.provider == "openai":
+                resposta = factory.openai(
+                    contexto=self._contexto,
+                    configuracao_id=rota.configuracao_id,
+                    gateway=self._openai_gateway,
+                ).gerar(solicitacao.conteudo)
+            elif rota.provider == "gemini":
+                resposta = factory.gemini(
+                    contexto=self._contexto,
+                    configuracao_id=rota.configuracao_id,
+                    gateway=self._gemini_gateway,
+                ).gerar(solicitacao.conteudo)
+            else:
+                raise FalhaRotaDefinitiva(
+                    "ai_router.provider_adapter_indisponivel"
+                )
 
         except ErroProvedorTransitorio as exc:
             raise FalhaRotaTransitoria(
@@ -224,10 +242,17 @@ def _capabilities(
 ) -> tuple[CapabilityIA, ...]:
     raw = parametros.get("capability")
 
+    if raw is None and provider == "openai":
+        # GPT-5.6 Luna assume as capacidades textuais de maior volume.
+        # Áudio não é anunciado aqui porque o modelo não aceita áudio como entrada.
+        return (
+            CapabilityIA.TOOL_PLANNING,
+            CapabilityIA.ATENDIMENTO_INTERPRETACAO,
+        )
+
     if raw is None and provider == "gemini":
-        # Uma configuração Gemini homologada existente continua servindo o Core
-        # e também a interpretação do Atendimento. Isso evita duplicar credencial
-        # ou criar um segundo Control Plane apenas para a nova capability.
+        # Compatibilidade/fallback: Gemini continua cobrindo texto e áudio enquanto
+        # a transcrição dedicada não for migrada para um modelo OpenAI de áudio.
         return (
             CapabilityIA.TOOL_PLANNING,
             CapabilityIA.ATENDIMENTO_INTERPRETACAO,
@@ -242,8 +267,9 @@ def _capabilities(
         ) from exc
 
 
-def _prioridade(parametros: dict[str, Any]) -> int:
-    raw = parametros.get("route_priority", 100)
+def _prioridade(*, provider: str, parametros: dict[str, Any]) -> int:
+    default = 200 if provider == "openai" else 100
+    raw = parametros.get("route_priority", default)
 
     if isinstance(raw, bool):
         raise ErroConfiguracaoServico(
@@ -265,16 +291,70 @@ def _prioridade(parametros: dict[str, Any]) -> int:
     return valor
 
 
+def _configs_ia_resolvidas(
+    *,
+    repo: RepositorioConfiguracoesExternasSQLAlchemy,
+    contexto: ContextoExecucao,
+    provider: str,
+):
+    """Resolve autoridade central preservando IDs legados por tenant."""
+
+    configuracao_id_canonico = f"ia.generativa--{provider}"
+    central = repo.obter(
+        tenant_id=FM_PLATFORM_TENANT_ID,
+        unidade_id=FM_PLATFORM_UNIT_ID,
+        configuracao_id=configuracao_id_canonico,
+    )
+    if central is not None:
+        # A existência da autoridade central encerra o fallback legado,
+        # mesmo se estiver desabilitada ou ainda não homologada.
+        return (central,)
+
+    locais = tuple(
+        config
+        for config in repo.listar(
+            tenant_id=contexto.tenant_id,
+            unidade_id=contexto.unidade_id,
+        )
+        if config.servico == "ia.generativa"
+        and config.provedor == provider
+    )
+    if locais:
+        return locais
+
+    candidatos = tuple(
+        config
+        for config in repo.listar_homologadas_por_configuracao_id(
+            configuracao_id=configuracao_id_canonico,
+        )
+        if not (
+            config.tenant_id == FM_PLATFORM_TENANT_ID
+            and config.unidade_id == FM_PLATFORM_UNIT_ID
+        )
+    )
+    if not candidatos:
+        return ()
+    if len(candidatos) != 1:
+        raise ErroConfiguracaoServico(
+            "configuracao_plataforma_legada_ambigua"
+        )
+    return candidatos
+
+
 def _rotas_homologadas(
     *,
     session: Session,
     contexto: ContextoExecucao,
 ) -> tuple[RotaIA, ...]:
-    configs = RepositorioConfiguracoesExternasSQLAlchemy(
-        session
-    ).listar(
-        tenant_id=contexto.tenant_id,
-        unidade_id=contexto.unidade_id,
+    repo = RepositorioConfiguracoesExternasSQLAlchemy(session)
+    configs = tuple(
+        config
+        for provider in ("openai", "gemini")
+        for config in _configs_ia_resolvidas(
+            repo=repo,
+            contexto=contexto,
+            provider=provider,
+        )
     )
 
     rotas: list[RotaIA] = []
@@ -283,11 +363,12 @@ def _rotas_homologadas(
         if config.servico != "ia.generativa":
             continue
 
+        # A presença de uma configuração canônica desabilitada/não homologada
+        # bloqueia a rota; não fazemos fallback silencioso para credencial antiga.
         if not config.habilitada or not config.homologada:
             continue
 
-        # SD-1F.1B possui adapter produtivo somente Gemini.
-        if config.provedor != "gemini":
+        if config.provedor not in {"openai", "gemini"}:
             continue
 
         parametros = config.parametros
@@ -313,7 +394,10 @@ def _rotas_homologadas(
                     provider=config.provedor,
                     model=model,
                     capability=capability,
-                    prioridade=_prioridade(parametros),
+                    prioridade=_prioridade(
+                        provider=config.provedor,
+                        parametros=parametros,
+                    ),
                     price_snapshot_id=snapshot,
                 )
             )
@@ -344,6 +428,7 @@ def construir_ai_model_router(
     contexto: ContextoExecucao,
     secret_store: SecretStore | None = None,
     gemini_gateway: PortaGeminiTenant | None = None,
+    openai_gateway: PortaOpenAITenant | None = None,
     metering: MedidorUsoIA | None = None,
 ) -> AIModelRouter:
     store = secret_store or ReferenceSecretStore()
@@ -358,6 +443,7 @@ def construir_ai_model_router(
             contexto=contexto,
             secret_store=store,
             gemini_gateway=gemini_gateway,
+            openai_gateway=openai_gateway,
         ),
         metering=(
             metering
