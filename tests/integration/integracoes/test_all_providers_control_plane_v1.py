@@ -95,6 +95,12 @@ CASOS = (
         {"model": "gemini-test"},
         ("api_key",),
     ),
+    (
+        "ia.generativa",
+        "openai",
+        {"model": "gpt-5.6-luna"},
+        ("api_key",),
+    ),
 )
 
 
