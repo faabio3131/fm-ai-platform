@@ -260,6 +260,10 @@
     {
       "version": "0067_commercial_billing_provider_legal_entity_v1",
       "sha256": "5a58159d2b16b4055988a3527a500c9e7bc799380d5ed5c57f869389041a1970"
+    },
+    {
+      "version": "0068_campaign_organic_media_v1",
+      "sha256": "b49d9d841322eacd5f2afc4d5e62ac87d9272de07c277411a08cf99df394a650"
     }
   ]
 }

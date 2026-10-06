@@ -68,6 +68,7 @@ class CampanhasWebSQLAlchemy(CampanhasGovernadasSQLAlchemy):
             objetivo=row.objetivo,
             texto_base=row.texto_base,
             audiencia_elegivel=row.audiencia_elegivel,
+            midia_url=row.midia_url,
         )
 
     def fingerprint_web(self, row: RascunhoCampanhaORM) -> str:
@@ -124,8 +125,12 @@ class CampanhasWebSQLAlchemy(CampanhasGovernadasSQLAlchemy):
         correlation_id: str,
         idempotency_key: str,
         agora: datetime,
+        midia_url: str | None = None,
     ) -> RascunhoCampanhaORM:
-        request_hash = self.request_hash(canal, finalidade, objetivo, texto_base)
+        hash_values: tuple[str, ...] = (canal, finalidade, objetivo, texto_base)
+        if midia_url:
+            hash_values += (midia_url,)
+        request_hash = self.request_hash(*hash_values)
         replay = self._replay(
             tenant_id=tenant_id,
             unidade_id=unidade_id,
@@ -150,6 +155,7 @@ class CampanhasWebSQLAlchemy(CampanhasGovernadasSQLAlchemy):
         row.finalidade = finalidade
         row.objetivo = objetivo
         row.texto_base = texto_base
+        row.midia_url = midia_url
         if escopo_audiencia_mudou:
             row.audiencia_elegivel = 0
             self._registrar_transicao(
@@ -291,7 +297,7 @@ class CampanhasWebSQLAlchemy(CampanhasGovernadasSQLAlchemy):
             return row
         if row.status != "rascunho":
             raise ErroGerenteIA("campanha_nao_esta_em_rascunho")
-        if not self.audiencia_ids(
+        if row.canal == "whatsapp" and not self.audiencia_ids(
             tenant_id=tenant_id,
             unidade_id=unidade_id,
             campanha_id=campanha_id,

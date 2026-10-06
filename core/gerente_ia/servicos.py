@@ -163,6 +163,11 @@ class ServicoGerenteIA:
                 finalidade=str(argumentos["finalidade"]),
                 objetivo=str(argumentos["objetivo"]),
                 texto_base=str(argumentos["texto_base"]),
+                midia_url=(
+                    str(argumentos["midia_url"])
+                    if argumentos.get("midia_url") is not None
+                    else None
+                ),
                 usuario_id=contexto.usuario_id,
                 correlation_id=contexto.correlation_id,
                 idempotency_key=str(argumentos["idempotency_key"]),

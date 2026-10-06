@@ -20,6 +20,7 @@ from core.gerente_ia.erros import ErroGerenteIA
 from core.gerente_ia.modelos import ChamadaTool, ToolGerenteIA
 from core.gerente_ia.servicos import ServicoGerenteIA
 from core.seguranca.contexto import ContextoExecucao
+from core.seguranca.segredos import SecretStore
 from infra.crm.cliente_legado_schema import crm_cliente_legado_v1
 from infra.crm.clientes_sqlalchemy import LeitorClientesCRMSQLAlchemy
 from infra.crm.consentimentos_marketing_sqlalchemy import (
@@ -31,11 +32,33 @@ from infra.gerente_ia.persistencia_sqlalchemy import (
     AcoesGerenciaisSQLAlchemy,
     RepositorioPreviewsSQLAlchemy,
 )
+from infra.integracoes.fabrica_adapters import FabricaAdaptersExternos
+from infra.integracoes.publicacao_organica_idempotencia import (
+    PublicacaoOrganicaIdempotenteSQLAlchemy,
+)
 from infra.legacy_schema import clientes as clientes_legados
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
 from infra.transacoes.uow import UnitOfWorkV1
 
 SessionFactory = Callable[[], Session]
+SecretStoreFactory = Callable[[Session], SecretStore]
+_CANAIS_ORGANICOS_V1 = frozenset({"whatsapp", "facebook", "instagram"})
+
+
+def _normalizar_canal_midia(
+    canal: str,
+    midia_url: str | None,
+) -> tuple[str, str | None]:
+    canal_normalizado = canal.strip().casefold()
+    if canal_normalizado not in _CANAIS_ORGANICOS_V1:
+        raise ErroGerenteIA("campanha_canal_nao_suportado_v1")
+    midia = (midia_url or "").strip() or None
+    if canal_normalizado == "instagram":
+        if midia is None or not midia.startswith("https://"):
+            raise ErroGerenteIA("campanha_instagram_midia_https_obrigatoria")
+    elif midia is not None:
+        raise ErroGerenteIA("campanha_midia_nao_suportada_no_canal")
+    return canal_normalizado, midia
 
 
 @dataclass(frozen=True)
@@ -51,6 +74,7 @@ class CampanhaWeb:
     status: str
     fingerprint: str
     campanha_ref: str | None = None
+    midia_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -99,6 +123,7 @@ def _web(repo: CampanhasWebSQLAlchemy, row) -> CampanhaWeb:
         criado_por=row.criado_por,
         status=row.status,
         fingerprint=repo.fingerprint_web(row),
+        midia_url=row.midia_url,
         campanha_ref=repo.campanha_ref(
             tenant_id=row.tenant_id,
             unidade_id=row.unidade_id,
@@ -148,7 +173,9 @@ def criar_campanha_web(
     objetivo: str,
     texto_base: str,
     idempotency_key: str,
+    midia_url: str | None = None,
 ) -> CampanhaWeb:
+    canal, midia_url = _normalizar_canal_midia(canal, midia_url)
     with session_factory() as replay_session:
         replay_repo = CampanhasWebSQLAlchemy(replay_session)
         existente = replay_repo.obter_por_criacao_idempotente(
@@ -157,12 +184,13 @@ def criar_campanha_web(
             idempotency_key=idempotency_key,
         )
         if existente is not None:
-            esperado = (canal, finalidade, objetivo, texto_base)
+            esperado = (canal, finalidade, objetivo, texto_base, midia_url)
             registrado = (
                 existente.canal,
                 existente.finalidade,
                 existente.objetivo,
                 existente.texto_base,
+                existente.midia_url,
             )
             if registrado != esperado:
                 raise ErroGerenteIA("conflito_idempotencia")
@@ -170,17 +198,20 @@ def criar_campanha_web(
 
     with UnitOfWorkV1(session_factory) as uow:
         session = _session(uow)
+        argumentos: dict[str, Any] = {
+            "canal": canal,
+            "finalidade": finalidade,
+            "objetivo": objetivo,
+            "texto_base": texto_base,
+            "idempotency_key": idempotency_key,
+        }
+        if midia_url is not None:
+            argumentos["midia_url"] = midia_url
         resultado = _service(session).executar_tool(
             contexto=contexto,
             chamada=ChamadaTool.de_dict(
                 ToolGerenteIA.PREPARAR_CAMPANHA,
-                {
-                    "canal": canal,
-                    "finalidade": finalidade,
-                    "objetivo": objetivo,
-                    "texto_base": texto_base,
-                    "idempotency_key": idempotency_key,
-                },
+                argumentos,
             ),
         )
         if not hasattr(resultado, "rascunho_id"):
@@ -206,7 +237,9 @@ def atualizar_campanha_web(
     objetivo: str,
     texto_base: str,
     idempotency_key: str,
+    midia_url: str | None = None,
 ) -> CampanhaWeb:
+    canal, midia_url = _normalizar_canal_midia(canal, midia_url)
     with UnitOfWorkV1(session_factory) as uow:
         repo = CampanhasWebSQLAlchemy(_session(uow))
         row = repo.atualizar_rascunho(
@@ -221,6 +254,7 @@ def atualizar_campanha_web(
             correlation_id=contexto.correlation_id,
             idempotency_key=idempotency_key,
             agora=datetime.now(timezone.utc),
+            midia_url=midia_url,
         )
         out = _web(repo, row)
         uow.commit()
@@ -257,6 +291,8 @@ def listar_audiencia_campanha(
             unidade_id=contexto.unidade_id,
             campanha_id=campanha_id,
         )
+        if row.canal != "whatsapp":
+            return ()
         try:
             canal = CanalMarketing(row.canal)
             finalidade = FinalidadeMarketing(row.finalidade)
@@ -318,6 +354,13 @@ def definir_audiencia_campanha(
     cliente_ids: tuple[str, ...],
     idempotency_key: str,
 ) -> CampanhaWeb:
+    campanha = obter_campanha_web(
+        session_factory=session_factory,
+        contexto=contexto,
+        campanha_id=campanha_id,
+    )
+    if campanha.canal != "whatsapp":
+        raise ErroGerenteIA("campanha_audiencia_nao_aplicavel")
     solicitados = tuple(dict.fromkeys(item.strip() for item in cliente_ids if item.strip()))
     if not solicitados:
         raise ErroGerenteIA("campanha_audiencia_obrigatoria")
@@ -356,15 +399,21 @@ def submeter_campanha_web(
     campanha_id: str,
     idempotency_key: str,
 ) -> CampanhaWeb:
-    audiencia = listar_audiencia_campanha(
+    campanha = obter_campanha_web(
         session_factory=session_factory,
         contexto=contexto,
         campanha_id=campanha_id,
     )
-    selecionados = {item.cliente_id for item in audiencia if item.selecionado}
-    elegiveis = {item.cliente_id for item in audiencia if item.elegivel}
-    if not selecionados or not selecionados.issubset(elegiveis):
-        raise ErroGerenteIA("campanha_audiencia_desatualizada")
+    if campanha.canal == "whatsapp":
+        audiencia = listar_audiencia_campanha(
+            session_factory=session_factory,
+            contexto=contexto,
+            campanha_id=campanha_id,
+        )
+        selecionados = {item.cliente_id for item in audiencia if item.selecionado}
+        elegiveis = {item.cliente_id for item in audiencia if item.elegivel}
+        if not selecionados or not selecionados.issubset(elegiveis):
+            raise ErroGerenteIA("campanha_audiencia_desatualizada")
     with UnitOfWorkV1(session_factory) as uow:
         repo = CampanhasWebSQLAlchemy(_session(uow))
         row = repo.submeter(
@@ -485,6 +534,7 @@ def despachar_campanha_web(
     campanha_id: str,
     fingerprint: str,
     idempotency_key: str,
+    secret_store_factory: SecretStoreFactory | None = None,
 ) -> dict[str, Any]:
     atual = obter_campanha_web(
         session_factory=session_factory,
@@ -495,44 +545,137 @@ def despachar_campanha_web(
         raise ErroGerenteIA("campanha_nao_publicavel")
     if atual.fingerprint != fingerprint:
         raise ErroGerenteIA("fingerprint_divergente")
-    with session_factory() as session:
-        repo = CampanhasWebSQLAlchemy(session)
-        selecionados = repo.audiencia_ids(
-            tenant_id=contexto.tenant_id,
-            unidade_id=contexto.unidade_id,
-            campanha_id=campanha_id,
-        )
-    if not selecionados:
-        raise ErroGerenteIA("campanha_audiencia_obrigatoria")
 
-    resultados: list[dict[str, Any]] = []
-    for cliente_id in selecionados:
+    if atual.canal == "whatsapp":
+        with session_factory() as session:
+            repo = CampanhasWebSQLAlchemy(session)
+            selecionados = repo.audiencia_ids(
+                tenant_id=contexto.tenant_id,
+                unidade_id=contexto.unidade_id,
+                campanha_id=campanha_id,
+            )
+        if not selecionados:
+            raise ErroGerenteIA("campanha_audiencia_obrigatoria")
+
+        resultados: list[dict[str, Any]] = []
+        for cliente_id in selecionados:
+            try:
+                resultado = despachar_campanha_whatsapp_cliente(
+                    session_factory=session_factory,
+                    contexto=contexto,
+                    cliente_id=cliente_id,
+                    campanha_ref=atual.campanha_ref,
+                    texto=atual.texto_base,
+                    idempotency_key=f"{idempotency_key}:{cliente_id}",
+                )
+                resultados.append(
+                    {
+                        "cliente_id": cliente_id,
+                        "canal": "whatsapp",
+                        "enviado": resultado.enviado,
+                        "motivo": resultado.motivo,
+                        "mensagem_id": resultado.mensagem_id,
+                        "publicacao_id": None,
+                    }
+                )
+            except Exception as exc:  # noqa: BLE001 — falha externa por destinatário
+                resultados.append(
+                    {
+                        "cliente_id": cliente_id,
+                        "canal": "whatsapp",
+                        "enviado": False,
+                        "motivo": type(exc).__name__,
+                        "mensagem_id": None,
+                        "publicacao_id": None,
+                    }
+                )
+    elif atual.canal in {"facebook", "instagram"}:
+        if secret_store_factory is None:
+            raise ErroGerenteIA("campanha_integracao_meta_indisponivel")
+        session = session_factory()
+        uow = UnitOfWorkV1.adotar_session(session)
+
+        def persistir() -> None:
+            uow.commit()
+
+        def reverter() -> None:
+            uow.rollback()
+
         try:
-            resultado = despachar_campanha_whatsapp_cliente(
-                session_factory=session_factory,
+            adapter = FabricaAdaptersExternos(
+                session=session,
+                secret_store=secret_store_factory(session),
+            ).meta(
                 contexto=contexto,
-                cliente_id=cliente_id,
+                configuracao_id=(
+                    "social.facebook--meta"
+                    if atual.canal == "facebook"
+                    else "social.instagram--meta"
+                ),
+            )
+            ledger = PublicacaoOrganicaIdempotenteSQLAlchemy(
+                session=session,
+                contexto=contexto,
+                campanha_id=campanha_id,
                 campanha_ref=atual.campanha_ref,
+                canal=atual.canal,
                 texto=atual.texto_base,
-                idempotency_key=f"{idempotency_key}:{cliente_id}",
+                midia_url=atual.midia_url,
+                persistir=persistir,
+                reverter=reverter,
             )
-            resultados.append(
+            if atual.canal == "facebook":
+                publicacao_id, motivo = ledger.executar(
+                    idempotency_key=idempotency_key,
+                    publicar=lambda: adapter.publicar_facebook(
+                        mensagem=atual.texto_base,
+                        idempotency_key=idempotency_key,
+                    ),
+                )
+            else:
+                if not atual.midia_url:
+                    raise ErroGerenteIA("campanha_instagram_midia_https_obrigatoria")
+                publicacao_id, motivo = ledger.executar(
+                    idempotency_key=idempotency_key,
+                    publicar=lambda: adapter.publicar_instagram(
+                        image_url=atual.midia_url or "",
+                        legenda=atual.texto_base,
+                        idempotency_key=idempotency_key,
+                    ),
+                )
+            resultados = [
                 {
-                    "cliente_id": cliente_id,
-                    "enviado": resultado.enviado,
-                    "motivo": resultado.motivo,
-                    "mensagem_id": resultado.mensagem_id,
-                }
-            )
-        except Exception as exc:  # noqa: BLE001 — preservar falha externa por destinatário
-            resultados.append(
-                {
-                    "cliente_id": cliente_id,
-                    "enviado": False,
-                    "motivo": type(exc).__name__,
+                    "cliente_id": None,
+                    "canal": atual.canal,
+                    "enviado": True,
+                    "motivo": motivo,
                     "mensagem_id": None,
+                    "publicacao_id": publicacao_id,
                 }
+            ]
+            repo = CampanhasWebSQLAlchemy(session)
+            repo.registrar_despacho(
+                tenant_id=contexto.tenant_id,
+                unidade_id=contexto.unidade_id,
+                campanha_id=campanha_id,
+                resultados=tuple(resultados),
+                usuario_id=contexto.usuario_id,
+                correlation_id=contexto.correlation_id,
+                idempotency_key=f"{idempotency_key}:summary",
+                agora=datetime.now(timezone.utc),
             )
+            uow.commit()
+        finally:
+            session.close()
+        return {
+            "campanha_id": campanha_id,
+            "canal": atual.canal,
+            "total": 1,
+            "enviados": 1,
+            "resultados": resultados,
+        }
+    else:
+        raise ErroGerenteIA("campanha_canal_nao_suportado_v1")
 
     with UnitOfWorkV1(session_factory) as uow:
         repo = CampanhasWebSQLAlchemy(_session(uow))
@@ -549,6 +692,7 @@ def despachar_campanha_web(
         uow.commit()
     return {
         "campanha_id": campanha_id,
+        "canal": atual.canal,
         "total": len(resultados),
         "enviados": sum(bool(item["enviado"]) for item in resultados),
         "resultados": resultados,

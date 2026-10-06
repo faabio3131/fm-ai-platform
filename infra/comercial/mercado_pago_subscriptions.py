@@ -239,10 +239,12 @@ class MercadoPagoSubscriptionsBillingProvider:
         http: MercadoPagoHTTPTransport | None = None,
         api_base: str = _API_BASE,
         identity_url: str = _IDENTITY_URL,
+        default_back_url: str | None = None,
     ) -> None:
         self._http = http or _HttpxTransport()
         self._api_base = api_base.rstrip("/")
         self._identity_url = identity_url
+        self._default_back_url = (default_back_url or "").strip() or None
 
     @staticmethod
     def _headers(
@@ -495,7 +497,7 @@ class MercadoPagoSubscriptionsBillingProvider:
             currency=request.currency,
             billing_period=request.billing_period,
             description=request.description,
-            back_url="https://kordenaia.com.br",
+            back_url=self._default_back_url or "",
             context=context,
             credential=credential,
         )

@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "@/lib/api";
+import { ApiError, apiRequest } from "@/lib/api";
 
 export interface EventoAuditoria {
   audit_id: string;
@@ -44,20 +44,26 @@ export async function listarAuditoria(
       params.set(key, value.trim());
     }
   }
-  const response = await fetch(
-    `${API_BASE_URL}/v1/admin/auditoria?${params.toString()}`,
-    {
-      credentials: "include",
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    },
-  );
-  if (!response.ok) {
-    throw new Error(
-      response.status === 403
-        ? "Confirmação administrativa ou permissão de auditoria necessária."
-        : "Não foi possível carregar a auditoria.",
+  try {
+    return await apiRequest<AuditoriaPage>(
+      `/v1/admin/auditoria?${params.toString()}`,
+      {
+        credentials: "include",
+        headers: { Accept: "application/json" },
+      },
     );
+  } catch (error) {
+    if (error instanceof ApiError) {
+      if (error.status === 403 && error.code === "seguranca.admin_step_up_exigido") {
+        throw new Error("Sua confirmação administrativa expirou.");
+      }
+      if (error.status === 403) {
+        throw new Error("Sua conta não possui permissão para visualizar a auditoria.");
+      }
+      if (error.status === 401) {
+        throw new Error("Sua sessão expirou. Entre novamente.");
+      }
+    }
+    throw new Error("Não foi possível carregar a auditoria.");
   }
-  return await response.json() as AuditoriaPage;
 }

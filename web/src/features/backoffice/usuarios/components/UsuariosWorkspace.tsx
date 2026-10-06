@@ -10,9 +10,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Plus, Save, X, Edit } from "lucide-react";
 
 import { useAuthStore } from "@/features/auth/store/auth-store";
-import { API_BASE_URL } from "@/lib/api";
+import { obterCadastroEmpresa } from "@/features/backoffice/empresa/services/empresa-api";
+import { ApiError, apiRequest } from "@/lib/api";
 
-type Papel = "ADMINISTRADOR" | "GERENTE" | "CAIXA" | "GARCOM" | "COZINHA" | "EXPEDICAO" | "ENTREGADOR" | "CLIENTE";
+type Papel = "administrador" | "gerente" | "caixa" | "garcom" | "cozinha" | "expedicao" | "entregador" | "atendimento" | "financeiro" | "gerente_ia";
 
 interface Usuario {
   usuario_id: string;
@@ -50,7 +51,35 @@ interface UsuariosWorkspaceState {
   erro: string | null;
 }
 
-const PAPIS_DISPONIVEIS: Papel[] = ["ADMINISTRADOR", "GERENTE", "CAIXA", "GARCOM", "COZINHA", "EXPEDICAO", "ENTREGADOR", "CLIENTE"];
+const PAPEIS_DISPONIVEIS: Papel[] = [
+  "administrador",
+  "gerente",
+  "caixa",
+  "garcom",
+  "cozinha",
+  "expedicao",
+  "entregador",
+  "atendimento",
+  "financeiro",
+  "gerente_ia",
+];
+
+const PAPEL_LABELS: Record<Papel, string> = {
+  administrador: "Administrador",
+  gerente: "Gerente",
+  caixa: "Caixa",
+  garcom: "Garçom",
+  cozinha: "Cozinha",
+  expedicao: "Expedição",
+  entregador: "Entregador",
+  atendimento: "Atendimento",
+  financeiro: "Financeiro",
+  gerente_ia: "Gerente IA",
+};
+
+function papelLabel(value: string): string {
+  return PAPEL_LABELS[value as Papel] ?? value;
+}
 
 export function UsuariosWorkspace() {
   const auth = useAuthStore();
@@ -75,41 +104,43 @@ export function UsuariosWorkspace() {
 
   const fetchUnidades = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/v1/admin/empresa`, {
-        credentials: "include",
-        headers: { Accept: "application/json" },
-      });
-      if (res.ok) {
-        const data = (await res.json()) as { unidades: Unidade[] };
-        setState((s) => ({
-          ...s,
-          unidades: data.unidades.map((u) => ({
-            unidade_id: u.unidade_id,
-            codigo: u.codigo,
-            nome_fantasia: u.nome_fantasia,
-          })),
-        }));
-      }
-    } catch {
-      // silencioso
+      const data = await obterCadastroEmpresa();
+      setState((s) => ({
+        ...s,
+        unidades: data.unidades.map((u) => ({
+          unidade_id: u.unidade_id,
+          codigo: u.codigo,
+          nome_fantasia: u.nome_fantasia,
+        })),
+      }));
+    } catch (error) {
+      setState((s) => ({
+        ...s,
+        erro: error instanceof Error
+          ? error.message
+          : "Falha ao carregar unidades administrativas",
+      }));
     }
   }, []);
 
   const fetchUsuarios = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, erro: null }));
     try {
-      const res = await fetch(`${API_BASE_URL}/v1/admin/usuarios`, {
+      const usuarios = await apiRequest<Usuario[]>("/v1/admin/usuarios", {
         credentials: "include",
         headers: { Accept: "application/json" },
       });
-      if (res.ok) {
-        const data = await res.json();
-        setState((s) => ({ ...s, usuarios: data, loading: false }));
-      } else {
-        setState((s) => ({ ...s, loading: false, erro: "Falha ao carregar usuários" }));
-      }
-    } catch {
-      setState((s) => ({ ...s, loading: false, erro: "Erro de conexão" }));
+      setState((s) => ({ ...s, usuarios, loading: false }));
+    } catch (error) {
+      const message =
+        error instanceof ApiError && error.status === 403
+          ? error.code === "seguranca.admin_step_up_exigido"
+            ? "Sua confirmação administrativa expirou."
+            : "Sua conta não possui permissão para gerenciar usuários."
+          : error instanceof Error
+            ? error.message
+            : "Erro de conexão";
+      setState((s) => ({ ...s, loading: false, erro: message }));
     }
   }, []);
 
@@ -151,7 +182,7 @@ export function UsuariosWorkspace() {
   }, []);
 
   const handleCloseDialog = useCallback(() => {
-    setState((s) => ({ ...s, dialogOpen: false, editing: null, erro: null }));
+    setState((s) => ({ ...s, dialogOpen: false, editing: null, saving: false, erro: null }));
   }, []);
 
   const handleChange = useCallback((field: string, value: string | boolean) => {
@@ -196,8 +227,8 @@ export function UsuariosWorkspace() {
 
     try {
       const url = state.editing
-        ? `${API_BASE_URL}/v1/admin/usuarios/${state.editing.usuario_id}`
-        : `${API_BASE_URL}/v1/admin/usuarios`;
+        ? `/v1/admin/usuarios/${state.editing.usuario_id}`
+        : "/v1/admin/usuarios";
       const method = state.editing ? "PUT" : "POST";
 
       const body = state.editing
@@ -219,22 +250,25 @@ export function UsuariosWorkspace() {
             admin_pin: state.form.admin_pin || undefined,
           };
 
-      const res = await fetch(url, {
+      await apiRequest<Usuario>(url, {
         method,
         credentials: "include",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify(body),
       });
 
-      if (res.ok) {
-        handleCloseDialog();
-        fetchUsuarios();
-      } else {
-        const err = await res.json().catch(() => ({ erro: "erro_desconhecido" }));
-        setState((s) => ({ ...s, saving: false, erro: err.erro || "Falha na operação" }));
-      }
-    } catch {
-      setState((s) => ({ ...s, saving: false, erro: "Erro de conexão" }));
+      handleCloseDialog();
+      await fetchUsuarios();
+    } catch (error) {
+      const message =
+        error instanceof ApiError && error.status === 403
+          ? error.code === "seguranca.admin_step_up_exigido"
+            ? "Sua confirmação administrativa expirou."
+            : "Sua conta não possui permissão para esta alteração."
+          : error instanceof Error
+            ? error.message
+            : "Erro de conexão";
+      setState((s) => ({ ...s, saving: false, erro: message }));
     }
   }, [state.editing, state.form, handleCloseDialog, fetchUsuarios]);
 
@@ -309,7 +343,7 @@ export function UsuariosWorkspace() {
                               key={p}
                               className="inline-flex items-center rounded-full bg-blue-500/20 px-2 py-0.5 text-xs text-blue-300"
                             >
-                              {p}
+                              {papelLabel(p)}
                             </span>
                           ))}
                         </div>
@@ -422,7 +456,7 @@ export function UsuariosWorkspace() {
             <label className="block text-sm text-slate-300">
               Papéis <span className="text-rose-400">*</span>
               <div className="flex flex-wrap gap-2 mt-1">
-                {PAPIS_DISPONIVEIS.map((papel) => (
+                {PAPEIS_DISPONIVEIS.map((papel) => (
                   <Button
                     key={papel}
                     type="button"
@@ -430,7 +464,7 @@ export function UsuariosWorkspace() {
                     size="sm"
                     onClick={() => handleTogglePapel(papel)}
                   >
-                    {papel}
+                    {PAPEL_LABELS[papel]}
                   </Button>
                 ))}
               </div>

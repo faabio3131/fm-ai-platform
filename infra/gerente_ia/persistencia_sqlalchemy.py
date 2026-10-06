@@ -543,7 +543,7 @@ class CampanhasGerenciaisSQLAlchemy:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def preparar_rascunho(self, *, tenant_id: str, unidade_id: str, canal: str, finalidade: str, objetivo: str, texto_base: str, usuario_id: str, correlation_id: str, idempotency_key: str) -> RascunhoCampanha:
+    def preparar_rascunho(self, *, tenant_id: str, unidade_id: str, canal: str, finalidade: str, objetivo: str, texto_base: str, usuario_id: str, correlation_id: str, idempotency_key: str, midia_url: str | None = None) -> RascunhoCampanha:
         existente = self._session.scalar(
             select(RascunhoCampanhaORM).where(
                 RascunhoCampanhaORM.tenant_id == tenant_id,
@@ -572,6 +572,7 @@ class CampanhasGerenciaisSQLAlchemy:
                 finalidade=finalidade,
                 objetivo=objetivo,
                 texto_base=texto_base,
+                midia_url=midia_url,
                 audiencia_elegivel=audiencia,
                 criado_em=agora,
                 criado_por=usuario_id,
@@ -593,6 +594,7 @@ class CampanhasGerenciaisSQLAlchemy:
             criado_em=_utc(existente.criado_em),
             criado_por=existente.criado_por,
             status=existente.status,
+            midia_url=existente.midia_url,
         )
 
 

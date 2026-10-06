@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "@/lib/api";
+import { ApiError, apiRequest } from "@/lib/api";
 
 export interface Empresa {
   tenant_id: string;
@@ -40,27 +40,37 @@ export interface CadastroEmpresa {
 }
 
 async function request<T>(path: string, method = "GET", body?: unknown): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}/v1/admin${path}`, {
-    method, credentials: "include", cache: "no-store",
-    headers: { Accept: "application/json", "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  if (!response.ok) {
-    const messages: Record<number, string> = {
-      400: "Cadastro inválido ou unidade já cadastrada. Confira os campos.",
-      401: "Sua sessão expirou. Entre novamente.",
-      403: "Acesso não autorizado ou confirmação administrativa expirada. Reabra a área administrativa.",
-      409: "O cadastro foi alterado por outra operação. Recarregue antes de salvar.",
-      422: "Confira os campos do cadastro.",
-    };
-    throw new Error(messages[response.status] ?? "Não foi possível concluir a operação administrativa.");
+  try {
+    return await apiRequest<T>(`/v1/admin${path}`, {
+      method,
+      credentials: "include",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch (error) {
+    if (error instanceof ApiError) {
+      const messages: Record<number, string> = {
+        400: "Cadastro inválido ou unidade já cadastrada. Confira os campos.",
+        401: "Sua sessão expirou. Entre novamente.",
+        403: error.code === "seguranca.admin_step_up_exigido"
+          ? "Sua confirmação administrativa expirou. Confirme sua identidade novamente."
+          : "Acesso administrativo não autorizado para esta operação.",
+        409: "O cadastro foi alterado por outra operação. Recarregue antes de salvar.",
+        422: "Confira os campos do cadastro.",
+      };
+      throw new Error(messages[error.status] ?? "Não foi possível concluir a operação administrativa.");
+    }
+    throw error;
   }
-  return await response.json() as T;
+}
+
+export function obterCadastroEmpresa(): Promise<CadastroEmpresa> {
+  return request<CadastroEmpresa>("/empresa");
 }
 
 export async function abrirCadastroEmpresa(): Promise<CadastroEmpresa> {
   await request("/acesso", "POST");
-  return request<CadastroEmpresa>("/empresa");
+  return obterCadastroEmpresa();
 }
 
 export function salvarEmpresa(empresa: Omit<Empresa, "tenant_id">): Promise<Empresa> {
@@ -75,8 +85,7 @@ export function criarUnidade(unidade: Pick<Unidade, "unidade_id" | "codigo" | "n
   return request("/unidades", "POST", unidade);
 }
 
-export async function obterConfiguracao(unidadeId: string): Promise<ConfiguracaoFinanceira> {
-  await request("/acesso", "POST");
+export function obterConfiguracao(unidadeId: string): Promise<ConfiguracaoFinanceira> {
   return request<ConfiguracaoFinanceira>(`/configuracao/${encodeURIComponent(unidadeId)}`);
 }
 

@@ -17,6 +17,7 @@ from core.comercial.billing import (
     BillingProviderUnavailable,
     BillingRateLimited,
     BillingSubscriptionChangeRequest,
+    BillingSubscriptionRequest,
     BillingTransactionNotFound,
     BillingValidationError,
     BillingWebhookInvalid,
@@ -119,6 +120,20 @@ def _checkout() -> CheckoutRequest:
     )
 
 
+def _subscription_request() -> BillingSubscriptionRequest:
+    return BillingSubscriptionRequest(
+        fm_customer_id="customer-fm-1",
+        product_account_id="product-account-1",
+        external_customer_ref="external-customer-1",
+        price_id="price-1",
+        contact_email="cliente@example.com",
+        amount=Decimal("99.90"),
+        currency="BRL",
+        billing_period="MONTHLY",
+        description="Kordena Plano A",
+    )
+
+
 def _signed_payload(
     *,
     event_type: str,
@@ -211,6 +226,38 @@ def test_checkout_uses_canonical_snapshot_and_returns_preapproval_link() -> None
         "back_url": "https://kordenaia.com.br/assinatura/sucesso",
         "status": "pending",
     }
+
+
+def test_create_subscription_uses_configured_public_web_base_url() -> None:
+    http = FakeHTTP()
+    http.push(201, {"id": "preapproval-1", "init_point": "https://example.test"})
+    provider = MercadoPagoSubscriptionsBillingProvider(
+        http=http,
+        default_back_url="https://app.kordenaia.com.br",
+    )
+
+    result = provider.create_subscription(
+        request=_subscription_request(),
+        context=_context("subscription-create"),
+        credential=_credential(),
+    )
+
+    assert result.external_subscription_ref == "preapproval-1"
+    assert http.calls[0]["json"]["back_url"] == "https://app.kordenaia.com.br"
+
+
+def test_create_subscription_without_public_web_base_url_fails_closed() -> None:
+    http = FakeHTTP()
+    provider = MercadoPagoSubscriptionsBillingProvider(http=http)
+
+    with pytest.raises(BillingValidationError, match="billing_back_url_required"):
+        provider.create_subscription(
+            request=_subscription_request(),
+            context=_context("subscription-missing-back-url"),
+            credential=_credential(),
+        )
+
+    assert http.calls == []
 
 
 @pytest.mark.parametrize(

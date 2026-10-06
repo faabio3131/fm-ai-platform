@@ -167,6 +167,7 @@ class RascunhoCampanha:
     criado_em: datetime
     criado_por: str
     status: str = "rascunho"
+    midia_url: str | None = None
 
     def __post_init__(self) -> None:
         if self.status != "rascunho":
@@ -188,6 +189,7 @@ class RascunhoCampanha:
             objetivo=self.objetivo,
             texto_base=self.texto_base,
             audiencia_elegivel=self.audiencia_elegivel,
+            midia_url=self.midia_url,
         )
 
 
@@ -201,6 +203,7 @@ def fingerprint_campanha(
     objetivo: str,
     texto_base: str,
     audiencia_elegivel: int,
+    midia_url: str | None = None,
 ) -> str:
     payload = {
         "campanha_id": campanha_id.strip(),
@@ -212,6 +215,9 @@ def fingerprint_campanha(
         "texto_base": texto_base,
         "audiencia_elegivel": audiencia_elegivel,
     }
+    midia = (midia_url or "").strip()
+    if midia:
+        payload["midia_url"] = midia
     if any(
         not str(payload[chave]).strip()
         for chave in (
