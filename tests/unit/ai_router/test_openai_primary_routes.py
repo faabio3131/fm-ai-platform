@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 import pytest
 
@@ -55,6 +56,7 @@ def contexto() -> ContextoExecucao:
         papeis=frozenset(),
         permissoes=frozenset(),
         correlation_id="corr-openai-primary",
+        solicitado_em=datetime(2026, 10, 6, 16, 0, tzinfo=timezone.utc),
         origem="tests",
         unidades_permitidas=frozenset({"loja-1"}),
     )
