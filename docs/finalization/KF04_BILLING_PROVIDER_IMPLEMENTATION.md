@@ -1,7 +1,7 @@
 # KF-04 — SaaS Billing Provider Implementation
 
-**Project:** Kordena  
-**Status:** IMPLEMENTED — aguardando certificação da PR  
+**Project:** Kordena
+**Status:** IMPLEMENTED — aguardando certificação da PR
 **Data:** 02/10/2026
 
 ## Objetivo
