@@ -22,11 +22,13 @@ from .provedores import (
     ConfiguracaoGeminiTenant,
     ConfiguracaoMercadoPago,
     ConfiguracaoMeta,
+    ConfiguracaoOpenAITenant,
     ErroProvedorExterno,
     ErroProvedorTransitorio,
     GeminiTenantAdapter,
     MercadoPagoAdapter,
     MetaAdapter,
+    OpenAITenantAdapter,
 )
 from .servicos import ServicoConfiguracoesExternas
 
@@ -38,6 +40,7 @@ __all__ = [
     "ConfiguracaoGoogleMaps",
     "ConfiguracaoMercadoPago",
     "ConfiguracaoMeta",
+    "ConfiguracaoOpenAITenant",
     "ConfiguracaoServicoExterno",
     "Coordenada",
     "ErroConfiguracaoServico",
@@ -51,6 +54,7 @@ __all__ = [
     "GoogleMapsAdapter",
     "MercadoPagoAdapter",
     "MetaAdapter",
+    "OpenAITenantAdapter",
     "ProntidaoServicoExterno",
     "RespostaHTTPMaps",
     "ResultadoGeocodificacao",
