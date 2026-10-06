@@ -27,8 +27,13 @@ O catálogo de integrações passa a declarar explicitamente:
 
 Na V1, são `platform_managed`:
 
-- Google Gemini / IA principal;
+- OpenAI / GPT-5.6 Luna como rota primária de IA textual;
+- Google Gemini como fallback textual e rota temporária de transcrição de áudio;
 - Google Maps / Geocoding / Routes / browser map key.
+
+A escolha de provider/modelo é responsabilidade da FM/Command, não do tenant. O
+roteamento preserva metering por tenant/unidade e permite substituir o modelo sem
+expor chaves ou configuração de infraestrutura ao cliente.
 
 As demais integrações do catálogo permanecem `tenant_managed`, incluindo Meta,
 WhatsApp, marketplaces, pagamentos operacionais do estabelecimento e fiscal.
@@ -96,7 +101,7 @@ canônica de integrações.
 
 ## Runtime
 
-Gemini e Maps resolvem primeiro a configuração canônica do Command.
+OpenAI, Gemini e Maps resolvem primeiro a configuração canônica do Command.
 
 Durante a migração existe uma ponte de compatibilidade:
 
