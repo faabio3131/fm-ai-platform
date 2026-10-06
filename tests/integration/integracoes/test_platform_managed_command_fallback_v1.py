@@ -259,6 +259,7 @@ def test_ponte_legada_falha_fechada_se_houver_mais_de_uma_autoridade() -> None:
             "maps-browser": "browser-fm",
             "maps-server": "server-fm",
             "gemini": "gemini-fm",
+            "openai": "openai-fm",
             "maps-browser-2": "browser-fm-2",
             "maps-server-2": "server-fm-2",
         }
