@@ -291,35 +291,41 @@ def _prioridade(*, provider: str, parametros: dict[str, Any]) -> int:
     return valor
 
 
-def _config_ia_resolvida(
+def _configs_ia_resolvidas(
     *,
     repo: RepositorioConfiguracoesExternasSQLAlchemy,
     contexto: ContextoExecucao,
     provider: str,
 ):
-    """Espelha a autoridade platform-managed usada pela fábrica de adapters."""
+    """Resolve autoridade central preservando IDs legados por tenant."""
 
-    configuracao_id = f"ia.generativa--{provider}"
+    configuracao_id_canonico = f"ia.generativa--{provider}"
     central = repo.obter(
         tenant_id=FM_PLATFORM_TENANT_ID,
         unidade_id=FM_PLATFORM_UNIT_ID,
-        configuracao_id=configuracao_id,
+        configuracao_id=configuracao_id_canonico,
     )
     if central is not None:
-        return central
+        # A existência da autoridade central encerra o fallback legado,
+        # mesmo se estiver desabilitada ou ainda não homologada.
+        return (central,)
 
-    legado_atual = repo.obter(
-        tenant_id=contexto.tenant_id,
-        unidade_id=contexto.unidade_id,
-        configuracao_id=configuracao_id,
+    locais = tuple(
+        config
+        for config in repo.listar(
+            tenant_id=contexto.tenant_id,
+            unidade_id=contexto.unidade_id,
+        )
+        if config.servico == "ia.generativa"
+        and config.provedor == provider
     )
-    if legado_atual is not None:
-        return legado_atual
+    if locais:
+        return locais
 
     candidatos = tuple(
         config
         for config in repo.listar_homologadas_por_configuracao_id(
-            configuracao_id=configuracao_id,
+            configuracao_id=configuracao_id_canonico,
         )
         if not (
             config.tenant_id == FM_PLATFORM_TENANT_ID
@@ -327,12 +333,12 @@ def _config_ia_resolvida(
         )
     )
     if not candidatos:
-        return None
+        return ()
     if len(candidatos) != 1:
         raise ErroConfiguracaoServico(
             "configuracao_plataforma_legada_ambigua"
         )
-    return candidatos[0]
+    return candidatos
 
 
 def _rotas_homologadas(
@@ -344,14 +350,11 @@ def _rotas_homologadas(
     configs = tuple(
         config
         for provider in ("openai", "gemini")
-        for config in (
-            _config_ia_resolvida(
-                repo=repo,
-                contexto=contexto,
-                provider=provider,
-            ),
+        for config in _configs_ia_resolvidas(
+            repo=repo,
+            contexto=contexto,
+            provider=provider,
         )
-        if config is not None
     )
 
     rotas: list[RotaIA] = []
