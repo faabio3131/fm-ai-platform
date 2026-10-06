@@ -15,7 +15,11 @@ from google.genai import types
 
 from core.ai_router import ConteudoAudioIA
 from core.integracoes.google_maps import RespostaHTTPMaps
-from core.integracoes.provedores import RespostaBinariaProvedor, RespostaProvedor
+from core.integracoes.provedores import (
+    ErroProvedorExterno,
+    RespostaBinariaProvedor,
+    RespostaProvedor,
+)
 
 
 def _payload_json(resposta: requests.Response) -> Mapping[str, Any]:
@@ -175,3 +179,111 @@ class GoogleGenAITenantGateway:
             if "timeout" in texto or "temporar" in texto:
                 raise TimeoutError("Gemini temporariamente indisponivel") from exc
             raise ConnectionError("falha segura no gateway Gemini") from exc
+
+
+class OpenAIChatTenantGateway:
+    """Chat Completions OpenAI textual, sem SDK e sem cache cruzado entre tenants."""
+
+    BASE_URL = "https://api.openai.com/v1/chat/completions"
+    _RETRYABLE = frozenset({408, 429, 500, 502, 503, 504})
+
+    def __init__(self, session: requests.Session | None = None) -> None:
+        self._session = session or requests.Session()
+
+    @staticmethod
+    def _messages(contents: Any) -> list[dict[str, str]]:
+        if isinstance(contents, ConteudoAudioIA):
+            raise ErroProvedorExterno("OpenAI Luna nao aceita audio nesta rota")
+
+        if isinstance(contents, Mapping):
+            system = str(contents.get("system") or "").strip()
+            user = str(contents.get("user") or "").strip()
+            tools = str(contents.get("tools") or "").strip()
+            if tools:
+                system = "\n".join(
+                    part for part in (
+                        system,
+                        f"Catalogo de tools V1 permitido: {tools}",
+                    ) if part
+                )
+            messages: list[dict[str, str]] = []
+            if system:
+                messages.append({"role": "system", "content": system})
+            if user:
+                messages.append({"role": "user", "content": user})
+            if not messages:
+                messages.append({"role": "user", "content": str(dict(contents))})
+            return messages
+
+        return [{"role": "user", "content": str(contents)}]
+
+    def create_chat_completion(
+        self,
+        *,
+        api_key: str,
+        model: str,
+        contents: Any,
+        timeout_seconds: float,
+    ) -> Any:
+        if not api_key.strip() or not model.strip():
+            raise ErroProvedorExterno("OpenAI configuracao incompleta")
+
+        resposta = _request(
+            self._session,
+            method="POST",
+            url=self.BASE_URL,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            params=None,
+            json_body={
+                "model": model,
+                "reasoning_effort": "low",
+                "messages": self._messages(contents),
+            },
+            timeout_seconds=timeout_seconds,
+        )
+
+        if resposta.status_code in self._RETRYABLE:
+            raise ConnectionError(
+                f"OpenAI indisponivel HTTP {resposta.status_code}"
+            )
+        if not 200 <= resposta.status_code < 300:
+            raise ErroProvedorExterno(
+                f"OpenAI rejeitou requisicao HTTP {resposta.status_code}"
+            )
+
+        payload = _payload_json(resposta)
+        choices = payload.get("choices")
+        if not isinstance(choices, list) or not choices:
+            raise ErroProvedorExterno("OpenAI retornou payload invalido")
+        first = choices[0]
+        if not isinstance(first, Mapping):
+            raise ErroProvedorExterno("OpenAI retornou payload invalido")
+        message = first.get("message")
+        if not isinstance(message, Mapping):
+            raise ErroProvedorExterno("OpenAI retornou payload invalido")
+        text_value = message.get("content")
+        if not isinstance(text_value, str) or not text_value.strip():
+            raise ErroProvedorExterno("OpenAI retornou conteudo invalido")
+
+        usage = payload.get("usage")
+        prompt_tokens = None
+        completion_tokens = None
+        cached_tokens = None
+        if isinstance(usage, Mapping):
+            prompt_tokens = usage.get("prompt_tokens")
+            completion_tokens = usage.get("completion_tokens")
+            details = usage.get("prompt_tokens_details")
+            if isinstance(details, Mapping):
+                cached_tokens = details.get("cached_tokens")
+
+        return {
+            "text": text_value.strip(),
+            "usage_metadata": {
+                "prompt_token_count": prompt_tokens,
+                "candidates_token_count": completion_tokens,
+                "cached_content_token_count": cached_tokens,
+            },
+        }
