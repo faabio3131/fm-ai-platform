@@ -22,13 +22,8 @@ class Config:
 
 class RepoFake:
     def __init__(self, _session) -> None:
-        pass
-
-    def listar(self, *, tenant_id: str, unidade_id: str):
-        assert tenant_id == "tenant-a"
-        assert unidade_id == "loja-1"
-        return (
-            Config(
+        self.configs = {
+            "ia.generativa--gemini": Config(
                 configuracao_id="ia.generativa--gemini",
                 servico="ia.generativa",
                 provedor="gemini",
@@ -36,7 +31,7 @@ class RepoFake:
                 homologada=True,
                 parametros={"model": "gemini-3.6-flash"},
             ),
-            Config(
+            "ia.generativa--openai": Config(
                 configuracao_id="ia.generativa--openai",
                 servico="ia.generativa",
                 provedor="openai",
@@ -44,7 +39,18 @@ class RepoFake:
                 homologada=True,
                 parametros={"model": "gpt-5.6-luna"},
             ),
-        )
+        }
+
+    def obter(self, *, tenant_id: str, unidade_id: str, configuracao_id: str):
+        if (
+            tenant_id == runtime.FM_PLATFORM_TENANT_ID
+            and unidade_id == runtime.FM_PLATFORM_UNIT_ID
+        ):
+            return self.configs.get(configuracao_id)
+        return None
+
+    def listar_homologadas_por_configuracao_id(self, *, configuracao_id: str):
+        return ()
 
 
 @pytest.fixture
