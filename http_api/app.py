@@ -58,7 +58,7 @@ from http_api.kds import build_kds_router
 from http_api.pdv import build_pdv_router
 from http_api.salao import build_salao_router
 from infra.comercial.transactional_email import (
-    build_smtp_password_recovery_dispatcher_from_env,
+    build_password_recovery_dispatcher_from_env,
 )
 from infra.integracoes.fabrica_adapters import FabricaAdaptersExternos
 from infra.pagamentos.pagbank_runtime import (
@@ -140,7 +140,7 @@ def build_http_app(
     canal_whatsapp = whatsapp_runtime or RuntimeCanalWhatsAppV1(session_factory)
     password_recovery_dispatcher = (
         password_recovery_dispatcher
-        or build_smtp_password_recovery_dispatcher_from_env(
+        or build_password_recovery_dispatcher_from_env(
             secret_store=secret_store,
             required=False,
         )

@@ -25,6 +25,7 @@ from application.public_signup import (
 )
 from core.comercial.erros import DadoComercialInvalido, RegistroComercialDuplicado
 from core.seguranca.segredos import SecretStore
+from infra.comercial.signup_sqlalchemy import RepositorioPublicSignupSQLAlchemy
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 from infra.seguranca.google_oidc import (
     GoogleIdentityError,
@@ -177,6 +178,24 @@ def build_public_signup_router(
             _dispatch(result)
             return _generic_accepted(result.signup.signup_id)
         except RegistroComercialDuplicado:
+            # Repetir o mesmo cadastro pendente não cria outra conta. Quando a
+            # tentativa anterior persistiu a intenção mas o provedor de e-mail
+            # falhou, uma nova submissão pode reenviar a verificação de forma
+            # opaca, sem revelar se o e-mail já existe.
+            try:
+                pending_signup_id: str | None = None
+                normalized_email = payload.email.strip().casefold()
+                with session_factory() as session:
+                    pending = RepositorioPublicSignupSQLAlchemy(
+                        session
+                    ).obter_pendente_por_email(normalized_email)
+                    if pending is not None:
+                        pending_signup_id = pending.signup_id
+                if pending_signup_id is not None:
+                    retry = app.reenviar_token(signup_id=pending_signup_id)
+                    _dispatch(retry)
+            except (SignupVerificationError, RuntimeError, SQLAlchemyError):
+                pass
             return _generic_accepted()
         except DadoComercialInvalido as exc:
             return JSONResponse(
