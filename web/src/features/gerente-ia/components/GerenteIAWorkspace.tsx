@@ -13,7 +13,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { KordenaBrainMark } from "@/components/brand/KordenaBrainMark";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,14 @@ function previewOf(response: GerenteIAResponse | null) {
   return { previewId, fingerprint };
 }
 
+const BARRAS_VOZ = 22;
+
+function formatarDuracaoVoz(segundos: number): string {
+  const minutos = Math.floor(segundos / 60);
+  const resto = segundos % 60;
+  return `${String(minutos).padStart(2, "0")}:${String(resto).padStart(2, "0")}`;
+}
+
 const PERGUNTAS_RAPIDAS = [
   "Resuma a operação da unidade agora.",
   "Quais pedidos precisam de atenção neste momento?",
@@ -70,9 +78,18 @@ export function GerenteIAWorkspace() {
   const [carregando, setCarregando] = useState(false);
   const [gravando, setGravando] = useState(false);
   const [transcrevendo, setTranscrevendo] = useState(false);
+  const [segundosGravacao, setSegundosGravacao] = useState(0);
+  const [niveisVoz, setNiveisVoz] = useState<number[]>(
+    () => Array.from({ length: BARRAS_VOZ }, () => 0.08),
+  );
   const gravadorRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const partesRef = useRef<BlobPart[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const sourceAudioRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const analisadorRef = useRef<AnalyserNode | null>(null);
+  const animationRef = useRef<number | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const preview = useMemo(() => previewOf(resposta), [resposta]);
   const campaignDraftId = useMemo(() => campaignDraftOf(resposta), [resposta]);
   const canOpenCampaigns = useMemo(
@@ -94,9 +111,110 @@ export function GerenteIAWorkspace() {
     }
   }
 
+  useEffect(() => {
+    return () => {
+      if (animationRef.current !== null) {
+        cancelAnimationFrame(animationRef.current);
+      }
+      if (timerRef.current !== null) {
+        clearInterval(timerRef.current);
+      }
+      const recorder = gravadorRef.current;
+      if (recorder && recorder.state !== "inactive") {
+        recorder.ondataavailable = null;
+        recorder.onstop = null;
+        recorder.stop();
+      }
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      sourceAudioRef.current?.disconnect();
+      analisadorRef.current?.disconnect();
+      const audioContext = audioContextRef.current;
+      if (audioContext && audioContext.state !== "closed") {
+        void audioContext.close();
+      }
+    };
+  }, []);
+
+  function pararFeedbackVoz() {
+    if (animationRef.current !== null) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+    if (timerRef.current !== null) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    sourceAudioRef.current?.disconnect();
+    sourceAudioRef.current = null;
+    analisadorRef.current?.disconnect();
+    analisadorRef.current = null;
+    const audioContext = audioContextRef.current;
+    audioContextRef.current = null;
+    if (audioContext && audioContext.state !== "closed") {
+      void audioContext.close();
+    }
+  }
+
+  async function iniciarFeedbackVoz(stream: MediaStream) {
+    const AudioContextCtor =
+      window.AudioContext ??
+      (window as typeof window & { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+    if (!AudioContextCtor) return;
+
+    const audioContext = new AudioContextCtor();
+    audioContextRef.current = audioContext;
+    if (audioContext.state === "suspended") {
+      await audioContext.resume();
+    }
+    const source = audioContext.createMediaStreamSource(stream);
+    const analisador = audioContext.createAnalyser();
+    analisador.fftSize = 256;
+    analisador.smoothingTimeConstant = 0.72;
+    source.connect(analisador);
+    sourceAudioRef.current = source;
+    analisadorRef.current = analisador;
+
+    const dados = new Uint8Array(analisador.frequencyBinCount);
+    let ultimoFrame = 0;
+    const desenhar = (timestamp: number) => {
+      if (timestamp - ultimoFrame >= 55) {
+        analisador.getByteFrequencyData(dados);
+        const largura = Math.max(1, Math.floor(dados.length / BARRAS_VOZ));
+        const proximos = Array.from({ length: BARRAS_VOZ }, (_, index) => {
+          const inicio = index * largura;
+          const fim = Math.min(dados.length, inicio + largura);
+          let total = 0;
+          for (let cursor = inicio; cursor < fim; cursor += 1) {
+            total += dados[cursor] ?? 0;
+          }
+          const media = total / Math.max(1, fim - inicio);
+          return Math.max(0.08, Math.min(1, media / 150));
+        });
+        setNiveisVoz(proximos);
+        ultimoFrame = timestamp;
+      }
+      animationRef.current = requestAnimationFrame(desenhar);
+    };
+    animationRef.current = requestAnimationFrame(desenhar);
+    setSegundosGravacao(0);
+    timerRef.current = setInterval(
+      () => setSegundosGravacao((atual) => atual + 1),
+      1000,
+    );
+  }
+
   async function alternarVoz() {
     if (gravando) {
-      gravadorRef.current?.stop();
+      const gravador = gravadorRef.current;
+      if (gravador?.state === "recording") {
+        try {
+          gravador.requestData();
+        } catch {
+          // Alguns navegadores móveis não suportam requestData imediatamente.
+        }
+        gravador.stop();
+      }
       return;
     }
     if (carregando || transcrevendo) return;
@@ -119,28 +237,45 @@ export function GerenteIAWorkspace() {
       partesRef.current = [];
       streamRef.current = stream;
       gravadorRef.current = gravador;
+      await iniciarFeedbackVoz(stream);
       gravador.ondataavailable = (event) => {
         if (event.data.size > 0) partesRef.current.push(event.data);
       };
       gravador.onstop = () => {
         const tipo = gravador.mimeType || mimeType || "audio/webm";
         const blob = new Blob(partesRef.current, { type: tipo });
+        pararFeedbackVoz();
         stream.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
         gravadorRef.current = null;
         partesRef.current = [];
         setGravando(false);
+        if (blob.size < 512) {
+          setErro("gerente_ia.audio_sem_sinal");
+          setSegundosGravacao(0);
+          return;
+        }
         setTranscrevendo(true);
         void transcreverGerenteIA(blob)
           .then((texto) => setPergunta(texto))
           .catch((error: unknown) => {
             setErro(error instanceof Error ? error.message : "gerente_ia.transcricao_falhou");
           })
-          .finally(() => setTranscrevendo(false));
+          .finally(() => {
+            setTranscrevendo(false);
+            setSegundosGravacao(0);
+          });
       };
-      gravador.start();
+      gravador.onerror = () => {
+        pararFeedbackVoz();
+        stream.getTracks().forEach((track) => track.stop());
+        setGravando(false);
+        setErro("gerente_ia.microfone_indisponivel");
+      };
+      gravador.start(250);
       setGravando(true);
     } catch (error) {
+      pararFeedbackVoz();
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
       gravadorRef.current = null;
@@ -262,6 +397,43 @@ export function GerenteIAWorkspace() {
             className="mt-3 min-h-24 resize-y border-slate-700 bg-slate-950/70 text-base leading-7 text-white placeholder:text-slate-600"
             placeholder="Ex.: quais pedidos estão atrasados agora?"
           />
+          {gravando ? (
+            <div
+              className="mt-3 rounded-2xl border border-sky-400/25 bg-sky-400/[0.07] px-3 py-3"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-sky-200">
+                  <span className="size-2 animate-pulse rounded-full bg-red-400 shadow-[0_0_0_4px_rgba(248,113,113,0.12)]" />
+                  Gravando voz
+                </span>
+                <span className="font-mono text-xs font-bold text-slate-300">
+                  {formatarDuracaoVoz(segundosGravacao)}
+                </span>
+              </div>
+              <div
+                className="mt-3 flex h-11 items-center justify-center gap-1 overflow-hidden rounded-xl border border-white/[0.06] bg-slate-950/55 px-2"
+                aria-label="Nível do áudio captado pelo microfone"
+              >
+                {niveisVoz.map((nivel, index) => (
+                  <span
+                    key={index}
+                    className="w-1.5 min-w-1 rounded-full bg-gradient-to-t from-blue-500 to-cyan-300 transition-[height] duration-75"
+                    style={{ height: `${Math.max(4, nivel * 40)}px` }}
+                  />
+                ))}
+              </div>
+              <p className="mt-2 text-center text-xs text-slate-400">
+                Estou ouvindo. Fale normalmente e toque em <strong className="text-slate-200">Parar</strong> para transcrever.
+              </p>
+            </div>
+          ) : transcrevendo ? (
+            <div className="mt-3 flex items-center gap-2 rounded-xl border border-blue-400/20 bg-blue-400/[0.06] px-3 py-2 text-xs font-semibold text-blue-100" role="status">
+              <LoaderCircle className="size-4 animate-spin" />
+              Processando o áudio e preparando a transcrição…
+            </div>
+          ) : null}
           <div className="mt-3 flex flex-col-reverse gap-2.5 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs leading-5 text-slate-500">
               {gravando
@@ -270,7 +442,7 @@ export function GerenteIAWorkspace() {
                   ? "Transcrevendo sua pergunta com a rota de áudio governada."
                   : "Ações sensíveis continuam sujeitas a preview, confirmação e idempotência."}
             </p>
-            <div className="flex items-center gap-2">
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
               <Button
                 type="button"
                 size="lg"

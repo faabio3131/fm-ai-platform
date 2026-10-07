@@ -15,7 +15,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from application.gerente_ia_web import AplicacaoGerenteIAWebV1
+from core.ai_router import ErroAIRouter
 from core.gerente_ia.erros import ErroGerenteIA
+from core.integracoes.modelos import ErroConfiguracaoServico
 from core.gerente_ia.modelos import ChamadaTool
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.erros import CredenciaisInvalidas, ErroSeguranca
@@ -82,6 +84,10 @@ def _tratar_erro(exc: Exception) -> JSONResponse:
         return _erro(400, codigo)
     if isinstance(exc, (ErroSeguranca, PermissionError)):
         return _erro(403, str(getattr(exc, "codigo", str(exc) or "seguranca.permissao_insuficiente")))
+    if isinstance(exc, ErroAIRouter):
+        return _erro(503, exc.codigo)
+    if isinstance(exc, ErroConfiguracaoServico):
+        return _erro(503, str(exc))
     if isinstance(exc, (ValueError, TypeError)):
         return _erro(400, "gerente_ia.requisicao_invalida")
     return _erro(503, "gerente_ia.indisponivel")
