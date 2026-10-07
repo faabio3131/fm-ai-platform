@@ -32,6 +32,9 @@ export default function SignupPage() {
   const [googleBusy, setGoogleBusy] = useState(false);
   const [googleCredential, setGoogleCredential] = useState<string | null>(null);
   const [googleProfile, setGoogleProfile] = useState<GoogleSignupProfile | null>(null);
+  const [signupMethod, setSignupMethod] = useState<"chooser" | "email">(
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? "chooser" : "email",
+  );
   const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [legalDocuments, setLegalDocuments] = useState<LegalDocumentMetadata[]>([]);
@@ -192,23 +195,41 @@ export default function SignupPage() {
         ) : null}
 
         <div className="mt-4">
-          {!googleProfile ? (
+          {!googleProfile && signupMethod === "chooser" ? (
             <>
               <GoogleSignInButton
                 mode="signup"
                 onCredential={(credential) => void handleGoogleCredential(credential)}
                 disabled={googleBusy || submitting}
               />
-              {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? (
-                <div className="my-4 flex items-center gap-3" aria-hidden="true">
-                  <span className="h-px flex-1 bg-slate-800" />
-                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                    ou cadastre com e-mail
-                  </span>
-                  <span className="h-px flex-1 bg-slate-800" />
-                </div>
-              ) : null}
+              <p className="mt-2 text-center text-xs leading-5 text-slate-500">
+                Ao continuar com Google, você não cria nem precisa de uma senha do Kordena.
+              </p>
+              <div className="my-4 flex items-center gap-3" aria-hidden="true">
+                <span className="h-px flex-1 bg-slate-800" />
+                <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                  ou
+                </span>
+                <span className="h-px flex-1 bg-slate-800" />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 w-full"
+                onClick={() => setSignupMethod("email")}
+                disabled={googleBusy || submitting}
+              >
+                Cadastrar com e-mail e senha
+              </Button>
             </>
+          ) : !googleProfile ? (
+            <button
+              type="button"
+              className="text-xs font-semibold text-blue-300 hover:text-blue-200"
+              onClick={() => setSignupMethod("chooser")}
+            >
+              ← Voltar e continuar com Google
+            </button>
           ) : (
             <div className="rounded-xl border border-blue-400/20 bg-blue-400/[0.07] p-3.5">
               <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-300">
@@ -224,6 +245,7 @@ export default function SignupPage() {
                 onClick={() => {
                   setGoogleCredential(null);
                   setGoogleProfile(null);
+                  setSignupMethod(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? "chooser" : "email");
                 }}
               >
                 Usar outra forma de cadastro
@@ -233,7 +255,7 @@ export default function SignupPage() {
         </div>
 
         <form className="mt-4 space-y-3" onSubmit={(event) => void submit(event)}>
-          {!googleProfile ? (
+          {!googleProfile && signupMethod === "email" ? (
             <>
               <Input className="h-10 sm:h-9" name="owner_name" aria-label="Nome do responsável" placeholder="Nome do responsável" required maxLength={255} />
               <Input className="h-10 sm:h-9" name="email" aria-label="E-mail" type="email" placeholder="E-mail" required maxLength={320} />
