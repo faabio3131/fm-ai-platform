@@ -270,11 +270,12 @@ export function GerenteIAWorkspace() {
                   ? "Transcrevendo sua pergunta com a rota de áudio governada."
                   : "Ações sensíveis continuam sujeitas a preview, confirmação e idempotência."}
             </p>
-            <div className="flex items-center gap-2">
+            <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-2">
               <Button
                 type="button"
                 size="lg"
                 variant="outline"
+                className="w-full sm:min-w-36"
                 onClick={() => void alternarVoz()}
                 disabled={carregando || transcrevendo}
                 aria-pressed={gravando}
@@ -289,7 +290,12 @@ export function GerenteIAWorkspace() {
                 )}
                 {transcrevendo ? "Transcrevendo..." : gravando ? "Parar" : "Falar"}
               </Button>
-              <Button type="submit" size="lg" disabled={!pergunta.trim() || carregando || gravando || transcrevendo}>
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full sm:min-w-36"
+                disabled={!pergunta.trim() || carregando || gravando || transcrevendo}
+              >
                 {carregando ? <LoaderCircle className="animate-spin" /> : <Send />}
                 {carregando ? "Processando..." : "Enviar"}
               </Button>
