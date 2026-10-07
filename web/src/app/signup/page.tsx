@@ -254,64 +254,66 @@ export default function SignupPage() {
           )}
         </div>
 
-        <form className="mt-4 space-y-3" onSubmit={(event) => void submit(event)}>
-          {!googleProfile && signupMethod === "email" ? (
-            <>
-              <Input className="h-10 sm:h-9" name="owner_name" aria-label="Nome do responsável" placeholder="Nome do responsável" required maxLength={255} />
-              <Input className="h-10 sm:h-9" name="email" aria-label="E-mail" type="email" placeholder="E-mail" required maxLength={320} />
-              <Input className="h-10 sm:h-9" name="password" aria-label="Senha" type="password" autoComplete="new-password" placeholder="Senha" required minLength={8} maxLength={1024} />
-            </>
-          ) : null}
-          <Input className="h-10 sm:h-9" name="phone" aria-label="Telefone ou WhatsApp" placeholder="Telefone ou WhatsApp" maxLength={64} />
-          <Input className="h-10 sm:h-9" name="establishment_name" aria-label="Nome do estabelecimento" placeholder="Nome do estabelecimento" required maxLength={255} />
-          <Input className="h-10 sm:h-9" name="segment" aria-label="Segmento" placeholder="Segmento" required maxLength={96} />
+        {googleProfile || signupMethod === "email" ? (
+          <form className="mt-4 space-y-3" onSubmit={(event) => void submit(event)}>
+            {!googleProfile && signupMethod === "email" ? (
+              <>
+                <Input className="h-10 sm:h-9" name="owner_name" aria-label="Nome do responsável" placeholder="Nome do responsável" required maxLength={255} />
+                <Input className="h-10 sm:h-9" name="email" aria-label="E-mail" type="email" placeholder="E-mail" required maxLength={320} />
+                <Input className="h-10 sm:h-9" name="password" aria-label="Senha" type="password" autoComplete="new-password" placeholder="Senha" required minLength={8} maxLength={1024} />
+              </>
+            ) : null}
+            <Input className="h-10 sm:h-9" name="phone" aria-label="Telefone ou WhatsApp" placeholder="Telefone ou WhatsApp" maxLength={64} />
+            <Input className="h-10 sm:h-9" name="establishment_name" aria-label="Nome do estabelecimento" placeholder="Nome do estabelecimento" required maxLength={255} />
+            <Input className="h-10 sm:h-9" name="segment" aria-label="Segmento" placeholder="Segmento" required maxLength={96} />
 
-          <div className="rounded-xl border border-blue-400/15 bg-blue-400/[0.05] p-3">
-            {legalReady ? (
-              <label className="flex items-start gap-2.5 text-[13px] leading-5 text-slate-300">
-                <input name="terms_accepted" type="checkbox" required className="mt-1.5" />
-                <span>
-                  Li e aceito os{" "}
-                  <Link className="font-semibold text-blue-300 hover:text-blue-200" href="/legal/termos" target="_blank">
-                    Termos de Uso v{terms?.version}
-                  </Link>
-                  , declaro ter lido a{" "}
-                  <Link className="font-semibold text-blue-300 hover:text-blue-200" href="/legal/privacidade" target="_blank">
-                    Política de Privacidade v{privacy?.version}
-                  </Link>{" "}
-                  e reconheço o{" "}
-                  <Link className="font-semibold text-blue-300 hover:text-blue-200" href="/legal/dpa" target="_blank">
-                    DPA v{dpa?.version}
-                  </Link>{" "}
-                  como parte aplicável da relação empresarial, quando cabível.
-                </span>
-              </label>
-            ) : (
-              <div className="flex items-center gap-3 text-sm text-slate-400">
-                <Loader2 className="size-4 animate-spin text-blue-400" />
-                Validando versões jurídicas vigentes…
-              </div>
-            )}
-          </div>
+            <div className="rounded-xl border border-blue-400/15 bg-blue-400/[0.05] p-3">
+              {legalReady ? (
+                <label className="flex items-start gap-2.5 text-[13px] leading-5 text-slate-300">
+                  <input name="terms_accepted" type="checkbox" required className="mt-1.5" />
+                  <span>
+                    Li e aceito os{" "}
+                    <Link className="font-semibold text-blue-300 hover:text-blue-200" href="/legal/termos" target="_blank">
+                      Termos de Uso v{terms?.version}
+                    </Link>
+                    , declaro ter lido a{" "}
+                    <Link className="font-semibold text-blue-300 hover:text-blue-200" href="/legal/privacidade" target="_blank">
+                      Política de Privacidade v{privacy?.version}
+                    </Link>{" "}
+                    e reconheço o{" "}
+                    <Link className="font-semibold text-blue-300 hover:text-blue-200" href="/legal/dpa" target="_blank">
+                      DPA v{dpa?.version}
+                    </Link>{" "}
+                    como parte aplicável da relação empresarial, quando cabível.
+                  </span>
+                </label>
+              ) : (
+                <div className="flex items-center gap-3 text-sm text-slate-400">
+                  <Loader2 className="size-4 animate-spin text-blue-400" />
+                  Validando versões jurídicas vigentes…
+                </div>
+              )}
+            </div>
 
-          <label className="flex items-start gap-2.5 rounded-xl border border-white/5 p-3 text-[13px] leading-5 text-slate-400">
-            <input name="marketing" type="checkbox" className="mt-1" />
-            <span>
-              Aceito receber comunicações comerciais opcionais. Esta escolha é independente do aceite necessário para criar a conta.
-            </span>
-          </label>
+            <label className="flex items-start gap-2.5 rounded-xl border border-white/5 p-3 text-[13px] leading-5 text-slate-400">
+              <input name="marketing" type="checkbox" className="mt-1" />
+              <span>
+                Aceito receber comunicações comerciais opcionais. Esta escolha é independente do aceite necessário para criar a conta.
+              </span>
+            </label>
 
-          {error ? <div role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 p-2.5 text-[13px] leading-5">{error}</div> : null}
-          <Button type="submit" className="h-10 w-full" disabled={submitting || googleBusy || !legalReady}>
-            {submitting ? (
-              <><Loader2 className="animate-spin" />Enviando…</>
-            ) : googleProfile ? (
-              "Criar conta com Google"
-            ) : (
-              "Continuar"
-            )}
-          </Button>
-        </form>
+            {error ? <div role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 p-2.5 text-[13px] leading-5">{error}</div> : null}
+            <Button type="submit" className="h-10 w-full" disabled={submitting || googleBusy || !legalReady}>
+              {submitting ? (
+                <><Loader2 className="animate-spin" />Enviando…</>
+              ) : googleProfile ? (
+                "Criar conta com Google"
+              ) : (
+                "Continuar"
+              )}
+            </Button>
+          </form>
+        ) : null}
       </section>
     </main>
   );
