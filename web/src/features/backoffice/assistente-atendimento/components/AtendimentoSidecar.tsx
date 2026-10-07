@@ -116,23 +116,19 @@ export function AtendimentoSidecar({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="fixed bottom-5 right-4 z-[55] flex items-center gap-2 rounded-2xl border border-emerald-300/20 bg-[#071523]/95 px-3 py-2.5 text-left shadow-[0_22px_55px_-24px_rgba(0,0,0,0.95)] backdrop-blur-xl transition hover:border-emerald-300/35 hover:bg-[#0a1b2d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/60"
+          className="group fixed right-0 top-1/2 z-[55] flex h-12 w-11 -translate-y-1/2 items-center justify-center rounded-l-2xl border border-r-0 border-emerald-300/20 bg-[#071523]/96 shadow-[-12px_14px_36px_-20px_rgba(0,0,0,0.95)] backdrop-blur-xl transition hover:w-12 hover:border-emerald-300/35 hover:bg-[#0a1b2d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/60 max-sm:bottom-4 max-sm:right-4 max-sm:top-auto max-sm:size-12 max-sm:translate-y-0 max-sm:rounded-full max-sm:border-r"
           aria-label="Abrir acompanhamento lateral da Central de Atendimento IA"
+          title="Central de Atendimento IA"
         >
-          <WhatsAppChannelMark className="size-9" />
-          <span className="hidden sm:block">
-            <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-emerald-300">
-              Atendimento ao vivo
-            </span>
-            <span className="mt-0.5 block text-xs font-bold text-slate-100">
-              Central de Atendimento IA
-            </span>
-          </span>
+          <WhatsAppChannelMark className="size-8" />
           {metricas.atencao > 0 ? (
-            <span className="ml-1 flex min-w-5 items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-black text-slate-950">
-              {metricas.atencao}
+            <span className="absolute -left-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1 text-[10px] font-black text-slate-950 ring-2 ring-[#071523]">
+              {metricas.atencao > 99 ? "99+" : metricas.atencao}
             </span>
           ) : null}
+          <span className="pointer-events-none absolute right-full mr-2 hidden whitespace-nowrap rounded-lg border border-white/[0.07] bg-[#071523]/98 px-2.5 py-1.5 text-[10px] font-bold text-slate-200 shadow-xl group-hover:block group-focus-visible:block max-sm:hidden">
+            Central de Atendimento IA
+          </span>
         </button>
       ) : null}
 
