@@ -11,7 +11,10 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from application.ai_router_runtime import construir_ai_model_router
 from application.gerente_ia_runtime import compor_runtime_gerente_ia
+from core.ai_router import CapabilityIA, ConteudoAudioIA, SolicitacaoIA
+from core.gerente_ia.erros import ErroGerenteIA
 from core.gerente_ia.modelos import ChamadaTool
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.segredos import SecretStore
@@ -66,6 +69,49 @@ class AplicacaoGerenteIAWebV1:
             )
             uow.commit()
             return identidade, chamada, resultado
+
+    def transcrever_audio(
+        self,
+        *,
+        contexto: ContextoExecucao,
+        audio: bytes,
+        mime_type: str,
+        request_id: str,
+    ) -> str:
+        if not audio:
+            raise ValueError("gerente_ia.audio_vazio")
+        if not mime_type.strip():
+            raise ValueError("gerente_ia.audio_mime_ausente")
+        with UnitOfWorkV1(self._session_factory) as uow:
+            session = self._session(uow)
+            router = construir_ai_model_router(
+                session=session,
+                contexto=contexto,
+                secret_store=self._secret_store,
+            )
+            resposta = router.executar(
+                SolicitacaoIA(
+                    tenant_id=contexto.tenant_id,
+                    unidade_id=contexto.unidade_id,
+                    request_id=request_id,
+                    correlation_id=contexto.correlation_id,
+                    capability=CapabilityIA.ATENDIMENTO_TRANSCRICAO,
+                    conteudo=ConteudoAudioIA(
+                        audio=audio,
+                        mime_type=mime_type,
+                        instrucao=(
+                            "Transcreva fielmente esta pergunta falada ao Gerente IA "
+                            "em português. Retorne somente a transcrição, sem resumo, "
+                            "sem resposta e sem adicionar informações."
+                        ),
+                    ),
+                )
+            )
+            texto = str(resposta.conteudo).strip()
+            if not texto:
+                raise ErroGerenteIA("transcricao_audio_vazia")
+            uow.commit()
+            return texto
 
     def confirmar_acao(
         self,
