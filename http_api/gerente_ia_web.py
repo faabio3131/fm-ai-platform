@@ -7,6 +7,7 @@ from dataclasses import asdict, is_dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any
+from uuid import uuid4
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -136,6 +137,41 @@ def build_gerente_ia_web_router(
                 nome_assistente=identidade.nome_publico,
                 chamada=chamada,
             )
+        except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
+            return _tratar_erro(exc)
+
+    @router.post("/transcrever", response_model=None)
+    async def transcrever(request: Request) -> dict[str, str] | JSONResponse:
+        try:
+            contexto = _contexto(
+                request,
+                auth_runtime=auth_runtime,
+                permissao=Permissao.GERENTE_IA_CONSULTAR,
+            )
+            mime_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+            permitidos = {
+                "audio/webm",
+                "audio/ogg",
+                "audio/mp4",
+                "audio/mpeg",
+                "audio/wav",
+                "audio/x-wav",
+            }
+            if mime_type not in permitidos:
+                return _erro(415, "gerente_ia.audio_formato_nao_suportado")
+            audio = await request.body()
+            if not audio or len(audio) > 10 * 1024 * 1024:
+                return _erro(413, "gerente_ia.audio_tamanho_invalido")
+            texto = app.transcrever_audio(
+                contexto=contexto,
+                audio=audio,
+                mime_type=mime_type,
+                request_id=(
+                    request.headers.get("x-correlation-id")
+                    or f"gerente-ia-voz:{uuid4()}"
+                ),
+            )
+            return {"transcricao": texto}
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _tratar_erro(exc)
 

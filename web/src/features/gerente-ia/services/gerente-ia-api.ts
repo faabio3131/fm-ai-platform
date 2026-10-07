@@ -56,3 +56,29 @@ export function confirmarGerenteIA(input: {
     body: JSON.stringify(input),
   });
 }
+
+
+export async function transcreverGerenteIA(audio: Blob): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}/v1/gerente-ia/transcrever`, {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": audio.type || "audio/webm",
+    },
+    body: audio,
+  });
+  const payload = (await response.json().catch(() => ({}))) as {
+    transcricao?: string;
+    erro?: string;
+  };
+  if (!response.ok) {
+    throw new Error(payload.erro ?? `http_${response.status}`);
+  }
+  const texto = payload.transcricao?.trim();
+  if (!texto) {
+    throw new Error("gerente_ia.transcricao_vazia");
+  }
+  return texto;
+}

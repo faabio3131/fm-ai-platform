@@ -6,12 +6,14 @@ import {
   CheckCircle2,
   LoaderCircle,
   Megaphone,
+  Mic,
   Send,
+  Square,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 
 import { KordenaBrainMark } from "@/components/brand/KordenaBrainMark";
 import { Button } from "@/components/ui/button";
@@ -22,6 +24,7 @@ import {
   confirmarGerenteIA,
   GerenteIAResponse,
   perguntarGerenteIA,
+  transcreverGerenteIA,
 } from "../services/gerente-ia-api";
 
 function recordOf(value: unknown): Record<string, unknown> | null {
@@ -65,6 +68,11 @@ export function GerenteIAWorkspace() {
   const [resposta, setResposta] = useState<GerenteIAResponse | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
+  const [gravando, setGravando] = useState(false);
+  const [transcrevendo, setTranscrevendo] = useState(false);
+  const gravadorRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const partesRef = useRef<BlobPart[]>([]);
   const preview = useMemo(() => previewOf(resposta), [resposta]);
   const campaignDraftId = useMemo(() => campaignDraftOf(resposta), [resposta]);
   const canOpenCampaigns = useMemo(
@@ -83,6 +91,65 @@ export function GerenteIAWorkspace() {
       setErro(error instanceof Error ? error.message : "gerente_ia.indisponivel");
     } finally {
       setCarregando(false);
+    }
+  }
+
+  async function alternarVoz() {
+    if (gravando) {
+      gravadorRef.current?.stop();
+      return;
+    }
+    if (carregando || transcrevendo) return;
+    setErro(null);
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      setErro("gerente_ia.microfone_nao_suportado");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const tipos = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/ogg;codecs=opus",
+      ];
+      const mimeType = tipos.find((tipo) => MediaRecorder.isTypeSupported(tipo));
+      const gravador = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+      partesRef.current = [];
+      streamRef.current = stream;
+      gravadorRef.current = gravador;
+      gravador.ondataavailable = (event) => {
+        if (event.data.size > 0) partesRef.current.push(event.data);
+      };
+      gravador.onstop = () => {
+        const tipo = gravador.mimeType || mimeType || "audio/webm";
+        const blob = new Blob(partesRef.current, { type: tipo });
+        stream.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        gravadorRef.current = null;
+        partesRef.current = [];
+        setGravando(false);
+        setTranscrevendo(true);
+        void transcreverGerenteIA(blob)
+          .then((texto) => setPergunta(texto))
+          .catch((error: unknown) => {
+            setErro(error instanceof Error ? error.message : "gerente_ia.transcricao_falhou");
+          })
+          .finally(() => setTranscrevendo(false));
+      };
+      gravador.start();
+      setGravando(true);
+    } catch (error) {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      gravadorRef.current = null;
+      setGravando(false);
+      setErro(
+        error instanceof DOMException && error.name === "NotAllowedError"
+          ? "gerente_ia.microfone_permissao_negada"
+          : "gerente_ia.microfone_indisponivel",
+      );
     }
   }
 
@@ -197,12 +264,36 @@ export function GerenteIAWorkspace() {
           />
           <div className="mt-3 flex flex-col-reverse gap-2.5 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs leading-5 text-slate-500">
-              Ações sensíveis continuam sujeitas a preview, confirmação e idempotência.
+              {gravando
+                ? "Gravando voz… clique em Parar quando terminar."
+                : transcrevendo
+                  ? "Transcrevendo sua pergunta com a rota de áudio governada."
+                  : "Ações sensíveis continuam sujeitas a preview, confirmação e idempotência."}
             </p>
-            <Button type="submit" size="lg" disabled={!pergunta.trim() || carregando}>
-              {carregando ? <LoaderCircle className="animate-spin" /> : <Send />}
-              {carregando ? "Processando..." : "Enviar"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="lg"
+                variant="outline"
+                onClick={() => void alternarVoz()}
+                disabled={carregando || transcrevendo}
+                aria-pressed={gravando}
+                aria-label={gravando ? "Parar gravação de voz" : "Falar com o Gerente IA"}
+              >
+                {transcrevendo ? (
+                  <LoaderCircle className="animate-spin" />
+                ) : gravando ? (
+                  <Square />
+                ) : (
+                  <Mic />
+                )}
+                {transcrevendo ? "Transcrevendo..." : gravando ? "Parar" : "Falar"}
+              </Button>
+              <Button type="submit" size="lg" disabled={!pergunta.trim() || carregando || gravando || transcrevendo}>
+                {carregando ? <LoaderCircle className="animate-spin" /> : <Send />}
+                {carregando ? "Processando..." : "Enviar"}
+              </Button>
+            </div>
           </div>
         </form>
 
