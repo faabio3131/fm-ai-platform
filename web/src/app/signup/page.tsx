@@ -32,6 +32,9 @@ export default function SignupPage() {
   const [googleBusy, setGoogleBusy] = useState(false);
   const [googleCredential, setGoogleCredential] = useState<string | null>(null);
   const [googleProfile, setGoogleProfile] = useState<GoogleSignupProfile | null>(null);
+  const [signupMethod, setSignupMethod] = useState<"chooser" | "email">(
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? "chooser" : "email",
+  );
   const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [legalDocuments, setLegalDocuments] = useState<LegalDocumentMetadata[]>([]);
@@ -192,23 +195,41 @@ export default function SignupPage() {
         ) : null}
 
         <div className="mt-4">
-          {!googleProfile ? (
+          {!googleProfile && signupMethod === "chooser" ? (
             <>
               <GoogleSignInButton
                 mode="signup"
                 onCredential={(credential) => void handleGoogleCredential(credential)}
                 disabled={googleBusy || submitting}
               />
-              {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? (
-                <div className="my-4 flex items-center gap-3" aria-hidden="true">
-                  <span className="h-px flex-1 bg-slate-800" />
-                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                    ou cadastre com e-mail
-                  </span>
-                  <span className="h-px flex-1 bg-slate-800" />
-                </div>
-              ) : null}
+              <p className="mt-2 text-center text-xs leading-5 text-slate-500">
+                Ao continuar com Google, você não cria nem precisa de uma senha do Kordena.
+              </p>
+              <div className="my-4 flex items-center gap-3" aria-hidden="true">
+                <span className="h-px flex-1 bg-slate-800" />
+                <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                  ou
+                </span>
+                <span className="h-px flex-1 bg-slate-800" />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 w-full"
+                onClick={() => setSignupMethod("email")}
+                disabled={googleBusy || submitting}
+              >
+                Cadastrar com e-mail e senha
+              </Button>
             </>
+          ) : !googleProfile ? (
+            <button
+              type="button"
+              className="text-xs font-semibold text-blue-300 hover:text-blue-200"
+              onClick={() => setSignupMethod("chooser")}
+            >
+              ← Voltar e continuar com Google
+            </button>
           ) : (
             <div className="rounded-xl border border-blue-400/20 bg-blue-400/[0.07] p-3.5">
               <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-300">
@@ -224,6 +245,7 @@ export default function SignupPage() {
                 onClick={() => {
                   setGoogleCredential(null);
                   setGoogleProfile(null);
+                  setSignupMethod(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? "chooser" : "email");
                 }}
               >
                 Usar outra forma de cadastro
@@ -232,64 +254,66 @@ export default function SignupPage() {
           )}
         </div>
 
-        <form className="mt-4 space-y-3" onSubmit={(event) => void submit(event)}>
-          {!googleProfile ? (
-            <>
-              <Input className="h-10 sm:h-9" name="owner_name" aria-label="Nome do responsável" placeholder="Nome do responsável" required maxLength={255} />
-              <Input className="h-10 sm:h-9" name="email" aria-label="E-mail" type="email" placeholder="E-mail" required maxLength={320} />
-              <Input className="h-10 sm:h-9" name="password" aria-label="Senha" type="password" autoComplete="new-password" placeholder="Senha" required minLength={8} maxLength={1024} />
-            </>
-          ) : null}
-          <Input className="h-10 sm:h-9" name="phone" aria-label="Telefone ou WhatsApp" placeholder="Telefone ou WhatsApp" maxLength={64} />
-          <Input className="h-10 sm:h-9" name="establishment_name" aria-label="Nome do estabelecimento" placeholder="Nome do estabelecimento" required maxLength={255} />
-          <Input className="h-10 sm:h-9" name="segment" aria-label="Segmento" placeholder="Segmento" required maxLength={96} />
+        {googleProfile || signupMethod === "email" ? (
+          <form className="mt-4 space-y-3" onSubmit={(event) => void submit(event)}>
+            {!googleProfile && signupMethod === "email" ? (
+              <>
+                <Input className="h-10 sm:h-9" name="owner_name" aria-label="Nome do responsável" placeholder="Nome do responsável" required maxLength={255} />
+                <Input className="h-10 sm:h-9" name="email" aria-label="E-mail" type="email" placeholder="E-mail" required maxLength={320} />
+                <Input className="h-10 sm:h-9" name="password" aria-label="Senha" type="password" autoComplete="new-password" placeholder="Senha" required minLength={8} maxLength={1024} />
+              </>
+            ) : null}
+            <Input className="h-10 sm:h-9" name="phone" aria-label="Telefone ou WhatsApp" placeholder="Telefone ou WhatsApp" maxLength={64} />
+            <Input className="h-10 sm:h-9" name="establishment_name" aria-label="Nome do estabelecimento" placeholder="Nome do estabelecimento" required maxLength={255} />
+            <Input className="h-10 sm:h-9" name="segment" aria-label="Segmento" placeholder="Segmento" required maxLength={96} />
 
-          <div className="rounded-xl border border-blue-400/15 bg-blue-400/[0.05] p-3">
-            {legalReady ? (
-              <label className="flex items-start gap-2.5 text-[13px] leading-5 text-slate-300">
-                <input name="terms_accepted" type="checkbox" required className="mt-1.5" />
-                <span>
-                  Li e aceito os{" "}
-                  <Link className="font-semibold text-blue-300 hover:text-blue-200" href="/legal/termos" target="_blank">
-                    Termos de Uso v{terms?.version}
-                  </Link>
-                  , declaro ter lido a{" "}
-                  <Link className="font-semibold text-blue-300 hover:text-blue-200" href="/legal/privacidade" target="_blank">
-                    Política de Privacidade v{privacy?.version}
-                  </Link>{" "}
-                  e reconheço o{" "}
-                  <Link className="font-semibold text-blue-300 hover:text-blue-200" href="/legal/dpa" target="_blank">
-                    DPA v{dpa?.version}
-                  </Link>{" "}
-                  como parte aplicável da relação empresarial, quando cabível.
-                </span>
-              </label>
-            ) : (
-              <div className="flex items-center gap-3 text-sm text-slate-400">
-                <Loader2 className="size-4 animate-spin text-blue-400" />
-                Validando versões jurídicas vigentes…
-              </div>
-            )}
-          </div>
+            <div className="rounded-xl border border-blue-400/15 bg-blue-400/[0.05] p-3">
+              {legalReady ? (
+                <label className="flex items-start gap-2.5 text-[13px] leading-5 text-slate-300">
+                  <input name="terms_accepted" type="checkbox" required className="mt-1.5" />
+                  <span>
+                    Li e aceito os{" "}
+                    <Link className="font-semibold text-blue-300 hover:text-blue-200" href="/legal/termos" target="_blank">
+                      Termos de Uso v{terms?.version}
+                    </Link>
+                    , declaro ter lido a{" "}
+                    <Link className="font-semibold text-blue-300 hover:text-blue-200" href="/legal/privacidade" target="_blank">
+                      Política de Privacidade v{privacy?.version}
+                    </Link>{" "}
+                    e reconheço o{" "}
+                    <Link className="font-semibold text-blue-300 hover:text-blue-200" href="/legal/dpa" target="_blank">
+                      DPA v{dpa?.version}
+                    </Link>{" "}
+                    como parte aplicável da relação empresarial, quando cabível.
+                  </span>
+                </label>
+              ) : (
+                <div className="flex items-center gap-3 text-sm text-slate-400">
+                  <Loader2 className="size-4 animate-spin text-blue-400" />
+                  Validando versões jurídicas vigentes…
+                </div>
+              )}
+            </div>
 
-          <label className="flex items-start gap-2.5 rounded-xl border border-white/5 p-3 text-[13px] leading-5 text-slate-400">
-            <input name="marketing" type="checkbox" className="mt-1" />
-            <span>
-              Aceito receber comunicações comerciais opcionais. Esta escolha é independente do aceite necessário para criar a conta.
-            </span>
-          </label>
+            <label className="flex items-start gap-2.5 rounded-xl border border-white/5 p-3 text-[13px] leading-5 text-slate-400">
+              <input name="marketing" type="checkbox" className="mt-1" />
+              <span>
+                Aceito receber comunicações comerciais opcionais. Esta escolha é independente do aceite necessário para criar a conta.
+              </span>
+            </label>
 
-          {error ? <div role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 p-2.5 text-[13px] leading-5">{error}</div> : null}
-          <Button type="submit" className="h-10 w-full" disabled={submitting || googleBusy || !legalReady}>
-            {submitting ? (
-              <><Loader2 className="animate-spin" />Enviando…</>
-            ) : googleProfile ? (
-              "Criar conta com Google"
-            ) : (
-              "Continuar"
-            )}
-          </Button>
-        </form>
+            {error ? <div role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 p-2.5 text-[13px] leading-5">{error}</div> : null}
+            <Button type="submit" className="h-10 w-full" disabled={submitting || googleBusy || !legalReady}>
+              {submitting ? (
+                <><Loader2 className="animate-spin" />Enviando…</>
+              ) : googleProfile ? (
+                "Criar conta com Google"
+              ) : (
+                "Continuar"
+              )}
+            </Button>
+          </form>
+        ) : null}
       </section>
     </main>
   );
