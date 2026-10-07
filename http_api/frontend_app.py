@@ -63,7 +63,7 @@ from infra.comercial.mercado_pago_subscriptions import (
     MercadoPagoSubscriptionsBillingProvider,
 )
 from infra.comercial.transactional_email import (
-    build_smtp_verification_dispatcher_from_env,
+    build_verification_dispatcher_from_env,
 )
 from infra.legacy_product_scope import reconciliar_lojas_legadas_unidades_admin
 from infra.seguranca.session_guard import build_session_factory
@@ -178,7 +178,7 @@ def build_frontend_http_app(
     verification_dispatcher = signup_verification_dispatcher
     if signup_enabled and verification_dispatcher is None:
         try:
-            verification_dispatcher = build_smtp_verification_dispatcher_from_env(
+            verification_dispatcher = build_verification_dispatcher_from_env(
                 secret_store=secret_store
             )
         except RuntimeError as exc:
