@@ -5,6 +5,11 @@ actual FastAPI application. Never runs against an external DB or deployment.
 """
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import pytest
 import uvicorn
 from fastapi.testclient import TestClient
