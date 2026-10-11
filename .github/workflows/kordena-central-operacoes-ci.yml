@@ -36,6 +36,8 @@ jobs:
         run: npx tsc --noEmit --incremental false
       - name: ESLint
         run: npm run lint
+      - name: Operations board contract tests
+        run: node --test tests/operations-board.contract.test.mjs
       - name: Production build
         run: npm run build
       - name: Check route generated
