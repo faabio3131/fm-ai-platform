@@ -89,7 +89,7 @@ export function OperationsBoardWorkspace() {
 
       <section aria-label="Quadro de pedidos" className="grid gap-4 lg:grid-cols-3">
         {groups.map((group) => (
-          <div key={group.key} className={`min-h-72 rounded-2xl border-t-4 ${group.color} bg-[#102235] p-4 shadow-lg`}>
+          <div key={group.key} className={`min-h-52 rounded-2xl border-t-4 lg:min-h-60 ${group.color} bg-[#102235] p-4 shadow-lg`}>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-semibold">{group.label}</h2>
               <span className="rounded-full bg-slate-700 px-3 py-1 text-xs font-bold">{group.items.length}{truncated ? "+" : ""}</span>
