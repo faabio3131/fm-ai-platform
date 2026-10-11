@@ -42,3 +42,26 @@ jobs:
         run: npm run build
       - name: Check route generated
         run: test -f .next/BUILD_ID && test -d .next/server/app/central-operacoes
+      - name: Install browser test runner
+        run: npm install --no-save --no-package-lock --no-audit --no-fund playwright
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Start application and run browser tests
+        run: |
+          npm run start -- --hostname 127.0.0.1 > /tmp/kordena-next.log 2>&1 &
+          APP_PID=$!
+          trap 'kill $APP_PID || true' EXIT
+          for i in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:3000/login >/dev/null; then break; fi
+            sleep 2
+          done
+          node tests/operations-board.browser.mjs
+      - name: Upload browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kordena-operations-browser-screenshots
+          path: |
+            web/operations-board-desktop.png
+            web/operations-board-mobile.png
+          if-no-files-found: ignore
