@@ -80,3 +80,54 @@ jobs:
           python -m pip install -r requirements.txt pytest
       - name: Authenticate and list real orders in isolated test database
         run: python -m pytest tests/api/test_central_operacoes_real_api.py -q
+
+  integrated-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install test backend
+        run: python -m pip install -r requirements.txt pytest
+      - name: Install frontend
+        working-directory: web
+        run: npm install --no-package-lock --no-audit --no-fund
+      - name: Build frontend pointing only to local FastAPI
+        working-directory: web
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:8000
+        run: npm run build
+      - name: Install Chromium test browser
+        working-directory: web
+        run: |
+          npm install --no-save --no-package-lock --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+      - name: Real full-stack E2E (isolated SQLite, signed session, seeded order)
+        working-directory: web
+        run: |
+          python ../tests/api/serve_central_operacoes_e2e.py > /tmp/kordena-api-e2e.log 2>&1 &
+          API_PID=$!
+          npm run start -- --hostname 127.0.0.1 > /tmp/kordena-web-e2e.log 2>&1 &
+          WEB_PID=$!
+          trap 'kill $API_PID $WEB_PID 2>/dev/null || true' EXIT
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8000/openapi.json >/dev/null && curl -fsS http://127.0.0.1:3000/login >/dev/null; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8000/openapi.json >/dev/null || { cat /tmp/kordena-api-e2e.log; exit 1; }
+          curl -fsS http://127.0.0.1:3000/login >/dev/null || { cat /tmp/kordena-web-e2e.log; exit 1; }
+          node tests/operations-board.integrated.mjs || { cat /tmp/kordena-api-e2e.log; cat /tmp/kordena-web-e2e.log; exit 1; }
+      - name: Upload integrated screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kordena-operations-integrated-e2e
+          path: |
+            web/operations-board-integrated-desktop.png
+            web/operations-board-integrated-mobile.png
+          if-no-files-found: ignore
