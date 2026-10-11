@@ -16,7 +16,7 @@ try {
 
   await page.goto(web + "/login?next=%2Fcentral-operacoes");
   await page.getByLabel("E-mail").fill("gerente-orders-center@example.com");
-  await page.getByLabel("Senha").fill("Senha-Segura-Orders-Center-123");
+  await page.locator("#senha").fill("Senha-Segura-Orders-Center-123");
   await page.getByRole("button",{name:"Entrar",exact:true}).click();
   await page.getByRole("heading",{name:"Central de Operações"}).waitFor({timeout:20000});
   const firstCard = page.locator('a[href="/pedidos"]').filter({hasText:"Pedido #"}).first();
