@@ -65,3 +65,18 @@ jobs:
             web/operations-board-desktop.png
             web/operations-board-mobile.png
           if-no-files-found: ignore
+
+  backend-real-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest
+      - name: Authenticate and list real orders in isolated test database
+        run: python -m pytest tests/api/test_central_operacoes_real_api.py -q
