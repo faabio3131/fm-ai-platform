@@ -34,6 +34,20 @@ try {
    assert.equal(calls(),0);
    assert.equal(await page.getByText("Pedido #novo0001").count(),0);
  });
+ await scenario("API failure shows an alert and preserves previous data",["pedido.visualizar"],async(page)=>{
+   await page.getByText("Pedido #novo0001").waitFor();
+   await page.route("**/v1/pedidos?*",route=>route.fulfill({status:503,contentType:"application/json",body:JSON.stringify({erro:"indisponivel"})}));
+   await page.getByRole("button",{name:"Atualizar"}).click();
+   await page.getByRole("alert").getByText(/Não foi possível atualizar os pedidos/).waitFor();
+   assert.equal(await page.getByText("Pedido #novo0001").count(),1);
+ });
+ await scenario("automatic refresh polls again after 15 seconds",["pedido.visualizar"],async(page,calls)=>{
+   await page.getByText("Pedido #novo0001").waitFor();
+   const initial = calls();
+   await page.waitForFunction(() => document.body.textContent?.includes("Última atualização:"));
+   await page.waitForTimeout(16000);
+   assert.ok(calls()>initial,`Expected polling after 15s; got ${calls()} requests`);
+ });
  await scenario("mobile layout renders",["pedido.visualizar"],async(page)=>{
    await page.setViewportSize({width:390,height:844});
    await page.getByText("Pedido #novo0001").waitFor();
