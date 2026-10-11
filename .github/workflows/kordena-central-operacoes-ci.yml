@@ -1,0 +1,43 @@
+name: Kordena Central de Operacoes CI
+
+on:
+  push:
+    branches:
+      - feat/kordena-v1-central-operacoes-isolada
+  pull_request:
+    paths:
+      - 'web/**'
+      - '.github/workflows/kordena-central-operacoes-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kordena-operations-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: TypeScript
+        run: npx tsc --noEmit --incremental false
+      - name: ESLint
+        run: npm run lint
+      - name: Production build
+        run: npm run build
+      - name: Check route generated
+        run: test -f .next/BUILD_ID && test -d .next/server/app/central-operacoes
