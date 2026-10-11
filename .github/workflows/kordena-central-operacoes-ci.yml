@@ -1,4 +1,5 @@
 name: Kordena Central de Operacoes CI
+# Certification rerun requested after Actions quota change
 
 on:
   push:
