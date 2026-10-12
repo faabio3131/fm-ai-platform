@@ -90,6 +90,12 @@ export function AdminStepUpGuard({ children }: { children: ReactNode }) {
     };
     const recheckOnReturn = () => {
       if (document.visibilityState === "visible") {
+        setStatus((current) => {
+          const deadline = current?.expira_em ? Date.parse(current.expira_em) : 0;
+          return current?.elevado && (!Number.isFinite(deadline) || deadline <= Date.now())
+            ? { ...current, elevado: false, expira_em: null }
+            : current;
+        });
         void getAdminStepUpStatus()
           .then(setStatus)
           .catch(() => setStatus(null));
@@ -167,10 +173,7 @@ export function AdminStepUpGuard({ children }: { children: ReactNode }) {
     );
   }
 
-  // Não reabrir conteúdo sensível após retornar de uma aba suspensa.
-  const deadline = status?.expira_em ? new Date(status.expira_em).getTime() : 0;
-  const elevatedNow = Boolean(status?.elevado && Number.isFinite(deadline) && deadline > Date.now());
-  if (elevatedNow) return children;
+  if (status?.elevado) return children;
 
   return (
     <PremiumGateFrame>
