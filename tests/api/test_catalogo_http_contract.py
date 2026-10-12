@@ -573,7 +573,14 @@ def test_estoque_aplica_leitura_visual_pelo_mesmo_boundary(monkeypatch) -> None:
             )
         )
 
-    monkeypatch.setattr("http_api.estoque.generate_content", gerar)
+    class FakeRouter:
+        def executar(self, solicitacao):
+            return SimpleNamespace(conteudo=gerar(contents=solicitacao.conteudo).text)
+
+    monkeypatch.setattr(
+        "application.estoque_documentos_governados.construir_ai_model_router",
+        lambda **_: FakeRouter(),
+    )
     engine, _, client = _infra(monkeypatch)
     arquivo = io.BytesIO()
     Image.new("RGB", (2, 2), "white").save(arquivo, format="PNG")
