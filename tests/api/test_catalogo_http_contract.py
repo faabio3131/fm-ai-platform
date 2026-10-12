@@ -530,10 +530,7 @@ def test_estoque_executa_forecasting_e_alertas_pelo_boundary(monkeypatch) -> Non
         chamadas.append(contents)
         return mock_generate_content(contents=contents)
 
-    class FakeRouter:
-        def executar(self, solicitacao):
-            return SimpleNamespace(conteudo=gerar(contents=solicitacao.conteudo).text)
-    monkeypatch.setattr("application.estoque_documentos_governados.construir_ai_model_router", lambda **_: FakeRouter())
+    monkeypatch.setattr("http_api.estoque.generate_content", gerar)
     monkeypatch.setattr("http_api.estoque.is_test_mode", lambda: True)
     engine, _, client = _infra(monkeypatch)
     with engine.begin() as conn:
