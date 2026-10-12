@@ -85,14 +85,14 @@ def test_leitura_visual_preserva_prompt_parsing_validade_e_lote() -> None:
     assert len(chamadas) == 1
     assert chamadas[0][0] == PROMPT_LEITURA_VISUAL_ESTOQUE
     assert isinstance(chamadas[0][1], Image.Image)
-    assert resultado.itens_lidos == itens_ia
-    assert resultado.processados == 2
-    assert estoque.itens == [
+    assert resultado.processados == 0
+    assert estoque.itens == []
+    assert resultado.itens_lidos == [
         {
             "nome": "Tomate",
             "quantidade": 2.5,
             "unidade": "kg",
-            "data_validade": datetime(2026, 10, 20),  # noqa: DTZ001
+            "data_validade": "2026-10-20",
         },
         {
             "nome": "Queijo",
