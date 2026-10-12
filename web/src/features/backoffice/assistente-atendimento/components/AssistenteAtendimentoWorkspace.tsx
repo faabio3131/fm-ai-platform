@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -13,6 +13,8 @@ import {
   ChevronRight,
   CircleDollarSign,
   Headphones,
+  Mic,
+  Square,
   MapPinned,
   MessageCircle,
   PackageCheck,
@@ -38,6 +40,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
+import { transcreverGerenteIA } from '@/features/gerente-ia/services/gerente-ia-api';
 import { ESTADO_COLORS, ESTADO_LABELS } from '../constants';
 import {
   configurarIdentidade,
@@ -409,16 +412,97 @@ function SimuladorAtendenteHomologacao() {
   const [erro, setErro] = useState('');
   const [executando, setExecutando] = useState(false);
   const [testarGemini, setTestarGemini] = useState(true);
+  const [gravando, setGravando] = useState(false);
+  const [transcrevendo, setTranscrevendo] = useState(false);
+  const gravadorRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const partesRef = useRef<Blob[]>([]);
+
+  useEffect(() => () => {
+    const gravador = gravadorRef.current;
+    if (gravador && gravador.state !== 'inactive') {
+      gravador.onstop = null;
+      gravador.stop();
+    }
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+  }, []);
+
+  async function alternarMicrofone() {
+    if (gravando) {
+      if (gravadorRef.current?.state === 'recording') gravadorRef.current.stop();
+      return;
+    }
+    if (executando || transcrevendo) return;
+    setErro('');
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      setErro('Este navegador não permite gravação de áudio.');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const tipos = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+      const tipo = tipos.find((item) => MediaRecorder.isTypeSupported(item));
+      const gravador = tipo ? new MediaRecorder(stream, { mimeType: tipo }) : new MediaRecorder(stream);
+      gravadorRef.current = gravador;
+      partesRef.current = [];
+      gravador.ondataavailable = (event) => {
+        if (event.data.size > 0) partesRef.current.push(event.data);
+      };
+      gravador.onstop = () => {
+        const audio = new Blob(partesRef.current, { type: gravador.mimeType || tipo || 'audio/webm' });
+        partesRef.current = [];
+        stream.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        gravadorRef.current = null;
+        setGravando(false);
+        if (!audio.size || audio.size > 10 * 1024 * 1024) {
+          setErro('Gravação vazia ou muito grande. Grave uma mensagem mais curta.');
+          return;
+        }
+        setTranscrevendo(true);
+        // Reutilização do endpoint governado existente: o envio para a Atendente continua manual.
+        void transcreverGerenteIA(audio)
+          .then((texto) => { setMensagem(texto.slice(0, 500)); setResultado(null); })
+          .catch((error: unknown) => setErro(error instanceof Error ? error.message : 'Não foi possível transcrever o áudio.'))
+          .finally(() => setTranscrevendo(false));
+      };
+      gravador.start(250);
+      setGravando(true);
+    } catch (error) {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      gravadorRef.current = null;
+      setGravando(false);
+      setErro(error instanceof DOMException && error.name === 'NotAllowedError'
+        ? 'Permita o acesso ao microfone no navegador.'
+        : 'Não foi possível iniciar a gravação de áudio.');
+    }
+  }
 
   async function enviarTeste() {
-    if (!mensagem.trim() || executando) return;
+    if (!mensagem.trim() || executando || gravando || transcrevendo) return;
     setExecutando(true);
     setResultado(null);
     setErro('');
     try {
       setResultado(await testarAtendenteIA(mensagem.trim(), testarGemini));
     } catch (error: unknown) {
-      setErro(error instanceof Error ? error.message : 'Falha na comunicação com a IA');
+      const codigo = error instanceof Error && 'code' in error ? String(error.code ?? '') : '';
+      const status = error instanceof Error && 'status' in error ? Number(error.status) : 0;
+      const mensagens: Record<string, string> = {
+        'seguranca.admin_step_up_exigido': 'A reautenticação administrativa expirou ou ainda não foi feita. Abra a área protegida do Proprietário, reautentique-se e repita o teste.',
+        'simulador.permissao_insuficiente': 'Sua conta não possui as permissões de administração e gerenciamento de integrações exigidas para este diagnóstico.',
+        'simulador.sessao_exigida': 'É necessária uma sessão web autenticada. Faça login novamente no Kordena.',
+        'simulador.nao_autenticado': 'A sessão não foi reconhecida. Faça login novamente no Kordena.',
+        'simulador.desabilitado': 'O simulador de homologação está desativado no backend.',
+        'simulador.rota_nao_configurada': 'A rota Gemini de diagnóstico não está configurada no Command.',
+        'simulador.provedor_temporariamente_indisponivel': 'O provedor de IA está temporariamente indisponível.',
+        'simulador.provedor_rejeitou': 'O provedor de IA rejeitou o teste. Consulte o diagnóstico seguro da FM.',
+      };
+      setErro(mensagens[codigo] ?? (status === 403
+        ? 'A API negou o acesso (403). Confira sua reautenticação administrativa e as permissões do usuário.'
+        : error instanceof Error ? error.message : 'Falha na comunicação com a IA'));
     } finally {
       setExecutando(false);
     }
@@ -437,11 +521,23 @@ function SimuladorAtendenteHomologacao() {
       <textarea id="simulador-atendente-mensagem" value={mensagem} maxLength={500}
         onChange={(event) => setMensagem(event.target.value)}
         className="min-h-24 w-full rounded-xl border border-slate-600 bg-slate-950 p-3 text-sm text-white" />
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" variant="outline" aria-pressed={gravando}
+          disabled={executando || transcrevendo} onClick={() => void alternarMicrofone()}>
+          {gravando ? <Square className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
+          {transcrevendo ? 'Transcrevendo…' : gravando ? 'Parar gravação' : 'Gravar áudio'}
+        </Button>
+        <span role="status" className="text-xs text-slate-300">
+          {gravando ? 'Microfone ativo. Clique em Parar para transcrever.' : transcrevendo
+            ? 'Convertendo áudio em texto no serviço governado da FM.'
+            : 'A transcrição preenche o campo. Revise antes de enviar ao Gemini.'}
+        </span>
+      </div>
       <label className="flex items-center gap-2 text-sm text-slate-200">
         <input type="checkbox" checked={testarGemini} onChange={(event) => setTestarGemini(event.target.checked)} />
         Testar especificamente a API Gemini (sem fallback)
       </label>
-      <Button type="button" disabled={executando || !mensagem.trim()} onClick={() => void enviarTeste()}>
+      <Button type="button" disabled={executando || gravando || transcrevendo || !mensagem.trim()} onClick={() => void enviarTeste()}>
         {executando ? 'Consultando provedor real…' : 'Testar atendente agora'}
       </Button>
       {erro ? <p role="alert" className="text-sm text-rose-300">{erro}</p> : null}
