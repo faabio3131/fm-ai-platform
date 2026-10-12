@@ -89,9 +89,9 @@ export interface ResultadoSimuladorAtendente {
   correlation_id: string;
 }
 
-export async function testarAtendenteIA(mensagem: string): Promise<ResultadoSimuladorAtendente> {
+export async function testarAtendenteIA(mensagem: string, testarGemini: boolean): Promise<ResultadoSimuladorAtendente> {
   return apiRequest<ResultadoSimuladorAtendente>(
     '/v1/admin/assistente-atendimento/simulador',
-    { method: 'POST', body: JSON.stringify({ mensagem }) },
+    { method: 'POST', body: JSON.stringify({ mensagem, testar_gemini: testarGemini }) },
   );
 }
