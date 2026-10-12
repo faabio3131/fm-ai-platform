@@ -19,6 +19,7 @@ from core.gerente_ia.modelos import ChamadaTool
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.segredos import SecretStore
 from infra.transacoes.uow import UnitOfWorkV1
+from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
 
 
 class AplicacaoGerenteIAWebV1:
@@ -46,7 +47,7 @@ class AplicacaoGerenteIAWebV1:
         with UnitOfWorkV1(self._session_factory) as uow:
             runtime = compor_runtime_gerente_ia(
                 session=self._session(uow),
-                secret_store=self._secret_store,
+                secret_store=self._secret_store or EncryptedSQLAlchemySecretStore(self._session(uow)),
             )
             resultado = runtime.executar_tool(contexto=contexto, chamada=chamada)
             uow.commit()
@@ -61,7 +62,7 @@ class AplicacaoGerenteIAWebV1:
         with UnitOfWorkV1(self._session_factory) as uow:
             runtime = compor_runtime_gerente_ia(
                 session=self._session(uow),
-                secret_store=self._secret_store,
+                secret_store=self._secret_store or EncryptedSQLAlchemySecretStore(self._session(uow)),
             )
             identidade, chamada, resultado = runtime.perguntar(
                 contexto=contexto,
@@ -87,7 +88,7 @@ class AplicacaoGerenteIAWebV1:
             router = construir_ai_model_router(
                 session=session,
                 contexto=contexto,
-                secret_store=self._secret_store,
+                secret_store=self._secret_store or EncryptedSQLAlchemySecretStore(self._session(uow)),
             )
             resposta = router.executar(
                 SolicitacaoIA(
@@ -124,7 +125,7 @@ class AplicacaoGerenteIAWebV1:
         with UnitOfWorkV1(self._session_factory) as uow:
             runtime = compor_runtime_gerente_ia(
                 session=self._session(uow),
-                secret_store=self._secret_store,
+                secret_store=self._secret_store or EncryptedSQLAlchemySecretStore(self._session(uow)),
             )
             resultado = runtime.confirmar_acao(
                 contexto=contexto,
