@@ -50,6 +50,7 @@ from core.seguranca.erros import (
     SegredoAusente,
 )
 from core.seguranca.segredos import ReferenceSecretStore, SecretStore
+from http_api.assistente_simulador_homologacao import build_assistente_simulador_router
 from http_api.auth import AuthSessionRuntime, build_auth_router
 from http_api.catalogo import build_catalogo_router
 from http_api.commercial_billing_webhooks import build_commercial_billing_webhook_router
@@ -170,6 +171,13 @@ def build_http_app(
         build_catalogo_router(
             session_factory=session_factory,
             auth_runtime=auth_runtime,
+        )
+    )
+    app.include_router(
+        build_assistente_simulador_router(
+            session_factory=session_factory,
+            auth_runtime=auth_runtime,
+            secret_store_factory=whatsapp_secret_store_factory,
         )
     )
     app.include_router(
