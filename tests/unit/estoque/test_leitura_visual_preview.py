@@ -35,15 +35,21 @@ def test_upload_png_so_extrai_previa_sem_mutacao():
     assert len(recebido) == 2
 
 
-def test_pdf_digitalizado_sem_texto_nao_grava_nem_finge_sucesso():
+def test_pdf_digitalizado_renderiza_paginas_sem_gravacao():
     pdf = BytesIO()
     writer = PdfWriter()
     writer.add_blank_page(width=200, height=100)
     writer.write(pdf)
     pdf.seek(0)
     app = AplicacaoLeituraVisualEstoqueV1(EstoqueNaoGravavel())
-    with pytest.raises(ValueError, match="pdf_sem_texto_extraivel"):
-        app.executar(None, fonte_imagem=pdf, generate_content=lambda **_: None)
+    captured = []
+    def gerar(*, contents):
+        captured.extend(contents)
+        return SimpleNamespace(text='[{"nome":"Pão brioche","quantidade":12,"unidade":"un","data_validade":null}]')
+    result = app.executar(None, fonte_imagem=pdf, generate_content=gerar)
+    assert result.processados == 0
+    assert result.itens_lidos[0]["nome"] == "Pão brioche"
+    assert isinstance(captured[1], Image.Image)
 
 
 def test_resposta_ia_nao_lista_e_rejeitada_sem_gravacao():
