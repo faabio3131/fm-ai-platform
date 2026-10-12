@@ -588,5 +588,5 @@ def test_estoque_aplica_leitura_visual_pelo_mesmo_boundary(monkeypatch) -> None:
     assert response.json()["processados"] == 0
     assert response.json()["itens_lidos"][0]["nome"] == "Carne"
     with engine.begin() as conn:
-        row = conn.execute(text("SELECT count(*) FROM insumos WHERE loja_id = 71 AND nome = 'Carne'")).scalar_one()
-    assert row == 0
+        row = conn.execute(text("SELECT saldo_atual FROM insumos WHERE loja_id = 71 AND nome = 'Carne'")).scalar_one()
+    assert float(row) == 10.0
