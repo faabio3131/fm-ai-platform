@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
@@ -106,6 +108,10 @@ def test_administrador_exige_step_up_e_revoga_ao_trocar_unidade(monkeypatch) -> 
     assert elevado.status_code == 200
     assert elevado.json()["ok"] is True
     assert elevado.json()["expira_em"] is not None
+    # A janela elevada pertence ao backend, não apenas ao temporizador da UI.
+    expira_em = datetime.fromisoformat(elevado.json()["expira_em"])
+    restante = (expira_em - datetime.now(timezone.utc)).total_seconds()
+    assert 0 < restante <= 180
 
     status_elevado = client.get("/v1/auth/admin-status")
     assert status_elevado.status_code == 200
