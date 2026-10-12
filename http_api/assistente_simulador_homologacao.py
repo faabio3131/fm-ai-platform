@@ -22,6 +22,7 @@ from infra.transacoes.uow import UnitOfWorkV1
 
 class MensagemSimulador(BaseModel):
     mensagem: str = Field(min_length=1, max_length=500)
+    testar_gemini: bool = False
 
 
 def build_assistente_simulador_router(
@@ -70,7 +71,11 @@ def build_assistente_simulador_router(
                     unidade_id=contexto.unidade_id,
                     request_id=str(uuid4()),
                     correlation_id=contexto.correlation_id,
-                    capability=CapabilityIA.ATENDIMENTO_INTERPRETACAO,
+                    capability=(
+                        CapabilityIA.ATENDIMENTO_DIAGNOSTICO_GEMINI
+                        if payload.testar_gemini
+                        else CapabilityIA.ATENDIMENTO_INTERPRETACAO
+                    ),
                     conteudo=(
                         "MODO DIAGNÓSTICO SEM EFEITOS EXTERNOS. Responda à mensagem "
                         "em português como atendente de restaurante. Nunca execute "
@@ -78,6 +83,8 @@ def build_assistente_simulador_router(
                         "Não invente produtos ou preços. Mensagem do teste: " + payload.mensagem
                     ),
                 ))
+                if payload.testar_gemini and resposta.provider != "gemini":
+                    return JSONResponse(status_code=503, content={"erro": "simulador.gemini_nao_utilizado"})
                 uow.commit()
                 return JSONResponse(content={
                     "resposta": str(resposta.conteudo)[:2000],
