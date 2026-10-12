@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from datetime import date, datetime
 import logging
+from pathlib import Path
+from traceback import extract_tb
 from typing import Any, cast
 
 from fastapi import APIRouter, Request, status
@@ -384,7 +386,7 @@ def build_estoque_router(
         except ValueError:
             return _erro(status.HTTP_422_UNPROCESSABLE_ENTITY, "estoque.documento_nao_processavel")
         except Exception as exc:  # noqa: BLE001 - erro do provider/imagem sanitizado
-            logger.error("estoque.leitura_visual_falhou exception_type=%s", type(exc).__name__)
+            logger.error("estoque.leitura_visual_falhou exception_type=%s origin=%s", type(exc).__name__, [(Path(frame.filename).name, frame.name, frame.lineno) for frame in extract_tb(exc.__traceback__)[-3:]])
             return _erro(
                 status.HTTP_502_BAD_GATEWAY,
                 "estoque.leitura_visual_falhou",
