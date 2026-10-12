@@ -7,11 +7,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
-from pypdf import PdfReader
-import pypdfium2 as pdfium
 from typing import Any
 
+import pypdfium2 as pdfium
 from PIL import Image
+from pypdf import PdfReader
 
 from application.legacy_estoque_transacoes import AplicacaoLegacyEstoqueV1
 from core.seguranca.contexto import ContextoExecucao
