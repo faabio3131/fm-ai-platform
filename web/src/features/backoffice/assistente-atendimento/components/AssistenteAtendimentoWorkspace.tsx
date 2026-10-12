@@ -488,7 +488,21 @@ function SimuladorAtendenteHomologacao() {
     try {
       setResultado(await testarAtendenteIA(mensagem.trim(), testarGemini));
     } catch (error: unknown) {
-      setErro(error instanceof Error ? error.message : 'Falha na comunicação com a IA');
+      const codigo = error instanceof Error && 'code' in error ? String(error.code ?? '') : '';
+      const status = error instanceof Error && 'status' in error ? Number(error.status) : 0;
+      const mensagens: Record<string, string> = {
+        'seguranca.admin_step_up_exigido': 'A reautenticação administrativa expirou ou ainda não foi feita. Abra a área protegida do Proprietário, reautentique-se e repita o teste.',
+        'simulador.permissao_insuficiente': 'Sua conta não possui as permissões de administração e gerenciamento de integrações exigidas para este diagnóstico.',
+        'simulador.sessao_exigida': 'É necessária uma sessão web autenticada. Faça login novamente no Kordena.',
+        'simulador.nao_autenticado': 'A sessão não foi reconhecida. Faça login novamente no Kordena.',
+        'simulador.desabilitado': 'O simulador de homologação está desativado no backend.',
+        'simulador.rota_nao_configurada': 'A rota Gemini de diagnóstico não está configurada no Command.',
+        'simulador.provedor_temporariamente_indisponivel': 'O provedor de IA está temporariamente indisponível.',
+        'simulador.provedor_rejeitou': 'O provedor de IA rejeitou o teste. Consulte o diagnóstico seguro da FM.',
+      };
+      setErro(mensagens[codigo] ?? (status === 403
+        ? 'A API negou o acesso (403). Confira sua reautenticação administrativa e as permissões do usuário.'
+        : error instanceof Error ? error.message : 'Falha na comunicação com a IA'));
     } finally {
       setExecutando(false);
     }
