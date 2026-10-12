@@ -1,0 +1,49 @@
+name: Kordena Render Staging Safety
+
+on:
+  push:
+    branches:
+      - chore/kordena-render-homologacao-isolada-20261011
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  staging-entrypoint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile safe entrypoint
+        run: python -m py_compile ops/render/kordena_staging_asgi.py core/runtime/config.py
+      - name: Verify fail-closed runtime (no database connection)
+        run: |
+          python - <<'PY'
+          from core.runtime.config import load_runtime_settings, RuntimeEnvironment
+          from unittest.mock import patch
+          base = {"FM_AI_ENV": "staging", "DATABASE_URL": "postgresql+psycopg://user:pass@localhost/fake", "FM_AI_TENANT_ID": "tenant-hml", "FM_AI_UNIDADE_ID": "unit-hml"}
+          with patch.dict("os.environ", base, clear=True):
+              cfg = load_runtime_settings()
+              assert cfg.environment == RuntimeEnvironment.STAGING
+              assert cfg.commercial
+          for key in ("DATABASE_URL", "FM_AI_TENANT_ID", "FM_AI_UNIDADE_ID"):
+              incomplete = {k: v for k, v in base.items() if k != key}
+              with patch.dict("os.environ", incomplete, clear=True):
+                  try:
+                      load_runtime_settings()
+                  except RuntimeError:
+                      pass
+                  else:
+                      raise AssertionError(f"Expected fail-closed for {key}")
+          with patch.dict("os.environ", {**base, "DATABASE_URL": "sqlite:///bad.db"}, clear=True):
+              try:
+                  load_runtime_settings()
+              except RuntimeError:
+                  pass
+              else:
+                  raise AssertionError("SQLite must be forbidden")
+          print("staging configuration contract OK")
+          PY
