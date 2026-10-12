@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
+from traceback import extract_tb
 import os
 from collections.abc import Callable
 from uuid import uuid4
@@ -112,7 +114,7 @@ def build_assistente_simulador_router(
         except ErroSeguranca:
             return JSONResponse(status_code=401, content={"erro": "simulador.nao_autenticado"})
         except Exception as exc:
-            logger.error("simulador.falhou exception_type=%s", type(exc).__name__)
+            logger.error("simulador.falhou exception_type=%s origin=%s", type(exc).__name__, [(Path(frame.filename).name, frame.name, frame.lineno) for frame in extract_tb(exc.__traceback__)[-3:]])
             # Nunca expor detalhes da configuração, segredos ou mensagens do provider.
             return JSONResponse(status_code=503, content={"erro": "simulador.ia_indisponivel"})
 
