@@ -21,7 +21,6 @@ import {
   aplicarLeituraEstoque,
   type LeituraEstoqueItem,
   aplicarLeituraVisualEstoque,
-  aplicarLeituraEstoque,
   criarInsumo,
   executarForecastingAlertas,
   excluirInsumo,
