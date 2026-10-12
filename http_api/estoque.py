@@ -342,8 +342,8 @@ def build_estoque_router(
             if content_type == "application/pdf" and not arquivo.startswith(b"%PDF-"):
                 return _erro(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "estoque.arquivo_invalido")
             if content_type != "application/pdf" and not (
-                arquivo.startswith(b"\\x89PNG\\r\\n\\x1a\\n")
-                or arquivo.startswith(b"\\xff\\xd8\\xff")
+                arquivo.startswith(b"\x89PNG\r\n\x1a\n")
+                or arquivo.startswith(b"\xff\xd8\xff")
                 or (arquivo.startswith(b"RIFF") and arquivo[8:12] == b"WEBP")
             ):
                 return _erro(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "estoque.arquivo_invalido")
