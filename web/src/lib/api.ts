@@ -1,5 +1,7 @@
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_URL === "__SAME_ORIGIN__"
+    ? ""
+    : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000");
 
 export interface ApiContext {
   token?: string;
