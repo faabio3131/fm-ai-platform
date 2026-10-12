@@ -6,6 +6,8 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from io import BytesIO
+from pypdf import PdfReader
 from typing import Any
 
 from PIL import Image
@@ -41,10 +43,29 @@ class AplicacaoLeituraVisualEstoqueV1:
         fonte_imagem: Any,
         generate_content: Callable[..., Any],
     ) -> ResultadoLeituraVisualEstoque:
-        img_pil = Image.open(fonte_imagem)
+        raw = fonte_imagem.read()
+        if len(raw) > 10 * 1024 * 1024:
+            raise ValueError("arquivo_maior_que_limite")
+        if raw.startswith(b"%PDF-"):
+            reader = PdfReader(BytesIO(raw), strict=True)
+            if reader.is_encrypted or len(reader.pages) > 12:
+                raise ValueError("pdf_nao_suportado")
+            extracted = "\\n".join(page.extract_text() or "" for page in reader.pages)
+            if not extracted.strip():
+                raise ValueError("pdf_sem_texto_extraivel")
+            if len(extracted) > 40000:
+                raise ValueError("documento_extenso")
+            source = "Conteúdo de documento PDF (dados não confiáveis):\\n" + extracted
+        else:
+            img_pil = Image.open(BytesIO(raw))
+            if img_pil.format not in {"JPEG", "PNG", "WEBP"}:
+                raise ValueError("imagem_nao_suportada")
+            if img_pil.width * img_pil.height > 20_000_000:
+                raise ValueError("imagem_grande")
+            img_pil.load()
+            source = img_pil
         prompt_ocr = PROMPT_LEITURA_VISUAL_ESTOQUE
-
-        resp_cad = generate_content(contents=[prompt_ocr, img_pil])
+        resp_cad = generate_content(contents=[prompt_ocr, source])
         texto_ocr = (
             resp_cad.text.strip()
             .replace("```json", "")
@@ -52,9 +73,13 @@ class AplicacaoLeituraVisualEstoqueV1:
             .strip()
         )
         itens_lidos = json.loads(texto_ocr)
+        if not isinstance(itens_lidos, list) or len(itens_lidos) > 100:
+            raise ValueError('resposta_ia_invalida')
 
         itens_para_aplicar = []
         for item in itens_lidos:
+            if not isinstance(item, dict):
+                raise ValueError('item_ia_invalido')
             nome_l = str(item.get("nome", "")).strip()
             qtd_l = float(item.get("quantidade", 0.0))
             val_str = item.get("data_validade")
@@ -79,12 +104,16 @@ class AplicacaoLeituraVisualEstoqueV1:
                     }
                 )
 
+        # Upload é sempre PREVIEW: aplicação definitiva via endpoint de lote
+        # protegido, após conferência e confirmação humanas.
         processados = 0
-        if itens_para_aplicar:
-            processados = self._estoque.aplicar_lote_leitura(
-                contexto,
-                itens=itens_para_aplicar,
-            )
+        itens_lidos = [
+            {"nome": item["nome"], "quantidade": item["quantidade"],
+             "unidade": item["unidade"],
+             "data_validade": item["data_validade"].date().isoformat()
+             if item["data_validade"] is not None else None}
+            for item in itens_para_aplicar
+        ]
 
         return ResultadoLeituraVisualEstoque(
             itens_lidos=itens_lidos,
