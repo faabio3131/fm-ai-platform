@@ -11,7 +11,13 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from application.ai_router_runtime import construir_ai_model_router
-from core.ai_router import CapabilityIA, SolicitacaoIA
+from core.ai_router import (
+    CapabilityIA,
+    FalhaRotaDefinitiva,
+    FalhaRotaTransitoria,
+    SemRotaCompativel,
+    SolicitacaoIA,
+)
 from core.seguranca.erros import ErroSeguranca
 from core.seguranca.permissoes import Permissao
 from core.seguranca.segredos import SecretStore
@@ -93,6 +99,12 @@ def build_assistente_simulador_router(
                     "fallback": resposta.fallback_used,
                     "correlation_id": contexto.correlation_id,
                 })
+        except SemRotaCompativel:
+            return JSONResponse(status_code=503, content={"erro": "simulador.rota_nao_configurada"})
+        except FalhaRotaTransitoria:
+            return JSONResponse(status_code=503, content={"erro": "simulador.provedor_temporariamente_indisponivel"})
+        except FalhaRotaDefinitiva:
+            return JSONResponse(status_code=502, content={"erro": "simulador.provedor_rejeitou"})
         except ErroSeguranca:
             return JSONResponse(status_code=401, content={"erro": "simulador.nao_autenticado"})
         except Exception:
