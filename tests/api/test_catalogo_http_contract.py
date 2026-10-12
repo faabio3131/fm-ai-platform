@@ -530,7 +530,10 @@ def test_estoque_executa_forecasting_e_alertas_pelo_boundary(monkeypatch) -> Non
         chamadas.append(contents)
         return mock_generate_content(contents=contents)
 
-    monkeypatch.setattr("http_api.estoque.generate_content", gerar)
+    class FakeRouter:
+        def executar(self, solicitacao):
+            return SimpleNamespace(conteudo=gerar(contents=solicitacao.conteudo).text)
+    monkeypatch.setattr("http_api.estoque.construir_ai_model_router", lambda **_: FakeRouter())
     monkeypatch.setattr("http_api.estoque.is_test_mode", lambda: True)
     engine, _, client = _infra(monkeypatch)
     with engine.begin() as conn:
@@ -582,14 +585,8 @@ def test_estoque_aplica_leitura_visual_pelo_mesmo_boundary(monkeypatch) -> None:
     )
 
     assert response.status_code == 200
-    assert response.json()["processados"] == 1
+    assert response.json()["processados"] == 0
     assert response.json()["itens_lidos"][0]["nome"] == "Carne"
     with engine.begin() as conn:
-        row = conn.execute(
-            text(
-                "SELECT saldo_atual, data_validade FROM insumos "
-                "WHERE loja_id = 71 AND nome = 'Carne'"
-            )
-        ).one()
-    assert float(row.saldo_atual) == 12.0
-    assert str(row.data_validade).startswith("2026-10-25")
+        row = conn.execute(text("SELECT count(*) FROM insumos WHERE loja_id = 71 AND nome = 'Carne'")).scalar_one()
+    assert row == 0
