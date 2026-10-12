@@ -237,12 +237,48 @@ export function EstoqueWorkspace() {
             </Button>
           </div>
           {itensLeituraVisual !== null ? (
-            <pre className="mt-4 overflow-x-auto rounded-xl border border-sky-300/20 bg-slate-950/70 p-3 text-xs text-slate-300">
-              {JSON.stringify(itensLeituraVisual, null, 2)}
-            </pre>
+            <div className="mt-4 space-y-3" aria-label="Revisão dos insumos extraídos">
+              <p className="text-xs text-amber-200">
+                Prévia sem gravação. Confira cada campo: a IA pode interpretar quantidades ou validades incorretamente.
+              </p>
+              {itensLeituraVisual.length === 0 ? (
+                <p className="text-sm text-slate-300">Nenhum insumo válido encontrado neste arquivo.</p>
+              ) : null}
+              {itensLeituraVisual.map((item, index) => (
+                <div key={index} className="grid gap-2 rounded-xl border border-white/10 bg-slate-950/60 p-3 sm:grid-cols-2 lg:grid-cols-5">
+                  <label className="text-xs text-slate-300 lg:col-span-2">
+                    Nome
+                    <input value={item.nome} maxLength={240}
+                      onChange={(event) => setItensLeituraVisual((current) => current?.map((entry, at) => at === index ? { ...entry, nome: event.target.value } : entry) ?? null)}
+                      className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-950 p-2 text-sm text-white" />
+                  </label>
+                  <label className="text-xs text-slate-300">
+                    Quantidade
+                    <input type="number" min="0.001" step="any" value={item.quantidade}
+                      onChange={(event) => setItensLeituraVisual((current) => current?.map((entry, at) => at === index ? { ...entry, quantidade: Number(event.target.value) } : entry) ?? null)}
+                      className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-950 p-2 text-sm text-white" />
+                  </label>
+                  <label className="text-xs text-slate-300">
+                    Unidade
+                    <select value={item.unidade} onChange={(event) => setItensLeituraVisual((current) => current?.map((entry, at) => at === index ? { ...entry, unidade: event.target.value } : entry) ?? null)}
+                      className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-950 p-2 text-sm text-white">
+                      {UNIDADES.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+                    </select>
+                  </label>
+                  <label className="text-xs text-slate-300">
+                    Validade
+                    <input type="date" value={item.data_validade ?? ""}
+                      onChange={(event) => setItensLeituraVisual((current) => current?.map((entry, at) => at === index ? { ...entry, data_validade: event.target.value || null } : entry) ?? null)}
+                      className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-950 p-2 text-sm text-white" />
+                  </label>
+                  <button type="button" onClick={() => setItensLeituraVisual((current) => current?.filter((_, at) => at !== index) ?? null)}
+                    className="w-fit text-xs text-rose-300 hover:text-rose-200">Remover item</button>
+                </div>
+              ))}
+            </div>
           ) : null}
           {itensLeituraVisual?.length ? (
-            <Button type="button" className="mt-3" disabled={busy}
+            <Button type="button" className="mt-3" disabled={busy || itensLeituraVisual.some((item) => !item.nome.trim() || !Number.isFinite(item.quantidade) || item.quantidade <= 0 || !UNIDADES.includes(item.unidade as typeof UNIDADES[number]))}
               onClick={() => void operar(async () => {
                 const resultado = await aplicarLeituraEstoque(itensLeituraVisual);
                 setAviso(`${resultado.processados} insumos confirmados e salvos.`);
