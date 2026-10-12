@@ -257,6 +257,7 @@ def _capabilities(
             CapabilityIA.TOOL_PLANNING,
             CapabilityIA.ATENDIMENTO_INTERPRETACAO,
             CapabilityIA.ATENDIMENTO_TRANSCRICAO,
+            CapabilityIA.ESTOQUE_LEITURA_DOCUMENTAL,
         )
 
     try:
