@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from application.ai_router_runtime import construir_ai_model_router
+from application.assistente_simulador_transacao import confirmar_auditoria_simulador
 from core.ai_router import (
     CapabilityIA,
     FalhaRotaDefinitiva,
@@ -94,7 +95,7 @@ def build_assistente_simulador_router(
                 ))
                 if payload.testar_gemini and resposta.provider != "gemini":
                     return JSONResponse(status_code=503, content={"erro": "simulador.gemini_nao_utilizado"})
-                uow.commit()
+                confirmar_auditoria_simulador(uow)
                 return JSONResponse(content={
                     "resposta": str(resposta.conteudo)[:2000],
                     "provedor": resposta.provider,
