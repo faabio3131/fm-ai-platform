@@ -50,12 +50,12 @@ class AplicacaoLeituraVisualEstoqueV1:
             reader = PdfReader(BytesIO(raw), strict=True)
             if reader.is_encrypted or len(reader.pages) > 12:
                 raise ValueError("pdf_nao_suportado")
-            extracted = "\\n".join(page.extract_text() or "" for page in reader.pages)
+            extracted = "\n".join(page.extract_text() or "" for page in reader.pages)
             if not extracted.strip():
                 raise ValueError("pdf_sem_texto_extraivel")
             if len(extracted) > 40000:
                 raise ValueError("documento_extenso")
-            source = "Conteúdo de documento PDF (dados não confiáveis):\\n" + extracted
+            source = "Conteúdo de documento PDF (dados não confiáveis):\n" + extracted
         else:
             img_pil = Image.open(BytesIO(raw))
             if img_pil.format not in {"JPEG", "PNG", "WEBP"}:
