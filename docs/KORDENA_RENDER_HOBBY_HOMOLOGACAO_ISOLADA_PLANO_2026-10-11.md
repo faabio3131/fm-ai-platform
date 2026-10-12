@@ -63,7 +63,9 @@ Criar homologação completa com **um único domínio público** de acesso, mant
 - No Render, `My Workspace` contém os serviços demonstrativos `kordena-ops-demo-web` e `kordena-ops-demo-api`, ambos free.
 - Existe somente `fmcc-preview-postgres` (free), pertencente ao FM Command, com `expiresAt` informado em 19/10/2026.
 - O projeto Kordena usa Next.js, FastAPI e configuração de runtime que impede SQLite comercial sem exceção explícita.
-- **Pendente:** preço efetivo do banco exclusivo e recursos de persistência/backup no plano Hobby; ainda não provisionar.
+- **Restrição oficial Render:** apenas **um PostgreSQL Free ativo por workspace**, já ocupado pelo FM Command. Banco PostgreSQL Free tem validade de 30 dias e não tem backups. Fonte: https://render.com/docs/free .
+- **Hobby:** workspace gratuito; serviços e bancos pagos são cobrados separadamente. Fonte: https://render.com/docs/new-workspace-plans .
+- **Pendente:** confirmação da cotação exata no painel e disponibilidade de recursos de backup de um banco pago exclusivo; não provisionar antes da aprovação.
 
 ## 5. Critério de segurança
 
