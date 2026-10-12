@@ -15,3 +15,4 @@ pillow
 pypdf
 cryptography
 lxml>=5.3,<7
+pypdfium2>=4.30,<6
