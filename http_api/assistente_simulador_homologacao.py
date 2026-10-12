@@ -1,6 +1,7 @@
 """Simulador diagnóstico isolado: desativado por padrão, sem side effects comerciais."""
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Callable
 from uuid import uuid4
@@ -25,6 +26,8 @@ from http_api.auth import AuthSessionRuntime
 from http_api.operational_auth import obter_identidade_operacional
 from infra.transacoes.uow import UnitOfWorkV1
 
+
+logger = logging.getLogger(__name__)
 
 class MensagemSimulador(BaseModel):
     mensagem: str = Field(min_length=1, max_length=500)
@@ -107,7 +110,8 @@ def build_assistente_simulador_router(
             return JSONResponse(status_code=502, content={"erro": "simulador.provedor_rejeitou"})
         except ErroSeguranca:
             return JSONResponse(status_code=401, content={"erro": "simulador.nao_autenticado"})
-        except Exception:
+        except Exception as exc:
+            logger.error("simulador.falhou exception_type=%s", type(exc).__name__)
             # Nunca expor detalhes da configuração, segredos ou mensagens do provider.
             return JSONResponse(status_code=503, content={"erro": "simulador.ia_indisponivel"})
 
