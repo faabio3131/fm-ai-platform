@@ -4,6 +4,7 @@ import base64
 import io
 from types import SimpleNamespace
 
+from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from PIL import Image
 from sqlalchemy import create_engine, text
@@ -28,6 +29,7 @@ UNIDADE_B = "unidade-catalogo-b"
 def _infra(monkeypatch=None):
     if monkeypatch is not None:
         monkeypatch.setenv("FM_AI_SESSION_SECRET", SESSION_SECRET)
+        monkeypatch.setenv("FM_AI_SECRET_MASTER_KEY", Fernet.generate_key().decode("ascii"))
 
     engine = create_engine(
         "sqlite://",
@@ -570,7 +572,14 @@ def test_estoque_aplica_leitura_visual_pelo_mesmo_boundary(monkeypatch) -> None:
             )
         )
 
-    monkeypatch.setattr("http_api.estoque.generate_content", gerar)
+    class FakeRouter:
+        def executar(self, solicitacao):
+            return SimpleNamespace(conteudo=gerar(contents=solicitacao.conteudo).text)
+
+    monkeypatch.setattr(
+        "application.estoque_documentos_governados.construir_ai_model_router",
+        lambda **_: FakeRouter(),
+    )
     engine, _, client = _infra(monkeypatch)
     arquivo = io.BytesIO()
     Image.new("RGB", (2, 2), "white").save(arquivo, format="PNG")
@@ -582,14 +591,8 @@ def test_estoque_aplica_leitura_visual_pelo_mesmo_boundary(monkeypatch) -> None:
     )
 
     assert response.status_code == 200
-    assert response.json()["processados"] == 1
+    assert response.json()["processados"] == 0
     assert response.json()["itens_lidos"][0]["nome"] == "Carne"
     with engine.begin() as conn:
-        row = conn.execute(
-            text(
-                "SELECT saldo_atual, data_validade FROM insumos "
-                "WHERE loja_id = 71 AND nome = 'Carne'"
-            )
-        ).one()
-    assert float(row.saldo_atual) == 12.0
-    assert str(row.data_validade).startswith("2026-10-25")
+        row = conn.execute(text("SELECT saldo_atual FROM insumos WHERE loja_id = 71 AND nome = 'Carne'")).scalar_one()
+    assert float(row) == 10.0

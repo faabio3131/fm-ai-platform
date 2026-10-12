@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-import io
 from collections.abc import Callable, Sequence
 from datetime import date, datetime
+import logging
+from pathlib import Path
+from traceback import extract_tb
 from typing import Any, cast
 
 from fastapi import APIRouter, Request, status
@@ -14,9 +16,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from application.estoque_documentos_governados import extrair_documento_estoque
 from application.legacy_estoque_forecasting import AplicacaoForecastingEstoqueV1
 from application.legacy_estoque_leitura_visual import AplicacaoLeituraVisualEstoqueV1
 from application.legacy_estoque_transacoes import AplicacaoLegacyEstoqueV1
+from core.ai_router import FalhaRotaDefinitiva, FalhaRotaTransitoria, SemRotaCompativel
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.erros import (
     CredenciaisInvalidas,
@@ -39,6 +43,7 @@ from infra.legacy_product_scope import (
 from infra.legacy_schema import contatos_gerenciais
 from test_mode import is_test_mode, mock_generate_content, mock_whatsapp_send
 
+logger = logging.getLogger(__name__)
 SessionFactory = Callable[[], Session]
 generate_content = mock_generate_content if is_test_mode() else real_generate_content
 
@@ -325,7 +330,7 @@ def build_estoque_router(
                 .strip()
                 .casefold()
             )
-            if content_type not in {"image/jpeg", "image/png"}:
+            if content_type not in {"image/jpeg", "image/png", "image/webp", "application/pdf"}:
                 return _erro(
                     status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
                     "estoque.leitura_visual_tipo_invalido",
@@ -337,10 +342,22 @@ def build_estoque_router(
                     "estoque.leitura_visual_arquivo_obrigatorio",
                 )
 
-            resultado = aplicacao_leitura_visual.executar(
-                contexto,
-                fonte_imagem=io.BytesIO(arquivo),
-                generate_content=generate_content,
+            if len(arquivo) > 10 * 1024 * 1024:
+                return _erro(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "estoque.arquivo_excede_limite")
+            if content_type == "application/pdf" and not arquivo.startswith(b"%PDF-"):
+                return _erro(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "estoque.arquivo_invalido")
+            if content_type != "application/pdf" and not (
+                arquivo.startswith(b"\x89PNG\r\n\x1a\n")
+                or arquivo.startswith(b"\xff\xd8\xff")
+                or (arquivo.startswith(b"RIFF") and arquivo[8:12] == b"WEBP")
+            ):
+                return _erro(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "estoque.arquivo_invalido")
+            resultado = extrair_documento_estoque(
+                contexto=contexto,
+                arquivo=arquivo,
+                session_factory=session_factory,
+                secret_store_factory=whatsapp_secret_store_factory,
+                aplicacao=aplicacao_leitura_visual,
             )
             return JSONResponse(
                 status_code=status.HTTP_200_OK,
@@ -360,7 +377,23 @@ def build_estoque_router(
             IntegrityError,
         ) as exc:
             return _tratar_erro(exc)
-        except Exception:  # noqa: BLE001 - erro do provider/imagem sanitizado
+        except SemRotaCompativel:
+            return _erro(status.HTTP_503_SERVICE_UNAVAILABLE, "estoque.ia_sem_rota_homologada")
+        except FalhaRotaTransitoria:
+            return _erro(status.HTTP_503_SERVICE_UNAVAILABLE, "estoque.ia_temporariamente_indisponivel")
+        except FalhaRotaDefinitiva:
+            return _erro(status.HTTP_502_BAD_GATEWAY, "estoque.ia_provider_rejeitou")
+        except ValueError:
+            return _erro(status.HTTP_422_UNPROCESSABLE_ENTITY, "estoque.documento_nao_processavel")
+        except Exception as exc:  # noqa: BLE001 - erro do provider/imagem sanitizado
+            logger.error(
+                "estoque.leitura_visual_falhou exception_type=%s origin=%s",
+                type(exc).__name__,
+                [
+                    (Path(frame.filename).name, frame.name, frame.lineno)
+                    for frame in extract_tb(exc.__traceback__)[-3:]
+                ],
+            )
             return _erro(
                 status.HTTP_502_BAD_GATEWAY,
                 "estoque.leitura_visual_falhou",

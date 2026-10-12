@@ -81,3 +81,17 @@ export async function forcarHandoff(
     body: JSON.stringify({ motivo }),
   });
 }
+export interface ResultadoSimuladorAtendente {
+  resposta: string;
+  provedor: string;
+  modelo: string;
+  fallback: boolean;
+  correlation_id: string;
+}
+
+export async function testarAtendenteIA(mensagem: string, testarGemini: boolean): Promise<ResultadoSimuladorAtendente> {
+  return apiRequest<ResultadoSimuladorAtendente>(
+    '/v1/admin/assistente-atendimento/simulador',
+    { method: 'POST', body: JSON.stringify({ mensagem, testar_gemini: testarGemini }) },
+  );
+}

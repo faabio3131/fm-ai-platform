@@ -4,6 +4,7 @@ import io
 import json
 from types import SimpleNamespace
 
+from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from PIL import Image
 from sqlalchemy import create_engine, text
@@ -27,6 +28,7 @@ COZINHA_EMAIL = "cozinha-estoque@example.com"
 
 def _infra(monkeypatch) -> tuple[object, TestClient]:
     monkeypatch.setenv("FM_AI_SESSION_SECRET", AUTH_KEY)
+    monkeypatch.setenv("FM_AI_SECRET_MASTER_KEY", Fernet.generate_key().decode("ascii"))
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -313,21 +315,15 @@ def test_forecasting_reutiliza_contexto_da_sessao_sem_headers_spoof(
 
 
 def test_leitura_visual_valida_midia_e_persiste_pelo_application(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "http_api.estoque.generate_content",
-        lambda **_: SimpleNamespace(
-            text=json.dumps(
-                [
-                    {
-                        "nome": "Tomate Visual",
-                        "quantidade": 2.0,
-                        "unidade": "kg",
-                        "data_validade": "2026-11-10",
-                    }
-                ]
-            )
-        ),
-    )
+    class FakeRouter:
+        def executar(self, solicitacao):
+            return SimpleNamespace(conteudo=json.dumps([{
+                "nome": "Tomate Visual",
+                "quantidade": 2.0,
+                "unidade": "kg",
+                "data_validade": "2026-11-10",
+            }]))
+    monkeypatch.setattr("application.estoque_documentos_governados.construir_ai_model_router", lambda **_: FakeRouter())
     engine, client = _infra(monkeypatch)
     _login(client)
     _step_up(client)
@@ -353,16 +349,17 @@ def test_leitura_visual_valida_midia_e_persiste_pelo_application(monkeypatch) ->
     assert vazio.status_code == 400
     assert vazio.json() == {"erro": "estoque.leitura_visual_arquivo_obrigatorio"}
     assert processado.status_code == 200
-    assert processado.json()["processados"] == 1
+    assert processado.json()["processados"] == 0
     assert processado.json()["itens_lidos"][0]["nome"] == "Tomate Visual"
 
     with engine.begin() as connection:
-        row = connection.execute(
-            text(
-                "SELECT loja_id, saldo_atual, data_validade FROM insumos "
-                "WHERE nome = 'Tomate Visual'"
-            )
-        ).one()
-    assert int(row.loja_id) == 71
-    assert float(row.saldo_atual) == 2.0
-    assert str(row.data_validade).startswith("2026-11-10")
+        count = connection.execute(
+            text("SELECT count(*) FROM insumos WHERE nome = 'Tomate Visual'")
+        ).scalar_one()
+    assert count == 0
+    confirmed = client.post(
+        "/v1/estoque/leituras",
+        json={"itens": processado.json()["itens_lidos"]},
+    )
+    assert confirmed.status_code == 200
+    assert confirmed.json()["processados"] == 1

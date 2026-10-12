@@ -49,6 +49,8 @@ import {
   listarConversas,
   obterConversa,
   obterIdentidade,
+  testarAtendenteIA,
+  type ResultadoSimuladorAtendente,
 } from '../services/assistente-atendimento-api';
 
 interface IdentidadeDialogProps {
@@ -401,6 +403,59 @@ function ConversaDetailDialog({ conversa }: ConversaDetailDialogProps) {
   );
 }
 
+function SimuladorAtendenteHomologacao() {
+  const [mensagem, setMensagem] = useState('Olá! Quais pratos vocês oferecem? Não quero fazer um pedido.');
+  const [resultado, setResultado] = useState<ResultadoSimuladorAtendente | null>(null);
+  const [erro, setErro] = useState('');
+  const [executando, setExecutando] = useState(false);
+  const [testarGemini, setTestarGemini] = useState(true);
+
+  async function enviarTeste() {
+    if (!mensagem.trim() || executando) return;
+    setExecutando(true);
+    setResultado(null);
+    setErro('');
+    try {
+      setResultado(await testarAtendenteIA(mensagem.trim(), testarGemini));
+    } catch (error: unknown) {
+      setErro(error instanceof Error ? error.message : 'Falha na comunicação com a IA');
+    } finally {
+      setExecutando(false);
+    }
+  }
+
+  return (
+    <section aria-label="Simulador de homologação da atendente" className="rounded-2xl border border-amber-400/30 bg-amber-500/[0.06] p-5 space-y-3">
+      <div>
+        <h2 className="text-lg font-bold text-amber-100">Simulador de homologação da IA</h2>
+        <p className="text-sm text-slate-300">
+          Teste real pelo AI Router da FM. Não envia WhatsApp nem cria pedido ou cobrança.
+          Função temporária: desativada por padrão para uso comercial.
+        </p>
+      </div>
+      <label className="block text-sm text-slate-200" htmlFor="simulador-atendente-mensagem">Mensagem de teste</label>
+      <textarea id="simulador-atendente-mensagem" value={mensagem} maxLength={500}
+        onChange={(event) => setMensagem(event.target.value)}
+        className="min-h-24 w-full rounded-xl border border-slate-600 bg-slate-950 p-3 text-sm text-white" />
+      <label className="flex items-center gap-2 text-sm text-slate-200">
+        <input type="checkbox" checked={testarGemini} onChange={(event) => setTestarGemini(event.target.checked)} />
+        Testar especificamente a API Gemini (sem fallback)
+      </label>
+      <Button type="button" disabled={executando || !mensagem.trim()} onClick={() => void enviarTeste()}>
+        {executando ? 'Consultando provedor real…' : 'Testar atendente agora'}
+      </Button>
+      {erro ? <p role="alert" className="text-sm text-rose-300">{erro}</p> : null}
+      {resultado ? (
+        <div className="space-y-2 rounded-xl border border-sky-400/20 bg-slate-950/70 p-4">
+          <p className="whitespace-pre-wrap text-sm text-white">{resultado.resposta}</p>
+          <p className="text-xs text-slate-300">Provedor: {resultado.provedor} · Modelo: {resultado.modelo} · Fallback: {resultado.fallback ? 'Sim' : 'Não'}</p>
+          <p className="break-all text-xs text-slate-400">Correlação: {resultado.correlation_id}</p>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export function AssistenteAtendimentoWorkspace() {
   const pathname = usePathname();
   const adminSurface = pathname.startsWith('/admin/');
@@ -530,6 +585,9 @@ export function AssistenteAtendimentoWorkspace() {
   return (
     <div className="min-h-full bg-[#06101d] px-4 py-5 text-slate-100 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1600px] space-y-6">
+        {process.env.NEXT_PUBLIC_FM_AI_ASSISTENTE_SIMULADOR_ENABLED === 'true' ? (
+          <SimuladorAtendenteHomologacao />
+        ) : null}
         <section className="relative overflow-hidden rounded-[28px] border border-sky-300/[0.09] bg-[radial-gradient(circle_at_15%_10%,rgba(37,99,235,0.22),transparent_32%),linear-gradient(135deg,rgba(8,24,42,0.98),rgba(5,14,26,0.98))] p-6 shadow-[0_28px_80px_-48px_rgba(0,0,0,0.95)] lg:p-8">
           <div className="absolute right-[-80px] top-[-90px] size-72 rounded-full bg-cyan-400/[0.05] blur-3xl" />
           <div className="relative grid gap-6 xl:grid-cols-[1.3fr_0.7fr] xl:items-end">

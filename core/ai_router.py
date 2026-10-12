@@ -15,6 +15,8 @@ class CapabilityIA(StrEnum):
     TOOL_PLANNING = "tool_planning"
     ATENDIMENTO_INTERPRETACAO = "atendimento_interpretacao"
     ATENDIMENTO_TRANSCRICAO = "atendimento_transcricao"
+    ESTOQUE_LEITURA_DOCUMENTAL = "estoque_leitura_documental"
+    ATENDIMENTO_DIAGNOSTICO_GEMINI = "atendimento_diagnostico_gemini"
 
 
 class OutcomeIA(StrEnum):
