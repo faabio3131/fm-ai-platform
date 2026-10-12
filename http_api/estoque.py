@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import io
 from collections.abc import Callable, Sequence
 from datetime import date, datetime
-from types import SimpleNamespace
 from typing import Any, cast
-from uuid import uuid4
 
 from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse
@@ -16,17 +13,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from application.ai_router_runtime import construir_ai_model_router
+from application.estoque_documentos_governados import extrair_documento_estoque
 from application.legacy_estoque_forecasting import AplicacaoForecastingEstoqueV1
 from application.legacy_estoque_leitura_visual import AplicacaoLeituraVisualEstoqueV1
 from application.legacy_estoque_transacoes import AplicacaoLegacyEstoqueV1
-from core.ai_router import (
-    CapabilityIA,
-    FalhaRotaDefinitiva,
-    FalhaRotaTransitoria,
-    SemRotaCompativel,
-    SolicitacaoIA,
-)
+from core.ai_router import FalhaRotaDefinitiva, FalhaRotaTransitoria, SemRotaCompativel
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.erros import (
     CredenciaisInvalidas,
@@ -357,29 +348,13 @@ def build_estoque_router(
                 or (arquivo.startswith(b"RIFF") and arquivo[8:12] == b"WEBP")
             ):
                 return _erro(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "estoque.arquivo_invalido")
-            with session_factory() as ai_session:
-                router = construir_ai_model_router(
-                    session=ai_session, contexto=contexto,
-                    secret_store=whatsapp_secret_store_factory(ai_session),
-                )
-                def extrair_documento(*, contents: Any) -> Any:
-                    resposta = router.executar(
-                        SolicitacaoIA(
-                            tenant_id=contexto.tenant_id,
-                            unidade_id=contexto.unidade_id,
-                            request_id=str(uuid4()),
-                            correlation_id=contexto.correlation_id or str(uuid4()),
-                            capability=CapabilityIA.ESTOQUE_LEITURA_DOCUMENTAL,
-                            conteudo=contents,
-                        )
-                    )
-                    return SimpleNamespace(text=str(resposta.conteudo))
-                resultado = aplicacao_leitura_visual.executar(
-                    contexto,
-                    fonte_imagem=io.BytesIO(arquivo),
-                    generate_content=extrair_documento,
-                )
-                ai_session.commit()
+            resultado = extrair_documento_estoque(
+                contexto=contexto,
+                arquivo=arquivo,
+                session_factory=session_factory,
+                secret_store_factory=whatsapp_secret_store_factory,
+                aplicacao=aplicacao_leitura_visual,
+            )
             return JSONResponse(
                 status_code=status.HTTP_200_OK,
                 content={
