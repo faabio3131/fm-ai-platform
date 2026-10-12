@@ -22,6 +22,16 @@ export interface ShellModuleDefinition {
 
 export const SHELL_MODULES: readonly ShellModuleDefinition[] = [
   {
+    id: "central-operacoes",
+    label: "Central de Operacoes",
+    description: "Quadro de pedidos por etapa.",
+    href: "/central-operacoes",
+    group: "operacao",
+    icon: "dashboard",
+    available: true,
+    allPermissions: ["pedido.visualizar"],
+  },
+  {
     id: "pdv",
     label: "PDV Touch",
     description: "Balcão, caixa e finalização de pedidos.",
