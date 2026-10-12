@@ -250,14 +250,25 @@ def _capabilities(
             CapabilityIA.ATENDIMENTO_INTERPRETACAO,
         )
 
-    if raw is None and provider == "gemini":
-        # Compatibilidade/fallback: Gemini continua cobrindo texto e áudio enquanto
-        # a transcrição dedicada não for migrada para um modelo OpenAI de áudio.
-        return (
-            CapabilityIA.TOOL_PLANNING,
-            CapabilityIA.ATENDIMENTO_INTERPRETACAO,
-            CapabilityIA.ATENDIMENTO_TRANSCRICAO,
-        )
+    if provider == "gemini":
+        # Gemini é a rota temporária canônica de transcrição de áudio. Mesmo uma
+        # configuração legada que declare uma capability textual explícita não
+        # pode apagar silenciosamente a capacidade de transcrição homologada.
+        if raw is None:
+            return (
+                CapabilityIA.TOOL_PLANNING,
+                CapabilityIA.ATENDIMENTO_INTERPRETACAO,
+                CapabilityIA.ATENDIMENTO_TRANSCRICAO,
+            )
+        try:
+            explicit = CapabilityIA(str(raw))
+        except ValueError as exc:
+            raise ErroConfiguracaoServico(
+                "ai_route_capability_invalida"
+            ) from exc
+        if explicit is CapabilityIA.ATENDIMENTO_TRANSCRICAO:
+            return (explicit,)
+        return (explicit, CapabilityIA.ATENDIMENTO_TRANSCRICAO)
 
     try:
         return (CapabilityIA(str(raw)),)

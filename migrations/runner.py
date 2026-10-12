@@ -143,6 +143,9 @@ from migrations.operational_session_persistence_v1 import (
     upgrade_operational_session_persistence_v1,
 )
 from migrations.password_recovery_v1 import upgrade_password_recovery_v1
+from migrations.platform_gemini_reconciliation_v1 import (
+    upgrade_platform_gemini_reconciliation_v1,
+)
 from migrations.pdv_reconciliation_strategy_width_v1 import (
     upgrade_pdv_reconciliation_strategy_width_v1,
 )
@@ -432,6 +435,10 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         "0068_campaign_organic_media_v1",
         upgrade_campaign_organic_media_v1,
+    ),
+    Migration(
+        "0069_platform_gemini_reconciliation_v1",
+        upgrade_platform_gemini_reconciliation_v1,
     ),
 )
 
