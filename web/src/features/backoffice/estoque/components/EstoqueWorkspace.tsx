@@ -19,7 +19,9 @@ import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/features/auth/store/auth-store";
 import {
   aplicarLeituraEstoque,
+  type LeituraEstoqueItem,
   aplicarLeituraVisualEstoque,
+  aplicarLeituraEstoque,
   criarInsumo,
   executarForecastingAlertas,
   excluirInsumo,
@@ -33,7 +35,11 @@ const UNIDADES = ["kg", "g", "L", "ml", "un", "cx", "fatias"] as const;
 function mensagemErro(error: unknown): string {
   if (error instanceof EstoqueApiError) {
     if (error.status === 401) return "Sua sessão não está mais válida.";
-    if (error.status === 403) return "Seu perfil não pode operar o estoque desta unidade.";
+    if (error.status === 403) return "Seu perfil ou autorização administrativa não permite esta ação."; 
+    if (error.code === "estoque.leitura_visual_falhou") return "A IA não conseguiu interpretar o documento. Confira a integração de IA no Command ou tente outro arquivo.";
+    if (error.code === "estoque.documento_nao_processavel") return "Documento não processável. PDFs devem conter texto selecionável; arquivos digitalizados precisam de OCR.";
+    if (error.status === 415) return "Formato ou conteúdo inválido. Use JPG, PNG, WebP ou PDF.";
+    if (error.status === 413) return "Arquivo acima do limite de 10 MB.";
     if (error.code === "estoque.escopo_indisponivel") {
       return "A unidade ativa ainda não possui almoxarifado legado vinculado.";
     }
@@ -74,7 +80,7 @@ export function EstoqueWorkspace() {
   const [aviso, setAviso] = useState<string | null>(null);
   const [resultadoForecasting, setResultadoForecasting] = useState<string | null>(null);
   const [arquivoLeituraVisual, setArquivoLeituraVisual] = useState<File | null>(null);
-  const [itensLeituraVisual, setItensLeituraVisual] = useState<unknown>(null);
+  const [itensLeituraVisual, setItensLeituraVisual] = useState<LeituraEstoqueItem[] | null>(null);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -208,12 +214,12 @@ export function EstoqueWorkspace() {
                 <ScanLine className="size-5 text-sky-300" /> Leitor de nota fiscal ou rótulo
               </span>
               <span className="mt-1 block text-sm font-normal text-slate-400">
-                Envie uma foto para ler nome, quantidade e datas de validade.
+                Envie imagem JPG, PNG ou WebP, ou PDF com texto selecionável (até 10 MB). Confira os dados antes de gravar.
               </span>
               <input
                 type="file"
-                accept="image/jpeg,image/png"
-                onChange={(event) => setArquivoLeituraVisual(event.target.files?.[0] ?? null)}
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                onChange={(event) => { setArquivoLeituraVisual(event.target.files?.[0] ?? null); setItensLeituraVisual(null); }}
                 className="mt-3 block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-sky-500/20 file:px-3 file:py-1 file:text-sky-200"
               />
             </label>
@@ -223,8 +229,8 @@ export function EstoqueWorkspace() {
               onClick={() => void operar(async () => {
                 if (!arquivoLeituraVisual) return;
                 const resultado = await aplicarLeituraVisualEstoque(arquivoLeituraVisual);
-                setItensLeituraVisual(resultado.itens_lidos);
-                setAviso("Leitura concluída! Validades salvas no banco de dados.");
+                setItensLeituraVisual(resultado.itens_lidos as LeituraEstoqueItem[]);
+                setAviso("Prévia extraída. Nenhum insumo foi gravado. Confira antes de confirmar.");
               })}
             >
               {busy ? <LoaderCircle className="animate-spin" /> : <ScanLine />}
@@ -235,6 +241,17 @@ export function EstoqueWorkspace() {
             <pre className="mt-4 overflow-x-auto rounded-xl border border-sky-300/20 bg-slate-950/70 p-3 text-xs text-slate-300">
               {JSON.stringify(itensLeituraVisual, null, 2)}
             </pre>
+          ) : null}
+          {itensLeituraVisual?.length ? (
+            <Button type="button" className="mt-3" disabled={busy}
+              onClick={() => void operar(async () => {
+                const resultado = await aplicarLeituraEstoque(itensLeituraVisual);
+                setAviso(`${resultado.processados} insumos confirmados e salvos.`);
+                setItensLeituraVisual(null);
+                setArquivoLeituraVisual(null);
+              })}>
+              Confirmar e salvar {itensLeituraVisual.length} insumo(s)
+            </Button>
           ) : null}
         </section>
 
