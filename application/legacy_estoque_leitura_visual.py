@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
 from pypdf import PdfReader
+import pypdfium2 as pdfium
 from typing import Any
 
 from PIL import Image
@@ -52,10 +53,25 @@ class AplicacaoLeituraVisualEstoqueV1:
                 raise ValueError("pdf_nao_suportado")
             extracted = "\n".join(page.extract_text() or "" for page in reader.pages)
             if not extracted.strip():
-                raise ValueError("pdf_sem_texto_extraivel")
-            if len(extracted) > 40000:
-                raise ValueError("documento_extenso")
-            source = "Conteúdo de documento PDF (dados não confiáveis):\n" + extracted
+                pdf = pdfium.PdfDocument(raw)
+                frames = []
+                try:
+                    for page in pdf:
+                        if page.get_width() * page.get_height() > 1_000_000:
+                            raise ValueError("pagina_pdf_excessiva")
+                        frame = page.render(scale=1.5).to_pil()
+                        if frame.width * frame.height > 4_000_000:
+                            raise ValueError("pagina_pdf_excessiva")
+                        frames.append(frame)
+                finally:
+                    pdf.close()
+                if not frames:
+                    raise ValueError("pdf_sem_paginas")
+                source = frames
+            else:
+                if len(extracted) > 40000:
+                    raise ValueError("documento_extenso")
+                source = "Conteúdo PDF (dados não confiáveis):\\n" + extracted
         else:
             img_pil = Image.open(BytesIO(raw))
             if img_pil.format not in {"JPEG", "PNG", "WEBP"}:
@@ -65,7 +81,7 @@ class AplicacaoLeituraVisualEstoqueV1:
             img_pil.load()
             source = img_pil
         prompt_ocr = PROMPT_LEITURA_VISUAL_ESTOQUE
-        resp_cad = generate_content(contents=[prompt_ocr, source])
+        resp_cad = generate_content(contents=[prompt_ocr, *(source if isinstance(source, list) else [source])])
         texto_ocr = (
             resp_cad.text.strip()
             .replace("```json", "")
