@@ -4,6 +4,7 @@ import io
 import json
 from types import SimpleNamespace
 
+from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from PIL import Image
 from sqlalchemy import create_engine, text
@@ -27,6 +28,7 @@ COZINHA_EMAIL = "cozinha-estoque@example.com"
 
 def _infra(monkeypatch) -> tuple[object, TestClient]:
     monkeypatch.setenv("FM_AI_SESSION_SECRET", AUTH_KEY)
+    monkeypatch.setenv("FM_AI_SECRET_MASTER_KEY", Fernet.generate_key().decode("ascii"))
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
