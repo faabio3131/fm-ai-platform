@@ -321,7 +321,7 @@ def test_leitura_visual_valida_midia_e_persiste_pelo_application(monkeypatch) ->
                 "unidade": "kg",
                 "data_validade": "2026-11-10",
             }]))
-    monkeypatch.setattr("http_api.estoque.construir_ai_model_router", lambda **_: FakeRouter())
+    monkeypatch.setattr("application.estoque_documentos_governados.construir_ai_model_router", lambda **_: FakeRouter())
     engine, client = _infra(monkeypatch)
     _login(client)
     _step_up(client)
