@@ -88,9 +88,20 @@ export function AdminStepUpGuard({ children }: { children: ReactNode }) {
           : current,
       );
     };
+    const recheckOnReturn = () => {
+      if (document.visibilityState === "visible") {
+        void getAdminStepUpStatus()
+          .then(setStatus)
+          .catch(() => setStatus(null));
+      }
+    };
+    window.addEventListener("focus", recheckOnReturn);
+    document.addEventListener("visibilitychange", recheckOnReturn);
     window.addEventListener(ADMIN_STEP_UP_REQUIRED_EVENT, requireStepUp);
     return () => {
       window.removeEventListener(ADMIN_STEP_UP_REQUIRED_EVENT, requireStepUp);
+      window.removeEventListener("focus", recheckOnReturn);
+      document.removeEventListener("visibilitychange", recheckOnReturn);
     };
   }, []);
 
@@ -156,7 +167,10 @@ export function AdminStepUpGuard({ children }: { children: ReactNode }) {
     );
   }
 
-  if (status?.elevado) return children;
+  // Não reabrir conteúdo sensível após retornar de uma aba suspensa.
+  const deadline = status?.expira_em ? new Date(status.expira_em).getTime() : 0;
+  const elevatedNow = Boolean(status?.elevado && Number.isFinite(deadline) && deadline > Date.now());
+  if (elevatedNow) return children;
 
   return (
     <PremiumGateFrame>
