@@ -47,7 +47,7 @@ def build_assistente_simulador_router(
             identidade = acesso.identidade
             if (
                 Permissao.ADMIN_ACESSAR not in identidade.permissoes
-                or Permissao.INTEGRATION_MANAGE not in identidade.permissoes
+                or Permissao.INTEGRACAO_GERENCIAR not in identidade.permissoes
             ):
                 return JSONResponse(status_code=403, content={"erro": "simulador.permissao_insuficiente"})
             _, elevado, _ = auth_runtime.admin_status(request)
