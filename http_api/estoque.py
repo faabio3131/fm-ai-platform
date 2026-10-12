@@ -354,6 +354,7 @@ def build_estoque_router(
             with session_factory() as ai_session:
                 router = construir_ai_model_router(
                     session=ai_session, contexto=contexto,
+                    secret_store=whatsapp_secret_store_factory(ai_session),
                 )
                 def extrair_documento(*, contents: Any) -> Any:
                     resposta = router.executar(
