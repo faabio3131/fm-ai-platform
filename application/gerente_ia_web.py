@@ -17,9 +17,22 @@ from core.ai_router import CapabilityIA, ConteudoAudioIA, SolicitacaoIA
 from core.gerente_ia.erros import ErroGerenteIA
 from core.gerente_ia.modelos import ChamadaTool
 from core.seguranca.contexto import ContextoExecucao
-from core.seguranca.segredos import SecretStore
-from infra.transacoes.uow import UnitOfWorkV1
+from core.seguranca.segredos import ReferenceSecretStore, SecretStore
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
+from infra.transacoes.uow import UnitOfWorkV1
+
+
+class _RuntimeProviderSecretStore:
+    """Resolve vault only on demand, preserving env refs in test and legacy flows."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+        self._environment = ReferenceSecretStore()
+
+    def resolve(self, reference: str):
+        if reference.startswith("vault:"):
+            return EncryptedSQLAlchemySecretStore(self._session).resolve(reference)
+        return self._environment.resolve(reference)
 
 
 class AplicacaoGerenteIAWebV1:
@@ -47,7 +60,7 @@ class AplicacaoGerenteIAWebV1:
         with UnitOfWorkV1(self._session_factory) as uow:
             runtime = compor_runtime_gerente_ia(
                 session=self._session(uow),
-                secret_store=self._secret_store or EncryptedSQLAlchemySecretStore(self._session(uow)),
+                secret_store=self._secret_store or _RuntimeProviderSecretStore(self._session(uow)),
             )
             resultado = runtime.executar_tool(contexto=contexto, chamada=chamada)
             uow.commit()
@@ -62,7 +75,7 @@ class AplicacaoGerenteIAWebV1:
         with UnitOfWorkV1(self._session_factory) as uow:
             runtime = compor_runtime_gerente_ia(
                 session=self._session(uow),
-                secret_store=self._secret_store or EncryptedSQLAlchemySecretStore(self._session(uow)),
+                secret_store=self._secret_store or _RuntimeProviderSecretStore(self._session(uow)),
             )
             identidade, chamada, resultado = runtime.perguntar(
                 contexto=contexto,
@@ -88,7 +101,7 @@ class AplicacaoGerenteIAWebV1:
             router = construir_ai_model_router(
                 session=session,
                 contexto=contexto,
-                secret_store=self._secret_store or EncryptedSQLAlchemySecretStore(self._session(uow)),
+                secret_store=self._secret_store or _RuntimeProviderSecretStore(self._session(uow)),
             )
             resposta = router.executar(
                 SolicitacaoIA(
@@ -125,7 +138,7 @@ class AplicacaoGerenteIAWebV1:
         with UnitOfWorkV1(self._session_factory) as uow:
             runtime = compor_runtime_gerente_ia(
                 session=self._session(uow),
-                secret_store=self._secret_store or EncryptedSQLAlchemySecretStore(self._session(uow)),
+                secret_store=self._secret_store or _RuntimeProviderSecretStore(self._session(uow)),
             )
             resultado = runtime.confirmar_acao(
                 contexto=contexto,
