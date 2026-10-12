@@ -4,6 +4,7 @@ import base64
 import io
 from types import SimpleNamespace
 
+from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from PIL import Image
 from sqlalchemy import create_engine, text
@@ -28,6 +29,7 @@ UNIDADE_B = "unidade-catalogo-b"
 def _infra(monkeypatch=None):
     if monkeypatch is not None:
         monkeypatch.setenv("FM_AI_SESSION_SECRET", SESSION_SECRET)
+        monkeypatch.setenv("FM_AI_SECRET_MASTER_KEY", Fernet.generate_key().decode("ascii"))
 
     engine = create_engine(
         "sqlite://",
