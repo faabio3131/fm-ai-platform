@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import io
-from types import SimpleNamespace
-from uuid import uuid4
 from collections.abc import Callable, Sequence
 from datetime import date, datetime
+from types import SimpleNamespace
 from typing import Any, cast
+from uuid import uuid4
 
 from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse
@@ -17,13 +17,16 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from application.ai_router_runtime import construir_ai_model_router
-from core.ai_router import (
-    CapabilityIA, SolicitacaoIA, SemRotaCompativel,
-    FalhaRotaDefinitiva, FalhaRotaTransitoria,
-)
 from application.legacy_estoque_forecasting import AplicacaoForecastingEstoqueV1
 from application.legacy_estoque_leitura_visual import AplicacaoLeituraVisualEstoqueV1
 from application.legacy_estoque_transacoes import AplicacaoLegacyEstoqueV1
+from core.ai_router import (
+    CapabilityIA,
+    FalhaRotaDefinitiva,
+    FalhaRotaTransitoria,
+    SemRotaCompativel,
+    SolicitacaoIA,
+)
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.erros import (
     CredenciaisInvalidas,
