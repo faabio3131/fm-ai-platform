@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from datetime import date, datetime
+import logging
 from typing import Any, cast
 
 from fastapi import APIRouter, Request, status
@@ -40,6 +41,7 @@ from infra.legacy_product_scope import (
 from infra.legacy_schema import contatos_gerenciais
 from test_mode import is_test_mode, mock_generate_content, mock_whatsapp_send
 
+logger = logging.getLogger(__name__)
 SessionFactory = Callable[[], Session]
 generate_content = mock_generate_content if is_test_mode() else real_generate_content
 
@@ -381,7 +383,8 @@ def build_estoque_router(
             return _erro(status.HTTP_502_BAD_GATEWAY, "estoque.ia_provider_rejeitou")
         except ValueError:
             return _erro(status.HTTP_422_UNPROCESSABLE_ENTITY, "estoque.documento_nao_processavel")
-        except Exception:  # noqa: BLE001 - erro do provider/imagem sanitizado
+        except Exception as exc:  # noqa: BLE001 - erro do provider/imagem sanitizado
+            logger.error("estoque.leitura_visual_falhou exception_type=%s", type(exc).__name__)
             return _erro(
                 status.HTTP_502_BAD_GATEWAY,
                 "estoque.leitura_visual_falhou",
