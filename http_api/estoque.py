@@ -325,7 +325,7 @@ def build_estoque_router(
                 .strip()
                 .casefold()
             )
-            if content_type not in {"image/jpeg", "image/png"}:
+            if content_type not in {"image/jpeg", "image/png", "image/webp", "application/pdf"}:
                 return _erro(
                     status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
                     "estoque.leitura_visual_tipo_invalido",
@@ -337,6 +337,16 @@ def build_estoque_router(
                     "estoque.leitura_visual_arquivo_obrigatorio",
                 )
 
+            if len(arquivo) > 10 * 1024 * 1024:
+                return _erro(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "estoque.arquivo_excede_limite")
+            if content_type == "application/pdf" and not arquivo.startswith(b"%PDF-"):
+                return _erro(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "estoque.arquivo_invalido")
+            if content_type != "application/pdf" and not (
+                arquivo.startswith(b"\\x89PNG\\r\\n\\x1a\\n")
+                or arquivo.startswith(b"\\xff\\xd8\\xff")
+                or (arquivo.startswith(b"RIFF") and arquivo[8:12] == b"WEBP")
+            ):
+                return _erro(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "estoque.arquivo_invalido")
             resultado = aplicacao_leitura_visual.executar(
                 contexto,
                 fonte_imagem=io.BytesIO(arquivo),
@@ -360,6 +370,8 @@ def build_estoque_router(
             IntegrityError,
         ) as exc:
             return _tratar_erro(exc)
+        except ValueError:
+            return _erro(status.HTTP_422_UNPROCESSABLE_ENTITY, "estoque.documento_nao_processavel")
         except Exception:  # noqa: BLE001 - erro do provider/imagem sanitizado
             return _erro(
                 status.HTTP_502_BAD_GATEWAY,
