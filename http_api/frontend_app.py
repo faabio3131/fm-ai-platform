@@ -322,7 +322,9 @@ def build_frontend_http_app(
         build_gerente_ia_web_router(
             session_factory=session_factory,
             auth_runtime=auth_runtime,
-            secret_store=secret_store,
+            # Runtime provider credentials are vault-backed on the active UoW.
+            # ReferenceSecretStore remains for session/env references only.
+            secret_store=None,
         )
     )
     app.include_router(
