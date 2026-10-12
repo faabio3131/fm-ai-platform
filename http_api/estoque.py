@@ -17,7 +17,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from application.ai_router_runtime import construir_ai_model_router
-from core.ai_router import CapabilityIA, SolicitacaoIA
+from core.ai_router import (
+    CapabilityIA, SolicitacaoIA, SemRotaCompativel,
+    FalhaRotaDefinitiva, FalhaRotaTransitoria,
+)
 from application.legacy_estoque_forecasting import AplicacaoForecastingEstoqueV1
 from application.legacy_estoque_leitura_visual import AplicacaoLeituraVisualEstoqueV1
 from application.legacy_estoque_transacoes import AplicacaoLegacyEstoqueV1
@@ -392,6 +395,12 @@ def build_estoque_router(
             IntegrityError,
         ) as exc:
             return _tratar_erro(exc)
+        except SemRotaCompativel:
+            return _erro(status.HTTP_503_SERVICE_UNAVAILABLE, "estoque.ia_sem_rota_homologada")
+        except FalhaRotaTransitoria:
+            return _erro(status.HTTP_503_SERVICE_UNAVAILABLE, "estoque.ia_temporariamente_indisponivel")
+        except FalhaRotaDefinitiva:
+            return _erro(status.HTTP_502_BAD_GATEWAY, "estoque.ia_provider_rejeitou")
         except ValueError:
             return _erro(status.HTTP_422_UNPROCESSABLE_ENTITY, "estoque.documento_nao_processavel")
         except Exception:  # noqa: BLE001 - erro do provider/imagem sanitizado
