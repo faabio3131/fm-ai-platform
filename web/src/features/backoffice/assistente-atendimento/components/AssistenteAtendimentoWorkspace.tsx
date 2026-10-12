@@ -408,6 +408,7 @@ function SimuladorAtendenteHomologacao() {
   const [resultado, setResultado] = useState<ResultadoSimuladorAtendente | null>(null);
   const [erro, setErro] = useState('');
   const [executando, setExecutando] = useState(false);
+  const [testarGemini, setTestarGemini] = useState(true);
 
   async function enviarTeste() {
     if (!mensagem.trim() || executando) return;
@@ -415,7 +416,7 @@ function SimuladorAtendenteHomologacao() {
     setResultado(null);
     setErro('');
     try {
-      setResultado(await testarAtendenteIA(mensagem.trim()));
+      setResultado(await testarAtendenteIA(mensagem.trim(), testarGemini));
     } catch (error: unknown) {
       setErro(error instanceof Error ? error.message : 'Falha na comunicação com a IA');
     } finally {
@@ -436,6 +437,10 @@ function SimuladorAtendenteHomologacao() {
       <textarea id="simulador-atendente-mensagem" value={mensagem} maxLength={500}
         onChange={(event) => setMensagem(event.target.value)}
         className="min-h-24 w-full rounded-xl border border-slate-600 bg-slate-950 p-3 text-sm text-white" />
+      <label className="flex items-center gap-2 text-sm text-slate-200">
+        <input type="checkbox" checked={testarGemini} onChange={(event) => setTestarGemini(event.target.checked)} />
+        Testar especificamente a API Gemini (sem fallback)
+      </label>
       <Button type="button" disabled={executando || !mensagem.trim()} onClick={() => void enviarTeste()}>
         {executando ? 'Consultando provedor real…' : 'Testar atendente agora'}
       </Button>
