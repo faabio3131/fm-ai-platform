@@ -35,6 +35,9 @@ function mensagemErro(error: unknown): string {
   if (error instanceof EstoqueApiError) {
     if (error.status === 401) return "Sua sessão não está mais válida.";
     if (error.status === 403) return "Seu perfil ou autorização administrativa não permite esta ação.";
+    if (error.code === "estoque.ia_sem_rota_homologada") return "Leitura por IA indisponível: não há rota documental homologada no Command.";
+    if (error.code === "estoque.ia_temporariamente_indisponivel") return "Provedor de IA temporariamente indisponível. Tente novamente mais tarde.";
+    if (error.code === "estoque.ia_provider_rejeitou") return "O provedor de IA rejeitou a solicitação. A configuração deve ser verificada no Command.";
     if (error.code === "estoque.leitura_visual_falhou") return "A IA não conseguiu interpretar o documento. Confira a integração de IA no Command ou tente outro arquivo.";
     if (error.code === "estoque.documento_nao_processavel") return "Documento não processável. PDFs devem conter texto selecionável; arquivos digitalizados precisam de OCR.";
     if (error.status === 415) return "Formato ou conteúdo inválido. Use JPG, PNG, WebP ou PDF.";
