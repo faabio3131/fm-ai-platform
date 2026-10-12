@@ -258,6 +258,7 @@ def _capabilities(
             CapabilityIA.ATENDIMENTO_INTERPRETACAO,
             CapabilityIA.ATENDIMENTO_TRANSCRICAO,
             CapabilityIA.ESTOQUE_LEITURA_DOCUMENTAL,
+            CapabilityIA.ATENDIMENTO_DIAGNOSTICO_GEMINI,
         )
 
     try:
