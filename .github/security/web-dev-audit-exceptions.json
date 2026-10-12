@@ -8,10 +8,11 @@
       "package": "braces",
       "severity": "high",
       "scope": "development-only",
-      "reason": "Transitive dependency of the Next.js ESLint toolchain. The production dependency audit must remain clean and the package must be absent from the production tree.",
+      "reason": "Reavaliada em 2026-10-12 após bloqueio dos gates KCA16/KCA17: braces 3.0.3 é transiente exclusivamente de desenvolvimento por @next/eslint-plugin-next -> fast-glob -> micromatch; não há versão corrigida publicada; GHSA-vfj7-8cjw-p6xm permanece visível. O gate exige npm audit runtime sem HIGH/CRITICAL, ausência no runtime e identidade exata da vulnerabilidade. Exceção não se aplica à produção.",
       "introduced_at": "2026-10-02",
-      "review_deadline": "2026-10-10",
-      "removal_condition": "Remove immediately when the dependency tree no longer reports the advisory or an upstream patched release can be adopted without reducing security."
+      "review_deadline": "2026-10-19",
+      "removal_condition": "Retirar assim que houver versão corrigida, substituição da ferramenta dev que remova braces, ou advisories deixarem de apontar a vulnerabilidade; revisão obrigatória até 2026-10-19.",
+      "reassessment_date": "2026-10-12"
     }
   ]
 }
