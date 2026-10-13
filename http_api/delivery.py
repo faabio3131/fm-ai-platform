@@ -28,6 +28,9 @@ from application.delivery_operacao_comercial import (
     resolver_contexto_jornada_delivery,
 )
 from core.delivery.erros import ErroDelivery
+from core.delivery.alcance_rota import AlcanceEntrega
+from infra.delivery.alcance_sqlalchemy import configurar_alcance, obter_alcance
+from core.seguranca.permissoes import Permissao
 from core.pagamentos.modelos import MetodoPagamento
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.erros import CredenciaisInvalidas, ErroSeguranca
@@ -36,6 +39,10 @@ from http_api.operational_auth import obter_identidade_operacional
 
 SessionFactory = Callable[[], Session]
 _MAX_IDEMPOTENCY_KEY = 96
+
+
+class DeliveryAlcanceIn(BaseModel):
+    limite_km: int = Field(ge=1, le=200)
 
 
 class DeliveryAbrirCarrinhoIn(BaseModel):
@@ -240,6 +247,37 @@ def build_delivery_router(
     auth_runtime: AuthSessionRuntime | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/v1/delivery", tags=["delivery"])
+
+    @router.get("/configuracoes/alcance")
+    def consultar_alcance(request: Request) -> dict[str, Any] | JSONResponse:
+        try:
+            with session_factory() as session:
+                identidade = _identidade(request, session, auth_runtime=auth_runtime)
+                if Permissao.ADMIN_ACESSAR not in identidade.permissoes:
+                    raise PermissionError("configuracao_alcance_sem_permissao")
+                alcance = obter_alcance(session, tenant_id=identidade.tenant_id, unidade_id=identidade.unidade_id)
+                return {"limite_km": alcance.limite_km if alcance else None, "configurado": alcance is not None}
+        except Exception as exc:
+            return _erro_http(exc)
+
+    @router.put("/configuracoes/alcance")
+    def atualizar_alcance(payload: DeliveryAlcanceIn, request: Request) -> dict[str, Any] | JSONResponse:
+        try:
+            if auth_runtime is None:
+                raise PermissionError("configuracao_alcance_sessao_exigida")
+            with session_factory() as session:
+                acesso = obter_identidade_operacional(request, session, auth_runtime=auth_runtime)
+                identidade = acesso.identidade
+                if acesso.modo != "session" or Permissao.ADMIN_ACESSAR not in identidade.permissoes:
+                    raise PermissionError("configuracao_alcance_sem_permissao")
+                _, elevado, _ = auth_runtime.admin_status(request)
+                if not elevado:
+                    raise PermissionError("seguranca.admin_step_up_exigido")
+                alcance = configurar_alcance(session, AlcanceEntrega(identidade.tenant_id, identidade.unidade_id, payload.limite_km))
+                session.commit()
+                return {"limite_km": alcance.limite_km, "configurado": True}
+        except Exception as exc:
+            return _erro_http(exc)
 
     @router.get("/clientes", response_model=dict[str, Any])
     def listar_clientes(request: Request) -> dict[str, Any] | JSONResponse:
