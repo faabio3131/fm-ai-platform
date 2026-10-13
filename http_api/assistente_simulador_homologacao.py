@@ -99,18 +99,29 @@ def build_assistente_simulador_router(
                             secret_store=secret_store_factory(uow.session),
                         ).google_maps(contexto=contexto, configuracao_id="mapas--google_maps")
                         geo = maps.geocodificar(f"{cep}, Brasil")
-                        if geo.cep and geo.cep.replace("-", "") == cep.replace("-", "") and geo.logradouro:
+                        cep_retornado = (geo.cep or "").replace("-", "")
+                        cep_solicitado = cep.replace("-", "")
+                        if cep_retornado and cep_retornado != cep_solicitado:
+                            consulta_maps = "cep_divergente"
+                        elif geo.logradouro:
+                            consulta_maps = "endereco_aproximado"
                             endereco_validado = (
                                 f"Google Maps: logradouro={geo.logradouro}; bairro={geo.bairro or 'não informado'}; "
-                                f"CEP={geo.cep}; cidade/localidade conforme endereço formatado={geo.endereco_formatado}. "
+                                f"CEP retornado={geo.cep or 'não informado'}; endereço formatado={geo.endereco_formatado}. "
                                 f"Número informado pelo cliente={numero or 'não informado'}; "
-                                "o número não foi confirmado na geocodificação. "
-                                "Solicite confirmação do logradouro e do número. "
-                                "Não afirme que a entrega é viável sem cotação de rota."
+                                "o número NÃO foi validado pela geocodificação. "
+                                "Peça confirmação da rua e número. "
+                                "Não afirme disponibilidade de entrega sem calcular a rota."
                             )
-                            consulta_maps = "endereco_aproximado"
+                        elif geo.endereco_formatado:
+                            consulta_maps = "localidade_sem_rua"
+                            endereco_validado = (
+                                f"Google Maps encontrou apenas localização aproximada: {geo.endereco_formatado}. "
+                                "Nenhum logradouro foi identificado; não invente o nome da rua. "
+                                "Solicite rua e número para completar o endereço."
+                            )
                         else:
-                            consulta_maps = "nao_confirmado"
+                            consulta_maps = "resultado_incompleto"
                     except (ErroGoogleMaps, ErroConfiguracaoServico, TimeoutError, ConnectionError):
                         consulta_maps = "indisponivel"
                 prompt = (
