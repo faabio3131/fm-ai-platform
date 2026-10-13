@@ -135,10 +135,13 @@ class CotadorEntregaAssistenteGoogleMaps:
             unidade_id=contexto.unidade_id,
             cep=endereco.cep,
         )
-        rota = maps.calcular_rota(
-            origem=origem_geo.coordenada,
-            destino=destino_geo.coordenada,
-        )
+        try:
+            rota = maps.calcular_rota(
+                origem=origem_geo.coordenada,
+                destino=destino_geo.coordenada,
+            )
+        except ErroGoogleMaps as exc:
+            raise ErroDelivery("rota_indisponivel_exige_gestor_entregador") from exc
         alcance = obter_alcance(self._session, tenant_id=contexto.tenant_id, unidade_id=contexto.unidade_id)
         if alcance is None:
             raise ErroDelivery("alcance_entrega_nao_configurado")
