@@ -248,7 +248,7 @@ def build_delivery_router(
 ) -> APIRouter:
     router = APIRouter(prefix="/v1/delivery", tags=["delivery"])
 
-    @router.get("/configuracoes/alcance")
+    @router.get("/configuracoes/alcance", response_model=dict[str, Any])
     def consultar_alcance(request: Request) -> dict[str, Any] | JSONResponse:
         try:
             with session_factory() as session:
@@ -260,7 +260,7 @@ def build_delivery_router(
         except Exception as exc:
             return _erro_http(exc)
 
-    @router.put("/configuracoes/alcance")
+    @router.put("/configuracoes/alcance", response_model=dict[str, Any])
     def atualizar_alcance(payload: DeliveryAlcanceIn, request: Request) -> dict[str, Any] | JSONResponse:
         try:
             if auth_runtime is None:
