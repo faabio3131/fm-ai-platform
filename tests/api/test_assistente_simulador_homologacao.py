@@ -160,6 +160,7 @@ def test_simulador_preserva_localidade_parcial_sem_inventar_logradouro(monkeypat
 
     monkeypatch.setattr("http_api.assistente_simulador_homologacao.construir_ai_model_router", lambda **_: RouterFake())
     monkeypatch.setattr("http_api.assistente_simulador_homologacao.FabricaAdaptersExternos", lambda **_: SimpleNamespace(google_maps=lambda **__: MapsFake()))
+    monkeypatch.setattr("http_api.assistente_simulador_homologacao._logradouro_por_cep", lambda cep: None)
     _, client = _infra(monkeypatch)
     _login(client)
     _step_up(client)
