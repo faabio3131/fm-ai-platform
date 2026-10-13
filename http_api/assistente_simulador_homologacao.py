@@ -106,11 +106,6 @@ def build_assistente_simulador_router(
             with UnitOfWorkV1(session_factory) as uow:
                 if uow.session is None:
                     raise RuntimeError("uow_indisponivel")
-                router_ia = construir_ai_model_router(
-                    session=uow.session,
-                    contexto=contexto,
-                    secret_store=secret_store_factory(uow.session),
-                )
                 mensagens = [item[:500] for item in payload.historico] + [payload.mensagem]
                 contexto_texto = "\n".join(mensagens)
                 ceps = re.findall(r"(?<!\d)(\d{5})-?(\d{3})(?!\d)", contexto_texto)
@@ -217,6 +212,11 @@ def build_assistente_simulador_router(
                         "Informe que a cotação comercial depende do sistema e que, "
                         "em caso de indisponibilidade, o gestor fará o atendimento."
                     )
+                router_ia = construir_ai_model_router(
+                    session=uow.session,
+                    contexto=contexto,
+                    secret_store=secret_store_factory(uow.session),
+                )
                 inicio_ia = perf_counter()
                 prompt = (
                     "MODO DIAGNÓSTICO SEM EFEITOS COMERCIAIS. Responda em português como atendente de restaurante. "
