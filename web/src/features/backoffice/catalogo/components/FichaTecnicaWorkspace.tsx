@@ -186,7 +186,7 @@ export function FichaTecnicaWorkspace({
 
   return (
     <>
-      <section className="mt-6 rounded-2xl border border-white/10 bg-zinc-900/70 p-5">
+      <section id="importacao-cardapio-ia" className="mt-6 scroll-mt-24 rounded-2xl border border-white/10 bg-zinc-900/70 p-5">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-bold text-white">
             <Sparkles className="size-5 text-violet-300" /> Importação automática via Gemini
