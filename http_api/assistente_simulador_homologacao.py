@@ -7,6 +7,7 @@ from traceback import extract_tb
 import os
 import re
 import requests
+from time import perf_counter
 from collections.abc import Callable
 from uuid import uuid4
 
@@ -114,9 +115,27 @@ def build_assistente_simulador_router(
                 contexto_texto = "\n".join(mensagens)
                 ceps = re.findall(r"(?<!\d)(\d{5})-?(\d{3})(?!\d)", contexto_texto)
                 numeros = re.findall(r"\b(?:n[uú]mero|n[º°.]?|nro)\s*[:#-]?\s*(\d{1,6})\b", contexto_texto, re.IGNORECASE)
+                # O histórico contém mensagens alternadas do cliente e atendente.
+                # Um aceite explícito após o endereço identificado encerra a confirmação
+                # conversacional, sem fingir que a residência foi geocodificada.
+                ultima = payload.mensagem.strip().lower()
+                aceite = bool(re.fullmatch(
+                    r"(?:sim(?:,? (?:est[aá] |[ée] ))?(?:correto|certo|isso|esse mesmo|est[aá] correto)?[.! ]*|"
+                    r"confirmo[.! ]*|est[aá] correto[.! ]*|[ée] esse(?: mesmo)?[.! ]*)",
+                    ultima,
+                    re.IGNORECASE,
+                ))
+                historico_endereco = " ".join(payload.historico)
+                endereco_anterior = bool(re.search(
+                    r"rua\\s+[^\\n,.]{3,90}.*?(?:n[º°.]?\\s*|n[uú]mero\\s*)(?:\\d{1,6})",
+                    historico_endereco,
+                    re.IGNORECASE,
+                ))
+                endereco_ja_confirmado = "ENDEREÇO CONFIRMADO PELO CLIENTE" in historico_endereco
+                confirmado_cliente = (aceite and endereco_anterior) or endereco_ja_confirmado
                 endereco_validado = ""
                 consulta_maps = "nao_solicitada"
-                if ceps and re.search(r"\b(entrega|entregar|endere[cç]o|cep|localiz)", contexto_texto, re.IGNORECASE):
+                if not confirmado_cliente and ceps and re.search(r"\b(entrega|entregar|endere[cç]o|cep|localiz)", contexto_texto, re.IGNORECASE):
                     consulta_maps = "consultada"
                     cep = ceps[-1][0] + "-" + ceps[-1][1]
                     numero = numeros[-1] if numeros else None
@@ -165,6 +184,21 @@ def build_assistente_simulador_router(
                             f"Número {numero or 'não informado'} declarado pelo cliente, não geocodificado. "
                             "Solicite confirmação de rua/número e não afirme cobertura de entrega."
                         )
+                if confirmado_cliente:
+                    consulta_maps = "endereco_confirmado_cliente"
+                    endereco_validado = (
+                        "ENDEREÇO CONFIRMADO PELO CLIENTE na conversa anterior. "
+                        "A confirmação é suficiente para ENCERRAR a coleta conversacional "
+                        "de rua e número: não peça rua, CEP, número ou referência novamente, "
+                        "salvo se o próprio cliente informar correção. "
+                        "Não interprete isso como validação do número pelo Google Maps. "
+                        "A cobertura, a rota e o frete NÃO estão calculados. "
+                        "Avance para a intenção de pedido e solicite itens do cardápio, "
+                        "sem inventar itens, estoque, preços ou taxa. "
+                        "Informe que a cotação comercial depende do sistema e que, "
+                        "em caso de indisponibilidade, o gestor fará o atendimento."
+                    )
+                inicio_ia = perf_counter()
                 prompt = (
                     "MODO DIAGNÓSTICO SEM EFEITOS COMERCIAIS. Responda em português como atendente de restaurante. "
                     "Não crie pedidos, pagamentos ou mensagens; não invente produtos, preços, endereços ou possibilidade de entrega. "
@@ -185,6 +219,7 @@ def build_assistente_simulador_router(
                     ),
                     conteudo=prompt,
                 ))
+                latencia_ia_ms = round((perf_counter() - inicio_ia) * 1000)
                 if payload.testar_gemini and resposta.provider != "gemini":
                     return JSONResponse(status_code=503, content={"erro": "simulador.gemini_nao_utilizado"})
                 confirmar_auditoria_simulador(uow)
@@ -195,6 +230,8 @@ def build_assistente_simulador_router(
                     "fallback": resposta.fallback_used,
                     "correlation_id": contexto.correlation_id,
                     "maps_status": consulta_maps,
+                    "endereco_confirmado_cliente": confirmado_cliente,
+                    "latencia_ia_ms": latencia_ia_ms,
                 })
         except SemRotaCompativel:
             return JSONResponse(status_code=503, content={"erro": "simulador.rota_nao_configurada"})
