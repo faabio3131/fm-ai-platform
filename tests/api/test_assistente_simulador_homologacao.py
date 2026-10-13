@@ -193,3 +193,53 @@ def test_simulador_rejeita_cep_divergente_do_google(monkeypatch):
     assert response.status_code == 200
     assert response.json()["maps_status"] == "cep_divergente"
     assert "Rua Errada" not in prompts[0]
+
+
+def test_simulador_complementa_rua_via_cep_quando_maps_so_localidade(monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.setenv("FM_AI_ASSISTENTE_SIMULADOR_ENABLED", "true")
+    mensagens = []
+
+    class RouterFake:
+        def executar(self, solicitacao):
+            mensagens.append(solicitacao.conteudo)
+            return SimpleNamespace(conteudo="Confirme a rua e número.", provider="openai", model="teste", fallback_used=False)
+
+    class MapsFake:
+        def geocodificar(self, endereco):
+            assert endereco == "07794-080, Brasil"
+            return SimpleNamespace(cep="07794-080", logradouro=None, endereco_formatado="Jardim Paraíso, Cajamar - SP")
+
+    monkeypatch.setattr("http_api.assistente_simulador_homologacao.construir_ai_model_router", lambda **_: RouterFake())
+    monkeypatch.setattr("http_api.assistente_simulador_homologacao.FabricaAdaptersExternos",
+                        lambda **_: SimpleNamespace(google_maps=lambda **__: MapsFake()))
+    monkeypatch.setattr("http_api.assistente_simulador_homologacao._logradouro_por_cep",
+                        lambda cep: {"logradouro": "Rua Coronel Macedo", "bairro": "Paraíso (Polvilho)", "localidade": "Cajamar", "uf": "SP"})
+    _, client = _infra(monkeypatch)
+    _login(client)
+    _step_up(client)
+    response = client.post("/v1/admin/assistente-atendimento/simulador",
+                           json={"mensagem": "Entrega no CEP 07794-080, número 53."})
+    assert response.status_code == 200
+    assert response.json()["maps_status"] == "logradouro_cep_maps_localidade"
+    assert "Rua Coronel Macedo" in mensagens[0]
+    assert "Base postal ViaCEP (não Google Maps)" in mensagens[0]
+    assert "não geocodificado" in mensagens[0]
+
+
+def test_lookup_cep_descarta_divergente_e_redirect(monkeypatch):
+    from http_api.assistente_simulador_homologacao import _logradouro_por_cep
+
+    class RespostaFake:
+        def raise_for_status(self):
+            pass
+        def json(self):
+            return {"cep": "99999-999", "logradouro": "Rua Inventada", "bairro": "X", "localidade": "Y", "uf": "SP"}
+
+    def fake_get(url, *, timeout, allow_redirects):
+        assert url == "https://viacep.com.br/ws/07794080/json/"
+        assert timeout == 3 and allow_redirects is False
+        return RespostaFake()
+    monkeypatch.setattr("http_api.assistente_simulador_homologacao.requests.get", fake_get)
+    assert _logradouro_por_cep("07794-080") is None
