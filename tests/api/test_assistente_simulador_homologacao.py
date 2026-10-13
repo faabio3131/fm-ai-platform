@@ -136,7 +136,7 @@ def test_simulador_reutiliza_cep_do_historico_sem_inventar_endereco(monkeypatch)
         json={"mensagem": "O número é 53.", "historico": ["Quero entrega no CEP 07794080."]},
     )
     assert response.status_code == 200
-    assert response.json()["maps_status"] == "nao_confirmado"
+    assert response.json()["maps_status"] == "resultado_incompleto"
     assert consultas == ["07794-080, Brasil"]
     assert "O número é 53." in prompts[0]
     assert "Nenhum endereço foi verificado" in prompts[0]
