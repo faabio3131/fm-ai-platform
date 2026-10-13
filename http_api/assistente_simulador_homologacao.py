@@ -6,6 +6,7 @@ from pathlib import Path
 from traceback import extract_tb
 import os
 import re
+import requests
 from collections.abc import Callable
 from uuid import uuid4
 
@@ -40,6 +41,32 @@ class MensagemSimulador(BaseModel):
     mensagem: str = Field(min_length=1, max_length=500)
     testar_gemini: bool = False
     historico: list[str] = Field(default_factory=list, max_length=6)
+
+
+def _logradouro_por_cep(cep: str) -> dict[str, str] | None:
+    """Lookup postal complementar: apenas CEP, sem número nem dados do cliente."""
+    digitos = cep.replace("-", "")
+    if not re.fullmatch(r"\d{8}", digitos):
+        return None
+    try:
+        resposta = requests.get(
+            f"https://viacep.com.br/ws/{digitos}/json/",
+            timeout=3,
+            allow_redirects=False,
+        )
+        resposta.raise_for_status()
+        payload = resposta.json()
+    except (requests.RequestException, ValueError):
+        return None
+    if not isinstance(payload, dict) or payload.get("erro"):
+        return None
+    if str(payload.get("cep", "")).replace("-", "") != digitos:
+        return None
+    campos = ("logradouro", "bairro", "localidade", "uf")
+    dados = {campo: str(payload.get(campo) or "").strip()[:140] for campo in campos}
+    if not dados["logradouro"] or not dados["localidade"] or not dados["uf"]:
+        return None
+    return dados
 
 
 def build_assistente_simulador_router(
@@ -124,6 +151,20 @@ def build_assistente_simulador_router(
                             consulta_maps = "resultado_incompleto"
                     except (ErroGoogleMaps, ErroConfiguracaoServico, TimeoutError, ConnectionError):
                         consulta_maps = "indisponivel"
+                # Bases postais brasileiras podem identificar o logradouro mesmo
+                # quando o Geocoding Google fornece apenas a região do CEP.
+                if ceps and consulta_maps == "localidade_sem_rua":
+                    dados_cep = _logradouro_por_cep(cep)
+                    if dados_cep:
+                        consulta_maps = "logradouro_cep_maps_localidade"
+                        endereco_validado = (
+                            "Base postal ViaCEP (não Google Maps): "
+                            f"rua={dados_cep['logradouro']}; bairro={dados_cep['bairro'] or 'não informado'}; "
+                            f"cidade={dados_cep['localidade']}; UF={dados_cep['uf']}; CEP={cep}. "
+                            "Google Maps confirmou somente a região aproximada. "
+                            f"Número {numero or 'não informado'} declarado pelo cliente, não geocodificado. "
+                            "Solicite confirmação de rua/número e não afirme cobertura de entrega."
+                        )
                 prompt = (
                     "MODO DIAGNÓSTICO SEM EFEITOS COMERCIAIS. Responda em português como atendente de restaurante. "
                     "Não crie pedidos, pagamentos ou mensagens; não invente produtos, preços, endereços ou possibilidade de entrega. "
