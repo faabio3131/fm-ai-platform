@@ -105,7 +105,7 @@ class CotadorEntregaAssistenteGoogleMaps:
         # Não converter correspondência aproximada em validação de domicílio.
         # CEP e rua corretos não provam que o Maps encontrou o número solicitado.
         numero_informado = re.search(
-            r"(?:^|[,;])\\s*(?:n[uú]mero\\s*|n[º°.]?\\s*)?(\\d{1,6})(?=\\s*[,;]|\\s*$)",
+            r"(?:^|[,;])\s*(?:n[uú]mero\s*|n[º°.]?\s*)?(\d{1,6})(?=\s*[,;]|\s*$)",
             endereco_texto,
             flags=re.IGNORECASE,
         )
