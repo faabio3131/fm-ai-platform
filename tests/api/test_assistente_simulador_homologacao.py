@@ -244,3 +244,36 @@ def test_lookup_cep_descarta_divergente_e_redirect(monkeypatch):
         return RespostaFake()
     monkeypatch.setattr("http_api.assistente_simulador_homologacao.requests.get", fake_get)
     assert _logradouro_por_cep("07794-080") is None
+
+
+def test_confirmacao_curta_avanca_sem_reconsultar_maps_nem_ia(monkeypatch):
+    monkeypatch.setenv("FM_AI_ASSISTENTE_SIMULADOR_ENABLED", "true")
+
+    def nao_executar(**_kwargs):
+        raise AssertionError("IA não deve ser chamada após confirmação explícita")
+
+    monkeypatch.setattr(
+        "http_api.assistente_simulador_homologacao.construir_ai_model_router",
+        nao_executar,
+    )
+    _, client = _infra(monkeypatch)
+    _login(client)
+    _step_up(client)
+    for resposta_cliente in ("sim correto", "sim, está correto", "confirmo"):
+        response = client.post(
+            "/v1/admin/assistente-atendimento/simulador",
+            json={
+                "mensagem": resposta_cliente,
+                "historico": [
+                    "Quero entrega no CEP 07794-080, número 53",
+                    "O endereço é Rua Coronel Macedo, nº 53, Cajamar. Confirma?",
+                ],
+            },
+        )
+        assert response.status_code == 200
+        resultado = response.json()
+        assert resultado["maps_status"] == "endereco_confirmado_cliente"
+        assert resultado["endereco_confirmado_cliente"] is True
+        assert resultado["latencia_ia_ms"] == 0
+        assert "quais produtos" in resultado["resposta"]
+        assert "Não será necessário repetir" in resultado["resposta"]
