@@ -85,14 +85,14 @@ def build_assistente_simulador_router(
                 )
                 mensagens = [item[:500] for item in payload.historico] + [payload.mensagem]
                 contexto_texto = "\n".join(mensagens)
-                cep_match = re.search(r"(?<!\d)(\d{5})-?(\d{3})(?!\d)", contexto_texto)
-                numero_match = re.search(r"\b(?:n[uú]mero|n[º°.]?|nro)\s*[:#-]?\s*(\d{1,6})\b", contexto_texto, re.IGNORECASE)
+                ceps = re.findall(r"(?<!\d)(\d{5})-?(\d{3})(?!\d)", contexto_texto)
+                numeros = re.findall(r"\b(?:n[uú]mero|n[º°.]?|nro)\s*[:#-]?\s*(\d{1,6})\b", contexto_texto, re.IGNORECASE)
                 endereco_validado = ""
                 consulta_maps = "nao_solicitada"
-                if cep_match and re.search(r"\b(entrega|entregar|endere[cç]o|cep|localiz)", contexto_texto, re.IGNORECASE):
+                if ceps and re.search(r"\b(entrega|entregar|endere[cç]o|cep|localiz)", contexto_texto, re.IGNORECASE):
                     consulta_maps = "consultada"
-                    cep = cep_match.group(1) + "-" + cep_match.group(2)
-                    numero = numero_match.group(1) if numero_match else None
+                    cep = ceps[-1][0] + "-" + ceps[-1][1]
+                    numero = numeros[-1] if numeros else None
                     try:
                         maps = FabricaAdaptersExternos(
                             session=uow.session,
