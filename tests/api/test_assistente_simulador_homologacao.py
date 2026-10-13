@@ -105,7 +105,7 @@ def test_simulador_consulta_maps_para_cep_e_numero_sem_confirmar_numero(monkeypa
     assert response.json()["maps_status"] == "endereco_aproximado"
     assert requisicoes_maps == ["07794-080, Brasil"]
     assert "Rua de Teste" in prompts[0]
-    assert "o número não foi confirmado" in prompts[0]
+    assert "o número NÃO foi validado" in prompts[0]
 
 
 def test_simulador_reutiliza_cep_do_historico_sem_inventar_endereco(monkeypatch):
@@ -123,7 +123,7 @@ def test_simulador_reutiliza_cep_do_historico_sem_inventar_endereco(monkeypatch)
     class MapsFake:
         def geocodificar(self, endereco):
             consultas.append(endereco)
-            return SimpleNamespace(cep=None, logradouro=None)
+            return SimpleNamespace(cep=None, logradouro=None, endereco_formatado=None)
 
     monkeypatch.setattr("http_api.assistente_simulador_homologacao.construir_ai_model_router", lambda **_: RouterFake())
     monkeypatch.setattr("http_api.assistente_simulador_homologacao.FabricaAdaptersExternos",
