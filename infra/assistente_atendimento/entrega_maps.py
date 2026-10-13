@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from uuid import NAMESPACE_URL, uuid5
 
 from sqlalchemy.orm import Session
@@ -44,6 +45,19 @@ def _configuracao_maps_id(
     if len(candidatas) != 1:
         raise ErroConfiguracaoServico("google_maps_configuracao_ambigua")
     return candidatas[0].configuracao_id
+
+
+def _exigir_numero_entrega_confirmado(endereco_texto: str, numero_maps: str | None) -> None:
+    """Exige número explícito e idêntico ao geocodificado; nunca presume precisão."""
+    numero_informado = re.search(
+        r"(?:^|[,;])\s*(?:n[uú]mero\s*|n[º°.]?\s*)?(\d{1,6})(?=\s*[,;]|\s*$)",
+        endereco_texto,
+        flags=re.IGNORECASE,
+    )
+    if numero_informado is None:
+        raise ErroGoogleMaps("numero_entrega_nao_informado_em_campo_inequivoco")
+    if str(numero_maps or "").strip() != numero_informado.group(1):
+        raise ErroGoogleMaps("numero_entrega_nao_confirmado_pela_geocodificacao")
 
 
 class CotadorEntregaAssistenteGoogleMaps:
@@ -100,6 +114,10 @@ class CotadorEntregaAssistenteGoogleMaps:
         cep = cep_normalizado(cep_informado)
         if destino_geo.cep is None or cep_normalizado(destino_geo.cep) != cep:
             raise ErroGoogleMaps("cep nao confirmado pela geocodificacao")
+
+        # Não converter correspondência aproximada em validação de domicílio.
+        # CEP e rua corretos não provam que o Maps encontrou o número solicitado.
+        _exigir_numero_entrega_confirmado(endereco_texto, destino_geo.numero)
 
         componentes = (
             destino_geo.logradouro,
