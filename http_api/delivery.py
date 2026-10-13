@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from application.delivery_alcance_comercial import alterar_alcance_da_unidade
 from application.delivery_operacao_comercial import (
     ErroDeliveryComercial,
     abrir_carrinho_delivery_comercial,
@@ -28,14 +29,13 @@ from application.delivery_operacao_comercial import (
     resolver_contexto_jornada_delivery,
 )
 from core.delivery.erros import ErroDelivery
-from infra.delivery.alcance_sqlalchemy import obter_alcance
-from application.delivery_alcance_comercial import alterar_alcance_da_unidade
-from core.seguranca.permissoes import Permissao
 from core.pagamentos.modelos import MetodoPagamento
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.erros import CredenciaisInvalidas, ErroSeguranca
+from core.seguranca.permissoes import Permissao
 from http_api.auth import AuthSessionRuntime
 from http_api.operational_auth import obter_identidade_operacional
+from infra.delivery.alcance_sqlalchemy import obter_alcance
 
 SessionFactory = Callable[[], Session]
 _MAX_IDEMPOTENCY_KEY = 96
