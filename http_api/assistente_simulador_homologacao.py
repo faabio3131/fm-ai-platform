@@ -120,8 +120,9 @@ def build_assistente_simulador_router(
                 # conversacional, sem fingir que a residência foi geocodificada.
                 ultima = payload.mensagem.strip().lower()
                 aceite = bool(re.fullmatch(
-                    r"(?:sim(?:,? (?:est[aá] |[ée] ))?(?:correto|certo|isso|esse mesmo|est[aá] correto)?[.! ]*|"
-                    r"confirmo[.! ]*|est[aá] correto[.! ]*|[ée] esse(?: mesmo)?[.! ]*)",
+                    r"(?:sim(?:[, ]+(?:(?:est[aá]|está)\s+)?(?:correto|certo|isso|esse(?:\s+mesmo)?))?|"
+                    r"confirmo|(?:est[aá]|está)\s+correto|[ée]\s+esse(?:\s+mesmo)?)"
+                    r"[.! ]*",
                     ultima,
                     re.IGNORECASE,
                 ))
@@ -133,6 +134,24 @@ def build_assistente_simulador_router(
                 ))
                 endereco_ja_confirmado = "ENDEREÇO CONFIRMADO PELO CLIENTE" in historico_endereco
                 confirmado_cliente = (aceite and endereco_anterior) or endereco_ja_confirmado
+                if confirmado_cliente:
+                    confirmar_auditoria_simulador(uow)
+                    return JSONResponse(content={
+                        "resposta": (
+                            "Endereço confirmado pelo cliente. Obrigado! "
+                            "Não será necessário repetir rua, CEP, número ou referência. "
+                            "Vamos continuar o pedido: quais produtos você gostaria de escolher? "
+                            "O cardápio, os valores e o frete ainda precisam ser consultados "
+                            "no sistema do restaurante; nenhuma entrega está aprovada."
+                        ),
+                        "provedor": "sistema",
+                        "modelo": "fluxo-deterministico",
+                        "fallback": False,
+                        "correlation_id": contexto.correlation_id,
+                        "maps_status": "endereco_confirmado_cliente",
+                        "endereco_confirmado_cliente": True,
+                        "latencia_ia_ms": 0,
+                    })
                 endereco_validado = ""
                 consulta_maps = "nao_solicitada"
                 if not confirmado_cliente and ceps and re.search(r"\b(entrega|entregar|endere[cç]o|cep|localiz)", contexto_texto, re.IGNORECASE):
