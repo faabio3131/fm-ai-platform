@@ -409,6 +409,7 @@ function ConversaDetailDialog({ conversa }: ConversaDetailDialogProps) {
 function SimuladorAtendenteHomologacao() {
   const [mensagem, setMensagem] = useState('Olá! Quais pratos vocês oferecem? Não quero fazer um pedido.');
   const [resultado, setResultado] = useState<ResultadoSimuladorAtendente | null>(null);
+  const [historicoTeste, setHistoricoTeste] = useState<string[]>([]);
   const [erro, setErro] = useState('');
   const [executando, setExecutando] = useState(false);
   const [testarGemini, setTestarGemini] = useState(true);
@@ -486,7 +487,10 @@ function SimuladorAtendenteHomologacao() {
     setResultado(null);
     setErro('');
     try {
-      setResultado(await testarAtendenteIA(mensagem.trim(), testarGemini));
+      const textoAtual = mensagem.trim();
+      const respostaTeste = await testarAtendenteIA(textoAtual, testarGemini, historicoTeste);
+      setResultado(respostaTeste);
+      setHistoricoTeste((atual) => [...atual, textoAtual, respostaTeste.resposta].slice(-6));
     } catch (error: unknown) {
       const codigo = error instanceof Error && 'code' in error ? String(error.code ?? '') : '';
       const status = error instanceof Error && 'status' in error ? Number(error.status) : 0;
@@ -540,11 +544,17 @@ function SimuladorAtendenteHomologacao() {
       <Button type="button" disabled={executando || gravando || transcrevendo || !mensagem.trim()} onClick={() => void enviarTeste()}>
         {executando ? 'Consultando provedor real…' : 'Testar atendente agora'}
       </Button>
+      {historicoTeste.length > 0 ? (
+        <Button type="button" variant="outline" disabled={executando} onClick={() => { setHistoricoTeste([]); setResultado(null); }}>
+          Nova conversa de teste
+        </Button>
+      ) : null}
       {erro ? <p role="alert" className="text-sm text-rose-300">{erro}</p> : null}
       {resultado ? (
         <div className="space-y-2 rounded-xl border border-sky-400/20 bg-slate-950/70 p-4">
           <p className="whitespace-pre-wrap text-sm text-white">{resultado.resposta}</p>
           <p className="text-xs text-slate-300">Provedor: {resultado.provedor} · Modelo: {resultado.modelo} · Fallback: {resultado.fallback ? 'Sim' : 'Não'}</p>
+          {resultado.maps_status ? <p className="text-xs text-slate-300">Consulta Google Maps: {resultado.maps_status}</p> : null}
           <p className="break-all text-xs text-slate-400">Correlação: {resultado.correlation_id}</p>
         </div>
       ) : null}
