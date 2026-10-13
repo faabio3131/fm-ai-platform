@@ -95,6 +95,7 @@ from migrations.delivery_channel_state_v1 import (
     upgrade_delivery_channel_state_v1,
 )
 from migrations.delivery_policy_v1 import upgrade_delivery_policy_v1
+from migrations.delivery_route_limit_v1 import upgrade_delivery_route_limit_v1
 from migrations.fiscal_financial_tax_bridge_v1 import (
     upgrade_fiscal_financial_tax_bridge_v1,
 )
@@ -433,6 +434,7 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
         "0068_campaign_organic_media_v1",
         upgrade_campaign_organic_media_v1,
     ),
+    Migration("0069_delivery_route_limit_v1", upgrade_delivery_route_limit_v1),
 )
 
 
