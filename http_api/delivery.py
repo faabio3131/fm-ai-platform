@@ -28,8 +28,8 @@ from application.delivery_operacao_comercial import (
     resolver_contexto_jornada_delivery,
 )
 from core.delivery.erros import ErroDelivery
-from core.delivery.alcance_rota import AlcanceEntrega
-from infra.delivery.alcance_sqlalchemy import configurar_alcance, obter_alcance
+from infra.delivery.alcance_sqlalchemy import obter_alcance
+from application.delivery_alcance_comercial import alterar_alcance_da_unidade
 from core.seguranca.permissoes import Permissao
 from core.pagamentos.modelos import MetodoPagamento
 from core.seguranca.autenticacao import IdentidadeUsuario
@@ -273,9 +273,13 @@ def build_delivery_router(
                 _, elevado, _ = auth_runtime.admin_status(request)
                 if not elevado:
                     raise PermissionError("seguranca.admin_step_up_exigido")
-                alcance = configurar_alcance(session, AlcanceEntrega(identidade.tenant_id, identidade.unidade_id, payload.limite_km))
-                session.commit()
-                return {"limite_km": alcance.limite_km, "configurado": True}
+            alcance = alterar_alcance_da_unidade(
+                tenant_id=identidade.tenant_id,
+                unidade_id=identidade.unidade_id,
+                limite_km=payload.limite_km,
+                session_factory=session_factory,
+            )
+            return {"limite_km": alcance.limite_km, "configurado": True}
         except Exception as exc:
             return _erro_http(exc)
 
