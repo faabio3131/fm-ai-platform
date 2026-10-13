@@ -9,7 +9,6 @@ from __future__ import annotations
 from sqlalchemy.engine import Connection
 
 from core.delivery.modelos_orm import DeliveryPolicyBase
-from infra.delivery.alcance_sqlalchemy import AlcanceEntregaORM  # noqa: F401
 
 
 def upgrade_delivery_policy_v1(connection: Connection) -> None:
