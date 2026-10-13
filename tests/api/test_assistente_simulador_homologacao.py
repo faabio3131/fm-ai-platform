@@ -67,3 +67,76 @@ def test_simulador_conecta_router_real_sem_enviar_whatsapp(monkeypatch):
     assert response.json()["provedor"] == "gemini"
     assert response.json()["fallback"] is False
     assert len(calls) == 1
+
+
+def test_simulador_consulta_maps_para_cep_e_numero_sem_confirmar_numero(monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.setenv("FM_AI_ASSISTENTE_SIMULADOR_ENABLED", "true")
+    requisicoes_maps = []
+    prompts = []
+
+    class RouterFake:
+        def executar(self, solicitacao):
+            prompts.append(solicitacao.conteudo)
+            return SimpleNamespace(conteudo="Confirme o logradouro e o número.", provider="openai", model="teste", fallback_used=False)
+
+    class MapsFake:
+        def geocodificar(self, endereco):
+            requisicoes_maps.append(endereco)
+            return SimpleNamespace(
+                cep="07794-080",
+                logradouro="Rua de Teste",
+                bairro="Bairro Exemplo",
+                endereco_formatado="Rua de Teste, Bairro Exemplo, Brasil",
+            )
+
+    monkeypatch.setattr("http_api.assistente_simulador_homologacao.construir_ai_model_router", lambda **_: RouterFake())
+    monkeypatch.setattr("http_api.assistente_simulador_homologacao.FabricaAdaptersExternos",
+                        lambda **_: SimpleNamespace(google_maps=lambda **__: MapsFake()))
+    _, client = _infra(monkeypatch)
+    _login(client)
+    _step_up(client)
+    response = client.post(
+        "/v1/admin/assistente-atendimento/simulador",
+        json={"mensagem": "Quero entrega no CEP 07794080 número 53."},
+    )
+    assert response.status_code == 200
+    assert response.json()["maps_status"] == "endereco_aproximado"
+    assert requisicoes_maps == ["07794-080, Brasil"]
+    assert "Rua de Teste" in prompts[0]
+    assert "o número não foi confirmado" in prompts[0]
+
+
+def test_simulador_reutiliza_cep_do_historico_sem_inventar_endereco(monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.setenv("FM_AI_ASSISTENTE_SIMULADOR_ENABLED", "true")
+    consultas = []
+    prompts = []
+
+    class RouterFake:
+        def executar(self, solicitacao):
+            prompts.append(solicitacao.conteudo)
+            return SimpleNamespace(conteudo="Não consegui confirmar o endereço.", provider="openai", model="teste", fallback_used=False)
+
+    class MapsFake:
+        def geocodificar(self, endereco):
+            consultas.append(endereco)
+            return SimpleNamespace(cep=None, logradouro=None)
+
+    monkeypatch.setattr("http_api.assistente_simulador_homologacao.construir_ai_model_router", lambda **_: RouterFake())
+    monkeypatch.setattr("http_api.assistente_simulador_homologacao.FabricaAdaptersExternos",
+                        lambda **_: SimpleNamespace(google_maps=lambda **__: MapsFake()))
+    _, client = _infra(monkeypatch)
+    _login(client)
+    _step_up(client)
+    response = client.post(
+        "/v1/admin/assistente-atendimento/simulador",
+        json={"mensagem": "O número é 53.", "historico": ["Quero entrega no CEP 07794080."]},
+    )
+    assert response.status_code == 200
+    assert response.json()["maps_status"] == "nao_confirmado"
+    assert consultas == ["07794-080, Brasil"]
+    assert "O número é 53." in prompts[0]
+    assert "Nenhum endereço foi verificado" in prompts[0]

@@ -87,11 +87,12 @@ export interface ResultadoSimuladorAtendente {
   modelo: string;
   fallback: boolean;
   correlation_id: string;
+  maps_status?: string;
 }
 
-export async function testarAtendenteIA(mensagem: string, testarGemini: boolean): Promise<ResultadoSimuladorAtendente> {
+export async function testarAtendenteIA(mensagem: string, testarGemini: boolean, historico: string[] = []): Promise<ResultadoSimuladorAtendente> {
   return apiRequest<ResultadoSimuladorAtendente>(
     '/v1/admin/assistente-atendimento/simulador',
-    { method: 'POST', body: JSON.stringify({ mensagem, testar_gemini: testarGemini }) },
+    { method: 'POST', body: JSON.stringify({ mensagem, testar_gemini: testarGemini, historico: historico.slice(-6) }) },
   );
 }
