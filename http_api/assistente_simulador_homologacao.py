@@ -123,7 +123,7 @@ def build_assistente_simulador_router(
                 ))
                 historico_endereco = " ".join(payload.historico)
                 endereco_anterior = bool(re.search(
-                    r"rua\\s+[^\\n,.]{3,90}.*?(?:n[º°.]?\\s*|n[uú]mero\\s*)(?:\\d{1,6})",
+                    r"rua\s+[^\n,.]{3,90}.*?(?:n[º°.]?\s*|n[uú]mero\s*)(?:\d{1,6})",
                     historico_endereco,
                     re.IGNORECASE,
                 ))
