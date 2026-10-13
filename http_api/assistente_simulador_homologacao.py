@@ -127,9 +127,9 @@ def build_assistente_simulador_router(
                     historico_endereco,
                     re.IGNORECASE,
                 ))
-                endereco_ja_confirmado = "ENDEREÇO CONFIRMADO PELO CLIENTE" in historico_endereco
+                endereco_ja_confirmado = "endereço confirmado pelo cliente" in historico_endereco.casefold()
                 confirmado_cliente = (aceite and endereco_anterior) or endereco_ja_confirmado
-                if confirmado_cliente:
+                if aceite and endereco_anterior and not endereco_ja_confirmado:
                     confirmar_auditoria_simulador(uow)
                     return JSONResponse(content={
                         "resposta": (
