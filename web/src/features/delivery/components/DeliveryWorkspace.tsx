@@ -281,6 +281,9 @@ export function DeliveryWorkspace() {
               <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">
                 Delivery Próprio
               </h1>
+              {auth.permissions.includes("admin.acessar") && (
+                <Link href="/delivery/configuracoes" className="mt-2 inline-block text-sm font-medium text-sky-300 underline">Configurar alcance de entrega</Link>
+              )}
               <p className="mt-1 text-sm text-slate-400">
                 Cliente, endereço validado, cardápio, checkout e logística no mesmo fluxo.
               </p>
