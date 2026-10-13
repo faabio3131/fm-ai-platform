@@ -40,6 +40,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
+import { useAuthStore } from '@/features/auth/store/auth-store';
 import { transcreverGerenteIA } from '@/features/gerente-ia/services/gerente-ia-api';
 import { ESTADO_COLORS, ESTADO_LABELS } from '../constants';
 import {
