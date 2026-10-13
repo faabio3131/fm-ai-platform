@@ -264,6 +264,10 @@
     {
       "version": "0068_campaign_organic_media_v1",
       "sha256": "b49d9d841322eacd5f2afc4d5e62ac87d9272de07c277411a08cf99df394a650"
+    },
+    {
+      "version": "0069_delivery_route_limit_v1",
+      "sha256": "e85bfb1ab1632e20a94da492c5593a3b119a2eb553c6d6878cc230508a4ef0be"
     }
   ]
 }

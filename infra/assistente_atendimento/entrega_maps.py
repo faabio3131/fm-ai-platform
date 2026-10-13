@@ -16,6 +16,7 @@ from core.integracoes.google_maps import ErroGoogleMaps
 from core.integracoes.modelos import ErroConfiguracaoServico
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.segredos import SecretStore
+from infra.delivery.alcance_sqlalchemy import obter_alcance
 from infra.delivery.politica_sqlalchemy import RepositorioPoliticaEntregaSQLAlchemy
 from infra.integracoes.fabrica_adapters import FabricaAdaptersExternos
 from infra.integracoes.repositorio_sqlalchemy import (
@@ -152,10 +153,17 @@ class CotadorEntregaAssistenteGoogleMaps:
             unidade_id=contexto.unidade_id,
             cep=endereco.cep,
         )
-        rota = maps.calcular_rota(
-            origem=origem_geo.coordenada,
-            destino=destino_geo.coordenada,
-        )
+        try:
+            rota = maps.calcular_rota(
+                origem=origem_geo.coordenada,
+                destino=destino_geo.coordenada,
+            )
+        except ErroGoogleMaps as exc:
+            raise ErroDelivery("rota_indisponivel_exige_gestor_entregador") from exc
+        alcance = obter_alcance(self._session, tenant_id=contexto.tenant_id, unidade_id=contexto.unidade_id)
+        if alcance is None:
+            raise ErroDelivery("alcance_entrega_nao_configurado")
+        alcance.validar_rota(rota.distancia_metros)
 
         return CotacaoEntregaAtendimento(
             endereco_formatado=destino_geo.endereco_formatado,

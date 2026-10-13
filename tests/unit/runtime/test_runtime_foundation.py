@@ -93,6 +93,7 @@ _EXPECTED_MIGRATIONS = (
     "0066_commercial_billing_transaction_identity_v1",
     "0067_commercial_billing_provider_legal_entity_v1",
     "0068_campaign_organic_media_v1",
+    "0069_delivery_route_limit_v1",
 )
 
 
@@ -280,12 +281,14 @@ def test_password_recovery_history_accepts_google_then_billing_migrations(
         "0066_commercial_billing_transaction_identity_v1",
         "0067_commercial_billing_provider_legal_entity_v1",
         "0068_campaign_organic_media_v1",
+        "0069_delivery_route_limit_v1",
     )
 
     assert run_migrations(engine) == (
         "0066_commercial_billing_transaction_identity_v1",
         "0067_commercial_billing_provider_legal_entity_v1",
         "0068_campaign_organic_media_v1",
+        "0069_delivery_route_limit_v1",
     )
     assert pending_versions(engine) == ()
 
