@@ -6,6 +6,9 @@ from collections.abc import Callable, Mapping
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
 from enum import Enum
+import logging
+from pathlib import Path
+from traceback import extract_tb
 from typing import Any
 from uuid import uuid4
 
@@ -22,6 +25,9 @@ from core.seguranca.erros import CredenciaisInvalidas, ErroSeguranca
 from core.seguranca.permissoes import Permissao
 from core.seguranca.segredos import SecretStore
 from http_api.auth import AuthSessionRuntime
+
+
+logger = logging.getLogger(__name__)
 
 
 class PerguntaIn(BaseModel):
@@ -84,6 +90,12 @@ def _tratar_erro(exc: Exception) -> JSONResponse:
         return _erro(403, str(getattr(exc, "codigo", str(exc) or "seguranca.permissao_insuficiente")))
     if isinstance(exc, (ValueError, TypeError)):
         return _erro(400, "gerente_ia.requisicao_invalida")
+    logger.error(
+        "gerente_ia.failure exception_type=%s origin=%s",
+        type(exc).__name__,
+        [(Path(frame.filename).name, frame.name, frame.lineno)
+         for frame in extract_tb(exc.__traceback__)[-3:]],
+    )
     return _erro(503, "gerente_ia.indisponivel")
 
 
