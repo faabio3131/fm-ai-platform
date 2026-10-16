@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from fastapi.testclient import TestClient
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 import http_api.frontend_app as frontend_module
 
