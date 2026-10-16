@@ -24,7 +24,7 @@ from scripts.kca15_internal_homologation import (
     _ensure_legacy_scope_and_identity,
 )
 
-SCENARIOS = ((1, 24), (5, 50), (10, 75), (25, 100), (50, 100), (100, 100))
+SCENARIOS = ((1, 24), (5, 50), (10, 75), (25, 100), (50, 100), (100, 150), (250, 250), (500, 500))
 TOOL_PATH = "/v1/gerente-ia/tools"
 PAYLOAD = {"tool": "consultar_atrasos", "argumentos": {"limite": 10}}
 
