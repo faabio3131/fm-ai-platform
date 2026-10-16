@@ -10,6 +10,7 @@ import json
 import os
 import time
 from collections import Counter
+from threading import Lock
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 import application.gerente_ia_runtime as runtime_module
+import http_api.gerente_ia_web as web_module
 from core.ai_router import (
     AIModelRouter, CapabilityIA, FalhaRotaTransitoria,
     RotaIA, RespostaModeloIA,
@@ -35,6 +37,10 @@ PAYLOAD = {"pergunta": "Quais pedidos estão atrasados? Mostre até 10."}
 RESPONSE = '{"tool":"consultar_atrasos","argumentos":{"limite":10}}'
 CURRENT = {"primary_delay": 3.0, "fallback": False, "fallback_delay": 1.5}
 STEPS = ((1, 2), (5, 10), (10, 20), (25, 35), (50, 50), (100, 100), (250, 150))
+SERVER_EXCEPTIONS = Counter()
+SERVER_LOCK = Lock()
+POOL = None
+
 
 
 def stats(samples: list[float]) -> dict:
@@ -95,8 +101,23 @@ async def phase(client: httpx.AsyncClient, concurrent: int, count: int) -> dict:
                 code = 0
             observed.append((code, time.perf_counter() - begin))
             q.task_done()
+    peak_checked_out = 0
+    finished = asyncio.Event()
+
+    async def observe_db_pool():
+        nonlocal peak_checked_out
+        while not finished.is_set():
+            if POOL is not None:
+                peak_checked_out = max(peak_checked_out, POOL.checkedout())
+            await asyncio.sleep(.02)
+
+    observer = asyncio.create_task(observe_db_pool())
     started = time.perf_counter()
-    await asyncio.gather(*(worker() for _ in range(concurrent)))
+    try:
+        await asyncio.gather(*(worker() for _ in range(concurrent)))
+    finally:
+        finished.set()
+        await observer
     elapsed = time.perf_counter() - started
     codes = dict(Counter(str(code) for code, _ in observed))
     latencies = [elapsed for _, elapsed in observed]
@@ -107,6 +128,8 @@ async def phase(client: httpx.AsyncClient, concurrent: int, count: int) -> dict:
         "status_counts": codes,
         "duration_s": round(elapsed, 2),
         "rps": round(len(observed) / max(elapsed, .001), 2),
+        "peak_db_connections_checked_out": peak_checked_out,
+        "server_errors_seen": dict(SERVER_EXCEPTIONS),
         **stats(latencies),
     }
 
@@ -118,6 +141,8 @@ async def run() -> dict:
     if os.getenv("FM_AI_TEST_MODE"):
         raise RuntimeError("Do not hide application behavior behind FM_AI_TEST_MODE")
     engine = create_engine(db, future=True, pool_size=10, max_overflow=10, pool_timeout=8)
+    global POOL
+    POOL = engine.pool
     run_migrations(engine)
     factory = sessionmaker(bind=engine, expire_on_commit=False, future=True)
     password = os.environ["KCA15_INTERNAL_PASSWORD"]
@@ -134,6 +159,23 @@ async def run() -> dict:
         commercial_access_gate_enabled=True,
     )
     runtime_module.construir_ai_model_router = router_factory
+    original_error_handler = web_module._tratar_erro
+
+    def record_server_exception(exc: Exception):
+        kinds = []
+        seen = set()
+        current = exc
+        for _ in range(4):
+            if current is None or id(current) in seen:
+                break
+            seen.add(id(current))
+            kinds.append(type(current).__module__ + '.' + type(current).__name__)
+            current = current.__cause__ or current.__context__
+        with SERVER_LOCK:
+            SERVER_EXCEPTIONS[' / '.join(kinds)] += 1
+        return original_error_handler(exc)
+
+    web_module._tratar_erro = record_server_exception
     report = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "scope": "authenticated Core AI question path with real PostgreSQL 16 and durable AI metering",
