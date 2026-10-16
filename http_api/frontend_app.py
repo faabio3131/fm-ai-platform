@@ -258,6 +258,12 @@ def build_frontend_http_app(
                     "revision": access.revision,
                 },
             )
+        # A autorização comercial já foi verificada. Reaproveitar a
+        # identidade apenas no mesmo request (nunca entre requests).
+        request.state._fm_commercial_authorized_identity = (
+            auth_runtime,
+            resolved,
+        )
         return await call_next(request)
 
     app.include_router(

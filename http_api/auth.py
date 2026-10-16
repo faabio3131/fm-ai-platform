@@ -11,7 +11,7 @@ import threading
 from collections import defaultdict, deque
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 from fastapi import APIRouter, Request, Response, status
@@ -123,7 +123,7 @@ class _PasswordRecoveryLimiter:
         self._lock = threading.Lock()
 
     def allow(self, key: str) -> bool:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         cutoff = now - self._window
         with self._lock:
             bucket = self._events[key]
@@ -174,8 +174,8 @@ class _GerenciadorSessaoOperacional:
         if valor is None:
             return None
         if valor.tzinfo is None:
-            return valor.replace(tzinfo=timezone.utc)
-        return valor.astimezone(timezone.utc)
+            return valor.replace(tzinfo=UTC)
+        return valor.astimezone(UTC)
 
     @classmethod
     def _sessao_do_row(cls, row: OperationalSessionORM) -> _SessaoOperacional:
@@ -219,6 +219,7 @@ class _GerenciadorSessaoOperacional:
 
     @staticmethod
     def _limpar_expiradas_db(session: Session, agora: datetime) -> None:
+        """Somente manutenção fora do caminho HTTP; expiração vale na leitura."""
         session.execute(
             delete(OperationalSessionORM).where(
                 OperationalSessionORM.expira_em <= agora
@@ -226,7 +227,7 @@ class _GerenciadorSessaoOperacional:
         )
 
     def criar(self, identidade: IdentidadeUsuario) -> tuple[_SessaoOperacional, str]:
-        agora = datetime.now(timezone.utc)
+        agora = datetime.now(UTC)
         sessao = _SessaoOperacional(
             session_id=secrets.token_urlsafe(32),
             usuario_id=identidade.usuario_id,
@@ -243,13 +244,12 @@ class _GerenciadorSessaoOperacional:
                 self._sessions[sessao.session_id] = sessao
         else:
             with self._session_factory() as db, db.begin():
-                self._limpar_expiradas_db(db, agora)
                 db.add(self._row_da_sessao(sessao))
         return sessao, self._token(sessao.session_id)
 
     def resolver(self, token: str) -> _SessaoOperacional:
         session_id = self._session_id_do_token(token)
-        agora = datetime.now(timezone.utc)
+        agora = datetime.now(UTC)
         if self._session_factory is None:
             with self._lock:
                 self._limpar_expiradas_locked(agora)
@@ -259,14 +259,23 @@ class _GerenciadorSessaoOperacional:
             return sessao
 
         encontrada: _SessaoOperacional | None = None
-        with self._session_factory() as db, db.begin():
-            self._limpar_expiradas_db(db, agora)
+        with self._session_factory() as db:
             row = db.get(OperationalSessionORM, session_id)
             if row is not None:
                 encontrada = self._sessao_do_row(row)
         if encontrada is None or encontrada.expira_em <= agora:
             raise _SessaoInvalida("sessao invalida")
         return encontrada
+
+    def expurgar_expiradas(self, *, agora: datetime | None = None) -> None:
+        """Ponto de manutenção explícito, não chamado por resolver/criar."""
+        instante = agora or datetime.now(UTC)
+        if self._session_factory is None:
+            with self._lock:
+                self._limpar_expiradas_locked(instante)
+        else:
+            with self._session_factory() as db, db.begin():
+                self._limpar_expiradas_db(db, instante)
 
     def _rotacionar(
         self,
@@ -333,7 +342,7 @@ class _GerenciadorSessaoOperacional:
         self,
         sessao: _SessaoOperacional,
     ) -> tuple[_SessaoOperacional, str]:
-        agora = datetime.now(timezone.utc)
+        agora = datetime.now(UTC)
         elevado_ate = min(
             sessao.expira_em,
             agora + timedelta(seconds=_ADMIN_STEP_UP_TTL_SECONDS),
@@ -481,7 +490,7 @@ class AuthSessionRuntime:
     ) -> tuple[IdentidadeUsuario, bool, datetime | None]:
         _, sessao, identidade = self.sessao_autenticada(request)
         permitido = Permissao.ADMIN_ACESSAR in identidade.permissoes
-        agora = datetime.now(timezone.utc)
+        agora = datetime.now(UTC)
         elevado = bool(
             permitido
             and sessao.admin_elevado_ate is not None
