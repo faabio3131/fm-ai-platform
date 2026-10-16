@@ -1,6 +1,6 @@
 # Kordena — Cron independente de expurgo de sessões / privilégio mínimo
 
-**Escopo:** pré-comercial, homologação Kordena; não confundir o ambiente Railway chamado `production` com lançamento comercial.  
+**Escopo:** pré-comercial, homologação Kordena; não confundir o ambiente Railway chamado `production` com lançamento comercial.
 **Objetivo:** expurgar linhas de `fm_operational_sessions_v1` já expiradas sem conceder ao job acesso à identidade, tenants, pedidos, pagamentos, auditoria ou outros dados.
 
 ## Contrato protegido
