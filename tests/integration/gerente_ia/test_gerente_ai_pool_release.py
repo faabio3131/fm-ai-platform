@@ -8,8 +8,9 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
+import application.ai_router_runtime as router_runtime
 import application.gerente_ia_web as web
-from core.ai_router import RespostaModeloIA
+from core.ai_router import CapabilityIA, RespostaModeloIA, RotaIA, SolicitacaoIA
 from core.seguranca.permissoes import Papel
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 from migrations.runner import run_migrations
@@ -124,3 +125,70 @@ def test_role_revocation_during_llm_denies_tool_without_effect(
         assert engine.pool.checkedout() == 0
     finally:
         engine.dispose()
+
+
+def test_real_provider_executor_releases_config_connection_before_network(
+    tmp_path, monkeypatch
+):
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'external_provider.db'}",
+        pool_size=2, max_overflow=0, pool_timeout=0.5
+    )
+    factory = sessionmaker(bind=engine)
+    events = []
+
+    class FakeStore:
+        def for_session(self, session):
+            events.append("vault_rebound")
+            return self
+
+    class FakeAdapter:
+        def gerar(self, conteudo):
+            assert engine.pool.checkedout() == 0
+            events.append("network_without_db_checkout")
+            return "ok"
+
+    class FakeAdapterFactory:
+        def __init__(self, *, session, secret_store):
+            assert engine.pool.checkedout() == 0
+            self.session = session
+
+        def openai(self, *, contexto, configuracao_id, gateway):
+            self.session.execute(text("SELECT 1"))
+            assert engine.pool.checkedout() == 1
+            events.append("credentials_read")
+            return FakeAdapter()
+
+    monkeypatch.setattr(
+        router_runtime, "FabricaAdaptersExternos", FakeAdapterFactory
+    )
+    with factory() as db:
+        executor = router_runtime.ExecutorControlPlaneIA(
+            session=db,
+            contexto=SimpleNamespace(tenant_id="tenant", unidade_id="unit"),
+            secret_store=FakeStore(),
+            session_factory=factory,
+        )
+        route = RotaIA(
+            configuracao_id="ia.generativa--openai",
+            provider="openai",
+            model="modelo-teste",
+            capability=CapabilityIA.TOOL_PLANNING,
+            prioridade=100,
+            price_snapshot_id="test",
+        )
+        request = SolicitacaoIA(
+            tenant_id="tenant",
+            unidade_id="unit",
+            request_id="req-1",
+            correlation_id="corr-1",
+            capability=CapabilityIA.TOOL_PLANNING,
+            conteudo={"user": "Teste"},
+        )
+        answer = executor.executar(rota=route, solicitacao=request)
+        assert answer.conteudo == "ok"
+        assert engine.pool.checkedout() == 0
+    assert events == [
+        "vault_rebound", "credentials_read", "network_without_db_checkout"
+    ]
+    engine.dispose()
