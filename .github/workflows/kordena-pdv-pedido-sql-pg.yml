@@ -72,7 +72,7 @@ jobs:
           report = json.loads(Path("evidence/kordena-pdv-checkout-ab-pg16.json").read_text())
           before = report["scoped_ids"]["sql_count"]
           print("PEDIDO_SCOPED_EVENT_SQL", before)
-          assert before and max(before) <= 66, "expected SQL reduction vs 70-query baseline"
+          assert before and max(before) <= 56, "combined auth+pedido must reduce baseline 70 SQL to 56 or fewer"
           PY
       - name: Show measurements
         if: always()
