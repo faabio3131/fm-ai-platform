@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import cast
 
 from sqlalchemy import (
@@ -470,7 +470,7 @@ def _assert_requested_sequence(
 def _record_applied(connection: Connection, migration: Migration) -> None:
     values: dict[str, object] = {
         "version": migration.version,
-        "applied_at": datetime.now(timezone.utc),
+        "applied_at": datetime.now(UTC),
     }
     columns = {
         str(column["name"])
