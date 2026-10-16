@@ -219,6 +219,7 @@ class _GerenciadorSessaoOperacional:
 
     @staticmethod
     def _limpar_expiradas_db(session: Session, agora: datetime) -> None:
+        """Somente manutenção fora do caminho HTTP; expiração vale na leitura."""
         session.execute(
             delete(OperationalSessionORM).where(
                 OperationalSessionORM.expira_em <= agora
@@ -243,7 +244,6 @@ class _GerenciadorSessaoOperacional:
                 self._sessions[sessao.session_id] = sessao
         else:
             with self._session_factory() as db, db.begin():
-                self._limpar_expiradas_db(db, agora)
                 db.add(self._row_da_sessao(sessao))
         return sessao, self._token(sessao.session_id)
 
@@ -259,14 +259,23 @@ class _GerenciadorSessaoOperacional:
             return sessao
 
         encontrada: _SessaoOperacional | None = None
-        with self._session_factory() as db, db.begin():
-            self._limpar_expiradas_db(db, agora)
+        with self._session_factory() as db:
             row = db.get(OperationalSessionORM, session_id)
             if row is not None:
                 encontrada = self._sessao_do_row(row)
         if encontrada is None or encontrada.expira_em <= agora:
             raise _SessaoInvalida("sessao invalida")
         return encontrada
+
+    def expurgar_expiradas(self, *, agora: datetime | None = None) -> None:
+        """Ponto de manutenção explícito, não chamado por resolver/criar."""
+        instante = agora or datetime.now(timezone.utc)
+        if self._session_factory is None:
+            with self._lock:
+                self._limpar_expiradas_locked(instante)
+        else:
+            with self._session_factory() as db, db.begin():
+                self._limpar_expiradas_db(db, instante)
 
     def _rotacionar(
         self,
