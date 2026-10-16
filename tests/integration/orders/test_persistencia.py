@@ -1,5 +1,5 @@
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import create_engine, event, inspect, select
@@ -82,7 +82,7 @@ def test_optimistic_locking_e_rollback(engine):
         original = repo.salvar(pedido())
         session.commit()
         atualizado = replace(
-            original, versao=2, atualizado_em=datetime(2026, 8, 9, tzinfo=timezone.utc)
+            original, versao=2, atualizado_em=datetime(2026, 8, 9, tzinfo=UTC)
         )
         repo.salvar(atualizado, versao_esperada=1)
         session.commit()
@@ -139,3 +139,68 @@ def test_transaction_rollback_nao_persiste(engine):
             )
             == ()
         )
+
+
+def test_salvar_eventos_valida_existencia_scoped_sem_reidratar_agregado(engine):
+    with Session(engine) as session:
+        repo = RepositorioPedidosSQLAlchemy(session)
+        original = repo.salvar(pedido())
+        session.commit()
+
+    queries = []
+
+    def observer(conn, cursor, statement, params, context, many):
+        queries.append(statement)
+
+    with Session(engine) as session:
+        repo = RepositorioPedidosSQLAlchemy(session)
+        evento = PedidoCriado(
+            event_id=EventoId("event-exists-efficient"),
+            aggregate_id=str(original.id),
+            aggregate_type="Pedido",
+            tenant_id=original.tenant_id,
+            unidade_id=original.unidade_id,
+            correlation_id=original.correlation_id,
+            causation_id=None,
+            idempotency_key=IdempotencyKey("evt-optimized"),
+            occurred_at=original.criado_em,
+            payload={"total": "24.00"},
+            version=1,
+        )
+        event.listen(engine, "before_cursor_execute", observer)
+        try:
+            repo.salvar_eventos(
+                original.tenant_id, original.unidade_id, original.id, (evento,)
+            )
+            session.flush()
+        finally:
+            event.remove(engine, "before_cursor_execute", observer)
+        assert sum(
+            query.lstrip().upper().startswith("SELECT")
+            and "FROM pedidos_v1" in query for query in queries
+        ) == 1
+        assert not any(
+            query.lstrip().upper().startswith("SELECT")
+            and ("FROM itens_pedido_v1" in query
+                 or "FROM adicionais_item_pedido_v1" in query
+                 or "FROM observacoes_pedido_v1" in query)
+            for query in queries
+        )
+        session.rollback()
+
+    with Session(engine) as session:
+        repo = RepositorioPedidosSQLAlchemy(session)
+        with pytest.raises(EscopoPedidoInvalido):
+            repo.salvar_eventos(
+                TenantId("tenant-externo"),
+                original.unidade_id,
+                original.id,
+                (evento,),
+            )
+        with pytest.raises(EscopoPedidoInvalido):
+            repo.salvar_eventos(
+                original.tenant_id,
+                UnidadeId("unidade-externa"),
+                original.id,
+                (evento,),
+            )
