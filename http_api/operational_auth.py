@@ -54,6 +54,13 @@ def obter_identidade_operacional(
 ) -> IdentidadeOperacional:
     """Resolve sessão web primeiro e Basic legado somente quando ela inexiste."""
 
+    # O gate comercial validou o mesmo runtime e liberou o acesso nesta
+    # requisição. Nenhum cache sobrevive ao request, e cada novo request
+    # revalida sessão, revogação, tenant e unidade.
+    cached = getattr(request.state, "_fm_commercial_authorized_identity", None)
+    if cached is not None and cached[0] is auth_runtime:
+        return cached[1]
+
     if auth_runtime is not None:
         identidade_sessao = auth_runtime.resolver_identidade(request)
         if identidade_sessao is not None:
