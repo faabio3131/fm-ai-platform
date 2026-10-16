@@ -8,7 +8,6 @@ from types import SimpleNamespace
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
-from sqlalchemy.pool import StaticPool
 
 import http_api.auth as auth_module
 from application.commercial_access import AplicacaoAcessoComercialV1
@@ -86,11 +85,9 @@ def test_expired_session_is_rejected_without_delete(monkeypatch):
     )
 
 
-def test_dedicated_maintenance_deletes_only_expired_sessions(monkeypatch):
+def test_dedicated_maintenance_deletes_only_expired_sessions(monkeypatch, tmp_path):
     engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
+        f"sqlite:///{tmp_path / 'session-cleanup.db'}",
     )
     from migrations.runner import run_migrations
 
