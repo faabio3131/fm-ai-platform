@@ -9,12 +9,16 @@ fail-closed para origens localhost.
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any
+from uuid import uuid4
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import DisconnectionError, InterfaceError, OperationalError
+from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 
 from application.commercial_access import AplicacaoAcessoComercialV1
 from application.commercial_billing import BillingProviderAdapterRegistryV1
@@ -67,6 +71,9 @@ from infra.comercial.transactional_email import (
 )
 from infra.legacy_product_scope import reconciliar_lojas_legadas_unidades_admin
 from infra.seguranca.session_guard import build_session_factory
+
+_LOGGER = logging.getLogger(__name__)
+
 
 DEV_FRONTEND_ORIGINS: tuple[str, ...] = (
     "http://localhost:3000",
@@ -212,6 +219,32 @@ def build_frontend_http_app(
         except ErroSeguranca:
             # A própria rota permanece autoridade da resposta de autenticação.
             return await call_next(request)
+        except (
+            OperationalError,
+            InterfaceError,
+            DisconnectionError,
+            SQLAlchemyTimeoutError,
+        ) as exc:
+            # O erro ocorre ANTES da rota: a proteção comercial nunca deve
+            # transformar indisponibilidade do banco em 500 sem rastreio.
+            correlation_id = uuid4().hex
+            _LOGGER.error(
+                "commercial_gate.database_unavailable correlation_id=%s error_type=%s",
+                correlation_id,
+                type(exc).__name__,
+                exc_info=True,
+            )
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={
+                    "erro": "commercial_gate.database_temporarily_unavailable",
+                    "correlation_id": correlation_id,
+                },
+                headers={
+                    "Retry-After": "1",
+                    "X-Correlation-ID": correlation_id,
+                },
+            )
         if not access.operational_allowed:
             return JSONResponse(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
