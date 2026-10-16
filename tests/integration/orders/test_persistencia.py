@@ -1,5 +1,5 @@
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import create_engine, event, inspect, select
@@ -82,7 +82,7 @@ def test_optimistic_locking_e_rollback(engine):
         original = repo.salvar(pedido())
         session.commit()
         atualizado = replace(
-            original, versao=2, atualizado_em=datetime(2026, 8, 9, tzinfo=timezone.utc)
+            original, versao=2, atualizado_em=datetime(2026, 8, 9, tzinfo=UTC)
         )
         repo.salvar(atualizado, versao_esperada=1)
         session.commit()
