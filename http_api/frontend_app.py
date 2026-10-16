@@ -232,7 +232,6 @@ def build_frontend_http_app(
                 "commercial_gate.database_unavailable correlation_id=%s error_type=%s",
                 correlation_id,
                 type(exc).__name__,
-                exc_info=True,
             )
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
