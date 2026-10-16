@@ -49,6 +49,7 @@ jobs:
       - name: Test role isolation and bounded deletion in PostgreSQL 16
         env:
           PYTHONPATH: .
+          FM_AI_RESTRICTED_PG_TEST: "1"
           DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/kordena_session_cleanup_test
         run: |
           pytest -q tests/integration/test_session_cleanup_restricted_pg.py tests/api/test_pdv_auth_hotpath_sql.py
