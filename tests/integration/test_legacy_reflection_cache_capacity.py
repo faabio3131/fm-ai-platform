@@ -146,11 +146,10 @@ def test_connection_failure_during_reflection_propagates_as_database_error(monke
 
     try:
         monkeypatch.setattr(legacy, "Table", disconnected)
-        with Session(engine) as session:
-            with pytest.raises(OperationalError):
-                legacy.resolver_loja_id_legada(
-                    session, tenant_id="tenant-a", unidade_id="unit-a"
-                )
+        with Session(engine) as session, pytest.raises(OperationalError):
+            legacy.resolver_loja_id_legada(
+                session, tenant_id="tenant-a", unidade_id="unit-a"
+            )
     finally:
         legacy.invalidar_cache_reflexao_legada(engine)
         engine.dispose()
@@ -159,9 +158,10 @@ def test_connection_failure_during_reflection_propagates_as_database_error(monke
 def test_reflection_missing_table_is_domain_error_but_not_cached():
     engine = _engine()
     try:
-        with Session(engine) as session:
-            with pytest.raises(legacy.ErroEscopoLojaLegada, match="tabela legada"):
-                legacy._refletir_tabela_scoped(session, "tabela_que_nao_existe")
+        with Session(engine) as session, pytest.raises(
+            legacy.ErroEscopoLojaLegada, match="tabela legada"
+        ):
+            legacy._refletir_tabela_scoped(session, "tabela_que_nao_existe")
         with engine.begin() as conn:
             conn.exec_driver_sql(
                 "CREATE TABLE tabela_que_nao_existe (id INTEGER PRIMARY KEY, "
