@@ -6,6 +6,7 @@ on:
       - bench/kordena-core-capacity-20261016
     paths:
       - scripts/kordena_core_load_probe.py
+      - scripts/kordena_ai_latency_capacity_probe.py
       - .github/workflows/kordena-core-capacity-probe.yml
   workflow_dispatch:
 
@@ -70,11 +71,25 @@ jobs:
         run: |
           python scripts/kordena_core_load_probe.py --output evidence/kordena-core-load-20261016.json
 
+      - name: Run simulated OpenAI/Gemini wait with real Core PostgreSQL path
+        env:
+          FM_AI_ENV: staging
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/kordena_core_load
+          FM_AI_TENANT_ID: core-load-bootstrap
+          FM_AI_UNIDADE_ID: core-load-bootstrap
+          FM_AI_COMMERCIAL_ACCESS_GATE_ENABLED: "1"
+          PYTHONPATH: .
+        run: |
+          python scripts/kordena_ai_latency_capacity_probe.py
+
       - name: Print bounded report
         if: always()
         run: |
           if test -f evidence/kordena-core-load-20261016.json; then
             python -m json.tool evidence/kordena-core-load-20261016.json
+          fi
+          if test -f evidence/kordena-ai-simulated-load-20261016.json; then
+            python -m json.tool evidence/kordena-ai-simulated-load-20261016.json
           fi
 
       - name: Upload load-test evidence
@@ -82,6 +97,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kordena-core-isolated-load-20261016
-          path: evidence/kordena-core-load-20261016.json
+          path: |
+            evidence/kordena-core-load-20261016.json
+            evidence/kordena-ai-simulated-load-20261016.json
           if-no-files-found: warn
           retention-days: 14
