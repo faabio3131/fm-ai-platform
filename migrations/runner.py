@@ -520,6 +520,9 @@ def run_migrations(
     if strict_history:
         assert_migration_manifest(ordered)
 
+    # Import diferido para evitar ciclos na inicialização de migrations.
+    from infra.legacy_product_scope import invalidar_cache_reflexao_legada
+
     applied_now: list[str] = []
     with engine.begin() as connection:
         already = set(applied_versions(connection))
@@ -560,6 +563,7 @@ def run_migrations(
             already.add(migration.version)
             if applied_sqlite_now:
                 applied_now.append(migration.version)
+                invalidar_cache_reflexao_legada(engine)
             continue
         with engine.begin() as connection:
             current = set(applied_versions(connection))
@@ -569,6 +573,7 @@ def run_migrations(
             _record_applied(connection, migration)
         already.add(migration.version)
         applied_now.append(migration.version)
+        invalidar_cache_reflexao_legada(engine)
 
     if strict_history:
         with engine.begin() as connection:
@@ -610,4 +615,7 @@ def rollback_migration(engine: Engine, version: str) -> str:
         connection.execute(
             delete(_schema_migrations).where(_schema_migrations.c.version == version)
         )
+    from infra.legacy_product_scope import invalidar_cache_reflexao_legada
+
+    invalidar_cache_reflexao_legada(engine)
     return version
