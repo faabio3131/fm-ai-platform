@@ -17,8 +17,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 
-from core.runtime.config import RuntimeEnvironment, RuntimeSettings
 import http_api.pdv as pdv_api
+from core.runtime.config import RuntimeEnvironment, RuntimeSettings
 from http_api.frontend_app import build_frontend_http_app
 from infra.legacy_product_scope import listar_produtos_legados as scoped_legacy_list
 from migrations.runner import run_migrations
@@ -73,7 +73,7 @@ def _medir(client, engine, produto_id, *, n=5):
         "samples": len(samples),
         "sql_count": [s["sql_count"] for s in samples],
         "median_ms": round(statistics.median(s["elapsed_ms"] for s in samples), 3),
-        "p95_ms_sample": round(sorted(s["elapsed_ms"] for s in samples)[-1], 3),
+        "max_ms_sample": round(max(s["elapsed_ms"] for s in samples), 3),
         "product_sql_scoped": all(s["product_scoped_by_id"] for s in samples),
         "totals": sorted({s["total"] for s in samples}),
     }
