@@ -21,8 +21,11 @@ def test_dedicated_postgres_role_can_only_purge_expired_sessions(
 ):
     import os
 
-    admin_url = os.environ["DATABASE_URL"]
-    assert "127.0.0.1" in admin_url
+    if os.environ.get("FM_AI_RESTRICTED_PG_TEST") != "1":
+        pytest.skip("requires dedicated ephemeral PostgreSQL CI job")
+    admin_url = os.environ.get("DATABASE_URL", "")
+    if not admin_url.startswith("postgresql") or "127.0.0.1" not in admin_url:
+        pytest.fail("restricted role test may only run on localhost PostgreSQL")
     admin = create_engine(admin_url)
     password = secrets.token_urlsafe(48)
     restricted = None
