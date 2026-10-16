@@ -77,6 +77,12 @@ def _objeto_sql(sql):
 
 def _categoria(frames, tabela, sql):
     stack = "\n".join(frames)
+    # Projeção síncrona do Core consome cada evento da Outbox. Não pertence
+    # ao agregado pedido mesmo quando executada dentro da UoW do checkout.
+    if tabela == "gerente_ia_eventos_v1":
+        return "projecao_core_cognitivo"
+    if tabela == "pg_catalog.pg_class" and "_global_disponivel" in stack:
+        return "autenticacao_introspeccao_schema"
     if "http_api/auth.py:_limpar_expiradas_db:" in stack:
         return "autenticacao_limpeza_sessoes"
     if "http_api/auth.py:" in stack or "infra/seguranca/adaptador_sqlalchemy.py:" in stack:
