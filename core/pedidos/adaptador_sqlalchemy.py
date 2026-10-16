@@ -2,7 +2,7 @@
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy import CursorResult, select, update
@@ -60,7 +60,7 @@ def _utc(valor: object) -> datetime:
         valor if isinstance(valor, datetime) else datetime.fromisoformat(str(valor))
     )
     return (
-        instante.replace(tzinfo=timezone.utc) if instante.tzinfo is None else instante
+        instante.replace(tzinfo=UTC) if instante.tzinfo is None else instante
     )
 
 
