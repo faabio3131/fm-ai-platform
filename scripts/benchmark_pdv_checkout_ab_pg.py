@@ -18,8 +18,8 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 
 from core.runtime.config import RuntimeEnvironment, RuntimeSettings
-from http_api.frontend_app import build_frontend_http_app
 import http_api.pdv as pdv_api
+from http_api.frontend_app import build_frontend_http_app
 from infra.legacy_product_scope import listar_produtos_legados as scoped_legacy_list
 from migrations.runner import run_migrations
 from scripts.kca15_internal_homologation import (
