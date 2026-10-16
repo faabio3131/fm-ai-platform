@@ -155,6 +155,10 @@ async def measure() -> dict:
                 if item["p95_ms"] is not None and item["p95_ms"] > 12000:
                     report["early_stop_reason"] = "p95 latency exceeded 12 seconds"
                     break
+            if "early_stop_reason" not in report:
+                soak = await phase(client, concurrency=50, target=2500)
+                report["sustained_50_inflight"] = soak
+                print("SOAK_PHASE " + json.dumps(soak, sort_keys=True), flush=True)
     finally:
         engine.dispose()
     return report
