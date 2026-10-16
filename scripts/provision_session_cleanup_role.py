@@ -12,7 +12,7 @@ from __future__ import annotations
 import argparse
 import os
 
-from psycopg import connect, sql
+from psycopg import Error, connect, sql
 
 from core.runtime import load_runtime_settings
 from scripts.cleanup_expired_operational_sessions import ROLE_NAME
@@ -65,7 +65,7 @@ def provision(*, admin_url: str, password: str) -> None:
         print("cleanup_role.provisioned_with_minimum_table_grants")
     except RuntimeError:
         raise
-    except Exception:
+    except Error:
         raise RuntimeError("session_cleanup.provision_failed_check_technical_logs_privately") from None
 
 
