@@ -2,10 +2,15 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+
+import http_api.frontend_app as frontend_module
 
 from application.comercial_registry import AplicacaoCommercialRegistryV1
 from application.commercial_entitlement import AplicacaoEntitlementComercialV1
@@ -161,3 +166,38 @@ def test_paywall_bloqueia_api_operacional_mas_preserva_auth_e_comercial(
     assert operational.status_code == 402
     assert operational.json()["erro"] == "commercial_access_restricted"
     assert operational.json()["access_mode"] == "billing_only"
+
+
+@pytest.mark.parametrize(
+    "database_error",
+    [
+        SQLAlchemyTimeoutError("connection pool exhausted"),
+        OperationalError("SELECT 1", {}, RuntimeError("database connection lost")),
+    ],
+    ids=("connection_pool_timeout", "database_operational_error"),
+)
+def test_commercial_gate_db_failure_returns_traceable_json_503(
+    monkeypatch, caplog, database_error: Exception
+) -> None:
+    """DB failures in middleware must never leak as raw 500 or misleading 403."""
+    client = _client(monkeypatch)
+
+    def fail_identity(*args, **kwargs):
+        raise database_error
+
+    monkeypatch.setattr(frontend_module, "obter_identidade_operacional", fail_identity)
+    response = client.get("/v1/pdv/produtos")
+
+    assert response.status_code == 503
+    assert response.headers["retry-after"] == "1"
+    correlation_id = response.headers["x-correlation-id"]
+    assert len(correlation_id) == 32
+    assert response.json() == {
+        "erro": "commercial_gate.database_temporarily_unavailable",
+        "correlation_id": correlation_id,
+    }
+    assert "connection pool exhausted" not in response.text
+    assert "database connection lost" not in response.text
+    assert "commercial_gate.database_unavailable" in caplog.text
+    assert "connection pool exhausted" not in caplog.text
+    assert "database connection lost" not in caplog.text
