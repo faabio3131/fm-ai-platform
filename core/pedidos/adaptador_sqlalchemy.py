@@ -303,7 +303,17 @@ class RepositorioPedidosSQLAlchemy:
         pedido_id: PedidoId,
         eventos: tuple[EventoDominio, ...],
     ) -> None:
-        if self.buscar(tenant_id, unidade_id, pedido_id) is None:
+        # A escrita do evento só exige comprovar a existência no escopo.
+        # Reidratar o agregado inteiro aqui gerava 3 lazy SELECTs adicionais
+        # (itens, adicionais e observações) por evento, sem alterar a decisão.
+        existente = self._session.scalar(
+            select(PedidoORM.id).where(
+                PedidoORM.tenant_id == str(tenant_id),
+                PedidoORM.unidade_id == str(unidade_id),
+                PedidoORM.id == str(pedido_id),
+            )
+        )
+        if existente is None:
             raise EscopoPedidoInvalido("Pedido nao pertence ao escopo informado")
         for e in eventos:
             if (
