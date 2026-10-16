@@ -115,14 +115,42 @@ class ExecutorControlPlaneIA:
         session: Session,
         contexto: ContextoExecucao,
         secret_store: SecretStore,
+        session_factory: Callable[[], Session] | None = None,
         gemini_gateway: PortaGeminiTenant | None = None,
         openai_gateway: PortaOpenAITenant | None = None,
     ) -> None:
         self._session = session
+        self._session_factory = session_factory
         self._contexto = contexto
         self._secret_store = secret_store
         self._gemini_gateway = gemini_gateway
         self._openai_gateway = openai_gateway
+
+    def _preparar_adapter(self, *, session: Session, rota: RotaIA):
+        # Vault e configuração devem usar a MESMA sessão curta.
+        store = self._secret_store
+        for_session = getattr(store, "for_session", None)
+        if callable(for_session):
+            store = for_session(session)
+        factory = FabricaAdaptersExternos(
+            session=session,
+            secret_store=store,
+        )
+        if rota.provider == "openai":
+            return factory.openai(
+                contexto=self._contexto,
+                configuracao_id=rota.configuracao_id,
+                gateway=self._openai_gateway,
+            )
+        if rota.provider == "gemini":
+            return factory.gemini(
+                contexto=self._contexto,
+                configuracao_id=rota.configuracao_id,
+                gateway=self._gemini_gateway,
+            )
+        raise FalhaRotaDefinitiva(
+            "ai_router.provider_adapter_indisponivel"
+        )
 
     def executar(
         self,
@@ -131,26 +159,21 @@ class ExecutorControlPlaneIA:
         solicitacao: SolicitacaoIA,
     ) -> RespostaModeloIA:
         try:
-            factory = FabricaAdaptersExternos(
-                session=self._session,
-                secret_store=self._secret_store,
-            )
-            if rota.provider == "openai":
-                resposta = factory.openai(
-                    contexto=self._contexto,
-                    configuracao_id=rota.configuracao_id,
-                    gateway=self._openai_gateway,
-                ).gerar(solicitacao.conteudo)
-            elif rota.provider == "gemini":
-                resposta = factory.gemini(
-                    contexto=self._contexto,
-                    configuracao_id=rota.configuracao_id,
-                    gateway=self._gemini_gateway,
-                ).gerar(solicitacao.conteudo)
-            else:
-                raise FalhaRotaDefinitiva(
-                    "ai_router.provider_adapter_indisponivel"
+            # Os adapters resolvem configuração e credencial no banco, mas a
+            # chamada de rede ocorre SOMENTE depois de devolver a conexão.
+            if self._session_factory is None:
+                adapter = self._preparar_adapter(
+                    session=self._session,
+                    rota=rota,
                 )
+                resposta = adapter.gerar(solicitacao.conteudo)
+            else:
+                with self._session_factory() as session:
+                    adapter = self._preparar_adapter(
+                        session=session,
+                        rota=rota,
+                    )
+                resposta = adapter.gerar(solicitacao.conteudo)
 
         except ErroProvedorTransitorio as exc:
             raise FalhaRotaTransitoria(
@@ -434,6 +457,7 @@ def construir_ai_model_router(
     metering: MedidorUsoIA | None = None,
 ) -> AIModelRouter:
     store = secret_store or ReferenceSecretStore()
+    isolated_session_factory = _metering_session_factory(session)
 
     return AIModelRouter(
         rotas=_rotas_homologadas(
@@ -444,13 +468,14 @@ def construir_ai_model_router(
             session=session,
             contexto=contexto,
             secret_store=store,
+            session_factory=isolated_session_factory,
             gemini_gateway=gemini_gateway,
             openai_gateway=openai_gateway,
         ),
         metering=(
             metering
             or AIUsageDurableMetering(
-                _metering_session_factory(session)
+                isolated_session_factory
             )
         ),
     )
