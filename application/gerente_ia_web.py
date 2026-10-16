@@ -181,23 +181,23 @@ class AplicacaoGerenteIAWebV1:
             )
         # Não manter conexão de negócio durante transcrição/fallback.
         resposta = router.executar(
-                SolicitacaoIA(
-                    tenant_id=contexto_atual.tenant_id,
-                    unidade_id=contexto_atual.unidade_id,
-                    request_id=request_id,
-                    correlation_id=contexto_atual.correlation_id,
-                    capability=CapabilityIA.ATENDIMENTO_TRANSCRICAO,
-                    conteudo=ConteudoAudioIA(
-                        audio=audio,
-                        mime_type=mime_type,
-                        instrucao=(
-                            "Transcreva fielmente esta pergunta falada ao Gerente IA "
-                            "em português. Retorne somente a transcrição, sem resumo, "
-                            "sem resposta e sem adicionar informações."
-                        ),
+            SolicitacaoIA(
+                tenant_id=contexto_atual.tenant_id,
+                unidade_id=contexto_atual.unidade_id,
+                request_id=request_id,
+                correlation_id=contexto_atual.correlation_id,
+                capability=CapabilityIA.ATENDIMENTO_TRANSCRICAO,
+                conteudo=ConteudoAudioIA(
+                    audio=audio,
+                    mime_type=mime_type,
+                    instrucao=(
+                        "Transcreva fielmente esta pergunta falada ao Gerente IA "
+                        "em português. Retorne somente a transcrição, sem resumo, "
+                        "sem resposta e sem adicionar informações."
                     ),
-                )
+                ),
             )
+        )
         texto = str(resposta.conteudo).strip()
         if not texto:
             raise ErroGerenteIA("transcricao_audio_vazia")
