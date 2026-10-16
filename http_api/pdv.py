@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation
 import re
+from collections.abc import Callable
+from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
@@ -306,7 +306,7 @@ def _montar_pedido(
         if not decisao.autorizado:
             raise PermissaoNegada(decisao.codigo)
 
-    agora = datetime.now(timezone.utc)
+    agora = datetime.now(UTC)
     return Pedido.novo(
         id=pedido_id,
         tenant_id=tenant,
@@ -505,7 +505,7 @@ def build_pdv_router(
             )
             comando = ComandoCheckoutV1(
                 pedido=pedido,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 pagamento_id=(
                     _stable_id("pay", key=key, sufixo="pagamento")
                     if pedido.total.valor > 0
