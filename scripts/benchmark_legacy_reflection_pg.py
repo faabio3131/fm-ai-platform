@@ -10,7 +10,7 @@ import json
 import os
 import statistics
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import create_engine, event, text
@@ -95,7 +95,7 @@ def main():
             ).scalar_one()
         factory = sessionmaker(bind=engine, expire_on_commit=False)
         report = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "database": "isolated PostgreSQL",
             "external_provider_calls": 0,
             "production_requests": 0,
