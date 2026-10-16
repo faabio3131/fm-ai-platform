@@ -177,7 +177,7 @@ def test_paywall_bloqueia_api_operacional_mas_preserva_auth_e_comercial(
     ids=("connection_pool_timeout", "database_operational_error"),
 )
 def test_commercial_gate_db_failure_returns_traceable_json_503(
-    monkeypatch, database_error: Exception
+    monkeypatch, caplog, database_error: Exception
 ) -> None:
     """DB failures in middleware must never leak as raw 500 or misleading 403."""
     client = _client(monkeypatch)
@@ -198,3 +198,6 @@ def test_commercial_gate_db_failure_returns_traceable_json_503(
     }
     assert "connection pool exhausted" not in response.text
     assert "database connection lost" not in response.text
+    assert "commercial_gate.database_unavailable" in caplog.text
+    assert "connection pool exhausted" not in caplog.text
+    assert "database connection lost" not in caplog.text
