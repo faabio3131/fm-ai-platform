@@ -7,17 +7,23 @@ resolvido pela sessão assinada e delega ao runtime/canonical Core existente.
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from application.ai_router_runtime import construir_ai_model_router
-from application.gerente_ia_runtime import compor_runtime_gerente_ia
+from application.gerente_ia_runtime import (
+    PlanejadorAIRouterCore,
+    compor_runtime_gerente_ia,
+)
 from core.ai_router import CapabilityIA, ConteudoAudioIA, SolicitacaoIA
 from core.gerente_ia.erros import ErroGerenteIA
 from core.gerente_ia.modelos import ChamadaTool
 from core.seguranca.contexto import ContextoExecucao
+from core.seguranca.permissoes import Permissao
 from core.seguranca.segredos import ReferenceSecretStore, SecretStore
+from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
 from infra.transacoes.uow import UnitOfWorkV1
 
@@ -33,6 +39,10 @@ class _RuntimeProviderSecretStore:
         if reference.startswith("vault:"):
             return EncryptedSQLAlchemySecretStore(self._session).resolve(reference)
         return self._environment.resolve(reference)
+
+    def for_session(self, session: Session) -> _RuntimeProviderSecretStore:
+        """Vincula a leitura do cofre à sessão curta de preparação do adapter."""
+        return _RuntimeProviderSecretStore(session)
 
 
 class AplicacaoGerenteIAWebV1:
@@ -66,20 +76,85 @@ class AplicacaoGerenteIAWebV1:
             uow.commit()
             return resultado
 
+    @staticmethod
+    def _revalidar_contexto(
+        session: Session,
+        contexto: ContextoExecucao,
+    ) -> ContextoExecucao:
+        """Não aceita papéis/revogação antigos após aguardar o provedor."""
+        identidade = RepositorioIdentidadesSQLAlchemy(session).obter_por_id(
+            usuario_id=contexto.usuario_id
+        )
+        if (
+            identidade is None
+            or not identidade.ativo
+            or identidade.tenant_id != contexto.tenant_id
+            or identidade.global_identity_id != (
+                contexto.identity_user_id or contexto.usuario_id
+            )
+            or identidade.membership_subject_id != (
+                contexto.membership_id or contexto.usuario_id
+            )
+            or contexto.unidade_id not in identidade.unidades_permitidas
+            or Permissao.GERENTE_IA_CONSULTAR not in identidade.permissoes
+        ):
+            raise PermissionError("seguranca.gerente_ia_permissao_revogada")
+        return replace(
+            contexto,
+            papeis=contexto.papeis & identidade.papeis,
+            permissoes=contexto.permissoes & identidade.permissoes,
+            unidades_permitidas=(
+                contexto.unidades_permitidas & identidade.unidades_permitidas
+            ),
+        )
+
     def perguntar(
         self,
         *,
         contexto: ContextoExecucao,
         pergunta: str,
     ) -> tuple[Any, ChamadaTool, Any]:
+        # Etapa 1: apenas leituras e preparação. A UoW fecha ANTES da rede.
         with UnitOfWorkV1(self._session_factory) as uow:
+            session = self._session(uow)
+            contexto_atual = self._revalidar_contexto(session, contexto)
             runtime = compor_runtime_gerente_ia(
-                session=self._session(uow),
-                secret_store=self._secret_store or _RuntimeProviderSecretStore(self._session(uow)),
+                session=session,
+                secret_store=self._secret_store or _RuntimeProviderSecretStore(session),
             )
-            identidade, chamada, resultado = runtime.perguntar(
-                contexto=contexto,
-                pergunta=pergunta,
+            identidade = runtime.identidade_assistente.obter(
+                contexto=contexto_atual
+            )
+            router = construir_ai_model_router(
+                session=session,
+                contexto=contexto_atual,
+                secret_store=self._secret_store or _RuntimeProviderSecretStore(session),
+            )
+
+        # Etapa 2: as esperas do LLM e seu metering não retêm a transação
+        # de negócio. Adapters resolvem credenciais em uma sessão curta própria.
+        chamada = PlanejadorAIRouterCore(
+            router=router, contexto=contexto_atual
+        ).planejar(
+            pergunta=pergunta,
+            nome_assistente=identidade.nome_publico,
+        )
+
+        # Etapa 3: revalidar membership/tenant/unidade/permissões e
+        # executar a ferramenta no estado mais recente, atomicamente.
+        with UnitOfWorkV1(self._session_factory) as uow:
+            session = self._session(uow)
+            contexto_vigente = self._revalidar_contexto(session, contexto)
+            runtime = compor_runtime_gerente_ia(
+                session=session,
+                secret_store=self._secret_store or _RuntimeProviderSecretStore(session),
+            )
+            identidade = runtime.identidade_assistente.obter(
+                contexto=contexto_vigente
+            )
+            resultado = runtime.executar_tool(
+                contexto=contexto_vigente,
+                chamada=chamada,
             )
             uow.commit()
             return identidade, chamada, resultado
@@ -98,17 +173,19 @@ class AplicacaoGerenteIAWebV1:
             raise ValueError("gerente_ia.audio_mime_ausente")
         with UnitOfWorkV1(self._session_factory) as uow:
             session = self._session(uow)
+            contexto_atual = self._revalidar_contexto(session, contexto)
             router = construir_ai_model_router(
                 session=session,
-                contexto=contexto,
-                secret_store=self._secret_store or _RuntimeProviderSecretStore(self._session(uow)),
+                contexto=contexto_atual,
+                secret_store=self._secret_store or _RuntimeProviderSecretStore(session),
             )
-            resposta = router.executar(
+        # Não manter conexão de negócio durante transcrição/fallback.
+        resposta = router.executar(
                 SolicitacaoIA(
-                    tenant_id=contexto.tenant_id,
-                    unidade_id=contexto.unidade_id,
+                    tenant_id=contexto_atual.tenant_id,
+                    unidade_id=contexto_atual.unidade_id,
                     request_id=request_id,
-                    correlation_id=contexto.correlation_id,
+                    correlation_id=contexto_atual.correlation_id,
                     capability=CapabilityIA.ATENDIMENTO_TRANSCRICAO,
                     conteudo=ConteudoAudioIA(
                         audio=audio,
@@ -121,11 +198,12 @@ class AplicacaoGerenteIAWebV1:
                     ),
                 )
             )
-            texto = str(resposta.conteudo).strip()
-            if not texto:
-                raise ErroGerenteIA("transcricao_audio_vazia")
-            uow.commit()
-            return texto
+        texto = str(resposta.conteudo).strip()
+        if not texto:
+            raise ErroGerenteIA("transcricao_audio_vazia")
+        with UnitOfWorkV1(self._session_factory) as uow:
+            self._revalidar_contexto(self._session(uow), contexto)
+        return texto
 
     def confirmar_acao(
         self,
