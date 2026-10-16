@@ -1,0 +1,87 @@
+name: Kordena Core isolated capacity probe 2026-10-16
+
+on:
+  push:
+    branches:
+      - bench/kordena-core-capacity-20261016
+    paths:
+      - scripts/kordena_core_load_probe.py
+      - .github/workflows/kordena-core-capacity-probe.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-core-load:
+    name: Bounded Core load with PostgreSQL 16
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kordena_core_load
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d kordena_core_load"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Create isolated one-time credentials
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import secrets
+          from pathlib import Path
+          names = ("FM_AI_SESSION_SECRET", "FM_AI_FMCC_CONTROL_PLANE_TOKEN", "KCA15_INTERNAL_PASSWORD")
+          with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as out:
+              for name in names:
+                  value = secrets.token_urlsafe(48)
+                  print(f"::add-mask::{value}")
+                  out.write(f"{name}={value}\n")
+          PY
+
+      - name: Run bounded real Core read-path load
+        env:
+          FM_AI_ENV: staging
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/kordena_core_load
+          FM_AI_TENANT_ID: core-load-bootstrap
+          FM_AI_UNIDADE_ID: core-load-bootstrap
+          FM_AI_COMMERCIAL_ACCESS_GATE_ENABLED: "1"
+          PYTHONPATH: .
+        run: |
+          python scripts/kordena_core_load_probe.py --output evidence/kordena-core-load-20261016.json
+
+      - name: Print bounded report
+        if: always()
+        run: |
+          if test -f evidence/kordena-core-load-20261016.json; then
+            python -m json.tool evidence/kordena-core-load-20261016.json
+          fi
+
+      - name: Upload load-test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kordena-core-isolated-load-20261016
+          path: evidence/kordena-core-load-20261016.json
+          if-no-files-found: warn
+          retention-days: 14
