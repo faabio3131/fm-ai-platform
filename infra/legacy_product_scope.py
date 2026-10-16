@@ -399,6 +399,7 @@ def listar_produtos_legados(
     *,
     tenant_id: str,
     unidade_id: str,
+    produto_ids: tuple[int, ...] | None = None,
 ):
     loja_id = resolver_loja_id_legada(
         session,
@@ -424,6 +425,12 @@ def listar_produtos_legados(
         )
         .order_by(table.c.id)
     )
+
+    # O cardápio completo continua disponível para consultas de catálogo.
+    # Checkout fornece IDs canônicos: restringir por id + loja explicitamente
+    # mapeada no banco, NUNCA por um ID recebido como prova de autorização.
+    if produto_ids is not None:
+        stmt = stmt.where(table.c.id.in_(produto_ids))
 
     return session.execute(stmt).all()
 
