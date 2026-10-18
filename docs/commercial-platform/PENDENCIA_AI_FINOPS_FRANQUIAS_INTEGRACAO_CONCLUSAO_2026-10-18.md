@@ -2,7 +2,9 @@
 
 **FM Tecnologia | Documento técnico de continuidade e execução**  
 **Data:** 18/10/2026  
-**Situação:** PENDENTE DE INTEGRAÇÃO, TESTES E CERTIFICAÇÃO — NÃO CONCLUÍDO  
+**Situação da construção:** EM_CONSTRUCAO — INTEGRAÇÕES DE CÓDIGO PENDENTES  
+**Situação da homologação externa:** NÃO INICIADA — ETAPA POSTERIOR À CONSTRUÇÃO 100%  
+**Situação do release:** NÃO AUTORIZADO  
 **Prioridade:** P0 para lançamento comercial com franquias de IA  
 **Repositório:** `faabio3131/fm-ai-platform` (privado)  
 **Base examinada:** `staging/kordena-premium`, commit `d300ab1e2e01b004b45152c1c91d099731a4d6e0`  
@@ -14,7 +16,9 @@
 
 Uma pergunta comum à IA **não depende de aprovação humana** nem de chamada remota síncrona ao FM Command. A política contratual é previamente sincronizada e executada localmente pelo backend. Confirmação humana continua exigível para **novas cobranças** ou ações de negócio críticas, não para fazer perguntas.
 
-**Não aprovar preços ou franquias numéricas a partir deste documento.** Quantidades de créditos, teto financeiro, limites de áudio, mensagens e demais faixas deverão ser definidos após testes reais e simulações de custo.
+**Não aprovar preços ou franquias numéricas a partir deste documento.** Durante a construção, utilizar franquias e tetos fictícios em fixtures para provar proteção. Quantidades comerciais definitivas, preços e limites dependentes de medição real deverão ser fixados na fase posterior de testes externos/validação econômica, com autorização do proprietário.
+
+**Separação obrigatória de fases (decisão 18/10/2026):** o objetivo deste documento na fase atual é **100% da construção integrada e testada internamente**. Credenciais de provedores reais, chamadas faturadas, ensaios físicos, clientes-piloto, conciliação com faturas reais e publicação só poderão ser tratados após a construção completa. Ver `docs/governance/POLITICA_GATES_CONSTRUCAO_HOMOLOGACAO_POS_CONSTRUCAO_2026-10-18.md` e o `AGENTS.md` atualizado. Nenhuma dependência externa deve bloquear a implementação que ainda falta.
 
 ## 2. Inventário do patrimônio técnico já implementado
 
@@ -48,7 +52,7 @@ Uma pergunta comum à IA **não depende de aprovação humana** nem de chamada r
 | FIN-06 | **Preço não conhecido ainda existe como possibilidade operacional** | A rota possui snapshot legado `legacy-unpriced-v1`; o painel distingue custo desconhecido e conhecido. Sem preço confiável não pode haver concessão financeira ilimitada. | P0 |
 | FIN-07 | **Separação da apresentação comercial e financeira interna** | A tela atual mostra custos por moeda e mix provider/model. O cliente precisa de créditos/saldo; custo de fornecedor/margem da FM não deve ser exposto. | P1 |
 | FIN-08 | **Sincronização do orçamento com o Command e renovação contratual** | Arquitetura comercial do Kordena existe, porém não se demonstrou nesta auditoria um contrato ponta a ponta com alocação/revogação/versionamento de saldo de IA por ciclo. | P0 |
-| FIN-09 | **Prova integral em runtime produtivo** | Testes de unidade/API/fitness existentes não substituem teste real integrado com Postgres, múltiplas chamadas simultâneas e cobrança/uso de provedor. | P0 |
+| FIN-09 | **Provas de construção e homologação devem ficar separadas** | Construção: PostgreSQL real descartável, concorrência e contratos com provedores simulados, CI e E2E internos. Após construção 100%: provedor real, fatura/cobrança, cliente-piloto e homologação externa. | P0 construção + gate externo posterior |
 
 **Critério de interpretação:** “não comprovado” não significa “inexistente em todo o projeto”; exige rastreamento do caminho completo antes de criar ou refatorar código. A inspeção foi de código remoto, sem novos testes nem acesso a faturas oficiais de IA.
 
@@ -119,17 +123,21 @@ AI Model Router EXISTENTE → OpenAI/Gemini → AI Usage Metering EXISTENTE
 ## 7. Plano de execução — pendências rastreáveis
 
 - [ ] **P0-01 — Auditoria de rotas:** inventariar todas as chamadas pagas OpenAI/Gemini (gerente, assistente, áudio, documentos, jobs, fallback, automações), identificar qualquer caminho que bypassa o router/medidor; reconciliar código com execução real.
-- [ ] **P0-02 — AI Pricing + Metering:** ligar calculadora ao evento real, resolver snapshot válido e moedas; tratar custo desconhecido, cache e modalidades; demonstrar uso em provedor real e reconciliação.
+- [ ] **P0-02 — AI Pricing + Metering (CONSTRUÇÃO):** ligar calculadora ao evento produzido pela rota real implementada, resolver snapshot e moedas; tratar custos desconhecidos, cache e modalidades. **A chamada faturada em fornecedor e a conciliação com fatura oficial ficam para a etapa externa posterior.**
 - [ ] **P0-03 — Ledger + Budget Guard:** implementar migration aditiva, orçamento e reservas atômicas por tenant/unidade/ciclo e por tarefa; proteção contra concorrência, idempotência, retries e timeout; rollback seguro.
 - [ ] **P0-04 — Entitlements e Command:** aproveitar limites/versionamento existentes; definir payload assinado/autenticado de orçamento e política, renovação, expiração, revogação, downgrade/upgrade e comprovação de pagamento sem gerar direitos duplicados.
 - [ ] **P0-05 — Cobertura de todas as entradas:** aplicar o guard antes de toda chamada com custo, inclusive fallback e agentes internos; rate limit, max tokens, max steps e cap financeiro por tarefa.
 - [ ] **P0-06 — Atualização do projetor:** comprovar ou configurar job leve e durável; medir atraso, retry e idempotência; nunca usar agregado diário como contador de bloqueio.
 - [ ] **P1-07 — Evolução visual da FinOps:** reutilizar a página existente, criar resumo comercial/saldo e avisos 70/90/100, sem remover KPIs e sem expor custo privado da FM.
 - [ ] **P1-08 — Notificações:** avisos de limiar idempotentes por ciclo e canal; não gerar spam; incluir banner persistente e histórico de aviso.
-- [ ] **P1-09 — Planos e franquias:** medir custo real por tipo de operação e volume, definir números para os quatro códigos comerciais versionados, validar margem por plano; submeter preços à aprovação do proprietário.
-- [ ] **P0-10 — Certificação e release:** cumprir gates, documentação, PR, reconciliação de SHA, Postgres real, teste de carga/concurrency e provider real; deploy produtivo apenas após autorização específica e Visual Premium/release gates aplicáveis.
+- [ ] **P1-09 — Planos e franquias (CONSTRUÇÃO):** implementar os quatro códigos comerciais e limites versionados, com fixtures de planos/consumo fictício e UI/API/ledger integrados. **Medir custo de campo, estabelecer franquias e mensalidades definitivas e aprovar margem é decisão da fase econômica/externa posterior, não bloqueador de construção.**
+- [ ] **P0-10A — Fechar CONSTRUÇÃO 100%:** concluir todos os componentes em código, testes internos com PostgreSQL real descartável, simultaneidade, teste end-to-end local/controlado, segurança, regressão, CI/PR e integração Web/API/banco. Nenhum provider real ou deploy como pré-requisito.
+- [ ] **P0-10B — HOMOLOGAÇÃO EXTERNA (SOMENTE DEPOIS DE 10A):** configurar provedores reais e credenciais autorizadas, executar chamadas cobradas, reconciliar faturas, validar em campo, mensurar margens e registrar provas oficiais.
+- [ ] **P0-10C — RELEASE (SOMENTE DEPOIS DE 10B):** infraestrutura real, migrações com dados reais e deploy somente com autorização, planos aprovados e gates de produção.
 
-## 8. Matriz mínima de testes obrigatórios
+## 8. Matriz de testes internos obrigatórios para encerrar CONSTRUÇÃO
+
+A matriz abaixo deve ser executada com fixtures, provedores simulados, banco PostgreSQL real descartável e ambientes isolados. **É obrigatória no gate de construção; não exige acesso real a fornecedor.**
 
 | Prova | Resultado exigido |
 |---|---|
@@ -142,23 +150,40 @@ AI Model Router EXISTENTE → OpenAI/Gemini → AI Usage Metering EXISTENTE
 | 70%, 90%, 100% e renovação | Banner correto, aviso sem duplicidade, reabertura apenas com novo ciclo confirmado |
 | Upgrade, downgrade, cancelamento e reembolso | Regras de saldo explícitas, versionadas, auditáveis e sem cobrança surpresa |
 | Moedas diferentes e reajuste do fornecedor | Custos segregados e reconciliação por snapshot; ausência de mistura USD/BRL |
-| Fluxo real por modelo/modalidade | Tokens, custo, reservas, saldo e fatura reconciliam com evidência |
+| Fluxo implementado por modelo/modalidade em ambiente controlado | Tokens simulados, custo determinístico, reservas e saldo reconciliam com eventos e tarifas de fixtures; contrato de uso de provedor integrado sem credencial real |
 | Carga/pico de pedidos sem IA | ERP operacional não sofre bloqueio causado pela franquia de IA |
 | Interface do proprietário e FM | RBAC/step-up, informação adequada, nenhum custo interno indevido exposto |
 
-## 9. Gates de conclusão — definição inequívoca de “100%”
+## 9. Gates separados — definição inequívoca de conclusão
 
-Uma entrega parcial de interface, testes unitários ou o simples registro de tokens **não fecha** esta pendência. O status só muda para **CONCLUÍDO/CERTIFICADO** quando:
+### 9.1 CONSTRUÇÃO 100% CONCLUÍDA — etapa atual e prioritária
 
-1. Todas as chamadas de IA pagas, inclusive fallback/automação, passarem pelo bloqueio preventivo governado; nenhuma rota de bypass conhecida.
-2. O custo real/estimado e as reservas forem persistentes e reconciliáveis por cliente, unidade e ciclo, com política de valores desconhecidos.
-3. A franquia exibida na FinOps coincidir com o ledger financeiro autoritativo; alertas e bloqueios funcionarem sem interromper o ERP.
-4. O Command administrar políticas/assinaturas sem estar no caminho crítico de cada consulta de IA; renovações e ampliações dependam de eventos comerciais comprovados.
-5. Migrations fresh/upgrade e rollback, testes de concorrência e regressão, segurança multi-tenant, navegador/mobile e integração com provedor real estiverem verdes e com evidências.
-6. Documento Mestre, System Design/ADR, `AGENTS.md`, inventário, tracker e PR estiverem reconciliados com o SHA canônico; CI pós-merge 100% verde; deploy tiver aprovação própria.
-7. Valores de franquia e mensalidade tiverem sido **explicitamente aprovados**, com custos medidos e margem alvo demonstrada.
+A etapa de construção do módulo AI FinOps/franquias só fecha quando:
 
-**Não declarar esta etapa “100% concluída” antes desses sete critérios.** Reaproveitar os artefatos existentes; jamais reescrever partes certificadas por conveniência.
+1. **Todas as rotas de IA pagas em código**, incluindo fallback, atendimento, gerente, áudio, documentos e automações previstas, utilizarem o orçamento preventivo, sem bypass conhecido.
+2. **Cálculo financeiro e ledger** conectados, com reservas atômicas, idempotência, tratamento de falha/timeouts e conciliação determinística em testes internos.
+3. **A tela FinOps existente** exibir franquia, saldo e avisos, seguindo os limites do ledger; a tela e a API não expõem custos internos ao restaurante.
+4. **O Command e o Kordena** integrarem direitos comerciais e orçamento por contratos versionados e simulados, sem dependência síncrona em cada consulta de IA.
+5. **Testes internos** de PostgreSQL real descartável, fresh/upgrade/rollback, contratos simulados dos provedores, concorrência, segurança entre tenants/unidades, navegadores automatizados e regressão estiverem 100% verdes.
+6. **Código e documentação** estejam revisados e reconciliados com SHAs, PRs, `AGENTS.md`, tracker e CI/pós-merge de construção, sem dívida funcional relevante nem fakes substituindo módulos de produção.
+
+**É expressamente proibido exigir neste gate:** credenciais reais, faturas de IA, chamadas pagas de terceiros, acesso a órgão fiscal, equipamentos externos, piloto em restaurante, migração de banco de produção, publicação comercial e aprovação de preço definitivo. Essas exigências não desaparecem: pertencem à etapa posterior.
+
+**Status permitido:** `CONSTRUCAO_100_CONCLUIDA / HOMOLOGACAO_EXTERNA_PENDENTE`.
+
+### 9.2 PRONTO PARA TESTES EXTERNOS
+
+Depois da construção 100%, preparar as configurações oficiais, runbooks, matriz de contas/chaves, procedimentos de segurança, plano de testes, orçamento de experimento real e rollback. Nenhuma dependência externa pode ser antecipada para destravar tarefas do software.
+
+### 9.3 HOMOLOGAÇÃO EXTERNA APROVADA — etapa posterior
+
+Executar, depois de construída a solução, chamadas reais OpenAI/Gemini, conciliação financeira com faturas oficiais, análise de custos reais por restaurante, eventuais gateways de pagamento, testes físicos e pilotos autorizados. Registrar provas objetivas e bugs de campo separadamente. Um bug revelado em campo gera correção localizada e regressão afetada, **não obriga reiniciar fases saudáveis nem repetir sessões**.
+
+### 9.4 PRODUÇÃO LIBERADA — gate independente
+
+Somente após aprovação externa e decisão de liberação, validar infraestrutura de produção, migrações com dados reais se autorizadas, backups/restore, observabilidade, plano de rollback e implantação comercial. **Merge de construção não equivale a deploy.**
+
+**Regra antirretrabalho:** nunca reabrir tarefa/PR/fase de construção já fechada sem novo defeito concreto, mudança do requisito ou regressão comprovada. Verificar o checkpoint remoto antes de implementar qualquer item.
 
 ## 10. Evidências e referências técnicas
 
@@ -171,6 +196,6 @@ Uma entrega parcial de interface, testes unitários ou o simples registro de tok
 
 ## 11. Registro de governança
 
-**STATUS ABERTO — PENDENTE DE INTEGRAÇÃO E CONCLUSÃO.** Este documento registra o escopo para um executor, não autoriza publicação em produção, contratação de serviços, mudança de valores, emissão de cobrança, migration com dados reais ou conclusão fictícia de testes.
+**STATUS DA CONSTRUÇÃO: ABERTO — PENDENTE DE INTEGRAÇÃO. HOMOLOGAÇÃO EXTERNA: NÃO INICIADA.** Este documento registra o escopo para um executor, não autoriza publicação em produção, contratação de serviços, mudança de valores, emissão de cobrança, migration com dados reais ou conclusão fictícia de testes.
 
-Branch documental separada, PR em rascunho para `staging/kordena-premium`, sem merge. O próximo executor deverá ler `AGENTS.md`, Documento Mestre e System Design, confirmar HEAD e pendências atuais, executar em camadas testadas e atualizar este mesmo documento à medida que surgirem evidências. Manter a distinção entre **implementado no código**, **integrado**, **testado**, **homologado** e **publicado**.
+Branch documental separada, PR em rascunho para `staging/kordena-premium`, sem merge. O próximo executor deverá ler `AGENTS.md`, Documento Mestre e System Design, confirmar HEAD e pendências atuais, executar em camadas testadas e atualizar este mesmo documento à medida que surgirem evidências. Manter a distinção entre **implementado**, **integrado**, **testado internamente**, **CONSTRUCAO_100_CONCLUIDA**, **homologado externamente** e **publicado**, sem deixar provas externas interromperem programação.
