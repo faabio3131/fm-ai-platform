@@ -78,6 +78,7 @@ class ResolverPoliticaFranquiaLocal:
                 or policy.get("enabled") is not True
                 or policy.get("limit_unit") != "USD"
                 or not isinstance(policy.get("config"), dict)
+                or policy["config"].get("scope") != "unit"
             ):
                 raise OrcamentoIndisponivelIA("ia_capacidade_orcamento_nao_autorizada")
             limit = _positivo(policy.get("limit_value"), field="limite")
