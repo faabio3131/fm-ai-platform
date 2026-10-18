@@ -54,13 +54,13 @@ from migrations.admin_unit_legacy_store_reconciliation_v1 import (
 from migrations.administracao_proprietario_v1 import (
     upgrade_administracao_proprietario_v1,
 )
-from migrations.ai_franchise_budget_v1 import (
-    upgrade_ai_franchise_budget_v1,
-    revert_ai_franchise_budget_v1,
-)
 from migrations.ai_finops_read_model_v1 import (
     revert_ai_finops_read_model_v1,
     upgrade_ai_finops_read_model_v1,
+)
+from migrations.ai_franchise_budget_v1 import (
+    revert_ai_franchise_budget_v1,
+    upgrade_ai_franchise_budget_v1,
 )
 from migrations.assistente_channel_runtime_v1 import (
     upgrade_assistente_channel_runtime_v1,
