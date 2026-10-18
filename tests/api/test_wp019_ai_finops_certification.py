@@ -307,3 +307,41 @@ def test_wp019_bucket_sem_preco_nao_pode_carregar_custo_inventado() -> None:
     assert resumo.cost_unknown_events == 1
     assert resumo.cost_coverage_pct == Decimal(0)
     assert resumo.custos == ()
+
+
+def test_franquias_finops_exige_sessao_com_permissoes_financeiras(monkeypatch) -> None:
+    client, _factory = _infra(monkeypatch)
+    _login(client, LIMITADO_EMAIL)
+    response = client.get("/v1/ai-finops/franquias")
+    assert response.status_code == 403
+    assert response.json()["erro"] == (
+        "administracao_sem_permissao:financeiro.visualizar"
+    )
+
+
+def test_franquias_finops_usa_tenant_e_unidade_da_sessao(monkeypatch) -> None:
+    client, _factory = _infra(monkeypatch)
+    chamadas = []
+
+    def projecao(_session_factory, *, tenant_id, unidade_id):
+        chamadas.append((tenant_id, unidade_id))
+        return {
+            "status": "warning",
+            "percentual_utilizado": "75.0",
+            "mensagem": "Sua franquia de IA atingiu 70% ou mais neste ciclo.",
+            "franquias": [],
+        }
+
+    monkeypatch.setattr(
+        "http_api.ai_finops.consultar_franquias_ia", projecao
+    )
+    _login(client, ADMIN_EMAIL)
+    troca = client.post("/v1/auth/select-unit", json={"unidade_id": UNIDADE_B})
+    assert troca.status_code == 200
+    response = client.get(
+        "/v1/ai-finops/franquias",
+        headers={"X-Tenant-ID": OUTRO_TENANT, "X-Unit-ID": UNIDADE_A},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "warning"
+    assert chamadas == [(TENANT, UNIDADE_B)]
