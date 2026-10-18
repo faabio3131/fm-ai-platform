@@ -37,6 +37,7 @@ class PoliticaReservaIA:
     ciclo_id: str
     moeda: str
     maximo_por_tentativa: Decimal
+    revisao_politica: int
 
 
 class AIFranchiseBudgetGuard(GuardaConsumoIA):
@@ -94,6 +95,7 @@ class AIFranchiseBudgetGuard(GuardaConsumoIA):
             model=rota.model,
             valor=politica.maximo_por_tentativa,
             agora=self._now(),
+            expected_revision=politica.revisao_politica,
             falhar_em_replay=True,
         )
         if status is not EstadoReservaIA.RESERVED:
