@@ -16,11 +16,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from core.ai_pricing import CatalogoPrecosIA
 from core.ai_router import (
     AIModelRouter,
-    GuardaConsumoIA,
     AIUsageEvent,
     CapabilityIA,
     FalhaRotaDefinitiva,
     FalhaRotaTransitoria,
+    GuardaConsumoIA,
     MedidorUsoIA,
     RespostaModeloIA,
     RotaIA,
