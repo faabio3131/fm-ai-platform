@@ -29,6 +29,12 @@ def test_ativacao_financeira_exige_catalogo_precos_sem_chamar_provedor(
         origem="test",
         unidades_permitidas=frozenset({"loja-1"}),
     )
+    # O teste prova apenas o gate financeiro, sem exigir schema comercial
+    # externo ou inicializar integração de provedor real.
+    from application import ai_router_runtime as runtime
+    monkeypatch.setattr(runtime, "_rotas_homologadas", lambda **kwargs: ())
+    monkeypatch.setattr(runtime, "_configs_ia_resolvidas", lambda **kwargs: ())
+
     with Session(engine) as session:
         with pytest.raises(OrcamentoIndisponivelIA, match="ai_catalogo_precos_obrigatorio"):
             construir_ai_model_router(session=session, contexto=contexto)
