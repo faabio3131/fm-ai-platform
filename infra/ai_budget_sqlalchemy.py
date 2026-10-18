@@ -213,6 +213,7 @@ class LedgerFranquiasIASQLAlchemy:
         unidade_id: str, capability: str, ciclo_id: str,
         request_id: str, attempt_key: str, provider: str, model: str,
         valor: Decimal, agora: datetime, falhar_em_replay: bool = False,
+        expected_revision: int | None = None,
     ) -> EstadoReservaIA:
         amount = _decimal_positivo(valor)
         instant = _utc(agora)
@@ -242,6 +243,8 @@ class LedgerFranquiasIASQLAlchemy:
                     raise OrcamentoIndisponivelIA("franquia_nao_encontrada")
                 if not (_db_utc(row.vigencia_inicio) <= instant < _db_utc(row.vigencia_fim)):
                     raise OrcamentoIndisponivelIA("franquia_fora_da_vigencia")
+                if expected_revision is not None and row.revisao_politica != expected_revision:
+                    raise OrcamentoIndisponivelIA("franquia_revisao_desatualizada")
                 session.add(ReservaAIBudgetORM(
                     reserva_id=reserva_id, budget_id=budget_id,
                     tenant_id=tenant_id, unidade_id=unidade_id,
@@ -258,6 +261,12 @@ class LedgerFranquiasIASQLAlchemy:
                     update(FranquiaAIBudgetORM)
                     .where(
                         FranquiaAIBudgetORM.budget_id == budget_id,
+                        *(
+                            (FranquiaAIBudgetORM.revisao_politica == expected_revision,)
+                            if expected_revision is not None else ()
+                        ),
+                        FranquiaAIBudgetORM.vigencia_inicio <= instant,
+                        FranquiaAIBudgetORM.vigencia_fim > instant,
                         FranquiaAIBudgetORM.consumido +
                         FranquiaAIBudgetORM.reservado + amount <=
                         FranquiaAIBudgetORM.limite,
