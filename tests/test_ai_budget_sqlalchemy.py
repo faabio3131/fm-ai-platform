@@ -138,4 +138,3 @@ def test_concorrencia_nao_excede_orcamento(ledger):
     assert sum(decisions) == 3
     saldo = obj.saldo(budget_id="bud-a-10", tenant_id="tenant-a", unidade_id="loja-1")
     assert (saldo.reservado, saldo.consumido, saldo.disponivel) == (Decimal("9"), Decimal("0"), Decimal("1"))
-
