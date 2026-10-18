@@ -10,6 +10,9 @@ from enum import StrEnum
 from time import perf_counter
 from typing import Any, Protocol
 
+from core.ai_cost import CalculadoraCustoIA
+from core.ai_pricing import CatalogoPrecosIA, ErroPricingCatalog
+
 
 class CapabilityIA(StrEnum):
     TOOL_PLANNING = "tool_planning"
@@ -199,12 +202,16 @@ class AIModelRouter:
         rotas: tuple[RotaIA, ...],
         executor: ExecutorModeloIA,
         metering: MedidorUsoIA,
+        pricing_catalog: CatalogoPrecosIA | None = None,
+        cost_calculator: CalculadoraCustoIA | None = None,
         monotonic: Callable[[], float] = perf_counter,
         now: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ) -> None:
         self._rotas = tuple(rotas)
         self._executor = executor
         self._metering = metering
+        self._pricing_catalog = pricing_catalog
+        self._cost_calculator = cost_calculator or CalculadoraCustoIA()
         self._monotonic = monotonic
         self._now = now
 
@@ -235,6 +242,44 @@ class AIModelRouter:
 
         return tuple(candidatas)
 
+    def _custo_precificado(
+        self,
+        *,
+        rota: RotaIA,
+        resposta: RespostaModeloIA | None,
+        instante: datetime,
+    ) -> tuple[Decimal | None, str | None]:
+        """Estima custo a partir de tarifa versionada, sem fazer chamada externa.
+
+        Ausência, divergência ou expiração de preços não vira custo zero.
+        O evento continua registrável e o custo permanece desconhecido.
+        """
+        if resposta is None or self._pricing_catalog is None:
+            return None, None
+
+        try:
+            snapshot = self._pricing_catalog.obter_snapshot(
+                price_snapshot_id=rota.price_snapshot_id
+            )
+            if (
+                snapshot.provider != rota.provider.casefold()
+                or snapshot.model != rota.model
+                or not snapshot.vigente_em(instante)
+            ):
+                return None, None
+            custo = self._cost_calculator.estimar_tokens(
+                snapshot=snapshot,
+                input_tokens=resposta.input_tokens,
+                output_tokens=resposta.output_tokens,
+                cached_tokens=resposta.cached_tokens,
+            )
+        except (ErroPricingCatalog, ValueError):
+            return None, None
+
+        if custo.valor is None:
+            return None, None
+        return custo.valor, custo.moeda
+
     def _registrar(
         self,
         *,
@@ -250,6 +295,12 @@ class AIModelRouter:
         latency_ms = max(
             0,
             round((self._monotonic() - inicio) * 1000),
+        )
+        instante = self._now()
+        custo, moeda = self._custo_precificado(
+            rota=rota,
+            resposta=resposta if outcome is OutcomeIA.SUCESSO else None,
+            instante=instante,
         )
 
         self._metering.registrar(
@@ -275,10 +326,10 @@ class AIModelRouter:
                 ),
                 latency_ms=latency_ms,
                 outcome=outcome,
-                custo_real_calculado=None,
-                moeda=None,
+                custo_real_calculado=custo,
+                moeda=moeda,
                 price_snapshot_id=rota.price_snapshot_id,
-                timestamp=self._now(),
+                timestamp=instante,
             )
         )
 
