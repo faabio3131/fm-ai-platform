@@ -6,8 +6,8 @@ SDK, credenciais e adapters concretos permanecem na borda de infraestrutura.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import os
+from collections.abc import Callable
 from typing import Any
 from uuid import uuid4
 
