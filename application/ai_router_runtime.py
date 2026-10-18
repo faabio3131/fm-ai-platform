@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from core.ai_pricing import CatalogoPrecosIA
 from core.ai_router import (
     AIModelRouter,
+    GuardaConsumoIA,
     AIUsageEvent,
     CapabilityIA,
     FalhaRotaDefinitiva,
@@ -457,12 +458,16 @@ def construir_ai_model_router(
     openai_gateway: PortaOpenAITenant | None = None,
     metering: MedidorUsoIA | None = None,
     pricing_catalog: CatalogoPrecosIA | None = None,
+    budget_guard: GuardaConsumoIA | None = None,
+    require_budget_guard: bool = False,
 ) -> AIModelRouter:
     store = secret_store or ReferenceSecretStore()
     isolated_session_factory = _metering_session_factory(session)
 
     return AIModelRouter(
         pricing_catalog=pricing_catalog,
+        budget_guard=budget_guard,
+        require_budget_guard=require_budget_guard,
         rotas=_rotas_homologadas(
             session=session,
             contexto=contexto,
