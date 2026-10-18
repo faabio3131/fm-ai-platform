@@ -80,21 +80,6 @@ def provisionar_franquias_assinatura(
         end = _utc(subscription.current_period_end)
         if start >= end:
             raise OrcamentoIndisponivelIA("ia_ciclo_assinatura_invalido")
-        grants = session.scalars(
-            select(distinct(IdentityMembershipUnitORM.unidade_id))
-            .join(
-                IdentityMembershipORM,
-                IdentityMembershipORM.membership_id == IdentityMembershipUnitORM.membership_id,
-            ).where(
-                IdentityMembershipORM.tenant_id == tenant_id,
-                IdentityMembershipORM.product_code == "KORDENA",
-                IdentityMembershipORM.ativo.is_(True),
-            )
-        ).all()
-        units = sorted(set(grants))
-        if not units:
-            return 0
-
         configured = []
         caps = entitlement.capabilities_json
         if not isinstance(caps, dict):
@@ -121,6 +106,22 @@ def provisionar_franquias_assinatura(
             if not capability:
                 raise OrcamentoIndisponivelIA("ia_capability_invalida")
             configured.append((capability, ceiling))
+        if not configured:
+            return 0
+        grants = session.scalars(
+            select(distinct(IdentityMembershipUnitORM.unidade_id))
+            .join(
+                IdentityMembershipORM,
+                IdentityMembershipORM.membership_id == IdentityMembershipUnitORM.membership_id,
+            ).where(
+                IdentityMembershipORM.tenant_id == tenant_id,
+                IdentityMembershipORM.product_code == "KORDENA",
+                IdentityMembershipORM.ativo.is_(True),
+            )
+        ).all()
+        units = sorted(set(grants))
+        if not units:
+            return 0
 
     ledger = LedgerFranquiasIASQLAlchemy(session_factory)
     count = 0
