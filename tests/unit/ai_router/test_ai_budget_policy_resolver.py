@@ -39,7 +39,7 @@ def _setup(tmp_path, *, enabled: bool = True, policy_version: int = 4):
                     "enabled": enabled,
                     "limit_value": "1.00",
                     "limit_unit": "USD",
-                    "config": {"maximo_por_tentativa": "0.05"},
+                    "config": {"maximo_por_tentativa": "0.05", "scope": "unit"},
                 },
             },
             effective_from=NOW - timedelta(days=1),
