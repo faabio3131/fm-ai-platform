@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/input";
 import { useAuthStore } from "@/features/auth/store/auth-store";
 import {
   obterResumoAIFinOps,
+  obterFranquiasAIFinOps,
   type AIFinOpsPainel,
+  type AIFinOpsFranquias,
 } from "@/features/backoffice/ai-finops/services/ai-finops-api";
 
 function dataIso(data: Date): string {
@@ -30,6 +32,7 @@ export function AIFinOpsWorkspace() {
   const auth = useAuthStore();
   const [periodo, setPeriodo] = useState(periodoPadrao);
   const [painel, setPainel] = useState<AIFinOpsPainel | null>(null);
+  const [franquias, setFranquias] = useState<AIFinOpsFranquias | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -37,7 +40,14 @@ export function AIFinOpsWorkspace() {
     setLoading(true);
     setErro(null);
     try {
-      setPainel(await obterResumoAIFinOps(inicio, fim));
+      // Falha de uma consulta não apaga a outra; ambas são apenas leitura.
+      const [historico, saldo] = await Promise.allSettled([
+        obterResumoAIFinOps(inicio, fim),
+        obterFranquiasAIFinOps(),
+      ]);
+      setFranquias(saldo.status === "fulfilled" ? saldo.value : null);
+      if (historico.status !== "fulfilled") throw historico.reason;
+      setPainel(historico.value);
     } catch {
       setPainel(null);
       setErro("Não foi possível consultar os agregados AI FinOps desta unidade.");
@@ -75,6 +85,63 @@ export function AIFinOpsWorkspace() {
             Uso, custo e eficiência calculados somente sobre agregados existentes. Esta tela não executa IA nem processa eventos brutos.
           </p>
         </header>
+
+        <section aria-label="Acompanhamento de franquia de IA" aria-live="polite"
+          className="rounded-2xl border border-violet-400/20 bg-slate-900/80 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-violet-300">Franquia e limite de IA</p>
+              <h2 className="mt-1 text-xl font-bold text-white">Acompanhamento do ciclo atual</h2>
+            </div>
+            <span className="text-xs text-slate-400">Sem cobranças ou autorizações por pergunta</span>
+          </div>
+          {franquias ? (
+            <>
+              <p className={`mt-3 rounded-lg p-3 text-sm ${
+                franquias.status === "blocked" ? "bg-red-500/15 text-red-200"
+                : franquias.status === "critical" ? "bg-amber-500/15 text-amber-200"
+                : franquias.status === "warning" ? "bg-blue-500/15 text-blue-200"
+                : "bg-slate-800 text-slate-300"
+              }`} role={franquias.status === "blocked" || franquias.status === "critical" ? "alert" : "status"}>
+                {franquias.mensagem}
+              </p>
+              {franquias.percentual_utilizado !== null ? (
+                <div className="mt-4">
+                  <div className="mb-2 flex justify-between text-sm">
+                    <span className="text-slate-400">Maior percentual entre as franquias vigentes</span>
+                    <strong className="tabular-nums">{Number(franquias.percentual_utilizado).toFixed(1)}%</strong>
+                  </div>
+                  <div className="h-3 overflow-hidden rounded-full bg-slate-700" role="progressbar"
+                    aria-label="Maior consumo de franquia" aria-valuemin={0} aria-valuemax={100}
+                    aria-valuenow={Number(franquias.percentual_utilizado)}>
+                    <div className={`h-full rounded-full transition-all ${
+                      franquias.status === "blocked" ? "bg-red-500"
+                      : franquias.status === "critical" ? "bg-amber-500"
+                      : "bg-violet-400"
+                    }`} style={{ width: `${Math.min(100, Number(franquias.percentual_utilizado))}%` }} />
+                  </div>
+                  <div className="mt-3 grid gap-2 md:grid-cols-2">
+                    {franquias.franquias.map((franquia) => (
+                      <div key={`${franquia.capability}:${franquia.ciclo_id}`}
+                        className="flex items-center justify-between rounded-lg bg-slate-950/70 p-3 text-xs">
+                        <span className="text-slate-300">{franquia.capability.replaceAll("_", " ")}</span>
+                        <strong>{Number(franquia.percentual_utilizado).toFixed(1)}%</strong>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs text-slate-400">
+                    As reservas em processamento também contam para a proteção do limite.
+                    Os valores internos de fornecedores não são expostos.
+                  </p>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <p className="mt-3 text-sm text-slate-400">
+              {loading ? "Consultando as franquias desta unidade…" : "Consumo de franquia indisponível. Consulte novamente."}
+            </p>
+          )}
+        </section>
 
         <form onSubmit={consultar} className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:flex-row sm:items-end">
           <label className="flex-1 text-xs font-semibold text-slate-400">
