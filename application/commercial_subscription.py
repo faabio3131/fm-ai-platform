@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from application.ai_budget_provision import provisionar_franquias_assinatura
+
 import hashlib
 import json
 from collections.abc import Mapping
@@ -249,6 +251,15 @@ class AplicacaoSubscriptionComercialV1:
             plan_version_id=subscription.plan_version_id,
         )
         self._project(snapshot)
+        # A assinatura ativa e sua projeção autorizam o provisionamento do
+        # ciclo. Sem política/units autenticadas não há concessão de franquia.
+        if subscription.status == EstadoAssinatura.ACTIVE:
+            provisionar_franquias_assinatura(
+                self._session_factory,
+                tenant_id=subscription.tenant_id,
+                product_account_id=subscription.product_account_id,
+                subscription_id=subscription.subscription_id,
+            )
         return snapshot.entitlement_snapshot_id
 
     @staticmethod
