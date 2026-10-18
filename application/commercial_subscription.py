@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from application.ai_budget_provision import provisionar_franquias_assinatura
-
 import hashlib
 import json
 from collections.abc import Mapping
@@ -13,6 +11,7 @@ from uuid import uuid4
 
 from sqlalchemy.exc import IntegrityError
 
+from application.ai_budget_provision import provisionar_franquias_assinatura
 from application.commercial_entitlement import AplicacaoEntitlementComercialV1
 from application.commercial_trial import AplicacaoTrialComercialV1
 from core.comercial.catalogo import StatusConfiguracaoCatalogo, normalizar_plan_code
