@@ -42,3 +42,31 @@ export async function obterResumoAIFinOps(
   }
   return (await response.json()) as AIFinOpsPainel;
 }
+
+export type EstadoFranquiaIA = "not_configured" | "normal" | "warning" | "critical" | "blocked";
+
+export interface AIFinOpsFranquias {
+  status: EstadoFranquiaIA;
+  percentual_utilizado: string | null;
+  mensagem: string;
+  franquias: {
+    capability: string;
+    ciclo_id: string;
+    fim_ciclo: string;
+    percentual_utilizado: string;
+    estado: Exclude<EstadoFranquiaIA, "not_configured">;
+    em_processamento: boolean;
+  }[];
+}
+
+export async function obterFranquiasAIFinOps(): Promise<AIFinOpsFranquias> {
+  const response = await fetch(`${API_BASE_URL}/v1/ai-finops/franquias`, {
+    credentials: "include",
+    cache: "no-store",
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) {
+    throw new Error(`A franquia de IA respondeu HTTP ${response.status}`);
+  }
+  return (await response.json()) as AIFinOpsFranquias;
+}
