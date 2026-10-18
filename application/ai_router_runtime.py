@@ -13,6 +13,7 @@ from uuid import uuid4
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from core.ai_pricing import CatalogoPrecosIA
 from core.ai_router import (
     AIModelRouter,
     AIUsageEvent,
@@ -455,11 +456,13 @@ def construir_ai_model_router(
     gemini_gateway: PortaGeminiTenant | None = None,
     openai_gateway: PortaOpenAITenant | None = None,
     metering: MedidorUsoIA | None = None,
+    pricing_catalog: CatalogoPrecosIA | None = None,
 ) -> AIModelRouter:
     store = secret_store or ReferenceSecretStore()
     isolated_session_factory = _metering_session_factory(session)
 
     return AIModelRouter(
+        pricing_catalog=pricing_catalog,
         rotas=_rotas_homologadas(
             session=session,
             contexto=contexto,
