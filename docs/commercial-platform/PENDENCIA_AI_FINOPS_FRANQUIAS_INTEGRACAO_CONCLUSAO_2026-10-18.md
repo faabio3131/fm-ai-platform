@@ -185,6 +185,15 @@ Somente após aprovação externa e decisão de liberação, validar infraestrut
 
 **Regra antirretrabalho:** nunca reabrir tarefa/PR/fase de construção já fechada sem novo defeito concreto, mudança do requisito ou regressão comprovada. Verificar o checkpoint remoto antes de implementar qualquer item.
 
+## 9.5 Checkpoint de implementação — 18/10/2026
+
+- **PR #230** — https://github.com/faabio3131/fm-ai-platform/pull/230 — primeira fatia da FIN-01/FIN-02 em branch separada a partir de `staging/kordena-premium@d300ab1e2e01b004b45152c1c91d099731a4d6e0`.
+- Construído na candidata: `AIModelRouter` pode receber `CatalogoPrecosIA` e usar `CalculadoraCustoIA` para registrar custo estimado e moeda em `AIUsageEvent`, **somente quando há snapshot vigente e correspondente ao modelo**, preservando custo desconhecido nos demais casos.
+- O composition root `construir_ai_model_router` aceita a injeção do catálogo. Ainda é necessário conectar catálogo confiável de preços ao ambiente real, impedir chamadas pagas sem orçamento, integrar ledger/saldo, aplicar a todas as rotas e atualizar a UI.
+- Adicionados 6 testes unitários candidatos; **não declarar certificados**: workflows automáticos da PR #230 concluíram em `failure` poucos segundos após a abertura, sem logs de etapas acessíveis nesta sessão. Causa exata não determinada; executar e corrigir gates internos quando runner GitHub voltar a funcionar, sem antecipar testes externos.
+- **GitHub permanece PRIVADO**: não houve ferramenta habilitada para alteração de visibilidade nesta sessão; não afirmar que o repositório ficou público.
+- **Estado:** `EM_CONSTRUCAO`. PR #230 Draft, sem merge, sem deploy, sem configuração externa nem teste com provedor real.
+
 ## 10. Evidências e referências técnicas
 
 - [AI FinOps web](../../web/src/features/backoffice/ai-finops/components/AIFinOpsWorkspace.tsx) e [API](../../http_api/ai_finops.py).
