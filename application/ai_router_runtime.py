@@ -45,7 +45,10 @@ from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.segredos import ReferenceSecretStore, SecretStore
 from infra.ai_budget_guard import AIFranchiseBudgetGuard
 from infra.ai_budget_policy_resolver import ResolverPoliticaFranquiaLocal
-from infra.ai_budget_sqlalchemy import LedgerFranquiasIASQLAlchemy, OrcamentoIndisponivelIA
+from infra.ai_budget_sqlalchemy import (
+    LedgerFranquiasIASQLAlchemy,
+    OrcamentoIndisponivelIA,
+)
 from infra.ai_metering import AIUsageDurableMetering
 from infra.integracoes.fabrica_adapters import FabricaAdaptersExternos
 from infra.integracoes.repositorio_sqlalchemy import (
