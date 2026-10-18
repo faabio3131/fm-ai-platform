@@ -90,9 +90,10 @@ def test_custos_internos_nao_sao_expostos_nem_viram_creditos(tmp_path) -> None:
     response = consultar_franquias_ia(
         factory, tenant_id="tenant-a", unidade_id="unit-a", agora=AGORA
     )
-    texto = str(response).casefold()
-    for dado_privado in ("usd", "limite", "custo_real", "valor_reservado", "budget_id"):
-        assert dado_privado not in texto
+    assert "usd" not in str(response).casefold()
+    for field in ("limite", "consumido", "reservado", "moeda", "budget_id", "custo_real"):
+        assert field not in response
+        assert field not in response["franquias"][0]
     assert "percentual_utilizado" in response
     assert "creditos" not in response
 
