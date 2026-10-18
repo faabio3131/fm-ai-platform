@@ -41,6 +41,22 @@ Quando a tarefa corresponder ao escopo, use as Skills em `.agents/skills/`:
 - **Visual Premium é a última fase funcional da V1.** Nenhuma dívida funcional, de cutover, migration, segurança ou integração pode ser empurrada para o redesign.
 - **Deploy é etapa pós-funcional separada:** somente após Visual Premium aprovado e configuração/verificação do servidor real.
 
+## Separação de gates — decisão do proprietário em 18/10/2026
+
+**Regra obrigatória para todos os executores do Kordena:** construção do software, testes/homologação externos e release são fases diferentes, com status e comprovações próprias. A diretriz formal está em `docs/governance/POLITICA_GATES_CONSTRUCAO_HOMOLOGACAO_POS_CONSTRUCAO_2026-10-18.md`.
+
+1. `EM_CONSTRUCAO`: implementar **100% do software real** (sem fakes substituindo funções de produção), integrar UI/backend/banco/segurança, executar testes e regressão **internos** em ambientes controlados/descartáveis e corrigir falhas.
+2. `CONSTRUCAO_100_CONCLUIDA`: funcionalidades, integrações e código completos, CI interno obrigatório 100% verde e documentação/SHAs reconciliados. Esta conclusão **não depende de credenciais, pagamentos ou testes externos reais**.
+3. `PRONTO_PARA_TESTES_EXTERNOS`: só depois da construção 100%, preparar checklist, runbook e pré-requisitos para terceiros, campo e hardware.
+4. `HOMOLOGADO_APROVADO`: somente depois de provas reais externas e físicas efetivamente aprovadas.
+5. `PRODUCAO_LIBERADA`: somente depois do gate de release específico e autorização de deploy.
+
+**Não solicitar acesso externo, credenciais de terceiro, pagamento/teste real ou ação física do proprietário para destravar construção incompleta.** Durante construção, usar PostgreSQL real **descartável** e simuladores/fixtures apenas nos testes internos; código real de integração deve estar implementado. Evidência externa obrigatória permanece pendente para a fase posterior, nunca é inventada, dispensada ou tratada como defeito de construção.
+
+**Sem repetição:** antes de cada tarefa, ler checkpoint/trackers/SHAs/PRs; não reabrir sessões, blocos ou tarefas concluídas sem defeito novo comprovado ou alteração de requisito. Seguir construindo as tarefas restantes autonomamente com gates internos verdes. Não antecipar homologação externa.
+
+**Compatibilidade com as regras históricas:** onde o texto do gate de fechamento e do Documento Mestre exigir provider real, hardware, navegador/dispositivo físico, produção ou teste com cliente, essas provas se aplicam ao **gate de homologação externa/release** após `CONSTRUCAO_100_CONCLUIDA`, e não ao merge de PR de construção. Permanecem exigíveis no momento próprio, sem flexibilizar RBAC, tenant, regressão, migrations locais, rollback ou demais provas de engenharia.
+
 ## Regra de execução
 
 Fluxo padrão quando o ambiente possui autenticação Git:
@@ -68,14 +84,14 @@ Se surgir novo bloqueador estrutural fora do gate atual, **pare e reporte**. Nã
 Antes de iniciar qualquer fase/módulo seguinte, o bloco atual deve cumprir integralmente este gate:
 
 1. fixar o SHA final candidato;
-2. executar **100% dos gates obrigatórios** da fase e da regressão transversal aplicável;
+2. executar **100% dos gates internos obrigatórios de construção** da fase e da regressão transversal aplicável; gates de provider/cliente/hardware externos são rastreados separadamente para homologação posterior;
 3. para liberar merge, todos devem terminar `SUCCESS`: não pode restar workflow `failed`, `cancelled`, `queued` ou `in_progress`;
 4. corrigir qualquer vermelho e repetir os testes sem enfraquecer fitness, evidência, RBAC, tenant/unidade, idempotência, migration, fail-closed ou Definition of Done;
-5. registrar evidências exigidas pelo bloco: Commercial Runtime E2E, PostgreSQL, navegador/dispositivo, provider e prova manual/física quando aplicáveis;
+5. registrar evidências **internas** obrigatórias do bloco (código funcional, contratos, testes de segurança, PostgreSQL real descartável, E2E interno e navegador automatizado controlado quando aplicáveis); registrar evidências de provider real, dispositivo físico e operação de campo **somente na etapa de homologação externa**, sem condicionar o merge de construção;
 6. reconciliar Documento Mestre, System Design/ADR quando aplicável, Commercial Runtime Readiness, Inventário Mestre, checkpoint, issue e descrição da PR;
 7. auditar PRs/branches relacionadas à fase, garantindo que nenhum delta útil fique esquecido fora da `main`; linhas superseded devem ser classificadas/encerradas sem apagar histórico;
-8. manter dependências externas ou físicas não executáveis explicitamente registradas com responsável, critério de fechamento e fase final de homologação; nunca marcá-las como concluídas sem evidência;
-9. somente então considerar o **MERGE LIBERADO**.
+8. manter dependências externas ou físicas em **matriz independente** com responsável, critério de fechamento e fase posterior de homologação; não executá-las antes da construção 100%, nem usá-las para bloquear outro módulo de construção, e nunca marcá-las como concluídas sem evidência;
+9. somente então considerar o **MERGE DE CONSTRUÇÃO LIBERADO**; tal merge não equivale a homologação externa, aprovação comercial ou deploy.
 
 ### Autorização permanente do proprietário
 
@@ -112,29 +128,22 @@ Esta autorização permanente **não** autoriza deploy, migration produtiva irre
 - PR aberta não é obrigação de merge; primeiro classifique como incorporada, parcial, necessária, superseded ou referência.
 - `main` só recebe merge pelo Gate de Fechamento Canônico. Quando o gate estiver 100% verde, vale a autorização permanente de merge acima. **Deploy nunca é inferido de merge.**
 
-## Definição de pronto
+## Definição de pronto — três níveis de conclusão independentes
 
-Tela isolada, unit test, migration, backend ou PR individual **não bastam** para declarar V1 pronta.
+**Nível A — CONSTRUÇÃO 100% CONCLUÍDA:** telas, backend, regras de negócio, rotas, banco, migrações testadas em base descartável, integrações de software, RBAC, tenant/unidade, auditoria, idempotência, comportamento de produção implementado sem fakes e regressão interna verde. Arquitetura, inventário, checklist e PR reconciliados; código integrado em Git com gate interno aprovado e pós-merge verde quando aplicável. Não exige provider real, credencial, conta externa, cliente ou hardware físico. Não fechar com dívida funcional ou código ainda não conectado à web.
 
-Um bloco só pode receber status final quando, conforme aplicável:
+**Nível B — HOMOLOGAÇÃO EXTERNA APROVADA:** apenas após Nível A, habilitar e testar provedores/credenciais reais, equipamento físico, fiscal, gateways, tráfego ou cliente-piloto conforme matriz de validação. Registrar resultado de cada dependência; reprovação pode abrir **nova correção de engenharia focalizada**, sem anular fases saudáveis ou repetir o projeto inteiro.
 
-- implementação e integração concluídas;
-- testes direcionados e regressão 100% verdes;
-- fresh/upgrade de schema comprovados;
-- tenant/unidade/RBAC/auditoria/idempotência comprovados;
-- runtime/jornada real comprovados;
-- homologação física/manual realizada quando for requisito executável do bloco, ou pendência diferida formalmente para o gate final quando depender de hardware/provider indisponível;
-- PostgreSQL/browser/dispositivo/provedor real comprovados quando forem requisitos do bloco;
-- readiness/inventário/documentação/issue/PR reconciliados;
-- PR canônica mergeada e CI pós-merge da `main` 100% verde;
-- nenhuma pendência crítica incompatível com o Documento Mestre.
+**Nível C — RELEASE/PRODUÇÃO LIBERADA:** somente após Nível B e autorização específica, validar infraestrutura produtiva, backups/restore, monitoramento, rollback, migração de dados reais quando autorizada, smoke test e segurança; efetuar deploy. Nunca inferir status C de A ou B.
+
+Status devem aparecer separadamente em trackers: `construcao`, `gates_internos`, `homologacao_externa`, `release`. Um bloqueio externo não rebaixa construção 100% nem impede concluir outras tarefas internas. Um verde do CI não significa que provedores externos foram homologados.
 
 ## Fechamento da V1 e release
 
 - Fases funcionais/cutovers são concluídos primeiro.
-- A fase de homologação final fecha pendências funcionais, externas e físicas classificadas.
+- Toda pendência **funcional ou de integração de código** deve fechar antes de declarar construção 100%; homologação final fecha **somente testes, configurações e validações externas/físicas** classificadas.
 - **Visual Premium vem por último como última fase funcional.**
-- Depois do Visual Premium aprovado, configura-se e valida-se o servidor/ambiente real: banco, migrations, rede/DNS/TLS, segredos/Vault, backups/restore, observabilidade, smoke tests e rollback.
+- Depois de toda a construção (inclusive Visual Premium) 100% concluída, preparar e executar testes/homologações externos e físicos. Configuração do servidor/ambiente real, banco produtivo, segredos/Vault, DNS/TLS, backups/restore, smoke tests produtivos e rollback entram em etapa de liberação de produção governada, não bloqueiam a construção.
 - Somente depois existe gate de deploy/release.
 - Merge aprovado não equivale a autorização de deploy.
 
