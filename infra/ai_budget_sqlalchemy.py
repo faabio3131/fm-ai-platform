@@ -273,7 +273,7 @@ class LedgerFranquiasIASQLAlchemy:
                     )
                     .values(reservado=FranquiaAIBudgetORM.reservado + amount)
                 )
-                if result.rowcount != 1:
+                if getattr(result, "rowcount", None) != 1:
                     raise FranquiaEsgotadaIA("franquia_saldo_insuficiente")
             return EstadoReservaIA.RESERVED
         except IntegrityError as exc:
