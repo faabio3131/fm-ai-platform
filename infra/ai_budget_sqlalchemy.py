@@ -310,4 +310,3 @@ class LedgerFranquiasIASQLAlchemy:
                 else EstadoReservaIA.COMMITTED.value
             )
             return EstadoReservaIA(reservation.status)
-
