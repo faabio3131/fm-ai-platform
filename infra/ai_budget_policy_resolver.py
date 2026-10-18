@@ -118,4 +118,5 @@ class ResolverPoliticaFranquiaLocal:
                 ciclo_id=budget.ciclo_id,
                 moeda="USD",
                 maximo_por_tentativa=max_per_request,
+                revisao_politica=entitlement.revision,
             )
