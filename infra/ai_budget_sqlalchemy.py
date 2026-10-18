@@ -212,7 +212,7 @@ class LedgerFranquiasIASQLAlchemy:
         self, *, reserva_id: str, budget_id: str, tenant_id: str,
         unidade_id: str, capability: str, ciclo_id: str,
         request_id: str, attempt_key: str, provider: str, model: str,
-        valor: Decimal, agora: datetime,
+        valor: Decimal, agora: datetime, falhar_em_replay: bool = False,
     ) -> EstadoReservaIA:
         amount = _decimal_positivo(valor)
         instant = _utc(agora)
@@ -232,6 +232,8 @@ class LedgerFranquiasIASQLAlchemy:
                     actual = (existing.budget_id, existing.tenant_id, existing.unidade_id, existing.capability, existing.ciclo_id, existing.request_id, existing.attempt_key, existing.provider, existing.model, existing.valor_reservado)
                     if actual != expected:
                         raise ConflitoReservaIA("reserva_idempotencia_divergente")
+                    if falhar_em_replay:
+                        raise ConflitoReservaIA("reserva_replay_nao_pode_reexecutar_provider")
                     return EstadoReservaIA(existing.status)
                 row = session.get(FranquiaAIBudgetORM, budget_id)
                 if (row is None or
@@ -270,6 +272,8 @@ class LedgerFranquiasIASQLAlchemy:
             with self._sessions() as session:
                 old = session.get(ReservaAIBudgetORM, reserva_id)
                 if old is not None and (old.budget_id, old.request_id, old.attempt_key, old.valor_reservado) == (budget_id, request_id, attempt_key, amount):
+                    if falhar_em_replay:
+                        raise ConflitoReservaIA("reserva_replay_nao_pode_reexecutar_provider") from exc
                     return EstadoReservaIA(old.status)
             raise ConflitoReservaIA("reserva_concorrente_duplicada") from exc
 
