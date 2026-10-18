@@ -1,6 +1,6 @@
 # Kordena V1 — Contrato operacional de franquias, precificação e Command
 
-**Data:** 18/10/2026. **Fase:** construção, exclusivamente. **Status:** candidata na PR #230.  
+**Data:** 18/10/2026. **Fase:** construção, exclusivamente. **Status:** candidata na PR #230.
 **Referência de governança:** PR #229; conclusão do código/CI interno antecede provedores reais, pagamentos, homologação e deploy.
 
 ## Autoridades existentes e telas
