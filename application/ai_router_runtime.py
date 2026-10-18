@@ -7,6 +7,7 @@ SDK, credenciais e adapters concretos permanecem na borda de infraestrutura.
 from __future__ import annotations
 
 from collections.abc import Callable
+import os
 from typing import Any
 from uuid import uuid4
 
@@ -40,6 +41,9 @@ from core.integracoes.provedores import (
 from core.seguranca.auditoria import EventoAuditoria, sanitizar_metadata
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.segredos import ReferenceSecretStore, SecretStore
+from infra.ai_budget_guard import AIFranchiseBudgetGuard
+from infra.ai_budget_policy_resolver import ResolverPoliticaFranquiaLocal
+from infra.ai_budget_sqlalchemy import LedgerFranquiasIASQLAlchemy, OrcamentoIndisponivelIA
 from infra.ai_metering import AIUsageDurableMetering
 from infra.integracoes.fabrica_adapters import FabricaAdaptersExternos
 from infra.integracoes.repositorio_sqlalchemy import (
@@ -464,10 +468,28 @@ def construir_ai_model_router(
     store = secret_store or ReferenceSecretStore()
     isolated_session_factory = _metering_session_factory(session)
 
+    # A ativação de consumo pago é separada da construção e exige preços e
+    # franquias comerciais aprovados. Nenhum modelo pode cobrar sem
+    # autorização prévia quando o gate está habilitado.
+    enforce = require_budget_guard or (
+        os.environ.get("FM_AI_FRANCHISE_ENFORCEMENT_ENABLED", "") == "1"
+    )
+    resolved_guard = budget_guard
+    if enforce:
+        if pricing_catalog is None:
+            raise OrcamentoIndisponivelIA("ai_catalogo_precos_obrigatorio")
+        if resolved_guard is None:
+            resolved_guard = AIFranchiseBudgetGuard(
+                ledger=LedgerFranquiasIASQLAlchemy(isolated_session_factory),
+                resolver_politica_local=ResolverPoliticaFranquiaLocal(
+                    isolated_session_factory
+                ),
+            )
+
     return AIModelRouter(
         pricing_catalog=pricing_catalog,
-        budget_guard=budget_guard,
-        require_budget_guard=require_budget_guard,
+        budget_guard=resolved_guard,
+        require_budget_guard=enforce,
         rotas=_rotas_homologadas(
             session=session,
             contexto=contexto,
