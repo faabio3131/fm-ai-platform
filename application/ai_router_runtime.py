@@ -8,13 +8,15 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from core.ai_pricing import CatalogoPrecosIA
+from application.ai_pricing_runtime import montar_catalogo_precos_ia
+from core.ai_pricing import CatalogoPrecosIA, ErroPricingCatalog
 from core.ai_router import (
     AIModelRouter,
     AIUsageEvent,
@@ -467,33 +469,68 @@ def construir_ai_model_router(
 ) -> AIModelRouter:
     store = secret_store or ReferenceSecretStore()
     isolated_session_factory = _metering_session_factory(session)
+    rotas = _rotas_homologadas(session=session, contexto=contexto)
 
-    # A ativação de consumo pago é separada da construção e exige preços e
-    # franquias comerciais aprovados. Nenhum modelo pode cobrar sem
-    # autorização prévia quando o gate está habilitado.
+    # Os rate cards são fornecidos pelo Command na configuração do provider
+    # e materializados em memória. Nenhum preço é fixo no código.
+    catalog = pricing_catalog
+    if catalog is None:
+        repo = RepositorioConfiguracoesExternasSQLAlchemy(session)
+        configs = tuple(
+            config
+            for provider in ("openai", "gemini")
+            for config in _configs_ia_resolvidas(
+                repo=repo, contexto=contexto, provider=provider,
+            )
+        )
+        catalog = montar_catalogo_precos_ia(
+            rotas=rotas, configuracoes=configs,
+        )
+
     enforce = require_budget_guard or (
         os.environ.get("FM_AI_FRANCHISE_ENFORCEMENT_ENABLED", "") == "1"
     )
     resolved_guard = budget_guard
     if enforce:
-        if pricing_catalog is None:
+        if catalog is None:
             raise OrcamentoIndisponivelIA("ai_catalogo_precos_obrigatorio")
+        # Se uma rota/fallback não tiver rate card vigente, não podemos
+        # garantir o limite financeiro; não iniciamos nenhum gasto.
+        def validar_tarifa(solicitacao: SolicitacaoIA, rota: RotaIA):
+            assert catalog is not None
+            try:
+                snap = catalog.obter_snapshot(
+                    price_snapshot_id=rota.price_snapshot_id
+                )
+                if (
+                    snap.provider != rota.provider
+                    or snap.model != rota.model
+                    or snap.moeda != "USD"
+                    or snap.modalidade != "text_tokens"
+                    or not snap.vigente_em(datetime.now(timezone.utc))
+                ):
+                    raise OrcamentoIndisponivelIA(
+                        "ai_tarifa_incompativel_ou_vencida"
+                    )
+            except ErroPricingCatalog as exc:
+                raise OrcamentoIndisponivelIA(
+                    "ai_tarifa_nao_configurada"
+                ) from exc
+            return ResolverPoliticaFranquiaLocal(
+                isolated_session_factory
+            )(solicitacao, rota)
+
         if resolved_guard is None:
             resolved_guard = AIFranchiseBudgetGuard(
                 ledger=LedgerFranquiasIASQLAlchemy(isolated_session_factory),
-                resolver_politica_local=ResolverPoliticaFranquiaLocal(
-                    isolated_session_factory
-                ),
+                resolver_politica_local=validar_tarifa,
             )
 
     return AIModelRouter(
-        pricing_catalog=pricing_catalog,
+        pricing_catalog=catalog,
         budget_guard=resolved_guard,
         require_budget_guard=enforce,
-        rotas=_rotas_homologadas(
-            session=session,
-            contexto=contexto,
-        ),
+        rotas=rotas,
         executor=ExecutorControlPlaneIA(
             session=session,
             contexto=contexto,
