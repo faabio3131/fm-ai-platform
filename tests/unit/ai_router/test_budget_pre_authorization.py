@@ -104,6 +104,9 @@ def setup_guard(tmp_path):
             capability=CapabilityIA.TOOL_PLANNING.value,
             budget_id="budget-1", ciclo_id="2026-10",
             moeda="USD", maximo_por_tentativa=Decimal("1"),
+            revisao_politica=ledger.saldo(
+                budget_id="budget-1", tenant_id="tenant-a", unidade_id="unit-a"
+            ).revisao_politica,
         )
     guard = AIFranchiseBudgetGuard(
         ledger=ledger,
