@@ -29,7 +29,7 @@ def _porcentagem(*, total: Decimal, usado: Decimal) -> str:
     percent = (max(Decimal(0), usado) * Decimal(100) / total).quantize(
         Decimal("0.1"), rounding=ROUND_HALF_UP,
     )
-    return str(min(Decimal(100), percent))
+    return str(min(Decimal("100.0"), percent).quantize(Decimal("0.1")))
 
 
 def _estado(percent: Decimal) -> str:
