@@ -88,9 +88,26 @@ export function AdminStepUpGuard({ children }: { children: ReactNode }) {
           : current,
       );
     };
+    const recheckOnReturn = () => {
+      if (document.visibilityState === "visible") {
+        setStatus((current) => {
+          const deadline = current?.expira_em ? Date.parse(current.expira_em) : 0;
+          return current?.elevado && (!Number.isFinite(deadline) || deadline <= Date.now())
+            ? { ...current, elevado: false, expira_em: null }
+            : current;
+        });
+        void getAdminStepUpStatus()
+          .then(setStatus)
+          .catch(() => setStatus(null));
+      }
+    };
+    window.addEventListener("focus", recheckOnReturn);
+    document.addEventListener("visibilitychange", recheckOnReturn);
     window.addEventListener(ADMIN_STEP_UP_REQUIRED_EVENT, requireStepUp);
     return () => {
       window.removeEventListener(ADMIN_STEP_UP_REQUIRED_EVENT, requireStepUp);
+      window.removeEventListener("focus", recheckOnReturn);
+      document.removeEventListener("visibilitychange", recheckOnReturn);
     };
   }, []);
 

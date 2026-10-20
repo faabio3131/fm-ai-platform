@@ -168,6 +168,11 @@ export function CatalogoWorkspace() {
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row">
+            {canAdminister ? (
+              <a href="#importacao-cardapio-ia" className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-violet-400/30 bg-violet-400/10 px-4 text-sm font-semibold text-violet-200 hover:bg-violet-400/20">
+                <Sparkles className="size-4" /> Importar cardápio com IA
+              </a>
+            ) : null}
             <button
               type="button"
               disabled={refreshing || loading}
