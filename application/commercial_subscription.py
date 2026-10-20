@@ -11,6 +11,7 @@ from uuid import uuid4
 
 from sqlalchemy.exc import IntegrityError
 
+from application.ai_budget_provision import provisionar_franquias_assinatura
 from application.commercial_entitlement import AplicacaoEntitlementComercialV1
 from application.commercial_trial import AplicacaoTrialComercialV1
 from core.comercial.catalogo import StatusConfiguracaoCatalogo, normalizar_plan_code
@@ -249,6 +250,15 @@ class AplicacaoSubscriptionComercialV1:
             plan_version_id=subscription.plan_version_id,
         )
         self._project(snapshot)
+        # A assinatura ativa e sua projeção autorizam o provisionamento do
+        # ciclo. Sem política/units autenticadas não há concessão de franquia.
+        if subscription.status == EstadoAssinatura.ACTIVE:
+            provisionar_franquias_assinatura(
+                self._session_factory,
+                tenant_id=subscription.tenant_id,
+                product_account_id=subscription.product_account_id,
+                subscription_id=subscription.subscription_id,
+            )
         return snapshot.entitlement_snapshot_id
 
     @staticmethod

@@ -268,6 +268,10 @@
     {
       "version": "0069_delivery_route_limit_v1",
       "sha256": "e85bfb1ab1632e20a94da492c5593a3b119a2eb553c6d6878cc230508a4ef0be"
+    },
+    {
+      "version": "0070_ai_franchise_budget_v1",
+      "sha256": "e7aa98dc047ef2c556f43d6d31c48322e894f99bed6d02da2c16bf869d66882b"
     }
   ]
 }

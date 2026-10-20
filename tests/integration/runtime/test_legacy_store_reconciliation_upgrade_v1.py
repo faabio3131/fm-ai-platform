@@ -64,6 +64,7 @@ _V0066 = "0066_commercial_billing_transaction_identity_v1"
 _V0067 = "0067_commercial_billing_provider_legal_entity_v1"
 _V0068 = "0068_campaign_organic_media_v1"
 _V0069 = "0069_delivery_route_limit_v1"
+_V0070 = "0070_ai_franchise_budget_v1"
 _TENANT = "tenant-reconciliado"
 _UNIDADE = "unidade-reconciliada"
 _LOJA = 71
@@ -288,6 +289,7 @@ def test_reconciliacao_cria_loja_mapping_atomicamente_e_retomada_chega_a_0028(
         _V0067,
         _V0068,
         _V0069,
+        _V0070,
     )
     assert run_migrations(engine) == ()
 

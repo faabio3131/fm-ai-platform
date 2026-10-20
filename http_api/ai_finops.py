@@ -12,6 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from application.ai_finops_dashboard import resumir_ai_finops
+from application.ai_franchise_customer_view import consultar_franquias_ia
 from core.seguranca.erros import CredenciaisInvalidas, ErroSeguranca
 from core.seguranca.permissoes import Permissao
 from http_api.auth import AuthSessionRuntime
@@ -110,6 +111,34 @@ def build_ai_finops_router(
                 "fim": fim.isoformat(),
                 "resumo": _resumo_out(resumir_ai_finops(buckets)),
             }
+        except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
+            return _tratar_erro(exc)
+
+    @router.get("/franquias", response_model=None)
+    def consultar_franquia_atual(request: Request) -> dict[str, Any] | JSONResponse:
+        """Visão de uso do contratante, sem preços internos ou saldo em dólares.
+
+        Não grava estado, não cria orçamento e não chama o Command. A autoridade
+        é o ledger da unidade ativa da sessão, nunca headers do navegador.
+        """
+        try:
+            with session_factory() as session:
+                identidade = obter_identidade_operacional(
+                    request,
+                    session,
+                    auth_runtime=auth_runtime,
+                ).identidade
+            if Permissao.ADMIN_ACESSAR not in identidade.permissoes:
+                raise PermissionError("administracao_sem_acesso")
+            if Permissao.FINANCEIRO_VISUALIZAR not in identidade.permissoes:
+                raise PermissionError(
+                    "administracao_sem_permissao:financeiro.visualizar"
+                )
+            return consultar_franquias_ia(
+                session_factory,
+                tenant_id=identidade.tenant_id,
+                unidade_id=identidade.unidade_id,
+            )
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _tratar_erro(exc)
 

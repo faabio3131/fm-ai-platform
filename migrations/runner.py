@@ -58,6 +58,10 @@ from migrations.ai_finops_read_model_v1 import (
     revert_ai_finops_read_model_v1,
     upgrade_ai_finops_read_model_v1,
 )
+from migrations.ai_franchise_budget_v1 import (
+    revert_ai_franchise_budget_v1,
+    upgrade_ai_franchise_budget_v1,
+)
 from migrations.assistente_channel_runtime_v1 import (
     upgrade_assistente_channel_runtime_v1,
 )
@@ -435,6 +439,11 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
         upgrade_campaign_organic_media_v1,
     ),
     Migration("0069_delivery_route_limit_v1", upgrade_delivery_route_limit_v1),
+    Migration(
+        "0070_ai_franchise_budget_v1",
+        upgrade_ai_franchise_budget_v1,
+        revert_ai_franchise_budget_v1,
+    ),
 )
 
 
