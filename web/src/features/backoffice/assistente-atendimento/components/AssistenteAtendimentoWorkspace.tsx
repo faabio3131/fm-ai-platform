@@ -40,6 +40,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
+import { useAuthStore } from '@/features/auth/store/auth-store';
 import { transcreverGerenteIA } from '@/features/gerente-ia/services/gerente-ia-api';
 import { ESTADO_COLORS, ESTADO_LABELS } from '../constants';
 import {
@@ -406,7 +407,44 @@ function ConversaDetailDialog({ conversa }: ConversaDetailDialogProps) {
   );
 }
 
+const SIMULADOR_TTL_MS = 30 * 60 * 1000;
+const SIMULADOR_STORAGE_PREFIX = "kordena:assistente-homologacao:";
+
+type SimuladorRascunho = {
+  salvoEm: number;
+  historico: string[];
+  mensagem: string;
+  resultado: ResultadoSimuladorAtendente | null;
+  testarGemini: boolean;
+};
+
+function lerRascunhoSimulador(chave: string): SimuladorRascunho | null {
+  try {
+    const bruto = window.sessionStorage.getItem(chave);
+    if (!bruto) return null;
+    const payload = JSON.parse(bruto) as Partial<SimuladorRascunho>;
+    if (typeof payload.salvoEm !== "number" || Date.now() - payload.salvoEm > SIMULADOR_TTL_MS ||
+        !Array.isArray(payload.historico) || payload.historico.some((item) => typeof item !== "string")) {
+      window.sessionStorage.removeItem(chave);
+      return null;
+    }
+    return {
+      salvoEm: payload.salvoEm,
+      historico: payload.historico.slice(-6).map((item) => item.slice(0, 2000)),
+      mensagem: typeof payload.mensagem === "string" ? payload.mensagem.slice(0, 500) : "",
+      resultado: payload.resultado ?? null,
+      testarGemini: payload.testarGemini === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function SimuladorAtendenteHomologacao() {
+  const auth = useAuthStore();
+  const chaveRascunho = auth.operator && auth.tenantId && auth.unitId
+    ? `${SIMULADOR_STORAGE_PREFIX}${auth.tenantId}:${auth.unitId}:${auth.operator.usuario_id}` : null;
+  const chaveHidratadaRef = useRef<string | null>(null);
   const [mensagem, setMensagem] = useState('Olá! Quais pratos vocês oferecem? Não quero fazer um pedido.');
   const [resultado, setResultado] = useState<ResultadoSimuladorAtendente | null>(null);
   const [historicoTeste, setHistoricoTeste] = useState<string[]>([]);
@@ -415,6 +453,34 @@ function SimuladorAtendenteHomologacao() {
   const [testarGemini, setTestarGemini] = useState(true);
   const [gravando, setGravando] = useState(false);
   const [transcrevendo, setTranscrevendo] = useState(false);
+  useEffect(() => {
+    if (!chaveRascunho || chaveHidratadaRef.current === chaveRascunho) return;
+    const timer = window.setTimeout(() => {
+      const salvo = lerRascunhoSimulador(chaveRascunho);
+      setHistoricoTeste(salvo?.historico ?? []);
+      setMensagem(salvo?.mensagem ?? "");
+      setResultado(salvo?.resultado ?? null);
+      setTestarGemini(salvo?.testarGemini ?? true);
+      chaveHidratadaRef.current = chaveRascunho;
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [chaveRascunho]);
+
+  useEffect(() => {
+    if (!chaveRascunho || chaveHidratadaRef.current !== chaveRascunho) return;
+    try {
+      // Não prorrogar o TTL a cada render: conservar a janela original de 30 minutos.
+      const anterior = lerRascunhoSimulador(chaveRascunho);
+      const salvoEm = anterior?.salvoEm ?? Date.now();
+      window.sessionStorage.setItem(chaveRascunho, JSON.stringify({
+        salvoEm, historico: historicoTeste.slice(-6), mensagem, resultado, testarGemini,
+      } satisfies SimuladorRascunho));
+    } catch {
+      // Armazenamento desabilitado: sessão do simulador segue funcionando em memória.
+    }
+  }, [chaveRascunho, historicoTeste, mensagem, resultado, testarGemini]);
+
+
   const gravadorRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const partesRef = useRef<Blob[]>([]);
@@ -545,7 +611,7 @@ function SimuladorAtendenteHomologacao() {
         {executando ? 'Consultando provedor real…' : 'Testar atendente agora'}
       </Button>
       {historicoTeste.length > 0 ? (
-        <Button type="button" variant="outline" disabled={executando} onClick={() => { setHistoricoTeste([]); setResultado(null); }}>
+        <Button type="button" variant="outline" disabled={executando} onClick={() => { if (chaveRascunho) window.sessionStorage.removeItem(chaveRascunho); setHistoricoTeste([]); setResultado(null); setMensagem(''); }}>
           Nova conversa de teste
         </Button>
       ) : null}
