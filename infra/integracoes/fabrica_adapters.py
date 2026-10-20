@@ -13,16 +13,23 @@ from core.integracoes.google_maps import (
     PortaHTTPMaps,
 )
 from core.integracoes.modelos import AmbienteIntegracao, ErroConfiguracaoServico
+from core.integracoes.platform_scope import (
+    FM_PLATFORM_TENANT_ID,
+    FM_PLATFORM_UNIT_ID,
+)
 from core.integracoes.provedores import (
     ConfiguracaoGeminiTenant,
     ConfiguracaoMercadoPago,
     ConfiguracaoMeta,
+    ConfiguracaoOpenAITenant,
     GeminiTenantAdapter,
     MercadoPagoAdapter,
     MetaAdapter,
+    OpenAITenantAdapter,
     PortaDownloadBinario,
     PortaGeminiTenant,
     PortaHTTPProvedor,
+    PortaOpenAITenant,
 )
 from core.pagamentos.pagbank import (
     AdapterPagBank,
@@ -36,6 +43,7 @@ from infra.seguranca.modelos_orm import CredencialReferenciaORM
 from .repositorio_sqlalchemy import RepositorioConfiguracoesExternasSQLAlchemy
 from .transportes import (
     GoogleGenAITenantGateway,
+    OpenAIChatTenantGateway,
     RequestsBinaryTransport,
     RequestsGoogleMapsTransport,
     RequestsProviderTransport,
@@ -47,6 +55,16 @@ class FabricaAdaptersExternos:
         self._session = session
         self._store = secret_store
         self._configs = RepositorioConfiguracoesExternasSQLAlchemy(session)
+
+    @staticmethod
+    def _validar_config(config, *, exigir_homologacao: bool = True):
+        if config is None:
+            raise ErroConfiguracaoServico("configuracao_indisponivel")
+        if not config.habilitada:
+            raise ErroConfiguracaoServico("integracao_desabilitada")
+        if exigir_homologacao and not config.homologada:
+            raise ErroConfiguracaoServico("integracao_nao_homologada")
+        return config
 
     def _config(
         self,
@@ -60,26 +78,69 @@ class FabricaAdaptersExternos:
             unidade_id=contexto.unidade_id,
             configuracao_id=configuracao_id,
         )
-        if config is None:
-            raise ErroConfiguracaoServico("configuracao_indisponivel")
-        if not config.habilitada:
-            raise ErroConfiguracaoServico("integracao_desabilitada")
-        if exigir_homologacao and not config.homologada:
-            raise ErroConfiguracaoServico("integracao_nao_homologada")
-        return config
+        return self._validar_config(
+            config,
+            exigir_homologacao=exigir_homologacao,
+        )
+
+    def _config_plataforma_ou_legado(
+        self,
+        contexto: ContextoExecucao,
+        configuracao_id: str,
+    ):
+        """Resolve primeiro o Command e usa ponte legada somente se inequívoca.
+
+        A ponte permite que as credenciais FM já homologadas no staging continuem
+        atendendo novos tenants durante a migração. Assim que existir configuração
+        no escopo do Command, ela se torna a única autoridade e o fallback deixa de
+        ser considerado.
+        """
+
+        central = self._configs.obter(
+            tenant_id=FM_PLATFORM_TENANT_ID,
+            unidade_id=FM_PLATFORM_UNIT_ID,
+            configuracao_id=configuracao_id,
+        )
+        if central is not None:
+            return self._validar_config(central)
+
+        legado_atual = self._configs.obter(
+            tenant_id=contexto.tenant_id,
+            unidade_id=contexto.unidade_id,
+            configuracao_id=configuracao_id,
+        )
+        if legado_atual is not None:
+            return self._validar_config(legado_atual)
+
+        candidatos = tuple(
+            config
+            for config in self._configs.listar_homologadas_por_configuracao_id(
+                configuracao_id=configuracao_id,
+            )
+            if not (
+                config.tenant_id == FM_PLATFORM_TENANT_ID
+                and config.unidade_id == FM_PLATFORM_UNIT_ID
+            )
+        )
+        if not candidatos:
+            raise ErroConfiguracaoServico("configuracao_plataforma_indisponivel")
+        if len(candidatos) != 1:
+            raise ErroConfiguracaoServico("configuracao_plataforma_legada_ambigua")
+        return candidatos[0]
 
     def _segredo(
         self,
         *,
-        contexto: ContextoExecucao,
+        tenant_id: str,
+        unidade_id: str,
         provedor: str,
         finalidade: str,
     ) -> str:
         row = self._session.scalar(
             select(CredencialReferenciaORM)
             .where(
-                CredencialReferenciaORM.tenant_id == contexto.tenant_id,
-                CredencialReferenciaORM.unidade_id == contexto.unidade_id,
+                CredencialReferenciaORM.tenant_id == tenant_id,
+                CredencialReferenciaORM.unidade_id == unidade_id,
                 CredencialReferenciaORM.provedor == provedor,
                 CredencialReferenciaORM.finalidade == finalidade,
                 CredencialReferenciaORM.ativa.is_(True),
@@ -91,12 +152,13 @@ class FabricaAdaptersExternos:
             raise ErroConfiguracaoServico("credencial_indisponivel")
         return self._store.resolve(row.referencia).reveal()
 
-    def _credencial_por_papel(self, contexto: ContextoExecucao, config, papel: str) -> str:
+    def _credencial_por_papel(self, config, papel: str) -> str:
         finalidade = config.credenciais.get(papel)
         if not finalidade:
             raise ErroConfiguracaoServico("finalidade_credencial_indisponivel")
         return self._segredo(
-            contexto=contexto,
+            tenant_id=config.tenant_id,
+            unidade_id=config.unidade_id,
             provedor=config.provedor,
             finalidade=finalidade,
         )
@@ -109,15 +171,13 @@ class FabricaAdaptersExternos:
         http: PortaHTTPMaps | None = None,
         sleep: Callable[[float], None] = lambda _: None,
     ) -> GoogleMapsAdapter:
-        config = self._config(contexto, configuracao_id)
+        config = self._config_plataforma_ou_legado(contexto, configuracao_id)
         if (config.servico, config.provedor) != ("mapas", "google_maps"):
             raise ErroConfiguracaoServico("adapter_incompativel")
         parametros = config.parametros
         return GoogleMapsAdapter(
             configuracao=ConfiguracaoGoogleMaps(
-                server_api_key=self._credencial_por_papel(
-                    contexto, config, "server_api_key"
-                ),
+                server_api_key=self._credencial_por_papel(config, "server_api_key"),
                 language=str(parametros["language"]),
                 country_code=str(parametros["country_code"]),
             ),
@@ -128,10 +188,10 @@ class FabricaAdaptersExternos:
     def chave_navegador_maps(
         self, *, contexto: ContextoExecucao, configuracao_id: str
     ) -> str:
-        config = self._config(contexto, configuracao_id)
+        config = self._config_plataforma_ou_legado(contexto, configuracao_id)
         if (config.servico, config.provedor) != ("mapas", "google_maps"):
             raise ErroConfiguracaoServico("adapter_incompativel")
-        return self._credencial_por_papel(contexto, config, "browser_api_key")
+        return self._credencial_por_papel(config, "browser_api_key")
 
     def meta(
         self,
@@ -154,8 +214,8 @@ class FabricaAdaptersExternos:
         return MetaAdapter(
             configuracao=ConfiguracaoMeta(
                 servico=config.servico,
-                access_token=self._credencial_por_papel(contexto, config, "access_token"),
-                app_secret=self._credencial_por_papel(contexto, config, "app_secret"),
+                access_token=self._credencial_por_papel(config, "access_token"),
+                app_secret=self._credencial_por_papel(config, "app_secret"),
                 app_id=str(parametros["app_id"]),
                 page_id=(
                     str(parametros["page_id"]) if parametros.get("page_id") else None
@@ -176,7 +236,7 @@ class FabricaAdaptersExternos:
                     else None
                 ),
                 webhook_verify_token=(
-                    self._credencial_por_papel(contexto, config, "webhook_verify_token")
+                    self._credencial_por_papel(config, "webhook_verify_token")
                     if "webhook_verify_token" in config.credenciais
                     else None
                 ),
@@ -200,8 +260,8 @@ class FabricaAdaptersExternos:
             raise ErroConfiguracaoServico("adapter_incompativel")
         return MercadoPagoAdapter(
             configuracao=ConfiguracaoMercadoPago(
-                access_token=self._credencial_por_papel(contexto, config, "access_token"),
-                webhook_secret=self._credencial_por_papel(contexto, config, "webhook_secret"),
+                access_token=self._credencial_por_papel(config, "access_token"),
+                webhook_secret=self._credencial_por_papel(config, "webhook_secret"),
                 notification_url=str(config.parametros["notification_url"]),
             ),
             http=http or RequestsProviderTransport(),
@@ -226,7 +286,7 @@ class FabricaAdaptersExternos:
         parametros = config.parametros
         return AdapterPagBank(
             ConfiguracaoPagBank(
-                token=self._credencial_por_papel(contexto, config, "api_token"),
+                token=self._credencial_por_papel(config, "api_token"),
                 ambiente=ambiente,
                 notification_url=str(parametros["notification_url"]),
                 timeout_seconds=float(parametros.get("timeout_seconds", 10.0)),
@@ -242,14 +302,35 @@ class FabricaAdaptersExternos:
         gateway: PortaGeminiTenant | None = None,
         sleep: Callable[[float], None] = lambda _: None,
     ) -> GeminiTenantAdapter:
-        config = self._config(contexto, configuracao_id)
+        config = self._config_plataforma_ou_legado(contexto, configuracao_id)
         if (config.servico, config.provedor) != ("ia.generativa", "gemini"):
             raise ErroConfiguracaoServico("adapter_incompativel")
         return GeminiTenantAdapter(
             configuracao=ConfiguracaoGeminiTenant(
-                api_key=self._credencial_por_papel(contexto, config, "api_key"),
+                api_key=self._credencial_por_papel(config, "api_key"),
                 model=str(config.parametros["model"]),
             ),
             gateway=gateway or GoogleGenAITenantGateway(),
+            sleep=sleep,
+        )
+
+
+    def openai(
+        self,
+        *,
+        contexto: ContextoExecucao,
+        configuracao_id: str,
+        gateway: PortaOpenAITenant | None = None,
+        sleep: Callable[[float], None] = lambda _: None,
+    ) -> OpenAITenantAdapter:
+        config = self._config_plataforma_ou_legado(contexto, configuracao_id)
+        if (config.servico, config.provedor) != ("ia.generativa", "openai"):
+            raise ErroConfiguracaoServico("adapter_incompativel")
+        return OpenAITenantAdapter(
+            configuracao=ConfiguracaoOpenAITenant(
+                api_key=self._credencial_por_papel(config, "api_key"),
+                model=str(config.parametros["model"]),
+            ),
+            gateway=gateway or OpenAIChatTenantGateway(),
             sleep=sleep,
         )

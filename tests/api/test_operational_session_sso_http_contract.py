@@ -182,3 +182,43 @@ def test_basic_legado_permanece_compativel_sem_cookie(monkeypatch) -> None:
     assert [item["nome"] for item in response.json()["produtos"]] == [
         "Produto Unidade A"
     ]
+
+
+def test_basic_legado_nao_pode_forjar_tenant_ou_unidade(monkeypatch) -> None:
+    client = _infra(monkeypatch)
+
+    forged_tenant = _basic_headers()
+    forged_tenant["X-Tenant-ID"] = "tenant-forjado"
+    tenant_response = client.get("/v1/pdv/produtos", headers=forged_tenant)
+
+    forged_unit = _basic_headers()
+    forged_unit["X-Unit-ID"] = "unidade-forjada"
+    unit_response = client.get("/v1/pdv/produtos", headers=forged_unit)
+
+    assert tenant_response.status_code == 401
+    assert tenant_response.json() == {"erro": "seguranca.credenciais_invalidas"}
+    assert unit_response.status_code == 401
+    assert unit_response.json() == {"erro": "seguranca.credenciais_invalidas"}
+
+
+def test_token_antigo_nao_pode_ser_reutilizado_apos_troca_de_unidade(monkeypatch) -> None:
+    client = _infra(monkeypatch)
+    _login(client)
+    old_token = client.cookies.get("fm_ai_session")
+    assert old_token
+
+    troca = client.post(
+        "/v1/auth/select-unit",
+        json={"unidade_id": UNIDADE_B},
+    )
+    assert troca.status_code == 200
+    new_token = client.cookies.get("fm_ai_session")
+    assert new_token
+    assert new_token != old_token
+
+    replay = TestClient(client.app)
+    replay.cookies.set("fm_ai_session", old_token)
+    response = replay.get("/v1/pdv/produtos")
+
+    assert response.status_code == 401
+    assert response.json() == {"erro": "seguranca.credenciais_invalidas"}

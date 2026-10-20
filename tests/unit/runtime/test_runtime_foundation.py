@@ -68,6 +68,33 @@ _EXPECTED_MIGRATIONS = (
     "0038_delivery_channel_state_v1",
     "0039_crm_cashback_ledger_v1",
     "0040_product_active_flag_v1",
+    "0041_cardapio_publico_identity_v1",
+    "0042_marketplace_orders_web_v1",
+    "0043_fiscal_persistence_foundation_v1",
+    "0044_fiscal_profile_environment_partition_v1",
+    "0045_fiscal_inbound_foundation_v1",
+    "0046_fiscal_smart_intake_v1",
+    "0047_fiscal_procurement_integration_v1",
+    "0048_fiscal_financial_tax_bridge_v1",
+    "0049_commercial_registry_v1",
+    "0050_global_identity_membership_v1",
+    "0051_commercial_catalog_v1",
+    "0052_commercial_entitlement_v1",
+    "0053_commercial_provisioning_v1",
+    "0054_commercial_signup_v1",
+    "0055_commercial_trial_v1",
+    "0056_commercial_subscription_v1",
+    "0057_commercial_billing_config_v1",
+    "0058_commercial_billing_events_v1",
+    "0059_operational_session_persistence_v1",
+    "0060_admin_unit_legacy_store_reconciliation_v1",
+    "0064_password_recovery_v1",
+    "0065_google_federated_identity_v1",
+    "0066_commercial_billing_transaction_identity_v1",
+    "0067_commercial_billing_provider_legal_entity_v1",
+    "0068_campaign_organic_media_v1",
+    "0069_delivery_route_limit_v1",
+    "0070_ai_franchise_budget_v1",
 )
 
 
@@ -227,8 +254,46 @@ def test_sqlite_health_and_versioned_migration_are_idempotent(
         "crm_cashback_saldos_v1",
         "crm_cashback_movimentos_v1",
         "delivery_carrinhos_v1",
+        "fm_federated_identities_v1",
+        "fm_password_recovery_tokens_v1",
     ):
         assert table in tables
+
+
+def test_password_recovery_history_accepts_google_then_billing_migrations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_runtime_env(monkeypatch)
+    monkeypatch.setenv("FM_AI_TEST_MODE", "1")
+    engine = build_engine(load_runtime_settings(test_database_url="sqlite:///:memory:"))
+
+    google_index = _EXPECTED_MIGRATIONS.index("0065_google_federated_identity_v1")
+    assert run_migrations(
+        engine,
+        migrations=DEFAULT_MIGRATIONS[:google_index],
+    ) == _EXPECTED_MIGRATIONS[:google_index]
+    assert pending_versions(engine) == _EXPECTED_MIGRATIONS[google_index:]
+
+    assert run_migrations(
+        engine,
+        migrations=DEFAULT_MIGRATIONS[: google_index + 1],
+    ) == ("0065_google_federated_identity_v1",)
+    assert pending_versions(engine) == (
+        "0066_commercial_billing_transaction_identity_v1",
+        "0067_commercial_billing_provider_legal_entity_v1",
+        "0068_campaign_organic_media_v1",
+        "0069_delivery_route_limit_v1",
+    "0070_ai_franchise_budget_v1",
+    )
+
+    assert run_migrations(engine) == (
+        "0066_commercial_billing_transaction_identity_v1",
+        "0067_commercial_billing_provider_legal_entity_v1",
+        "0068_campaign_organic_media_v1",
+        "0069_delivery_route_limit_v1",
+    "0070_ai_franchise_budget_v1",
+    )
+    assert pending_versions(engine) == ()
 
 
 def test_migration_0011_upgrade_downgrade_and_reapply_are_atomic(

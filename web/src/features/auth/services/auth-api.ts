@@ -18,6 +18,15 @@ export interface AuthUnit {
   nome: string | null;
 }
 
+export interface GoogleSignupProfile {
+  email: string;
+  name: string | null;
+}
+
+export type GoogleLoginResult =
+  | { status: "authenticated"; operator: AuthOperator }
+  | { status: "signup_required"; profile: GoogleSignupProfile };
+
 export interface LogoutResult {
   ok: boolean;
 }
@@ -95,6 +104,40 @@ export async function login(email: string, senha: string): Promise<AuthOperator>
   });
 }
 
+export async function googleLogin(
+  credential: string,
+): Promise<GoogleLoginResult> {
+  const response = await fetch(`${API_BASE_URL}/v1/auth/google`, {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ credential }),
+  });
+
+  if (response.status === 404) {
+    const body = (await response.json()) as {
+      erro?: string;
+      profile?: GoogleSignupProfile;
+    };
+    if (body.erro === "auth.google_signup_required" && body.profile) {
+      return { status: "signup_required", profile: body.profile };
+    }
+  }
+
+  if (!response.ok) {
+    throw await readApiError(response);
+  }
+
+  return {
+    status: "authenticated",
+    operator: (await response.json()) as AuthOperator,
+  };
+}
+
 export async function getMe(): Promise<AuthOperator> {
   return authRequest<AuthOperator>("/v1/auth/me", { method: "GET" });
 }
@@ -123,4 +166,44 @@ export async function elevateAdminSession(senha: string): Promise<AdminStepUpRes
 
 export async function logout(): Promise<LogoutResult> {
   return authRequest<LogoutResult>("/v1/auth/logout", { method: "POST" });
+}
+
+export interface PasswordRecoveryAccepted {
+  accepted: boolean;
+  message: string;
+}
+
+export async function requestPasswordRecovery(
+  email: string,
+): Promise<PasswordRecoveryAccepted> {
+  return authRequest<PasswordRecoveryAccepted>("/v1/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetPassword(
+  token: string,
+  novaSenha: string,
+): Promise<{ ok: boolean }> {
+  return authRequest<{ ok: boolean }>("/v1/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, nova_senha: novaSenha }),
+  });
+}
+
+export async function changePassword(
+  senhaAtual: string,
+  novaSenha: string,
+): Promise<{ ok: boolean; reauthentication_required: boolean }> {
+  return authRequest<{ ok: boolean; reauthentication_required: boolean }>(
+    "/v1/auth/change-password",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        senha_atual: senhaAtual,
+        nova_senha: novaSenha,
+      }),
+    },
+  );
 }

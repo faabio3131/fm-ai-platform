@@ -58,6 +58,7 @@ class CampanhasGovernadasSQLAlchemy(CampanhasGerenciaisSQLAlchemy):
             objetivo=row.objetivo,
             texto_base=row.texto_base,
             audiencia_elegivel=row.audiencia_elegivel,
+            midia_url=row.midia_url,
         )
 
     def _evento_idempotente(
@@ -140,7 +141,7 @@ class CampanhasGovernadasSQLAlchemy(CampanhasGerenciaisSQLAlchemy):
             unidade_id=unidade_id,
             campanha_id=campanha_id,
         )
-        if row.status != "rascunho":
+        if row.status not in {"rascunho", "aguardando_aprovacao"}:
             raise ErroGerenteIA("campanha_nao_esta_em_rascunho")
         fingerprint = self._fingerprint(row)
         row.status = "aprovada"

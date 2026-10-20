@@ -9,10 +9,13 @@ entre tenants/unidades quando a base crescer.
 
 from __future__ import annotations
 
+from threading import RLock
 from typing import Any, cast
+from weakref import WeakKeyDictionary
 
-from sqlalchemy import Integer, MetaData, String, Table, insert, select
-from sqlalchemy.engine import CursorResult
+from sqlalchemy import Integer, MetaData, String, Table, insert, inspect, select
+from sqlalchemy.engine import CursorResult, Engine
+from sqlalchemy.exc import IntegrityError, NoSuchTableError
 from sqlalchemy.orm import Session
 
 
@@ -21,6 +24,42 @@ class ErroEscopoLojaLegada(RuntimeError):
 
 
 _MAPPING_TABLE = "fm_unidade_loja_legacy_v1"
+
+# A estrutura das tabelas muda com migrations, não com requisições de venda.
+# Guardar somente metadata estrutural por Engine: NUNCA valores de produto,
+# tenant, unidade, loja, preço ou decisões de autorização.
+_REFLECTION_CACHE_LOCK = RLock()
+_REFLECTION_CACHE: WeakKeyDictionary[Engine, dict[str, Table]] = WeakKeyDictionary()
+
+
+def invalidar_cache_reflexao_legada(engine: Engine) -> None:
+    """Invalida metadata após migrations ou alteração governada de schema."""
+    with _REFLECTION_CACHE_LOCK:
+        _REFLECTION_CACHE.pop(engine, None)
+
+
+def _tabela_refletida(session: Session, nome_tabela: str) -> Table:
+    """Reflete uma vez por Engine, isolando conexões e mantendo SQL scoped.
+
+    Sessões ligadas diretamente a Connection não compartilham metadata.
+    Erros de rede/pool/DB propagam intactos: jamais virarão erro 403 de escopo.
+    """
+    bind = session.get_bind()
+    if not isinstance(bind, Engine):
+        return Table(nome_tabela, MetaData(), autoload_with=session.connection())
+
+    with _REFLECTION_CACHE_LOCK:
+        tabelas = _REFLECTION_CACHE.get(bind)
+        if tabelas is not None and nome_tabela in tabelas:
+            return tabelas[nome_tabela]
+        # Não cachear tentativas falhas: schema pode estar ausente/indisponível.
+        tabela = Table(nome_tabela, MetaData(), autoload_with=session.connection())
+        if tabelas is None:
+            tabelas = {}
+            _REFLECTION_CACHE[bind] = tabelas
+        tabelas[nome_tabela] = tabela
+        return tabela
+
 
 
 def _valor_loja_para_coluna(coluna, loja_id: int) -> int | str:
@@ -49,16 +88,9 @@ def resolver_loja_id_legada(
     if not unidade:
         raise ErroEscopoLojaLegada("unidade_id vazio")
 
-    bind = session.connection()
-    metadata = MetaData()
-
     try:
-        mapping = Table(
-            _MAPPING_TABLE,
-            metadata,
-            autoload_with=bind,
-        )
-    except Exception as exc:
+        mapping = _tabela_refletida(session, _MAPPING_TABLE)
+    except NoSuchTableError as exc:
         raise ErroEscopoLojaLegada(
             "mapeamento canônico unidade/loja ausente; "
             "execute a migration comercial correspondente"
@@ -74,6 +106,29 @@ def resolver_loja_id_legada(
     resultados = tuple(session.execute(stmt).scalars())
 
     if not resultados:
+        tabelas = set(inspect(session.connection()).get_table_names())
+        if "fm_unidades_admin_v1" in tabelas:
+            unidades_admin = _tabela_refletida(session, "fm_unidades_admin_v1")
+            unidade_row = session.execute(
+                select(
+                    unidades_admin.c.nome_fantasia,
+                    unidades_admin.c.ativa,
+                )
+                .where(unidades_admin.c.tenant_id == tenant)
+                .where(unidades_admin.c.unidade_id == unidade_id)
+            ).first()
+            if unidade_row is not None and bool(unidade_row.ativa):
+                nome_fantasia = str(
+                    unidade_row.nome_fantasia or unidade_id
+                ).strip()
+                loja_id = garantir_loja_legada_para_escopo(
+                    session,
+                    tenant_id=tenant,
+                    unidade_id=unidade_id,
+                    nome_fantasia=nome_fantasia or unidade_id,
+                )
+                return int(loja_id)
+
         raise ErroEscopoLojaLegada(
             "nenhuma loja legada mapeada para tenant/unidade autenticados"
         )
@@ -86,6 +141,148 @@ def resolver_loja_id_legada(
     return int(resultados[0])
 
 
+def garantir_loja_legada_para_escopo(
+    session: Session,
+    *,
+    tenant_id: str,
+    unidade_id: str,
+    nome_fantasia: str,
+) -> int:
+    """Cria idempotentemente a ponte explícita para uma unidade nova.
+
+    Não infere nem reaproveita lojas existentes. Cada novo escopo recebe uma
+    loja legada própria e a constraint UNIQUE(loja_id) preserva isolamento.
+    Em corrida concorrente, o savepoint é descartado e o vínculo vencedor é
+    relido; nenhum registro de loja órfão é mantido.
+    """
+
+    tenant = str(tenant_id).strip()
+    unidade = str(unidade_id).strip()
+    nome = " ".join(str(nome_fantasia).split())
+    if not tenant:
+        raise ErroEscopoLojaLegada("tenant_id vazio")
+    if not unidade:
+        raise ErroEscopoLojaLegada("unidade_id vazio")
+    if not nome or len(nome) > 255:
+        raise ErroEscopoLojaLegada("nome_fantasia invalido")
+
+    try:
+        mapping = _tabela_refletida(session, _MAPPING_TABLE)
+        lojas = _tabela_refletida(session, "lojas")
+    except NoSuchTableError as exc:
+        raise ErroEscopoLojaLegada(
+            "estrutura legada de unidade/loja ausente"
+        ) from exc
+
+    def existente() -> int | None:
+        row = session.execute(
+            select(mapping.c.loja_id, mapping.c.ativo)
+            .where(mapping.c.tenant_id == tenant)
+            .where(mapping.c.unidade_id == unidade)
+        ).first()
+        if row is None:
+            return None
+        if not bool(row.ativo):
+            raise ErroEscopoLojaLegada(
+                "mapeamento unidade/loja existente esta inativo"
+            )
+        loja_id = int(row.loja_id)
+        loja_existe = session.execute(
+            select(lojas.c.id).where(lojas.c.id == loja_id)
+        ).scalar_one_or_none()
+        if loja_existe is None:
+            raise ErroEscopoLojaLegada(
+                "mapeamento unidade/loja referencia loja inexistente"
+            )
+        return loja_id
+
+    current = existente()
+    if current is not None:
+        return current
+
+    try:
+        with session.begin_nested():
+            loja_id = int(
+                session.execute(
+                    insert(lojas)
+                    .values(nome_fantasia=nome)
+                    .returning(lojas.c.id)
+                ).scalar_one()
+            )
+            session.execute(
+                insert(mapping).values(
+                    tenant_id=tenant,
+                    unidade_id=unidade,
+                    loja_id=loja_id,
+                    ativo=True,
+                )
+            )
+    except IntegrityError as exc:
+        current = existente()
+        if current is None:
+            raise ErroEscopoLojaLegada(
+                "conflito ao provisionar mapeamento unidade/loja"
+            ) from exc
+        return current
+
+    return loja_id
+
+
+def reconciliar_lojas_legadas_unidades_admin(session: Session) -> int:
+    """Provisiona mappings ausentes para unidades administrativas canônicas ativas.
+
+    Não reutiliza nem infere lojas históricas. Cada unidade sem mapping recebe uma
+    loja legada nova e exclusiva, preservando o isolamento tenant/unidade.
+    Retorna a quantidade de mappings criados.
+    """
+
+    bind = session.connection()
+    tabelas = set(inspect(bind).get_table_names())
+    obrigatorias = {
+        "fm_unidades_admin_v1",
+        "fm_unidade_loja_legacy_v1",
+        "lojas",
+    }
+    if not obrigatorias <= tabelas:
+        return 0
+
+    unidades_admin = _tabela_refletida(session, "fm_unidades_admin_v1")
+    mapping = _tabela_refletida(session, _MAPPING_TABLE)
+
+    rows = session.execute(
+        select(
+            unidades_admin.c.tenant_id,
+            unidades_admin.c.unidade_id,
+            unidades_admin.c.nome_fantasia,
+        )
+        .where(unidades_admin.c.ativa.is_(True))
+        .order_by(
+            unidades_admin.c.tenant_id,
+            unidades_admin.c.unidade_id,
+        )
+    ).all()
+
+    criados = 0
+    for row in rows:
+        existe = session.execute(
+            select(mapping.c.loja_id)
+            .where(mapping.c.tenant_id == row.tenant_id)
+            .where(mapping.c.unidade_id == row.unidade_id)
+            .where(mapping.c.ativo.is_(True))
+        ).scalar_one_or_none()
+        if existe is not None:
+            continue
+        garantir_loja_legada_para_escopo(
+            session,
+            tenant_id=str(row.tenant_id),
+            unidade_id=str(row.unidade_id),
+            nome_fantasia=str(row.nome_fantasia or row.unidade_id),
+        )
+        criados += 1
+
+    return criados
+
+
 def inserir_produto_legado(
     session: Session,
     *,
@@ -95,8 +292,7 @@ def inserir_produto_legado(
 ) -> int:
     """Insere produto legado usando somente mapeamento canônico explícito."""
 
-    bind = session.connection()
-    table = Table("produtos", MetaData(), autoload_with=bind)
+    table = _refletir_tabela_scoped(session, "produtos")
 
     if "id" not in table.c:
         raise ErroEscopoLojaLegada("tabela produtos sem chave primária id")
@@ -134,15 +330,9 @@ def _refletir_tabela_scoped(
     session: Session,
     nome_tabela: str,
 ) -> Table:
-    bind = session.connection()
-
     try:
-        table = Table(
-            nome_tabela,
-            MetaData(),
-            autoload_with=bind,
-        )
-    except Exception as exc:
+        table = _tabela_refletida(session, nome_tabela)
+    except NoSuchTableError as exc:
         raise ErroEscopoLojaLegada(
             f"tabela legada ausente ou inacessível: {nome_tabela}"
         ) from exc
@@ -209,6 +399,7 @@ def listar_produtos_legados(
     *,
     tenant_id: str,
     unidade_id: str,
+    produto_ids: tuple[int, ...] | None = None,
 ):
     loja_id = resolver_loja_id_legada(
         session,
@@ -234,6 +425,12 @@ def listar_produtos_legados(
         )
         .order_by(table.c.id)
     )
+
+    # O cardápio completo continua disponível para consultas de catálogo.
+    # Checkout fornece IDs canônicos: restringir por id + loja explicitamente
+    # mapeada no banco, NUNCA por um ID recebido como prova de autorização.
+    if produto_ids is not None:
+        stmt = stmt.where(table.c.id.in_(produto_ids))
 
     return session.execute(stmt).all()
 

@@ -19,6 +19,7 @@ from application.assistente_channel_runtime import RuntimeCanalWhatsAppV1
 from application.assistente_operational_notifications import (
     notificar_status_assistente_best_effort,
 )
+from application.commercial_billing import BillingProviderAdapterRegistryV1
 from application.finalizacao_pagamento import FinalizacaoPagamentoInvalida
 from application.gerente_ia_runtime import PlanejadorLLM, compor_runtime_gerente_ia
 from application.gerente_ia_transacoes import (
@@ -31,6 +32,7 @@ from application.pagbank import (
     PagBankAplicacaoInvalida,
     processar_webhook_pagbank,
 )
+from application.password_recovery import PasswordRecoveryDispatcher
 from application.pdv_legacy_projection import ProjecaoLegadaInvalida
 from core.gerente_ia.erros import ErroGerenteIA
 from core.gerente_ia.modelos import ChamadaTool
@@ -48,11 +50,17 @@ from core.seguranca.erros import (
     SegredoAusente,
 )
 from core.seguranca.segredos import ReferenceSecretStore, SecretStore
+from http_api.assistente_simulador_homologacao import build_assistente_simulador_router
 from http_api.auth import AuthSessionRuntime, build_auth_router
 from http_api.catalogo import build_catalogo_router
+from http_api.commercial_billing_webhooks import build_commercial_billing_webhook_router
+from http_api.estoque import build_estoque_router
 from http_api.kds import build_kds_router
 from http_api.pdv import build_pdv_router
 from http_api.salao import build_salao_router
+from infra.comercial.transactional_email import (
+    build_password_recovery_dispatcher_from_env,
+)
 from infra.integracoes.fabrica_adapters import FabricaAdaptersExternos
 from infra.pagamentos.pagbank_runtime import (
     CredencialPagBankNaoConfigurada,
@@ -116,6 +124,8 @@ def build_http_app(
     whatsapp_secret_store_factory: Callable[[Session], SecretStore] | None = None,
     whatsapp_runtime: RuntimeCanalWhatsAppV1 | None = None,
     auth_runtime: AuthSessionRuntime | None = None,
+    commercial_billing_adapter_registry: BillingProviderAdapterRegistryV1 | None = None,
+    password_recovery_dispatcher: PasswordRecoveryDispatcher | None = None,
 ) -> FastAPI:
     settings = settings or load_runtime_settings()
     engine = engine or build_engine(settings)
@@ -129,6 +139,13 @@ def build_http_app(
         or (lambda session: EncryptedSQLAlchemySecretStore(session))
     )
     canal_whatsapp = whatsapp_runtime or RuntimeCanalWhatsAppV1(session_factory)
+    password_recovery_dispatcher = (
+        password_recovery_dispatcher
+        or build_password_recovery_dispatcher_from_env(
+            secret_store=secret_store,
+            required=False,
+        )
+    )
 
     app = FastAPI(
         title="F&M Gerente AI — Integration API",
@@ -147,12 +164,27 @@ def build_http_app(
             settings=settings,
             secret_store=secret_store,
             runtime=auth_runtime,
+            password_recovery_dispatcher=password_recovery_dispatcher,
         )
     )
     app.include_router(
         build_catalogo_router(
             session_factory=session_factory,
             auth_runtime=auth_runtime,
+        )
+    )
+    app.include_router(
+        build_assistente_simulador_router(
+            session_factory=session_factory,
+            auth_runtime=auth_runtime,
+            secret_store_factory=whatsapp_secret_store_factory,
+        )
+    )
+    app.include_router(
+        build_estoque_router(
+            session_factory=session_factory,
+            auth_runtime=auth_runtime,
+            whatsapp_secret_store_factory=whatsapp_secret_store_factory,
         )
     )
     app.include_router(
@@ -171,6 +203,13 @@ def build_http_app(
         build_salao_router(
             session_factory=session_factory,
             auth_runtime=auth_runtime,
+        )
+    )
+    app.include_router(
+        build_commercial_billing_webhook_router(
+            session_factory=session_factory,
+            adapter_registry=commercial_billing_adapter_registry,
+            fallback_secret_store=secret_store,
         )
     )
 

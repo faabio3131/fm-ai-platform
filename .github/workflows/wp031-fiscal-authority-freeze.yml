@@ -1,0 +1,44 @@
+name: WP-031 Fiscal Authority Freeze
+
+on:
+  pull_request:
+    paths:
+      - 'docs/web-parity/WP031_FISCAL_V1_SYSTEM_DESIGN.md'
+      - 'docs/web-parity/KORDENA_WEB_PARITY_V1_INVENTARIO_MESTRE.md'
+      - 'docs/web-parity/KORDENA_V1_SEQUENCIA_FINAL_EXECUCAO.md'
+      - 'docs/web-parity/KORDENA_V1_STATE_LEDGER.json'
+      - 'scripts/validate_wp031_authority_freeze.py'
+      - '.github/workflows/wp031-fiscal-authority-freeze.yml'
+  push:
+    branches:
+      - feat/web-parity-v1-total-original-migration
+    paths:
+      - 'docs/web-parity/WP031_FISCAL_V1_SYSTEM_DESIGN.md'
+      - 'docs/web-parity/KORDENA_WEB_PARITY_V1_INVENTARIO_MESTRE.md'
+      - 'docs/web-parity/KORDENA_V1_SEQUENCIA_FINAL_EXECUCAO.md'
+      - 'docs/web-parity/KORDENA_V1_STATE_LEDGER.json'
+      - 'scripts/validate_wp031_authority_freeze.py'
+      - '.github/workflows/wp031-fiscal-authority-freeze.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  authority-freeze:
+    name: Validate WP-031A authority freeze
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate fiscal baseline, authorities and ordering
+        run: python scripts/validate_wp031_authority_freeze.py
+      - name: Validate canonical Kordena V1 state
+        run: python scripts/validate_kordena_v1_state_ledger.py
+      - name: Diff whitespace gate
+        run: git diff --check HEAD~1..HEAD

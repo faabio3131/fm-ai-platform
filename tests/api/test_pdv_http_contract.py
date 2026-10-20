@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, func, select, text
+from sqlalchemy import create_engine, event, func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -215,3 +215,65 @@ def test_pdv_rejeita_tenant_ou_unidade_fora_do_contexto_autenticado() -> None:
 
     assert response.status_code == 401
     assert response.json() == {"erro": "seguranca.credenciais_invalidas"}
+
+
+def test_checkout_pdv_consulta_apenas_itens_pedidos_em_vez_do_cardapio_inteiro() -> None:
+    engine, _, client = _infra()
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO produtos (id, loja_id, nome, categoria, preco_venda) "
+                "VALUES (:id, '71', :nome, 'Lanches', 30.00)"
+            ),
+            [{"id": n, "nome": f"Extra {n}"} for n in range(100, 700)],
+        )
+
+    sqls: list[str] = []
+
+    def registrar(conn, cursor, statement, parameters, context, executemany):
+        sqls.append(statement)
+
+    event.listen(engine, "before_cursor_execute", registrar)
+    try:
+        response = client.post(
+            "/v1/pdv/checkout", headers=_headers(), json=_payload()
+        )
+    finally:
+        event.remove(engine, "before_cursor_execute", registrar)
+
+    assert response.status_code == 201, response.text
+    assert response.json()["comanda"]["total"] == "30.00"
+    product_sql = [
+        sql for sql in sqls
+        if "FROM produtos" in sql and "SELECT" in sql
+    ]
+    assert len(product_sql) == 1
+    assert "produtos.id IN" in product_sql[0]
+    assert "produtos.loja_id" in product_sql[0]
+
+    # Listagem completa continua exibindo todos os itens válidos do escopo.
+    catalog = client.get("/v1/pdv/produtos", headers=_headers())
+    assert catalog.status_code == 200
+    assert len(catalog.json()["produtos"]) == 601
+
+
+def test_checkout_pdv_outro_escopo_ou_id_nao_canonico_rejeitado() -> None:
+    engine, _, client = _infra()
+    payload = _payload()
+    for produto_id in (
+        "legacy:produto:3",  # produto pertence a outra loja
+        "legacy:produto:01",  # antes também não correspondia ao ID canônico
+        "legacy:produto:999999999999999999999999999999",
+        "produto:1",
+    ):
+        payload["itens"][0]["produto_id"] = produto_id
+        response = client.post(
+            "/v1/pdv/checkout",
+            headers=_headers("idempotente-invalido-" + produto_id),
+            json=payload,
+        )
+        assert response.status_code == 400
+        assert response.json() == {"erro": "produto_indisponivel_ou_fora_do_escopo"}
+    with Session(engine) as session:
+        assert _count(session, PedidoORM) == 0
+        assert _count(session, PagamentoORM) == 0

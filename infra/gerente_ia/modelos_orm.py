@@ -208,6 +208,7 @@ class RascunhoCampanhaORM(CoreRuntimeBase):
     finalidade: Mapped[str] = mapped_column(String(64), nullable=False)
     objetivo: Mapped[str] = mapped_column(String(240), nullable=False)
     texto_base: Mapped[str] = mapped_column(Text, nullable=False)
+    midia_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     audiencia_elegivel: Mapped[int] = mapped_column(Integer, nullable=False)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     criado_por: Mapped[str] = mapped_column(String(64), nullable=False)

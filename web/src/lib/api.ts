@@ -1,7 +1,20 @@
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL === "__SAME_ORIGIN__"
     ? ""
-    : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000");
+    : process.env.NEXT_PUBLIC_API_URL ||
+      (process.env.NODE_ENV === "production" ? "/backend" : "http://localhost:8000");
+
+export const ADMIN_STEP_UP_REQUIRED_EVENT = "kordena:admin-step-up-required";
+
+function notifyAdminStepUpRequired(status: number, code?: string): void {
+  if (
+    status === 403 &&
+    code === "seguranca.admin_step_up_exigido" &&
+    typeof window !== "undefined"
+  ) {
+    window.dispatchEvent(new Event(ADMIN_STEP_UP_REQUIRED_EVENT));
+  }
+}
 
 export interface ApiContext {
   token?: string;
@@ -14,6 +27,7 @@ export class ApiError extends Error {
     message: string,
     public readonly status: number,
     public readonly endpoint: string,
+    public readonly code?: string,
   ) {
     super(message);
     this.name = "ApiError";
@@ -55,10 +69,23 @@ export async function apiRequest<T>(
   });
 
   if (!response.ok) {
+    let code: string | undefined;
+    try {
+      const payload = (await response.json()) as { erro?: unknown };
+      if (typeof payload?.erro === "string" && payload.erro.trim()) {
+        code = payload.erro.trim();
+      }
+    } catch {
+      // A fronteira HTTP pode responder sem JSON. O status continua sendo a fonte segura.
+    }
+
+    notifyAdminStepUpRequired(response.status, code);
+
     throw new ApiError(
       `Kordena API respondeu HTTP ${response.status}`,
       response.status,
       endpoint,
+      code,
     );
   }
 

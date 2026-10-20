@@ -130,6 +130,10 @@ class RepositorioLedgerSQLAlchemy:
     def __init__(self, session: Session) -> None:
         self._session = session
 
+    @property
+    def unit_of_work_token(self) -> object:
+        return self._session
+
     def executar_atomicamente(self, operacao: Callable[[], T]) -> T:
         """A fronteira de commit/rollback pertence ao Unit of Work chamador."""
 

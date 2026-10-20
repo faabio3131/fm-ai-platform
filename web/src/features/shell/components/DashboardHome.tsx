@@ -3,15 +3,25 @@
 import {
   Activity,
   ArrowRight,
+  Bot,
+  BrainCircuit,
   ChefHat,
+  CircleGauge,
   LayoutGrid,
+  Link as LinkIcon,
   Package,
+  Printer,
   ShieldCheck,
   ShoppingCart,
+  SlidersHorizontal,
+  Users,
+  Utensils,
+  Warehouse,
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
 
+import { KordenaBrainMark } from "@/components/brand/KordenaBrainMark";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -31,45 +41,62 @@ const iconByName: Record<ShellModuleIcon, typeof ShoppingCart> = {
   dashboard: ShieldCheck,
   pdv: ShoppingCart,
   salao: LayoutGrid,
+  garcom: Utensils,
   kds: ChefHat,
   catalogo: Package,
+  estoque: Warehouse,
+  crm: Users,
+  financeiro: CircleGauge,
+  ai: BrainCircuit,
   saude: Activity,
+  usuarios: Users,
+  configuracao: SlidersHorizontal,
+  impressao: Printer,
+  integracoes: LinkIcon,
+  assistente: Bot,
 };
 
 function ModuleCard({ module }: { module: ShellModuleDefinition }) {
   const Icon = iconByName[module.icon];
   const protectedModule = module.group === "proprietario";
+  const intelligenceModule = module.group === "inteligencia";
 
   return (
     <Link href={module.href} className="group block h-full">
-      <Card className="h-full border-slate-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg">
-        <CardHeader className="pb-3">
+      <Card className="h-full overflow-hidden border-slate-700/65 bg-[linear-gradient(145deg,rgba(15,30,51,0.98),rgba(8,20,36,0.98))] transition-all duration-200 hover:-translate-y-1 hover:border-sky-400/28 hover:shadow-[0_28px_62px_-34px_rgba(47,124,246,0.48)]">
+        <CardHeader className="p-3 pb-1.5">
           <div className="flex items-start justify-between gap-4">
-            <div className="flex size-11 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm">
-              <Icon className="size-5" />
+            <div className="flex size-9 items-center justify-center rounded-lg bg-[linear-gradient(145deg,#0f172a,#1e3a5f)] text-white shadow-[0_12px_24px_-16px_rgba(15,23,42,0.9)] ring-1 ring-white/10 transition group-hover:scale-[1.03] group-hover:bg-[linear-gradient(145deg,#1d4ed8,#0284c7)]">
+              {module.id === "gerente-ia" ? (
+                <KordenaBrainMark className="size-6" />
+              ) : (
+                <Icon className="size-4" />
+              )}
             </div>
             <Badge
               variant="outline"
               className={
                 protectedModule
-                  ? "border-amber-200 bg-amber-50 text-amber-700"
-                  : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  ? "border-amber-300/20 bg-amber-400/[0.08] px-2 py-0.5 text-[10px] text-amber-200"
+                  : intelligenceModule
+                    ? "border-sky-300/20 bg-sky-400/[0.08] px-2 py-0.5 text-[10px] text-sky-200"
+                    : "border-emerald-300/20 bg-emerald-400/[0.08] px-2 py-0.5 text-[10px] text-emerald-200"
               }
             >
-              {protectedModule ? "Acesso protegido" : "Disponível"}
+              {protectedModule ? "Acesso protegido" : intelligenceModule ? "Inteligência" : "Disponível"}
             </Badge>
           </div>
-          <CardTitle className="mt-4 text-lg tracking-tight text-slate-950 group-hover:text-blue-700">
+          <CardTitle className="mt-2 text-[15px] tracking-tight text-slate-50 transition-colors group-hover:text-sky-300">
             {module.label}
           </CardTitle>
-          <CardDescription className="leading-6 text-slate-500">
+          <CardDescription className="min-h-8 text-xs leading-4 text-slate-400">
             {module.description}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <span className="inline-flex items-center gap-1 text-sm font-semibold text-blue-700">
+        <CardContent className="px-3 pb-3 pt-0">
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-sky-300">
             Abrir módulo
-            <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+            <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-1" />
           </span>
         </CardContent>
       </Card>
@@ -84,61 +111,110 @@ export function DashboardHome() {
     [auth.permissions],
   );
   const operationModules = modules.filter((module) => module.group === "operacao");
+  const intelligenceModules = modules.filter(
+    (module) => module.group === "inteligencia",
+  );
   const proprietorModules = modules.filter(
     (module) => module.group === "proprietario",
   );
+  const overviewInsertAt =
+    operationModules.length - (operationModules.length % 3);
+  const overviewModules = [
+    ...operationModules.slice(0, overviewInsertAt),
+    ...intelligenceModules,
+    ...operationModules.slice(overviewInsertAt),
+  ];
+  const gerenteIa = intelligenceModules.find((module) => module.id === "gerente-ia");
   const displayName =
     auth.operator?.nome?.trim() || auth.operator?.email || "usuário";
 
   return (
-    <div className="min-h-full bg-slate-100 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <div className="mx-auto w-full max-w-7xl space-y-8">
-        <section className="overflow-hidden rounded-3xl bg-slate-950 p-6 text-white shadow-xl sm:p-8">
-          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+    <div className="kordena-page min-h-full px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
+      <div className="kordena-enter mx-auto w-full max-w-[1500px] space-y-4">
+        <section className="relative overflow-hidden rounded-[1.5rem] border border-slate-800/80 bg-[#08111f] p-4 text-white shadow-[0_24px_56px_-38px_rgba(2,6,23,0.8)] sm:p-4 lg:p-5">
+          <div className="kordena-grid pointer-events-none absolute inset-0 opacity-70" />
+          <div className="pointer-events-none absolute -right-28 -top-28 size-80 rounded-full bg-blue-500/22 blur-3xl" />
+          <div className="pointer-events-none absolute bottom-[-8rem] left-[28%] size-72 rounded-full bg-cyan-400/10 blur-3xl" />
+
+          <div className="relative grid gap-4 lg:grid-cols-[minmax(0,1.62fr)_minmax(280px,0.62fr)] lg:items-center">
             <div className="max-w-3xl">
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-400/10 px-3 py-1.5 text-xs font-semibold text-blue-200">
-                <ShieldCheck className="size-3.5" />
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-400/15 bg-emerald-400/[0.07] px-2.5 py-0.5 text-[10px] font-bold text-emerald-200">
+                <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.95)]" />
                 Sessão corporativa validada
               </div>
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-300">
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-sky-300">
                 Kordena Enterprise
               </p>
-              <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
+              <h1 className="mt-1.5 text-3xl font-black tracking-[-0.035em] sm:text-[2.15rem] lg:text-[2.25rem] lg:leading-[1.04]">
                 Central de operação e gestão
               </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
+              <p className="mt-2 max-w-2xl text-[13px] leading-5 text-slate-300">
                 Olá, {displayName}. Acesse somente os módulos liberados para sua função e para a unidade ativa da sessão.
               </p>
+
+              {gerenteIa ? (
+                <Link
+                  href={gerenteIa.href}
+                  className="mt-3 inline-flex items-center gap-2 rounded-xl border border-blue-400/20 bg-blue-500/10 px-3 py-2 text-sm font-semibold text-blue-100 transition hover:-translate-y-0.5 hover:border-blue-300/30 hover:bg-blue-500/15"
+                >
+                  <span className="flex size-8 items-center justify-center rounded-lg bg-blue-500/10 ring-1 ring-blue-400/20">
+                    <KordenaBrainMark className="size-7" />
+                  </span>
+                  <span>
+                    <span className="block text-xs font-black uppercase tracking-[0.14em] text-blue-300">Gerente IA</span>
+                    <span className="mt-0.5 block text-xs text-slate-300">Consulte a operação e prepare decisões governadas</span>
+                  </span>
+                  <ArrowRight className="ml-1 size-3.5" />
+                </Link>
+              ) : null}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:min-w-72">
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-2xl font-black">{operationModules.length}</p>
-                <p className="mt-1 text-xs text-slate-400">módulos operacionais</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="kordena-glass rounded-xl p-2.5">
+                <p className="text-xl font-black tabular-nums text-white">{operationModules.length}</p>
+                <p className="mt-1 text-[11px] leading-4 text-slate-400">módulos operacionais</p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-2xl font-black">{proprietorModules.length}</p>
-                <p className="mt-1 text-xs text-slate-400">módulos de gestão</p>
+              <div className="kordena-glass rounded-xl p-2.5">
+                <p className="text-xl font-black tabular-nums text-white">{intelligenceModules.length}</p>
+                <p className="mt-1 text-[11px] leading-4 text-slate-400">módulo de inteligência</p>
+              </div>
+              <div className="kordena-glass rounded-xl p-2.5">
+                <p className="text-xl font-black tabular-nums text-white">{proprietorModules.length}</p>
+                <p className="mt-1 text-[11px] leading-4 text-slate-400">módulos de gestão</p>
+              </div>
+              <div className="col-span-3 rounded-xl border border-white/[0.08] bg-white/[0.045] p-2.5 backdrop-blur">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+                  <ShieldCheck className="size-4 text-emerald-300" />
+                  Acesso orientado por função e unidade
+                </div>
+                <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                  O shell respeita as permissões da identidade e o escopo operacional da sessão assinada.
+                </p>
               </div>
             </div>
           </div>
         </section>
 
-        {operationModules.length > 0 ? (
+        {overviewModules.length > 0 ? (
           <section>
-            <div className="mb-4">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">
-                Operação
-              </p>
-              <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">
-                Chão de fábrica
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Atendimento, produção e execução operacional disponíveis para sua função.
-              </p>
+            <div className="mb-2.5 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-sky-300">
+                  Operação integrada
+                </p>
+                <h2 className="mt-0.5 text-xl font-black tracking-tight text-slate-50">
+                  Operação e Inteligência
+                </h2>
+                <p className="mt-0.5 text-[13px] leading-5 text-slate-400">
+                  Atendimento, produção, execução operacional e inteligência disponíveis para sua função.
+                </p>
+              </div>
+              <Badge variant="outline" className="border-slate-600/60 bg-slate-950/38 text-slate-300">
+                {overviewModules.length} disponíveis
+              </Badge>
             </div>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {operationModules.map((module) => (
+            <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
+              {overviewModules.map((module) => (
                 <ModuleCard key={module.id} module={module} />
               ))}
             </div>
@@ -147,18 +223,23 @@ export function DashboardHome() {
 
         {proprietorModules.length > 0 ? (
           <section>
-            <div className="mb-4">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-700">
-                Gestão protegida
-              </p>
-              <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">
-                Área do Proprietário
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                A entrada permanece sujeita à permissão administrativa e à reautenticação temporária.
-              </p>
+            <div className="mb-2.5 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-300">
+                  Gestão protegida
+                </p>
+                <h2 className="mt-0.5 text-xl font-black tracking-tight text-slate-50">
+                  Área do Proprietário
+                </h2>
+                <p className="mt-0.5 text-[13px] leading-5 text-slate-400">
+                  A entrada permanece sujeita à permissão administrativa e à reautenticação temporária.
+                </p>
+              </div>
+              <Badge variant="outline" className="border-amber-300/20 bg-amber-400/[0.08] text-amber-200">
+                Step-up protegido
+              </Badge>
             </div>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
               {proprietorModules.map((module) => (
                 <ModuleCard key={module.id} module={module} />
               ))}
@@ -167,9 +248,9 @@ export function DashboardHome() {
         ) : null}
 
         {modules.length === 0 ? (
-          <section className="rounded-3xl border border-amber-200 bg-amber-50 p-6 text-amber-950">
+          <section className="rounded-3xl border border-amber-300/20 bg-amber-400/[0.07] p-5 text-amber-100 shadow-[0_20px_48px_-34px_rgba(245,166,35,0.28)]">
             <h2 className="text-lg font-bold">Nenhum módulo liberado para esta identidade</h2>
-            <p className="mt-2 text-sm leading-6 text-amber-800">
+            <p className="mt-2 text-sm leading-6 text-amber-200/80">
               Sua sessão está autenticada, porém não há módulos Web disponíveis para as permissões atuais. Solicite ao administrador a revisão do seu papel e das suas permissões.
             </p>
           </section>

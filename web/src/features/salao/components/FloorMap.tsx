@@ -64,7 +64,7 @@ export function FloorMap({
   );
 
   return (
-    <section aria-label="Mapa de mesas" className="space-y-4">
+    <section aria-label="Mapa de mesas" className="space-y-2.5">
       <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-400">
         <Badge className="border border-slate-600 bg-slate-800 text-slate-200 hover:bg-slate-800">
           Livre
@@ -78,7 +78,7 @@ export function FloorMap({
       </div>
 
       {floorMap.mesas.length === 0 ? (
-        <div className="flex min-h-64 items-center justify-center rounded-2xl border border-dashed border-slate-700 bg-slate-950/40 p-8 text-center text-sm font-medium text-slate-500">
+        <div className="flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-slate-700 bg-slate-950/40 p-8 text-center text-sm font-medium text-slate-500">
           Nenhuma mesa disponível para este tenant e unidade.
         </div>
       ) : (
@@ -95,11 +95,11 @@ export function FloorMap({
                 type="button"
                 disabled={state === "inativa"}
                 onClick={() => onSelectTable(mesa, comanda)}
-                className={`min-h-40 rounded-2xl border p-4 text-left shadow-lg shadow-black/10 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563eb] ${styles.card} ${selected ? "ring-2 ring-[#2563eb] ring-offset-2 ring-offset-[#0f172a]" : ""}`}
+                className={`min-h-32 rounded-2xl border p-3 text-left shadow-lg shadow-black/10 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563eb] ${styles.card} ${selected ? "ring-2 ring-[#2563eb] ring-offset-2 ring-offset-[#0f172a]" : ""}`}
                 aria-label={`Mesa ${mesa.numero}, ${styles.label}`}
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div className={`flex size-11 items-center justify-center rounded-xl ${styles.icon}`}>
+                  <div className={`flex size-9 items-center justify-center rounded-xl ${styles.icon}`}>
                     {state === "conta" ? (
                       <ReceiptText className="size-5" />
                     ) : (
@@ -111,11 +111,11 @@ export function FloorMap({
                   </Badge>
                 </div>
 
-                <div className="mt-5">
+                <div className="mt-3">
                   <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
                     Mesa
                   </p>
-                  <p className="mt-1 text-3xl font-black tabular-nums text-white">
+                  <p className="mt-0.5 text-2xl font-black tabular-nums text-white">
                     {mesa.numero}
                   </p>
                   {mesa.nome ? (
@@ -125,7 +125,7 @@ export function FloorMap({
                   ) : null}
                 </div>
 
-                <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/5 pt-3 text-xs text-slate-400">
+                <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/5 pt-3 text-xs text-slate-400">
                   <span className="flex items-center gap-1.5">
                     <UsersRound className="size-3.5" />
                     {mesa.capacidade} lugares

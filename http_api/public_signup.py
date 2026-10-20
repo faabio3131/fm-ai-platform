@@ -1,0 +1,361 @@
+"""HTTP público do cadastro Kordena KCA-06.
+
+A superfície nasce desativada por padrão. A liberação pública pertence ao KCA-17.
+"""
+
+from __future__ import annotations
+
+import threading
+from collections import defaultdict, deque
+from collections.abc import Callable
+from datetime import datetime, timedelta, timezone
+from typing import Protocol
+from uuid import uuid4
+
+from fastapi import APIRouter, Request, status
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+
+from application.public_signup import (
+    AplicacaoPublicSignupV1,
+    SignupCreationResult,
+    SignupVerificationError,
+)
+from core.comercial.erros import DadoComercialInvalido, RegistroComercialDuplicado
+from core.seguranca.segredos import SecretStore
+from infra.comercial.signup_sqlalchemy import RepositorioPublicSignupSQLAlchemy
+from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
+from infra.seguranca.google_oidc import (
+    GoogleIdentityError,
+    GoogleIdentityUnavailable,
+    verify_google_id_token,
+)
+
+SessionFactory = Callable[[], Session]
+
+
+class VerificationDispatcher(Protocol):
+    def send_verification(
+        self, *, signup_id: str, email: str, token: str
+    ) -> None: ...
+
+
+class LegalDocumentClaimIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version: str = Field(min_length=1, max_length=32)
+    sha256: str = Field(min_length=64, max_length=64)
+
+
+class SignupIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    owner_name: str = Field(min_length=1, max_length=255)
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(min_length=8, max_length=1024)
+    phone: str | None = Field(default=None, max_length=64)
+    establishment_name: str = Field(min_length=1, max_length=255)
+    segment: str = Field(min_length=1, max_length=96)
+    terms_accepted: bool
+    legal_documents: dict[str, LegalDocumentClaimIn]
+    consents: dict[str, bool] = Field(default_factory=dict)
+    website: str = Field(default="", max_length=255)
+
+
+class VerifyEmailIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    token: str = Field(min_length=16, max_length=512)
+
+
+class GoogleSignupIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    credential: str = Field(min_length=20, max_length=8192)
+    phone: str | None = Field(default=None, max_length=64)
+    establishment_name: str = Field(min_length=1, max_length=255)
+    segment: str = Field(min_length=1, max_length=96)
+    terms_accepted: bool
+    legal_documents: dict[str, LegalDocumentClaimIn]
+    consents: dict[str, bool] = Field(default_factory=dict)
+
+
+class _SlidingWindowLimiter:
+    def __init__(self, *, limit: int = 5, window_seconds: int = 600) -> None:
+        self._limit = limit
+        self._window = timedelta(seconds=window_seconds)
+        self._events: dict[str, deque[datetime]] = defaultdict(deque)
+        self._lock = threading.Lock()
+
+    def allow(self, key: str) -> bool:
+        now = datetime.now(timezone.utc)
+        with self._lock:
+            bucket = self._events[key]
+            cutoff = now - self._window
+            while bucket and bucket[0] <= cutoff:
+                bucket.popleft()
+            if len(bucket) >= self._limit:
+                return False
+            bucket.append(now)
+            return True
+
+
+def build_public_signup_router(
+    *,
+    session_factory: SessionFactory,
+    secret_store: SecretStore,
+    enabled: bool = False,
+    verification_dispatcher: VerificationDispatcher | None = None,
+    credential_secret_reference: str = "env:FM_AI_SIGNUP_SECRET_KEY",
+    google_oauth_client_id: str | None = None,
+) -> APIRouter:
+    router = APIRouter(prefix="/v1/public/signup", tags=["public-signup"])
+    if not enabled:
+        return router
+
+    app = AplicacaoPublicSignupV1(
+        session_factory,
+        secret_store=secret_store,
+        credential_secret_reference=credential_secret_reference,
+    )
+    limiter = _SlidingWindowLimiter()
+
+    def _generic_accepted(signup_id: str | None = None) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_202_ACCEPTED,
+            content={
+                "accepted": True,
+                "signup_id": signup_id or str(uuid4()),
+                "message": "Se os dados forem elegíveis, enviaremos a verificação.",
+            },
+        )
+
+    def _dispatch(result: SignupCreationResult) -> None:
+        if verification_dispatcher is None:
+            raise RuntimeError("signup_verification_dispatcher_unavailable")
+        verification_dispatcher.send_verification(
+            signup_id=result.signup.signup_id,
+            email=result.signup.owner_email,
+            token=result.verification_token,
+        )
+
+    @router.post("")
+    def create_signup(payload: SignupIn, request: Request) -> JSONResponse:
+        if verification_dispatcher is None:
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"erro": "signup_email_temporariamente_indisponivel"},
+            )
+        remote = request.client.host if request.client else "unknown"
+        if not limiter.allow(f"ip:{remote}"):
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={"erro": "signup_rate_limited"},
+            )
+        if payload.website.strip():
+            return _generic_accepted()
+        try:
+            result = app.criar_intencao(
+                owner_name=payload.owner_name,
+                owner_email=payload.email,
+                owner_password=payload.password,
+                primary_contact_phone=payload.phone,
+                establishment_name=payload.establishment_name,
+                segment=payload.segment,
+                terms_accepted=payload.terms_accepted,
+                legal_documents={
+                    key: {
+                        "version": claim.version,
+                        "sha256": claim.sha256,
+                    }
+                    for key, claim in payload.legal_documents.items()
+                },
+                consent_json=payload.consents,
+                correlation_id=request.headers.get("x-correlation-id")
+                or f"signup:{uuid4()}",
+            )
+            _dispatch(result)
+            return _generic_accepted(result.signup.signup_id)
+        except RegistroComercialDuplicado:
+            # Repetir o mesmo cadastro pendente não cria outra conta. Quando a
+            # tentativa anterior persistiu a intenção mas o provedor de e-mail
+            # falhou, uma nova submissão pode reenviar a verificação de forma
+            # opaca, sem revelar se o e-mail já existe.
+            try:
+                pending_signup_id: str | None = None
+                normalized_email = payload.email.strip().casefold()
+                with session_factory() as session:
+                    pending = RepositorioPublicSignupSQLAlchemy(
+                        session
+                    ).obter_pendente_por_email(normalized_email)
+                    if pending is not None:
+                        pending_signup_id = pending.signup_id
+                if pending_signup_id is not None:
+                    retry = app.reenviar_token(signup_id=pending_signup_id)
+                    _dispatch(retry)
+            except (SignupVerificationError, RuntimeError, SQLAlchemyError):
+                pass
+            return _generic_accepted()
+        except DadoComercialInvalido as exc:
+            return JSONResponse(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                content={"erro": str(exc)},
+            )
+        except RuntimeError:
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"erro": "signup_temporariamente_indisponivel"},
+            )
+
+    @router.post("/google")
+    def create_google_signup(
+        payload: GoogleSignupIn,
+        request: Request,
+    ) -> JSONResponse:
+        remote = request.client.host if request.client else "unknown"
+        if not limiter.allow(f"google-ip:{remote}"):
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={"erro": "signup_rate_limited"},
+            )
+        if not google_oauth_client_id:
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"erro": "auth.google_indisponivel"},
+            )
+        try:
+            claims = verify_google_id_token(
+                payload.credential,
+                client_id=google_oauth_client_id,
+            )
+        except GoogleIdentityUnavailable as exc:
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"erro": str(exc)},
+            )
+        except GoogleIdentityError as exc:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"erro": str(exc)},
+            )
+
+        try:
+            signup = app.criar_e_provisionar_google(
+                owner_name=claims.name or claims.email.split("@", 1)[0],
+                owner_email=claims.email,
+                primary_contact_phone=payload.phone,
+                establishment_name=payload.establishment_name,
+                segment=payload.segment,
+                terms_accepted=payload.terms_accepted,
+                legal_documents={
+                    key: {
+                        "version": claim.version,
+                        "sha256": claim.sha256,
+                    }
+                    for key, claim in payload.legal_documents.items()
+                },
+                consent_json=payload.consents,
+                correlation_id=request.headers.get("x-correlation-id")
+                or f"google-signup:{uuid4()}",
+            )
+            with session_factory() as session, session.begin():
+                repo = RepositorioIdentidadesSQLAlchemy(session)
+                identity_user_id = repo.obter_identity_user_id_por_email(
+                    claims.email
+                )
+                if identity_user_id is None:
+                    raise RuntimeError("google_signup_identity_missing")
+                repo.vincular_provedor(
+                    identity_user_id=identity_user_id,
+                    provider="google",
+                    provider_subject=claims.subject,
+                    email_at_link=claims.email,
+                    hosted_domain=claims.hosted_domain,
+                )
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "signup_id": signup.signup_id,
+                    "status": signup.status.value,
+                    "ready": signup.status.value == "ready",
+                },
+            )
+        except RegistroComercialDuplicado:
+            return JSONResponse(
+                status_code=status.HTTP_409_CONFLICT,
+                content={"erro": "auth.google_account_exists"},
+            )
+        except DadoComercialInvalido as exc:
+            return JSONResponse(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                content={"erro": str(exc)},
+            )
+        except (ValueError, RuntimeError, SQLAlchemyError):
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"erro": "signup_provisioning_pending"},
+            )
+
+    @router.post("/{signup_id}/resend-verification")
+    def resend_verification(signup_id: str) -> JSONResponse:
+        try:
+            result = app.reenviar_token(signup_id=signup_id)
+            _dispatch(result)
+            return _generic_accepted(result.signup.signup_id)
+        except SignupVerificationError:
+            return _generic_accepted()
+        except RuntimeError:
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"erro": "signup_temporariamente_indisponivel"},
+            )
+
+    @router.post("/{signup_id}/verify-email")
+    def verify_email(signup_id: str, payload: VerifyEmailIn) -> JSONResponse:
+        try:
+            result = app.verificar_e_provisionar(
+                signup_id=signup_id,
+                verification_token=payload.token,
+            )
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "signup_id": result.signup_id,
+                    "status": result.status.value,
+                    "ready": result.status.value == "ready",
+                },
+            )
+        except SignupVerificationError as exc:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"erro": str(exc)},
+            )
+        except (ValueError, RuntimeError, SQLAlchemyError):
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"erro": "signup_provisioning_pending"},
+            )
+
+    @router.get("/{signup_id}/status")
+    def signup_status(signup_id: str) -> JSONResponse:
+        result = app.obter_status(signup_id=signup_id)
+        if result is None:
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "signup_id": signup_id,
+                    "status": "email_pending",
+                    "ready": False,
+                },
+            )
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "signup_id": result.signup_id,
+                "status": result.status.value,
+                "ready": result.status.value == "ready",
+            },
+        )
+
+    return router

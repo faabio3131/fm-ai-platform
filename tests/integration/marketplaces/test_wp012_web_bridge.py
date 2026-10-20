@@ -1,0 +1,368 @@
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from decimal import Decimal
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from core.dominio.enums import PedidoStatus
+from core.dominio.ids import PedidoId, TenantId, UnidadeId
+from core.entrega import DeliveryBase, ModalidadeEntrega, RepositorioEntregaSQLAlchemy
+from core.integracoes.catalogo import CATALOGO_V1
+from core.marketplaces.modelos import (
+    ItemMarketplace,
+    PedidoExterno,
+    PedidoMarketplaceSnapshot,
+    PlataformaMarketplace,
+    ResponsavelEntregaMarketplace,
+    StatusPedidoExterno,
+)
+from core.pedidos.adaptador_sqlalchemy import RepositorioPedidosSQLAlchemy
+from core.pedidos.modelos_orm import OrdersBase
+from infra.eventos.modelos_orm import EventBusBase
+from infra.gerente_ia.modelos_orm import CoreRuntimeBase
+from infra.marketplaces.modelos_orm import MarketplaceBase
+from infra.marketplaces.repositorio_sqlalchemy import (
+    PedidosInternosMarketplaceSQLAlchemy,
+    RepositorioPedidosExternosSQLAlchemy,
+)
+from infra.seguranca.modelos_orm import SecurityBase
+
+TENANT = "tenant-wp012"
+UNIDADE = "unidade-wp012"
+OUTRA = "unidade-wp012-b"
+AGORA = datetime(2026, 9, 18, 12, 0, tzinfo=UTC)
+
+
+def _factory():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SecurityBase.metadata.create_all(engine)
+    OrdersBase.metadata.create_all(engine)
+    EventBusBase.metadata.create_all(engine)
+    CoreRuntimeBase.metadata.create_all(engine)
+    DeliveryBase.metadata.create_all(engine)
+    MarketplaceBase.metadata.create_all(engine)
+    return sessionmaker(bind=engine, expire_on_commit=False)
+
+
+def _snapshot(
+    status: StatusPedidoExterno = StatusPedidoExterno.RECEBIDO,
+) -> PedidoMarketplaceSnapshot:
+    return PedidoMarketplaceSnapshot(
+        id_externo="ifood-order-1",
+        merchant_id="merchant-1",
+        status=status,
+        total=Decimal("42.00"),
+        itens=(
+            ItemMarketplace(
+                item_id_externo="item-1",
+                sku="SKU-EXTERNO-NAO-MAPEADO",
+                nome="Combo marketplace",
+                quantidade=Decimal(2),
+                preco_unitario=Decimal("20.00"),
+            ),
+        ),
+        atualizado_em=AGORA,
+        versao_externa="1",
+    )
+
+
+def test_catalogo_expoe_ifood_e_keeta_sem_inventar_99food() -> None:
+    specs = {
+        (item.servico, item.provedor): item for item in CATALOGO_V1.listar()
+    }
+    assert ("marketplace.pedidos", "ifood") in specs
+    assert ("marketplace.pedidos", "keeta") in specs
+    assert ("marketplace.pedidos", "99food") not in specs
+    assert specs[("marketplace.pedidos", "ifood")].credenciais_obrigatorias == {
+        "client_id",
+        "client_secret",
+    }
+
+
+def test_marketplace_cria_pedido_canonico_e_preserva_snapshot() -> None:
+    factory = _factory()
+    with factory() as session:
+        adapter = PedidosInternosMarketplaceSQLAlchemy(
+            session,
+            plataforma=PlataformaMarketplace.IFOOD,
+        )
+        pedido_id, repetido = adapter.criar_ou_obter(
+            tenant_id=TENANT,
+            unidade_id=UNIDADE,
+            integracao_id="marketplace.pedidos--ifood",
+            snapshot=_snapshot(),
+            idempotency_key="marketplace:pedido:ifood:1",
+        )
+        assert repetido is False
+
+        pedido = RepositorioPedidosSQLAlchemy(session).buscar(
+            TenantId(TENANT),
+            UnidadeId(UNIDADE),
+            PedidoId(pedido_id),
+        )
+        assert pedido is not None
+        assert pedido.status is PedidoStatus.RASCUNHO
+        assert pedido.origem.value == "ifood"
+        assert pedido.canal.value == "ifood"
+        assert pedido.total.valor == Decimal("42.00")
+        assert pedido.subtotal.valor == Decimal("40.00")
+        assert pedido.taxas.valor == Decimal("2.00")
+        assert pedido.itens[0].produto_id is None
+        assert pedido.itens[0].nome_produto == "Combo marketplace"
+
+        mesmo_id, idempotente = adapter.criar_ou_obter(
+            tenant_id=TENANT,
+            unidade_id=UNIDADE,
+            integracao_id="marketplace.pedidos--ifood",
+            snapshot=_snapshot(),
+            idempotency_key="marketplace:pedido:ifood:1",
+        )
+        assert idempotente is True
+        assert mesmo_id == pedido_id
+
+
+def test_status_marketplace_somente_avanca_estados_comerciais_seguros() -> None:
+    factory = _factory()
+    with factory() as session:
+        adapter = PedidosInternosMarketplaceSQLAlchemy(
+            session,
+            plataforma=PlataformaMarketplace.IFOOD,
+        )
+        pedido_id, _ = adapter.criar_ou_obter(
+            tenant_id=TENANT,
+            unidade_id=UNIDADE,
+            integracao_id="marketplace.pedidos--ifood",
+            snapshot=_snapshot(),
+            idempotency_key="marketplace:pedido:ifood:2",
+        )
+        status = adapter.atualizar_status_marketplace(
+            tenant_id=TENANT,
+            unidade_id=UNIDADE,
+            pedido_id=pedido_id,
+            status=StatusPedidoExterno.RECEBIDO,
+            idempotency_key="evt-recebido",
+        )
+        assert status == "aguardando_confirmacao"
+
+        status = adapter.atualizar_status_marketplace(
+            tenant_id=TENANT,
+            unidade_id=UNIDADE,
+            pedido_id=pedido_id,
+            status=StatusPedidoExterno.CONFIRMADO,
+            idempotency_key="evt-confirmado",
+        )
+        assert status == "confirmado"
+
+        status = adapter.atualizar_status_marketplace(
+            tenant_id=TENANT,
+            unidade_id=UNIDADE,
+            pedido_id=pedido_id,
+            status=StatusPedidoExterno.PRONTO,
+            idempotency_key="evt-pronto",
+        )
+        assert status == "confirmado"
+
+
+def test_vinculo_externo_e_isolado_por_unidade() -> None:
+    factory = _factory()
+    pedido = PedidoExterno(
+        integracao_id="marketplace.pedidos--ifood",
+        id_externo="ifood-order-1",
+        pedido_id="pedido-1",
+        status_externo=StatusPedidoExterno.RECEBIDO,
+        status_interno="aguardando_confirmacao",
+        payload_hash="abc123",
+        recebido_em=AGORA,
+        ultima_ocorrencia_em=AGORA,
+        ultimo_evento_id="evt-1",
+        versao_externa="1",
+    )
+    with factory() as session:
+        repo = RepositorioPedidosExternosSQLAlchemy(
+            session,
+            tenant_id=TENANT,
+            unidade_id=UNIDADE,
+        )
+        repo.salvar(pedido)
+        session.commit()
+
+        outra_unidade = RepositorioPedidosExternosSQLAlchemy(
+            session,
+            tenant_id=TENANT,
+            unidade_id=OUTRA,
+        )
+        assert (
+            outra_unidade.obter(
+                integracao_id=pedido.integracao_id,
+                id_externo=pedido.id_externo,
+            )
+            is None
+        )
+        assert repo.obter(
+            integracao_id=pedido.integracao_id,
+            id_externo=pedido.id_externo,
+        ) == pedido
+
+
+def test_marketplace_delivery_converge_para_expedicao_com_responsabilidade_ifood() -> None:
+    factory = _factory()
+    snapshot = PedidoMarketplaceSnapshot(
+        id_externo="ifood-delivery-1",
+        merchant_id="merchant-1",
+        status=StatusPedidoExterno.CONFIRMADO,
+        total=Decimal("42.00"),
+        itens=(
+            ItemMarketplace(
+                item_id_externo="item-delivery-1",
+                sku="SKU-1",
+                nome="Combo delivery",
+                quantidade=Decimal(1),
+                preco_unitario=Decimal("42.00"),
+            ),
+        ),
+        atualizado_em=AGORA,
+        order_type="DELIVERY",
+        delivery_mode="DEFAULT",
+        delivered_by=ResponsavelEntregaMarketplace.IFOOD,
+    )
+
+    with factory() as session:
+        adapter = PedidosInternosMarketplaceSQLAlchemy(
+            session,
+            plataforma=PlataformaMarketplace.IFOOD,
+        )
+        pedido_id, _ = adapter.criar_ou_obter(
+            tenant_id=TENANT,
+            unidade_id=UNIDADE,
+            integracao_id="marketplace.pedidos--ifood",
+            snapshot=snapshot,
+            idempotency_key="marketplace:pedido:ifood:delivery-1",
+        )
+
+        entrega = RepositorioEntregaSQLAlchemy(session).buscar_por_pedido(
+            TENANT,
+            UNIDADE,
+            pedido_id,
+        )
+        assert entrega is not None
+        assert entrega.modalidade is ModalidadeEntrega.PARCEIRO
+        eventos = RepositorioEntregaSQLAlchemy(session).listar_eventos(
+            TENANT,
+            UNIDADE,
+            entrega.entrega_id,
+        )
+        assert eventos[0].tipo == "entrega.criada"
+        assert eventos[0].payload_seguro["canal_origem"] == "ifood"
+        assert eventos[0].payload_seguro["delivered_by"] == "IFOOD"
+        assert eventos[0].payload_seguro["responsavel_original"] == "marketplace"
+
+
+def test_marketplace_delivery_merchant_converge_para_entrega_propria() -> None:
+    factory = _factory()
+    snapshot = PedidoMarketplaceSnapshot(
+        id_externo="ifood-delivery-merchant-1",
+        merchant_id="merchant-1",
+        status=StatusPedidoExterno.CONFIRMADO,
+        total=Decimal("35.00"),
+        itens=(
+            ItemMarketplace(
+                item_id_externo="item-delivery-merchant-1",
+                sku="SKU-2",
+                nome="Pizza",
+                quantidade=Decimal(1),
+                preco_unitario=Decimal("35.00"),
+            ),
+        ),
+        atualizado_em=AGORA,
+        order_type="DELIVERY",
+        delivery_mode="DEFAULT",
+        delivered_by=ResponsavelEntregaMarketplace.MERCHANT,
+    )
+
+    with factory() as session:
+        adapter = PedidosInternosMarketplaceSQLAlchemy(
+            session,
+            plataforma=PlataformaMarketplace.IFOOD,
+        )
+        pedido_id, _ = adapter.criar_ou_obter(
+            tenant_id=TENANT,
+            unidade_id=UNIDADE,
+            integracao_id="marketplace.pedidos--ifood",
+            snapshot=snapshot,
+            idempotency_key="marketplace:pedido:ifood:delivery-merchant-1",
+        )
+        entrega = RepositorioEntregaSQLAlchemy(session).buscar_por_pedido(
+            TENANT,
+            UNIDADE,
+            pedido_id,
+        )
+        assert entrega is not None
+        assert entrega.modalidade is ModalidadeEntrega.PROPRIA
+
+
+def test_marketplace_resync_atualiza_responsabilidade_sem_criar_segunda_entrega() -> None:
+    factory = _factory()
+    base = dict(
+        id_externo="ifood-flex-1",
+        merchant_id="merchant-1",
+        status=StatusPedidoExterno.CONFIRMADO,
+        total=Decimal("30.00"),
+        itens=(
+            ItemMarketplace(
+                item_id_externo="item-flex-1",
+                sku="SKU-FLEX",
+                nome="Pedido flexível",
+                quantidade=Decimal(1),
+                preco_unitario=Decimal("30.00"),
+            ),
+        ),
+        atualizado_em=AGORA,
+        order_type="DELIVERY",
+        delivery_mode="DEFAULT",
+    )
+    with factory() as session:
+        adapter = PedidosInternosMarketplaceSQLAlchemy(
+            session,
+            plataforma=PlataformaMarketplace.IFOOD,
+        )
+        pedido_id, _ = adapter.criar_ou_obter(
+            tenant_id=TENANT,
+            unidade_id=UNIDADE,
+            integracao_id="marketplace.pedidos--ifood",
+            snapshot=PedidoMarketplaceSnapshot(
+                **base,
+                delivered_by=ResponsavelEntregaMarketplace.IFOOD,
+            ),
+            idempotency_key="marketplace:pedido:ifood:flex-1",
+        )
+        repositorio = RepositorioEntregaSQLAlchemy(session)
+        original = repositorio.buscar_por_pedido(TENANT, UNIDADE, pedido_id)
+        assert original is not None
+        assert original.modalidade is ModalidadeEntrega.PARCEIRO
+
+        mesmo_id, repetido = adapter.criar_ou_obter(
+            tenant_id=TENANT,
+            unidade_id=UNIDADE,
+            integracao_id="marketplace.pedidos--ifood",
+            snapshot=PedidoMarketplaceSnapshot(
+                **base,
+                delivered_by=ResponsavelEntregaMarketplace.MERCHANT,
+            ),
+            idempotency_key="marketplace:pedido:ifood:flex-1",
+        )
+        atualizado = repositorio.buscar_por_pedido(TENANT, UNIDADE, pedido_id)
+        assert repetido is True
+        assert mesmo_id == pedido_id
+        assert atualizado is not None
+        assert atualizado.entrega_id == original.entrega_id
+        assert atualizado.modalidade is ModalidadeEntrega.PROPRIA
+        eventos = repositorio.listar_eventos(TENANT, UNIDADE, original.entrega_id)
+        assert [evento.tipo for evento in eventos][-1] == "entrega.responsavel_logistico_atualizado"
+        assert eventos[-1].payload_seguro["delivered_by"] == "MERCHANT"

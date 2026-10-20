@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "gate": "KCA-G17",
+  "rule": "External prerequisites may be marked PASS only with concrete evidence. Missing provider, legal, support, domain or credential evidence keeps public release blocked.",
+  "items": {
+    "billing_provider_approved": {
+      "status": "PENDING_EVIDENCE",
+      "required": true,
+      "evidence": null,
+      "note": "KCA-09/09B are provider-neutral and sandbox-certified; no approved production SaaS billing provider is recorded in the canonical Kordena sources."
+    },
+    "transactional_email": {
+      "status": "PENDING_EVIDENCE",
+      "required": true,
+      "evidence": null,
+      "note": "Provider-neutral SMTP runtime composition and unit coverage now exist in the KCA-17 candidate, but no approved production provider/account/credentials or live-delivery evidence is recorded; remains blocked for public release."
+    },
+    "terms_policies": {
+      "status": "PASS",
+      "required": true,
+      "evidence": "PR #171 legal source documents (Terms 1.0, Privacy 1.0, DPA 1.0); PR #177 HEAD 58fefed17a3025d72b8355113f6325442c00b8ee certified 15/15 applicable workflows SUCCESS; merged to staging/kordena-premium as eac2292cd6699e00552af2a867daaab0f66911e1; post-merge Vercel SUCCESS; Railway deployment acc5cbb9-b61f-4966-8c22-d6135a659af7 SUCCESS; docs/finalization/KORDENA_LEGAL_VERSIONING_ACCEPTANCE_V1.md",
+      "note": "Versioned Terms 1.0, Privacy 1.0 and DPA 1.0 are published through stable public legal routes; signup validates ACTIVE version/hash server-side and records an append-only acceptance trail. Optional marketing consent is separated. Technical/project-governance legal readiness is certified; this record does not claim an external legal opinion."
+    },
+    "support_readiness": {
+      "status": "PENDING_EVIDENCE",
+      "required": true,
+      "evidence": null,
+      "note": "No final customer-support operating evidence is recorded for KCA-17."
+    },
+    "final_domain_dns_tls": {
+      "status": "PENDING_EVIDENCE",
+      "required": true,
+      "expected_domain": "kordenaia.com.br",
+      "evidence": null,
+      "note": "Domain ownership is known externally, but DNS/TLS/application binding must be verified before public activation."
+    },
+    "public_release_authorization": {
+      "status": "DEFERRED",
+      "required": true,
+      "evidence": null,
+      "note": "Public trial remains disabled until all KCA-17 prerequisites pass and the Director authorizes rollout. Visual Premium remains outside this functional mission."
+    },
+    "no_external_customer_existing": {
+      "status": "PENDING_EVIDENCE",
+      "required": true,
+      "evidence": null,
+      "note": "The release checklist requires proof that no external customer already exists before controlled public rollout; repository/CI state cannot prove live commercial data absence."
+    },
+    "fmcc_operational_runtime": {
+      "status": "PASS",
+      "required": true,
+      "evidence": "docs/finalization/KF03_KORDENA_COMMAND_RUNTIME_LIVE_CERTIFICATION.md; Render service srv-danhfirtqb8s73bug4ag live at commit 847ed0167086a041fa4446fde2d64e4b29c690f3; 2026-09-30T22:43:29.832Z kordena_runtime_bootstrap_verified; source 7409d6f8-db3a-432a-8623-bb904913f6fe; idempotent state source_count=1 sync_count=1 completed_sync_count=1 fact_count=0",
+      "note": "Live Kordena↔FM Command S2S runtime was verified again on 2026-09-30 against the current Kordena release runtime. The verification was idempotent and bootstrap flags were restored to false after the smoke."
+    }
+  }
+}

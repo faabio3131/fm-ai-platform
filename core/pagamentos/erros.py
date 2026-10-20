@@ -24,3 +24,11 @@ class ConcorrenciaPagamento(ErroPagamento):
 
 class ValorPagamentoInvalido(ErroPagamento):
     pass
+
+
+class EfeitoFinanceiroFiscalBloqueado(ErroPagamento):
+    """Estado fiscal/procurement não autoriza efeito financeiro."""
+
+
+class RegraTributariaAusente(ErroPagamento):
+    """Não existe política explícita suficiente para reconhecer crédito."""

@@ -171,10 +171,17 @@ async function comboboxValueIsStable(
   expected: string | RegExp,
 ): Promise<boolean> {
   let consecutiveMatches = 0;
+  let stableRun = await latestReadyRun(page);
   try {
     await expect
       .poll(
         async () => {
+          const currentRun = await latestReadyRun(page);
+          if (currentRun !== stableRun) {
+            stableRun = currentRun;
+            consecutiveMatches = 0;
+          }
+
           const skeletons = await page.locator('[data-testid="stSkeleton"]').count();
           const combobox = page.getByRole('combobox', { name: label }).first();
           const value = await combobox.inputValue();
@@ -186,12 +193,12 @@ async function comboboxValueIsStable(
           return consecutiveMatches;
         },
         {
-          message: `Combobox deve permanecer estável em ${expected}`,
-          timeout: 2_500,
-          intervals: [150, 200, 250, 300, 400],
+          message: `Combobox deve permanecer estável em ${expected} após o último rerun`,
+          timeout: 5_000,
+          intervals: [200, 250, 300, 400, 500, 600, 750],
         },
       )
-      .toBeGreaterThanOrEqual(3);
+      .toBeGreaterThanOrEqual(5);
     return true;
   } catch {
     return false;

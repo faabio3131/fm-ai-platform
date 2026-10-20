@@ -1,0 +1,89 @@
+name: Web Parity WP018 Certification
+
+on:
+  push:
+    branches:
+      - feat/web-parity-v1-total-original-migration
+    paths:
+      - 'application/administracao_proprietario.py'
+      - 'http_api/admin_dashboard.py'
+      - 'http_api/auth.py'
+      - 'web/src/app/admin/dashboard/**'
+      - 'web/src/features/backoffice/dashboard/**'
+      - 'tests/api/test_admin_dashboard_http_contract.py'
+      - 'tests/integration/administracao/test_wp018_dashboard_financeiro.py'
+      - 'docs/web-parity/**'
+      - '.github/workflows/web-parity-wp018-certification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wp018-certification:
+    name: WP018 dashboard certification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+
+      - name: Compile WP018
+        run: |
+          python -m py_compile             application/administracao_proprietario.py             http_api/admin_dashboard.py             tests/api/test_admin_dashboard_http_contract.py             tests/integration/administracao/test_wp018_dashboard_financeiro.py
+
+      - name: Ruff WP018
+        run: |
+          ruff check             application/administracao_proprietario.py             http_api/admin_dashboard.py             tests/api/test_admin_dashboard_http_contract.py             tests/integration/administracao/test_wp018_dashboard_financeiro.py
+
+      - name: Mypy WP018
+        run: |
+          mypy application/administracao_proprietario.py http_api/admin_dashboard.py
+
+      - name: WP018 targeted matrix
+        run: |
+          pytest -q             tests/api/test_admin_dashboard_http_contract.py             tests/api/test_admin_backoffice_http_contract.py             tests/integration/administracao/test_wp018_dashboard_financeiro.py             tests/integration/administracao/test_admin_proprietario_f5.py             tests/unit/administracao
+
+      - name: Full Python regression
+        run: pytest -q
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: ESLint WP018
+        working-directory: web
+        run: |
+          npx eslint             src/app/admin/dashboard/page.tsx             src/features/backoffice/dashboard/components/ExecutiveDashboardWorkspace.tsx             src/features/backoffice/dashboard/services/dashboard-api.ts
+
+      - name: TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Backoffice navigation test
+        working-directory: web
+        run: node --test tests/backoffice-navigation.test.mjs
+
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+
+      - name: Diff whitespace gate
+        run: git diff --check HEAD~1..HEAD

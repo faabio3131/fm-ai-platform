@@ -54,6 +54,7 @@ _TOOLS_CONSULTA = frozenset(
         ToolGerenteIA.CONSULTAR_COZINHA,
         ToolGerenteIA.CONSULTAR_ENTREGAS,
         ToolGerenteIA.CONSULTAR_ESTOQUE,
+        ToolGerenteIA.CONSULTAR_FISCAL,
         ToolGerenteIA.SUGERIR_COMPRA,
         ToolGerenteIA.GERAR_RELATORIO,
         ToolGerenteIA.ACOMPANHAR_CONVERSAO,
@@ -113,6 +114,15 @@ class ServicoGerenteIA:
                 recurso_id=None,
                 instante=instante,
             )
+            if chamada.tool is ToolGerenteIA.CONSULTAR_FISCAL:
+                self._exigir(
+                    contexto=contexto,
+                    permissao=Permissao.FISCAL_VISUALIZAR,
+                    acao="gerente_ia.consultar_fiscal",
+                    recurso_tipo="consulta_fiscal",
+                    recurso_id=None,
+                    instante=instante,
+                )
             registros = self._consultar(chamada.tool, contexto, argumentos)
             resultado = ResultadoTool(
                 tool=chamada.tool,
@@ -153,6 +163,11 @@ class ServicoGerenteIA:
                 finalidade=str(argumentos["finalidade"]),
                 objetivo=str(argumentos["objetivo"]),
                 texto_base=str(argumentos["texto_base"]),
+                midia_url=(
+                    str(argumentos["midia_url"])
+                    if argumentos.get("midia_url") is not None
+                    else None
+                ),
                 usuario_id=contexto.usuario_id,
                 correlation_id=contexto.correlation_id,
                 idempotency_key=str(argumentos["idempotency_key"]),
@@ -516,6 +531,13 @@ class ServicoGerenteIA:
             "unidade_id": contexto.unidade_id,
             "filtros": argumentos,
         }
+        if tool is ToolGerenteIA.CONSULTAR_FISCAL:
+            return self.consultas.consultar_fiscal(
+                tenant_id=contexto.tenant_id,
+                unidade_id=contexto.unidade_id,
+                filtros=argumentos,
+            )
+
         despachantes: dict[ToolGerenteIA, Callable[..., tuple[RegistroGerencial, ...]]] = {
             ToolGerenteIA.CONSULTAR_PEDIDOS: self.consultas.consultar_pedidos,
             ToolGerenteIA.CONSULTAR_ATRASOS: self.consultas.consultar_atrasos,

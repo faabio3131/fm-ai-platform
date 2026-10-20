@@ -1,0 +1,35 @@
+name: WP-031 Schema Baseline Probe
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/compute_schema_baseline_candidate.py'
+      - '.github/workflows/wp031-schema-baseline-probe.yml'
+      - 'migrations/**'
+      - 'infra/fiscal/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  schema-baseline-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Compute schema baseline candidate
+        run: python -m scripts.compute_schema_baseline_candidate
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wp031-schema-baseline-candidate
+          path: schema-baseline-candidate.json
+          if-no-files-found: error

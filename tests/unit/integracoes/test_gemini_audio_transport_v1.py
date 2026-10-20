@@ -61,3 +61,10 @@ def test_gateway_traduz_audio_neutro_somente_no_boundary(monkeypatch) -> None:
         {"data": b"bytes-de-audio", "mime_type": "audio/ogg"},
     )
     assert "bytes-de-audio" not in repr(captured["client_kwargs"])
+    assert captured["client_kwargs"]["http_options"] == (
+        "http",
+        {
+            "timeout": 5000,
+            "retry_options": ("retry", {"attempts": 4}),
+        },
+    )

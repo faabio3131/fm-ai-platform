@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { KDSRoutingPanel } from "@/features/kds/components/KDSRoutingPanel";
 import { KDSTicketCard } from "@/features/kds/components/KDSTicketCard";
 import {
   clearKdsSession,
@@ -209,6 +210,13 @@ export function KDSUnifiedWorkspace() {
           <div className="flex items-center gap-3 rounded-xl border border-[#f59e0b]/40 bg-[#f59e0b]/10 px-4 py-3 text-sm font-semibold text-[#fcd34d]"><WifiOff className="size-5 shrink-0" /><span>{kds.motivoDegradacao ?? "KDS em modo degradado. Comandos permanecem bloqueados enquanto a fila estiver somente leitura."}</span></div>
         ) : null}
         {error ? <div className="rounded-xl border border-[#ef4444]/40 bg-[#ef4444]/10 px-4 py-3 text-sm font-semibold text-[#fca5a5]">{error}</div> : null}
+
+        <KDSRoutingPanel
+          sectors={kds.setores}
+          onRouted={async () => {
+            await refreshQueue(true);
+          }}
+        />
 
         <div className="grid flex-1 gap-4 [grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
           {columns.map(({ sector, tickets }) => (

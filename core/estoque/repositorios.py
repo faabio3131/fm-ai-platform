@@ -188,6 +188,7 @@ def _aplicar(
     elif movimento.tipo_movimento in {
         TipoMovimento.PERDA,
         TipoMovimento.AJUSTE_NEGATIVO,
+        TipoMovimento.DEVOLUCAO_FORNECEDOR,
     }:
         fisico -= q
     elif movimento.tipo_movimento == TipoMovimento.COMPENSACAO:

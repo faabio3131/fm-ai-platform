@@ -68,6 +68,12 @@ class StatusPedidoExterno(StrEnum):
     DESCONHECIDO = "desconhecido"
 
 
+class ResponsavelEntregaMarketplace(StrEnum):
+    IFOOD = "IFOOD"
+    MERCHANT = "MERCHANT"
+    DESCONHECIDO = "UNKNOWN"
+
+
 @dataclass(frozen=True)
 class CapacidadesMarketplace:
     acoes: frozenset[CapacidadeMarketplace]
@@ -136,12 +142,27 @@ class PedidoMarketplaceSnapshot:
     itens: tuple[ItemMarketplace, ...]
     atualizado_em: datetime
     versao_externa: str | None = None
+    order_type: str = "UNKNOWN"
+    delivery_mode: str | None = None
+    delivered_by: ResponsavelEntregaMarketplace = ResponsavelEntregaMarketplace.DESCONHECIDO
+    pickup_code: str | None = None
+    delivery_datetime: datetime | None = None
 
     def __post_init__(self) -> None:
         if not self.id_externo.strip() or not self.merchant_id.strip():
             raise ErroMarketplace("snapshot_marketplace_invalido")
         if not self.itens:
             raise ErroMarketplace("snapshot_sem_itens")
+        order_type = self.order_type.strip().upper() or "UNKNOWN"
+        object.__setattr__(self, "order_type", order_type)
+        if self.delivery_mode is not None:
+            modo = self.delivery_mode.strip().upper()
+            object.__setattr__(self, "delivery_mode", modo or None)
+        if self.pickup_code is not None:
+            codigo = self.pickup_code.strip()
+            object.__setattr__(self, "pickup_code", codigo or None)
+        if self.delivery_datetime is not None:
+            object.__setattr__(self, "delivery_datetime", utc(self.delivery_datetime))
         object.__setattr__(self, "total", moeda(self.total))
         object.__setattr__(self, "atualizado_em", utc(self.atualizado_em))
 

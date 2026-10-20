@@ -18,6 +18,7 @@ class TipoMovimento(StrEnum):
     AJUSTE_POSITIVO = "ajuste_positivo"
     AJUSTE_NEGATIVO = "ajuste_negativo"
     DEVOLUCAO = "devolucao"
+    DEVOLUCAO_FORNECEDOR = "devolucao_fornecedor"
     COMPENSACAO = "compensacao"
 
 
