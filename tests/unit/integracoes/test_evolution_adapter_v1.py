@@ -109,3 +109,79 @@ def test_envio_consulta_sessao_antes_de_postar_e_nao_faz_fallback() -> None:
         "number": "5511999999999",
         "text": "Resposta",
     }
+
+
+def test_audio_recebido_usa_referencia_assinada_e_download_limitado() -> None:
+    audio = b"ogg-audio-seguro"
+    http = HTTPFake(
+        [
+            RespostaProvedor(
+                status_code=200,
+                payload={
+                    "base64": base64.b64encode(audio).decode(),
+                    "mimetype": "audio/ogg; codecs=opus",
+                },
+            )
+        ]
+    )
+    adapter = _adapter(http)
+    body = json.dumps(
+        {
+            "instance": adapter.instance_name,
+            "event": "messages.upsert",
+            "data": {
+                "key": {
+                    "id": "audio-1",
+                    "remoteJid": "5511999999999@s.whatsapp.net",
+                    "fromMe": False,
+                },
+                "message": {"audioMessage": {"mimetype": "audio/ogg; codecs=opus"}},
+                "messageTimestamp": 456,
+            },
+        }
+    ).encode()
+    messages = adapter.extrair_mensagens_whatsapp(
+        payload_bruto=body, assinatura="w" * 32
+    )
+    assert len(messages) == 1
+    assert messages[0].tipo == "audio"
+    assert messages[0].media_id is not None
+    result, mime_type = adapter.baixar_audio_whatsapp(
+        media_id=messages[0].media_id,
+        mime_type_declarado=messages[0].mime_type,
+    )
+    assert result == audio
+    assert mime_type == "audio/ogg"
+    assert http.calls[0]["url"].endswith(
+        f"/chat/getBase64FromMediaMessage/{adapter.instance_name}"
+    )
+    assert http.calls[0]["json_body"]["message"]["key"] == {
+        "id": "audio-1",
+        "remoteJid": "5511999999999@s.whatsapp.net",
+        "fromMe": False,
+    }
+
+
+def test_audio_rejeita_referencia_adulterada_e_conteudo_acima_do_limite() -> None:
+    adapter = _adapter(HTTPFake([]))
+    with pytest.raises(ErroProvedorExterno, match="referencia"):
+        adapter.baixar_audio_whatsapp(media_id="evomedia.e30.assinatura")
+
+    reference = adapter._criar_referencia_midia(
+        message_id="audio-2", remote_jid="5511999999999@s.whatsapp.net"
+    )
+    adapter = _adapter(
+        HTTPFake(
+            [
+                RespostaProvedor(
+                    status_code=200,
+                    payload={
+                        "base64": base64.b64encode(b"grande").decode(),
+                        "mimetype": "audio/ogg",
+                    },
+                )
+            ]
+        )
+    )
+    with pytest.raises(ErroProvedorExterno, match="excede"):
+        adapter.baixar_audio_whatsapp(media_id=reference, max_bytes=2)

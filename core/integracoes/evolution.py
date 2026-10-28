@@ -26,6 +26,7 @@ from core.integracoes.provedores import (
 _INSTANCE = re.compile(r"kord-[a-f0-9]{32}\Z")
 _PHONE_JID = re.compile(r"^([0-9]{10,15})@s\.whatsapp\.net$")
 _PNG = b"\x89PNG\r\n\x1a\n"
+_MAX_AUDIO_BYTES = 20 * 1024 * 1024
 
 
 @dataclass(frozen=True, repr=False, kw_only=True)
@@ -221,20 +222,108 @@ class EvolutionAdapter:
         extended = message.get("extendedTextMessage")
         if not isinstance(text, str) and isinstance(extended, Mapping):
             text = extended.get("text")
-        if not isinstance(text, str) or not text.strip():
+        if isinstance(text, str) and text.strip():
+            return (
+                MensagemWhatsAppEntrada(
+                    mensagem_id=f"evo:{message_id}",
+                    remetente=match.group(1),
+                    tipo="text",
+                    timestamp=str(data.get("messageTimestamp", "")),
+                    texto=text.strip(),
+                ),
+            )
+        audio = message.get("audioMessage")
+        if not isinstance(audio, Mapping):
             return ()
+        mime_type = str(audio.get("mimetype", "")).split(";", 1)[0].strip().lower()
+        if not mime_type.startswith("audio/"):
+            raise ErroProvedorExterno("midia Evolution declarada como audio invalido")
+        media_id = self._criar_referencia_midia(
+            message_id=message_id,
+            remote_jid=str(key["remoteJid"]),
+        )
         return (
             MensagemWhatsAppEntrada(
                 mensagem_id=f"evo:{message_id}",
                 remetente=match.group(1),
-                tipo="text",
+                tipo="audio",
                 timestamp=str(data.get("messageTimestamp", "")),
-                texto=text.strip(),
+                media_id=media_id,
+                mime_type=mime_type,
             ),
         )
 
-    def baixar_audio_whatsapp(self, **_: Any) -> tuple[bytes, str]:
-        raise ErroProvedorExterno("audio Evolution ainda nao suportado neste adapter")
+    def _criar_referencia_midia(self, *, message_id: str, remote_jid: str) -> str:
+        raw = json.dumps(
+            {"id": message_id, "remoteJid": remote_jid},
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode()
+        encoded = base64.urlsafe_b64encode(raw).decode().rstrip("=")
+        signature = hmac.new(
+            self._config.webhook_token.encode(), encoded.encode(), hashlib.sha256
+        ).hexdigest()
+        return f"evomedia.{encoded}.{signature}"
+
+    def _abrir_referencia_midia(self, media_id: str) -> Mapping[str, str]:
+        try:
+            prefix, encoded, signature = media_id.split(".", 2)
+        except ValueError as exc:
+            raise ErroProvedorExterno("referencia de audio Evolution invalida") from exc
+        expected = hmac.new(
+            self._config.webhook_token.encode(), encoded.encode(), hashlib.sha256
+        ).hexdigest()
+        if prefix != "evomedia" or not hmac.compare_digest(expected, signature):
+            raise ErroProvedorExterno("referencia de audio Evolution invalida")
+        try:
+            padded = encoded + "=" * (-len(encoded) % 4)
+            value = json.loads(base64.urlsafe_b64decode(padded).decode())
+        except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ErroProvedorExterno("referencia de audio Evolution invalida") from exc
+        if not isinstance(value, Mapping):
+            raise ErroProvedorExterno("referencia de audio Evolution invalida")
+        message_id = str(value.get("id", ""))
+        remote_jid = str(value.get("remoteJid", ""))
+        if not message_id or _PHONE_JID.fullmatch(remote_jid) is None:
+            raise ErroProvedorExterno("referencia de audio Evolution invalida")
+        return {"id": message_id, "remoteJid": remote_jid}
+
+    def baixar_audio_whatsapp(
+        self,
+        *,
+        media_id: str,
+        mime_type_declarado: str | None = None,
+        max_bytes: int = _MAX_AUDIO_BYTES,
+    ) -> tuple[bytes, str]:
+        if not 0 < max_bytes <= _MAX_AUDIO_BYTES:
+            raise ErroProvedorExterno("limite de audio Evolution invalido")
+        key = self._abrir_referencia_midia(media_id)
+        payload = self._request(
+            "POST",
+            f"/chat/getBase64FromMediaMessage/{self._config.instance_name}",
+            body={
+                "message": {
+                    "key": {
+                        "id": key["id"],
+                        "remoteJid": key["remoteJid"],
+                        "fromMe": False,
+                    }
+                },
+                "convertToMp4": False,
+            },
+        )
+        raw = payload.get("base64")
+        mime_type = str(payload.get("mimetype") or mime_type_declarado or "")
+        mime_type = mime_type.split(";", 1)[0].strip().lower()
+        if not isinstance(raw, str) or not mime_type.startswith("audio/"):
+            raise ErroProvedorExterno("Evolution retornou audio invalido")
+        try:
+            content = base64.b64decode(raw, validate=True)
+        except (ValueError, binascii.Error) as exc:
+            raise ErroProvedorExterno("Evolution retornou audio invalido") from exc
+        if not content or len(content) > max_bytes:
+            raise ErroProvedorExterno("audio Evolution vazio ou excede limite")
+        return content, mime_type
 
 
 def nome_instancia_evolution(tenant_id: str, unidade_id: str) -> str:

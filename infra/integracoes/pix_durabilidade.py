@@ -6,6 +6,7 @@ import hashlib
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
+from typing import cast as type_cast
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -223,26 +224,29 @@ def recuperar_pix_aberto_por_terminal(
     if not terminal_norm or not assinatura_norm:
         raise ValueError("terminal e assinatura do checkout são obrigatórios")
 
-    linhas = session.execute(
-        select(TransacaoPagamentoORM, PagamentoORM)
-        .join(
-            PagamentoORM,
-            (
-                (PagamentoORM.tenant_id == TransacaoPagamentoORM.tenant_id)
-                & (PagamentoORM.unidade_id == TransacaoPagamentoORM.unidade_id)
-                & (PagamentoORM.id == TransacaoPagamentoORM.pagamento_id)
-            ),
-        )
-        .where(
-            TransacaoPagamentoORM.tenant_id == contexto.tenant_id,
-            TransacaoPagamentoORM.unidade_id == contexto.unidade_id,
-            TransacaoPagamentoORM.tipo == TipoTransacao.INICIACAO.value,
-            TransacaoPagamentoORM.metodo == MetodoPagamento.PIX.value,
-            TransacaoPagamentoORM.id_externo.is_not(None),
-            PagamentoORM.status.in_(("pendente", "parcialmente_pago")),
-        )
-        .order_by(TransacaoPagamentoORM.occurred_at.desc())
-    ).all()
+    linhas = type_cast(
+        list[tuple[TransacaoPagamentoORM, PagamentoORM]],
+        session.execute(
+            select(TransacaoPagamentoORM, PagamentoORM)
+            .join(
+                PagamentoORM,
+                (
+                    (PagamentoORM.tenant_id == TransacaoPagamentoORM.tenant_id)
+                    & (PagamentoORM.unidade_id == TransacaoPagamentoORM.unidade_id)
+                    & (PagamentoORM.id == TransacaoPagamentoORM.pagamento_id)
+                ),
+            )
+            .where(
+                TransacaoPagamentoORM.tenant_id == contexto.tenant_id,
+                TransacaoPagamentoORM.unidade_id == contexto.unidade_id,
+                TransacaoPagamentoORM.tipo == TipoTransacao.INICIACAO.value,
+                TransacaoPagamentoORM.metodo == MetodoPagamento.PIX.value,
+                TransacaoPagamentoORM.id_externo.is_not(None),
+                PagamentoORM.status.in_(("pendente", "parcialmente_pago")),
+            )
+            .order_by(TransacaoPagamentoORM.occurred_at.desc())
+        ).all(),
+    )
 
     for transacao_row, pagamento_row in linhas:
         metadata = dict(transacao_row.payload_resumo or {})
