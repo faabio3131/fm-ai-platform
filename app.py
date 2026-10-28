@@ -699,11 +699,8 @@ def _enviar_whatsapp_control_plane(
         adapter = FabricaAdaptersExternos(
             session=db,
             secret_store=vault,
-        ).meta(
-            contexto=CURRENT_IDENTITY.contexto(
-                origem="app.whatsapp_runtime"
-            ),
-            configuracao_id="mensageria.whatsapp--meta",
+        ).whatsapp(
+            contexto=CURRENT_IDENTITY.contexto(origem="app.whatsapp_runtime")
         )
         return adapter.enviar_whatsapp(
             destinatario=destinatario,

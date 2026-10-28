@@ -53,7 +53,7 @@ from core.eventos.modelos import EnvelopeMensagem
 from core.integracoes.provedores import (
     ErroProvedorExterno,
     MensagemWhatsAppEntrada,
-    MetaAdapter,
+    PortaWhatsAppAdapter,
 )
 from core.kds.modelos_orm import ProducaoItemORM
 from core.pagamentos.modelos import MetodoPagamento
@@ -568,7 +568,7 @@ class RuntimeCanalWhatsAppV1:
         *,
         contexto: ContextoExecucao,
         pedido_id: str,
-        adapter: MetaAdapter,
+        adapter: PortaWhatsAppAdapter,
     ) -> int:
         """Envia snapshot somente quando o estado operacional realmente mudou."""
 
@@ -858,6 +858,7 @@ class RuntimeCanalWhatsAppV1:
         contexto: ContextoExecucao,
         mensagem: MensagemWhatsAppEntrada,
         sender_hash: str,
+        provedor: str,
     ) -> EnvelopeMensagem:
         event_uuid = uuid5(
             NAMESPACE_URL,
@@ -872,12 +873,15 @@ class RuntimeCanalWhatsAppV1:
             unidade_id=UnidadeId(contexto.unidade_id),
             correlation_id=CorrelationId(contexto.correlation_id),
             causation_id=None,
-            idempotency_key=IdempotencyKey(f"meta:message:{mensagem.mensagem_id}"),
+            idempotency_key=IdempotencyKey(
+                f"{provedor}:message:{mensagem.mensagem_id}"
+            ),
             occurred_at=datetime.now(timezone.utc),
             payload={
                 "canal": "whatsapp",
                 "tipo": mensagem.tipo,
                 "sender_hash": sender_hash,
+                "provedor": provedor,
             },
             version=1,
         )
@@ -890,6 +894,7 @@ class RuntimeCanalWhatsAppV1:
         mensagem_id: str,
         resultado: str,
         estado: str,
+        provedor: str,
     ) -> None:
         RepositorioAuditoriaSQLAlchemy(session).adicionar(
             EventoAuditoria(
@@ -905,10 +910,10 @@ class RuntimeCanalWhatsAppV1:
                 motivo="runtime de canal governado",
                 correlation_id=contexto.correlation_id,
                 timestamp=datetime.now(timezone.utc),
-                origem="meta_whatsapp_webhook_v1",
+                origem=f"{provedor}_whatsapp_webhook_v1",
                 politica="assistente_channel_runtime_v1",
                 causation_id=contexto.causation_id,
-                metadata=(("estado", estado), ("canal", "whatsapp")),
+                metadata=(("estado", estado), ("canal", "whatsapp"), ("provedor", provedor)),
             )
         )
 
@@ -918,7 +923,7 @@ class RuntimeCanalWhatsAppV1:
         tenant_id: str,
         unidade_id: str,
         mensagem: MensagemWhatsAppEntrada,
-        adapter: MetaAdapter,
+        adapter: PortaWhatsAppAdapter,
     ) -> ResultadoMensagemCanal:
         contexto = self._contexto(
             tenant_id=tenant_id,
@@ -949,7 +954,10 @@ class RuntimeCanalWhatsAppV1:
                     handoff=existente.estado == EstadoAtendimento.HANDOFF_HUMANO.value,
                 )
             envelope = self._envelope(
-                contexto=contexto, mensagem=mensagem, sender_hash=sender_hash
+                contexto=contexto,
+                mensagem=mensagem,
+                sender_hash=sender_hash,
+                provedor=adapter.provedor,
             )
             inbox = RepositorioInboxSQLAlchemy(db)
             if inbox.ja_processada(
@@ -1107,6 +1115,7 @@ class RuntimeCanalWhatsAppV1:
                     canal="whatsapp",
                     recipient=mensagem.remetente,
                 ),
+                provedor=adapter.provedor,
             )
             inbox = RepositorioInboxSQLAlchemy(db)
             if not inbox.ja_processada(
@@ -1130,6 +1139,7 @@ class RuntimeCanalWhatsAppV1:
                 mensagem_id=mensagem.mensagem_id,
                 resultado="processado",
                 estado=salvo.estado,
+                provedor=adapter.provedor,
             )
             uow.commit()
         except Exception:
@@ -1180,6 +1190,7 @@ class RuntimeCanalWhatsAppV1:
                     mensagem_id=mensagem.mensagem_id,
                     resultado="falha_canal_handoff",
                     estado=EstadoAtendimento.HANDOFF_HUMANO.value,
+                    provedor=adapter.provedor,
                 )
                 uow.commit()
             except Exception:
@@ -1211,6 +1222,7 @@ class RuntimeCanalWhatsAppV1:
                 mensagem_id=mensagem.mensagem_id,
                 resultado="resposta_enviada",
                 estado=runtime_atual.resultado.estado.value,
+                provedor=adapter.provedor,
             )
             uow.commit()
         except Exception:

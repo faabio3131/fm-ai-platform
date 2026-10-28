@@ -103,7 +103,7 @@ def resolver_loja_id_legada(
         .where(mapping.c.ativo.is_(True))
     )
 
-    resultados = tuple(session.execute(stmt).scalars())
+    resultados: tuple[Any, ...] = tuple(session.execute(stmt).scalars())
 
     if not resultados:
         tabelas = set(inspect(session.connection()).get_table_names())
