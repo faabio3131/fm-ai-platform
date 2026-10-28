@@ -47,10 +47,7 @@ class EnvioWhatsAppMarketingComercial:
         adapter = FabricaAdaptersExternos(
             session=self._session,
             secret_store=vault,
-        ).meta(
-            contexto=self._contexto,
-            configuracao_id="mensageria.whatsapp--meta",
-        )
+        ).whatsapp(contexto=self._contexto)
         mensagem_id = adapter.enviar_whatsapp(
             destinatario=contato.reveal(),
             texto=self._texto,

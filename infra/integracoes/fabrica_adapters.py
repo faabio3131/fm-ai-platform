@@ -7,6 +7,11 @@ from collections.abc import Callable
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from core.integracoes.evolution import (
+    ConfiguracaoEvolution,
+    EvolutionAdapter,
+    nome_instancia_evolution,
+)
 from core.integracoes.google_maps import (
     ConfiguracaoGoogleMaps,
     GoogleMapsAdapter,
@@ -246,6 +251,55 @@ class FabricaAdaptersExternos:
             media_http=media_http or RequestsBinaryTransport(),
             sleep=sleep,
         )
+
+    def evolution(
+        self,
+        *,
+        contexto: ContextoExecucao,
+        configuracao_id: str = "mensageria.whatsapp--evolution",
+        http: PortaHTTPProvedor | None = None,
+        exigir_homologacao: bool = True,
+    ) -> EvolutionAdapter:
+        config = self._config(
+            contexto,
+            configuracao_id,
+            exigir_homologacao=exigir_homologacao,
+        )
+        if (config.servico, config.provedor) != ("mensageria.whatsapp", "evolution"):
+            raise ErroConfiguracaoServico("adapter_incompativel")
+        parametros = config.parametros
+        return EvolutionAdapter(
+            configuracao=ConfiguracaoEvolution(
+                base_url=str(parametros["base_url"]),
+                api_key=self._credencial_por_papel(config, "api_key"),
+                webhook_token=self._credencial_por_papel(config, "webhook_token"),
+                instance_name=nome_instancia_evolution(
+                    contexto.tenant_id, contexto.unidade_id
+                ),
+            ),
+            http=http or RequestsProviderTransport(),
+        )
+
+    def whatsapp(self, *, contexto: ContextoExecucao):
+        """Resolve exatamente um transporte WhatsApp homologado, sem fallback."""
+        disponiveis = []
+        for config_id, builder in (
+            ("mensageria.whatsapp--meta", self.meta),
+            ("mensageria.whatsapp--evolution", self.evolution),
+        ):
+            try:
+                disponiveis.append(
+                    builder(contexto=contexto, configuracao_id=config_id)
+                )
+            except ErroConfiguracaoServico:
+                continue
+        if len(disponiveis) != 1:
+            raise ErroConfiguracaoServico(
+                "whatsapp_sem_provedor_unico"
+                if not disponiveis
+                else "whatsapp_provedor_ambiguo"
+            )
+        return disponiveis[0]
 
     def mercado_pago(
         self,

@@ -50,10 +50,7 @@ class EntregaWhatsAppNotificacaoInterna:
         adapter = FabricaAdaptersExternos(
             session=self._session,
             secret_store=vault,
-        ).meta(
-            contexto=contexto,
-            configuracao_id="mensageria.whatsapp--meta",
-        )
+        ).whatsapp(contexto=contexto)
         return adapter.enviar_whatsapp(
             destinatario=contato.reveal(),
             texto=texto,

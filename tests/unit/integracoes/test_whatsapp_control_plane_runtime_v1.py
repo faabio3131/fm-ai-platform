@@ -21,9 +21,8 @@ def test_whatsapp_comercial_nao_usa_http_ou_token_legado() -> None:
 
 def test_whatsapp_comercial_resolve_adapter_pelo_control_plane() -> None:
     assert "def _enviar_whatsapp_control_plane(" in APP_SOURCE
-    assert 'configuracao_id="mensageria.whatsapp--meta"' in APP_SOURCE
     assert "FabricaAdaptersExternos(" in APP_SOURCE
-    assert ").meta(" in APP_SOURCE
+    assert ").whatsapp(" in APP_SOURCE
     assert "return adapter.enviar_whatsapp(" in APP_SOURCE
 
 

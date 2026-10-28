@@ -89,6 +89,12 @@ CATALOGO_V1 = CatalogoServicosExternos(
             ),
         ),
         EspecificacaoServico(
+            servico="mensageria.whatsapp",
+            provedor="evolution",
+            parametros_obrigatorios=frozenset({"base_url", "webhook_url"}),
+            credenciais_obrigatorias=frozenset({"api_key", "webhook_token"}),
+        ),
+        EspecificacaoServico(
             servico="mapas",
             provedor="google_maps",
             escopo_gestao=EscopoGestaoIntegracao.PLATFORM_MANAGED,
