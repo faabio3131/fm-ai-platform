@@ -171,6 +171,8 @@ class RuntimeFake:
 
 
 class MetaFake:
+    provedor = "meta"
+
     def __init__(self, *, falhar_envio: bool = False) -> None:
         self.falhar_envio = falhar_envio
         self.envios: list[dict[str, str]] = []

@@ -60,6 +60,22 @@ class PortaHTTPProvedor(Protocol):
     ) -> RespostaProvedor: ...
 
 
+class PortaWhatsAppAdapter(Protocol):
+    provedor: str
+
+    def enviar_whatsapp(
+        self, *, destinatario: str, texto: str, idempotency_key: str
+    ) -> str: ...
+
+    def baixar_audio_whatsapp(
+        self,
+        *,
+        media_id: str,
+        mime_type_declarado: str | None = None,
+        max_bytes: int = 20 * 1024 * 1024,
+    ) -> tuple[bytes, str]: ...
+
+
 @dataclass(frozen=True, kw_only=True)
 class EventoWebhookProvedor:
     provedor: str
@@ -191,6 +207,7 @@ class ConfiguracaoMeta:
 
 
 class MetaAdapter(_ClienteResiliente):
+    provedor = "meta"
     def __init__(
         self,
         *,
