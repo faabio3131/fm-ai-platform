@@ -266,7 +266,7 @@ def recuperar_pix_aberto_por_terminal(
             valor=Decimal(str(transacao_row.valor)),
             terminal_id=terminal_norm,
             assinatura_checkout=assinatura_norm,
-            ocorrido_em=_utc(transacao_row.occurred_at),
+            ocorrido_em=_utc(type_cast(datetime, transacao_row.occurred_at)),
         )
     return None
 
