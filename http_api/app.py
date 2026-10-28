@@ -183,13 +183,13 @@ def build_http_app(
         )
 
     def _contexto_whatsapp(
-        *, tenant_id: str, unidade_id: str, correlation_id: str
+        *, tenant_id: str, unidade_id: str, correlation_id: str, provedor: str = "meta"
     ) -> ContextoExecucao:
         if not tenant_id.strip() or not unidade_id.strip():
             raise ValueError("escopo_whatsapp_invalido")
         return ContextoExecucao.sistema(
-            identidade="meta-whatsapp-webhook-v1",
-            motivo="webhook Meta/WhatsApp escopado por tenant e unidade",
+            identidade=f"{provedor}-whatsapp-webhook-v1",
+            motivo=f"webhook {provedor}/WhatsApp escopado por tenant e unidade",
             tenant_id=tenant_id,
             unidade_id=unidade_id,
             correlation_id=correlation_id,
@@ -268,6 +268,53 @@ def build_http_app(
                     contexto=contexto,
                     configuracao_id="mensageria.whatsapp--meta",
                 )
+                mensagens = adapter.extrair_mensagens_whatsapp(
+                    payload_bruto=payload_bruto,
+                    assinatura=assinatura,
+                )
+                for mensagem in mensagens:
+                    canal_whatsapp.processar_mensagem(
+                        tenant_id=tenant_id,
+                        unidade_id=unidade_id,
+                        mensagem=mensagem,
+                        adapter=adapter,
+                    )
+            return Response(status_code=status.HTTP_204_NO_CONTENT)
+        except ErroProvedorExterno:
+            return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+        except ErroConfiguracaoServico:
+            return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except Exception:  # noqa: BLE001 - fronteira externa fail-closed
+            return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    @app.post(
+        "/webhooks/evolution/whatsapp/{tenant_id}/{unidade_id}",
+        include_in_schema=False,
+    )
+    async def webhook_whatsapp_evolution(
+        tenant_id: str,
+        unidade_id: str,
+        request: Request,
+    ) -> Response:
+        payload_bruto = await request.body()
+        if len(payload_bruto) > _MAX_WEBHOOK_BYTES:
+            return Response(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
+        assinatura = request.headers.get("x-kordena-evolution-auth", "").strip()
+        if not assinatura:
+            return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+        try:
+            contexto = _contexto_whatsapp(
+                tenant_id=tenant_id,
+                unidade_id=unidade_id,
+                provedor="evolution",
+                correlation_id=request.headers.get("x-correlation-id")
+                or f"evo:{tenant_id}:{unidade_id}",
+            )
+            with session_factory() as session:
+                adapter = FabricaAdaptersExternos(
+                    session=session,
+                    secret_store=whatsapp_secret_store_factory(session),
+                ).evolution(contexto=contexto)
                 mensagens = adapter.extrair_mensagens_whatsapp(
                     payload_bruto=payload_bruto,
                     assinatura=assinatura,
