@@ -60,22 +60,6 @@ class PortaHTTPProvedor(Protocol):
     ) -> RespostaProvedor: ...
 
 
-class PortaWhatsAppAdapter(Protocol):
-    provedor: str
-
-    def enviar_whatsapp(
-        self, *, destinatario: str, texto: str, idempotency_key: str
-    ) -> str: ...
-
-    def baixar_audio_whatsapp(
-        self,
-        *,
-        media_id: str,
-        mime_type_declarado: str | None = None,
-        max_bytes: int = 20 * 1024 * 1024,
-    ) -> tuple[bytes, str]: ...
-
-
 @dataclass(frozen=True, kw_only=True)
 class EventoWebhookProvedor:
     provedor: str
@@ -207,7 +191,6 @@ class ConfiguracaoMeta:
 
 
 class MetaAdapter(_ClienteResiliente):
-    provedor = "meta"
     def __init__(
         self,
         *,
@@ -774,3 +757,58 @@ class GeminiTenantAdapter:
                     ) from exc
                 self._sleep(0.25 * 2 ** (tentativa - 1))
         raise AssertionError("retry Gemini terminou sem resultado")
+
+
+class PortaOpenAITenant(Protocol):
+    def create_chat_completion(
+        self, *, api_key: str, model: str, contents: Any, timeout_seconds: float
+    ) -> Any: ...
+
+
+@dataclass(frozen=True, repr=False, kw_only=True)
+class ConfiguracaoOpenAITenant:
+    api_key: str
+    model: str
+    timeout_seconds: float = 20.0
+    max_attempts: int = 3
+
+    def __post_init__(self) -> None:
+        if not self.api_key.strip() or not self.model.strip():
+            raise ValueError("configuracao OpenAI incompleta")
+        if not 0 < self.timeout_seconds <= 60 or not 1 <= self.max_attempts <= 5:
+            raise ValueError("politica OpenAI invalida")
+
+    def __repr__(self) -> str:
+        return f"ConfiguracaoOpenAITenant(api_key=***, model={self.model!r})"
+
+
+class OpenAITenantAdapter:
+    """Adapter textual OpenAI sob credencial protegida do control plane."""
+
+    def __init__(
+        self,
+        *,
+        configuracao: ConfiguracaoOpenAITenant,
+        gateway: PortaOpenAITenant,
+        sleep: Callable[[float], None] = lambda _: None,
+    ) -> None:
+        self._config = configuracao
+        self._gateway = gateway
+        self._sleep = sleep
+
+    def gerar(self, contents: Any) -> Any:
+        for tentativa in range(1, self._config.max_attempts + 1):
+            try:
+                return self._gateway.create_chat_completion(
+                    api_key=self._config.api_key,
+                    model=self._config.model,
+                    contents=contents,
+                    timeout_seconds=self._config.timeout_seconds,
+                )
+            except (TimeoutError, ConnectionError) as exc:
+                if tentativa == self._config.max_attempts:
+                    raise ErroProvedorTransitorio(
+                        "OpenAI indisponivel apos retries"
+                    ) from exc
+                self._sleep(0.25 * 2 ** (tentativa - 1))
+        raise AssertionError("retry OpenAI terminou sem resultado")

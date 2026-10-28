@@ -35,6 +35,16 @@ def _int_env(name: str, default: int, minimum: int = 0) -> int:
     return value
 
 
+def _normalize_database_url(url: str) -> str:
+    """Seleciona explicitamente psycopg 3 para URLs PostgreSQL sem driver."""
+
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg://" + url.removeprefix("postgres://")
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg://" + url.removeprefix("postgresql://")
+    return url
+
+
 def build_engine(settings: RuntimeSettings) -> Engine:
     """Cria engine com política adequada ao backend.
 
@@ -42,7 +52,7 @@ def build_engine(settings: RuntimeSettings) -> Engine:
     habilitamos pre-ping, reciclagem de conexões e limites de pool configuráveis.
     """
 
-    url = settings.database_url
+    url = _normalize_database_url(settings.database_url)
     is_sqlite = url.lower().startswith("sqlite")
     common: dict[str, object] = {"pool_pre_ping": True}
 

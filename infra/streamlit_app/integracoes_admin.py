@@ -15,7 +15,6 @@ from core.integracoes.modelos import AmbienteIntegracao, ErroConfiguracaoServico
 from core.integracoes.servicos import ServicoConfiguracoesExternas
 from core.seguranca.autenticacao import IdentidadeUsuario
 from core.seguranca.permissoes import Papel, Permissao
-from infra.integracoes.fabrica_adapters import FabricaAdaptersExternos
 from infra.integracoes.gemini_healthcheck import executar_healthcheck_gemini
 from infra.integracoes.google_maps_browser_healthcheck import (
     obter_evidencia_confirmada_google_maps,
@@ -37,7 +36,6 @@ _LABELS = {
     ("social.facebook", "meta"): "Meta · Facebook",
     ("social.instagram", "meta"): "Meta · Instagram Business",
     ("mensageria.whatsapp", "meta"): "Meta · WhatsApp Business",
-    ("mensageria.whatsapp", "evolution"): "Evolution · WhatsApp por QR Code",
     ("mapas", "google_maps"): "Google Maps",
     ("pagamentos.pix", "pagbank"): "PagBank · PIX",
     ("pagamentos.pix", "mercado_pago"): "Mercado Pago · PIX",
@@ -50,8 +48,6 @@ _PARAM_LABELS = {
     "business_account_id": "Business Account ID",
     "app_id": "App ID",
     "phone_number_id": "WhatsApp Phone Number ID",
-    "base_url": "URL interna/HTTPS da Evolution API",
-    "webhook_url": "URL pública do webhook Evolution desta unidade",
     "origin_address": "Endereço de origem",
     "country_code": "País (ex.: BR)",
     "language": "Idioma (ex.: pt-BR)",
@@ -69,7 +65,6 @@ _SECRET_LABELS = {
     "api_token": "API Token",
     "webhook_secret": "Webhook Secret",
     "api_key": "API Key",
-    "webhook_token": "Token exclusivo do webhook",
 }
 
 _STATUS_LABELS = {
@@ -94,9 +89,7 @@ def _key(spec: EspecificacaoServico, suffix: str) -> str:
     return base.replace(".", "_").replace("-", "_")
 
 
-def _status_text(
-    service: ServicoConfiguracoesExternas, contexto: Any, config_id: str
-) -> str:
+def _status_text(service: ServicoConfiguracoesExternas, contexto: Any, config_id: str) -> str:
     try:
         status = service.avaliar(contexto=contexto, configuracao_id=config_id)
     except ErroConfiguracaoServico:
@@ -169,9 +162,7 @@ def _render_one(
     except ErroConfiguracaoServico:
         pass
 
-    label = _LABELS.get(
-        (spec.servico, spec.provedor), f"{spec.servico} · {spec.provedor}"
-    )
+    label = _LABELS.get((spec.servico, spec.provedor), f"{spec.servico} · {spec.provedor}")
     status = _status_text(service, contexto, config_id)
     with st.expander(f"{label} — {status}", expanded=False):
         _render_flash(spec)
@@ -179,110 +170,6 @@ def _render_one(
             "Credenciais são cifradas antes de chegar ao banco. O valor salvo nunca é "
             "reexibido; para trocar uma credencial, informe um novo valor."
         )
-
-        if spec.provedor == "evolution" and existing is None:
-            st.info(
-                "A infraestrutura Evolution desta unidade ainda não foi provisionada pela "
-                "FM Tecnologia. O cliente não precisa criar aplicativo na Meta nem informar "
-                "chaves: depois da ativação, este painel exibirá somente o QR Code."
-            )
-            return
-
-        if spec.provedor == "evolution" and existing is not None:
-            st.markdown("**Conexão do WhatsApp por QR Code**")
-            st.caption(
-                "A chave da plataforma permanece no servidor. O cliente apenas gera e lê "
-                "o QR Code desta unidade; a sessão nunca é compartilhada com outro cliente."
-            )
-            qr_col, state_col, logout_col = st.columns(3)
-            if qr_col.button("Gerar / renovar QR", key=_key(spec, "evolution_qr")):
-                try:
-                    adapter = FabricaAdaptersExternos(
-                        session=session,
-                        secret_store=vault,
-                    ).evolution(
-                        contexto=contexto,
-                        configuracao_id=config_id,
-                        exigir_homologacao=False,
-                    )
-                    try:
-                        state = adapter.estado()
-                    except ErroConfiguracaoServico:
-                        raise
-                    except (
-                        Exception
-                    ) as exc:  # cria somente quando a instância não existe
-                        if "inexistente" not in str(exc):
-                            raise
-                        adapter.criar_instancia()
-                        state = "connecting"
-                    adapter.configurar_webhook(str(existing.parametros["webhook_url"]))
-                    if state == "open":
-                        st.session_state[_key(spec, "evolution_state")] = "connected"
-                        st.session_state.pop(_key(spec, "evolution_qr_data"), None)
-                    else:
-                        st.session_state[_key(spec, "evolution_state")] = "pending"
-                        st.session_state[_key(spec, "evolution_qr_data")] = (
-                            adapter.obter_qr_code()
-                        )
-                    st.rerun()
-                except Exception:  # noqa: BLE001 - UI não expõe endpoint, chave ou payload
-                    st.error(
-                        "Não foi possível gerar o QR Code. Revise a configuração ou a disponibilidade da Evolution."
-                    )
-            if state_col.button(
-                "Verificar conexão", key=_key(spec, "evolution_state_check")
-            ):
-                try:
-                    adapter = FabricaAdaptersExternos(
-                        session=session,
-                        secret_store=vault,
-                    ).evolution(
-                        contexto=contexto,
-                        configuracao_id=config_id,
-                        exigir_homologacao=False,
-                    )
-                    connected = adapter.estado() == "open"
-                    st.session_state[_key(spec, "evolution_state")] = (
-                        "connected" if connected else "pending"
-                    )
-                    if connected:
-                        st.session_state.pop(_key(spec, "evolution_qr_data"), None)
-                        st.session_state[_key(spec, "last_real_evolution_evidence")] = (
-                            f"evolution:{adapter.instance_name}:connected"
-                        )
-                    st.rerun()
-                except Exception:  # noqa: BLE001
-                    st.error("A conexão não pôde ser verificada agora.")
-            if logout_col.button("Desconectar", key=_key(spec, "evolution_logout")):
-                try:
-                    adapter = FabricaAdaptersExternos(
-                        session=session,
-                        secret_store=vault,
-                    ).evolution(
-                        contexto=contexto,
-                        configuracao_id=config_id,
-                        exigir_homologacao=False,
-                    )
-                    adapter.desconectar()
-                    st.session_state[_key(spec, "evolution_state")] = "disconnected"
-                    st.session_state.pop(_key(spec, "evolution_qr_data"), None)
-                    st.rerun()
-                except Exception:  # noqa: BLE001
-                    st.error("Não foi possível desconectar a sessão Evolution.")
-            evolution_state = st.session_state.get(_key(spec, "evolution_state"))
-            if evolution_state == "connected":
-                st.success("WhatsApp conectado e verificado nesta unidade.")
-            elif evolution_state:
-                st.info(
-                    "Conexão pendente. Leia o QR Code e depois clique em Verificar conexão."
-                )
-            qr_data = st.session_state.get(_key(spec, "evolution_qr_data"))
-            if isinstance(qr_data, str) and qr_data.startswith(
-                "data:image/png;base64,"
-            ):
-                st.image(qr_data, width=280, caption="QR temporário — não compartilhe")
-            return
 
         current_params = existing.parametros if existing else {}
         conta_externa = st.text_input(
@@ -295,9 +182,7 @@ def _render_one(
             st.selectbox(
                 "Ambiente",
                 options=[item.value for item in AmbienteIntegracao],
-                index=[item.value for item in AmbienteIntegracao].index(
-                    ambiente_atual.value
-                ),
+                index=[item.value for item in AmbienteIntegracao].index(ambiente_atual.value),
                 key=_key(spec, "ambiente"),
             )
         )
@@ -344,9 +229,7 @@ def _render_one(
             _key(spec, "last_real_healthcheck_evidence")
         )
         if spec.provedor == "gemini" and ultima_evidencia_real:
-            st.success(
-                "Último healthcheck externo real do Gemini concluído com sucesso."
-            )
+            st.success("Último healthcheck externo real do Gemini concluído com sucesso.")
             st.code(str(ultima_evidencia_real), language=None)
             st.caption(
                 "Copie esta referência para o campo de evidência abaixo. Ela não contém a API key nem conteúdo sensível."
@@ -355,9 +238,7 @@ def _render_one(
             _key(spec, "last_real_maps_server_healthcheck_evidence")
         )
         if spec.provedor == "google_maps" and ultima_evidencia_maps:
-            st.success(
-                "Geocoding API e Routes API foram validadas externamente com a chave de servidor."
-            )
+            st.success("Geocoding API e Routes API foram validadas externamente com a chave de servidor.")
             st.code(str(ultima_evidencia_maps), language=None)
             st.caption(
                 "Esta referência comprova somente o caminho servidor. A chave de navegador ainda precisa de prova real no navegador antes da homologação final."
@@ -400,13 +281,11 @@ def _render_one(
             token_pendente = str(
                 st.session_state.get(_key(spec, "maps_browser_proof_token")) or ""
             )
-            evidencia_confirmada = obter_evidencia_confirmada_google_maps(
-                token_pendente
-            )
+            evidencia_confirmada = obter_evidencia_confirmada_google_maps(token_pendente)
             if evidencia_confirmada:
-                st.session_state[
-                    _key(spec, "last_real_maps_full_healthcheck_evidence")
-                ] = evidencia_confirmada
+                st.session_state[_key(spec, "last_real_maps_full_healthcheck_evidence")] = (
+                    evidencia_confirmada
+                )
                 if not str(st.session_state.get(evidence_key) or "").strip():
                     st.session_state[evidence_key] = evidencia_confirmada
                 st.session_state.pop(_key(spec, "maps_browser_proof_token"), None)
@@ -565,9 +444,9 @@ def _render_one(
                         contexto=contexto,
                         configuracao_id=config_id,
                     )
-                    st.session_state[
-                        _key(spec, "last_real_maps_server_healthcheck_evidence")
-                    ] = resultado_maps.evidencia_ref
+                    st.session_state[_key(spec, "last_real_maps_server_healthcheck_evidence")] = (
+                        resultado_maps.evidencia_ref
+                    )
                     _set_flash(
                         spec,
                         "success",
@@ -619,9 +498,7 @@ def _render_one(
                         configuracao_id=config_id,
                         evidencia_servidor=str(evidencia_servidor or ""),
                     )
-                    st.session_state[_key(spec, "maps_browser_proof_token")] = (
-                        preparacao.token
-                    )
+                    st.session_state[_key(spec, "maps_browser_proof_token")] = preparacao.token
                     st.session_state.pop(
                         _key(spec, "last_real_maps_full_healthcheck_evidence"), None
                     )
@@ -654,9 +531,9 @@ def _render_one(
                         st.session_state[
                             _key(spec, "last_real_maps_full_healthcheck_evidence")
                         ] = evidencia_confirmada
-                        st.session_state[_key(spec, "maps_full_evidence_prefill")] = (
-                            evidencia_confirmada
-                        )
+                        st.session_state[
+                            _key(spec, "maps_full_evidence_prefill")
+                        ] = evidencia_confirmada
                         st.session_state.pop(
                             _key(spec, "maps_browser_proof_token"), None
                         )
@@ -758,9 +635,7 @@ def _render_one(
                 mensagem = (
                     "Configuração salva com segurança. Como uma credencial foi alterada, "
                     "a homologação anterior foi invalidada e deve ser refeita com nova evidência."
-                    if credencial_rotacionada
-                    and existing is not None
-                    and existing.homologada
+                    if credencial_rotacionada and existing is not None and existing.homologada
                     else "Configuração salva com segurança. PIN e valores sensíveis digitados foram limpos da sessão de entrada."
                 )
                 _set_flash(spec, "success", mensagem)
@@ -787,8 +662,7 @@ def _render_one(
                     )
                     if readiness.faltam_parametros:
                         st.error(
-                            "Faltam parâmetros: "
-                            + ", ".join(readiness.faltam_parametros)
+                            "Faltam parâmetros: " + ", ".join(readiness.faltam_parametros)
                         )
                     elif readiness.faltam_finalidades or readiness.faltam_credenciais:
                         missing = (
@@ -796,7 +670,8 @@ def _render_one(
                             *readiness.faltam_credenciais,
                         )
                         st.error(
-                            "Faltam credenciais: " + ", ".join(sorted(set(missing)))
+                            "Faltam credenciais: "
+                            + ", ".join(sorted(set(missing)))
                         )
                     else:
                         st.success(

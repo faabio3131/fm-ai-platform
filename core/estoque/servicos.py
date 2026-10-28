@@ -47,6 +47,7 @@ PERMISSOES = {
     TipoMovimento.AJUSTE_POSITIVO: Permissao.ESTOQUE_AJUSTAR,
     TipoMovimento.AJUSTE_NEGATIVO: Permissao.ESTOQUE_AJUSTAR,
     TipoMovimento.DEVOLUCAO: Permissao.ESTOQUE_DEVOLVER,
+    TipoMovimento.DEVOLUCAO_FORNECEDOR: Permissao.ESTOQUE_DEVOLVER,
     TipoMovimento.COMPENSACAO: Permissao.ESTOQUE_AJUSTAR,
     TipoMovimento.ENTRADA: Permissao.ESTOQUE_AJUSTAR,
 }
@@ -453,6 +454,7 @@ def registrar_movimento(
     nomes = {
         TipoMovimento.PERDA: "estoque.perda_registrada",
         TipoMovimento.DEVOLUCAO: "estoque.devolvido",
+        TipoMovimento.DEVOLUCAO_FORNECEDOR: "estoque.devolvido_fornecedor",
     }
     evento = nomes.get(tipo, "estoque.ajustado")
     eventos, auditorias = _efeitos(

@@ -46,6 +46,10 @@ class PortaConsultasGerenciais(Protocol):
         self, *, tenant_id: str, unidade_id: str, filtros: dict[str, ValorPrimitivo]
     ) -> tuple[RegistroGerencial, ...]: ...
 
+    def consultar_fiscal(
+        self, *, tenant_id: str, unidade_id: str, filtros: dict[str, ValorPrimitivo]
+    ) -> tuple[RegistroGerencial, ...]: ...
+
     def sugerir_compra(
         self, *, tenant_id: str, unidade_id: str, filtros: dict[str, ValorPrimitivo]
     ) -> tuple[RegistroGerencial, ...]: ...
@@ -114,6 +118,7 @@ class PortaCampanhasGerenciais(Protocol):
         usuario_id: str,
         correlation_id: str,
         idempotency_key: str,
+        midia_url: str | None = None,
     ) -> RascunhoCampanha: ...
 
 

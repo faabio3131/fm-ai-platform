@@ -116,6 +116,13 @@ class ConsultasGerenciaisFake:
     def consultar_estoque(self, *, tenant_id: str, unidade_id: str, filtros: dict[str, ValorPrimitivo]):
         return self._retornar("estoque", tenant_id=tenant_id, unidade_id=unidade_id, filtros=filtros)
 
+    def consultar_fiscal(
+        self, *, tenant_id: str, unidade_id: str, filtros: dict[str, ValorPrimitivo]
+    ) -> tuple[RegistroGerencial, ...]:
+        del filtros
+        self.escopos.append(("fiscal", tenant_id, unidade_id))
+        return ()
+
     def sugerir_compra(self, *, tenant_id: str, unidade_id: str, filtros: dict[str, ValorPrimitivo]):
         return self._retornar("compra", tenant_id=tenant_id, unidade_id=unidade_id, filtros=filtros)
 
@@ -255,6 +262,7 @@ class CampanhasGerenciaisFake:
         usuario_id: str,
         correlation_id: str,
         idempotency_key: str,
+        midia_url: str | None = None,
     ) -> RascunhoCampanha:
         del correlation_id
         chave = (tenant_id, unidade_id, idempotency_key)
@@ -273,6 +281,7 @@ class CampanhasGerenciaisFake:
             audiencia_elegivel=12,
             criado_em=datetime.now(timezone.utc),
             criado_por=usuario_id,
+            midia_url=midia_url,
         )
         self._rascunhos[chave] = rascunho
         return rascunho

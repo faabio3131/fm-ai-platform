@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "policy": "Web runtime HIGH/CRITICAL vulnerabilities are never allowlisted. Development-only exceptions must resolve to an exact advisory, be absent from the production dependency tree, and expire for mandatory review.",
+  "exceptions": [
+    {
+      "id": "CVE-2026-93687",
+      "advisory_id": "GHSA-vfj7-8cjw-p6xm",
+      "package": "braces",
+      "severity": "high",
+      "scope": "development-only",
+      "reason": "Reavaliada tecnicamente em 2026-10-20 após falha real do KCA16. GHSA-vfj7-8cjw-p6xm / CVE-2026-93687 continua HIGH, afeta braces <=3.0.3 e não possui versão corrigida, segundo https://github.com/advisories/GHSA-vfj7-8cjw-p6xm (consulta 2026-10-20). Dependência declarada somente de desenvolvimento via @next/eslint-plugin-next -> fast-glob -> micromatch, com padrões de glob controlados pelo repositório. A aceitação temporária limita-se à mesma identidade de advisory, ao mesmo pacote e escopo development-only; npm audit --omit=dev high/critical=0 e prova de ausência no runtime permanecem obrigatórias e executadas no CI. Extensão curta para reavaliação até 2026-10-27; sem extensão automática, sem aceitar findings novos e sem liberar produção.",
+      "introduced_at": "2026-10-02",
+      "review_deadline": "2026-10-27",
+      "removal_condition": "Remover com versão upstream corrigida, substituição validada de ferramenta de desenvolvimento que elimine braces, mudança do advisory ou evidência de exposição produtiva; reavaliar novamente até 2026-10-27.",
+      "reassessment_date": "2026-10-20"
+    }
+  ]
+}

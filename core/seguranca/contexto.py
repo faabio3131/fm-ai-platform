@@ -33,6 +33,9 @@ class ContextoExecucao(Serializavel):
     unidades_permitidas: frozenset[str] = field(default_factory=frozenset)
     identidade_sistema: bool = False
     motivo_sistema: str | None = None
+    identity_user_id: str | None = None
+    membership_id: str | None = None
+    product_code: str | None = None
 
     def __post_init__(self) -> None:
         for nome in (
@@ -97,5 +100,8 @@ class ContextoExecucao(Serializavel):
                 "request_id": self.request_id,
                 "ip_protegido": self.ip_protegido,
                 "metadata": dict(self.metadata),
+                "identity_user_id": self.identity_user_id,
+                "membership_id": self.membership_id,
+                "product_code": self.product_code,
             }
         )

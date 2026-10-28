@@ -2,7 +2,6 @@
 
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import cast as type_cast
 
 from sqlalchemy import String, and_, cast, exists, func, not_, or_, select
 from sqlalchemy.orm import Session, selectinload
@@ -217,7 +216,7 @@ class CentralPedidosSQLAlchemy:
             .offset((filtros.pagina - 1) * filtros.tamanho_pagina)
             .limit(filtros.tamanho_pagina)
         )
-        rows = type_cast(list[tuple[PedidoORM, int]], self._session.execute(stmt).all())
+        rows = self._session.execute(stmt).all()
         financeiros = self._financeiros(contexto, [row.id for row, _ in rows])
         resumos = []
         for row, quantidade in rows:

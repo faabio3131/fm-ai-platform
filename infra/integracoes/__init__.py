@@ -8,6 +8,7 @@ from .repositorio_sqlalchemy import (
 )
 from .transportes import (
     GoogleGenAITenantGateway,
+    OpenAIChatTenantGateway,
     RequestsGoogleMapsTransport,
     RequestsProviderTransport,
 )
@@ -15,6 +16,7 @@ from .transportes import (
 __all__ = [
     "FabricaAdaptersExternos",
     "GoogleGenAITenantGateway",
+    "OpenAIChatTenantGateway",
     "IntegrationConfigBase",
     "ProntidaoCredenciaisSQLAlchemy",
     "RepositorioConfiguracoesExternasSQLAlchemy",

@@ -56,6 +56,32 @@ class RepositorioConfiguracoesExternasSQLAlchemy:
         ).all()
         return tuple(self._dominio(row) for row in rows)
 
+    def listar_homologadas_por_configuracao_id(
+        self,
+        *,
+        configuracao_id: str,
+    ) -> tuple[ConfiguracaoServicoExterno, ...]:
+        """Lista candidatas homologadas para migração de integrações de plataforma.
+
+        Esta leitura cross-tenant existe exclusivamente como ponte de compatibilidade
+        para serviços cuja autoridade migrou do tenant para o Command. O runtime
+        somente aceita a ponte quando houver exatamente uma candidata homologada.
+        """
+
+        rows = self._session.scalars(
+            select(ServicoExternoConfigORM)
+            .where(
+                ServicoExternoConfigORM.configuracao_id == configuracao_id,
+                ServicoExternoConfigORM.habilitada.is_(True),
+                ServicoExternoConfigORM.homologada.is_(True),
+            )
+            .order_by(
+                ServicoExternoConfigORM.tenant_id,
+                ServicoExternoConfigORM.unidade_id,
+            )
+        ).all()
+        return tuple(self._dominio(row) for row in rows)
+
     def salvar(
         self,
         configuracao: ConfiguracaoServicoExterno,

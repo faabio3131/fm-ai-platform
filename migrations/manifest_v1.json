@@ -164,6 +164,114 @@
     {
       "version": "0040_product_active_flag_v1",
       "sha256": "9429d9b697651f5614e67ddd7edbf4067484943b9a7bcb207f252b6a41818ae1"
+    },
+    {
+      "version": "0041_cardapio_publico_identity_v1",
+      "sha256": "0ef03d701d7bb4809266f604f500b7e6127f1805184c6683bdfb8064809cd039"
+    },
+    {
+      "version": "0042_marketplace_orders_web_v1",
+      "sha256": "d1fc28c669ddc73e9c349fe38938836a2b9cf4aabfe2b7b642abb9277aebb84a"
+    },
+    {
+      "version": "0043_fiscal_persistence_foundation_v1",
+      "sha256": "bb5a075fe68b866462e7c4c1909ed2a14853e3e5c936e8e018424945c2ae2e00"
+    },
+    {
+      "version": "0044_fiscal_profile_environment_partition_v1",
+      "sha256": "3205aaff2f4988ccaa2a712deb885de46607da02ee2f3b0020fb3e08f2ba391f"
+    },
+    {
+      "version": "0045_fiscal_inbound_foundation_v1",
+      "sha256": "6c78ad29c9d5d187dc416103a90220037ce95fbda66783a8f5886b82d59a86dc"
+    },
+    {
+      "version": "0046_fiscal_smart_intake_v1",
+      "sha256": "a4bada163f854f2ba120a7e645c3f763fc72f48bb1a0ec5760a33abb67822154"
+    },
+    {
+      "version": "0047_fiscal_procurement_integration_v1",
+      "sha256": "3ce463e76fb72d17edd9e8abc0be4a3f86e13e303e395437c8ae8d0ffdcf38b9"
+    },
+    {
+      "version": "0048_fiscal_financial_tax_bridge_v1",
+      "sha256": "c7d27a7e4f55324c966163137f6a75f291cd26b13f0378f7ae9c1a4ff8da25a5"
+    },
+    {
+      "version": "0049_commercial_registry_v1",
+      "sha256": "284092661f4a2b1759ce58530bec2ef56e51aa713dc0268001df16cec450eb9b"
+    },
+    {
+      "version": "0050_global_identity_membership_v1",
+      "sha256": "d3941c930a3d18a26c91d9a5ed66d371c2747928129fbb34b67c7204082bbff3"
+    },
+    {
+      "version": "0051_commercial_catalog_v1",
+      "sha256": "ea1745486bdf231424ccd354dc1fd5007b18b48c5d2fa1def1ce760a66393342"
+    },
+    {
+      "version": "0052_commercial_entitlement_v1",
+      "sha256": "1b6a29d8941a37513d8046601537f8071a4f90a92df952fabc9b27fa79d6ae4c"
+    },
+    {
+      "version": "0053_commercial_provisioning_v1",
+      "sha256": "a7cbb175733f67830473427ca55c03cad2b6fe71c971d25cb7f5fe81dd6dfaae"
+    },
+    {
+      "version": "0054_commercial_signup_v1",
+      "sha256": "f55536a5f133d1a8a1da06fd562aa6144700507a074c4f266502dae91fb640b4"
+    },
+    {
+      "version": "0055_commercial_trial_v1",
+      "sha256": "99211bb96cc797d0bc1aa48334fccac2c26b73d80b29dc6df64432806eff3c6b"
+    },
+    {
+      "version": "0056_commercial_subscription_v1",
+      "sha256": "0e05619d90259dcc1cc0cd8c83f19605be052934166c5d30c5e3594f43e298ff"
+    },
+    {
+      "version": "0057_commercial_billing_config_v1",
+      "sha256": "3d255142b5aebc4f6e52d6fe0c818a5e4b34ffa8fa6324ceee2ecf99ca886eb6"
+    },
+    {
+      "version": "0058_commercial_billing_events_v1",
+      "sha256": "bcda27f3eb312f6af5498c7f7e6d80916a6deb34ef238645c8ee7f108f0a75fe"
+    },
+    {
+      "version": "0059_operational_session_persistence_v1",
+      "sha256": "91e4bfbdee3558565a942fafeb581ac6558cbbd6784b79dbc22c7e588dff9d7a"
+    },
+    {
+      "version": "0060_admin_unit_legacy_store_reconciliation_v1",
+      "sha256": "0f57af2300f9a6b20564af110837cfc32e003d027715072fc001dd361276605c"
+    },
+    {
+      "version": "0064_password_recovery_v1",
+      "sha256": "f56db3e244ce0983de8a5c4ce70384a96e4cbedae01a443b397175da6a2c5868"
+    },
+    {
+      "version": "0065_google_federated_identity_v1",
+      "sha256": "7ffa551b326c1c10235dc5ab895259415c05d0d8738f0425872a93c4af1c5293"
+    },
+    {
+      "version": "0066_commercial_billing_transaction_identity_v1",
+      "sha256": "40e89e67939da9fbf92e3e0b4cb2ffc69d79c05822e28110dd533530cf1672ff"
+    },
+    {
+      "version": "0067_commercial_billing_provider_legal_entity_v1",
+      "sha256": "5a58159d2b16b4055988a3527a500c9e7bc799380d5ed5c57f869389041a1970"
+    },
+    {
+      "version": "0068_campaign_organic_media_v1",
+      "sha256": "b49d9d841322eacd5f2afc4d5e62ac87d9272de07c277411a08cf99df394a650"
+    },
+    {
+      "version": "0069_delivery_route_limit_v1",
+      "sha256": "e85bfb1ab1632e20a94da492c5593a3b119a2eb553c6d6878cc230508a4ef0be"
+    },
+    {
+      "version": "0070_ai_franchise_budget_v1",
+      "sha256": "e7aa98dc047ef2c556f43d6d31c48322e894f99bed6d02da2c16bf869d66882b"
     }
   ]
 }

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import cast
 
 from sqlalchemy import (
@@ -48,6 +48,9 @@ from migrations.admin_access_authorization_v1 import (
     upgrade_admin_access_authorization_v1,
 )
 from migrations.admin_pin_v1 import upgrade_admin_pin_v1
+from migrations.admin_unit_legacy_store_reconciliation_v1 import (
+    upgrade_admin_unit_legacy_store_reconciliation_v1,
+)
 from migrations.administracao_proprietario_v1 import (
     upgrade_administracao_proprietario_v1,
 )
@@ -55,10 +58,31 @@ from migrations.ai_finops_read_model_v1 import (
     revert_ai_finops_read_model_v1,
     upgrade_ai_finops_read_model_v1,
 )
+from migrations.ai_franchise_budget_v1 import (
+    revert_ai_franchise_budget_v1,
+    upgrade_ai_franchise_budget_v1,
+)
 from migrations.assistente_channel_runtime_v1 import (
     upgrade_assistente_channel_runtime_v1,
 )
+from migrations.campaign_organic_media_v1 import upgrade_campaign_organic_media_v1
+from migrations.cardapio_publico_identity_v1 import upgrade_cardapio_publico_identity_v1
 from migrations.client_payment_identity_v1 import upgrade_client_payment_identity_v1
+from migrations.commercial_billing_config_v1 import upgrade_commercial_billing_config_v1
+from migrations.commercial_billing_events_v1 import upgrade_commercial_billing_events_v1
+from migrations.commercial_billing_provider_legal_entity_v1 import (
+    upgrade_commercial_billing_provider_legal_entity_v1,
+)
+from migrations.commercial_billing_transaction_identity_v1 import (
+    upgrade_commercial_billing_transaction_identity_v1,
+)
+from migrations.commercial_catalog_v1 import upgrade_commercial_catalog_v1
+from migrations.commercial_entitlement_v1 import upgrade_commercial_entitlement_v1
+from migrations.commercial_provisioning_v1 import upgrade_commercial_provisioning_v1
+from migrations.commercial_registry_v1 import upgrade_commercial_registry_v1
+from migrations.commercial_signup_v1 import upgrade_commercial_signup_v1
+from migrations.commercial_subscription_v1 import upgrade_commercial_subscription_v1
+from migrations.commercial_trial_v1 import upgrade_commercial_trial_v1
 from migrations.crm_cashback_ledger_v1 import upgrade_crm_cashback_ledger_v1
 from migrations.crm_cliente_legado_mapping_v1 import (
     upgrade_crm_cliente_legado_mapping_v1,
@@ -75,6 +99,29 @@ from migrations.delivery_channel_state_v1 import (
     upgrade_delivery_channel_state_v1,
 )
 from migrations.delivery_policy_v1 import upgrade_delivery_policy_v1
+from migrations.delivery_route_limit_v1 import upgrade_delivery_route_limit_v1
+from migrations.fiscal_financial_tax_bridge_v1 import (
+    upgrade_fiscal_financial_tax_bridge_v1,
+)
+from migrations.fiscal_inbound_foundation_v1 import (
+    upgrade_fiscal_inbound_foundation_v1,
+)
+from migrations.fiscal_persistence_foundation_v1 import (
+    upgrade_fiscal_persistence_foundation_v1,
+)
+from migrations.fiscal_procurement_integration_v1 import (
+    upgrade_fiscal_procurement_integration_v1,
+)
+from migrations.fiscal_profile_environment_partition_v1 import (
+    upgrade_fiscal_profile_environment_partition_v1,
+)
+from migrations.fiscal_smart_intake_v1 import upgrade_fiscal_smart_intake_v1
+from migrations.global_identity_membership_v1 import (
+    upgrade_global_identity_membership_v1,
+)
+from migrations.google_federated_identity_v1 import (
+    upgrade_google_federated_identity_v1,
+)
 from migrations.history_guard import MigrationHistoryError, assert_applied_history
 from migrations.integration_secret_vault_v1 import upgrade_integration_secret_vault_v1
 from migrations.internal_notification_recipients_v1 import (
@@ -90,9 +137,17 @@ from migrations.legacy_schema_reconciliation_v1 import reconcile_legacy_schema_v
 from migrations.legacy_schema_upgrade_v1 import upgrade_legacy_schema_v1
 from migrations.legacy_store_baseline_v1 import upgrade_legacy_store_baseline_v1
 from migrations.manifest import assert_migration_manifest, migration_fingerprint
+from migrations.marketplace_orders_web_v1 import (
+    revert_marketplace_orders_web_v1,
+    upgrade_marketplace_orders_web_v1,
+)
 from migrations.migration_history_integrity_v1 import (
     upgrade_migration_history_integrity_v1,
 )
+from migrations.operational_session_persistence_v1 import (
+    upgrade_operational_session_persistence_v1,
+)
+from migrations.password_recovery_v1 import upgrade_password_recovery_v1
 from migrations.pdv_reconciliation_strategy_width_v1 import (
     upgrade_pdv_reconciliation_strategy_width_v1,
 )
@@ -285,6 +340,110 @@ DEFAULT_MIGRATIONS: tuple[Migration, ...] = (
     ),
     Migration("0039_crm_cashback_ledger_v1", upgrade_crm_cashback_ledger_v1),
     Migration("0040_product_active_flag_v1", upgrade_product_active_flag_v1),
+    Migration("0041_cardapio_publico_identity_v1", upgrade_cardapio_publico_identity_v1),
+    Migration(
+        "0042_marketplace_orders_web_v1",
+        upgrade_marketplace_orders_web_v1,
+        revert_marketplace_orders_web_v1,
+    ),
+    Migration(
+        "0043_fiscal_persistence_foundation_v1",
+        upgrade_fiscal_persistence_foundation_v1,
+    ),
+    Migration(
+        "0044_fiscal_profile_environment_partition_v1",
+        upgrade_fiscal_profile_environment_partition_v1,
+    ),
+    Migration(
+        "0045_fiscal_inbound_foundation_v1",
+        upgrade_fiscal_inbound_foundation_v1,
+    ),
+    Migration(
+        "0046_fiscal_smart_intake_v1",
+        upgrade_fiscal_smart_intake_v1,
+    ),
+    Migration(
+        "0047_fiscal_procurement_integration_v1",
+        upgrade_fiscal_procurement_integration_v1,
+    ),
+    Migration(
+        "0048_fiscal_financial_tax_bridge_v1",
+        upgrade_fiscal_financial_tax_bridge_v1,
+    ),
+    Migration(
+        "0049_commercial_registry_v1",
+        upgrade_commercial_registry_v1,
+    ),
+    Migration(
+        "0050_global_identity_membership_v1",
+        upgrade_global_identity_membership_v1,
+    ),
+    Migration(
+        "0051_commercial_catalog_v1",
+        upgrade_commercial_catalog_v1,
+    ),
+    Migration(
+        "0052_commercial_entitlement_v1",
+        upgrade_commercial_entitlement_v1,
+    ),
+    Migration(
+        "0053_commercial_provisioning_v1",
+        upgrade_commercial_provisioning_v1,
+    ),
+    Migration(
+        "0054_commercial_signup_v1",
+        upgrade_commercial_signup_v1,
+    ),
+    Migration(
+        "0055_commercial_trial_v1",
+        upgrade_commercial_trial_v1,
+    ),
+    Migration(
+        "0056_commercial_subscription_v1",
+        upgrade_commercial_subscription_v1,
+    ),
+    Migration(
+        "0057_commercial_billing_config_v1",
+        upgrade_commercial_billing_config_v1,
+    ),
+    Migration(
+        "0058_commercial_billing_events_v1",
+        upgrade_commercial_billing_events_v1,
+    ),
+    Migration(
+        "0059_operational_session_persistence_v1",
+        upgrade_operational_session_persistence_v1,
+    ),
+    Migration(
+        "0060_admin_unit_legacy_store_reconciliation_v1",
+        upgrade_admin_unit_legacy_store_reconciliation_v1,
+    ),
+    Migration(
+        "0064_password_recovery_v1",
+        upgrade_password_recovery_v1,
+    ),
+    Migration(
+        "0065_google_federated_identity_v1",
+        upgrade_google_federated_identity_v1,
+    ),
+    Migration(
+        "0066_commercial_billing_transaction_identity_v1",
+        upgrade_commercial_billing_transaction_identity_v1,
+    ),
+    Migration(
+        "0067_commercial_billing_provider_legal_entity_v1",
+        upgrade_commercial_billing_provider_legal_entity_v1,
+    ),
+    Migration(
+        "0068_campaign_organic_media_v1",
+        upgrade_campaign_organic_media_v1,
+    ),
+    Migration("0069_delivery_route_limit_v1", upgrade_delivery_route_limit_v1),
+    Migration(
+        "0070_ai_franchise_budget_v1",
+        upgrade_ai_franchise_budget_v1,
+        revert_ai_franchise_budget_v1,
+    ),
 )
 
 
@@ -320,7 +479,7 @@ def _assert_requested_sequence(
 def _record_applied(connection: Connection, migration: Migration) -> None:
     values: dict[str, object] = {
         "version": migration.version,
-        "applied_at": datetime.now(timezone.utc),
+        "applied_at": datetime.now(UTC),
     }
     columns = {
         str(column["name"])
@@ -370,6 +529,9 @@ def run_migrations(
     if strict_history:
         assert_migration_manifest(ordered)
 
+    # Import diferido para evitar ciclos na inicialização de migrations.
+    from infra.legacy_product_scope import invalidar_cache_reflexao_legada
+
     applied_now: list[str] = []
     with engine.begin() as connection:
         already = set(applied_versions(connection))
@@ -410,6 +572,7 @@ def run_migrations(
             already.add(migration.version)
             if applied_sqlite_now:
                 applied_now.append(migration.version)
+                invalidar_cache_reflexao_legada(engine)
             continue
         with engine.begin() as connection:
             current = set(applied_versions(connection))
@@ -419,6 +582,7 @@ def run_migrations(
             _record_applied(connection, migration)
         already.add(migration.version)
         applied_now.append(migration.version)
+        invalidar_cache_reflexao_legada(engine)
 
     if strict_history:
         with engine.begin() as connection:
@@ -460,4 +624,7 @@ def rollback_migration(engine: Engine, version: str) -> str:
         connection.execute(
             delete(_schema_migrations).where(_schema_migrations.c.version == version)
         )
+    from infra.legacy_product_scope import invalidar_cache_reflexao_legada
+
+    invalidar_cache_reflexao_legada(engine)
     return version

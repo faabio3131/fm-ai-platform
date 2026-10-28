@@ -3,8 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 
 from .modelos import ErroConfiguracaoServico, normalizar_identificador
+
+
+class EscopoGestaoIntegracao(StrEnum):
+    TENANT_MANAGED = "tenant_managed"
+    PLATFORM_MANAGED = "platform_managed"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -13,6 +19,7 @@ class EspecificacaoServico:
     provedor: str
     parametros_obrigatorios: frozenset[str]
     credenciais_obrigatorias: frozenset[str]
+    escopo_gestao: EscopoGestaoIntegracao = EscopoGestaoIntegracao.TENANT_MANAGED
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -48,6 +55,12 @@ class CatalogoServicosExternos:
             for chave in sorted(self._itens, key=lambda item: (item[0], item[1]))
         )
 
+    def listar_por_escopo(
+        self,
+        escopo: EscopoGestaoIntegracao,
+    ) -> tuple[EspecificacaoServico, ...]:
+        return tuple(item for item in self.listar() if item.escopo_gestao is escopo)
+
 
 CATALOGO_V1 = CatalogoServicosExternos(
     (
@@ -76,14 +89,9 @@ CATALOGO_V1 = CatalogoServicosExternos(
             ),
         ),
         EspecificacaoServico(
-            servico="mensageria.whatsapp",
-            provedor="evolution",
-            parametros_obrigatorios=frozenset({"base_url", "webhook_url"}),
-            credenciais_obrigatorias=frozenset({"api_key", "webhook_token"}),
-        ),
-        EspecificacaoServico(
             servico="mapas",
             provedor="google_maps",
+            escopo_gestao=EscopoGestaoIntegracao.PLATFORM_MANAGED,
             # O adapter executável usa apenas idioma e país como parâmetros
             # públicos. Endereço de origem pertence ao contexto de cada rota e
             # moeda não participa de geocodificação/Routes API; mantê-los como
@@ -106,8 +114,38 @@ CATALOGO_V1 = CatalogoServicosExternos(
             credenciais_obrigatorias=frozenset({"access_token", "webhook_secret"}),
         ),
         EspecificacaoServico(
+            servico="marketplace.pedidos",
+            provedor="ifood",
+            parametros_obrigatorios=frozenset(),
+            credenciais_obrigatorias=frozenset({"client_id", "client_secret"}),
+        ),
+        EspecificacaoServico(
+            servico="marketplace.pedidos",
+            provedor="keeta",
+            parametros_obrigatorios=frozenset(),
+            credenciais_obrigatorias=frozenset({"client_id", "client_secret"}),
+        ),
+        EspecificacaoServico(
+            servico="fiscal.documentos",
+            provedor="sefaz",
+            parametros_obrigatorios=frozenset(
+                {"signer_kind", "signing_algorithm", "adapter_version"}
+            ),
+            credenciais_obrigatorias=frozenset(
+                {"certificate_pfx", "certificate_password"}
+            ),
+        ),
+        EspecificacaoServico(
+            servico="ia.generativa",
+            provedor="openai",
+            escopo_gestao=EscopoGestaoIntegracao.PLATFORM_MANAGED,
+            parametros_obrigatorios=frozenset({"model"}),
+            credenciais_obrigatorias=frozenset({"api_key"}),
+        ),
+        EspecificacaoServico(
             servico="ia.generativa",
             provedor="gemini",
+            escopo_gestao=EscopoGestaoIntegracao.PLATFORM_MANAGED,
             # O runtime Gemini baseado em API key usa somente o modelo como
             # configuração pública efetivamente consumida. Exigir ``region`` aqui
             # criava um campo morto: o control plane o marcava como obrigatório,

@@ -14,7 +14,12 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from core.integracoes.google_maps import ConfiguracaoGoogleMaps, GoogleMapsAdapter
+from core.integracoes.google_maps import (
+    ConfiguracaoGoogleMaps,
+    ErroGoogleMaps,
+    ErroGoogleMapsTransitorio,
+    GoogleMapsAdapter,
+)
 from core.integracoes.modelos import ErroConfiguracaoServico
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.segredos import SecretStore
@@ -25,6 +30,54 @@ from .transportes import RequestsGoogleMapsTransport
 
 _ORIGEM = "Avenida Paulista, 1578, Sao Paulo - SP"
 _DESTINO = "Praca da Se, Sao Paulo - SP"
+
+
+def _classificar_falha_google_maps(exc: Exception) -> str:
+    """Converte falhas externas em códigos sanitizados e acionáveis."""
+
+    texto = str(exc).casefold()
+
+    if isinstance(exc, ErroGoogleMapsTransitorio):
+        if "429" in texto:
+            return "google_maps_quota_ou_faturamento"
+        if any(codigo in texto for codigo in ("500", "502", "503", "504")):
+            return "google_maps_provedor_indisponivel"
+        return "google_maps_timeout_ou_transporte"
+
+    if isinstance(exc, ErroGoogleMaps):
+        if "http 401" in texto:
+            return "google_maps_server_key_invalida"
+        if "http 403" in texto:
+            return "google_maps_server_key_sem_permissao"
+        if "http 404" in texto:
+            return "google_maps_api_indisponivel"
+        if "http 429" in texto:
+            return "google_maps_quota_ou_faturamento"
+        if "geocodificacao google maps: billing_not_enabled" in texto:
+            return "google_maps_billing_nao_ativo"
+        if "geocodificacao google maps: api_key_invalid" in texto:
+            return "google_maps_server_key_invalida"
+        if "geocodificacao google maps: api_not_authorized" in texto:
+            return "google_maps_geocoding_nao_autorizado"
+        if "geocodificacao google maps: application_restriction" in texto:
+            return "google_maps_server_key_restricao_aplicacao"
+        if "geocodificacao google maps: request_denied" in texto:
+            return "google_maps_geocoding_rejeitado"
+        if "geocodificacao google maps: over_query_limit" in texto:
+            return "google_maps_quota_ou_faturamento"
+        if "geocodificacao google maps: invalid_request" in texto:
+            return "google_maps_geocoding_requisicao_invalida"
+        if "resposta de rota incompleta" in texto:
+            return "google_maps_routes_resposta_invalida"
+        if "payload invalido" in texto:
+            return "google_maps_resposta_invalida"
+        return "google_maps_requisicao_rejeitada"
+
+    if isinstance(exc, TimeoutError):
+        return "google_maps_timeout"
+    if isinstance(exc, ConnectionError):
+        return "google_maps_transporte_indisponivel"
+    return "google_maps_healthcheck_externo_falhou"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -151,7 +204,7 @@ def executar_healthcheck_google_maps(
         destino = adapter.geocodificar(_DESTINO)
         rota = adapter.calcular_rota(origem=origem.coordenada, destino=destino.coordenada)
     except Exception as exc:
-        raise ErroConfiguracaoServico("google_maps_healthcheck_externo_falhou") from exc
+        raise ErroConfiguracaoServico(_classificar_falha_google_maps(exc)) from exc
 
     if rota.distancia_metros <= 0 or rota.duracao_segundos <= 0:
         raise ErroConfiguracaoServico("google_maps_healthcheck_resposta_invalida")

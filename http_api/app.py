@@ -19,6 +19,7 @@ from application.assistente_channel_runtime import RuntimeCanalWhatsAppV1
 from application.assistente_operational_notifications import (
     notificar_status_assistente_best_effort,
 )
+from application.commercial_billing import BillingProviderAdapterRegistryV1
 from application.finalizacao_pagamento import FinalizacaoPagamentoInvalida
 from application.gerente_ia_runtime import PlanejadorLLM, compor_runtime_gerente_ia
 from application.gerente_ia_transacoes import (
@@ -31,6 +32,7 @@ from application.pagbank import (
     PagBankAplicacaoInvalida,
     processar_webhook_pagbank,
 )
+from application.password_recovery import PasswordRecoveryDispatcher
 from application.pdv_legacy_projection import ProjecaoLegadaInvalida
 from core.gerente_ia.erros import ErroGerenteIA
 from core.gerente_ia.modelos import ChamadaTool
@@ -48,11 +50,17 @@ from core.seguranca.erros import (
     SegredoAusente,
 )
 from core.seguranca.segredos import ReferenceSecretStore, SecretStore
+from http_api.assistente_simulador_homologacao import build_assistente_simulador_router
 from http_api.auth import AuthSessionRuntime, build_auth_router
 from http_api.catalogo import build_catalogo_router
+from http_api.commercial_billing_webhooks import build_commercial_billing_webhook_router
+from http_api.estoque import build_estoque_router
 from http_api.kds import build_kds_router
 from http_api.pdv import build_pdv_router
 from http_api.salao import build_salao_router
+from infra.comercial.transactional_email import (
+    build_password_recovery_dispatcher_from_env,
+)
 from infra.integracoes.fabrica_adapters import FabricaAdaptersExternos
 from infra.pagamentos.pagbank_runtime import (
     CredencialPagBankNaoConfigurada,
@@ -116,6 +124,8 @@ def build_http_app(
     whatsapp_secret_store_factory: Callable[[Session], SecretStore] | None = None,
     whatsapp_runtime: RuntimeCanalWhatsAppV1 | None = None,
     auth_runtime: AuthSessionRuntime | None = None,
+    commercial_billing_adapter_registry: BillingProviderAdapterRegistryV1 | None = None,
+    password_recovery_dispatcher: PasswordRecoveryDispatcher | None = None,
 ) -> FastAPI:
     settings = settings or load_runtime_settings()
     engine = engine or build_engine(settings)
@@ -129,6 +139,13 @@ def build_http_app(
         or (lambda session: EncryptedSQLAlchemySecretStore(session))
     )
     canal_whatsapp = whatsapp_runtime or RuntimeCanalWhatsAppV1(session_factory)
+    password_recovery_dispatcher = (
+        password_recovery_dispatcher
+        or build_password_recovery_dispatcher_from_env(
+            secret_store=secret_store,
+            required=False,
+        )
+    )
 
     app = FastAPI(
         title="F&M Gerente AI — Integration API",
@@ -147,12 +164,27 @@ def build_http_app(
             settings=settings,
             secret_store=secret_store,
             runtime=auth_runtime,
+            password_recovery_dispatcher=password_recovery_dispatcher,
         )
     )
     app.include_router(
         build_catalogo_router(
             session_factory=session_factory,
             auth_runtime=auth_runtime,
+        )
+    )
+    app.include_router(
+        build_assistente_simulador_router(
+            session_factory=session_factory,
+            auth_runtime=auth_runtime,
+            secret_store_factory=whatsapp_secret_store_factory,
+        )
+    )
+    app.include_router(
+        build_estoque_router(
+            session_factory=session_factory,
+            auth_runtime=auth_runtime,
+            whatsapp_secret_store_factory=whatsapp_secret_store_factory,
         )
     )
     app.include_router(
@@ -173,6 +205,13 @@ def build_http_app(
             auth_runtime=auth_runtime,
         )
     )
+    app.include_router(
+        build_commercial_billing_webhook_router(
+            session_factory=session_factory,
+            adapter_registry=commercial_billing_adapter_registry,
+            fallback_secret_store=secret_store,
+        )
+    )
 
     @app.get("/healthz", include_in_schema=False)
     def healthz() -> JSONResponse:
@@ -183,13 +222,13 @@ def build_http_app(
         )
 
     def _contexto_whatsapp(
-        *, tenant_id: str, unidade_id: str, correlation_id: str, provedor: str = "meta"
+        *, tenant_id: str, unidade_id: str, correlation_id: str
     ) -> ContextoExecucao:
         if not tenant_id.strip() or not unidade_id.strip():
             raise ValueError("escopo_whatsapp_invalido")
         return ContextoExecucao.sistema(
-            identidade=f"{provedor}-whatsapp-webhook-v1",
-            motivo=f"webhook {provedor}/WhatsApp escopado por tenant e unidade",
+            identidade="meta-whatsapp-webhook-v1",
+            motivo="webhook Meta/WhatsApp escopado por tenant e unidade",
             tenant_id=tenant_id,
             unidade_id=unidade_id,
             correlation_id=correlation_id,
@@ -268,53 +307,6 @@ def build_http_app(
                     contexto=contexto,
                     configuracao_id="mensageria.whatsapp--meta",
                 )
-                mensagens = adapter.extrair_mensagens_whatsapp(
-                    payload_bruto=payload_bruto,
-                    assinatura=assinatura,
-                )
-                for mensagem in mensagens:
-                    canal_whatsapp.processar_mensagem(
-                        tenant_id=tenant_id,
-                        unidade_id=unidade_id,
-                        mensagem=mensagem,
-                        adapter=adapter,
-                    )
-            return Response(status_code=status.HTTP_204_NO_CONTENT)
-        except ErroProvedorExterno:
-            return Response(status_code=status.HTTP_401_UNAUTHORIZED)
-        except ErroConfiguracaoServico:
-            return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
-        except Exception:  # noqa: BLE001 - fronteira externa fail-closed
-            return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
-
-    @app.post(
-        "/webhooks/evolution/whatsapp/{tenant_id}/{unidade_id}",
-        include_in_schema=False,
-    )
-    async def webhook_whatsapp_evolution(
-        tenant_id: str,
-        unidade_id: str,
-        request: Request,
-    ) -> Response:
-        payload_bruto = await request.body()
-        if len(payload_bruto) > _MAX_WEBHOOK_BYTES:
-            return Response(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
-        assinatura = request.headers.get("x-kordena-evolution-auth", "").strip()
-        if not assinatura:
-            return Response(status_code=status.HTTP_401_UNAUTHORIZED)
-        try:
-            contexto = _contexto_whatsapp(
-                tenant_id=tenant_id,
-                unidade_id=unidade_id,
-                provedor="evolution",
-                correlation_id=request.headers.get("x-correlation-id")
-                or f"evo:{tenant_id}:{unidade_id}",
-            )
-            with session_factory() as session:
-                adapter = FabricaAdaptersExternos(
-                    session=session,
-                    secret_store=whatsapp_secret_store_factory(session),
-                ).evolution(contexto=contexto)
                 mensagens = adapter.extrair_mensagens_whatsapp(
                     payload_bruto=payload_bruto,
                     assinatura=assinatura,

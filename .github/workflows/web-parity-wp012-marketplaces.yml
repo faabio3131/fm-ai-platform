@@ -1,0 +1,107 @@
+name: Web Parity WP012 Marketplaces
+
+on:
+  push:
+    branches:
+      - feat/web-parity-v1-total-original-migration
+    paths:
+      - 'application/marketplaces_web.py'
+      - 'core/integracoes/catalogo.py'
+      - 'core/marketplaces/**'
+      - 'infra/marketplaces/**'
+      - 'http_api/marketplaces_web.py'
+      - 'http_api/frontend_app.py'
+      - 'migrations/marketplace_orders_web_v1.py'
+      - 'migrations/runner.py'
+      - 'migrations/manifest_v1.json'
+      - 'web/src/features/orders/**'
+      - 'web/src/features/backoffice/integracoes/**'
+      - 'http_api/admin_integracoes.py'
+      - 'tests/integration/marketplaces/**'
+      - 'tests/unit/marketplaces/**'
+      - 'tests/contract/marketplaces/**'
+      - 'tests/e2e-marketplace/**'
+      - 'docs/web-parity/**'
+      - '.github/workflows/web-parity-wp012-marketplaces.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wp012:
+    name: WP012 marketplace Web gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+
+      - name: Compile WP012
+        run: |
+          python -m py_compile             application/marketplaces_web.py             http_api/marketplaces_web.py             infra/marketplaces/modelos_orm.py             infra/marketplaces/repositorio_sqlalchemy.py             migrations/marketplace_orders_web_v1.py
+
+      - name: Ruff WP012
+        run: |
+          ruff check             application/marketplaces_web.py             core/integracoes/catalogo.py             core/marketplaces             infra/marketplaces             http_api/marketplaces_web.py             tests/integration/marketplaces
+
+      - name: Mypy WP012
+        run: |
+          mypy             application/marketplaces_web.py             core/marketplaces             infra/marketplaces             http_api/marketplaces_web.py
+
+      - name: Migration manifest
+        run: |
+          python - <<'PY'
+          from migrations.manifest import assert_migration_manifest
+          from migrations.runner import DEFAULT_MIGRATIONS
+          assert_migration_manifest(DEFAULT_MIGRATIONS)
+          print("migration manifest: OK")
+          PY
+
+      - name: WP012 targeted matrix
+        run: |
+          pytest -q             tests/integration/marketplaces             tests/unit/marketplaces             tests/contract/marketplaces             tests/e2e-marketplace             tests/api/test_central_pedidos_http_contract.py             tests/api/test_admin_integracoes_http_contract.py
+
+      - name: Full Python regression
+        run: pytest -q
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: ESLint WP012
+        working-directory: web
+        run: |
+          npx eslint             src/features/orders/components/OrdersCenterWorkspace.tsx             src/features/orders/components/MarketplaceChannelPanel.tsx             src/features/orders/services/orders-api.ts             src/features/orders/services/marketplaces-api.ts             src/features/backoffice/integracoes/components/IntegracoesWorkspace.tsx
+
+      - name: TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Web related tests
+        working-directory: web
+        run: node --test tests/backoffice-navigation.test.mjs
+
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+
+      - name: Diff whitespace gate
+        run: git diff --check HEAD~1..HEAD

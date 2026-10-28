@@ -1,5 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
 import {
   Building2,
   CircleDollarSign,
@@ -14,6 +17,7 @@ import {
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { CatalogoTable } from "@/features/backoffice/catalogo/components/CatalogoTable";
+import { FichaTecnicaWorkspace } from "@/features/backoffice/catalogo/components/FichaTecnicaWorkspace";
 import { NovoProdutoModal } from "@/features/backoffice/catalogo/components/NovoProdutoModal";
 import {
   CatalogoApiError,
@@ -38,6 +42,12 @@ function describeError(error: unknown): string {
 
 export function CatalogoWorkspace() {
   const auth = useAuthStore();
+  const pathname = usePathname();
+  const adminSurface = pathname.startsWith("/admin/");
+  const canAdminister =
+    adminSurface &&
+    auth.permissions.includes("admin.acessar") &&
+    auth.permissions.includes("configuracao.alterar");
   const [produtos, setProdutos] = useState<CatalogoProduto[]>([]);
   const [categorias, setCategorias] = useState<string[]>([]);
   const [unidades, setUnidades] = useState<AuthUnit[]>([]);
@@ -136,23 +146,23 @@ export function CatalogoWorkspace() {
     <main className="min-h-screen bg-slate-950 text-slate-100">
       <div className="pointer-events-none fixed inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.12),transparent_60%)]" />
 
-      <div className="relative mx-auto w-full max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-        <header className="mb-6 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+      <div className="relative mx-auto w-full max-w-[1500px] px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
+        <header className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <div className="mb-3 flex flex-wrap items-center gap-2">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-400/20 bg-sky-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-200">
                 <Sparkles className="size-3" />
-                Kordena Backoffice
+                {adminSurface ? "Kordena Backoffice" : "Operação · Consulta"}
               </span>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/[0.08] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-200">
                 <ShieldCheck className="size-3" />
                 Sessão protegida
               </span>
             </div>
-            <h1 className="text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl">
+            <h1 className="text-xl font-semibold tracking-[-0.03em] text-white sm:text-2xl">
               Catálogo & Cardápio
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+            <p className="mt-1 max-w-2xl text-sm leading-5 text-slate-400">
               Gestão operacional do portfólio da unidade ativa, com disponibilidade em tempo real e contratos canônicos do Kordena V1.
             </p>
           </div>
@@ -167,21 +177,29 @@ export function CatalogoWorkspace() {
               <RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} />
               Atualizar
             </button>
-            <button
-              type="button"
-              onClick={() => setModalOpen(true)}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-950/30 transition hover:bg-sky-400 active:scale-[0.98]"
-            >
-              <Plus className="size-4" />
-              Novo produto
-            </button>
+            {canAdminister ? (
+              <button
+                type="button"
+                onClick={() => setModalOpen(true)}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-950/30 transition hover:bg-sky-400 active:scale-[0.98]"
+              >
+                <Plus className="size-4" />
+                Novo produto
+              </button>
+            ) : auth.permissions.includes("admin.acessar") ? (
+              <Link href="/admin/catalogo" className="inline-flex h-10 items-center justify-center rounded-xl border border-amber-300/20 bg-amber-400/[0.07] px-4 text-sm font-semibold text-amber-100">
+                Abrir gestão protegida
+              </Link>
+            ) : (
+              <span className="inline-flex h-10 items-center rounded-xl border border-emerald-300/15 bg-emerald-400/[0.06] px-4 text-xs font-bold text-emerald-200">Consulta operacional</span>
+            )}
           </div>
         </header>
 
-        <section className="mb-6 grid gap-3 lg:grid-cols-[1.25fr_repeat(3,minmax(0,1fr))]">
-          <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-4 shadow-xl shadow-black/10 backdrop-blur-xl">
+        <section className="mb-4 grid gap-2.5 lg:grid-cols-[1.25fr_repeat(3,minmax(0,1fr))]">
+          <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-3 shadow-xl shadow-black/10 backdrop-blur-xl">
             <div className="flex items-start gap-3">
-              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5 text-sky-300">
+              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2 text-sky-300">
                 <Building2 className="size-5" />
               </div>
               <div className="min-w-0">
@@ -236,7 +254,7 @@ export function CatalogoWorkspace() {
         ) : null}
 
         {loading ? (
-          <div className="flex min-h-72 items-center justify-center rounded-3xl border border-white/10 bg-zinc-900/60">
+          <div className="flex min-h-44 items-center justify-center rounded-3xl border border-white/10 bg-zinc-900/60">
             <div className="flex items-center gap-3 text-sm text-slate-400">
               <LoaderCircle className="size-5 animate-spin text-sky-300" />
               Carregando catálogo da unidade…
@@ -248,16 +266,28 @@ export function CatalogoWorkspace() {
             categorias={categorias}
             updatingIds={updatingIds}
             onToggleAtivo={(produto, ativo) => void handleToggleAtivo(produto, ativo)}
+            readOnly={!canAdminister}
           />
         )}
+
+        {!loading && canAdminister ? (
+          <FichaTecnicaWorkspace
+            produtos={produtos}
+            categorias={categorias}
+            onCreated={handleCreated}
+            onImported={() => void carregar(true)}
+          />
+        ) : null}
       </div>
 
-      <NovoProdutoModal
-        open={modalOpen}
-        categorias={categorias}
-        onClose={() => setModalOpen(false)}
-        onCreated={handleCreated}
-      />
+      {canAdminister ? (
+        <NovoProdutoModal
+          open={modalOpen}
+          categorias={categorias}
+          onClose={() => setModalOpen(false)}
+          onCreated={handleCreated}
+        />
+      ) : null}
     </main>
   );
 }
@@ -276,14 +306,14 @@ function MetricCard({
   mono?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-4 shadow-xl shadow-black/10 backdrop-blur-xl">
+    <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-3 shadow-xl shadow-black/10 backdrop-blur-xl">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
             {label}
           </p>
           <p
-            className={`mt-2 text-xl font-semibold tracking-tight text-white ${
+            className={`mt-1 text-lg font-semibold tracking-tight text-white ${
               mono ? "font-mono tabular-nums" : "tabular-nums"
             }`}
           >
@@ -291,7 +321,7 @@ function MetricCard({
           </p>
           <p className="mt-1 text-[11px] text-slate-500">{detail}</p>
         </div>
-        <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5 text-slate-400">
+        <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2 text-slate-400">
           {icon}
         </div>
       </div>

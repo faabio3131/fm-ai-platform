@@ -13,16 +13,16 @@ const SheetClose = SheetPrimitive.Close;
 const SheetPortal = SheetPrimitive.Portal;
 
 function SheetOverlay({ className, ...props }: React.ComponentProps<typeof SheetPrimitive.Overlay>) {
-  return <SheetPrimitive.Overlay className={cn("fixed inset-0 z-50 bg-black/60", className)} {...props} />;
+  return <SheetPrimitive.Overlay className={cn("fixed inset-0 z-50 bg-[#020710]/82 backdrop-blur-md", className)} {...props} />;
 }
 
-const sheetVariants = cva("fixed z-50 gap-4 bg-background p-6 shadow-lg transition", {
+const sheetVariants = cva("fixed z-50 gap-4 border-slate-600/45 bg-[linear-gradient(160deg,#0f1e33,#081421)] p-6 text-slate-100 shadow-[0_32px_90px_-32px_rgba(0,0,0,0.92)] transition", {
   variants: {
     side: {
-      top: "inset-x-0 top-0 border-b",
-      bottom: "inset-x-0 bottom-0 border-t",
-      left: "inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm",
-      right: "inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm",
+      top: "inset-x-0 top-0 rounded-b-3xl border-b",
+      bottom: "inset-x-0 bottom-0 rounded-t-3xl border-t",
+      left: "inset-y-0 left-0 h-full w-[88%] border-r sm:max-w-md",
+      right: "inset-y-0 right-0 h-full w-[88%] border-l sm:max-w-md",
     },
   },
   defaultVariants: { side: "right" },
@@ -34,7 +34,7 @@ function SheetContent({ className, children, side = "right", ...props }: React.C
       <SheetOverlay />
       <SheetPrimitive.Content className={cn(sheetVariants({ side }), className)} {...props}>
         {children}
-        <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 outline-none hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring">
+        <SheetPrimitive.Close className="absolute right-4 top-4 rounded-xl p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
           <X className="size-4" />
           <span className="sr-only">Fechar</span>
         </SheetPrimitive.Close>

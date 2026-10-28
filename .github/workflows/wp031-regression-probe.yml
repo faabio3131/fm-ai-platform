@@ -1,0 +1,37 @@
+name: WP-031 Regression Probe
+
+# Manual diagnostic only; this workflow is not a certification gate.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Capture first Python regression failure
+        shell: bash
+        run: |
+          set +e
+          pytest -q --maxfail=1 > wp031-regression-probe.txt 2>&1
+          code=$?
+          echo "exit_code=$code" >> wp031-regression-probe.txt
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wp031-regression-probe
+          path: wp031-regression-probe.txt
+          if-no-files-found: error

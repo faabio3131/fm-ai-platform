@@ -46,7 +46,7 @@ export function ProductCatalog({ products, loading = false }: ProductCatalogProp
   }, [activeCategory, products, search]);
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col gap-4">
+    <section className="flex min-h-0 flex-1 flex-col gap-2.5">
       <div className="relative">
         <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -54,7 +54,7 @@ export function ProductCatalog({ products, loading = false }: ProductCatalogProp
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Buscar produto, código ou categoria"
-          className="h-14 rounded-xl bg-card pl-12 pr-4 text-base shadow-sm"
+          className="h-11 rounded-xl bg-card pl-11 pr-4 text-sm shadow-sm"
           aria-label="Buscar produtos do catálogo"
         />
       </div>
@@ -68,7 +68,7 @@ export function ProductCatalog({ products, loading = false }: ProductCatalogProp
               type="button"
               onClick={() => setActiveCategory(category)}
               className={cn(
-                "min-h-12 shrink-0 rounded-xl border px-5 text-sm font-semibold transition active:scale-[0.98]",
+                "min-h-10 shrink-0 rounded-xl border px-4 text-sm font-semibold transition active:scale-[0.98]",
                 active
                   ? "border-primary bg-primary text-primary-foreground shadow-sm"
                   : "bg-card text-foreground hover:bg-muted",
@@ -84,11 +84,11 @@ export function ProductCatalog({ products, loading = false }: ProductCatalogProp
         {loading ? (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, index) => (
-              <div key={index} className="h-36 animate-pulse rounded-2xl border bg-card" />
+              <div key={index} className="h-28 animate-pulse rounded-2xl border bg-card" />
             ))}
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div className="flex min-h-64 items-center justify-center rounded-2xl border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
+          <div className="flex min-h-40 items-center justify-center rounded-2xl border border-dashed bg-card p-6 text-center text-sm text-muted-foreground">
             Nenhum produto disponível para este filtro.
           </div>
         ) : (
@@ -98,7 +98,7 @@ export function ProductCatalog({ products, loading = false }: ProductCatalogProp
                 key={product.id}
                 type="button"
                 onClick={() => cartActions.addItem(product)}
-                className="group flex min-h-36 flex-col justify-between rounded-2xl border bg-card p-4 text-left shadow-sm transition hover:border-primary/50 hover:shadow-md active:scale-[0.985]"
+                className="group flex min-h-28 flex-col justify-between rounded-2xl border bg-card p-3 text-left shadow-sm transition hover:border-primary/50 hover:shadow-md active:scale-[0.985]"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">

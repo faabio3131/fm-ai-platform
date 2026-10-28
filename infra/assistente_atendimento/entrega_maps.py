@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from uuid import NAMESPACE_URL, uuid5
 
 from sqlalchemy.orm import Session
@@ -15,6 +16,7 @@ from core.integracoes.google_maps import ErroGoogleMaps
 from core.integracoes.modelos import ErroConfiguracaoServico
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.segredos import SecretStore
+from infra.delivery.alcance_sqlalchemy import obter_alcance
 from infra.delivery.politica_sqlalchemy import RepositorioPoliticaEntregaSQLAlchemy
 from infra.integracoes.fabrica_adapters import FabricaAdaptersExternos
 from infra.integracoes.repositorio_sqlalchemy import (
@@ -44,6 +46,19 @@ def _configuracao_maps_id(
     if len(candidatas) != 1:
         raise ErroConfiguracaoServico("google_maps_configuracao_ambigua")
     return candidatas[0].configuracao_id
+
+
+def _exigir_numero_entrega_confirmado(endereco_texto: str, numero_maps: str | None) -> None:
+    """Exige número explícito e idêntico ao geocodificado; nunca presume precisão."""
+    numero_informado = re.search(
+        r"(?:^|[,;])\s*(?:n[uú]mero\s*|n[º°.]?\s*)?(\d{1,6})(?=\s*[,;]|\s*$)",
+        endereco_texto,
+        flags=re.IGNORECASE,
+    )
+    if numero_informado is None:
+        raise ErroGoogleMaps("numero_entrega_nao_informado_em_campo_inequivoco")
+    if str(numero_maps or "").strip() != numero_informado.group(1):
+        raise ErroGoogleMaps("numero_entrega_nao_confirmado_pela_geocodificacao")
 
 
 class CotadorEntregaAssistenteGoogleMaps:
@@ -101,6 +116,10 @@ class CotadorEntregaAssistenteGoogleMaps:
         if destino_geo.cep is None or cep_normalizado(destino_geo.cep) != cep:
             raise ErroGoogleMaps("cep nao confirmado pela geocodificacao")
 
+        # Não converter correspondência aproximada em validação de domicílio.
+        # CEP e rua corretos não provam que o Maps encontrou o número solicitado.
+        _exigir_numero_entrega_confirmado(endereco_texto, destino_geo.numero)
+
         componentes = (
             destino_geo.logradouro,
             destino_geo.numero,
@@ -134,10 +153,17 @@ class CotadorEntregaAssistenteGoogleMaps:
             unidade_id=contexto.unidade_id,
             cep=endereco.cep,
         )
-        rota = maps.calcular_rota(
-            origem=origem_geo.coordenada,
-            destino=destino_geo.coordenada,
-        )
+        try:
+            rota = maps.calcular_rota(
+                origem=origem_geo.coordenada,
+                destino=destino_geo.coordenada,
+            )
+        except ErroGoogleMaps as exc:
+            raise ErroDelivery("rota_indisponivel_exige_gestor_entregador") from exc
+        alcance = obter_alcance(self._session, tenant_id=contexto.tenant_id, unidade_id=contexto.unidade_id)
+        if alcance is None:
+            raise ErroDelivery("alcance_entrega_nao_configurado")
+        alcance.validar_rota(rota.distancia_metros)
 
         return CotacaoEntregaAtendimento(
             endereco_formatado=destino_geo.endereco_formatado,

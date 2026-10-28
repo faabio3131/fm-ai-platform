@@ -12,8 +12,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from application.impressao_composicao import montar_integracao_impressao_kds
+from application.kds_roteamento import listar_itens_pendentes
 from application.kds_runtime import ServicoKDSCanonico
-from application.kds_transacoes import transicionar_kds_v1
+from application.kds_transacoes import rotear_item_kds_v1, transicionar_kds_v1
+from core.estados.maquinas import ErroTransicao
 from core.kds.erros import ErroKDS
 from core.kds.modelos import ItemFilaKDS, ProducaoItem, SetorProducao
 from core.pedidos.modelos_orm import ItemPedidoORM
@@ -92,6 +95,24 @@ class KDSFilaOut(BaseModel):
     motivo_degradacao: str | None
 
 
+class KDSRoteamentoItemOut(BaseModel):
+    pedido_id: str
+    pedido_item_id: str
+    nome_produto: str
+    quantidade: str
+    status_pedido: str
+
+
+class KDSRoteamentoPendenteOut(BaseModel):
+    itens: list[KDSRoteamentoItemOut]
+
+
+class KDSRoteamentoIn(BaseModel):
+    pedido_item_id: str = Field(min_length=1, max_length=64)
+    setor_id: str = Field(min_length=1, max_length=64)
+    prioridade: int = Field(default=0, ge=0, le=100)
+
+
 class KDSTransicaoIn(BaseModel):
     producao_id: str = Field(min_length=1, max_length=64)
     destino: DestinoKDS
@@ -165,11 +186,21 @@ def _erro_http(exc: Exception) -> JSONResponse:
             status_code=status.HTTP_403_FORBIDDEN,
             content={"erro": exc.codigo},
         )
+    if isinstance(exc, ErroTransicao):
+        codigo = exc.codigo
+        http_status = (
+            status.HTTP_403_FORBIDDEN
+            if "permissao" in codigo
+            else status.HTTP_409_CONFLICT
+        )
+        return JSONResponse(status_code=http_status, content={"erro": codigo})
     if isinstance(exc, ErroKDS):
         codigo = exc.codigo
         if codigo.endswith("_concorrente") or codigo in {
             "conflito_idempotencia",
             "conflito_transacional",
+            "roteamento_pendente_indisponivel",
+            "pedido_fora_fluxo_producao",
         }:
             http_status = status.HTTP_409_CONFLICT
         elif codigo in {
@@ -255,6 +286,104 @@ def build_kds_router(
                 )
                 setores = ServicoKDSCanonico(session).listar_setores(contexto)
                 return KDSSetoresOut(setores=[_setor_out(setor) for setor in setores])
+        except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
+            return _erro_http(exc)
+
+    @router.get(
+        "/roteamento-pendente",
+        response_model=KDSRoteamentoPendenteOut,
+    )
+    def listar_roteamento_pendente(
+        request: Request,
+    ) -> KDSRoteamentoPendenteOut | JSONResponse:
+        try:
+            with session_factory() as session:
+                contexto = _contexto_kds(
+                    request,
+                    session,
+                    auth_runtime=auth_runtime,
+                )
+                itens = listar_itens_pendentes(session, contexto)
+                return KDSRoteamentoPendenteOut(
+                    itens=[
+                        KDSRoteamentoItemOut(
+                            pedido_id=item.pedido_id,
+                            pedido_item_id=item.pedido_item_id,
+                            nome_produto=item.nome_produto,
+                            quantidade=str(item.quantidade),
+                            status_pedido=item.status_pedido,
+                        )
+                        for item in itens
+                    ]
+                )
+        except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
+            return _erro_http(exc)
+
+    @router.post("/rotear", response_model=KDSTransicaoOut)
+    def rotear_item(
+        payload: KDSRoteamentoIn,
+        request: Request,
+        idempotency_key: str = Header(
+            ...,
+            alias="Idempotency-Key",
+            min_length=1,
+            max_length=128,
+        ),
+    ) -> KDSTransicaoOut | JSONResponse:
+        try:
+            with session_factory() as session:
+                contexto = _contexto_kds(
+                    request,
+                    session,
+                    auth_runtime=auth_runtime,
+                )
+                pendentes = listar_itens_pendentes(session, contexto)
+                pendente = next(
+                    (
+                        item
+                        for item in pendentes
+                        if item.pedido_item_id == payload.pedido_item_id
+                    ),
+                    None,
+                )
+                if pendente is None:
+                    raise ErroKDS("roteamento_pendente_indisponivel")
+
+                setores = ServicoKDSCanonico(session).listar_setores(contexto)
+                if not any(
+                    setor.setor_id == payload.setor_id and setor.ativo
+                    for setor in setores
+                ):
+                    raise ErroKDS("setor_indisponivel")
+
+                pedido_id = pendente.pedido_id
+                quantidade = pendente.quantidade
+
+            integracao_impressao = montar_integracao_impressao_kds(
+                session_factory=session_factory,
+                contexto=contexto,
+            )
+            resultado = rotear_item_kds_v1(
+                session_factory=session_factory,
+                contexto=contexto,
+                pedido_id=pedido_id,
+                pedido_item_id=payload.pedido_item_id,
+                setor_id=payload.setor_id,
+                quantidade=quantidade,
+                idempotency_key=idempotency_key,
+                prioridade=payload.prioridade,
+                integracao_impressao=integracao_impressao,
+            )
+            return KDSTransicaoOut(
+                producao_id=resultado.item.producao_id,
+                pedido_id=resultado.item.pedido_id,
+                setor_id=resultado.item.setor_id,
+                status=resultado.item.status,
+                versao=resultado.item.versao,
+                pedido_status=resultado.pedido_status.value,
+                idempotente=resultado.idempotente,
+                atualizado_em=resultado.item.atualizado_em,
+            )
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _erro_http(exc)
 

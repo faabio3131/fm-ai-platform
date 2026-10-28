@@ -1,0 +1,71 @@
+name: Kordena Legacy Reflection Cache PostgreSQL Gate
+
+on:
+  pull_request:
+    branches:
+      - staging/kordena-premium
+    paths:
+      - infra/legacy_product_scope.py
+      - migrations/runner.py
+      - tests/integration/test_legacy_reflection_cache_capacity.py
+      - scripts/benchmark_legacy_reflection_pg.py
+      - .github/workflows/kordena-legacy-reflection-pg-gate.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  legacy-cache-pg16:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kordena_cache_bench
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d kordena_cache_bench"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pytest ruff mypy
+      - name: Quality and regression
+        env:
+          PYTHONPATH: .
+        run: |
+          ruff check infra/legacy_product_scope.py migrations/runner.py tests/integration/test_legacy_reflection_cache_capacity.py scripts/benchmark_legacy_reflection_pg.py
+          pytest -q tests/integration/test_legacy_reflection_cache_capacity.py
+      - name: PostgreSQL 16 query counts and latency benchmark
+        env:
+          PYTHONPATH: .
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/kordena_cache_bench
+        run: python scripts/benchmark_legacy_reflection_pg.py
+      - name: Publish evidence
+        if: always()
+        run: |
+          if test -f evidence/kordena-legacy-reflection-pg16.json; then
+            python -m json.tool evidence/kordena-legacy-reflection-pg16.json
+          fi
+      - name: Upload measurement evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kordena-legacy-cache-postgresql16
+          path: evidence/kordena-legacy-reflection-pg16.json
+          if-no-files-found: warn
+          retention-days: 14

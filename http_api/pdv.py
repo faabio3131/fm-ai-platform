@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
@@ -170,12 +171,14 @@ def _catalogo_ativo(
     *,
     tenant_id: str,
     unidade_id: str,
+    produto_ids: tuple[int, ...] | None = None,
 ) -> list[dict[str, Any]]:
     produtos: list[dict[str, Any]] = []
     for row in listar_produtos_legados(
         session,
         tenant_id=tenant_id,
         unidade_id=unidade_id,
+        produto_ids=produto_ids,
     ):
         produto = _mapping(row)
         if not _flag_ativo(produto):
@@ -230,6 +233,16 @@ def _montar_pedido(
     if payload.metodo_pagamento not in _METODOS_PDV:
         raise ValueError("metodo_pagamento_nao_suportado_no_pdv")
 
+    # Nunca varrer o cardápio inteiro para registrar uma venda com poucos
+    # itens. IDs inválidos permanecem indisponíveis, como antes.
+    product_ids: set[int] = set()
+    for item in payload.itens:
+        match = re.fullmatch(r"legacy:produto:(0|[1-9][0-9]*)", item.produto_id)
+        if match is not None and len(match.group(1)) <= 19:
+            numero = int(match.group(1))
+            if numero <= 9223372036854775807:
+                product_ids.add(numero)
+
     with session_factory() as session:
         catalogo = {
             str(item["id"]): item
@@ -237,6 +250,7 @@ def _montar_pedido(
                 session,
                 tenant_id=contexto.tenant_id,
                 unidade_id=contexto.unidade_id,
+                produto_ids=tuple(sorted(product_ids)),
             )
         }
 
@@ -292,7 +306,7 @@ def _montar_pedido(
         if not decisao.autorizado:
             raise PermissaoNegada(decisao.codigo)
 
-    agora = datetime.now(timezone.utc)
+    agora = datetime.now(UTC)
     return Pedido.novo(
         id=pedido_id,
         tenant_id=tenant,
@@ -491,7 +505,7 @@ def build_pdv_router(
             )
             comando = ComandoCheckoutV1(
                 pedido=pedido,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 pagamento_id=(
                     _stable_id("pay", key=key, sufixo="pagamento")
                     if pedido.total.valor > 0

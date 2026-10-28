@@ -1,0 +1,90 @@
+name: Kordena PDV Scoped Pedido SQL Regression
+
+on:
+  pull_request:
+    branches:
+      - staging/kordena-premium
+    paths:
+      - core/pedidos/adaptador_sqlalchemy.py
+      - tests/integration/orders/test_persistencia.py
+      - .github/workflows/kordena-pdv-pedido-sql-pg.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pedido-sql-pg16:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kordena_pdv_checkout_ab
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d kordena_pdv_checkout_ab"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pytest ruff
+      - name: Static quality and full checkout regression
+        env:
+          PYTHONPATH: .
+        run: |
+          ruff check core/pedidos/adaptador_sqlalchemy.py tests/integration/orders/test_persistencia.py
+          pytest -q tests/integration/orders/test_persistencia.py tests/api/test_pdv_http_contract.py
+      - name: Generate local temporary test identities
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os, secrets
+          from pathlib import Path
+          with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as out:
+              for key in ("FM_AI_SESSION_SECRET", "FM_AI_FMCC_CONTROL_PLANE_TOKEN", "KCA15_INTERNAL_PASSWORD"):
+                  value = secrets.token_urlsafe(48)
+                  print(f"::add-mask::{value}")
+                  out.write(f"{key}={value}\n")
+          PY
+      - name: Benchmark checkout SQL with scoped Pedido event existence
+        env:
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/kordena_pdv_checkout_ab
+          PYTHONPATH: .
+        run: |
+          python scripts/benchmark_pdv_checkout_ab_pg.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("evidence/kordena-pdv-checkout-ab-pg16.json").read_text())
+          before = report["scoped_ids"]["sql_count"]
+          print("PEDIDO_SCOPED_EVENT_SQL", before)
+          assert before and max(before) <= 56, "combined auth+pedido must reduce baseline 70 SQL to 56 or fewer"
+          PY
+      - name: Show measurements
+        if: always()
+        run: |
+          if test -f evidence/kordena-pdv-checkout-ab-pg16.json; then
+            python -m json.tool evidence/kordena-pdv-checkout-ab-pg16.json
+          fi
+      - name: Upload measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kordena-pdv-pedido-sql-postgres
+          path: evidence/kordena-pdv-checkout-ab-pg16.json
+          if-no-files-found: warn
+          retention-days: 14

@@ -36,10 +36,12 @@ from infra.administracao.repositorio_sqlalchemy import (
 from infra.integracoes.repositorio_sqlalchemy import (
     RepositorioConfiguracoesExternasSQLAlchemy,
 )
-from infra.legacy_product_scope import resolver_loja_id_legada
+from infra.legacy_product_scope import (
+    garantir_loja_legada_para_escopo,
+    resolver_loja_id_legada,
+)
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
 from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
-from infra.seguranca.modelos_orm import UsuarioSegurancaORM
 from infra.transacoes.uow import UnitOfWorkV1
 
 SessionFactory = Callable[[], Session]
@@ -334,6 +336,12 @@ class AplicacaoAdministracaoProprietarioV1:
             uow = UnitOfWorkV1.adotar_session(session)
             repo = RepositorioAdministracaoSQLAlchemy(session)
             criada = repo.criar_unidade(unidade)
+            garantir_loja_legada_para_escopo(
+                session,
+                tenant_id=criada.tenant_id,
+                unidade_id=criada.unidade_id,
+                nome_fantasia=criada.nome_fantasia,
+            )
 
             # O criador administrativo recebe explicitamente membership na nova
             # unidade para que o novo escopo não exista fora da autoridade de RBAC.
@@ -525,6 +533,8 @@ class AplicacaoAdministracaoProprietarioV1:
             }
             if not unidades or not unidades <= validas:
                 raise PermissionError("usuario_unidades_fora_do_tenant")
+            if unidade_padrao_id not in unidades:
+                raise PermissionError("unidade_padrao_fora_das_permitidas")
             identidade = RepositorioIdentidadesSQLAlchemy(session).criar_usuario(
                 email=email,
                 password=password,
@@ -582,6 +592,8 @@ class AplicacaoAdministracaoProprietarioV1:
             }
             if not unidades or not unidades <= validas:
                 raise PermissionError("usuario_unidades_fora_do_tenant")
+            if unidade_padrao_id not in unidades:
+                raise PermissionError("unidade_padrao_fora_das_permitidas")
             repo = RepositorioIdentidadesSQLAlchemy(session)
             anterior = repo.obter_por_id(usuario_id=usuario_id)
             if anterior is None or anterior.tenant_id != contexto.tenant_id:
@@ -859,14 +871,12 @@ class AplicacaoAdministracaoProprietarioV1:
                 contexto=contexto,
                 unidades=alvo,
             )
-            usuarios_ativos = int(
-                session.scalar(
-                    select(func.count(UsuarioSegurancaORM.usuario_id)).where(
-                        UsuarioSegurancaORM.tenant_id == contexto.tenant_id,
-                        UsuarioSegurancaORM.ativo.is_(True),
-                    )
-                )
-                or 0
+            usuarios_ativos = sum(
+                1
+                for identidade in RepositorioIdentidadesSQLAlchemy(
+                    session
+                ).listar_por_tenant(tenant_id=contexto.tenant_id)
+                if identidade.ativo
             )
             cmv, cobertura = self._cmv_estimado(
                 session=session,

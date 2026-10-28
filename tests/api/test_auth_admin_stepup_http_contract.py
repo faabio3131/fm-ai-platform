@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
@@ -106,6 +108,10 @@ def test_administrador_exige_step_up_e_revoga_ao_trocar_unidade(monkeypatch) -> 
     assert elevado.status_code == 200
     assert elevado.json()["ok"] is True
     assert elevado.json()["expira_em"] is not None
+    # A janela elevada pertence ao backend, não apenas ao temporizador da UI.
+    expira_em = datetime.fromisoformat(elevado.json()["expira_em"])
+    restante = (expira_em - datetime.now(timezone.utc)).total_seconds()
+    assert 0 < restante <= 180
 
     status_elevado = client.get("/v1/auth/admin-status")
     assert status_elevado.status_code == 200
@@ -204,5 +210,55 @@ def test_gerente_web_nao_pode_mutar_catalogo_mesmo_com_configuracao_alterar(
             "ativo": True,
         },
     )
+    assert response.status_code == 403
+    assert response.json() == {"erro": "seguranca.admin_acesso_exigido"}
+
+
+def test_estoque_web_exige_admin_e_step_up_para_mutacao(monkeypatch) -> None:
+    email = "admin-estoque-step-up@example.com"
+    client = _infra(monkeypatch, papel=Papel.ADMINISTRADOR, email=email)
+    _login(client, email)
+    payload = {
+        "nome": "Insumo protegido",
+        "unidade_medida": "kg",
+        "saldo_atual": 4.0,
+        "estoque_minimo": 1.0,
+        "custo_unitario": 9.0,
+        "data_fabricacao": None,
+        "data_validade": None,
+        "dias_alerta_vencimento": 15,
+    }
+
+    sem_step_up = client.post("/v1/estoque/insumos", json=payload)
+    assert sem_step_up.status_code == 403
+    assert sem_step_up.json() == {"erro": "seguranca.admin_step_up_exigido"}
+
+    step_up = client.post("/v1/auth/admin-step-up", json={"senha": SENHA})
+    assert step_up.status_code == 200
+
+    com_step_up = client.post("/v1/estoque/insumos", json=payload)
+    assert com_step_up.status_code == 201
+    assert com_step_up.json()["nome"] == "Insumo protegido"
+
+
+def test_gerente_web_nao_pode_mutar_estoque_sem_admin(monkeypatch) -> None:
+    email = "gerente-estoque-protegido@example.com"
+    client = _infra(monkeypatch, papel=Papel.GERENTE, email=email)
+    _login(client, email)
+
+    response = client.post(
+        "/v1/estoque/insumos",
+        json={
+            "nome": "Insumo negado",
+            "unidade_medida": "kg",
+            "saldo_atual": 1.0,
+            "estoque_minimo": 1.0,
+            "custo_unitario": 1.0,
+            "data_fabricacao": None,
+            "data_validade": None,
+            "dias_alerta_vencimento": 15,
+        },
+    )
+
     assert response.status_code == 403
     assert response.json() == {"erro": "seguranca.admin_acesso_exigido"}

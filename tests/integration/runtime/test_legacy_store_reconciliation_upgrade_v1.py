@@ -38,6 +38,33 @@ _V0037 = "0037_pdv_reconciliation_strategy_width_v1"
 _V0038 = "0038_delivery_channel_state_v1"
 _V0039 = "0039_crm_cashback_ledger_v1"
 _V0040 = "0040_product_active_flag_v1"
+_V0041 = "0041_cardapio_publico_identity_v1"
+_V0042 = "0042_marketplace_orders_web_v1"
+_V0043 = "0043_fiscal_persistence_foundation_v1"
+_V0044 = "0044_fiscal_profile_environment_partition_v1"
+_V0045 = "0045_fiscal_inbound_foundation_v1"
+_V0046 = "0046_fiscal_smart_intake_v1"
+_V0047 = "0047_fiscal_procurement_integration_v1"
+_V0048 = "0048_fiscal_financial_tax_bridge_v1"
+_V0049 = "0049_commercial_registry_v1"
+_V0050 = "0050_global_identity_membership_v1"
+_V0051 = "0051_commercial_catalog_v1"
+_V0052 = "0052_commercial_entitlement_v1"
+_V0053 = "0053_commercial_provisioning_v1"
+_V0054 = "0054_commercial_signup_v1"
+_V0055 = "0055_commercial_trial_v1"
+_V0056 = "0056_commercial_subscription_v1"
+_V0057 = "0057_commercial_billing_config_v1"
+_V0058 = "0058_commercial_billing_events_v1"
+_V0059 = "0059_operational_session_persistence_v1"
+_V0060 = "0060_admin_unit_legacy_store_reconciliation_v1"
+_V0064 = "0064_password_recovery_v1"
+_V0065 = "0065_google_federated_identity_v1"
+_V0066 = "0066_commercial_billing_transaction_identity_v1"
+_V0067 = "0067_commercial_billing_provider_legal_entity_v1"
+_V0068 = "0068_campaign_organic_media_v1"
+_V0069 = "0069_delivery_route_limit_v1"
+_V0070 = "0070_ai_franchise_budget_v1"
 _TENANT = "tenant-reconciliado"
 _UNIDADE = "unidade-reconciliada"
 _LOJA = 71
@@ -236,6 +263,33 @@ def test_reconciliacao_cria_loja_mapping_atomicamente_e_retomada_chega_a_0028(
         _V0038,
         _V0039,
         _V0040,
+        _V0041,
+        _V0042,
+        _V0043,
+        _V0044,
+        _V0045,
+        _V0046,
+        _V0047,
+        _V0048,
+        _V0049,
+        _V0050,
+        _V0051,
+        _V0052,
+        _V0053,
+        _V0054,
+        _V0055,
+        _V0056,
+        _V0057,
+        _V0058,
+        _V0059,
+        _V0060,
+        _V0064,
+        _V0065,
+        _V0066,
+        _V0067,
+        _V0068,
+        _V0069,
+        _V0070,
     )
     assert run_migrations(engine) == ()
 

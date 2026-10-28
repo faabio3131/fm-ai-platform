@@ -34,7 +34,10 @@ def notificar_status_assistente_best_effort(
             adapter = FabricaAdaptersExternos(
                 session=session,
                 secret_store=EncryptedSQLAlchemySecretStore(session),
-            ).whatsapp(contexto=contexto)
+            ).meta(
+                contexto=contexto,
+                configuracao_id="mensageria.whatsapp--meta",
+            )
         return RuntimeCanalWhatsAppV1(session_factory).notificar_status_pedido(
             contexto=contexto,
             pedido_id=pedido_id,

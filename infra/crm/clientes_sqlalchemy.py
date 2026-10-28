@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import Any
+from typing import cast
 
 from sqlalchemy import MetaData, Table, select
 from sqlalchemy.orm import Session
@@ -88,14 +87,20 @@ class LeitorClientesCRMSQLAlchemy:
     def listar(self, *, tenant_id: str, unidade_id: str) -> tuple[ClienteCRM, ...]:
         """Lista somente clientes do Active Scope recebido, sem fallback global."""
 
-        cliente_ids: Sequence[Any] = self._session.scalars(
-            select(self._clientes.c.cliente_id)
-            .where(
-                self._clientes.c.tenant_id == tenant_id,
-                self._clientes.c.unidade_id == unidade_id,
+        cliente_ids = [
+            str(value)
+            for value in cast(
+                list[object],
+                self._session.scalars(
+                    select(self._clientes.c.cliente_id)
+                    .where(
+                        self._clientes.c.tenant_id == tenant_id,
+                        self._clientes.c.unidade_id == unidade_id,
+                    )
+                    .order_by(self._clientes.c.criado_em, self._clientes.c.cliente_id)
+                ).all(),
             )
-            .order_by(self._clientes.c.criado_em, self._clientes.c.cliente_id)
-        ).all()
+        ]
         clientes: list[ClienteCRM] = []
         for cliente_id in cliente_ids:
             cliente = self.obter(

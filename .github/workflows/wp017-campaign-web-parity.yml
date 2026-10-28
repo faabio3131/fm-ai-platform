@@ -1,0 +1,96 @@
+name: Kordena WP017 Campaign Web Parity
+
+on:
+  pull_request:
+    branches:
+      - staging/kordena-premium
+    paths:
+      - '.github/workflows/wp017-campaign-web-parity.yml'
+      - 'application/campanhas_web.py'
+      - 'application/crm_marketing_comercial.py'
+      - 'http_api/campanhas_web.py'
+      - 'http_api/frontend_app.py'
+      - 'infra/gerente_ia/campanhas_web_sqlalchemy.py'
+      - 'infra/gerente_ia/campanhas_governadas_sqlalchemy.py'
+      - 'web/src/app/admin/campanhas/**'
+      - 'web/src/features/backoffice/campanhas/**'
+      - 'web/src/features/backoffice/crm/**'
+      - 'web/src/features/gerente-ia/**'
+      - 'web/src/features/shell/module-registry.ts'
+      - 'tests/api/test_campanhas_web_http_contract.py'
+      - 'tests/integration/gerente_ia/test_campanhas_web_sqlalchemy.py'
+      - 'tests/contract/test_kordena_pdf_web_parity_33.py'
+      - 'web/tests/wp017-campaign-web.test.mjs'
+      - 'docs/web-parity/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  certify:
+    name: WP017 full governed campaign certification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+
+      - name: Compile campaign boundary
+        run: |
+          python -m py_compile             application/campanhas_web.py             application/crm_marketing_comercial.py             http_api/campanhas_web.py             http_api/frontend_app.py             infra/gerente_ia/campanhas_web_sqlalchemy.py             infra/gerente_ia/campanhas_governadas_sqlalchemy.py
+
+      - name: Ruff
+        run: |
+          ruff check             application/campanhas_web.py             application/crm_marketing_comercial.py             http_api/campanhas_web.py             http_api/frontend_app.py             infra/gerente_ia/campanhas_web_sqlalchemy.py             infra/gerente_ia/campanhas_governadas_sqlalchemy.py             tests/api/test_campanhas_web_http_contract.py             tests/integration/gerente_ia/test_campanhas_web_sqlalchemy.py             tests/contract/test_kordena_pdf_web_parity_33.py
+
+      - name: Mypy campaign boundary
+        run: |
+          mypy             application/campanhas_web.py             http_api/campanhas_web.py             infra/gerente_ia/campanhas_web_sqlalchemy.py
+
+      - name: Targeted WP017 matrix
+        run: |
+          pytest -q             tests/api/test_campanhas_web_http_contract.py             tests/integration/gerente_ia/test_campanhas_web_sqlalchemy.py             tests/integration/gerente_ia/test_campanha_governada_sqlalchemy.py             tests/unit/gerente_ia/test_campanha_governada.py             tests/api/test_crm_http_contract.py             tests/integration/crm/test_marketing_comercial.py             tests/contract/test_kordena_pdf_web_parity_33.py
+
+      - name: Full Python regression
+        run: pytest -q
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: ESLint Web campaign surfaces
+        working-directory: web
+        run: |
+          npx eslint             src/app/admin/campanhas/page.tsx             src/features/backoffice/campanhas/components/CampanhasWorkspace.tsx             src/features/backoffice/campanhas/services/campanhas-api.ts             src/features/backoffice/crm/components/CrmWorkspace.tsx             src/features/gerente-ia/components/GerenteIAWorkspace.tsx             src/features/shell/module-registry.ts
+
+      - name: TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Web structural tests
+        working-directory: web
+        run: node --test tests/backoffice-navigation.test.mjs tests/wp017-campaign-web.test.mjs
+
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+
+      - name: Diff whitespace gate
+        run: git diff --check origin/${{ github.base_ref }}...HEAD

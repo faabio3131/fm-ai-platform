@@ -1,0 +1,101 @@
+name: Web Parity Phase 1 WP013-WP014 Certification
+
+on:
+  pull_request:
+    branches:
+      - feat/web-parity-v1-wp010-wp011-delivery-entrega
+    paths:
+      - '.github/workflows/web-parity-phase1-wp013-wp014-certification.yml'
+      - 'application/legacy_cardapio_transacoes.py'
+      - 'http_api/catalogo.py'
+      - 'web/src/app/admin/catalogo/**'
+      - 'web/src/features/backoffice/catalogo/**'
+      - 'tests/api/test_catalogo_http_contract.py'
+      - 'tests/contract/test_web_catalogo_ficha_wp013_wp014.py'
+      - 'tests/integration/wave1/test_legacy_cardapio_transaction_ownership.py'
+      - 'docs/web-parity/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wp013-wp014-certification:
+    name: Catalogo + Ficha Tecnica integrated certification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+
+      - name: Compile WP013-WP014 canonical surface
+        run: |
+          python -m py_compile \
+            application/legacy_cardapio_transacoes.py \
+            http_api/catalogo.py
+
+      - name: Ruff WP013-WP014
+        run: |
+          ruff check \
+            application/legacy_cardapio_transacoes.py \
+            http_api/catalogo.py \
+            tests/api/test_catalogo_http_contract.py \
+            tests/contract/test_web_catalogo_ficha_wp013_wp014.py \
+            tests/integration/wave1/test_legacy_cardapio_transaction_ownership.py
+
+      - name: Mypy WP013-WP014
+        run: |
+          mypy \
+            application/legacy_cardapio_transacoes.py \
+            http_api/catalogo.py
+
+      - name: Catalogo and ficha targeted matrix
+        run: |
+          pytest -q \
+            tests/api/test_catalogo_http_contract.py \
+            tests/contract/test_web_catalogo_ficha_wp013_wp014.py \
+            tests/integration/wave1/test_legacy_cardapio_transaction_ownership.py
+
+      - name: Full Python regression
+        run: pytest -q
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: ESLint WP013-WP014
+        working-directory: web
+        run: |
+          npx eslint \
+            src/app/admin/catalogo/page.tsx \
+            src/features/backoffice/catalogo/components/CatalogoWorkspace.tsx \
+            src/features/backoffice/catalogo/components/FichaTecnicaWorkspace.tsx \
+            src/features/backoffice/catalogo/services/catalogo-api.ts
+
+      - name: TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+
+      - name: Diff whitespace gate
+        run: git diff --check origin/${{ github.base_ref }}...HEAD

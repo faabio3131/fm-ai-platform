@@ -101,6 +101,10 @@ class CentralEnviarConfirmacaoIn(BaseModel):
     versao_esperada: int = Field(ge=1)
 
 
+class CentralConfirmarIn(BaseModel):
+    versao_esperada: int = Field(ge=1)
+
+
 class CentralCancelarIn(BaseModel):
     versao_esperada: int = Field(ge=1)
     motivo: str = Field(min_length=1, max_length=500)
@@ -351,6 +355,36 @@ def build_central_pedidos_router(
                 versao_esperada=payload.versao_esperada,
                 idempotency_key=key,
                 precondicoes={"itens_validos": True, "precos_calculados": True},
+                metadata={"origem_ui": "central_pedidos_web"},
+            )
+            return _transicao_out(resultado)
+        except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
+            return _erro_http(exc)
+
+    @router.post(
+        "/{pedido_id}/confirmar",
+        response_model=CentralTransicaoOut,
+    )
+    def confirmar_pedido(
+        pedido_id: str,
+        payload: CentralConfirmarIn,
+        request: Request,
+    ) -> dict[str, Any] | JSONResponse:
+        try:
+            key = _idempotency_key(request)
+            with session_factory() as session:
+                contexto = _contexto_central(
+                    request,
+                    session,
+                    auth_runtime=auth_runtime,
+                )
+            resultado = AplicacaoCentralPedidosTransacoesV1(session_factory).transicionar(
+                contexto=contexto,
+                pedido_id=pedido_id,
+                destino="confirmado",
+                versao_esperada=payload.versao_esperada,
+                idempotency_key=key,
+                precondicoes={"dados_confirmados": True},
                 metadata={"origem_ui": "central_pedidos_web"},
             )
             return _transicao_out(resultado)

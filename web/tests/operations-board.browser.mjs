@@ -13,6 +13,24 @@ async function scenario(name, permissions, execute) {
   let calls=0;
   await page.route("**/v1/auth/me", route => route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(operator(permissions))}));
   await page.route("**/v1/auth/unidades", route => route.fulfill({status:200,contentType:"application/json",body:JSON.stringify([{id:"unit-test",nome:"Unidade de teste"}])}));
+  // The premium staging application has an independent commercial entitlement
+  // gate; mock its authorized response without disabling the production guard.
+  await page.route("**/v1/commercial/access", route => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      tenant_id: "tenant-test",
+      enforcement_enabled: true,
+      managed: true,
+      product_account_id: "account-test",
+      operational_allowed: true,
+      entitled: true,
+      access_mode: "full",
+      reason: "subscription_active",
+      revision: 1,
+      stale: false,
+    }),
+  }));
   await page.route("**/v1/pedidos?*", route => {calls++;return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({itens:records,pagina:1,tamanho_pagina:100,total:records.length})});});
   try {await page.goto(base+"/central-operacoes",{waitUntil:"domcontentloaded"});await execute(page,()=>calls);console.log("PASS",name);}
   catch(e){failures++;console.error("FAIL",name,e);}

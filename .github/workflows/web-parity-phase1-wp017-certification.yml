@@ -1,0 +1,115 @@
+name: Web Parity Phase 1 WP017 Certification
+
+on:
+  pull_request:
+    branches:
+      - feat/web-parity-v1-wp010-wp011-delivery-entrega
+    paths:
+      - '.github/workflows/web-parity-phase1-wp017-certification.yml'
+      - 'application/crm_marketing_comercial.py'
+      - 'http_api/crm.py'
+      - 'infra/crm/**'
+      - 'infra/eventos/**'
+      - 'web/src/app/admin/crm/**'
+      - 'web/src/features/backoffice/crm/**'
+      - 'tests/api/test_crm_http_contract.py'
+      - 'tests/fitness/test_f13c_crm_ui_marketing_cutover.py'
+      - 'tests/fitness/test_f13d_crm_resgate_boundary_cutover.py'
+      - 'tests/integration/crm/test_marketing_comercial.py'
+      - 'docs/web-parity/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wp017-certification:
+    name: Marketing + Resgate + Campanhas integrated certification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff==0.16.1 mypy==1.20.2
+
+      - name: Compile WP017 canonical surface
+        run: |
+          python -m py_compile \
+            application/crm_marketing_comercial.py \
+            infra/crm/marketing_idempotencia.py \
+            infra/crm/marketing_whatsapp.py \
+            http_api/crm.py
+
+      - name: Ruff WP017
+        run: |
+          ruff check \
+            application/crm_marketing_comercial.py \
+            infra/crm/marketing_idempotencia.py \
+            infra/crm/marketing_whatsapp.py \
+            http_api/crm.py \
+            tests/api/test_crm_http_contract.py \
+            tests/fitness/test_f13c_crm_ui_marketing_cutover.py \
+            tests/fitness/test_f13d_crm_resgate_boundary_cutover.py \
+            tests/integration/crm/test_marketing_comercial.py
+
+      - name: Mypy WP017
+        run: |
+          mypy \
+            application/crm_marketing_comercial.py \
+            infra/crm/marketing_idempotencia.py \
+            infra/crm/marketing_whatsapp.py \
+            http_api/crm.py
+
+      - name: CRM marketing targeted matrix
+        run: |
+          pytest -q \
+            tests/api/test_crm_http_contract.py \
+            tests/fitness/test_f13c_crm_ui_marketing_cutover.py \
+            tests/fitness/test_f13d_crm_resgate_boundary_cutover.py \
+            tests/integration/crm/test_marketing_comercial.py
+
+      - name: Full Python regression
+        run: pytest -q
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: ESLint WP017
+        working-directory: web
+        run: |
+          npx eslint \
+            src/app/admin/crm/page.tsx \
+            src/features/backoffice/crm/components/CrmWorkspace.tsx \
+            src/features/backoffice/crm/services/crm-api.ts
+
+      - name: TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Backoffice navigation test
+        working-directory: web
+        run: node --test tests/backoffice-navigation.test.mjs
+
+      - name: Next production build
+        working-directory: web
+        run: npm run build
+
+      - name: Diff whitespace gate
+        run: git diff --check origin/${{ github.base_ref }}...HEAD
