@@ -141,3 +141,14 @@ Um bloco só pode receber status final quando, conforme aplicável:
 ## Autoridade humana
 
 O proprietário mantém a autoridade constitucional/final do projeto. A autorização permanente acima cobre somente **merge normal de PR canônica após 100% dos gates verdes e reconciliação completa**. Deploy, atos destrutivos ou irreversíveis, decisões de escopo crítico e encerramento comercial final continuam sujeitos aos gates e autorizações específicas definidos pelo Documento Mestre.
+
+## CURRENT operacional certificado — 01/11/2026
+
+Antes de qualquer atividade de Kordena após 01/11/2026, ler `docs/finalization/KORDENA_CURRENT_PRODUCAO_2026-11-01.md` e reconciliar os SHAs remotos. Não usar snapshots de Railway/Vercel de setembro como fonte de deploy atual.
+
+- Servidor atual: Contabo; deploy automático por cron (a cada 5 min) monitora **somente `production`**, não `main` nem `staging/kordena-premium`.
+- Release implantada e verificada em 01/11: `production@53013ae44449936a383517211a7d21b53932b2fd`, PR #235 (origem funcional PR #234). Backup e checks HTTP comprovados.
+- **Não reabrir ou reconstruir** upsell/cross-sell da Atendente: implementado, testado e implantado no canal WhatsApp Evolution. Pendente exclusivamente comprovação da jornada em canal/tenant real autorizado; não inventar evidência.
+- Histórias `production`/`staging` divergiram profundamente; **nunca mesclar staging diretamente em production sem reconciliar ancestralidade e diff**. O release #235 foi feito com cherry-pick seletivo sobre o baseline de produção para preservar Evolution e demais funcionalidades.
+- **Merge em `production` é publicação efetiva** devido ao cron, inclusive quando a PR contém apenas documentos. Exigir gates, backup/rollback e autorização de produção conforme política. Nenhuma automação deve usar staging como autoridade de produção.
+- Release técnico não autoriza automaticamente trial/signup público, billing real, GO comercial ou cutover com NFCore.
