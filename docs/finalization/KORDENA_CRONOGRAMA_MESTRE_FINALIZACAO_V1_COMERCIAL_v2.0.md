@@ -32,61 +32,37 @@ Nenhum bloco pode ser marcado PASS somente porque o código existe ou a CI está
 
 ---
 
-## 2. AUTORIDADE DE CONTINUIDADE — CURRENT CANÔNICO
+## 2. AUTORIDADE DE CONTINUIDADE — CURRENT CERTIFICADO EM 01/11/2026
+
+> **Esta seção substitui operacionalmente o snapshot datado de 30/09/2026.** O restante do documento é mantido como plano e histórico, não como afirmação de que todos os gates de lançamento público foram concluídos. Reconciliação e evidências completas: [KORDENA_CURRENT_PRODUCAO_2026-11-01.md](KORDENA_CURRENT_PRODUCAO_2026-11-01.md).
 
 ```text
-PROJECT:
-Kordena
-
-REPOSITORY:
-faabio3131/fm-ai-platform
-
-ACTIVE BRANCH:
-staging/kordena-premium
-
-CURRENT HEAD:
-57bbf18cacdc443d329308e6d9328c57aa55ed0a
-
-OPEN PR:
-nenhuma
-
-MAIN:
-5a17b0c8a1cb6dad576ce5b089166748b138900c
-
-BRANCH RELATION:
-staging 896 commits à frente da main
-staging 0 commits atrás
-
-RAILWAY PROJECT:
-diplomatic-expression
-
-RAILWAY SERVICE:
-fm-ai-platform
-
-RAILWAY STATUS:
-SUCCESS
-
-POSTGRES:
-SUCCESS
-
-PUBLIC RELEASE:
-NÃO AUTORIZADO
-
-PUBLIC SIGNUP/TRIAL:
-desabilitado por padrão até gate final
-
-FISCAL KORDENA:
-Fiscal V1 atual permanece a autoridade fiscal
-
-NFCORE:
-FORA DESTE CRONOGRAMA
-
-FM COMMAND:
-produto funcionalmente concluído / pre-premium certificado
-não reconstruir
+PROJECT = Kordena V1
+REPOSITORY = faabio3131/fm-ai-platform
+PRODUCTION_BRANCH = production
+PRODUCTION_DEPLOYED_SHA = 53013ae44449936a383517211a7d21b53932b2fd
+PRODUCTION_RELEASE_PR = #235 MERGED
+FUNCTIONAL_IMPLEMENTATION_PR = #234 MERGED (staging/kordena-premium)
+STAGING_SNAPSHOT_2026_11_01 = ebf8cdb9420d3b36af59d19f3281d95cbb4746ba
+PRODUCTION_PREVIOUS_SHA = 6808a0352fc8de298762bd1316503b3a0e135720
+HOSTING = CONTABO vmi3692211 / 13.140.234.22
+DEPLOY = cron */5 * * * * -> /opt/fm/kordena/deploy.sh
+DEPLOY_STATE = PASS (2026-11-01T21:26:45Z == DEPLOY OK 53013ae)
+FRONTEND = https://app.kordenaia.com.br (HTTP 200)
+API = https://api.kordenaia.com.br/healthz (HTTP 200)
+POSTGRESQL = healthy / database_ready
+BACKUP_PREDEPLOY = VERIFIED SHA256
+UPSELL_CROSS_SELL_CODE = IMPLEMENTED + TESTED + DEPLOYED
+UPSELL_CROSS_SELL_EXTERNAL_WHATSAPP_HOMOLOGATION = PENDING_EXTERNAL_EVIDENCE
+PUBLIC_SIGNUP_TRIAL_AND_COMMERCIAL_GO = NOT IMPLIED BY THIS DEPLOY
+NFCORE_CUTOVER = OUT_OF_SCOPE
 ```
 
-Sempre que houver troca de chat, dispositivo, sessão ou handoff, este bloco deve ser reconciliado com GitHub/Railway antes de escrever código.
+**Governança de promoção:** `production` é a fonte do deploy, `staging/kordena-premium` **não**. Em 01/11, as histórias eram divergentes (production com 1.151 commits exclusivos). A promoção correta foi cherry-pick seletivo dos quatro commits de #234 sobre production, PR #235, nove checks CI SUCCESS e merge SHA protegido. **Não dar merge direto de staging para production nem reconstruir a Evolution preservada.** Qualquer merge em `production`, inclusive apenas documentação, aciona o cron e exige a governança de deploy.
+
+**Estado final deste trabalho específico:** upsell/cross-sell da Atendente IA no fluxo WhatsApp Evolution **PASS técnico/deploy**; homologação externa por conversa real **PENDENTE**. Preservar explicitamente essa pendência, inclusive aceite/recusa, carrinho, checkout e não duplicidade; não anunciar certificação real sem prova.
+
+**Atenção aos registros históricos:** todas as referências abaixo a Railway/Vercel, MAIN_PROMOTION e staging como ambiente implantado são snapshots/documentos anteriores e devem ser verificadas novamente antes de executar. `KORDENA_V1_COMMERCIAL_READY=TRUE` é uma definição de objetivo, não um estado declarado em 01/11.
 
 ---
 
