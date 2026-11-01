@@ -556,3 +556,223 @@ def test_confirmacao_valida_chama_checkout_uma_vez():
     assert resultado.checkout.pedido_id == "pedido-1"
     assert len(checkout.chamadas) == 1
     assert handoff.chamadas == []
+
+
+def _catalogo_com_complementos():
+    return (
+        *catalogo(),
+        ProdutoCatalogoAtendimento(
+            produto_id="bebida-1", tenant_id="tenant-a", unidade_id="unidade-a",
+            nome="Refrigerante Lata", preco=Decimal("8.00"),
+        ),
+        ProdutoCatalogoAtendimento(
+            produto_id="batata-1", tenant_id="tenant-a", unidade_id="unidade-a",
+            nome="Batata Frita", preco=Decimal("12.00"),
+        ),
+        ProdutoCatalogoAtendimento(
+            produto_id="outro-tenant", tenant_id="tenant-b", unidade_id="unidade-b",
+            nome="Refrigerante Especial", preco=Decimal("1.00"),
+        ),
+        ProdutoCatalogoAtendimento(
+            produto_id="inativo", tenant_id="tenant-a", unidade_id="unidade-a",
+            nome="Suco Premium", preco=Decimal("3.00"), ativo=False,
+        ),
+    )
+
+
+def test_oferta_ativa_referencia_catalogo_autorizado_sem_alterar_carrinho():
+    srv, checkout, _ = servico()
+    resultado = srv.interpretar(
+        contexto=contexto_atendimento(), entrada=entrada_texto(),
+        raw_ia=raw_intencao(), catalogo=_catalogo_com_complementos(),
+    )
+    assert resultado.estado is EstadoAtendimento.AGUARDANDO_RESPOSTA_OFERTA
+    assert resultado.sugestao is not None
+    assert resultado.sugestao.produto_id == "bebida-1"
+    assert "Refrigerante Lata" in resultado.mensagem
+    assert "R$ 8.00" in resultado.mensagem
+    assert resultado.carrinho.subtotal == Decimal("50.00")
+    assert not checkout.chamadas
+
+
+def test_aceite_adiciona_uma_unidade_com_preco_canonico_e_novo_fingerprint():
+    srv, checkout, _ = servico()
+    ctx = contexto_atendimento()
+    inicial = srv.interpretar(
+        contexto=ctx, entrada=entrada_texto(), raw_ia=raw_intencao(),
+        catalogo=_catalogo_com_complementos(),
+    )
+    proximo = srv.responder_oferta(
+        contexto=ctx, resultado=inicial, aceitar=True,
+        catalogo=_catalogo_com_complementos(),
+    )
+    assert proximo.estado is EstadoAtendimento.AGUARDANDO_FORMA_PAGAMENTO
+    assert proximo.sugestao is None
+    assert proximo.carrinho.total == Decimal("58.00")
+    assert len(proximo.carrinho.itens) == 2
+    assert proximo.carrinho.fingerprint != inicial.carrinho.fingerprint
+    assert not checkout.chamadas
+    with pytest.raises(ErroAssistenteAtendimento, match="oferta_fora_de_estado"):
+        srv.responder_oferta(
+            contexto=ctx, resultado=proximo, aceitar=True,
+            catalogo=_catalogo_com_complementos(),
+        )
+
+
+def test_recusa_nao_adiciona_item_nem_repete_oferta():
+    srv, checkout, _ = servico()
+    ctx = contexto_atendimento()
+    inicial = srv.interpretar(
+        contexto=ctx, entrada=entrada_texto(), raw_ia=raw_intencao(),
+        catalogo=_catalogo_com_complementos(),
+    )
+    proximo = srv.responder_oferta(
+        contexto=ctx, resultado=inicial, aceitar=False,
+        catalogo=_catalogo_com_complementos(),
+    )
+    assert proximo.estado is EstadoAtendimento.AGUARDANDO_FORMA_PAGAMENTO
+    assert proximo.carrinho == inicial.carrinho
+    assert proximo.sugestao is None
+    assert not checkout.chamadas
+
+
+def test_oferta_de_outro_tenant_nao_pode_ser_adicionada():
+    srv, _, _ = servico()
+    ctx = contexto_atendimento()
+    inicial = srv.interpretar(
+        contexto=ctx, entrada=entrada_texto(), raw_ia=raw_intencao(),
+        catalogo=_catalogo_com_complementos(),
+    )
+    resultado = srv.responder_oferta(
+        contexto=ctx, resultado=inicial, aceitar=True,
+        catalogo=tuple(p for p in _catalogo_com_complementos()
+                      if p.produto_id == "outro-tenant"),
+    )
+    assert resultado.carrinho.total == Decimal("50.00")
+    assert ("oferta", "indisponivel") in resultado.auditoria
+
+
+def test_preco_alterado_nega_adicao_e_nao_cobra_valor_antigo():
+    srv, _, _ = servico()
+    ctx = contexto_atendimento()
+    inicial = srv.interpretar(
+        contexto=ctx, entrada=entrada_texto(), raw_ia=raw_intencao(),
+        catalogo=_catalogo_com_complementos(),
+    )
+    atualizado = (
+        ProdutoCatalogoAtendimento(
+            produto_id="bebida-1", tenant_id="tenant-a", unidade_id="unidade-a",
+            nome="Refrigerante Lata", preco=Decimal("9.00"),
+        ),
+    )
+    resultado = srv.responder_oferta(
+        contexto=ctx, resultado=inicial, aceitar=True, catalogo=atualizado,
+    )
+    assert resultado.carrinho.total == Decimal("50.00")
+    assert "preço" in resultado.mensagem
+    assert ("oferta", "preco_alterado") in resultado.auditoria
+
+
+def test_cliente_novo_aguarda_cadastro_antes_de_expor_oferta():
+    srv, _, _ = servico()
+    ctx = contexto_atendimento(tipo=TipoClienteAtendimento.NOVO)
+    inicial = srv.interpretar(
+        contexto=ctx, entrada=entrada_texto(), raw_ia=raw_intencao(),
+        catalogo=_catalogo_com_complementos(),
+    )
+    assert inicial.estado is EstadoAtendimento.AGUARDANDO_DADOS_CLIENTE
+    novo_ctx, novo_estado = srv.concluir_cadastro_cliente(
+        contexto_anterior=ctx, resultado=inicial, cliente_ref="cliente-novo",
+    )
+    assert novo_ctx.cliente.cliente_ref == "cliente-novo"
+    assert novo_estado.estado is EstadoAtendimento.AGUARDANDO_RESPOSTA_OFERTA
+    assert "Refrigerante" in novo_estado.mensagem
+
+
+def test_upsell_troca_variante_sem_duplicar_item():
+    srv, checkout, _ = servico()
+    ctx = contexto_atendimento()
+    itens = (
+        *catalogo(),
+        ProdutoCatalogoAtendimento(
+            produto_id="premium-1", tenant_id="tenant-a", unidade_id="unidade-a",
+            nome="X-Bacon Duplo", preco=Decimal("34.00"),
+        ),
+        ProdutoCatalogoAtendimento(
+            produto_id="bebida-1", tenant_id="tenant-a", unidade_id="unidade-a",
+            nome="Refrigerante Lata", preco=Decimal("8.00"),
+        ),
+    )
+    entrada = raw_intencao().replace('"quantidade":2', '"quantidade":1')
+    inicial = srv.interpretar(
+        contexto=ctx, entrada=entrada_texto(), raw_ia=entrada, catalogo=itens,
+    )
+    assert inicial.sugestao is not None
+    assert inicial.sugestao.tipo == "upsell"
+    assert inicial.sugestao.substitui_produto_id == "prod-1"
+    assert "trocar" in inicial.mensagem
+    assert inicial.carrinho.total == Decimal("25.00")
+    proximo = srv.responder_oferta(
+        contexto=ctx, resultado=inicial, aceitar=True, catalogo=itens,
+    )
+    assert len(proximo.carrinho.itens) == 1
+    assert proximo.carrinho.itens[0].produto_id == "premium-1"
+    assert proximo.carrinho.total == Decimal("34.00")
+    assert proximo.carrinho.fingerprint != inicial.carrinho.fingerprint
+    assert not checkout.chamadas
+
+
+def test_upsell_recusado_mantem_produto_original():
+    srv, _, _ = servico()
+    ctx = contexto_atendimento()
+    itens = (
+        *catalogo(),
+        ProdutoCatalogoAtendimento(
+            produto_id="premium-1", tenant_id="tenant-a", unidade_id="unidade-a",
+            nome="X-Bacon Duplo", preco=Decimal("34.00"),
+        ),
+    )
+    inicial = srv.interpretar(
+        contexto=ctx, entrada=entrada_texto(),
+        raw_ia=raw_intencao().replace('"quantidade":2', '"quantidade":1'),
+        catalogo=itens,
+    )
+    proximo = srv.responder_oferta(
+        contexto=ctx, resultado=inicial, aceitar=False, catalogo=itens,
+    )
+    assert proximo.carrinho.itens[0].produto_id == "prod-1"
+    assert proximo.carrinho.total == Decimal("25.00")
+
+
+def test_cross_sell_aceito_segue_ate_checkout_sem_inclusao_automatica():
+    srv, checkout, _ = servico()
+    ctx = contexto_atendimento()
+    inicial = srv.interpretar(
+        contexto=ctx, entrada=entrada_texto(), raw_ia=raw_intencao(),
+        catalogo=_catalogo_com_complementos(),
+    )
+    oferta_aceita = srv.responder_oferta(
+        contexto=ctx, resultado=inicial, aceitar=True,
+        catalogo=_catalogo_com_complementos(),
+    )
+    com_pagamento = srv.definir_pagamento(
+        resultado=oferta_aceita, metodo=MetodoPagamento.PIX,
+    )
+    assert com_pagamento.estado is EstadoAtendimento.AGUARDANDO_CONFIRMACAO_CLIENTE
+    with pytest.raises(ErroAssistenteAtendimento, match="carrinho_alterado_reconfirmacao_obrigatoria"):
+        srv.confirmar(
+            contexto=ctx, resultado=com_pagamento,
+            confirmacao_cliente=True,
+            fingerprint_confirmado=inicial.carrinho.fingerprint,
+            metodo=MetodoPagamento.PIX, idempotency_key="conf-oferta-1",
+        )
+    final = srv.confirmar(
+        contexto=ctx, resultado=com_pagamento,
+        confirmacao_cliente=True,
+        fingerprint_confirmado=com_pagamento.carrinho.fingerprint,
+        metodo=MetodoPagamento.PIX, idempotency_key="conf-oferta-1",
+    )
+    assert final.estado is EstadoAtendimento.CHECKOUT_REGISTRADO
+    assert len(checkout.chamadas) == 1
+    assert checkout.chamadas[0][1].total == Decimal("58.00")
+    assert checkout.chamadas[0][1].itens[1].produto_id == "bebida-1"

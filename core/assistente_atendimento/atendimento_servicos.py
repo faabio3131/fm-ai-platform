@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import unicodedata
 from collections.abc import Iterable
 from dataclasses import replace
 from decimal import Decimal
@@ -25,6 +26,7 @@ from .atendimento_modelos import (
     PreferenciaPagamentoAtendimento,
     ProdutoCatalogoAtendimento,
     ResultadoAtendimento,
+    SugestaoProdutoAtendimento,
 )
 from .atendimento_schemas import parse_intencao_atendimento
 from .contexto import ContextoAtendimento, TipoClienteAtendimento
@@ -34,6 +36,96 @@ from .erros import ErroAssistenteAtendimento
 
 def _normalizar_nome(valor: str) -> str:
     return " ".join(valor.casefold().strip().split())
+
+
+def _classe_produto(nome: str) -> str | None:
+    """Classificação conservadora; nunca inventa itens fora do catálogo."""
+    texto = "".join(
+        ch for ch in unicodedata.normalize("NFKD", nome.casefold())
+        if not unicodedata.combining(ch)
+    )
+    if any(p in texto for p in ("refrigerante", "suco", "agua ", "agua mineral", "coca", "guarana", "shake", "cerveja", "bebida")):
+        return "bebida"
+    if any(p in texto for p in ("batata", "frita", "nugget", "anel de cebola", "porcao", "acompanhamento")):
+        return "acompanhamento"
+    if any(p in texto for p in ("sobremesa", "brownie", "pudim", "sorvete", "mousse", "brigadeiro")):
+        return "sobremesa"
+    if any(p in texto for p in ("burger", "hamburg", "x-bacon", "x-salada", "sanduiche", "lanche", "pizza")):
+        return "principal"
+    return None
+
+
+def _sugerir_complemento(
+    *,
+    carrinho: CarrinhoAtendimento,
+    catalogo: Iterable[ProdutoCatalogoAtendimento],
+) -> SugestaoProdutoAtendimento | None:
+    """No máximo uma oferta verificável por pedido; jamais inclui item sem aceite."""
+    no_pedido = {item.produto_id for item in carrinho.itens}
+    catalogo = tuple(catalogo)
+    # Upsell genuíno: apenas variante superior do MESMO item, sem inferir
+    # equivalência entre produtos diferentes. Não trocar múltiplas unidades.
+    for item in carrinho.itens:
+        if item.quantidade != 1 or _classe_produto(item.nome_produto) != "principal":
+            continue
+        nome_base = _normalizar_nome(item.nome_produto)
+        variantes = [
+            p for p in catalogo
+            if p.ativo and p.tenant_id == carrinho.tenant_id
+            and p.unidade_id == carrinho.unidade_id
+            and p.produto_id not in no_pedido and p.preco > item.preco_unitario
+            and _normalizar_nome(p.nome).startswith(nome_base + " ")
+            and any(palavra in _normalizar_nome(p.nome)[len(nome_base):]
+                    for palavra in ("duplo", "grande", "premium", "gigante"))
+        ]
+        if variantes:
+            superior = min(variantes, key=lambda p: (p.preco, p.produto_id))
+            return SugestaoProdutoAtendimento(
+                produto_id=superior.produto_id,
+                nome=superior.nome,
+                preco=superior.preco,
+                tipo="upsell",
+                substitui_produto_id=item.produto_id,
+            )
+    classes_no_pedido = {_classe_produto(item.nome_produto) for item in carrinho.itens}
+    if "principal" in classes_no_pedido:
+        prioridades = ("bebida", "acompanhamento", "sobremesa")
+    elif "acompanhamento" in classes_no_pedido:
+        prioridades = ("bebida", "principal", "sobremesa")
+    elif "bebida" in classes_no_pedido:
+        prioridades = ("principal", "acompanhamento", "sobremesa")
+    else:
+        return None
+    elegiveis = [
+        p for p in catalogo
+        if p.ativo and p.tenant_id == carrinho.tenant_id
+        and p.unidade_id == carrinho.unidade_id
+        and p.produto_id not in no_pedido
+        and p.preco > 0
+        and _classe_produto(p.nome) not in classes_no_pedido
+    ]
+    for categoria in prioridades:
+        candidatos = [p for p in elegiveis if _classe_produto(p.nome) == categoria]
+        if candidatos:
+            candidato = min(candidatos, key=lambda p: (p.preco, p.produto_id))
+            return SugestaoProdutoAtendimento(
+                produto_id=candidato.produto_id,
+                nome=candidato.nome,
+                preco=candidato.preco,
+            )
+    return None
+
+
+def _mensagem_oferta(oferta: SugestaoProdutoAtendimento) -> str:
+    if oferta.tipo == "upsell":
+        return (
+            f"Quer trocar seu item pela versão {oferta.nome}, "
+            f"por R$ {oferta.preco:.2f}? Responda sim para trocar ou não para manter."
+        )
+    return (
+        f"Posso sugerir {oferta.nome} por R$ {oferta.preco:.2f} "
+        "para acompanhar seu pedido? Responda sim para adicionar ou não para seguir."
+    )
 
 
 def _fingerprint(
@@ -196,6 +288,7 @@ class ServicoAssistenteAtendimento:
         except ErroAssistenteAtendimento as exc:
             return self._handoff(contexto=contexto, motivo=exc.codigo)
 
+        catalogo = tuple(catalogo)
         por_nome: dict[str, list[ProdutoCatalogoAtendimento]] = {}
         for produto in catalogo:
             if (
@@ -248,6 +341,8 @@ class ServicoAssistenteAtendimento:
             endereco_solicitado=intencao.endereco_texto,
         )
 
+        oferta = _sugerir_complemento(carrinho=carrinho, catalogo=catalogo)
+
         if contexto.cliente.tipo is TipoClienteAtendimento.NOVO:
             return ResultadoAtendimento(
                 estado=EstadoAtendimento.AGUARDANDO_DADOS_CLIENTE,
@@ -257,6 +352,7 @@ class ServicoAssistenteAtendimento:
                     "do novo cliente."
                 ),
                 carrinho=carrinho,
+                sugestao=oferta,
                 auditoria=(
                     ("schema", "valido"),
                     ("catalogo", "resolucao_exata"),
@@ -265,11 +361,15 @@ class ServicoAssistenteAtendimento:
                 ),
             )
 
-        estado = _estado_operacional(carrinho)
+        estado = (
+            EstadoAtendimento.AGUARDANDO_RESPOSTA_OFERTA
+            if oferta is not None else _estado_operacional(carrinho)
+        )
         return ResultadoAtendimento(
             estado=estado,
-            mensagem=_mensagem_operacional(carrinho),
+            mensagem=_mensagem_oferta(oferta) if oferta is not None else _mensagem_operacional(carrinho),
             carrinho=carrinho,
+            sugestao=oferta,
             auditoria=(
                 ("schema", "valido"),
                 ("catalogo", "resolucao_exata"),
@@ -306,20 +406,116 @@ class ServicoAssistenteAtendimento:
                 cliente_ref=cliente_ref.strip(),
             ),
         )
-        estado = _estado_operacional(resultado.carrinho)
+        oferta = resultado.sugestao
+        estado = (
+            EstadoAtendimento.AGUARDANDO_RESPOSTA_OFERTA
+            if oferta is not None else _estado_operacional(resultado.carrinho)
+        )
         atualizado = ResultadoAtendimento(
             estado=estado,
             mensagem=(
                 "Cliente registrado no CRM canônico. "
-                + _mensagem_operacional(resultado.carrinho)
+                + (_mensagem_oferta(oferta) if oferta is not None
+                   else _mensagem_operacional(resultado.carrinho))
             ),
             carrinho=resultado.carrinho,
+            sugestao=oferta,
             auditoria=(
                 *resultado.auditoria,
                 ("cliente", "registrado_crm_canonico"),
             ),
         )
         return novo_contexto, atualizado
+
+    def responder_oferta(
+        self,
+        *,
+        contexto: ContextoAtendimento,
+        resultado: ResultadoAtendimento,
+        aceitar: bool,
+        catalogo: Iterable[ProdutoCatalogoAtendimento],
+    ) -> ResultadoAtendimento:
+        """Aceite/rejeição explícitos, com recotação canônica antes de adicionar."""
+        carrinho = resultado.carrinho
+        oferta = resultado.sugestao
+        if (
+            resultado.estado is not EstadoAtendimento.AGUARDANDO_RESPOSTA_OFERTA
+            or carrinho is None or oferta is None
+        ):
+            raise ErroAssistenteAtendimento("oferta_fora_de_estado")
+        if carrinho.tenant_id != contexto.tenant_id or carrinho.unidade_id != contexto.unidade_id:
+            raise ErroAssistenteAtendimento("recurso_indisponivel")
+        if not aceitar:
+            return ResultadoAtendimento(
+                estado=_estado_operacional(carrinho),
+                mensagem="Tudo bem, seguimos com seu pedido. " + _mensagem_operacional(carrinho),
+                carrinho=carrinho,
+                auditoria=(*resultado.auditoria, ("oferta", "recusada")),
+            )
+        produto = next(
+            (p for p in catalogo if p.produto_id == oferta.produto_id
+             and p.ativo and p.tenant_id == contexto.tenant_id
+             and p.unidade_id == contexto.unidade_id and p.preco > 0),
+            None,
+        )
+        if produto is None or any(item.produto_id == oferta.produto_id for item in carrinho.itens):
+            return ResultadoAtendimento(
+                estado=_estado_operacional(carrinho),
+                mensagem="O complemento não está mais disponível. " + _mensagem_operacional(carrinho),
+                carrinho=carrinho,
+                auditoria=(*resultado.auditoria, ("oferta", "indisponivel")),
+            )
+        if produto.preco != oferta.preco:
+            return ResultadoAtendimento(
+                estado=_estado_operacional(carrinho),
+                mensagem="O preço do complemento mudou; não adicionei o item. "
+                        + _mensagem_operacional(carrinho),
+                carrinho=carrinho,
+                auditoria=(*resultado.auditoria, ("oferta", "preco_alterado")),
+            )
+        novo_item = ItemCarrinhoAtendimento(
+            produto_id=produto.produto_id,
+            nome_produto=produto.nome,
+            quantidade=1,
+            preco_unitario=produto.preco,
+        )
+        if oferta.tipo == "upsell":
+            substituido = [
+                item for item in carrinho.itens
+                if item.produto_id == oferta.substitui_produto_id and item.quantidade == 1
+            ]
+            if len(substituido) != 1:
+                raise ErroAssistenteAtendimento("upsell_item_original_indisponivel")
+            itens = tuple(
+                novo_item if item.produto_id == oferta.substitui_produto_id else item
+                for item in carrinho.itens
+            )
+        else:
+            itens = (*carrinho.itens, novo_item)
+        novo_carrinho = replace(
+            carrinho,
+            itens=itens,
+            pagamento=None,
+            fingerprint=_fingerprint(
+                tenant_id=carrinho.tenant_id,
+                unidade_id=carrinho.unidade_id,
+                conversa_id=carrinho.conversa_id,
+                mensagem_id=carrinho.mensagem_id,
+                itens=itens,
+                modalidade=carrinho.modalidade,
+                entrega=carrinho.entrega,
+            ),
+        )
+        return ResultadoAtendimento(
+            estado=_estado_operacional(novo_carrinho),
+            mensagem=(
+                f"Troquei pelo {produto.nome} por R$ {produto.preco:.2f}. "
+                if oferta.tipo == "upsell"
+                else f"Adicionei {produto.nome} por R$ {produto.preco:.2f}. "
+            ) + _mensagem_operacional(novo_carrinho),
+            carrinho=novo_carrinho,
+            auditoria=(*resultado.auditoria, ("oferta", "aceita"), ("oferta_produto_id", produto.produto_id)),
+        )
 
     def definir_modalidade(
         self,
