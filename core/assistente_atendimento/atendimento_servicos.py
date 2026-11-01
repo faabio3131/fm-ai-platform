@@ -44,7 +44,10 @@ def _classe_produto(nome: str) -> str | None:
         ch for ch in unicodedata.normalize("NFKD", nome.casefold())
         if not unicodedata.combining(ch)
     )
-    if any(p in texto for p in ("refrigerante", "suco", "agua ", "agua mineral", "coca", "guarana", "shake", "cerveja", "bebida")):
+    # Sem verificação de idade, não sugerir álcool automaticamente.
+    if any(p in texto for p in ("cerveja", "vinho", "vodka", "whisky", "licor", "chopp", "caipirinha")):
+        return None
+    if any(p in texto for p in ("refrigerante", "suco", "agua ", "agua mineral", "coca", "guarana", "shake", "bebida")):
         return "bebida"
     if any(p in texto for p in ("batata", "frita", "nugget", "anel de cebola", "porcao", "acompanhamento")):
         return "acompanhamento"

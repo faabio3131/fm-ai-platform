@@ -776,3 +776,24 @@ def test_cross_sell_aceito_segue_ate_checkout_sem_inclusao_automatica():
     assert len(checkout.chamadas) == 1
     assert checkout.chamadas[0][1].total == Decimal("58.00")
     assert checkout.chamadas[0][1].itens[1].produto_id == "bebida-1"
+
+
+def test_cross_sell_nao_sugere_alcool_sem_verificacao_de_idade():
+    srv, _, _ = servico()
+    itens = (
+        *catalogo(),
+        ProdutoCatalogoAtendimento(
+            produto_id="cerveja-1", tenant_id="tenant-a", unidade_id="unidade-a",
+            nome="Cerveja Lata", preco=Decimal("4.00"),
+        ),
+        ProdutoCatalogoAtendimento(
+            produto_id="suco-1", tenant_id="tenant-a", unidade_id="unidade-a",
+            nome="Suco Natural", preco=Decimal("9.00"),
+        ),
+    )
+    resultado = srv.interpretar(
+        contexto=contexto_atendimento(), entrada=entrada_texto(),
+        raw_ia=raw_intencao(), catalogo=itens,
+    )
+    assert resultado.sugestao is not None
+    assert resultado.sugestao.produto_id == "suco-1"

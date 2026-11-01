@@ -750,12 +750,15 @@ class RuntimeCanalWhatsAppV1:
             resposta = " ".join(re.sub(r"[,.!?]+", " ", texto.casefold()).split())
             if resposta in {"não", "nao", "não obrigado", "nao obrigado", "dispenso",
                            "sem adicional", "sem complementos", "pode seguir sem",
-                           "não quero", "nao quero"}:
+                           "não quero", "nao quero", "só isso", "so isso",
+                           "apenas isso", "pode seguir", "pode continuar",
+                           "quero finalizar", "sem mais nada"}:
                 return self._runtime.responder_oferta(
                     runtime_anterior=runtime, aceitar=False,
                 )
             if resposta in {"sim", "sim por favor", "pode adicionar", "adiciona",
-                           "quero sim", "aceito", "pode incluir", "inclua"}:
+                           "quero sim", "aceito", "pode incluir", "inclua",
+                           "pode colocar", "sim coloca", "sim quero", "coloca"}:
                 return self._runtime.responder_oferta(
                     runtime_anterior=runtime, aceitar=True,
                 )
@@ -763,7 +766,7 @@ class RuntimeCanalWhatsAppV1:
                 contexto=runtime.contexto,
                 resultado=replace(
                     runtime.resultado,
-                    mensagem="Quer incluir o complemento sugerido? Responda sim ou não.",
+                    mensagem="Você aceita a oferta sugerida? Responda sim ou não.",
                 ),
             )
 
