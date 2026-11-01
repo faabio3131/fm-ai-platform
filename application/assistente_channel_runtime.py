@@ -34,6 +34,7 @@ from core.assistente_atendimento.atendimento_modelos import (
     PreferenciaPagamentoAtendimento,
     ResultadoAtendimento,
     ResultadoCheckoutAssistente,
+    SugestaoProdutoAtendimento,
 )
 from core.assistente_atendimento.contexto import (
     ClienteAtendimento,
@@ -298,6 +299,16 @@ def _serializar_runtime(runtime: ResultadoRuntimeAssistente) -> dict[str, object
             "carrinho": _serializar_carrinho(resultado.carrinho),
             "checkout": _serializar_checkout(resultado.checkout),
             "handoff_motivo": resultado.handoff_motivo,
+            "sugestao": (
+                {
+                    "produto_id": resultado.sugestao.produto_id,
+                    "nome": resultado.sugestao.nome,
+                    "preco": str(resultado.sugestao.preco),
+                    "tipo": resultado.sugestao.tipo,
+                    "substitui_produto_id": resultado.sugestao.substitui_produto_id,
+                }
+                if resultado.sugestao is not None else None
+            ),
             "auditoria": list(resultado.auditoria),
         },
     }
@@ -342,6 +353,21 @@ def _restaurar_runtime(
         handoff_motivo=(
             str(resultado_payload["handoff_motivo"])
             if resultado_payload.get("handoff_motivo")
+            else None
+        ),
+        sugestao=(
+            SugestaoProdutoAtendimento(
+                produto_id=str(resultado_payload["sugestao"]["produto_id"]),
+                nome=str(resultado_payload["sugestao"]["nome"]),
+                preco=Decimal(str(resultado_payload["sugestao"]["preco"])),
+                tipo=str(resultado_payload["sugestao"].get("tipo", "cross_sell")),
+                substitui_produto_id=(
+                    str(resultado_payload["sugestao"]["substitui_produto_id"])
+                    if resultado_payload["sugestao"].get("substitui_produto_id")
+                    else None
+                ),
+            )
+            if isinstance(resultado_payload.get("sugestao"), dict)
             else None
         ),
         auditoria=tuple(
@@ -720,6 +746,27 @@ class RuntimeCanalWhatsAppV1:
             )
 
         estado = runtime.resultado.estado
+        if estado is EstadoAtendimento.AGUARDANDO_RESPOSTA_OFERTA:
+            resposta = " ".join(re.sub(r"[,.!?]+", " ", texto.casefold()).split())
+            if resposta in {"não", "nao", "não obrigado", "nao obrigado", "dispenso",
+                           "sem adicional", "sem complementos", "pode seguir sem",
+                           "não quero", "nao quero"}:
+                return self._runtime.responder_oferta(
+                    runtime_anterior=runtime, aceitar=False,
+                )
+            if resposta in {"sim", "sim por favor", "pode adicionar", "adiciona",
+                           "quero sim", "aceito", "pode incluir", "inclua"}:
+                return self._runtime.responder_oferta(
+                    runtime_anterior=runtime, aceitar=True,
+                )
+            return ResultadoRuntimeAssistente(
+                contexto=runtime.contexto,
+                resultado=replace(
+                    runtime.resultado,
+                    mensagem="Quer incluir o complemento sugerido? Responda sim ou não.",
+                ),
+            )
+
         if estado is EstadoAtendimento.AGUARDANDO_DADOS_CLIENTE:
             if not _afirmativo(texto):
                 return ResultadoRuntimeAssistente(

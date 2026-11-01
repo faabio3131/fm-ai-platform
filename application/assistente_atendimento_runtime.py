@@ -579,6 +579,34 @@ class RuntimeAssistenteAtendimentoV1:
             )
         )
 
+    def responder_oferta(
+        self,
+        *,
+        runtime_anterior: ResultadoRuntimeAssistente,
+        aceitar: bool,
+    ) -> ResultadoRuntimeAssistente:
+        """Reconsulta catálogo atual em escopo antes de aplicar aceite."""
+        db = self._session_factory()
+        try:
+            catalogo_atual = _catalogo(
+                db,
+                contexto=runtime_anterior.contexto.contexto_execucao,
+            )
+        finally:
+            db.close()
+        atualizado = self._servico().responder_oferta(
+            contexto=runtime_anterior.contexto,
+            resultado=runtime_anterior.resultado,
+            aceitar=aceitar,
+            catalogo=catalogo_atual,
+        )
+        return self._tentar_cotacao_do_texto(
+            ResultadoRuntimeAssistente(
+                contexto=runtime_anterior.contexto,
+                resultado=atualizado,
+            )
+        )
+
     def definir_modalidade(
         self,
         *,

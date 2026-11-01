@@ -18,6 +18,7 @@ class ModalidadePedidoAtendimento(StrEnum):
 
 class EstadoAtendimento(StrEnum):
     AGUARDANDO_DADOS_CLIENTE = "aguardando_dados_cliente"
+    AGUARDANDO_RESPOSTA_OFERTA = "aguardando_resposta_oferta"
     AGUARDANDO_MODALIDADE_ENTREGA = "aguardando_modalidade_entrega"
     AGUARDANDO_ENDERECO_ENTREGA = "aguardando_endereco_entrega"
     AGUARDANDO_FORMA_PAGAMENTO = "aguardando_forma_pagamento"
@@ -204,10 +205,21 @@ class ResultadoCheckoutAssistente:
 
 
 @dataclass(frozen=True)
+class SugestaoProdutoAtendimento:
+    """Oferta informativa, sem autoridade para modificar o carrinho."""
+    produto_id: str
+    nome: str
+    preco: Decimal
+    tipo: str = "cross_sell"
+    substitui_produto_id: str | None = None
+
+
+@dataclass(frozen=True)
 class ResultadoAtendimento:
     estado: EstadoAtendimento
     mensagem: str
     carrinho: CarrinhoAtendimento | None = None
     checkout: ResultadoCheckoutAssistente | None = None
     handoff_motivo: str | None = None
+    sugestao: SugestaoProdutoAtendimento | None = None
     auditoria: tuple[tuple[str, str], ...] = field(default_factory=tuple)
