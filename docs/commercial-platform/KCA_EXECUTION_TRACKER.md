@@ -1,5 +1,8 @@
 # KCA — Execution Tracker
 
+> **CURRENT operacional 01/11/2026:** Kordena implantado na Contabo, `production@53013ae44449936a383517211a7d21b53932b2fd`, release PR #235. O cabeçalho e os blocos históricos abaixo registram a execução original KCA e não devem ser tratados como infraestrutura corrente. Detalhes auditáveis em [checkpoint de produção](../finalization/KORDENA_CURRENT_PRODUCAO_2026-11-01.md). Upsell/cross-sell da Atendente: **implementação, CI e deploy PASS; homologação externa real por WhatsApp PENDING_EXTERNAL_EVIDENCE**. Nenhum GO comercial público é inferido deste release.
+
+
 | Bloco | Estado |
 |---|---|
 | KCA-00 System Design + ADRs | PASS |
@@ -647,3 +650,15 @@ Nenhum cliente real, trial, assinatura, billing real, usuário de homologação,
 - KCA-16 deve provar a jornada completa com provider sandbox: signup → verification → provisioning → trial → paywall → checkout → payment webhook → subscription ACTIVE → entitlement/access restored → FMCC/observability updated.
 - Billing real permanece proibido sem autorização explícita.
 - Este marcador não declara `MASTER_COMMERCIAL_E2E_PASS`; os workflows e a evidência de runtime/Command são a autoridade.
+
+---
+
+## RELEASE 2026-11-01 — Reconciliação pós-KCA (não reexecutar)
+
+- Origem recuperada: cross-selling no `app.py` legado (commit `41ef48ac`); lacuna no fluxo modular corrigida.
+- PR #234 — construção da Atendente: MERGED em `staging/kordena-premium` (snapshot `ebf8cdb9420d3b36af59d19f3281d95cbb4746ba`). Aceite/recusa explícitos, catálogo isolado por unidade, retotalização e fingerprint; variantes superiores; sem álcool automático e sem produto inventado.
+- PR #235 — release seletiva sobre `production@6808a0352fc8de298762bd1316503b3a0e135720`, sem merge direto de staging, preservando Evolution WhatsApp #233. Candidata `01aa11bc1e7e5fc91ec8afae666f3f2c9b426cf5`. CI: 9/9 SUCCESS; testes locais direcionados: 89 PASS; Ruff e mypy PASS.
+- Merge em production `53013ae44449936a383517211a7d21b53932b2fd`; cron 5 min, backup pré-deploy SHA-256 verificado; `DEPLOY OK` em `2026-11-01T21:26:45Z`. `.deployed` SHA exato; `.failed-sha` ausente; API/Web HTTP 200; PostgreSQL saudável.
+- **PENDÊNCIA EXTERNA**: homologar jornada de WhatsApp Evolution com tenant/unidade reais autorizados, sugestão → aceite/recusa → novo carrinho → confirmação → checkout → auditoria. Não confundir código implantado com homologação real.
+- **PENDÊNCIA DOCUMENTAL/COMERCIAL**: conferir descrição pública do upsell nas páginas FM Tecnologia/Kordena; não alegar homologação real inexistente.
+- Continuam válidos os gates individualizados de billing real, legal, suporte, trial público, go/no-go e NFCore diferido; não promover `KORDENA_V1_COMMERCIAL_READY` por inferência.
