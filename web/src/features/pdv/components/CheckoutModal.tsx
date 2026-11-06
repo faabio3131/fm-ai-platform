@@ -8,7 +8,7 @@ import {
   Loader2,
   QrCode,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import {
 import {
   PdvApiError,
   submitCheckout,
+  type CheckoutPayload,
   type CheckoutResponse,
   type PaymentMethod,
 } from "@/features/pdv/services/pdv-api";
@@ -61,6 +62,8 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CheckoutResponse | null>(null);
 
+  const tentativa = useRef<{ payload: string; chave: string } | null>(null);
+
   const changeCents = Math.max(0, receivedCents - totals.totalCents);
   const cashIsEnough = cart.metodoPagamento !== "dinheiro" || receivedCents >= totals.totalCents;
 
@@ -97,16 +100,25 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
     setError(null);
 
     try {
-      const response = await submitCheckout({
+      const payload: CheckoutPayload = {
         itens: cart.itens.map((item) => ({
           produto_id: item.produto_id,
           quantidade: item.quantidade,
           observacoes: item.observacoes.trim() || null,
         })),
         metodo_pagamento: cart.metodoPagamento,
+        ...(cart.metodoPagamento === "dinheiro"
+          ? { valor_recebido: (receivedCents / 100).toFixed(2) }
+          : {}),
         desconto: (totals.discountCents / 100).toFixed(2),
         cliente_id: cart.clienteId.trim() || null,
-      });
+      };
+      const serializado = JSON.stringify(payload);
+      if (tentativa.current?.payload !== serializado) {
+        tentativa.current = { payload: serializado, chave: crypto.randomUUID() };
+      }
+      const response = await submitCheckout(payload, tentativa.current.chave);
+      tentativa.current = null;
       setResult(response);
       cartActions.reset();
     } catch (caught) {
@@ -139,9 +151,9 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
               <div className="flex size-16 items-center justify-center rounded-full bg-[#10b981]/10 text-[#10b981]">
                 <CheckCircle2 className="size-9" />
               </div>
-              <DialogTitle className="mt-4 text-2xl">Venda registrada com sucesso</DialogTitle>
+              <DialogTitle className="mt-4 text-2xl">{result.pagamento?.status === "pago" ? "Venda registrada com sucesso" : "Pedido registrado"}</DialogTitle>
               <DialogDescription className="mt-2">
-                O backend canônico confirmou o pedido e retornou o estado financeiro da operação.
+                Confira o estado do pedido e do pagamento retornado pelo sistema.
               </DialogDescription>
 
               <div className="mt-6 grid w-full gap-3 rounded-2xl border bg-muted/30 p-4 text-left sm:grid-cols-2">
