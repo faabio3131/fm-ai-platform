@@ -19,6 +19,7 @@ from core.marketplaces import (
     RespostaHttpMarketplace,
     RespostaHttpOpenDelivery,
     compor_adapters_marketplace_reais,
+    compor_food99_transporte_verificado,
     compor_ifood_http_real,
     compor_keeta_opendelivery_real,
 )
@@ -197,3 +198,61 @@ def test_registro_keeta_real_composto_quando_readiness_esta_verde() -> None:
 
     assert resultado is registro
     assert registro.obter(PlataformaMarketplace.KEETA).plataforma is PlataformaMarketplace.KEETA
+
+
+def _env_food99_real() -> dict[str, str]:
+    return {
+        "FM_AI_MARKETPLACE_V1": "1",
+        "FM_AI_99FOOD_ADAPTER_V1": "1",
+        "FM_AI_ADAPTER_ORDERS": "real",
+        "FM_AI_ADAPTER_AUTH": "real",
+        "FM_AI_ADAPTER_99FOOD": "http",
+    }
+
+
+class _Transporte99FoodFake:
+    def __init__(self, contrato_verificado: bool) -> None:
+        self.contrato_verificado = contrato_verificado
+
+
+def test_99food_real_exige_flag_e_contrato_verificado() -> None:
+    with (
+        patch.dict(os.environ, {}, clear=True),
+        pytest.raises(ErroMarketplace) as exc,
+    ):
+        compor_food99_transporte_verificado(
+            transporte=_Transporte99FoodFake(True),  # type: ignore[arg-type]
+        )
+    assert exc.value.codigo == "99food_adapter_real_nao_habilitado"
+
+    with (
+        patch.dict(os.environ, _env_food99_real(), clear=True),
+        pytest.raises(ErroMarketplace) as exc,
+    ):
+        compor_food99_transporte_verificado(
+            transporte=_Transporte99FoodFake(False),  # type: ignore[arg-type]
+        )
+    assert exc.value.codigo == "contrato_99food_nao_verificado"
+
+
+def test_99food_real_falha_fechado_sem_transporte_oficial() -> None:
+    with (
+        patch.dict(os.environ, _env_food99_real(), clear=True),
+        pytest.raises(ErroMarketplace) as exc,
+    ):
+        compor_adapters_marketplace_reais()
+    assert exc.value.codigo == "99food_transporte_certificado_ausente"
+
+
+def test_99food_real_registra_transporte_verificado_sem_inferir_endpoint() -> None:
+    transporte = _Transporte99FoodFake(True)
+    registro = RegistroAdaptersMarketplace()
+    with patch.dict(os.environ, _env_food99_real(), clear=True):
+        resultado = compor_adapters_marketplace_reais(
+            registro=registro,
+            transporte_food99=transporte,  # type: ignore[arg-type]
+        )
+    assert resultado is registro
+    adapter = registro.obter(PlataformaMarketplace.FOOD99)
+    assert adapter.plataforma is PlataformaMarketplace.FOOD99
+    assert adapter.transport is transporte

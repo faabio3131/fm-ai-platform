@@ -61,6 +61,7 @@ from .partner_transport import TransporteParceiroNormalizado
 from .runtime import (
     HttpxMarketplaceTransport,
     compor_adapters_marketplace_reais,
+    compor_food99_transporte_verificado,
     compor_ifood_http_real,
     compor_keeta_opendelivery_real,
 )
@@ -115,6 +116,7 @@ __all__ = [
     "StatusPedidoExterno",
     "TransporteParceiroNormalizado",
     "compor_adapters_marketplace_reais",
+    "compor_food99_transporte_verificado",
     "compor_ifood_http_real",
     "compor_keeta_opendelivery_real",
     "food99_adapter_v1_enabled",
