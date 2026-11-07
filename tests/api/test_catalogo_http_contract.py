@@ -559,6 +559,88 @@ def test_produto_revisado_pode_ser_salvo_com_descricao_inativo() -> None:
     assert row.descricao_bruta == "Carne e queijo; conferir ficha técnica"
 
 
+
+
+def test_rascunho_ia_pode_receber_ficha_com_quantidade_kg_e_cmv_real() -> None:
+    engine, _, client = _infra()
+    criado = client.post(
+        "/v1/catalogo/produtos",
+        headers=_headers(key="produto-ia-rascunho-ficha-1"),
+        json={
+            "nome": "Burger IA para ficha",
+            "categoria": "Hambúrgueres",
+            "preco": 39.90,
+            "descricao_bruta": "Carne e pão",
+            "ativo": False,
+        },
+    )
+    assert criado.status_code == 201
+    produto_id = criado.json()["id"]
+    payload = {
+        "itens_ficha": [
+            {"insumo_id": 11, "quantidade": 0.18},
+            {"insumo_id": 12, "quantidade": 1},
+        ]
+    }
+    resposta = client.post(
+        f"/v1/catalogo/produtos/{produto_id}/vincular-ficha",
+        headers=_headers(),
+        json=payload,
+    )
+    assert resposta.status_code == 200
+    assert resposta.json()["ativo"] is False
+    ficha = client.get(
+        f"/v1/catalogo/produtos/{produto_id}/ficha",
+        headers=_headers(),
+    )
+    assert ficha.status_code == 200
+    assert len(ficha.json()["itens"]) == 2
+    assert ficha.json()["custo_total_cmv"] == 6.9
+    reenvio = client.post(
+        f"/v1/catalogo/produtos/{produto_id}/vincular-ficha",
+        headers=_headers(),
+        json=payload,
+    )
+    assert reenvio.status_code == 409
+    with engine.begin() as conn:
+        linhas = conn.execute(
+            text("SELECT COUNT(*) FROM fichas_tecnicas WHERE produto_id = :id"),
+            {"id": int(produto_id)},
+        ).scalar_one()
+    assert linhas == 2
+
+
+def test_vinculo_ficha_rascunho_rejeita_insumo_de_outra_unidade_com_rollback() -> None:
+    engine, _, client = _infra()
+    criado = client.post(
+        "/v1/catalogo/produtos",
+        headers=_headers(key="produto-ia-rascunho-cross-unit"),
+        json={
+            "nome": "Rascunho protegido",
+            "categoria": "Hambúrgueres",
+            "preco": 30,
+            "ativo": False,
+        },
+    )
+    assert criado.status_code == 201
+    pid = criado.json()["id"]
+    resposta = client.post(
+        f"/v1/catalogo/produtos/{pid}/vincular-ficha",
+        headers=_headers(),
+        json={
+            "itens_ficha": [
+                {"insumo_id": 11, "quantidade": 0.1},
+                {"insumo_id": 21, "quantidade": 0.1},
+            ]
+        },
+    )
+    assert resposta.status_code == 409
+    with engine.begin() as conn:
+        assert conn.execute(
+            text("SELECT COUNT(*) FROM fichas_tecnicas WHERE produto_id = :id"),
+            {"id": int(pid)},
+        ).scalar_one() == 0
+
 def test_catalogo_importacao_gemini_exige_entrada_e_permissao() -> None:
     _, _, client = _infra()
 

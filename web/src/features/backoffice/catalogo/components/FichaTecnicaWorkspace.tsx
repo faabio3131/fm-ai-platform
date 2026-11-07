@@ -12,6 +12,7 @@ import {
   importarCardapioGeminiPorTexto,
   listarInsumosFicha,
   obterFichaProduto,
+  vincularFichaRascunho,
   type CatalogoFicha,
   type CatalogoInsumoFicha,
   type CatalogoProduto,
@@ -54,6 +55,7 @@ export function FichaTecnicaWorkspace({
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [produtoConsultaId, setProdutoConsultaId] = useState("");
+  const [rascunhoFichaId, setRascunhoFichaId] = useState("");
   const [fichaConsultada, setFichaConsultada] = useState<CatalogoFicha | null>(null);
   const [fonteImportacao, setFonteImportacao] = useState<"arquivo" | "texto">("arquivo");
   const [textoCardapio, setTextoCardapio] = useState("");
@@ -119,6 +121,15 @@ export function FichaTecnicaWorkspace({
     setPreco(Number(sugestao.toFixed(2)));
   }
 
+  function itensFichaCanonicos() {
+    return itens.map((item) => ({
+      insumo_id: Number(item.insumo.id),
+      quantidade: item.insumo.unidade_medida === "kg"
+        ? Number((item.quantidade / 1000).toFixed(6))
+        : item.quantidade,
+    }));
+  }
+
   async function salvar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (itens.length === 0) {
@@ -130,24 +141,32 @@ export function FichaTecnicaWorkspace({
     setErro(null);
     setAviso(null);
     try {
-      const criado = await criarPratoComFicha({
-        nome: String(form.get("nome") || "").trim(),
-        categoria: String(form.get("categoria") || "").trim(),
-        preco,
-        custo_total_cmv: Number(cmv.toFixed(2)),
-        margem_exibicao: `${margemReal.toFixed(1)}%`,
-        descricao_bruta: String(form.get("descricao") || "").trim(),
-        ativo: true,
-        itens_ficha: itens.map((item) => ({
-          insumo_id: Number(item.insumo.id),
-          quantidade: item.quantidade,
-        })),
-      });
-      onCreated(criado);
+      if (rascunhoFichaId) {
+        const vinculado = await vincularFichaRascunho(
+          rascunhoFichaId, itensFichaCanonicos(),
+        );
+        setAviso(
+          `Ficha vinculada a “${vinculado.nome}” com CMV real. Ative o produto no catálogo após conferir estoque e preço.`,
+        );
+        setRascunhoFichaId("");
+        onImported();
+      } else {
+        const criado = await criarPratoComFicha({
+          nome: String(form.get("nome") || "").trim(),
+          categoria: String(form.get("categoria") || "").trim(),
+          preco,
+          custo_total_cmv: Number(cmv.toFixed(2)),
+          margem_exibicao: `${margemReal.toFixed(1)}%`,
+          descricao_bruta: String(form.get("descricao") || "").trim(),
+          ativo: true,
+          itens_ficha: itensFichaCanonicos(),
+        });
+        onCreated(criado);
+        setAviso(`Prato “${criado.nome}” e ficha técnica cadastrados.`);
+      }
       setItens([]);
       setPreco(0);
       event.currentTarget.reset();
-      setAviso(`Prato “${criado.nome}” e ficha técnica cadastrados.`);
     } catch {
       setErro("Não foi possível salvar o prato e a ficha técnica.");
     } finally {
@@ -448,14 +467,27 @@ export function FichaTecnicaWorkspace({
         {erro ? <p className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{erro}</p> : null}
         {aviso ? <p className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-200">{aviso}</p> : null}
 
+        <label className="mb-4 block text-xs font-semibold text-slate-400">
+          Vincular ficha a rascunho criado pela IA (opcional)
+          <select
+            value={rascunhoFichaId}
+            onChange={(event) => setRascunhoFichaId(event.target.value)}
+            className="mt-1 h-10 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white"
+          >
+            <option value="">Criar novo prato com ficha</option>
+            {produtos.filter((item) => !item.ativo).map((item) => (
+              <option key={item.id} value={item.id}>{item.nome}</option>
+            ))}
+          </select>
+        </label>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-xs font-semibold text-slate-400">
             Nome do prato
-            <input name="nome" required className="mt-1 h-10 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white" />
+            <input name="nome" required={!rascunhoFichaId} disabled={Boolean(rascunhoFichaId)} className="mt-1 h-10 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white" />
           </label>
           <label className="text-xs font-semibold text-slate-400">
             Categoria
-            <input name="categoria" required list="categorias-cardapio" className="mt-1 h-10 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white" />
+            <input name="categoria" required={!rascunhoFichaId} disabled={Boolean(rascunhoFichaId)} list="categorias-cardapio" className="mt-1 h-10 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white" />
             <datalist id="categorias-cardapio">{categorias.map((categoria) => <option key={categoria} value={categoria} />)}</datalist>
           </label>
           <label className="text-xs font-semibold text-slate-400 sm:col-span-2">
@@ -525,7 +557,7 @@ export function FichaTecnicaWorkspace({
         </div>
 
         <Button type="submit" className="mt-5 w-full" disabled={busy || itens.length === 0 || preco < 0}>
-          {busy ? <LoaderCircle className="animate-spin" /> : <BookOpen />} Salvar prato e ficha técnica
+          {busy ? <LoaderCircle className="animate-spin" /> : <BookOpen />} {rascunhoFichaId ? "Vincular ficha ao rascunho" : "Salvar prato e ficha técnica"}
         </Button>
       </form>
 

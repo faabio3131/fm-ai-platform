@@ -6,6 +6,7 @@ import hashlib
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, TypeVar, cast
 
 from sqlalchemy import MetaData, Table, update
@@ -17,10 +18,13 @@ from core.seguranca.auditoria import EventoAuditoria, sanitizar_metadata
 from core.seguranca.contexto import ContextoExecucao
 from infra.legacy_product_scope import (
     inserir_ficha_tecnica_legada,
+    listar_fichas_produto_legadas,
+    obter_insumo_por_id_legado,
     inserir_produto_legado,
     obter_produto_por_id_legado,
 )
 from infra.seguranca.modelos_orm import EventoAuditoriaORM
+from infra.seguranca.auditoria_sqlalchemy import RepositorioAuditoriaSQLAlchemy
 from infra.transacoes.uow import UnitOfWorkV1
 
 T = TypeVar("T")
@@ -30,6 +34,10 @@ SessionFactory = Callable[[], Session]
 
 class ConflitoIdempotenciaCatalogo(RuntimeError):
     """A mesma chave idempotente foi reutilizada com outra intenção."""
+
+
+class ConflitoFichaCatalogo(RuntimeError):
+    """Ficha de rascunho já existe ou produto não é mais rascunho."""
 
 
 @dataclass(frozen=True)
@@ -294,6 +302,125 @@ class AplicacaoLegacyCardapioV1:
                     "atualização de produto não atingiu exatamente "
                     "um registro da unidade"
                 )
+            return True
+
+        return self._executar(acao)
+
+    def vincular_ficha_a_rascunho(
+        self,
+        contexto: ContextoExecucao,
+        *,
+        produto_id: int,
+        itens_ficha: Sequence[Mapping[str, Any]],
+    ) -> bool:
+        """Vincula insumos a produto IA inativo, calculando CMV real uma vez.
+
+        A escrita permanece na Application/UoW e não ativa a venda implicitamente.
+        Repetição ou produto já ativo falham fechado, sem duplicar consumo.
+        """
+        if not itens_ficha:
+            raise ValueError("ficha técnica exige insumos")
+        ids = [int(item["insumo_id"]) for item in itens_ficha]
+        if len(set(ids)) != len(ids):
+            raise ConflitoFichaCatalogo("insumo duplicado na ficha técnica")
+
+        def acao(session: Session) -> bool:
+            produto = obter_produto_por_id_legado(
+                session,
+                tenant_id=contexto.tenant_id,
+                unidade_id=contexto.unidade_id,
+                produto_id=produto_id,
+            )
+            if produto is None:
+                return False
+            if bool(produto.ativo):
+                raise ConflitoFichaCatalogo("produto ativo não aceita vinculação inicial")
+            existentes = listar_fichas_produto_legadas(
+                session,
+                tenant_id=contexto.tenant_id,
+                unidade_id=contexto.unidade_id,
+                produto_id=produto_id,
+            )
+            if existentes:
+                raise ConflitoFichaCatalogo("produto já possui ficha técnica")
+
+            custo = Decimal("0")
+            validos: list[tuple[int, Decimal]] = []
+            for item in itens_ficha:
+                insumo_id = int(item["insumo_id"])
+                quantidade = Decimal(str(item["quantidade"]))
+                if not quantidade.is_finite() or quantidade <= 0:
+                    raise ValueError("quantidade da ficha inválida")
+                insumo = obter_insumo_por_id_legado(
+                    session,
+                    tenant_id=contexto.tenant_id,
+                    unidade_id=contexto.unidade_id,
+                    insumo_id=insumo_id,
+                )
+                if insumo is None:
+                    from infra.legacy_product_scope import ErroEscopoLojaLegada
+                    raise ErroEscopoLojaLegada("insumo indisponível na unidade")
+                custo += quantidade * Decimal(str(insumo.custo_unitario or 0))
+                validos.append((insumo_id, quantidade))
+
+            for insumo_id, quantidade in validos:
+                inserir_ficha_tecnica_legada(
+                    session,
+                    tenant_id=contexto.tenant_id,
+                    unidade_id=contexto.unidade_id,
+                    produto_id=produto_id,
+                    insumo_id=insumo_id,
+                    quantidade=quantidade,
+                )
+
+            preco = Decimal(str(produto.preco_venda or 0))
+            custo = custo.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            margem = (
+                f"{((preco - custo) / preco * 100):.1f}%"
+                if preco > 0 else "0.0%"
+            )
+            table = Table("produtos", MetaData(), autoload_with=session.connection())
+            result = cast(
+                CursorResult[Any],
+                session.execute(
+                    update(table)
+                    .where(table.c.id == produto_id)
+                    .where(table.c.loja_id == produto._mapping["loja_id"])
+                    .where(table.c.ativo.is_(False))
+                    .values(custo_total_cmv=float(custo), margem_exibicao=margem)
+                ),
+            )
+            if result.rowcount != 1:
+                raise ConflitoFichaCatalogo("rascunho alterado durante operação")
+            papel = next(
+                iter(sorted(contexto.papeis, key=lambda x: x.value)),
+                None,
+            )
+            evento = EventoAuditoria(
+                audit_id="cat-ficha-" + hashlib.sha256(
+                    f"{contexto.tenant_id}:{contexto.unidade_id}:"
+                    f"{produto_id}:{contexto.correlation_id}".encode()
+                ).hexdigest()[:52],
+                tenant_id=contexto.tenant_id,
+                unidade_id=contexto.unidade_id,
+                usuario_id=contexto.usuario_id,
+                papel_efetivo=papel,
+                acao="catalogo.ficha.vincular",
+                recurso_tipo="produto_legado",
+                recurso_id=str(produto_id),
+                resultado="sucesso",
+                motivo="vínculo de insumos em rascunho, sem ativação",
+                correlation_id=contexto.correlation_id,
+                timestamp=datetime.now(timezone.utc),
+                origem=contexto.origem,
+                politica="catalogo-http-v1",
+                depois_resumido=(
+                    ("itens_ficha", len(validos)),
+                    ("ativo", False),
+                ),
+                metadata=sanitizar_metadata({"cmv_calculado": str(custo)}),
+            )
+            RepositorioAuditoriaSQLAlchemy(session).adicionar(evento)
             return True
 
         return self._executar(acao)

@@ -195,6 +195,16 @@ export function obterFichaProduto(produtoId: string): Promise<CatalogoFicha> {
   );
 }
 
+export function vincularFichaRascunho(
+  produtoId: string,
+  itens_ficha: Array<{ insumo_id: number; quantidade: number }>,
+): Promise<CatalogoProduto> {
+  return catalogoRequest(
+    `/v1/catalogo/produtos/${encodeURIComponent(produtoId)}/vincular-ficha`,
+    { method: "POST", body: JSON.stringify({ itens_ficha }) },
+  );
+}
+
 export function criarPratoComFicha(
   payload: CriarPratoComFichaPayload,
 ): Promise<CatalogoProduto> {

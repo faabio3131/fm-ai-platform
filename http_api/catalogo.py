@@ -18,6 +18,7 @@ from application.cardapio_importacao_ia import gerar_cardapio_ia_governada
 from application.legacy_cardapio_gemini import AplicacaoImportacaoCardapioGeminiV1
 from application.legacy_cardapio_transacoes import (
     AplicacaoLegacyCardapioV1,
+    ConflitoFichaCatalogo,
     ConflitoIdempotenciaCatalogo,
 )
 from core.ai_router import FalhaRotaDefinitiva, FalhaRotaTransitoria, SemRotaCompativel
@@ -82,6 +83,10 @@ class ImportacaoCardapioTextoIn(BaseModel):
 class GerarCardapioOriginalIn(BaseModel):
     briefing: str = Field(min_length=20, max_length=3000)
     quantidade: int = Field(default=8, ge=1, le=20)
+
+
+class VincularFichaRascunhoIn(BaseModel):
+    itens_ficha: list[FichaTecnicaItemIn] = Field(min_length=1, max_length=100)
 
 
 def _erro(http_status: int, codigo: str) -> JSONResponse:
@@ -754,6 +759,73 @@ def build_catalogo_router(
             return _erro(
                 status.HTTP_409_CONFLICT,
                 "catalogo.escopo_indisponivel",
+            )
+
+    @router.post("/produtos/{produto_id}/vincular-ficha")
+    def vincular_ficha_rascunho(
+        produto_id: str,
+        payload: VincularFichaRascunhoIn,
+        request: Request,
+    ) -> JSONResponse:
+        try:
+            contexto = _contexto(request, exigir_escrita=True)
+            try:
+                parsed_id = int(produto_id)
+            except (TypeError, ValueError):
+                return _erro(
+                    status.HTTP_404_NOT_FOUND,
+                    "catalogo.produto_nao_encontrado",
+                )
+            vinculado = aplicacao.vincular_ficha_a_rascunho(
+                contexto,
+                produto_id=parsed_id,
+                itens_ficha=tuple(
+                    {
+                        "insumo_id": item.insumo_id,
+                        "quantidade": item.quantidade,
+                    }
+                    for item in payload.itens_ficha
+                ),
+            )
+            if not vinculado:
+                return _erro(
+                    status.HTTP_404_NOT_FOUND,
+                    "catalogo.produto_nao_encontrado",
+                )
+            produto = _produto_scoped(
+                contexto=contexto,
+                produto_id=produto_id,
+            )
+            if produto is None:
+                return _erro(
+                    status.HTTP_503_SERVICE_UNAVAILABLE,
+                    "catalogo.persistencia_inconsistente",
+                )
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content=_dto_produto(produto),
+            )
+        except CredenciaisInvalidas:
+            return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
+        except PermissionError as exc:
+            return _erro(
+                status.HTTP_403_FORBIDDEN,
+                str(exc) or "seguranca.permissao_insuficiente",
+            )
+        except (ReferenciaSegredoInvalida, SegredoAusente):
+            return _erro(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "auth.sessao_indisponivel",
+            )
+        except ErroEscopoLojaLegada:
+            return _erro(
+                status.HTTP_409_CONFLICT,
+                "catalogo.escopo_indisponivel",
+            )
+        except ConflitoFichaCatalogo:
+            return _erro(
+                status.HTTP_409_CONFLICT,
+                "catalogo.ficha_rascunho_conflitante",
             )
 
     @router.patch("/produtos/{produto_id}")

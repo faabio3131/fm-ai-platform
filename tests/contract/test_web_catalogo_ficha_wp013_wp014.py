@@ -63,3 +63,17 @@ def test_gerador_cardapio_original_mantem_revisao_e_rascunho_inativo() -> None:
     assert '"/v1/catalogo/propostas-ia"' in api
     assert '@router.post("/propostas-ia")' in backend
     assert '"cadastro_automatico": False' in backend
+
+
+def test_ficha_tecnica_converte_gramas_para_kg_antes_de_persistir() -> None:
+    workspace = _read(
+        "web/src/features/backoffice/catalogo/components/FichaTecnicaWorkspace.tsx"
+    )
+    api = _read("web/src/features/backoffice/catalogo/services/catalogo-api.ts")
+    app = _read("application/legacy_cardapio_transacoes.py")
+    assert "item.quantidade / 1000" in workspace
+    assert "itensFichaCanonicos()" in workspace
+    assert "vincularFichaRascunho" in workspace
+    assert "Vincular ficha ao rascunho" in workspace
+    assert "vincular-ficha" in api
+    assert "def vincular_ficha_a_rascunho(" in app
