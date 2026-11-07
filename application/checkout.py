@@ -49,6 +49,7 @@ class ComandoCheckoutV1:
     snapshot_estoque: SnapshotFichaEstoque | None = None
     provedor_pagamento: str | None = None
     recebimento_posterior: bool = False
+    valor_recebido: Dinheiro | None = None
 
 
 @dataclass(frozen=True)
@@ -297,10 +298,10 @@ def executar_checkout_v1(
     comando: ComandoCheckoutV1,
     contexto: ContextoExecucao,
     session_factory: Callable[[], Session],
-    valor_recebido: Dinheiro | None = None,
 ) -> ResultadoCheckoutV1:
     """Registra checkout inteiro ou nada; replays usam as mesmas chaves derivadas."""
     pedido = comando.pedido
+    valor_recebido = comando.valor_recebido
     if valor_recebido is not None:
         if pedido.total.valor > 0 and comando.metodo_pagamento is not MetodoPagamento.DINHEIRO:
             raise CheckoutInvalido("valor_recebido_exige_dinheiro")

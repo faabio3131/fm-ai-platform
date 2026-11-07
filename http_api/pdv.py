@@ -484,6 +484,12 @@ def build_pdv_router(
                 contexto=contexto,
                 idempotency_key=key,
             )
+            recebido = None
+            if payload.valor_recebido is not None:
+                if payload.metodo_pagamento is not MetodoPagamento.DINHEIRO:
+                    raise CheckoutInvalido("valor_recebido_exige_dinheiro")
+                recebido = Dinheiro(payload.valor_recebido)
+
             comando = ComandoCheckoutV1(
                 pedido=pedido,
                 timestamp=datetime.now(UTC),
@@ -495,18 +501,12 @@ def build_pdv_router(
                 metodo_pagamento=(
                     payload.metodo_pagamento if pedido.total.valor > 0 else None
                 ),
+                valor_recebido=recebido,
             )
-            recebido = None
-            if payload.valor_recebido is not None:
-                if payload.metodo_pagamento is not MetodoPagamento.DINHEIRO:
-                    raise CheckoutInvalido("valor_recebido_exige_dinheiro")
-                recebido = Dinheiro(payload.valor_recebido)
-
             resultado = executar_checkout_v1(
                 comando=comando,
                 contexto=contexto,
                 session_factory=session_factory,
-                valor_recebido=recebido,
             )
             body = _resposta_checkout(resultado)
             http_status = (
