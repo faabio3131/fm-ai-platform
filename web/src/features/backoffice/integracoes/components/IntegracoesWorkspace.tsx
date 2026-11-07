@@ -192,6 +192,7 @@ function IntegracaoDetailDialog({
 
   const config = integracao.configuracao;
   const spec = integracao.catalogo;
+  const apenasCadastro = spec.runtime_operacional === false;
   const configuracaoSalva = Boolean(config);
   const configuracaoHabilitada = Boolean(config?.habilitada);
   const prontidaoHomologavel = Boolean(
@@ -204,7 +205,9 @@ function IntegracaoDetailDialog({
       ? 'Habilite e salve a integração antes de executar o teste real.'
       : null;
 
-  const blockerHomologacao = !configuracaoSalva
+  const blockerHomologacao = apenasCadastro
+    ? 'Este provedor tem apenas cadastro de credenciais, sem adapter de transações certificado.'
+    : !configuracaoSalva
     ? 'Salve a configuração antes de homologar esta integração.'
     : !configuracaoHabilitada
       ? 'Habilite e salve a integração antes de homologar.'
@@ -298,6 +301,13 @@ function IntegracaoDetailDialog({
 
           {activeTab === 'config' && (
             <div className="space-y-6">
+              {apenasCadastro && (
+                <p role="status" className="rounded-lg border border-amber-400/30 bg-amber-500/10 p-3 text-sm text-amber-200">
+                  Cadastro seguro disponível. Este provedor ainda não realiza operações
+                  financeiras pelo Kordena. Cadastrar credenciais não habilita cobranças
+                  ou transferências automaticamente.
+                </p>
+              )}
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <Label htmlFor="conta_externa">Conta / identificação externa</Label>
@@ -377,7 +387,7 @@ function IntegracaoDetailDialog({
                   Deixe vazio para manter a credencial atual. O valor salvo nunca é reexibido.
                 </p>
                 <div className="grid gap-4 md:grid-cols-2">
-                  {spec.credenciais_obrigatorias.map((cred) => (
+                  {[...spec.credenciais_obrigatorias, ...(spec.credenciais_opcionais ?? [])].map((cred) => (
                     <div key={cred}>
                       <Label htmlFor={`cred_${cred}`}>{CREDENCIAL_LABELS[cred] || cred}</Label>
                       <Input
@@ -524,6 +534,7 @@ function IntegracaoDetailDialog({
 export function IntegracoesWorkspace() {
   const [integracoes, setIntegracoes] = useState<Integracao[]>([]);
   const [loading, setLoading] = useState(true);
+  const [grupoAtivo, setGrupoAtivo] = useState<'pagamentos' | 'bancos' | 'outros'>('pagamentos');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -610,13 +621,38 @@ export function IntegracoesWorkspace() {
         </div>
       )}
 
+      {!loading && (
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Categorias de integrações">
+          {([
+            ['pagamentos', 'Meios de pagamento'],
+            ['bancos', 'Contas bancárias'],
+            ['outros', 'Outras integrações'],
+          ] as const).map(([valor, titulo]) => (
+            <Button
+              type="button"
+              key={valor}
+              size="sm"
+              variant={grupoAtivo === valor ? 'default' : 'outline'}
+              onClick={() => setGrupoAtivo(valor)}
+            >
+              {titulo}
+            </Button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
         </div>
       ) : (
         <div className="grid gap-3">
-          {integracoes.map((integracao) => (
+          {integracoes.filter((integracao) => {
+            const service = integracao.catalogo.servico;
+            if (grupoAtivo === 'pagamentos') return service.startsWith('pagamentos.');
+            if (grupoAtivo === 'bancos') return service === 'financeiro.conta_bancaria';
+            return !service.startsWith('pagamentos.') && service !== 'financeiro.conta_bancaria';
+          }).map((integracao) => (
             <Card
               key={integracao.catalogo.servico + '--' + integracao.catalogo.provedor}
               className="overflow-hidden"
@@ -628,6 +664,9 @@ export function IntegracoesWorkspace() {
                       <CardTitle className="text-base font-semibold">
                         {integracao.catalogo.label}
                       </CardTitle>
+                      {integracao.catalogo.runtime_operacional === false && (
+                        <Badge variant="outline" className="text-[11px]">Apenas cadastro</Badge>
+                      )}
                       {integracao.configuracao ? (
                         <Badge
                           className={

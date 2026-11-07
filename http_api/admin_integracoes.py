@@ -199,7 +199,8 @@ def _catalogo_item_out(spec) -> CatalogoItemOut:
 
 def _credenciais_estado(config: ConfiguracaoServicoExterno, spec) -> dict[str, bool]:
     credenciais = config.credenciais
-    return {papel: papel in credenciais for papel in sorted(spec.credenciais_obrigatorias)}
+    roles = spec.credenciais_obrigatorias | spec.credenciais_opcionais
+    return {papel: papel in credenciais for papel in sorted(roles)}
 
 
 def _prontidao_out(prontidao) -> dict[str, Any]:
@@ -431,7 +432,17 @@ def build_admin_integracoes_router(
             ambiente = AmbienteIntegracao(payload.ambiente.strip().casefold())
 
             parametros: Mapping[str, ValorParametro] = {p.nome: p.valor for p in payload.parametros}
-            credenciais: Mapping[str, str] = {c.papel: c.valor for c in payload.credenciais if c.valor.strip()}
+            credenciais: Mapping[str, str] = {
+                c.papel: c.valor for c in payload.credenciais if c.valor.strip()
+            }
+            # Newly onboarded providers are config-only. Never allow arbitrary
+            # or secret-bearing keys to be persisted as public parameters.
+            if not spec.runtime_operacional:
+                roles = spec.credenciais_obrigatorias | spec.credenciais_opcionais
+                if not set(credenciais).issubset(roles):
+                    raise ErroConfiguracaoServico("credencial_inesperada")
+                if not set(parametros).issubset(spec.parametros_obrigatorios):
+                    raise ErroConfiguracaoServico("parametro_inesperado")
 
             with session_factory() as session:
                 service, _vault = _criar_servico_e_vault(session, master_key)

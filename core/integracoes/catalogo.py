@@ -20,6 +20,9 @@ class EspecificacaoServico:
     parametros_obrigatorios: frozenset[str]
     credenciais_obrigatorias: frozenset[str]
     escopo_gestao: EscopoGestaoIntegracao = EscopoGestaoIntegracao.TENANT_MANAGED
+    # Catálogo/cadastro não significa adapter de cobrança implementado.
+    runtime_operacional: bool = True
+    credenciais_opcionais: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -130,6 +133,79 @@ CATALOGO_V1 = CatalogoServicosExternos(
             provedor="keeta",
             parametros_obrigatorios=frozenset(),
             credenciais_obrigatorias=frozenset({"client_id", "client_secret"}),
+        ),
+        # Provedores financeiros configuráveis pelo estabelecimento.
+        # Na V1 estas novas opções são CADASTRO SEGURO, não captura nem
+        # liquidação implementadas; operações dependem de adapters certificados.
+        *(
+            EspecificacaoServico(
+                servico="pagamentos.pix",
+                provedor=provedor,
+                parametros_obrigatorios=frozenset({"notification_url"}),
+                credenciais_obrigatorias=frozenset(papeis),
+                runtime_operacional=False,
+            )
+            for provedor, papeis in (
+                ("asaas", ("api_key",)),
+                ("picpay", ("client_id", "client_secret")),
+                ("pagarme", ("api_key",)),
+                ("efi", ("client_id", "client_secret")),
+            )
+        ),
+        *(
+            EspecificacaoServico(
+                servico="pagamentos.cartao",
+                provedor=provedor,
+                parametros_obrigatorios=frozenset(),
+                credenciais_obrigatorias=frozenset(papeis),
+                runtime_operacional=False,
+            )
+            for provedor, papeis in (
+                ("mercado_pago", ("access_token",)),
+                ("asaas", ("api_key",)),
+                ("picpay", ("client_id", "client_secret")),
+                ("pagarme", ("api_key",)),
+                ("stone", ("api_key",)),
+                ("cielo", ("merchant_id", "merchant_key")),
+                ("rede", ("pv", "integration_key")),
+                ("getnet", ("client_id", "client_secret")),
+                ("sumup", ("access_token",)),
+                ("infinitepay", ("api_key",)),
+            )
+        ),
+        # Dados bancários são protegidos no Vault, não enviados por HTTP como
+        # parâmetros públicos. Isto é cadastro de destino, não Open Banking.
+        *(
+            EspecificacaoServico(
+                servico="financeiro.conta_bancaria",
+                provedor=provedor,
+                parametros_obrigatorios=frozenset({"tipo_conta"}),
+                credenciais_obrigatorias=frozenset(
+                    {"agencia", "numero_conta"}
+                ),
+                credenciais_opcionais=frozenset(
+                    {"chave_pix", "digito_conta"}
+                ),
+                runtime_operacional=False,
+            )
+            for provedor in (
+                "banco_do_brasil",
+                "itau",
+                "bradesco",
+                "caixa",
+                "santander",
+                "nubank",
+                "inter",
+                "sicredi",
+                "sicoob",
+                "c6",
+                "btg_pactual",
+                "original",
+                "mercado_pago",
+                "pagbank",
+                "asaas",
+                "picpay",
+            )
         ),
         EspecificacaoServico(
             servico="fiscal.documentos",

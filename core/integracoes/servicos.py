@@ -133,6 +133,11 @@ class ServicoConfiguracoesExternas:
         if Papel.ADMINISTRADOR not in contexto.papeis:
             raise PermissaoInsuficiente("administrador obrigatorio para homologacao")
         atual = self.obter(contexto=contexto, configuracao_id=configuracao_id)
+        spec = self._catalogo.obter(atual.servico, atual.provedor)
+        if not spec.runtime_operacional:
+            raise ErroConfiguracaoServico(
+                "homologacao_indisponivel_sem_adapter_transacional"
+            )
         if not atual.habilitada:
             raise ErroConfiguracaoServico("homologacao_exige_integracao_habilitada")
         if not evidencia_ref.strip():

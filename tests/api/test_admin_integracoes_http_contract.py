@@ -913,3 +913,92 @@ def test_get_lista_mercado_pago_do_cliente_e_oculta_servicos_de_plataforma(
     assert "pagbank" in providers
     assert "gemini" not in providers
     assert "google_maps" not in providers
+
+
+
+def test_cadastro_multigateway_e_bancos_visiveis_sem_afirmar_runtime(
+    app_com_mocks,
+) -> None:
+    app, mocks = app_com_mocks
+    ident = _identidade_admin()
+    mocks["auth"].resolver_identidade.return_value = ident
+    mocks["auth"].admin_status.return_value = (ident, True, None)
+    response = TestClient(app).get("/v1/admin/integracoes")
+    assert response.status_code == 200
+    specs = {
+        (item["catalogo"]["servico"], item["catalogo"]["provedor"]):
+        item["catalogo"]
+        for item in response.json()["integracoes"]
+    }
+    for service, provider in (
+        ("pagamentos.pix", "asaas"),
+        ("pagamentos.pix", "picpay"),
+        ("pagamentos.pix", "pagarme"),
+        ("pagamentos.cartao", "cielo"),
+        ("pagamentos.cartao", "mercado_pago"),
+        ("financeiro.conta_bancaria", "inter"),
+        ("financeiro.conta_bancaria", "itau"),
+        ("financeiro.conta_bancaria", "sicredi"),
+    ):
+        item = specs[(service, provider)]
+        assert item["runtime_operacional"] is False
+        assert item["healthcheck_supported"] is False
+        assert item["label"]
+    bank = specs[("financeiro.conta_bancaria", "inter")]
+    assert bank["credenciais_obrigatorias"] == ["agencia", "numero_conta"]
+    assert bank["credenciais_opcionais"] == ["chave_pix", "digito_conta"]
+
+
+def test_banco_rejeita_numero_conta_em_parametro_publico(
+    app_com_mocks,
+) -> None:
+    app, mocks = app_com_mocks
+    ident = _identidade_admin()
+    mocks["auth"].resolver_identidade.return_value = ident
+    mocks["auth"].admin_status.return_value = (ident, True, None)
+    response = TestClient(app).put(
+        "/v1/admin/integracoes/financeiro.conta_bancaria--inter",
+        json={
+            "servico": "financeiro.conta_bancaria",
+            "provedor": "inter",
+            "conta_externa": "recebimentos",
+            "ambiente": "producao",
+            "parametros": [
+                {"nome": "tipo_conta", "valor": "corrente"},
+                {"nome": "numero_conta", "valor": "NAO-ARMAZENAR-EM-CLARO"},
+            ],
+            "credenciais": [],
+            "habilitada": True,
+            "versao": 0,
+        },
+    )
+    assert response.status_code == 400
+    assert "NAO-ARMAZENAR-EM-CLARO" not in response.text
+    mocks["app"].salvar_configuracao.assert_not_called()
+
+
+def test_banco_rejeita_credencial_de_papel_nao_declarado(
+    app_com_mocks,
+) -> None:
+    app, mocks = app_com_mocks
+    ident = _identidade_admin()
+    mocks["auth"].resolver_identidade.return_value = ident
+    mocks["auth"].admin_status.return_value = (ident, True, None)
+    response = TestClient(app).put(
+        "/v1/admin/integracoes/financeiro.conta_bancaria--sicoob",
+        json={
+            "servico": "financeiro.conta_bancaria",
+            "provedor": "sicoob",
+            "conta_externa": "principal",
+            "ambiente": "producao",
+            "parametros": [{"nome": "tipo_conta", "valor": "corrente"}],
+            "credenciais": [
+                {"papel": "password_admin", "valor": "segredo-excedente"}
+            ],
+            "habilitada": True,
+            "versao": 0,
+        },
+    )
+    assert response.status_code == 400
+    assert "segredo-excedente" not in response.text
+    mocks["app"].salvar_configuracao.assert_not_called()
