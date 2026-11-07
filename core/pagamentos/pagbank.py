@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Protocol
+from urllib.parse import urlsplit
 
 import requests
 
@@ -190,6 +191,72 @@ def _detalhes_seguros_erro_http(resposta: RespostaHTTP) -> str:
     return "; ".join(detalhes)
 
 
+
+
+@dataclass(frozen=True)
+class CheckoutCartaoPagBank:
+    checkout_id: str
+    pagamento_url: str
+    status: str
+
+
+def _checkout_pay_url(payload: Mapping[str, Any]) -> str:
+    links = payload.get("links")
+    if not isinstance(links, list):
+        raise ErroPagBank("Checkout PagBank sem link autenticado")
+    for item in links:
+        if not isinstance(item, Mapping) or item.get("rel") != "PAY":
+            continue
+        raw = item.get("href")
+        if not isinstance(raw, str):
+            continue
+        parsed = urlsplit(raw)
+        host = (parsed.hostname or "").casefold()
+        if (
+            parsed.scheme != "https"
+            or parsed.username is not None
+            or parsed.password is not None
+            or not (
+                host.endswith(".pagbank.com.br")
+                or host == "pagbank.com.br"
+                or host.endswith(".pagseguro.com.br")
+                or host.endswith(".pagseguro.uol.com.br")
+            )
+        ):
+            raise ErroPagBank("Checkout PagBank retornou link não confiável")
+        return raw
+    raise ErroPagBank("Checkout PagBank sem link de pagamento")
+
+
+def _checkout_pago(
+    payload: Mapping[str, Any],
+    *,
+    valor: Dinheiro,
+    tipo_cartao: str,
+) -> bool:
+    """Não confiar apenas no checkout ACTIVE ou no redirecionamento do browser."""
+    for collection in ("payments", "charges"):
+        raw = payload.get(collection)
+        if not isinstance(raw, list):
+            continue
+        for item in raw:
+            if not isinstance(item, Mapping):
+                continue
+            if str(item.get("status") or "").upper() != "PAID":
+                continue
+            metodo = item.get("payment_method")
+            if not isinstance(metodo, Mapping):
+                continue
+            if str(metodo.get("type") or "").upper() != tipo_cartao:
+                continue
+            amount = item.get("amount")
+            if not isinstance(amount, Mapping):
+                continue
+            centavos = amount.get("value")
+            if type(centavos) is int and centavos == _centavos(valor):
+                return True
+    return False
+
 class AdapterPagBank:
     nome = "pagbank"
 
@@ -283,6 +350,69 @@ class AdapterPagBank:
             _status_order(dados),
             _valor_payload(dados),
             _payload_exibicao(dados),
+        )
+
+    def criar_checkout_cartao(
+        self,
+        *,
+        pagamento_id: str,
+        valor: Dinheiro,
+        metodo: str,
+        idempotency_key: str,
+    ) -> CheckoutCartaoPagBank:
+        if metodo not in {"cartao_credito", "cartao_debito"}:
+            raise ErroPagBank("Checkout PagBank requer cartão")
+        tipo = "CREDIT_CARD" if metodo == "cartao_credito" else "DEBIT_CARD"
+        payload: dict[str, Any] = {
+            "reference_id": pagamento_id[:64],
+            "customer_modifiable": True,
+            "items": [
+                {
+                    "reference_id": pagamento_id[:64],
+                    "name": "Pedido Kordena",
+                    "quantity": 1,
+                    "unit_amount": _centavos(valor),
+                }
+            ],
+            "payment_methods": [{"type": tipo}],
+        }
+        data = self._request(
+            "POST", "/checkouts",
+            idempotency_key=idempotency_key,
+            payload=payload,
+        )
+        checkout_id = str(data.get("id") or "")
+        if not checkout_id.startswith("CHEC_"):
+            raise ErroPagBank("PagBank não retornou identificação de checkout")
+        if data.get("reference_id") != pagamento_id[:64]:
+            raise ErroPagBank("PagBank retornou checkout de outra obrigação")
+        return CheckoutCartaoPagBank(
+            checkout_id=checkout_id,
+            pagamento_url=_checkout_pay_url(data),
+            status="pendente",
+        )
+
+    def consultar_checkout_cartao(
+        self,
+        *,
+        checkout_id: str,
+        pagamento_id: str,
+        valor: Dinheiro,
+        metodo: str,
+    ) -> CheckoutCartaoPagBank:
+        if not checkout_id.startswith("CHEC_"):
+            raise ErroPagBank("Identificador de checkout inválido")
+        if metodo not in {"cartao_credito", "cartao_debito"}:
+            raise ErroPagBank("Consulta exige método cartão")
+        data = self._request("GET", f"/checkouts/{checkout_id}")
+        if data.get("id") != checkout_id or data.get("reference_id") != pagamento_id[:64]:
+            raise ErroPagBank("Checkout PagBank não corresponde ao pagamento local")
+        tipo = "CREDIT_CARD" if metodo == "cartao_credito" else "DEBIT_CARD"
+        pago = _checkout_pago(data, valor=valor, tipo_cartao=tipo)
+        return CheckoutCartaoPagBank(
+            checkout_id=checkout_id,
+            pagamento_url=_checkout_pay_url(data),
+            status="pago" if pago else "pendente",
         )
 
     def criar_cobranca(

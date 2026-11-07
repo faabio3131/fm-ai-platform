@@ -70,6 +70,14 @@ def confirmar_cartao_terminal_pdv(
         anteriores = uow.pagamentos.listar_transacoes(
             contexto.tenant_id, contexto.unidade_id, pagamento_id
         )
+        if any(
+            t.tipo is TipoTransacao.INICIACAO
+            and t.provedor == "pagbank_checkout"
+            for t in anteriores
+        ):
+            raise CartaoTerminalInvalido(
+                "checkout_online_ativo_nao_pode_ser_confirmado_com_nsu"
+            )
         if pagamento.saldo.valor == 0:
             if not any(
                 t.tipo is TipoTransacao.CONFIRMACAO

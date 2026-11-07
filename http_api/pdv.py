@@ -18,6 +18,11 @@ from sqlalchemy.orm import Session
 from application.catalogo_estoque_cutover import (
     ErroCatalogoEstoqueCutover,
 )
+from application.pdv_cartao_pagbank_checkout import (
+    CheckoutCartaoInvalido,
+    criar_checkout_cartao_pdv,
+    verificar_checkout_cartao_pdv,
+)
 from application.pdv_cartao_terminal import (
     CartaoTerminalInvalido,
     confirmar_cartao_terminal_pdv,
@@ -648,5 +653,56 @@ def build_pdv_router(
             )
         except Exception as exc:  # noqa: BLE001 - boundary autenticada
             return _erro_http(exc)
+
+    @router.post("/pagamentos/{pagamento_id}/criar-checkout-cartao-pagbank")
+    def criar_checkout_cartao(
+        pagamento_id: str,
+        request: Request,
+    ) -> JSONResponse:
+        try:
+            with session_factory() as session:
+                contexto = _contexto_pdv(
+                    request,
+                    session,
+                    auth_runtime=auth_runtime,
+                )
+            resultado = criar_checkout_cartao_pdv(
+                contexto=contexto,
+                pagamento_id=pagamento_id,
+                session_factory=session_factory,
+                secret_store=secret_store,
+            )
+            return JSONResponse(
+                status_code=200 if resultado.idempotente else 201,
+                content=asdict(resultado),
+            )
+        except CheckoutCartaoInvalido as exc:
+            return JSONResponse(status_code=409, content={"erro": str(exc)})
+        except Exception as exc:  # noqa: BLE001 - boundary sanitizado
+            return _erro_pix_http(exc)
+
+    @router.post("/pagamentos/{pagamento_id}/verificar-checkout-cartao-pagbank")
+    def verificar_checkout_cartao(
+        pagamento_id: str,
+        request: Request,
+    ) -> JSONResponse:
+        try:
+            with session_factory() as session:
+                contexto = _contexto_pdv(
+                    request,
+                    session,
+                    auth_runtime=auth_runtime,
+                )
+            resultado = verificar_checkout_cartao_pdv(
+                contexto=contexto,
+                pagamento_id=pagamento_id,
+                session_factory=session_factory,
+                secret_store=secret_store,
+            )
+            return JSONResponse(status_code=200, content=asdict(resultado))
+        except CheckoutCartaoInvalido as exc:
+            return JSONResponse(status_code=409, content={"erro": str(exc)})
+        except Exception as exc:  # noqa: BLE001 - boundary sanitizado
+            return _erro_pix_http(exc)
 
     return router

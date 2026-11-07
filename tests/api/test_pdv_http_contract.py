@@ -645,3 +645,125 @@ def test_cartao_presencial_nao_liquida_pix_e_nao_cruza_tenants() -> None:
         json={"referencia_terminal": "NSU-12345678", "autorizado_no_terminal": True},
     )
     assert fora.status_code == 404
+
+
+
+def test_checkout_cartao_pagbank_pago_por_consulta_cria_venda_uma_vez(
+    monkeypatch,
+) -> None:
+    import application.pdv_cartao_pagbank_checkout as modulo_checkout
+    from core.pagamentos.pagbank import CheckoutCartaoPagBank
+
+    consultas = []
+
+    class AdapterFake:
+        def criar_checkout_cartao(
+            self, *, pagamento_id, valor, metodo, idempotency_key
+        ):
+            assert metodo == "cartao_credito"
+            assert valor.valor == Decimal("30.00")
+            return CheckoutCartaoPagBank(
+                "CHEC_TESTE_PDV_CARTAO",
+                "https://pagamento.pagbank.com.br/pagamento?code=teste",
+                "pendente",
+            )
+
+        def consultar_checkout_cartao(
+            self, *, checkout_id, pagamento_id, valor, metodo
+        ):
+            assert checkout_id == "CHEC_TESTE_PDV_CARTAO"
+            assert metodo == "cartao_credito"
+            consultas.append(checkout_id)
+            return CheckoutCartaoPagBank(
+                checkout_id,
+                "https://pagamento.pagbank.com.br/pagamento?code=teste",
+                "pago",
+            )
+
+    class FactoryFake:
+        def __init__(self, **kwargs):
+            del kwargs
+
+        def construir(self, *, session, tenant_id, unidade_id):
+            assert tenant_id == TENANT and unidade_id == UNIDADE
+            return AdapterFake()
+
+    monkeypatch.setattr(modulo_checkout, "PagBankAdapterFactory", FactoryFake)
+    _, factory, client = _infra()
+    pedido = client.post(
+        "/v1/pdv/checkout",
+        headers=_headers(key="f7f7d2bd-8fe9-4da5-a5c0-8bf9bf0d70e3"),
+        json={**_payload(), "metodo_pagamento": "cartao_credito"},
+    )
+    assert pedido.status_code == 201, pedido.text
+    pid = pedido.json()["pagamento"]["id"]
+    path = f"/v1/pdv/pagamentos/{pid}/criar-checkout-cartao-pagbank"
+    primeiro = client.post(path, headers=_headers())
+    assert primeiro.status_code == 201, primeiro.text
+    assert primeiro.json()["checkout_id"] == "CHEC_TESTE_PDV_CARTAO"
+    assert primeiro.json()["status_pagamento"] == "pendente"
+    segundo = client.post(path, headers=_headers())
+    assert segundo.status_code == 200, segundo.text
+    assert segundo.json()["idempotente"] is True
+
+    # Não é permitido emitir recibo de maquininha se já existe cobrança online.
+    nsu = client.post(
+        f"/v1/pdv/pagamentos/{pid}/confirmar-cartao-terminal",
+        headers=_headers(),
+        json={"referencia_terminal": "NSU-12345678", "autorizado_no_terminal": True},
+    )
+    assert nsu.status_code == 409
+
+    consulta = client.post(
+        f"/v1/pdv/pagamentos/{pid}/verificar-checkout-cartao-pagbank",
+        headers=_headers(),
+    )
+    assert consulta.status_code == 200, consulta.text
+    assert consulta.json()["status_pagamento"] == "pago"
+    with factory() as session:
+        p = session.get(PagamentoORM, (pid, TENANT, UNIDADE))
+        assert p is not None and p.status == "pago"
+        assert session.scalar(
+            select(func.count()).select_from(VendaFinanceiraORM)
+            .where(VendaFinanceiraORM.pagamento_id == pid)
+        ) == 1
+    replay = client.post(
+        f"/v1/pdv/pagamentos/{pid}/verificar-checkout-cartao-pagbank",
+        headers=_headers(),
+    )
+    assert replay.status_code == 200, replay.text
+    with factory() as session:
+        assert session.scalar(
+            select(func.count()).select_from(VendaFinanceiraORM)
+            .where(VendaFinanceiraORM.pagamento_id == pid)
+        ) == 1
+
+
+def test_checkout_cartao_pagbank_bloqueia_outro_metodo_e_outra_unidade(
+    monkeypatch,
+) -> None:
+    import application.pdv_cartao_pagbank_checkout as modulo_checkout
+
+    class FactoryFake:
+        def __init__(self, **kwargs):
+            raise AssertionError("não pode construir adapter sem pagamento cartão")
+
+    monkeypatch.setattr(modulo_checkout, "PagBankAdapterFactory", FactoryFake)
+    _, _, client = _infra()
+    outro = client.post(
+        "/v1/pdv/pagamentos/pagamento-sem-escopo/criar-checkout-cartao-pagbank",
+        headers=_headers(),
+    )
+    assert outro.status_code == 404
+    pix = client.post(
+        "/v1/pdv/checkout",
+        headers=_headers(key="245f065c-561f-48f3-a5cc-f9f9911426d0"),
+        json={**_payload(), "metodo_pagamento": "pix"},
+    )
+    assert pix.status_code == 201
+    pid = pix.json()["pagamento"]["id"]
+    resposta = client.post(
+        f"/v1/pdv/pagamentos/{pid}/criar-checkout-cartao-pagbank",
+        headers=_headers(),
+    )
+    assert resposta.status_code == 409

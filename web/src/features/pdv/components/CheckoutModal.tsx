@@ -25,6 +25,9 @@ import {
   submitCheckout,
   iniciarPixPagBank,
   confirmarCartaoNoTerminal,
+  criarCheckoutCartaoPagBank,
+  verificarCheckoutCartaoPagBank,
+  type CheckoutCartaoPagBank,
   verificarPixPagBank,
   type PixPagBankCobranca,
   type CheckoutPayload,
@@ -74,13 +77,16 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
   const [cartaoConfirmado, setCartaoConfirmado] = useState(false);
   const [cartaoBusy, setCartaoBusy] = useState(false);
   const [cartaoErro, setCartaoErro] = useState<string | null>(null);
+  const [cartaoCheckout, setCartaoCheckout] = useState<CheckoutCartaoPagBank | null>(null);
+  const [cartaoCheckoutBusy, setCartaoCheckoutBusy] = useState(false);
+  const [cartaoCheckoutErro, setCartaoCheckoutErro] = useState<string | null>(null);
 
 
   const tentativa = useRef<{ payload: string; chave: string } | null>(null);
 
   const changeCents = Math.max(0, receivedCents - totals.totalCents);
   const cashIsEnough = cart.metodoPagamento !== "dinheiro" || receivedCents >= totals.totalCents;
-  const pagamentoLiquidado = cartaoConfirmado || pixVerificado === "pago" || result?.pagamento?.status === "pago" || (
+  const pagamentoLiquidado = cartaoConfirmado || cartaoCheckout?.status_pagamento === "pago" || pixVerificado === "pago" || result?.pagamento?.status === "pago" || (
     result !== null && result.pagamento === null && Number(result.comanda.total) === 0
   );
 
@@ -143,6 +149,8 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
       setCartaoReferencia("");
       setCartaoAprovadoNoTerminal(false);
       setCartaoErro(null);
+      setCartaoCheckout(null);
+      setCartaoCheckoutErro(null);
       cartActions.reset();
     } catch (caught) {
       if (caught instanceof PdvApiError) {
@@ -187,8 +195,40 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
     }
   }
 
+  async function abrirCheckoutCartao() {
+    if (!result?.pagamento || cartaoCheckoutBusy) return;
+    setCartaoCheckoutBusy(true);
+    setCartaoCheckoutErro(null);
+    try {
+      const checkout = await criarCheckoutCartaoPagBank(result.pagamento.id);
+      setCartaoCheckout(checkout);
+    } catch (caught) {
+      setCartaoCheckoutErro(
+        caught instanceof Error ? caught.message : "Checkout PagBank indisponível.",
+      );
+    } finally {
+      setCartaoCheckoutBusy(false);
+    }
+  }
+
+  async function consultarCheckoutCartao() {
+    if (!result?.pagamento || !cartaoCheckout || cartaoCheckoutBusy) return;
+    setCartaoCheckoutBusy(true);
+    setCartaoCheckoutErro(null);
+    try {
+      const consultado = await verificarCheckoutCartaoPagBank(result.pagamento.id);
+      setCartaoCheckout(consultado);
+    } catch (caught) {
+      setCartaoCheckoutErro(
+        caught instanceof Error ? caught.message : "Falha ao consultar o provedor.",
+      );
+    } finally {
+      setCartaoCheckoutBusy(false);
+    }
+  }
+
   async function registrarCartaoAprovado() {
-    if (!result?.pagamento || cartaoBusy || !cartaoAprovadoNoTerminal) return;
+    if (!result?.pagamento || cartaoBusy || cartaoCheckout || !cartaoAprovadoNoTerminal) return;
     setCartaoBusy(true);
     setCartaoErro(null);
     try {
@@ -213,7 +253,7 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
   }
 
   function handleOpenChange(nextOpen: boolean) {
-    if (!nextOpen && (submitting || pixBusy || cartaoBusy)) return;
+    if (!nextOpen && (submitting || pixBusy || cartaoBusy || cartaoCheckoutBusy)) return;
     if (!nextOpen) {
       setError(null);
       setResult(null);
@@ -225,6 +265,8 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
       setCartaoAprovadoNoTerminal(false);
       setCartaoConfirmado(false);
       setCartaoErro(null);
+      setCartaoCheckout(null);
+      setCartaoCheckoutErro(null);
     }
     onOpenChange(nextOpen);
   }
@@ -262,7 +304,7 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pagamento</p>
-                  <p className="mt-1 font-semibold">{cartaoConfirmado ? "pago (terminal presencial)" : pixVerificado ?? result.pagamento?.status ?? "sem pagamento"}</p>
+                  <p className="mt-1 font-semibold">{cartaoConfirmado ? "pago (terminal presencial)" : cartaoCheckout?.status_pagamento ?? pixVerificado ?? result.pagamento?.status ?? "sem pagamento"}</p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total</p>
@@ -368,7 +410,7 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
               ) : null}
 
               {(result.pagamento?.metodo === "cartao_debito" ||
-                result.pagamento?.metodo === "cartao_credito") && !pagamentoLiquidado ? (
+                result.pagamento?.metodo === "cartao_credito") && !pagamentoLiquidado && !cartaoCheckout ? (
                 <div className="mt-5 w-full space-y-3 rounded-2xl border border-amber-400/30 bg-amber-500/5 p-4 text-left">
                   <p className="font-semibold text-white">Pagamento em maquininha presencial</p>
                   <p className="text-sm text-slate-300">
@@ -398,12 +440,55 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
                   <Button
                     type="button"
                     onClick={() => void registrarCartaoAprovado()}
-                    disabled={cartaoBusy || !cartaoAprovadoNoTerminal || cartaoReferencia.trim().length < 4}
+                    disabled={cartaoBusy || cartaoCheckoutBusy || !cartaoAprovadoNoTerminal || cartaoReferencia.trim().length < 4}
                   >
                     {cartaoBusy ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
                     Registrar cartão aprovado
                   </Button>
                   {cartaoErro ? <p role="alert" className="text-xs text-red-300">{cartaoErro}</p> : null}
+                </div>
+              ) : null}
+
+
+              {(result.pagamento?.metodo === "cartao_debito" ||
+                result.pagamento?.metodo === "cartao_credito") && !pagamentoLiquidado ? (
+                <div className="mt-5 w-full space-y-3 rounded-2xl border border-sky-400/30 bg-sky-950/20 p-4 text-left">
+                  <p className="font-semibold text-white">Pagar cartão na página segura do PagBank</p>
+                  <p className="text-sm text-slate-300">
+                    O cartão é informado diretamente no PagBank, não no Kordena.
+                    A venda só será quitada após consulta autenticada ao provedor.
+                    Débito online requer habilitação da conta PagBank.
+                  </p>
+                  {!cartaoCheckout ? (
+                    <Button type="button" disabled={cartaoCheckoutBusy || cartaoBusy} onClick={() => void abrirCheckoutCartao()}>
+                      {cartaoCheckoutBusy ? <Loader2 className="animate-spin" /> : <CreditCard />}
+                      Gerar pagamento online PagBank
+                    </Button>
+                  ) : (
+                    <>
+                      <p className="break-all font-mono text-xs text-slate-300">
+                        Checkout: {cartaoCheckout.checkout_id}
+                      </p>
+                      {cartaoCheckout.pagamento_url.startsWith("https://") ? (
+                        <a
+                          href={cartaoCheckout.pagamento_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block rounded-lg border border-sky-400/30 px-4 py-3 text-sm font-semibold text-sky-200 underline"
+                        >
+                          Abrir página segura para pagar com cartão
+                        </a>
+                      ) : null}
+                      <Button type="button" variant="outline" disabled={cartaoCheckoutBusy} onClick={() => void consultarCheckoutCartao()}>
+                        {cartaoCheckoutBusy ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
+                        Verificar pagamento no PagBank
+                      </Button>
+                      <p role="status" className="text-xs text-amber-200">
+                        Último retorno financeiro: {cartaoCheckout.status_pagamento}
+                      </p>
+                    </>
+                  )}
+                  {cartaoCheckoutErro ? <p role="alert" className="text-xs text-red-300">{cartaoCheckoutErro}</p> : null}
                 </div>
               ) : null}
 

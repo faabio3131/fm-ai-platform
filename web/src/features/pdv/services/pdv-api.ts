@@ -300,3 +300,48 @@ export async function confirmarCartaoNoTerminal(
   }
   return (await response.json()) as CartaoTerminalConfirmacao;
 }
+
+export interface CheckoutCartaoPagBank {
+  pagamento_id: string;
+  checkout_id: string;
+  pagamento_url: string;
+  status_provedor: string;
+  status_pagamento: string;
+  idempotente: boolean;
+}
+
+export async function criarCheckoutCartaoPagBank(
+  pagamentoId: string,
+): Promise<CheckoutCartaoPagBank> {
+  const resposta = await fetch(
+    `${API_BASE_URL}/v1/pdv/pagamentos/${encodeURIComponent(pagamentoId)}/criar-checkout-cartao-pagbank`,
+    {
+      method: "POST",
+      headers: buildHeaders(),
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+  if (resposta.status !== 201 && resposta.status !== 200) {
+    throw await readApiError(resposta);
+  }
+  return (await resposta.json()) as CheckoutCartaoPagBank;
+}
+
+export async function verificarCheckoutCartaoPagBank(
+  pagamentoId: string,
+): Promise<CheckoutCartaoPagBank> {
+  const resposta = await fetch(
+    `${API_BASE_URL}/v1/pdv/pagamentos/${encodeURIComponent(pagamentoId)}/verificar-checkout-cartao-pagbank`,
+    {
+      method: "POST",
+      headers: buildHeaders(),
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+  if (resposta.status !== 200) {
+    throw await readApiError(resposta);
+  }
+  return (await resposta.json()) as CheckoutCartaoPagBank;
+}
