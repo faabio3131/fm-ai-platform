@@ -104,6 +104,11 @@ def test_openai_e_rota_textual_primaria_e_gemini_permanece_para_audio(
         for route in rotas
         if route.capability is CapabilityIA.ATENDIMENTO_TRANSCRICAO
     ]
+    cardapio = [
+        route
+        for route in rotas
+        if route.capability is CapabilityIA.CARDAPIO_IMPORTACAO
+    ]
 
     assert [(route.provider, route.model, route.prioridade) for route in planning] == [
         ("openai", "gpt-5.6-luna", 200),
@@ -111,6 +116,9 @@ def test_openai_e_rota_textual_primaria_e_gemini_permanece_para_audio(
     ]
     assert [route.provider for route in interpretation] == ["openai", "gemini"]
     assert [(route.provider, route.model) for route in transcription] == [
+        ("gemini", "gemini-3.6-flash")
+    ]
+    assert [(route.provider, route.model) for route in cardapio] == [
         ("gemini", "gemini-3.6-flash")
     ]
 

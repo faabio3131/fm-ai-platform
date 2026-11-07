@@ -410,6 +410,44 @@ def test_catalogo_importa_cardapio_gemini_por_texto_no_escopo(monkeypatch) -> No
     assert float(rows[1].custo_total_cmv) == 10.21
 
 
+
+
+def test_catalogo_importacao_web_usa_router_governado_e_persiste(monkeypatch) -> None:
+    from core.ai_router import CapabilityIA
+
+    chamadas = []
+
+    class FakeRouter:
+        def executar(self, solicitacao):
+            chamadas.append(solicitacao)
+            return SimpleNamespace(
+                conteudo='[{"nome":"Risoto Roteado","categoria":"Pratos","preco":42.0,"ingredientes":"arroz"}]'
+            )
+
+    monkeypatch.setattr("http_api.catalogo.is_test_mode", lambda: False)
+    monkeypatch.setattr(
+        "http_api.catalogo.construir_ai_model_router",
+        lambda **_: FakeRouter(),
+    )
+    engine, _, client = _infra(monkeypatch)
+    response = client.post(
+        "/v1/catalogo/importacoes-gemini",
+        headers=_headers(),
+        json={"texto_cardapio": "Risoto 42 reais"},
+    )
+    assert response.status_code == 201
+    assert response.json() == {"qtd_cadastrados": 1}
+    assert len(chamadas) == 1
+    assert chamadas[0].capability is CapabilityIA.CARDAPIO_IMPORTACAO
+    assert chamadas[0].tenant_id == TENANT
+    assert chamadas[0].unidade_id == UNIDADE_A
+    with engine.begin() as conn:
+        row = conn.execute(
+            text("SELECT nome, loja_id FROM produtos WHERE nome = 'Risoto Roteado'")
+        ).one()
+    assert row.nome == "Risoto Roteado"
+    assert str(row.loja_id) == "71"
+
 def test_catalogo_importacao_gemini_exige_entrada_e_permissao() -> None:
     _, _, client = _infra()
 
