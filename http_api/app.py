@@ -197,6 +197,7 @@ def build_http_app(
         build_pdv_router(
             session_factory=session_factory,
             auth_runtime=auth_runtime,
+            secret_store=secret_store,
         )
     )
     app.include_router(

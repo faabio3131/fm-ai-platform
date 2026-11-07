@@ -204,3 +204,144 @@ export async function submitCheckout(
 
   return (await response.json()) as CheckoutResponse;
 }
+
+export interface PixPagadorPayload {
+  nome: string;
+  email: string;
+  documento: string;
+}
+
+export interface PixPagBankCobranca {
+  pagamento_id: string;
+  order_id: string;
+  status_provedor: string;
+  status_pagamento: string;
+  pix_copia_cola: string | null;
+  qr_code_url: string | null;
+  idempotente: boolean;
+}
+
+export interface PixPagBankStatus {
+  pagamento_id: string;
+  order_id: string;
+  status_pagamento: string;
+}
+
+export async function iniciarPixPagBank(
+  pagamentoId: string,
+  pagador: PixPagadorPayload,
+): Promise<PixPagBankCobranca> {
+  const headers = buildHeaders();
+  headers.set("Content-Type", "application/json");
+  const response = await fetch(
+    `${API_BASE_URL}/v1/pdv/pagamentos/${encodeURIComponent(pagamentoId)}/iniciar-pix-pagbank`,
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify(pagador),
+      cache: "no-store",
+      credentials: "include",
+    },
+  );
+  if (response.status !== 200 && response.status !== 201) {
+    throw await readApiError(response);
+  }
+  return (await response.json()) as PixPagBankCobranca;
+}
+
+export async function verificarPixPagBank(
+  pagamentoId: string,
+): Promise<PixPagBankStatus> {
+  const response = await fetch(
+    `${API_BASE_URL}/v1/pdv/pagamentos/${encodeURIComponent(pagamentoId)}/verificar-pix-pagbank`,
+    {
+      method: "POST",
+      headers: buildHeaders(),
+      cache: "no-store",
+      credentials: "include",
+    },
+  );
+  if (response.status !== 200) {
+    throw await readApiError(response);
+  }
+  return (await response.json()) as PixPagBankStatus;
+}
+
+export interface CartaoTerminalConfirmacao {
+  pagamento_id: string;
+  status: string;
+  metodo: string;
+  referencia_terminal: string;
+  idempotente: boolean;
+}
+
+/** Registro da aprovação emitida no POS físico; não captura cartão. */
+export async function confirmarCartaoNoTerminal(
+  pagamentoId: string,
+  referenciaTerminal: string,
+): Promise<CartaoTerminalConfirmacao> {
+  const headers = buildHeaders();
+  headers.set("Content-Type", "application/json");
+  const response = await fetch(
+    `${API_BASE_URL}/v1/pdv/pagamentos/${encodeURIComponent(pagamentoId)}/confirmar-cartao-terminal`,
+    {
+      method: "POST",
+      headers,
+      cache: "no-store",
+      credentials: "include",
+      body: JSON.stringify({
+        referencia_terminal: referenciaTerminal,
+        autorizado_no_terminal: true,
+      }),
+    },
+  );
+  if (response.status !== 200) {
+    throw await readApiError(response);
+  }
+  return (await response.json()) as CartaoTerminalConfirmacao;
+}
+
+export interface CheckoutCartaoPagBank {
+  pagamento_id: string;
+  checkout_id: string;
+  pagamento_url: string;
+  status_provedor: string;
+  status_pagamento: string;
+  idempotente: boolean;
+}
+
+export async function criarCheckoutCartaoPagBank(
+  pagamentoId: string,
+): Promise<CheckoutCartaoPagBank> {
+  const resposta = await fetch(
+    `${API_BASE_URL}/v1/pdv/pagamentos/${encodeURIComponent(pagamentoId)}/criar-checkout-cartao-pagbank`,
+    {
+      method: "POST",
+      headers: buildHeaders(),
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+  if (resposta.status !== 201 && resposta.status !== 200) {
+    throw await readApiError(resposta);
+  }
+  return (await resposta.json()) as CheckoutCartaoPagBank;
+}
+
+export async function verificarCheckoutCartaoPagBank(
+  pagamentoId: string,
+): Promise<CheckoutCartaoPagBank> {
+  const resposta = await fetch(
+    `${API_BASE_URL}/v1/pdv/pagamentos/${encodeURIComponent(pagamentoId)}/verificar-checkout-cartao-pagbank`,
+    {
+      method: "POST",
+      headers: buildHeaders(),
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+  if (resposta.status !== 200) {
+    throw await readApiError(resposta);
+  }
+  return (await resposta.json()) as CheckoutCartaoPagBank;
+}
