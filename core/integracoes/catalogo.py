@@ -127,6 +127,14 @@ CATALOGO_V1 = CatalogoServicosExternos(
         ),
         EspecificacaoServico(
             servico="marketplace.pedidos",
+            provedor="99food",
+            # A especificação privada de autenticação/rotas é entregue mediante
+            # credenciamento do parceiro. Não impor campos não comprovados.
+            parametros_obrigatorios=frozenset(),
+            credenciais_obrigatorias=frozenset(),
+        ),
+        EspecificacaoServico(
+            servico="marketplace.pedidos",
             provedor="keeta",
             parametros_obrigatorios=frozenset(),
             credenciais_obrigatorias=frozenset({"client_id", "client_secret"}),

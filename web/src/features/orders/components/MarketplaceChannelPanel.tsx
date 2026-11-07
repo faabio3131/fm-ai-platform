@@ -15,6 +15,7 @@ import {
 const MARKETPLACES_OPERACIONAIS = [
   { id: "ifood", label: "iFood" },
   { id: "keeta", label: "Keeta" },
+  { id: "99food", label: "99Food" },
 ] as const;
 
 export function MarketplaceChannelPanel({
@@ -164,27 +165,6 @@ export function MarketplaceChannelPanel({
           );
         })}
 
-        <div className="rounded-2xl border border-amber-300/15 bg-amber-400/[0.035] p-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-black text-slate-100">99Food</p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
-                Adapter técnico preparado no Core. O runtime Web real permanece fail-closed até contrato,
-                credenciais e homologação verificáveis do parceiro.
-              </p>
-            </div>
-            <Badge
-              variant="outline"
-              className="border-amber-300/20 bg-amber-400/[0.08] text-amber-200"
-            >
-              homologação pendente
-            </Badge>
-          </div>
-          <div className="mt-3 flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-2 text-[11px] text-slate-500">
-            <LockKeyhole className="size-3.5 shrink-0" />
-            Nenhuma operação real é liberada até a integração parceira ser certificada.
-          </div>
-        </div>
       </div>
 
       {message ? (

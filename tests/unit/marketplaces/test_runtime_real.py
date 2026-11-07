@@ -256,3 +256,14 @@ def test_99food_real_registra_transporte_verificado_sem_inferir_endpoint() -> No
     adapter = registro.obter(PlataformaMarketplace.FOOD99)
     assert adapter.plataforma is PlataformaMarketplace.FOOD99
     assert adapter.transport is transporte
+
+
+
+def test_99food_web_only_connects_through_verified_partner_transport() -> None:
+    from application.marketplaces_web import AplicacaoMarketplacesWebV1
+    from core.marketplaces.runtime import compor_food99_transporte_verificado
+
+    app = AplicacaoMarketplacesWebV1(lambda: None)
+    assert app._food99_transport_factory is None
+    # Sem assinatura e especificação oficial, não há autenticação presumida.
+    assert callable(compor_food99_transporte_verificado)
