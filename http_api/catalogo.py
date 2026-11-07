@@ -13,11 +13,15 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
+from application.cardapio_criacao_ia import PropostaCardapioInvalida, propor_cardapio_original
+from application.cardapio_importacao_ia import gerar_cardapio_ia_governada
 from application.legacy_cardapio_gemini import AplicacaoImportacaoCardapioGeminiV1
 from application.legacy_cardapio_transacoes import (
     AplicacaoLegacyCardapioV1,
+    ConflitoFichaCatalogo,
     ConflitoIdempotenciaCatalogo,
 )
+from core.ai_router import FalhaRotaDefinitiva, FalhaRotaTransitoria, SemRotaCompativel
 from core.seguranca.autenticacao import IdentidadeUsuario, ServicoAutenticacao
 from core.seguranca.erros import (
     CredenciaisInvalidas,
@@ -47,6 +51,7 @@ class ProdutoCreateIn(BaseModel):
     nome: str = Field(min_length=1, max_length=240)
     categoria: str = Field(min_length=1, max_length=160)
     preco: float = Field(ge=0)
+    descricao_bruta: str = Field(default="", max_length=4000)
     ativo: bool = True
 
 
@@ -73,6 +78,15 @@ class PratoComFichaCreateIn(BaseModel):
 
 class ImportacaoCardapioTextoIn(BaseModel):
     texto_cardapio: str
+
+
+class GerarCardapioOriginalIn(BaseModel):
+    briefing: str = Field(min_length=20, max_length=3000)
+    quantidade: int = Field(default=8, ge=1, le=20)
+
+
+class VincularFichaRascunhoIn(BaseModel):
+    itens_ficha: list[FichaTecnicaItemIn] = Field(min_length=1, max_length=100)
 
 
 def _erro(http_status: int, codigo: str) -> JSONResponse:
@@ -196,6 +210,72 @@ def build_catalogo_router(
                 produto_id=parsed,
             )
 
+    @router.post("/propostas-ia")
+    def gerar_propostas_cardapio_ia(
+        payload: GerarCardapioOriginalIn,
+        request: Request,
+    ) -> JSONResponse:
+        """Produz sugestões sem cadastrar produtos ou movimentar estoque."""
+        try:
+            contexto = _contexto(request, exigir_escrita=True)
+
+            def gerar(*, contents: Any) -> Any:
+                return gerar_cardapio_ia_governada(
+                    contexto=contexto,
+                    contents=contents,
+                    session_factory=session_factory,
+                )
+
+            itens = propor_cardapio_original(
+                briefing=payload.briefing,
+                quantidade=payload.quantidade,
+                gerar_conteudo=gerar,
+            )
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "itens": itens,
+                    "requer_revisao": True,
+                    "precos_estimados": True,
+                    "cadastro_automatico": False,
+                },
+            )
+        except CredenciaisInvalidas:
+            return _erro(
+                status.HTTP_401_UNAUTHORIZED,
+                CredenciaisInvalidas.codigo,
+            )
+        except PermissionError as exc:
+            return _erro(
+                status.HTTP_403_FORBIDDEN,
+                str(exc) or "seguranca.permissao_insuficiente",
+            )
+        except (ReferenciaSegredoInvalida, SegredoAusente):
+            return _erro(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "auth.sessao_indisponivel",
+            )
+        except SemRotaCompativel:
+            return _erro(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "catalogo.ia_sem_rota_homologada",
+            )
+        except FalhaRotaTransitoria:
+            return _erro(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "catalogo.ia_temporariamente_indisponivel",
+            )
+        except (PropostaCardapioInvalida, FalhaRotaDefinitiva):
+            return _erro(
+                status.HTTP_502_BAD_GATEWAY,
+                "catalogo.ia_proposta_invalida",
+            )
+        except Exception:  # noqa: BLE001 - não expõe erro ou segredo do provider
+            return _erro(
+                status.HTTP_502_BAD_GATEWAY,
+                "catalogo.ia_geracao_falhou",
+            )
+
     @router.post("/importacoes-gemini")
     async def importar_cardapio_gemini(request: Request) -> JSONResponse:
         try:
@@ -244,9 +324,18 @@ def build_catalogo_router(
                     "catalogo.importacao_gemini_tipo_invalido",
                 )
 
+            def gerar_cardapio(*, contents: Any) -> Any:
+                if is_test_mode():
+                    return generate_content(contents=contents)
+                return gerar_cardapio_ia_governada(
+                    contexto=contexto,
+                    contents=contents,
+                    session_factory=session_factory,
+                )
+
             qtd_cadastrados = importacao_gemini.importar(
                 contexto,
-                generate_content=generate_content,
+                generate_content=gerar_cardapio,
                 texto_cardapio=texto_cardapio,
                 arquivo_bytes=arquivo_bytes,
                 arquivo_mime=arquivo_mime,
@@ -276,6 +365,21 @@ def build_catalogo_router(
             return _erro(
                 status.HTTP_409_CONFLICT,
                 "catalogo.escopo_indisponivel",
+            )
+        except SemRotaCompativel:
+            return _erro(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "catalogo.ia_sem_rota_homologada",
+            )
+        except FalhaRotaTransitoria:
+            return _erro(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "catalogo.ia_temporariamente_indisponivel",
+            )
+        except FalhaRotaDefinitiva:
+            return _erro(
+                status.HTTP_502_BAD_GATEWAY,
+                "catalogo.ia_provider_rejeitou",
             )
         except Exception:  # noqa: BLE001 - falha do provider é traduzida no boundary HTTP
             return _erro(
@@ -518,6 +622,7 @@ def build_catalogo_router(
                     "nome": payload.nome.strip(),
                     "categoria": payload.categoria.strip(),
                     "preco_venda": payload.preco,
+                    "descricao_bruta": payload.descricao_bruta.strip(),
                     "ativo": payload.ativo,
                 },
                 itens_ficha=(),
@@ -654,6 +759,73 @@ def build_catalogo_router(
             return _erro(
                 status.HTTP_409_CONFLICT,
                 "catalogo.escopo_indisponivel",
+            )
+
+    @router.post("/produtos/{produto_id}/vincular-ficha")
+    def vincular_ficha_rascunho(
+        produto_id: str,
+        payload: VincularFichaRascunhoIn,
+        request: Request,
+    ) -> JSONResponse:
+        try:
+            contexto = _contexto(request, exigir_escrita=True)
+            try:
+                parsed_id = int(produto_id)
+            except (TypeError, ValueError):
+                return _erro(
+                    status.HTTP_404_NOT_FOUND,
+                    "catalogo.produto_nao_encontrado",
+                )
+            vinculado = aplicacao.vincular_ficha_a_rascunho(
+                contexto,
+                produto_id=parsed_id,
+                itens_ficha=tuple(
+                    {
+                        "insumo_id": item.insumo_id,
+                        "quantidade": item.quantidade,
+                    }
+                    for item in payload.itens_ficha
+                ),
+            )
+            if not vinculado:
+                return _erro(
+                    status.HTTP_404_NOT_FOUND,
+                    "catalogo.produto_nao_encontrado",
+                )
+            produto = _produto_scoped(
+                contexto=contexto,
+                produto_id=produto_id,
+            )
+            if produto is None:
+                return _erro(
+                    status.HTTP_503_SERVICE_UNAVAILABLE,
+                    "catalogo.persistencia_inconsistente",
+                )
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content=_dto_produto(produto),
+            )
+        except CredenciaisInvalidas:
+            return _erro(status.HTTP_401_UNAUTHORIZED, CredenciaisInvalidas.codigo)
+        except PermissionError as exc:
+            return _erro(
+                status.HTTP_403_FORBIDDEN,
+                str(exc) or "seguranca.permissao_insuficiente",
+            )
+        except (ReferenciaSegredoInvalida, SegredoAusente):
+            return _erro(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "auth.sessao_indisponivel",
+            )
+        except ErroEscopoLojaLegada:
+            return _erro(
+                status.HTTP_409_CONFLICT,
+                "catalogo.escopo_indisponivel",
+            )
+        except ConflitoFichaCatalogo:
+            return _erro(
+                status.HTTP_409_CONFLICT,
+                "catalogo.ficha_rascunho_conflitante",
             )
 
     @router.patch("/produtos/{produto_id}")

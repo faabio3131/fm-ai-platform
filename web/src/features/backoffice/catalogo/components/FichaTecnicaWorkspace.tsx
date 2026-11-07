@@ -6,13 +6,17 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import { Button } from "@/components/ui/button";
 import {
   criarPratoComFicha,
+  criarProduto,
+  gerarCardapioOriginalIA,
   importarCardapioGeminiPorArquivo,
   importarCardapioGeminiPorTexto,
   listarInsumosFicha,
   obterFichaProduto,
+  vincularFichaRascunho,
   type CatalogoFicha,
   type CatalogoInsumoFicha,
   type CatalogoProduto,
+  type PropostaProdutoIA,
 } from "@/features/backoffice/catalogo/services/catalogo-api";
 
 interface ItemReceita {
@@ -51,11 +55,21 @@ export function FichaTecnicaWorkspace({
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [produtoConsultaId, setProdutoConsultaId] = useState("");
+  const [rascunhoFichaId, setRascunhoFichaId] = useState("");
   const [fichaConsultada, setFichaConsultada] = useState<CatalogoFicha | null>(null);
   const [fonteImportacao, setFonteImportacao] = useState<"arquivo" | "texto">("arquivo");
   const [textoCardapio, setTextoCardapio] = useState("");
   const [arquivoCardapio, setArquivoCardapio] = useState<File | null>(null);
   const [importando, setImportando] = useState(false);
+  const [briefingOriginal, setBriefingOriginal] = useState(
+    "Hamburgueria artesanal com lanches, acompanhamentos e bebidas não alcoólicas.",
+  );
+  const [quantidadeOriginal, setQuantidadeOriginal] = useState(8);
+  const [gerandoOriginal, setGerandoOriginal] = useState(false);
+  const [propostasOriginal, setPropostasOriginal] = useState<PropostaProdutoIA[]>([]);
+  const [salvandoProposta, setSalvandoProposta] = useState<number | null>(null);
+  const [erroGeracao, setErroGeracao] = useState<string | null>(null);
+  const [avisoGeracao, setAvisoGeracao] = useState<string | null>(null);
 
   const carregarInsumos = useCallback(async () => {
     setLoading(true);
@@ -107,6 +121,15 @@ export function FichaTecnicaWorkspace({
     setPreco(Number(sugestao.toFixed(2)));
   }
 
+  function itensFichaCanonicos() {
+    return itens.map((item) => ({
+      insumo_id: Number(item.insumo.id),
+      quantidade: item.insumo.unidade_medida === "kg"
+        ? Number((item.quantidade / 1000).toFixed(6))
+        : item.quantidade,
+    }));
+  }
+
   async function salvar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (itens.length === 0) {
@@ -118,24 +141,32 @@ export function FichaTecnicaWorkspace({
     setErro(null);
     setAviso(null);
     try {
-      const criado = await criarPratoComFicha({
-        nome: String(form.get("nome") || "").trim(),
-        categoria: String(form.get("categoria") || "").trim(),
-        preco,
-        custo_total_cmv: Number(cmv.toFixed(2)),
-        margem_exibicao: `${margemReal.toFixed(1)}%`,
-        descricao_bruta: String(form.get("descricao") || "").trim(),
-        ativo: true,
-        itens_ficha: itens.map((item) => ({
-          insumo_id: Number(item.insumo.id),
-          quantidade: item.quantidade,
-        })),
-      });
-      onCreated(criado);
+      if (rascunhoFichaId) {
+        const vinculado = await vincularFichaRascunho(
+          rascunhoFichaId, itensFichaCanonicos(),
+        );
+        setAviso(
+          `Ficha vinculada a “${vinculado.nome}” com CMV real. Ative o produto no catálogo após conferir estoque e preço.`,
+        );
+        setRascunhoFichaId("");
+        onImported();
+      } else {
+        const criado = await criarPratoComFicha({
+          nome: String(form.get("nome") || "").trim(),
+          categoria: String(form.get("categoria") || "").trim(),
+          preco,
+          custo_total_cmv: Number(cmv.toFixed(2)),
+          margem_exibicao: `${margemReal.toFixed(1)}%`,
+          descricao_bruta: String(form.get("descricao") || "").trim(),
+          ativo: true,
+          itens_ficha: itensFichaCanonicos(),
+        });
+        onCreated(criado);
+        setAviso(`Prato “${criado.nome}” e ficha técnica cadastrados.`);
+      }
       setItens([]);
       setPreco(0);
       event.currentTarget.reset();
-      setAviso(`Prato “${criado.nome}” e ficha técnica cadastrados.`);
     } catch {
       setErro("Não foi possível salvar o prato e a ficha técnica.");
     } finally {
@@ -153,6 +184,66 @@ export function FichaTecnicaWorkspace({
       setErro("Não foi possível consultar a ficha deste produto.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function gerarCardapioOriginal() {
+    setGerandoOriginal(true);
+    setErroGeracao(null);
+    setAvisoGeracao(null);
+    setPropostasOriginal([]);
+    try {
+      const resultado = await gerarCardapioOriginalIA(
+        briefingOriginal,
+        quantidadeOriginal,
+      );
+      setPropostasOriginal(resultado.itens);
+      setAvisoGeracao("Propostas geradas. Revise todos os dados antes de salvar.");
+    } catch {
+      setErroGeracao(
+        "Não foi possível gerar o cardápio. Confira o acesso à IA e tente novamente.",
+      );
+    } finally {
+      setGerandoOriginal(false);
+    }
+  }
+
+  function alterarProposta(index: number, patch: Partial<PropostaProdutoIA>) {
+    setPropostasOriginal((current) => current.map((item, itemIndex) =>
+      itemIndex === index ? { ...item, ...patch } : item,
+    ));
+  }
+
+  async function salvarProposta(index: number) {
+    const proposta = propostasOriginal[index];
+    if (!proposta || !proposta.nome.trim() || !proposta.categoria.trim() ||
+      !Number.isFinite(proposta.preco_sugerido) || proposta.preco_sugerido <= 0) {
+      setErroGeracao("Informe nome, categoria e preço válido antes de salvar.");
+      return;
+    }
+    setSalvandoProposta(index);
+    setErroGeracao(null);
+    try {
+      const criado = await criarProduto({
+        nome: proposta.nome.trim(),
+        categoria: proposta.categoria.trim(),
+        preco: proposta.preco_sugerido,
+        descricao_bruta: proposta.descricao.trim(),
+        ativo: false,
+      });
+      onCreated(criado);
+      setPropostasOriginal((current) =>
+        current.filter((_, itemIndex) => itemIndex !== index),
+      );
+      setAvisoGeracao(
+        "Produto " + criado.nome + " salvo inativo. Monte a ficha técnica antes de ativar para venda.",
+      );
+    } catch {
+      setErroGeracao(
+        "Não foi possível salvar este produto. Confira o catálogo e tente novamente.",
+      );
+    } finally {
+      setSalvandoProposta(null);
     }
   }
 
@@ -233,6 +324,130 @@ export function FichaTecnicaWorkspace({
         </Button>
       </section>
 
+      <section className="mt-6 rounded-2xl border border-white/10 bg-zinc-900/70 p-5">
+        <h2 className="flex items-center gap-2 text-lg font-bold text-white">
+          <Sparkles className="size-5 text-amber-300" />
+          Criar cardápio do zero com IA
+        </h2>
+        <p className="mt-1 text-sm text-slate-400">
+          Descreva seu negócio. A IA propõe nomes, descrições e preços estimados.
+          Nenhum produto é cadastrado automaticamente, nem seu custo é inventado.
+        </p>
+        <label className="mt-4 block text-xs font-semibold text-slate-400">
+          Perfil da hamburgueria ou restaurante
+          <textarea
+            value={briefingOriginal}
+            onChange={(event) => setBriefingOriginal(event.target.value)}
+            rows={3}
+            maxLength={3000}
+            className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+          />
+        </label>
+        <div className="mt-3 flex flex-wrap items-end gap-3">
+          <label className="text-xs font-semibold text-slate-400">
+            Quantidade de propostas
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={quantidadeOriginal}
+              onChange={(event) => setQuantidadeOriginal(Number(event.target.value))}
+              className="mt-1 h-10 w-32 rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white"
+            />
+          </label>
+          <Button
+            type="button"
+            onClick={() => void gerarCardapioOriginal()}
+            disabled={
+              gerandoOriginal ||
+              briefingOriginal.trim().length < 20 ||
+              quantidadeOriginal < 1 ||
+              quantidadeOriginal > 20
+            }
+          >
+            {gerandoOriginal ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
+            Gerar propostas
+          </Button>
+        </div>
+        {erroGeracao ? (
+          <p role="alert" className="mt-3 text-sm text-red-300">{erroGeracao}</p>
+        ) : null}
+        {avisoGeracao ? (
+          <p role="status" className="mt-3 text-sm text-emerald-300">{avisoGeracao}</p>
+        ) : null}
+        {propostasOriginal.length > 0 ? (
+          <div className="mt-5 space-y-3">
+            <p className="text-sm font-medium text-amber-200">
+              Os preços sugeridos não representam CMV. Revise cada item. Produtos serão
+              salvos inativos até que a ficha técnica seja conferida.
+            </p>
+            {propostasOriginal.map((item, index) => (
+              <div
+                key={index}
+                className="grid gap-3 rounded-xl border border-slate-700 bg-slate-950/70 p-3 sm:grid-cols-2"
+              >
+                <label className="text-xs text-slate-400">
+                  Nome
+                  <input
+                    value={item.nome}
+                    onChange={(event) => alterarProposta(index, { nome: event.target.value })}
+                    className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 p-2 text-sm text-white"
+                  />
+                </label>
+                <label className="text-xs text-slate-400">
+                  Categoria
+                  <input
+                    value={item.categoria}
+                    onChange={(event) => alterarProposta(index, { categoria: event.target.value })}
+                    className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 p-2 text-sm text-white"
+                  />
+                </label>
+                <label className="text-xs text-slate-400 sm:col-span-2">
+                  Descrição / ingredientes
+                  <textarea
+                    value={item.descricao}
+                    onChange={(event) => alterarProposta(index, { descricao: event.target.value })}
+                    rows={2}
+                    className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 p-2 text-sm text-white"
+                  />
+                </label>
+                <label className="text-xs text-slate-400">
+                  Preço sugerido (R$)
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={item.preco_sugerido}
+                    onChange={(event) => alterarProposta(index, { preco_sugerido: Number(event.target.value) })}
+                    className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 p-2 text-sm text-white"
+                  />
+                </label>
+                <div className="flex items-end gap-2">
+                  <Button
+                    type="button"
+                    disabled={salvandoProposta !== null}
+                    onClick={() => void salvarProposta(index)}
+                  >
+                    {salvandoProposta === index ? <LoaderCircle className="animate-spin" /> : <Plus />}
+                    Salvar rascunho
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={salvandoProposta !== null}
+                    onClick={() => setPropostasOriginal((current) =>
+                      current.filter((_, itemIndex) => itemIndex !== index)
+                    )}
+                  >
+                    Descartar
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </section>
+
       <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(340px,1fr)]">
       <form onSubmit={(event) => void salvar(event)} className="rounded-2xl border border-white/10 bg-zinc-900/70 p-5">
         <div className="mb-5 flex items-start justify-between gap-3">
@@ -252,14 +467,27 @@ export function FichaTecnicaWorkspace({
         {erro ? <p className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{erro}</p> : null}
         {aviso ? <p className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-200">{aviso}</p> : null}
 
+        <label className="mb-4 block text-xs font-semibold text-slate-400">
+          Vincular ficha a rascunho criado pela IA (opcional)
+          <select
+            value={rascunhoFichaId}
+            onChange={(event) => setRascunhoFichaId(event.target.value)}
+            className="mt-1 h-10 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white"
+          >
+            <option value="">Criar novo prato com ficha</option>
+            {produtos.filter((item) => !item.ativo).map((item) => (
+              <option key={item.id} value={item.id}>{item.nome}</option>
+            ))}
+          </select>
+        </label>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-xs font-semibold text-slate-400">
             Nome do prato
-            <input name="nome" required className="mt-1 h-10 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white" />
+            <input name="nome" required={!rascunhoFichaId} disabled={Boolean(rascunhoFichaId)} className="mt-1 h-10 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white" />
           </label>
           <label className="text-xs font-semibold text-slate-400">
             Categoria
-            <input name="categoria" required list="categorias-cardapio" className="mt-1 h-10 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white" />
+            <input name="categoria" required={!rascunhoFichaId} disabled={Boolean(rascunhoFichaId)} list="categorias-cardapio" className="mt-1 h-10 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white" />
             <datalist id="categorias-cardapio">{categorias.map((categoria) => <option key={categoria} value={categoria} />)}</datalist>
           </label>
           <label className="text-xs font-semibold text-slate-400 sm:col-span-2">
@@ -329,7 +557,7 @@ export function FichaTecnicaWorkspace({
         </div>
 
         <Button type="submit" className="mt-5 w-full" disabled={busy || itens.length === 0 || preco < 0}>
-          {busy ? <LoaderCircle className="animate-spin" /> : <BookOpen />} Salvar prato e ficha técnica
+          {busy ? <LoaderCircle className="animate-spin" /> : <BookOpen />} {rascunhoFichaId ? "Vincular ficha ao rascunho" : "Salvar prato e ficha técnica"}
         </Button>
       </form>
 

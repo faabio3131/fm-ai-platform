@@ -383,6 +383,7 @@ def test_catalogo_importa_cardapio_gemini_por_texto_no_escopo(monkeypatch) -> No
         "http_api.catalogo.generate_content",
         mock_generate_content,
     )
+    monkeypatch.setattr("http_api.catalogo.is_test_mode", lambda: True)
     engine, _, client = _infra(monkeypatch)
 
     response = client.post(
@@ -409,6 +410,236 @@ def test_catalogo_importa_cardapio_gemini_por_texto_no_escopo(monkeypatch) -> No
     assert float(rows[1].preco_venda) == 31.9
     assert float(rows[1].custo_total_cmv) == 10.21
 
+
+
+
+def test_catalogo_importacao_web_usa_router_governado_e_persiste(monkeypatch) -> None:
+    from core.ai_router import CapabilityIA
+
+    chamadas = []
+
+    class FakeRouter:
+        def executar(self, solicitacao):
+            chamadas.append(solicitacao)
+            return SimpleNamespace(
+                conteudo='[{"nome":"Risoto Roteado","categoria":"Pratos","preco":42.0,"ingredientes":"arroz"}]'
+            )
+
+    monkeypatch.setattr("http_api.catalogo.is_test_mode", lambda: False)
+    monkeypatch.setattr(
+        "application.cardapio_importacao_ia.construir_ai_model_router",
+        lambda **_: FakeRouter(),
+    )
+    engine, _, client = _infra(monkeypatch)
+    response = client.post(
+        "/v1/catalogo/importacoes-gemini",
+        headers=_headers(),
+        json={"texto_cardapio": "Risoto 42 reais"},
+    )
+    assert response.status_code == 201
+    assert response.json() == {"qtd_cadastrados": 1}
+    assert len(chamadas) == 1
+    assert chamadas[0].capability is CapabilityIA.CARDAPIO_IMPORTACAO
+    assert chamadas[0].tenant_id == TENANT
+    assert chamadas[0].unidade_id == UNIDADE_A
+    with engine.begin() as conn:
+        row = conn.execute(
+            text("SELECT nome, loja_id FROM produtos WHERE nome = 'Risoto Roteado'")
+        ).one()
+    assert row.nome == "Risoto Roteado"
+    assert str(row.loja_id) == "71"
+
+
+def test_geracao_cardapio_original_preview_nao_grava_produtos(monkeypatch) -> None:
+    from core.ai_router import CapabilityIA
+
+    chamadas = []
+
+    class RouterFake:
+        def executar(self, solicitacao):
+            chamadas.append(solicitacao)
+            return SimpleNamespace(
+                conteudo='[{"nome":"Burger Especial","categoria":"Hambúrgueres",'
+                '"descricao":"Pão artesanal, carne e queijo",'
+                '"preco_sugerido":39.90}]'
+            )
+
+    monkeypatch.setattr(
+        "application.cardapio_importacao_ia.construir_ai_model_router",
+        lambda **_: RouterFake(),
+    )
+    engine, _, client = _infra(monkeypatch)
+    resposta = client.post(
+        "/v1/catalogo/propostas-ia",
+        headers=_headers(),
+        json={
+            "briefing": "Hamburgueria artesanal de bairro com hambúrgueres e porções",
+            "quantidade": 5,
+        },
+    )
+    assert resposta.status_code == 200
+    assert resposta.json()["cadastro_automatico"] is False
+    assert resposta.json()["requer_revisao"] is True
+    assert resposta.json()["precos_estimados"] is True
+    assert resposta.json()["itens"][0]["nome"] == "Burger Especial"
+    assert chamadas[0].capability is CapabilityIA.CARDAPIO_IMPORTACAO
+    assert chamadas[0].tenant_id == TENANT
+    assert chamadas[0].unidade_id == UNIDADE_A
+    with engine.begin() as conn:
+        total = conn.execute(
+            text("SELECT COUNT(*) FROM produtos WHERE nome = 'Burger Especial'")
+        ).scalar_one()
+    assert total == 0
+
+
+def test_geracao_cardapio_original_exige_login_e_briefing_valido() -> None:
+    _, _, client = _infra()
+    payload = {
+        "briefing": "Hamburgueria artesanal com produtos variados",
+        "quantidade": 3,
+    }
+    assert client.post("/v1/catalogo/propostas-ia", json=payload).status_code == 401
+    assert client.post(
+        "/v1/catalogo/propostas-ia",
+        headers=_headers(),
+        json={"briefing": "curto", "quantidade": 3},
+    ).status_code == 422
+
+
+def test_geracao_cardapio_original_rejeita_produtos_duplicados(monkeypatch) -> None:
+    class RouterFake:
+        def executar(self, _solicitacao):
+            return SimpleNamespace(
+                conteudo='[{"nome":"Burger Igual","categoria":"Hambúrgueres",'
+                '"descricao":"Carne","preco_sugerido":39.9},'
+                '{"nome":"burger igual","categoria":"Hambúrgueres",'
+                '"descricao":"Carne","preco_sugerido":39.9}]'
+            )
+
+    monkeypatch.setattr(
+        "application.cardapio_importacao_ia.construir_ai_model_router",
+        lambda **_: RouterFake(),
+    )
+    _, _, client = _infra(monkeypatch)
+    resposta = client.post(
+        "/v1/catalogo/propostas-ia",
+        headers=_headers(),
+        json={
+            "briefing": "Hamburgueria artesanal pequena com pedidos online",
+            "quantidade": 2,
+        },
+    )
+    assert resposta.status_code == 502
+    assert resposta.json() == {"erro": "catalogo.ia_proposta_invalida"}
+
+
+def test_produto_revisado_pode_ser_salvo_com_descricao_inativo() -> None:
+    engine, _, client = _infra()
+    resposta = client.post(
+        "/v1/catalogo/produtos",
+        headers=_headers(key="catalogo-proposta-revisada-v1"),
+        json={
+            "nome": "Burger revisado",
+            "categoria": "Hambúrgueres",
+            "preco": 42.0,
+            "descricao_bruta": "Carne e queijo; conferir ficha técnica",
+            "ativo": False,
+        },
+    )
+    assert resposta.status_code == 201
+    assert resposta.json()["ativo"] is False
+    with engine.begin() as conn:
+        row = conn.execute(
+            text(
+                "SELECT ativo, descricao_bruta FROM produtos "
+                "WHERE nome = 'Burger revisado'"
+            )
+        ).one()
+    assert not row.ativo
+    assert row.descricao_bruta == "Carne e queijo; conferir ficha técnica"
+
+
+
+
+def test_rascunho_ia_pode_receber_ficha_com_quantidade_kg_e_cmv_real() -> None:
+    engine, _, client = _infra()
+    criado = client.post(
+        "/v1/catalogo/produtos",
+        headers=_headers(key="produto-ia-rascunho-ficha-1"),
+        json={
+            "nome": "Burger IA para ficha",
+            "categoria": "Hambúrgueres",
+            "preco": 39.90,
+            "descricao_bruta": "Carne e pão",
+            "ativo": False,
+        },
+    )
+    assert criado.status_code == 201
+    produto_id = criado.json()["id"]
+    payload = {
+        "itens_ficha": [
+            {"insumo_id": 11, "quantidade": 0.18},
+            {"insumo_id": 12, "quantidade": 1},
+        ]
+    }
+    resposta = client.post(
+        f"/v1/catalogo/produtos/{produto_id}/vincular-ficha",
+        headers=_headers(),
+        json=payload,
+    )
+    assert resposta.status_code == 200
+    assert resposta.json()["ativo"] is False
+    ficha = client.get(
+        f"/v1/catalogo/produtos/{produto_id}/ficha",
+        headers=_headers(),
+    )
+    assert ficha.status_code == 200
+    assert len(ficha.json()["itens"]) == 2
+    assert ficha.json()["custo_total_cmv"] == 6.9
+    reenvio = client.post(
+        f"/v1/catalogo/produtos/{produto_id}/vincular-ficha",
+        headers=_headers(),
+        json=payload,
+    )
+    assert reenvio.status_code == 409
+    with engine.begin() as conn:
+        linhas = conn.execute(
+            text("SELECT COUNT(*) FROM fichas_tecnicas WHERE produto_id = :id"),
+            {"id": int(produto_id)},
+        ).scalar_one()
+    assert linhas == 2
+
+
+def test_vinculo_ficha_rascunho_rejeita_insumo_de_outra_unidade_com_rollback() -> None:
+    engine, _, client = _infra()
+    criado = client.post(
+        "/v1/catalogo/produtos",
+        headers=_headers(key="produto-ia-rascunho-cross-unit"),
+        json={
+            "nome": "Rascunho protegido",
+            "categoria": "Hambúrgueres",
+            "preco": 30,
+            "ativo": False,
+        },
+    )
+    assert criado.status_code == 201
+    pid = criado.json()["id"]
+    resposta = client.post(
+        f"/v1/catalogo/produtos/{pid}/vincular-ficha",
+        headers=_headers(),
+        json={
+            "itens_ficha": [
+                {"insumo_id": 11, "quantidade": 0.1},
+                {"insumo_id": 21, "quantidade": 0.1},
+            ]
+        },
+    )
+    assert resposta.status_code == 409
+    with engine.begin() as conn:
+        assert conn.execute(
+            text("SELECT COUNT(*) FROM fichas_tecnicas WHERE produto_id = :id"),
+            {"id": int(pid)},
+        ).scalar_one() == 0
 
 def test_catalogo_importacao_gemini_exige_entrada_e_permissao() -> None:
     _, _, client = _infra()

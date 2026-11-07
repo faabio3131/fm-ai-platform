@@ -12,7 +12,22 @@ export interface CriarProdutoPayload {
   nome: string;
   categoria: string;
   preco: number;
+  descricao_bruta?: string;
   ativo: boolean;
+}
+
+export interface PropostaProdutoIA {
+  nome: string;
+  categoria: string;
+  descricao: string;
+  preco_sugerido: number;
+}
+
+export interface ResultadoPropostaCardapioIA {
+  itens: PropostaProdutoIA[];
+  requer_revisao: boolean;
+  precos_estimados: boolean;
+  cadastro_automatico: boolean;
 }
 
 export interface AtualizarProdutoPayload {
@@ -180,6 +195,16 @@ export function obterFichaProduto(produtoId: string): Promise<CatalogoFicha> {
   );
 }
 
+export function vincularFichaRascunho(
+  produtoId: string,
+  itens_ficha: Array<{ insumo_id: number; quantidade: number }>,
+): Promise<CatalogoProduto> {
+  return catalogoRequest(
+    `/v1/catalogo/produtos/${encodeURIComponent(produtoId)}/vincular-ficha`,
+    { method: "POST", body: JSON.stringify({ itens_ficha }) },
+  );
+}
+
 export function criarPratoComFicha(
   payload: CriarPratoComFichaPayload,
 ): Promise<CatalogoProduto> {
@@ -187,6 +212,16 @@ export function criarPratoComFicha(
     method: "POST",
     headers: { "Idempotency-Key": crypto.randomUUID() },
     body: JSON.stringify(payload),
+  });
+}
+
+export function gerarCardapioOriginalIA(
+  briefing: string,
+  quantidade: number,
+): Promise<ResultadoPropostaCardapioIA> {
+  return catalogoRequest("/v1/catalogo/propostas-ia", {
+    method: "POST",
+    body: JSON.stringify({ briefing, quantidade }),
   });
 }
 
