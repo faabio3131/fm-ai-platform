@@ -19,8 +19,8 @@ from sqlalchemy.orm import Session
 
 from infra.fiscal.runtime_adapters import (
     FiscalControlPlaneResolver,
-    FiscalRuntimeConfigurationError,
     FiscalProviderUnavailableError,
+    FiscalRuntimeConfigurationError,
 )
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
 from kordena_fiscal.domain import ExecutionScope, FiscalEnvironment
