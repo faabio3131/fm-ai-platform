@@ -86,7 +86,7 @@ def _post_json(url: str, body: bytes, headers: Mapping[str, str]) -> dict[str, A
                     "NFCore Bridge did not accept the request"
                 )
             response_bytes = response.read(MAX_RESPONSE + 1)
-    except (HTTPError, URLError, TimeoutError, OSError) as exc:
+    except (HTTPError, URLError, TimeoutError, OSError):
         raise FiscalProviderUnavailableError(
             "NFCore Bridge unavailable; state requires reconciliation"
         ) from None
@@ -94,7 +94,7 @@ def _post_json(url: str, body: bytes, headers: Mapping[str, str]) -> dict[str, A
         raise NfcoreBridgeContractError("NFCore response too large")
     try:
         payload = json.loads(response_bytes)
-    except (ValueError, UnicodeError) as exc:
+    except (ValueError, UnicodeError):
         raise NfcoreBridgeContractError("NFCore response is not valid JSON") from None
     if not isinstance(payload, dict):
         raise NfcoreBridgeContractError("NFCore response is not an object")

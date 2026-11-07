@@ -69,8 +69,8 @@ from infra.comercial.mercado_pago_subscriptions import (
 from infra.comercial.transactional_email import (
     build_verification_dispatcher_from_env,
 )
-from infra.legacy_product_scope import reconciliar_lojas_legadas_unidades_admin
 from infra.fiscal.nfcore_bridge_runtime import create_nfcore_fiscal_gateway
+from infra.legacy_product_scope import reconciliar_lojas_legadas_unidades_admin
 from infra.seguranca.session_guard import build_session_factory
 
 _LOGGER = logging.getLogger(__name__)
