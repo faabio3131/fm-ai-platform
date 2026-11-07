@@ -14,13 +14,18 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from core.dominio.enums import PedidoStatus
+from application.order_result_orchestrator import (
+    orquestrar_resultado_pagamento_em_transacao,
+)
+from core.dominio.dinheiro import Dinheiro
+from core.dominio.enums import OrigemPedido, PagamentoStatus, PedidoStatus
+from core.dominio.erros import ConflitoIdempotencia
 from core.dominio.ids import IdempotencyKey
 from core.dominio.pedidos import Pedido
 from core.estoque.modelos import ResultadoReserva, SnapshotFichaEstoque
 from core.estoque.servicos import reservar_estoque
 from core.pagamentos.modelos import MetodoPagamento, ResultadoPagamento
-from core.pagamentos.servicos import criar_obrigacao_pagamento
+from core.pagamentos.servicos import confirmar_pagamento, criar_obrigacao_pagamento
 from core.pedidos.servicos import (
     ResultadoPedidoAutoritativo,
     registrar_novo_pedido,
@@ -44,6 +49,7 @@ class ComandoCheckoutV1:
     snapshot_estoque: SnapshotFichaEstoque | None = None
     provedor_pagamento: str | None = None
     recebimento_posterior: bool = False
+    valor_recebido: Dinheiro | None = None
 
 
 @dataclass(frozen=True)
@@ -52,6 +58,7 @@ class ResultadoCheckoutV1:
     pagamento: ResultadoPagamento | None
     reserva: ResultadoReserva | None
     aguardando_confirmacao: ResultadoPedidoAutoritativo
+    status_final: PedidoStatus | None = None
 
 
 def _validar(comando: ComandoCheckoutV1, contexto: ContextoExecucao) -> None:
@@ -224,6 +231,68 @@ def confirmar_checkout_sem_obrigacao_financeira_em_transacao(
     )
 
 
+def _semantica_pedido(pedido: Pedido) -> tuple[object, ...]:
+    return (
+        str(pedido.tenant_id),
+        str(pedido.unidade_id),
+        str(pedido.idempotency_key),
+        str(pedido.cliente_id) if pedido.cliente_id else None,
+        str(pedido.subtotal.valor),
+        str(pedido.descontos.valor),
+        str(pedido.taxas.valor),
+        str(pedido.total.valor),
+        tuple(
+            (
+                str(item.produto_id) if item.produto_id else None,
+                item.nome_produto,
+                item.quantidade.valor,
+                str(item.preco_unitario.valor),
+                str(item.subtotal.valor),
+                item.observacao,
+            )
+            for item in pedido.itens
+        ),
+    )
+
+
+def _confirmar_dinheiro_no_checkout(
+    *,
+    resultado: ResultadoCheckoutV1,
+    comando: ComandoCheckoutV1,
+    contexto: ContextoExecucao,
+    recursos: RecursosTransacionaisV1,
+    recebido: Dinheiro,
+) -> ResultadoCheckoutV1:
+    if resultado.pagamento is None:
+        return resultado
+    pagamento = resultado.pagamento.pagamento
+    if resultado.pedido.idempotente and pagamento.status is not PagamentoStatus.PAGO:
+        raise ConflitoIdempotencia("checkout pendente exige reconciliacao")
+    confirmado = confirmar_pagamento(
+        contexto=contexto,
+        repositorio=recursos.pagamentos,
+        pagamento_id=pagamento.id,
+        valor=comando.pedido.total,
+        metodo=MetodoPagamento.DINHEIRO,
+        idempotency_key=f"{comando.pedido.idempotency_key}:dinheiro",
+        expected_version=pagamento.versao,
+        timestamp=comando.timestamp,
+        valor_recebido=recebido,
+    )
+    if not confirmado.idempotente:
+        recursos.registrar_efeitos(
+            eventos=confirmado.eventos, auditorias=confirmado.auditorias
+        )
+    finalizado = orquestrar_resultado_pagamento_em_transacao(
+        recursos=recursos,
+        pagamento=confirmado.pagamento,
+        timestamp=comando.timestamp,
+    )
+    if not finalizado.finalizado or finalizado.pedido_status is None:
+        raise CheckoutInvalido("venda_em_dinheiro_nao_finalizada")
+    return replace(resultado, pagamento=confirmado, status_final=finalizado.pedido_status)
+
+
 def executar_checkout_v1(
     *,
     comando: ComandoCheckoutV1,
@@ -231,12 +300,37 @@ def executar_checkout_v1(
     session_factory: Callable[[], Session],
 ) -> ResultadoCheckoutV1:
     """Registra checkout inteiro ou nada; replays usam as mesmas chaves derivadas."""
+    pedido = comando.pedido
+    valor_recebido = comando.valor_recebido
+    if valor_recebido is not None:
+        if pedido.total.valor > 0 and comando.metodo_pagamento is not MetodoPagamento.DINHEIRO:
+            raise CheckoutInvalido("valor_recebido_exige_dinheiro")
+        if valor_recebido.valor < pedido.total.valor:
+            raise CheckoutInvalido("valor_recebido_insuficiente")
 
     with UnitOfWorkV1(session_factory) as uow:
-        resultado = executar_checkout_em_transacao(
-            comando=comando,
-            contexto=contexto,
-            recursos=uow.recursos,
-        )
+        recursos = uow.recursos
+        executar = executar_checkout_em_transacao
+        if valor_recebido is not None and recursos.pedidos.buscar(
+            pedido.tenant_id, pedido.unidade_id, pedido.id
+        ) is None:
+            # O cutover reutiliza o checkout em transação para compor a reserva.
+            from application.catalogo_estoque_cutover import (
+                executar_checkout_com_ficha_estoque_em_transacao,
+            )
+
+            executar = executar_checkout_com_ficha_estoque_em_transacao
+        resultado = executar(comando=comando, contexto=contexto, recursos=recursos)
+        if (
+            pedido.origem is OrigemPedido.PDV
+            and resultado.pedido.idempotente
+            and _semantica_pedido(resultado.pedido.pedido) != _semantica_pedido(pedido)
+        ):
+            raise ConflitoIdempotencia("payload divergente para a mesma idempotency_key")
+        if valor_recebido is not None:
+            resultado = _confirmar_dinheiro_no_checkout(
+                resultado=resultado, comando=comando, contexto=contexto,
+                recursos=recursos, recebido=valor_recebido,
+            )
         uow.commit()
         return resultado

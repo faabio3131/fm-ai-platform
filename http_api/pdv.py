@@ -14,6 +14,9 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from application.catalogo_estoque_cutover import (
+    ErroCatalogoEstoqueCutover,
+)
 from application.checkout import (
     CheckoutInvalido,
     ComandoCheckoutV1,
@@ -21,7 +24,11 @@ from application.checkout import (
     executar_checkout_v1,
 )
 from core.dominio.dinheiro import Dinheiro
-from core.dominio.enums import CanalAtendimento, OrigemPedido, PedidoStatus
+from core.dominio.enums import (
+    CanalAtendimento,
+    OrigemPedido,
+    PedidoStatus,
+)
 from core.dominio.erros import ConflitoIdempotencia, ErroDominio, PermissaoNegada
 from core.dominio.ids import (
     ClienteId,
@@ -35,7 +42,12 @@ from core.dominio.ids import (
 )
 from core.dominio.pedidos import ItemPedido, Pedido
 from core.dominio.tipos import QuantidadeItem
-from core.pagamentos.erros import ConcorrenciaPagamento, ConflitoIdempotenciaPagamento
+from core.estoque.erros import SaldoInsuficiente
+from core.pagamentos.erros import (
+    ConcorrenciaPagamento,
+    ConflitoIdempotenciaPagamento,
+    OperacaoPagamentoNaoAutorizada,
+)
 from core.pagamentos.modelos import MetodoPagamento
 from core.seguranca import AutorizarAcao, ContextoExecucao, Permissao
 from core.seguranca.erros import CredenciaisInvalidas, ErroSeguranca
@@ -65,6 +77,7 @@ class PDVCheckoutIn(BaseModel):
     itens: list[PDVCheckoutItemIn] = Field(min_length=1, max_length=200)
     metodo_pagamento: MetodoPagamento
     desconto: Decimal = Field(default=Decimal("0.00"), ge=0)
+    valor_recebido: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     cliente_id: str | None = Field(default=None, max_length=128)
 
 
@@ -329,45 +342,8 @@ def _montar_pedido(
     )
 
 
-def _semantica_pedido(pedido: Pedido) -> tuple[Any, ...]:
-    return (
-        str(pedido.tenant_id),
-        str(pedido.unidade_id),
-        str(pedido.idempotency_key),
-        str(pedido.cliente_id) if pedido.cliente_id else None,
-        str(pedido.subtotal.valor),
-        str(pedido.descontos.valor),
-        str(pedido.taxas.valor),
-        str(pedido.total.valor),
-        tuple(
-            (
-                str(item.produto_id) if item.produto_id else None,
-                item.nome_produto,
-                item.quantidade.valor,
-                str(item.preco_unitario.valor),
-                str(item.subtotal.valor),
-                item.observacao,
-            )
-            for item in pedido.itens
-        ),
-    )
-
-
-def _resposta_checkout(
-    resultado: ResultadoCheckoutV1,
-    *,
-    pedido_solicitado: Pedido,
-) -> dict[str, Any]:
+def _resposta_checkout(resultado: ResultadoCheckoutV1) -> dict[str, Any]:
     persistido = resultado.aguardando_confirmacao.pedido
-    if (
-        resultado.pedido.idempotente
-        and _semantica_pedido(resultado.pedido.pedido)
-        != _semantica_pedido(pedido_solicitado)
-    ):
-        raise ConflitoIdempotencia(
-            "payload divergente para a mesma idempotency_key"
-        )
-
     pagamento = None
     if resultado.pagamento is not None:
         financeiro = resultado.pagamento.pagamento
@@ -383,7 +359,7 @@ def _resposta_checkout(
     return {
         "comanda": {
             "pedido_id": str(persistido.id),
-            "status": persistido.status.value,
+            "status": (resultado.status_final or persistido.status).value,
             "itens": [
                 {
                     "produto_id": str(item.produto_id) if item.produto_id else None,
@@ -423,7 +399,7 @@ def _erro_http(exc: Exception) -> JSONResponse:
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={"erro": exc.codigo},
         )
-    if isinstance(exc, (PermissaoNegada, ErroSeguranca)):
+    if isinstance(exc, (PermissaoNegada, ErroSeguranca, OperacaoPagamentoNaoAutorizada)):
         codigo = getattr(exc, "codigo", "permissao_negada")
         return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -433,6 +409,11 @@ def _erro_http(exc: Exception) -> JSONResponse:
         return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
             content={"erro": "catalogo_indisponivel_no_escopo"},
+        )
+    if isinstance(exc, (SaldoInsuficiente, ErroCatalogoEstoqueCutover)):
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"erro": "estoque_indisponivel_para_checkout"},
         )
     if isinstance(exc, (CheckoutInvalido, ErroDominio, ValueError, TypeError)):
         codigo = getattr(exc, "codigo", str(exc) or "requisicao_invalida")
@@ -503,6 +484,12 @@ def build_pdv_router(
                 contexto=contexto,
                 idempotency_key=key,
             )
+            recebido = None
+            if payload.valor_recebido is not None:
+                if payload.metodo_pagamento is not MetodoPagamento.DINHEIRO:
+                    raise CheckoutInvalido("valor_recebido_exige_dinheiro")
+                recebido = Dinheiro(payload.valor_recebido)
+
             comando = ComandoCheckoutV1(
                 pedido=pedido,
                 timestamp=datetime.now(UTC),
@@ -514,13 +501,14 @@ def build_pdv_router(
                 metodo_pagamento=(
                     payload.metodo_pagamento if pedido.total.valor > 0 else None
                 ),
+                valor_recebido=recebido,
             )
             resultado = executar_checkout_v1(
                 comando=comando,
                 contexto=contexto,
                 session_factory=session_factory,
             )
-            body = _resposta_checkout(resultado, pedido_solicitado=pedido)
+            body = _resposta_checkout(resultado)
             http_status = (
                 status.HTTP_200_OK
                 if resultado.pedido.idempotente

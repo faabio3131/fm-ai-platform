@@ -301,6 +301,10 @@ def _confirmar_pagamento_validado(
             (t for t in existentes if t.idempotency_key == idempotency_key), None
         )
         if repetida:
+            if valor_recebido is not None:
+                # A transação guarda o hash original, inclusive dinheiro entregue e troco.
+                repositorio.append_transacao(repetida, fp)
+                return ResultadoPagamento(pagamento, repetida, None, (), (), True)
             if _hash(
                 pagamento_id,
                 repetida.valor.valor,

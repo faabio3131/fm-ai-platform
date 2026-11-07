@@ -14,7 +14,12 @@ import httpx
 
 from .adapters import RegistroAdaptersMarketplace
 from .erros import ErroMarketplace, ErroMarketplaceTransitorio
-from .flags import ifood_adapter_v1_enabled, keeta_adapter_v1_enabled
+from .flags import (
+    food99_adapter_v1_enabled,
+    ifood_adapter_v1_enabled,
+    keeta_adapter_v1_enabled,
+)
+from .food99_partner import Food99PartnerAdapter
 from .ifood_http import (
     IfoodHttpAdapter,
     PortaHttpMarketplace,
@@ -29,6 +34,7 @@ from .keeta_auth import (
     PortaSegredosKeeta,
 )
 from .keeta_partner import KeetaPartnerAdapter
+from .partner_transport import TransporteParceiroNormalizado
 from .opendelivery import (
     ConfiguracaoOpenDelivery,
     HttpxOpenDeliveryTransport,
@@ -133,6 +139,17 @@ def compor_keeta_opendelivery_real(
     return KeetaPartnerAdapter(transporte)
 
 
+def compor_food99_transporte_verificado(
+    *, transporte: TransporteParceiroNormalizado,
+) -> Food99PartnerAdapter:
+    """Aceita transporte certificado pelo parceiro, não inventa autenticação."""
+    if not food99_adapter_v1_enabled():
+        raise ErroMarketplace("99food_adapter_real_nao_habilitado")
+    if not transporte.contrato_verificado:
+        raise ErroMarketplace("contrato_99food_nao_verificado")
+    return Food99PartnerAdapter(transporte)
+
+
 def compor_adapters_marketplace_reais(
     *,
     segredos_ifood: PortaSegredosIfood | None = None,
@@ -140,13 +157,13 @@ def compor_adapters_marketplace_reais(
     segredos_keeta: PortaSegredosKeeta | None = None,
     http_keeta: PortaHttpOpenDelivery | None = None,
     politica_cancelamento_keeta: PortaPoliticaCancelamentoOpenDelivery | None = None,
+    transporte_food99: TransporteParceiroNormalizado | None = None,
     registro: RegistroAdaptersMarketplace | None = None,
 ) -> RegistroAdaptersMarketplace:
-    """Registra apenas adapters reais explicitamente habilitados.
+    """Registra somente adapters habilitados e com contrato provado.
 
-    iFood e Keeta possuem composição sobre contratos oficiais publicados. 99Food
-    permanece fora do runtime comercial até o onboarding fornecer contrato
-    técnico verificável de autenticação/base/payloads, sem inferir endpoints.
+    iFood/Keeta possuem composição HTTP específica. 99Food exige transporte
+    injetado após verificação oficial de autenticação, rotas e payloads.
     """
 
     adapters = registro or RegistroAdaptersMarketplace()
@@ -168,6 +185,14 @@ def compor_adapters_marketplace_reais(
                 segredos=segredos_keeta,
                 http=http_keeta,
                 politica_cancelamento=politica_cancelamento_keeta,
+            )
+        )
+    if food99_adapter_v1_enabled():
+        if transporte_food99 is None:
+            raise ErroMarketplace("99food_transporte_certificado_ausente")
+        adapters.registrar(
+            compor_food99_transporte_verificado(
+                transporte=transporte_food99,
             )
         )
     return adapters

@@ -29,6 +29,7 @@ export interface CheckoutItemPayload {
 export interface CheckoutPayload {
   itens: CheckoutItemPayload[];
   metodo_pagamento: PaymentMethod;
+  valor_recebido?: string;
   desconto: string;
   cliente_id: string | null;
 }
@@ -184,8 +185,8 @@ export async function fetchCatalog(): Promise<CatalogItem[]> {
 
 export async function submitCheckout(
   payload: CheckoutPayload,
+  idempotencyKey = crypto.randomUUID(),
 ): Promise<CheckoutResponse> {
-  const idempotencyKey = crypto.randomUUID();
   const headers = buildHeaders({ idempotencyKey });
   headers.set("Content-Type", "application/json");
 
