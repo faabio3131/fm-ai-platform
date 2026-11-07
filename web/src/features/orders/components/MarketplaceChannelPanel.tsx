@@ -126,6 +126,11 @@ export function MarketplaceChannelPanel({
                       ? `${item.conta_externa} · ${item.ambiente} · ${item.pedidos_sincronizados} pedido(s) vinculados`
                       : "Canal ainda não configurado para a unidade ativa."}
                   </p>
+                  {canal.id === "99food" && !item?.pronta_para_sincronizar ? (
+                    <p className="mt-1 text-xs text-amber-300">
+                      homologação pendente — contrato de transporte e autorização do parceiro
+                    </p>
+                  ) : null}
                 </div>
                 <Badge
                   variant="outline"
