@@ -23,6 +23,9 @@ import {
 import {
   PdvApiError,
   submitCheckout,
+  iniciarPixPagBank,
+  verificarPixPagBank,
+  type PixPagBankCobranca,
   type CheckoutPayload,
   type CheckoutResponse,
   type PaymentMethod,
@@ -61,12 +64,16 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CheckoutResponse | null>(null);
+  const [pixPagador, setPixPagador] = useState({ nome: "", email: "", documento: "" });
+  const [pixCobranca, setPixCobranca] = useState<PixPagBankCobranca | null>(null);
+  const [pixVerificado, setPixVerificado] = useState<string | null>(null);
+  const [pixBusy, setPixBusy] = useState(false);
 
   const tentativa = useRef<{ payload: string; chave: string } | null>(null);
 
   const changeCents = Math.max(0, receivedCents - totals.totalCents);
   const cashIsEnough = cart.metodoPagamento !== "dinheiro" || receivedCents >= totals.totalCents;
-  const pagamentoLiquidado = result?.pagamento?.status === "pago" || (
+  const pagamentoLiquidado = pixVerificado === "pago" || result?.pagamento?.status === "pago" || (
     result !== null && result.pagamento === null && Number(result.comanda.total) === 0
   );
 
@@ -123,6 +130,8 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
       const response = await submitCheckout(payload, tentativa.current.chave);
       tentativa.current = null;
       setResult(response);
+      setPixCobranca(null);
+      setPixVerificado(null);
       cartActions.reset();
     } catch (caught) {
       if (caught instanceof PdvApiError) {
@@ -135,12 +144,47 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
     }
   }
 
+  async function gerarPix() {
+    if (!result?.pagamento || result.pagamento.metodo !== "pix") return;
+    if (pixPagador.nome.trim().length < 2 || !pixPagador.email.includes("@") ||
+      ![11, 14].includes(pixPagador.documento.replace(/\D/g, "").length)) {
+      setError("Informe nome, e-mail e CPF/CNPJ válidos para gerar o Pix.");
+      return;
+    }
+    setPixBusy(true);
+    setError(null);
+    try {
+      setPixCobranca(await iniciarPixPagBank(result.pagamento.id, pixPagador));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Falha ao criar Pix no provedor.");
+    } finally {
+      setPixBusy(false);
+    }
+  }
+
+  async function verificarPix() {
+    if (!result?.pagamento || result.pagamento.metodo !== "pix") return;
+    setPixBusy(true);
+    setError(null);
+    try {
+      const verificado = await verificarPixPagBank(result.pagamento.id);
+      setPixVerificado(verificado.status_pagamento);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Falha ao consultar o pagamento.");
+    } finally {
+      setPixBusy(false);
+    }
+  }
+
   function handleOpenChange(nextOpen: boolean) {
-    if (!nextOpen && submitting) return;
+    if (!nextOpen && (submitting || pixBusy)) return;
     if (!nextOpen) {
       setError(null);
       setResult(null);
       setReceivedCents(0);
+      setPixCobranca(null);
+      setPixVerificado(null);
+      setPixPagador({ nome: "", email: "", documento: "" });
     }
     onOpenChange(nextOpen);
   }
@@ -178,7 +222,7 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pagamento</p>
-                  <p className="mt-1 font-semibold">{result.pagamento?.status ?? "sem pagamento"}</p>
+                  <p className="mt-1 font-semibold">{pixVerificado ?? result.pagamento?.status ?? "sem pagamento"}</p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total</p>
@@ -194,6 +238,94 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
                   correlation {result.correlation_id}
                 </Badge>
               </div>
+
+
+              {result.pagamento?.metodo === "pix" && !pagamentoLiquidado ? (
+                <div className="mt-5 w-full space-y-3 rounded-2xl border border-sky-400/30 bg-sky-950/20 p-4 text-left">
+                  <p className="font-semibold text-white">Cobrança Pix PagBank</p>
+                  <p className="text-sm text-slate-300">
+                    Informe os dados exigidos pelo provedor. O pedido permanece pendente
+                    até confirmação financeira por consulta autenticada ou webhook assinado.
+                  </p>
+                  {!pixCobranca ? (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="text-xs text-slate-300">
+                        Nome do pagador
+                        <input
+                          value={pixPagador.nome}
+                          maxLength={100}
+                          onChange={(event) => setPixPagador((prev) => ({ ...prev, nome: event.target.value }))}
+                          className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 p-2 text-sm text-white"
+                        />
+                      </label>
+                      <label className="text-xs text-slate-300">
+                        E-mail do pagador
+                        <input
+                          type="email"
+                          value={pixPagador.email}
+                          maxLength={200}
+                          onChange={(event) => setPixPagador((prev) => ({ ...prev, email: event.target.value }))}
+                          className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 p-2 text-sm text-white"
+                        />
+                      </label>
+                      <label className="text-xs text-slate-300 sm:col-span-2">
+                        CPF/CNPJ (não armazenado no cadastro pelo Kordena)
+                        <input
+                          value={pixPagador.documento}
+                          maxLength={18}
+                          onChange={(event) => setPixPagador((prev) => ({ ...prev, documento: event.target.value }))}
+                          className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 p-2 text-sm text-white"
+                        />
+                      </label>
+                      <Button type="button" disabled={pixBusy} onClick={() => void gerarPix()}>
+                        {pixBusy ? <Loader2 className="animate-spin" /> : <QrCode />}
+                        Gerar Pix no PagBank
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="break-all font-mono text-xs text-slate-300">
+                        Pedido do provedor: {pixCobranca.order_id}
+                      </p>
+                      {pixCobranca.pix_copia_cola ? (
+                        <>
+                          <textarea
+                            readOnly
+                            aria-label="Código Pix copia e cola"
+                            value={pixCobranca.pix_copia_cola}
+                            rows={3}
+                            className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2 text-sm text-white"
+                          />
+                          <Button type="button" variant="outline" onClick={() => void navigator.clipboard.writeText(pixCobranca.pix_copia_cola ?? "")}>
+                            Copiar código Pix
+                          </Button>
+                        </>
+                      ) : null}
+                      {pixCobranca.qr_code_url?.startsWith("https://") ? (
+                        <a
+                          href={pixCobranca.qr_code_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block text-sm font-medium text-sky-200 underline"
+                        >
+                          Abrir QR Code fornecido pelo PagBank
+                        </a>
+                      ) : null}
+                    </div>
+                  )}
+                  {pixVerificado ? <p role="status">Última conferência: {pixVerificado}</p> : null}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={pixBusy || !pixCobranca}
+                    onClick={() => void verificarPix()}
+                  >
+                    {pixBusy ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
+                    Verificar pagamento no PagBank
+                  </Button>
+                  {error ? <p role="alert" className="text-sm text-red-300">{error}</p> : null}
+                </div>
+              ) : null}
 
               <Button className="mt-6 h-12 w-full rounded-xl" onClick={() => handleOpenChange(false)}>
                 Nova venda
