@@ -501,6 +501,8 @@ def build_admin_integracoes_router(
                 )
                 if spec.escopo_gestao is EscopoGestaoIntegracao.PLATFORM_MANAGED:
                     raise PermissionError("seguranca.integracao_gerenciada_pela_plataforma")
+                if not spec.runtime_operacional:
+                    raise ErroConfiguracaoServico("healthcheck_sem_adapter_certificado")
                 provedor = configuracao.provedor.strip().casefold()
                 return _executar_healthcheck_por_provedor(
                     session=session,
@@ -545,6 +547,10 @@ def build_admin_integracoes_router(
                 )
                 if spec.escopo_gestao is EscopoGestaoIntegracao.PLATFORM_MANAGED:
                     raise PermissionError("seguranca.integracao_gerenciada_pela_plataforma")
+                if not spec.runtime_operacional:
+                    raise ErroConfiguracaoServico(
+                        "homologacao_indisponivel_sem_adapter_transacional"
+                    )
 
                 homologada = app.homologar(
                     contexto,

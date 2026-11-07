@@ -1002,3 +1002,45 @@ def test_banco_rejeita_credencial_de_papel_nao_declarado(
     assert response.status_code == 400
     assert "segredo-excedente" not in response.text
     mocks["app"].salvar_configuracao.assert_not_called()
+
+
+
+def test_cadastro_bancario_nao_pode_homologar_sem_adapter_mesmo_por_http(
+    app_com_mocks,
+) -> None:
+    from types import SimpleNamespace
+
+    app, mocks = app_com_mocks
+    ident = _identidade_admin()
+    mocks["auth"].resolver_identidade.return_value = ident
+    mocks["auth"].admin_status.return_value = (ident, True, None)
+    mocks["service"].obter.return_value = SimpleNamespace(
+        servico="financeiro.conta_bancaria",
+        provedor="inter",
+    )
+    response = TestClient(app).post(
+        "/v1/admin/integracoes/financeiro.conta_bancaria--inter/homologar",
+        json={"evidencia_ref": "manual://teste"},
+    )
+    assert response.status_code == 400
+    mocks["app"].homologar.assert_not_called()
+
+
+def test_card_cadastro_nao_chama_healthcheck_pix_do_mesmo_provedor(
+    app_com_mocks,
+) -> None:
+    from types import SimpleNamespace
+
+    app, mocks = app_com_mocks
+    ident = _identidade_admin()
+    mocks["auth"].resolver_identidade.return_value = ident
+    mocks["auth"].admin_status.return_value = (ident, True, None)
+    mocks["service"].obter.return_value = SimpleNamespace(
+        servico="pagamentos.cartao",
+        provedor="mercado_pago",
+    )
+    response = TestClient(app).post(
+        "/v1/admin/integracoes/pagamentos.cartao--mercado_pago/healthcheck",
+    )
+    assert response.status_code == 400
+    mocks["hc_mp"].assert_not_called()
