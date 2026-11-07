@@ -29,6 +29,7 @@ export interface CheckoutItemPayload {
 export interface CheckoutPayload {
   itens: CheckoutItemPayload[];
   metodo_pagamento: PaymentMethod;
+  provedor_pagamento?: "pagbank" | "asaas";
   valor_recebido?: string;
   desconto: string;
   cliente_id: string | null;
@@ -56,6 +57,7 @@ export interface CheckoutPayment {
   id: string;
   status: string;
   metodo: string;
+  provedor: string | null;
   valor_previsto: string;
   valor_pago: string;
   saldo: string;
@@ -218,6 +220,7 @@ export interface PixPagBankCobranca {
   status_pagamento: string;
   pix_copia_cola: string | null;
   qr_code_url: string | null;
+  qr_code_base64?: string | null;
   idempotente: boolean;
 }
 
@@ -265,6 +268,47 @@ export async function verificarPixPagBank(
     throw await readApiError(response);
   }
   return (await response.json()) as PixPagBankStatus;
+}
+
+
+export interface CobrancaAsaas {
+  pagamento_id: string;
+  order_id: string;
+  status_provedor: string;
+  status_pagamento: string;
+  pix_copia_cola: string | null;
+  qr_code_base64: string | null;
+  pagamento_url: string | null;
+  idempotente: boolean;
+}
+
+export async function iniciarCobrancaAsaas(
+  pagamentoId: string,
+  pagador: PixPagadorPayload,
+): Promise<CobrancaAsaas> {
+  const headers = buildHeaders();
+  headers.set("Content-Type", "application/json");
+  const resposta = await fetch(
+    API_BASE_URL + "/v1/pdv/pagamentos/" + encodeURIComponent(pagamentoId) + "/iniciar-asaas",
+    { method: "POST", headers, body: JSON.stringify(pagador),
+      credentials: "include", cache: "no-store" },
+  );
+  if (resposta.status !== 200 && resposta.status !== 201) {
+    throw await readApiError(resposta);
+  }
+  return (await resposta.json()) as CobrancaAsaas;
+}
+
+export async function verificarCobrancaAsaas(
+  pagamentoId: string,
+): Promise<CobrancaAsaas> {
+  const resposta = await fetch(
+    API_BASE_URL + "/v1/pdv/pagamentos/" + encodeURIComponent(pagamentoId) + "/verificar-asaas",
+    { method: "POST", headers: buildHeaders(),
+      credentials: "include", cache: "no-store" },
+  );
+  if (resposta.status !== 200) throw await readApiError(resposta);
+  return (await resposta.json()) as CobrancaAsaas;
 }
 
 export interface CartaoTerminalConfirmacao {

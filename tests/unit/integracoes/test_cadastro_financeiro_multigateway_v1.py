@@ -32,7 +32,6 @@ from infra.seguranca.modelos_orm import SecurityBase
 @pytest.mark.parametrize(
     ("servico", "provedor", "roles"),
     [
-        ("pagamentos.pix", "asaas", {"api_key"}),
         ("pagamentos.pix", "picpay", {"client_id", "client_secret"}),
         ("pagamentos.pix", "pagarme", {"api_key"}),
         ("pagamentos.pix", "efi", {"client_id", "client_secret"}),
@@ -57,6 +56,13 @@ def test_novos_provedores_apenas_cadastraveis(servico, provedor, roles):
     if servico == "financeiro.conta_bancaria":
         assert spec.credenciais_opcionais == {"chave_pix", "digito_conta"}
         assert "numero_conta" not in spec.parametros_obrigatorios
+
+
+def test_asaas_operacional_exige_segredo_de_webhook_e_nunca_homologa_sozinho():
+    for servico in ("pagamentos.pix", "pagamentos.cartao"):
+        spec = CATALOGO_V1.obter(servico, "asaas")
+        assert spec.runtime_operacional is True
+        assert spec.credenciais_obrigatorias == {"api_key", "webhook_token"}
 
 
 def test_mercado_pago_e_pagbank_pix_conservam_runtime_existente():
