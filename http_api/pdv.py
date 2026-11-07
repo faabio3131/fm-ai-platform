@@ -16,22 +16,17 @@ from sqlalchemy.orm import Session
 
 from application.catalogo_estoque_cutover import (
     ErroCatalogoEstoqueCutover,
-    executar_checkout_com_ficha_estoque_em_transacao,
 )
 from application.checkout import (
     CheckoutInvalido,
     ComandoCheckoutV1,
     ResultadoCheckoutV1,
-    executar_checkout_em_transacao,
-)
-from application.order_result_orchestrator import (
-    orquestrar_resultado_pagamento_em_transacao,
+    executar_checkout_v1,
 )
 from core.dominio.dinheiro import Dinheiro
 from core.dominio.enums import (
     CanalAtendimento,
     OrigemPedido,
-    PagamentoStatus,
     PedidoStatus,
 )
 from core.dominio.erros import ConflitoIdempotencia, ErroDominio, PermissaoNegada
@@ -54,13 +49,11 @@ from core.pagamentos.erros import (
     OperacaoPagamentoNaoAutorizada,
 )
 from core.pagamentos.modelos import MetodoPagamento
-from core.pagamentos.servicos import confirmar_pagamento
 from core.seguranca import AutorizarAcao, ContextoExecucao, Permissao
 from core.seguranca.erros import CredenciaisInvalidas, ErroSeguranca
 from http_api.auth import AuthSessionRuntime
 from http_api.operational_auth import obter_identidade_operacional
 from infra.legacy_product_scope import ErroEscopoLojaLegada, listar_produtos_legados
-from infra.transacoes.uow import UnitOfWorkV1
 
 SessionFactory = Callable[[], Session]
 _MAX_IDEMPOTENCY_KEY = 96
@@ -349,45 +342,8 @@ def _montar_pedido(
     )
 
 
-def _semantica_pedido(pedido: Pedido) -> tuple[Any, ...]:
-    return (
-        str(pedido.tenant_id),
-        str(pedido.unidade_id),
-        str(pedido.idempotency_key),
-        str(pedido.cliente_id) if pedido.cliente_id else None,
-        str(pedido.subtotal.valor),
-        str(pedido.descontos.valor),
-        str(pedido.taxas.valor),
-        str(pedido.total.valor),
-        tuple(
-            (
-                str(item.produto_id) if item.produto_id else None,
-                item.nome_produto,
-                item.quantidade.valor,
-                str(item.preco_unitario.valor),
-                str(item.subtotal.valor),
-                item.observacao,
-            )
-            for item in pedido.itens
-        ),
-    )
-
-
-def _resposta_checkout(
-    resultado: ResultadoCheckoutV1,
-    *,
-    pedido_solicitado: Pedido,
-) -> dict[str, Any]:
+def _resposta_checkout(resultado: ResultadoCheckoutV1) -> dict[str, Any]:
     persistido = resultado.aguardando_confirmacao.pedido
-    if (
-        resultado.pedido.idempotente
-        and _semantica_pedido(resultado.pedido.pedido)
-        != _semantica_pedido(pedido_solicitado)
-    ):
-        raise ConflitoIdempotencia(
-            "payload divergente para a mesma idempotency_key"
-        )
-
     pagamento = None
     if resultado.pagamento is not None:
         financeiro = resultado.pagamento.pagamento
@@ -403,7 +359,7 @@ def _resposta_checkout(
     return {
         "comanda": {
             "pedido_id": str(persistido.id),
-            "status": persistido.status.value,
+            "status": (resultado.status_final or persistido.status).value,
             "itens": [
                 {
                     "produto_id": str(item.produto_id) if item.produto_id else None,
@@ -545,51 +501,14 @@ def build_pdv_router(
                 if payload.metodo_pagamento is not MetodoPagamento.DINHEIRO:
                     raise CheckoutInvalido("valor_recebido_exige_dinheiro")
                 recebido = Dinheiro(payload.valor_recebido)
-                if recebido.valor < pedido.total.valor:
-                    raise CheckoutInvalido("valor_recebido_insuficiente")
 
-            with UnitOfWorkV1(session_factory) as uow:
-                recursos = uow.recursos
-                executar = executar_checkout_em_transacao
-                if recebido is not None and recursos.pedidos.buscar(
-                    pedido.tenant_id, pedido.unidade_id, pedido.id
-                ) is None:
-                    executar = executar_checkout_com_ficha_estoque_em_transacao
-                resultado = executar(comando=comando, contexto=contexto, recursos=recursos)
-                body = _resposta_checkout(resultado, pedido_solicitado=pedido)
-                if recebido is not None and resultado.pagamento is not None:
-                    pagamento = resultado.pagamento.pagamento
-                    if resultado.pedido.idempotente and pagamento.status is not PagamentoStatus.PAGO:
-                        raise ConflitoIdempotencia("checkout pendente exige reconciliacao")
-                    confirmado = confirmar_pagamento(
-                        contexto=contexto,
-                        repositorio=recursos.pagamentos,
-                        pagamento_id=pagamento.id,
-                        valor=pedido.total,
-                        metodo=MetodoPagamento.DINHEIRO,
-                        idempotency_key=f"{pedido.idempotency_key}:dinheiro",
-                        expected_version=pagamento.versao,
-                        timestamp=comando.timestamp,
-                        valor_recebido=recebido,
-                    )
-                    if not confirmado.idempotente:
-                        recursos.registrar_efeitos(
-                            eventos=confirmado.eventos, auditorias=confirmado.auditorias
-                        )
-                    finalizado = orquestrar_resultado_pagamento_em_transacao(
-                        recursos=recursos,
-                        pagamento=confirmado.pagamento,
-                        timestamp=comando.timestamp,
-                    )
-                    if not finalizado.finalizado or finalizado.pedido_status is None:
-                        raise CheckoutInvalido("venda_em_dinheiro_nao_finalizada")
-                    body["comanda"]["status"] = finalizado.pedido_status.value
-                    body["pagamento"].update(
-                        status=confirmado.pagamento.status.value,
-                        valor_pago=str(confirmado.pagamento.valor_pago.valor),
-                        saldo=str(confirmado.pagamento.saldo.valor),
-                    )
-                uow.commit()
+            resultado = executar_checkout_v1(
+                comando=comando,
+                contexto=contexto,
+                session_factory=session_factory,
+                valor_recebido=recebido,
+            )
+            body = _resposta_checkout(resultado)
             http_status = (
                 status.HTTP_200_OK
                 if resultado.pedido.idempotente
