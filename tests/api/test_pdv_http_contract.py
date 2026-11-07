@@ -446,6 +446,81 @@ def test_pdv_pix_pagbank_gera_cobranca_real_no_adapter_e_consulta_status(monkeyp
         ) == 1
 
 
+
+
+def test_pix_pagbank_pago_reconcilia_e_finaliza_venda_sem_confirmacao_manual(
+    monkeypatch,
+) -> None:
+    import application.pdv_pix_pagbank as modulo_pix
+    from core.dominio.dinheiro import Dinheiro
+    from core.pagamentos.adapters import CobrancaProvedor
+
+    class AdapterPago:
+        def criar_pix(self, *, pagamento_id, valor, idempotency_key, cliente):
+            return CobrancaProvedor("ORDE_PDV_PIX_PAID", "pendente", valor)
+
+        def consultar_transacao(self, order_id):
+            return CobrancaProvedor(order_id, "pago", Dinheiro("30.00"))
+
+    class FactoryPago:
+        def __init__(self, **kwargs):
+            del kwargs
+
+        def construir(self, *, session, tenant_id, unidade_id):
+            assert tenant_id == TENANT
+            assert unidade_id == UNIDADE
+            return AdapterPago()
+
+    monkeypatch.setattr(modulo_pix, "PagBankAdapterFactory", FactoryPago)
+    _, factory, client = _infra()
+    checkout = client.post(
+        "/v1/pdv/checkout",
+        headers=_headers(key="9a9f4111-a76f-4780-b152-3e7157d888c8"),
+        json={**_payload(), "metodo_pagamento": "pix"},
+    )
+    assert checkout.status_code == 201, checkout.text
+    pagamento_id = checkout.json()["pagamento"]["id"]
+    with factory() as session:
+        p = session.get(PagamentoORM, (pagamento_id, TENANT, UNIDADE))
+        assert p is not None
+        assert p.provedor == "pagbank"
+        assert p.status == "pendente"
+    criado = client.post(
+        f"/v1/pdv/pagamentos/{pagamento_id}/iniciar-pix-pagbank",
+        headers=_headers(),
+        json={
+            "nome": "Cliente Teste",
+            "email": "cliente@example.com",
+            "documento": "12345678909",
+        },
+    )
+    assert criado.status_code == 201, criado.text
+    conferido = client.post(
+        f"/v1/pdv/pagamentos/{pagamento_id}/verificar-pix-pagbank",
+        headers=_headers(),
+    )
+    assert conferido.status_code == 200, conferido.text
+    assert conferido.json()["status_pagamento"] == "pago"
+    with factory() as session:
+        p = session.get(PagamentoORM, (pagamento_id, TENANT, UNIDADE))
+        assert p is not None
+        assert p.status == "pago"
+        assert p.valor_pago == Decimal("30.00")
+        assert session.scalar(
+            select(func.count()).select_from(VendaFinanceiraORM)
+            .where(VendaFinanceiraORM.pagamento_id == pagamento_id)
+        ) == 1
+    repetido = client.post(
+        f"/v1/pdv/pagamentos/{pagamento_id}/verificar-pix-pagbank",
+        headers=_headers(),
+    )
+    assert repetido.status_code == 200, repetido.text
+    with factory() as session:
+        assert session.scalar(
+            select(func.count()).select_from(VendaFinanceiraORM)
+            .where(VendaFinanceiraORM.pagamento_id == pagamento_id)
+        ) == 1
+
 def test_pdv_pix_nao_gera_cobranca_para_outro_metodo_ou_pagamento_ausente(
     monkeypatch,
 ) -> None:

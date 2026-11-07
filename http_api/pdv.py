@@ -541,6 +541,11 @@ def build_pdv_router(
                     payload.metodo_pagamento if pedido.total.valor > 0 else None
                 ),
                 valor_recebido=recebido,
+                provedor_pagamento=(
+                    "pagbank"
+                    if payload.metodo_pagamento is MetodoPagamento.PIX
+                    else None
+                ),
             )
             resultado = executar_checkout_v1(
                 comando=comando,
