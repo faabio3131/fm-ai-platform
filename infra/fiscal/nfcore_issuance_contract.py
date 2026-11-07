@@ -93,7 +93,7 @@ def to_nfcore_issuance(entry: FiscalOutboxEntry) -> dict[str, Any]:
     if not isinstance(lines, list) or not lines:
         raise NfcoreFiscalPayloadInvalid("fiscal document has no lines")
     result_lines = []
-    total_lines = Decimal("0")
+    total_lines = Decimal(0)
     for raw in lines:
         line = _object(raw, "line")
         product = _object(line.get("product"), "product")
@@ -123,7 +123,7 @@ def to_nfcore_issuance(entry: FiscalOutboxEntry) -> dict[str, Any]:
         total_lines += net_line
         result_lines.append({
             "line_id": hashlib.sha256(
-                f"{sale_id}:{number}".encode("utf-8")
+                f"{sale_id}:{number}".encode()
             ).hexdigest(),
             "item_reference": {"type": "produto", "id": product_id},
             "description": desc,
@@ -139,7 +139,7 @@ def to_nfcore_issuance(entry: FiscalOutboxEntry) -> dict[str, Any]:
     if not isinstance(payments, list) or not payments:
         raise NfcoreFiscalPayloadInvalid("fiscal document has no payments")
     result_payments = []
-    paid_lines = Decimal("0")
+    paid_lines = Decimal(0)
     for raw in payments:
         payment = _object(raw, "payment")
         amount = _money(payment.get("amount"), "payment amount")
