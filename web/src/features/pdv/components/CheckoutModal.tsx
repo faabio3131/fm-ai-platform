@@ -66,6 +66,9 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
 
   const changeCents = Math.max(0, receivedCents - totals.totalCents);
   const cashIsEnough = cart.metodoPagamento !== "dinheiro" || receivedCents >= totals.totalCents;
+  const pagamentoLiquidado = result?.pagamento?.status === "pago" || (
+    result !== null && result.pagamento === null && Number(result.comanda.total) === 0
+  );
 
   function selectPaymentMethod(method: PaymentMethod) {
     cartActions.setPaymentMethod(method);
@@ -151,10 +154,18 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
               <div className="flex size-16 items-center justify-center rounded-full bg-[#10b981]/10 text-[#10b981]">
                 <CheckCircle2 className="size-9" />
               </div>
-              <DialogTitle className="mt-4 text-2xl">{result.pagamento?.status === "pago" ? "Venda registrada com sucesso" : "Pedido registrado"}</DialogTitle>
+              <DialogTitle className="mt-4 text-2xl">{pagamentoLiquidado ? "Venda registrada com sucesso" : "Pedido registrado — pagamento pendente"}</DialogTitle>
               <DialogDescription className="mt-2">
-                Confira o estado do pedido e do pagamento retornado pelo sistema.
+                {pagamentoLiquidado
+                  ? "Pagamento confirmado pelo sistema. Confira os dados da operação."
+                  : "O pedido foi registrado, mas o pagamento ainda não foi confirmado. Não considere a venda quitada."}
               </DialogDescription>
+
+              {!pagamentoLiquidado ? (
+                <p role="alert" className="mt-4 rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-200">
+                  PENDENTE: aguarde confirmação financeira confiável antes de concluir a entrega.
+                </p>
+              ) : null}
 
               <div className="mt-6 grid w-full gap-3 rounded-2xl border bg-muted/30 p-4 text-left sm:grid-cols-2">
                 <div>
@@ -177,7 +188,7 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
 
               <div className="mt-4 flex flex-wrap justify-center gap-2">
                 <Badge variant="outline">
-                  {result.idempotente ? "Replay idempotente · HTTP 200" : "Venda criada · HTTP 201"}
+                  {result.idempotente ? "Replay idempotente · HTTP 200" : pagamentoLiquidado ? "Venda paga · HTTP 201" : "Pedido pendente · HTTP 201"}
                 </Badge>
                 <Badge variant="outline" className="max-w-full truncate font-mono">
                   correlation {result.correlation_id}
@@ -232,6 +243,13 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
                     );
                   })}
                 </div>
+
+                {cart.metodoPagamento !== "dinheiro" ? (
+                  <p role="status" className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs font-medium text-amber-200">
+                    Pagamentos eletrônicos só ficam pagos após confirmação do provedor.
+                    Este checkout não deve ser tratado como recebimento confirmado ou QR Pix gerado.
+                  </p>
+                ) : null}
 
                 <div className="mt-6 rounded-2xl border bg-slate-950 p-5 text-white">
                   <div className="flex items-center justify-between text-sm text-slate-400">
