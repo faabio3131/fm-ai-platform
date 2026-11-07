@@ -133,6 +133,14 @@ CATALOGO_V1 = CatalogoServicosExternos(
         ),
         EspecificacaoServico(
             servico="fiscal.documentos",
+            provedor="nfcore",
+            parametros_obrigatorios=frozenset({"host_namespace"}),
+            credenciais_obrigatorias=frozenset(
+                {"bearer_token", "workload_credential_id"}
+            ),
+        ),
+        EspecificacaoServico(
+            servico="fiscal.documentos",
             provedor="sefaz",
             parametros_obrigatorios=frozenset(
                 {"signer_kind", "signing_algorithm", "adapter_version"}

@@ -70,6 +70,7 @@ from infra.comercial.transactional_email import (
     build_verification_dispatcher_from_env,
 )
 from infra.legacy_product_scope import reconciliar_lojas_legadas_unidades_admin
+from infra.fiscal.nfcore_bridge_runtime import create_nfcore_fiscal_gateway
 from infra.seguranca.session_guard import build_session_factory
 
 _LOGGER = logging.getLogger(__name__)
@@ -146,6 +147,15 @@ def build_frontend_http_app(
         session_factory=session_factory,
         secret_store=secret_store,
     )
+
+    # Enabled only by platform infrastructure, never implicitly from HTTP claims.
+    # If unset, keep legacy fail-closed semantics for fiscal event routes.
+    if (
+        fiscal_operations_gateway_factory is None
+        and os.getenv("FM_AI_NFCORE_BRIDGE_ENABLED", "").strip().lower()
+        in {"1", "true", "yes"}
+    ):
+        fiscal_operations_gateway_factory = create_nfcore_fiscal_gateway
 
     billing_adapter_registry = kwargs.get(
         "commercial_billing_adapter_registry"
