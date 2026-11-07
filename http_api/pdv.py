@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import asdict
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, Literal
 from uuid import NAMESPACE_URL, uuid5
 
 from fastapi import APIRouter, Request, status
@@ -17,6 +17,17 @@ from sqlalchemy.orm import Session
 
 from application.catalogo_estoque_cutover import (
     ErroCatalogoEstoqueCutover,
+)
+from application.checkout import (
+    CheckoutInvalido,
+    ComandoCheckoutV1,
+    ResultadoCheckoutV1,
+    executar_checkout_v1,
+)
+from application.pdv_asaas import (
+    ErroPagamentoAsaas,
+    iniciar_cobranca_asaas_pdv,
+    verificar_cobranca_asaas_pdv,
 )
 from application.pdv_cartao_pagbank_checkout import (
     CheckoutCartaoInvalido,
@@ -31,12 +42,6 @@ from application.pdv_pix_pagbank import (
     PixPdvInvalido,
     iniciar_pix_pagbank_pdv,
     verificar_pix_pagbank_pdv,
-)
-from application.checkout import (
-    CheckoutInvalido,
-    ComandoCheckoutV1,
-    ResultadoCheckoutV1,
-    executar_checkout_v1,
 )
 from core.dominio.dinheiro import Dinheiro
 from core.dominio.enums import (
@@ -58,6 +63,7 @@ from core.dominio.ids import (
 from core.dominio.pedidos import ItemPedido, Pedido
 from core.dominio.tipos import QuantidadeItem
 from core.estoque.erros import SaldoInsuficiente
+from core.pagamentos.asaas import ErroAsaas, PagadorAsaas
 from core.pagamentos.erros import (
     ConcorrenciaPagamento,
     ConflitoIdempotenciaPagamento,
@@ -65,13 +71,13 @@ from core.pagamentos.erros import (
 )
 from core.pagamentos.modelos import MetodoPagamento
 from core.pagamentos.pagbank import ClientePagBank, ErroPagBank
-from core.seguranca.segredos import SecretStore
-from infra.pagamentos.pagbank_runtime import CredencialPagBankNaoConfigurada
 from core.seguranca import AutorizarAcao, ContextoExecucao, Permissao
 from core.seguranca.erros import CredenciaisInvalidas, ErroSeguranca
+from core.seguranca.segredos import SecretStore
 from http_api.auth import AuthSessionRuntime
 from http_api.operational_auth import obter_identidade_operacional
 from infra.legacy_product_scope import ErroEscopoLojaLegada, listar_produtos_legados
+from infra.pagamentos.pagbank_runtime import CredencialPagBankNaoConfigurada
 
 SessionFactory = Callable[[], Session]
 _MAX_IDEMPOTENCY_KEY = 96
@@ -105,6 +111,7 @@ class PDVCheckoutItemIn(BaseModel):
 class PDVCheckoutIn(BaseModel):
     itens: list[PDVCheckoutItemIn] = Field(min_length=1, max_length=200)
     metodo_pagamento: MetodoPagamento
+    provedor_pagamento: Literal["pagbank", "asaas"] | None = None
     desconto: Decimal = Field(default=Decimal("0.00"), ge=0)
     valor_recebido: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     cliente_id: str | None = Field(default=None, max_length=128)
@@ -380,6 +387,7 @@ def _resposta_checkout(resultado: ResultadoCheckoutV1) -> dict[str, Any]:
             "id": financeiro.id,
             "status": financeiro.status.value,
             "metodo": financeiro.metodo.value,
+            "provedor": financeiro.provedor,
             "valor_previsto": str(financeiro.valor_previsto.valor),
             "valor_pago": str(financeiro.valor_pago.valor),
             "saldo": str(financeiro.saldo.valor),
@@ -534,6 +542,13 @@ def build_pdv_router(
                     raise CheckoutInvalido("valor_recebido_exige_dinheiro")
                 recebido = Dinheiro(payload.valor_recebido)
 
+            if (
+                payload.provedor_pagamento is not None
+                and payload.metodo_pagamento not in {
+                    MetodoPagamento.PIX, MetodoPagamento.CARTAO_CREDITO
+                }
+            ):
+                raise CheckoutInvalido("provedor_incompativel_com_metodo")
             comando = ComandoCheckoutV1(
                 pedido=pedido,
                 timestamp=datetime.now(UTC),
@@ -547,9 +562,14 @@ def build_pdv_router(
                 ),
                 valor_recebido=recebido,
                 provedor_pagamento=(
-                    "pagbank"
+                    (payload.provedor_pagamento or "pagbank")
                     if payload.metodo_pagamento is MetodoPagamento.PIX
-                    else None
+                    else (
+                        "asaas"
+                        if payload.metodo_pagamento is MetodoPagamento.CARTAO_CREDITO
+                        and payload.provedor_pagamento == "asaas"
+                        else None
+                    )
                 ),
             )
             resultado = executar_checkout_v1(
@@ -566,6 +586,49 @@ def build_pdv_router(
             return JSONResponse(status_code=http_status, content=body)
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
             return _erro_http(exc)
+
+    @router.post("/pagamentos/{pagamento_id}/iniciar-asaas")
+    def iniciar_asaas(
+        pagamento_id: str, pagador: PDVPixPagadorIn, request: Request,
+    ) -> JSONResponse:
+        try:
+            with session_factory() as session:
+                contexto = _contexto_pdv(
+                    request, session, auth_runtime=auth_runtime,
+                )
+            result = iniciar_cobranca_asaas_pdv(
+                contexto=contexto, pagamento_id=pagamento_id,
+                pagador=PagadorAsaas(
+                    nome=pagador.nome, email=pagador.email,
+                    documento=pagador.documento,
+                ),
+                session_factory=session_factory,
+            )
+            return JSONResponse(
+                status_code=200 if result.idempotente else 201,
+                content=asdict(result),
+            )
+        except (ErroAsaas, ErroPagamentoAsaas) as exc:
+            return JSONResponse(status_code=503, content={"erro": str(exc)})
+        except Exception as exc:  # noqa: BLE001
+            return _erro_pix_http(exc)
+
+    @router.post("/pagamentos/{pagamento_id}/verificar-asaas")
+    def verificar_asaas(pagamento_id: str, request: Request) -> JSONResponse:
+        try:
+            with session_factory() as session:
+                contexto = _contexto_pdv(
+                    request, session, auth_runtime=auth_runtime,
+                )
+            result = verificar_cobranca_asaas_pdv(
+                contexto=contexto, pagamento_id=pagamento_id,
+                session_factory=session_factory,
+            )
+            return JSONResponse(status_code=200, content=asdict(result))
+        except (ErroAsaas, ErroPagamentoAsaas) as exc:
+            return JSONResponse(status_code=503, content={"erro": str(exc)})
+        except Exception as exc:  # noqa: BLE001
+            return _erro_pix_http(exc)
 
     @router.post("/pagamentos/{pagamento_id}/iniciar-pix-pagbank")
     def iniciar_pix(

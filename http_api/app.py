@@ -33,11 +33,13 @@ from application.pagbank import (
     processar_webhook_pagbank,
 )
 from application.password_recovery import PasswordRecoveryDispatcher
+from application.pdv_asaas import receber_webhook_asaas
 from application.pdv_legacy_projection import ProjecaoLegadaInvalida
 from core.gerente_ia.erros import ErroGerenteIA
 from core.gerente_ia.modelos import ChamadaTool
 from core.integracoes.modelos import ErroConfiguracaoServico
 from core.integracoes.provedores import ErroProvedorExterno
+from core.pagamentos.asaas import ErroAsaas
 from core.pagamentos.erros import ConflitoIdempotenciaPagamento
 from core.pagamentos.pagbank import ErroPagBank
 from core.runtime import build_engine, check_database_health, load_runtime_settings
@@ -372,6 +374,26 @@ def build_http_app(
         except ErroConfiguracaoServico:
             return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
         except Exception:  # noqa: BLE001 - fronteira externa fail-closed
+            return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    @app.post("/webhooks/asaas", include_in_schema=False)
+    async def webhook_asaas(request: Request) -> Response:
+        body = await request.body()
+        if len(body) > _MAX_WEBHOOK_BYTES:
+            return Response(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
+        try:
+            payload = json.loads(body)
+            if not isinstance(payload, dict):
+                return Response(status_code=status.HTTP_400_BAD_REQUEST)
+            processed = receber_webhook_asaas(
+                payload=payload,
+                header_token=request.headers.get("asaas-access-token"),
+                session_factory=session_factory,
+            )
+            return Response(status_code=200 if processed else 204)
+        except (ValueError, UnicodeDecodeError, ErroAsaas):
+            return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+        except Exception:  # noqa: BLE001
             return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
 
     @app.post("/webhooks/pagbank", include_in_schema=False)

@@ -9,6 +9,7 @@ import {
   QrCode,
 } from "lucide-react";
 import { useRef, useState } from "react";
+import Image from "next/image";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,8 @@ import {
   PdvApiError,
   submitCheckout,
   iniciarPixPagBank,
+  iniciarCobrancaAsaas,
+  verificarCobrancaAsaas,
   confirmarCartaoNoTerminal,
   criarCheckoutCartaoPagBank,
   verificarCheckoutCartaoPagBank,
@@ -69,6 +72,7 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CheckoutResponse | null>(null);
   const [pixPagador, setPixPagador] = useState({ nome: "", email: "", documento: "" });
+  const [provedorEletronico, setProvedorEletronico] = useState<"pagbank" | "asaas">("pagbank");
   const [pixCobranca, setPixCobranca] = useState<PixPagBankCobranca | null>(null);
   const [pixVerificado, setPixVerificado] = useState<string | null>(null);
   const [pixBusy, setPixBusy] = useState(false);
@@ -130,6 +134,8 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
           observacoes: item.observacoes.trim() || null,
         })),
         metodo_pagamento: cart.metodoPagamento,
+        ...(["pix", "cartao_credito"].includes(cart.metodoPagamento)
+          ? { provedor_pagamento: provedorEletronico } : {}),
         ...(cart.metodoPagamento === "dinheiro"
           ? { valor_recebido: (receivedCents / 100).toFixed(2) }
           : {}),
@@ -173,7 +179,12 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
     setPixBusy(true);
     setError(null);
     try {
-      setPixCobranca(await iniciarPixPagBank(result.pagamento.id, pixPagador));
+      if (result.pagamento.provedor === "asaas") {
+        const cobranca = await iniciarCobrancaAsaas(result.pagamento.id, pixPagador);
+        setPixCobranca({ ...cobranca, qr_code_url: null });
+      } else {
+        setPixCobranca(await iniciarPixPagBank(result.pagamento.id, pixPagador));
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Falha ao criar Pix no provedor.");
     } finally {
@@ -186,7 +197,9 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
     setPixBusy(true);
     setError(null);
     try {
-      const verificado = await verificarPixPagBank(result.pagamento.id);
+      const verificado = result.pagamento.provedor === "asaas"
+        ? await verificarCobrancaAsaas(result.pagamento.id)
+        : await verificarPixPagBank(result.pagamento.id);
       setPixVerificado(verificado.status_pagamento);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Falha ao consultar o pagamento.");
@@ -200,8 +213,23 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
     setCartaoCheckoutBusy(true);
     setCartaoCheckoutErro(null);
     try {
-      const checkout = await criarCheckoutCartaoPagBank(result.pagamento.id);
-      setCartaoCheckout(checkout);
+      if (result.pagamento.provedor === "asaas") {
+        if (pixPagador.nome.trim().length < 2 || !pixPagador.email.includes("@") ||
+          ![11, 14].includes(pixPagador.documento.replace(/\D/g, "").length)) {
+          setCartaoCheckoutErro("Informe nome, e-mail e CPF/CNPJ para o Asaas.");
+          return;
+        }
+        const charge = await iniciarCobrancaAsaas(result.pagamento.id, pixPagador);
+        setCartaoCheckout({
+          pagamento_id: charge.pagamento_id, checkout_id: charge.order_id,
+          pagamento_url: charge.pagamento_url ?? "",
+          status_provedor: charge.status_provedor,
+          status_pagamento: charge.status_pagamento,
+          idempotente: charge.idempotente,
+        });
+      } else {
+        setCartaoCheckout(await criarCheckoutCartaoPagBank(result.pagamento.id));
+      }
     } catch (caught) {
       setCartaoCheckoutErro(
         caught instanceof Error ? caught.message : "Checkout PagBank indisponível.",
@@ -216,8 +244,18 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
     setCartaoCheckoutBusy(true);
     setCartaoCheckoutErro(null);
     try {
-      const consultado = await verificarCheckoutCartaoPagBank(result.pagamento.id);
-      setCartaoCheckout(consultado);
+      if (result.pagamento.provedor === "asaas") {
+        const charge = await verificarCobrancaAsaas(result.pagamento.id);
+        setCartaoCheckout({
+          pagamento_id: charge.pagamento_id, checkout_id: charge.order_id,
+          pagamento_url: charge.pagamento_url ?? "",
+          status_provedor: charge.status_provedor,
+          status_pagamento: charge.status_pagamento,
+          idempotente: charge.idempotente,
+        });
+      } else {
+        setCartaoCheckout(await verificarCheckoutCartaoPagBank(result.pagamento.id));
+      }
     } catch (caught) {
       setCartaoCheckoutErro(
         caught instanceof Error ? caught.message : "Falha ao consultar o provedor.",
@@ -324,7 +362,7 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
 
               {result.pagamento?.metodo === "pix" && !pagamentoLiquidado ? (
                 <div className="mt-5 w-full space-y-3 rounded-2xl border border-sky-400/30 bg-sky-950/20 p-4 text-left">
-                  <p className="font-semibold text-white">Cobrança Pix PagBank</p>
+                  <p className="font-semibold text-white">Cobrança Pix {result.pagamento.provedor === "asaas" ? "Asaas" : "PagBank"}</p>
                   <p className="text-sm text-slate-300">
                     Informe os dados exigidos pelo provedor. O pedido permanece pendente
                     até confirmação financeira por consulta autenticada ou webhook assinado.
@@ -361,7 +399,7 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
                       </label>
                       <Button type="button" disabled={pixBusy} onClick={() => void gerarPix()}>
                         {pixBusy ? <Loader2 className="animate-spin" /> : <QrCode />}
-                        Gerar Pix no PagBank
+                        Gerar Pix no {result.pagamento.provedor === "asaas" ? "Asaas" : "PagBank"}
                       </Button>
                     </div>
                   ) : (
@@ -383,6 +421,16 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
                           </Button>
                         </>
                       ) : null}
+                      {pixCobranca.qr_code_base64 && /^[A-Za-z0-9+/=]+$/.test(pixCobranca.qr_code_base64) ? (
+                        <Image
+                          unoptimized
+                          width={208}
+                          height={208}
+                          alt="QR Code Pix retornado pelo Asaas"
+                          src={"data:image/png;base64," + pixCobranca.qr_code_base64}
+                          className="mx-auto h-52 w-52 rounded-lg bg-white p-2"
+                        />
+                      ) : null}
                       {pixCobranca.qr_code_url?.startsWith("https://") ? (
                         <a
                           href={pixCobranca.qr_code_url}
@@ -390,7 +438,7 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
                           rel="noopener noreferrer"
                           className="block text-sm font-medium text-sky-200 underline"
                         >
-                          Abrir QR Code fornecido pelo PagBank
+                          Abrir QR Code fornecido pelo provedor
                         </a>
                       ) : null}
                     </div>
@@ -410,7 +458,7 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
               ) : null}
 
               {(result.pagamento?.metodo === "cartao_debito" ||
-                result.pagamento?.metodo === "cartao_credito") && !pagamentoLiquidado && !cartaoCheckout ? (
+                result.pagamento?.metodo === "cartao_credito") && result.pagamento?.provedor !== "asaas" && !pagamentoLiquidado && !cartaoCheckout ? (
                 <div className="mt-5 w-full space-y-3 rounded-2xl border border-amber-400/30 bg-amber-500/5 p-4 text-left">
                   <p className="font-semibold text-white">Pagamento em maquininha presencial</p>
                   <p className="text-sm text-slate-300">
@@ -453,16 +501,38 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
               {(result.pagamento?.metodo === "cartao_debito" ||
                 result.pagamento?.metodo === "cartao_credito") && !pagamentoLiquidado ? (
                 <div className="mt-5 w-full space-y-3 rounded-2xl border border-sky-400/30 bg-sky-950/20 p-4 text-left">
-                  <p className="font-semibold text-white">Pagar cartão na página segura do PagBank</p>
+                  <p className="font-semibold text-white">Pagar cartão na página segura do {result.pagamento.provedor === "asaas" ? "Asaas" : "PagBank"}</p>
                   <p className="text-sm text-slate-300">
-                    O cartão é informado diretamente no PagBank, não no Kordena.
+                    O cartão é informado diretamente na página hospedada do provedor, não no Kordena.
                     A venda só será quitada após consulta autenticada ao provedor.
                     Débito online requer habilitação da conta PagBank.
                   </p>
+                  {result.pagamento.provedor === "asaas" && !cartaoCheckout ? (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="text-xs text-slate-300">
+                        Nome do pagador
+                        <input value={pixPagador.nome} maxLength={100}
+                          onChange={(event) => setPixPagador((v) => ({ ...v, nome: event.target.value }))}
+                          className="mt-1 w-full rounded-md border bg-slate-950 p-2 text-white" />
+                      </label>
+                      <label className="text-xs text-slate-300">
+                        E-mail
+                        <input type="email" value={pixPagador.email} maxLength={200}
+                          onChange={(event) => setPixPagador((v) => ({ ...v, email: event.target.value }))}
+                          className="mt-1 w-full rounded-md border bg-slate-950 p-2 text-white" />
+                      </label>
+                      <label className="text-xs text-slate-300 sm:col-span-2">
+                        CPF/CNPJ
+                        <input value={pixPagador.documento} maxLength={18}
+                          onChange={(event) => setPixPagador((v) => ({ ...v, documento: event.target.value }))}
+                          className="mt-1 w-full rounded-md border bg-slate-950 p-2 text-white" />
+                      </label>
+                    </div>
+                  ) : null}
                   {!cartaoCheckout ? (
                     <Button type="button" disabled={cartaoCheckoutBusy || cartaoBusy} onClick={() => void abrirCheckoutCartao()}>
                       {cartaoCheckoutBusy ? <Loader2 className="animate-spin" /> : <CreditCard />}
-                      Gerar pagamento online PagBank
+                      Gerar pagamento online {result.pagamento.provedor === "asaas" ? "Asaas" : "PagBank"}
                     </Button>
                   ) : (
                     <>
@@ -481,7 +551,7 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
                       ) : null}
                       <Button type="button" variant="outline" disabled={cartaoCheckoutBusy} onClick={() => void consultarCheckoutCartao()}>
                         {cartaoCheckoutBusy ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
-                        Verificar pagamento no PagBank
+                        Verificar pagamento no {result.pagamento.provedor === "asaas" ? "Asaas" : "PagBank"}
                       </Button>
                       <p role="status" className="text-xs text-amber-200">
                         Último retorno financeiro: {cartaoCheckout.status_pagamento}
@@ -541,6 +611,20 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
                   })}
                 </div>
 
+                {(cart.metodoPagamento === "pix" || cart.metodoPagamento === "cartao_credito") ? (
+                  <label className="mt-4 block text-sm font-semibold">
+                    Provedor de pagamento
+                    <select
+                      aria-label="Provedor de pagamento"
+                      value={provedorEletronico}
+                      onChange={(event) => setProvedorEletronico(event.target.value as "pagbank" | "asaas")}
+                      className="mt-2 w-full rounded-xl border bg-background p-3 text-sm"
+                    >
+                      <option value="pagbank">PagBank</option>
+                      <option value="asaas">Asaas</option>
+                    </select>
+                  </label>
+                ) : null}
                 {cart.metodoPagamento !== "dinheiro" ? (
                   <p role="status" className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs font-medium text-amber-200">
                     Pagamentos eletrônicos só ficam pagos após confirmação do provedor.

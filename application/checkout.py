@@ -322,6 +322,18 @@ def executar_checkout_v1(
             executar = executar_checkout_com_ficha_estoque_em_transacao
         resultado = executar(comando=comando, contexto=contexto, recursos=recursos)
         if (
+            resultado.pedido.idempotente
+            and resultado.pagamento is not None
+            and (
+                resultado.pagamento.pagamento.metodo != comando.metodo_pagamento
+                or (
+                    comando.provedor_pagamento is not None
+                    and resultado.pagamento.pagamento.provedor != comando.provedor_pagamento
+                )
+            )
+        ):
+            raise ConflitoIdempotencia("metodo_ou_provedor_divergente_no_replay")
+        if (
             pedido.origem is OrigemPedido.PDV
             and resultado.pedido.idempotente
             and _semantica_pedido(resultado.pedido.pedido) != _semantica_pedido(pedido)

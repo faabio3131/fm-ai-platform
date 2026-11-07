@@ -150,10 +150,10 @@ CATALOGO_V1 = CatalogoServicosExternos(
                 provedor=provedor,
                 parametros_obrigatorios=frozenset({"notification_url"}),
                 credenciais_obrigatorias=frozenset(papeis),
-                runtime_operacional=False,
+                runtime_operacional=provedor == "asaas",
             )
             for provedor, papeis in (
-                ("asaas", ("api_key",)),
+                ("asaas", ("api_key", "webhook_token")),
                 ("picpay", ("client_id", "client_secret")),
                 ("pagarme", ("api_key",)),
                 ("efi", ("client_id", "client_secret")),
@@ -165,11 +165,11 @@ CATALOGO_V1 = CatalogoServicosExternos(
                 provedor=provedor,
                 parametros_obrigatorios=frozenset(),
                 credenciais_obrigatorias=frozenset(papeis),
-                runtime_operacional=False,
+                runtime_operacional=provedor == "asaas",
             )
             for provedor, papeis in (
                 ("mercado_pago", ("access_token",)),
-                ("asaas", ("api_key",)),
+                ("asaas", ("api_key", "webhook_token")),
                 ("picpay", ("client_id", "client_secret")),
                 ("pagarme", ("api_key",)),
                 ("stone", ("api_key",)),

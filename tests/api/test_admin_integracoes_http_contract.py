@@ -941,7 +941,7 @@ def test_cadastro_multigateway_e_bancos_visiveis_sem_afirmar_runtime(
         ("financeiro.conta_bancaria", "sicredi"),
     ):
         item = specs[(service, provider)]
-        assert item["runtime_operacional"] is False
+        assert item["runtime_operacional"] is (service == "pagamentos.pix" and provider == "asaas")
         assert item["healthcheck_supported"] is False
         assert item["label"]
     bank = specs[("financeiro.conta_bancaria", "inter")]
