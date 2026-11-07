@@ -80,6 +80,8 @@ class CatalogoItemOut(BaseModel):
     label: str
     parametros_obrigatorios: list[str]
     credenciais_obrigatorias: list[str]
+    credenciais_opcionais: list[str] = []
+    runtime_operacional: bool = True
     healthcheck_supported: bool
     escopo_gestao: str
 
@@ -162,6 +164,38 @@ _LABELS = {
     ("marketplace.pedidos", "ifood"): "Marketplace · iFood",
     ("marketplace.pedidos", "keeta"): "Marketplace · Keeta",
     ("fiscal.documentos", "sefaz"): "Fiscal · SEFAZ",
+    ("pagamentos.pix", "asaas"): "Asaas · Pix",
+    ("pagamentos.pix", "picpay"): "PicPay · Pix",
+    ("pagamentos.pix", "pagarme"): "Pagar.me · Pix",
+    ("pagamentos.pix", "efi"): "Efí Bank · Pix",
+}
+
+# Registro de instituições não é prova de integração transacional.
+_NOMES_FINANCEIROS = {
+    "mercado_pago": "Mercado Pago",
+    "pagbank": "PagBank",
+    "asaas": "Asaas",
+    "picpay": "PicPay",
+    "pagarme": "Pagar.me",
+    "efi": "Efí Bank",
+    "stone": "Stone",
+    "cielo": "Cielo",
+    "rede": "Rede",
+    "getnet": "Getnet",
+    "sumup": "SumUp",
+    "infinitepay": "InfinitePay",
+    "banco_do_brasil": "Banco do Brasil",
+    "itau": "Itaú",
+    "bradesco": "Bradesco",
+    "caixa": "Caixa Econômica Federal",
+    "santander": "Santander",
+    "nubank": "Nubank",
+    "inter": "Banco Inter",
+    "sicredi": "Sicredi",
+    "sicoob": "Sicoob",
+    "c6": "C6 Bank",
+    "btg_pactual": "BTG Pactual",
+    "original": "Banco Original",
 }
 
 _HEALTHCHECK_SUPPORTED = {
@@ -189,10 +223,29 @@ def _catalogo_item_out(spec) -> CatalogoItemOut:
     return CatalogoItemOut(
         servico=spec.servico,
         provedor=spec.provedor,
-        label=_LABELS.get((spec.servico, spec.provedor), f"{spec.servico} · {spec.provedor}"),
+        label=_LABELS.get(
+            (spec.servico, spec.provedor),
+            (
+                f"{_NOMES_FINANCEIROS.get(spec.provedor, spec.provedor)} · "
+                + (
+                    "conta bancária (cadastro)"
+                    if spec.servico == "financeiro.conta_bancaria"
+                    else "cartão (cadastro)"
+                    if spec.servico == "pagamentos.cartao"
+                    else "Pix (cadastro)"
+                )
+            )
+            if spec.servico.startswith(("financeiro.", "pagamentos."))
+            else f"{spec.servico} · {spec.provedor}",
+        ),
         parametros_obrigatorios=sorted(spec.parametros_obrigatorios),
         credenciais_obrigatorias=sorted(spec.credenciais_obrigatorias),
-        healthcheck_supported=provedor_normalizado in _HEALTHCHECK_SUPPORTED,
+        credenciais_opcionais=sorted(spec.credenciais_opcionais),
+        runtime_operacional=spec.runtime_operacional,
+        healthcheck_supported=(
+            spec.runtime_operacional
+            and provedor_normalizado in _HEALTHCHECK_SUPPORTED
+        ),
         escopo_gestao=spec.escopo_gestao.value,
     )
 
@@ -435,8 +488,6 @@ def build_admin_integracoes_router(
             credenciais: Mapping[str, str] = {
                 c.papel: c.valor for c in payload.credenciais if c.valor.strip()
             }
-            # Newly onboarded providers are config-only. Never allow arbitrary
-            # or secret-bearing keys to be persisted as public parameters.
             if not spec.runtime_operacional:
                 roles = spec.credenciais_obrigatorias | spec.credenciais_opcionais
                 if not set(credenciais).issubset(roles):
