@@ -6,30 +6,21 @@ import base64
 import hashlib
 import json
 from collections.abc import Callable
-from types import SimpleNamespace
 from typing import Any
-from uuid import uuid4
 
 from fastapi import APIRouter, Header, Query, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
-from application.ai_router_runtime import construir_ai_model_router
+from application.cardapio_importacao_ia import gerar_cardapio_ia_governada
 from application.legacy_cardapio_gemini import AplicacaoImportacaoCardapioGeminiV1
 from application.legacy_cardapio_transacoes import (
     AplicacaoLegacyCardapioV1,
     ConflitoIdempotenciaCatalogo,
 )
-from core.ai_router import (
-    CapabilityIA,
-    FalhaRotaDefinitiva,
-    FalhaRotaTransitoria,
-    SemRotaCompativel,
-    SolicitacaoIA,
-)
+from core.ai_router import FalhaRotaDefinitiva, FalhaRotaTransitoria, SemRotaCompativel
 from core.seguranca.autenticacao import IdentidadeUsuario, ServicoAutenticacao
-from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.erros import (
     CredenciaisInvalidas,
     ErroSeguranca,
@@ -48,39 +39,10 @@ from infra.legacy_product_scope import (
     obter_produto_por_id_legado,
 )
 from infra.seguranca.adaptador_sqlalchemy import RepositorioIdentidadesSQLAlchemy
-from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
-from infra.transacoes.uow import UnitOfWorkV1
 from test_mode import is_test_mode, mock_generate_content
 
 SessionFactory = Callable[[], Session]
 generate_content = mock_generate_content if is_test_mode() else real_generate_content
-
-
-def _gerar_cardapio_ia_governada(
-    *, contexto: ContextoExecucao, contents: Any, session_factory: SessionFactory,
-) -> Any:
-    """A Web usa a rota Gemini homologada, sem depender de sessão Streamlit."""
-    with UnitOfWorkV1(session_factory) as uow:
-        session = uow.session
-        if session is None:
-            raise RuntimeError("catalogo.ia_uow_indisponivel")
-        router = construir_ai_model_router(
-            session=session,
-            contexto=contexto,
-            secret_store=EncryptedSQLAlchemySecretStore(session),
-        )
-        resposta = router.executar(
-            SolicitacaoIA(
-                tenant_id=contexto.tenant_id,
-                unidade_id=contexto.unidade_id,
-                request_id=str(uuid4()),
-                correlation_id=contexto.correlation_id or str(uuid4()),
-                capability=CapabilityIA.CARDAPIO_IMPORTACAO,
-                conteudo=contents,
-            )
-        )
-        uow.commit()
-        return SimpleNamespace(text=str(resposta.conteudo))
 
 
 class ProdutoCreateIn(BaseModel):
@@ -287,7 +249,7 @@ def build_catalogo_router(
             def gerar_cardapio(*, contents: Any) -> Any:
                 if is_test_mode():
                     return generate_content(contents=contents)
-                return _gerar_cardapio_ia_governada(
+                return gerar_cardapio_ia_governada(
                     contexto=contexto,
                     contents=contents,
                     session_factory=session_factory,
@@ -327,11 +289,20 @@ def build_catalogo_router(
                 "catalogo.escopo_indisponivel",
             )
         except SemRotaCompativel:
-            return _erro(status.HTTP_503_SERVICE_UNAVAILABLE, "catalogo.ia_sem_rota_homologada")
+            return _erro(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "catalogo.ia_sem_rota_homologada",
+            )
         except FalhaRotaTransitoria:
-            return _erro(status.HTTP_503_SERVICE_UNAVAILABLE, "catalogo.ia_temporariamente_indisponivel")
+            return _erro(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "catalogo.ia_temporariamente_indisponivel",
+            )
         except FalhaRotaDefinitiva:
-            return _erro(status.HTTP_502_BAD_GATEWAY, "catalogo.ia_provider_rejeitou")
+            return _erro(
+                status.HTTP_502_BAD_GATEWAY,
+                "catalogo.ia_provider_rejeitou",
+            )
         except Exception:  # noqa: BLE001 - falha do provider é traduzida no boundary HTTP
             return _erro(
                 status.HTTP_502_BAD_GATEWAY,

@@ -383,6 +383,7 @@ def test_catalogo_importa_cardapio_gemini_por_texto_no_escopo(monkeypatch) -> No
         "http_api.catalogo.generate_content",
         mock_generate_content,
     )
+    monkeypatch.setattr("http_api.catalogo.is_test_mode", lambda: True)
     engine, _, client = _infra(monkeypatch)
 
     response = client.post(
@@ -426,7 +427,7 @@ def test_catalogo_importacao_web_usa_router_governado_e_persiste(monkeypatch) ->
 
     monkeypatch.setattr("http_api.catalogo.is_test_mode", lambda: False)
     monkeypatch.setattr(
-        "http_api.catalogo.construir_ai_model_router",
+        "application.cardapio_importacao_ia.construir_ai_model_router",
         lambda **_: FakeRouter(),
     )
     engine, _, client = _infra(monkeypatch)
