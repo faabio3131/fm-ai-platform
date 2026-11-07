@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import { Button } from "@/components/ui/button";
 import {
   criarPratoComFicha,
+  criarProduto,
+  gerarCardapioOriginalIA,
   importarCardapioGeminiPorArquivo,
   importarCardapioGeminiPorTexto,
   listarInsumosFicha,
@@ -13,6 +15,7 @@ import {
   type CatalogoFicha,
   type CatalogoInsumoFicha,
   type CatalogoProduto,
+  type PropostaProdutoIA,
 } from "@/features/backoffice/catalogo/services/catalogo-api";
 
 interface ItemReceita {
@@ -56,6 +59,15 @@ export function FichaTecnicaWorkspace({
   const [textoCardapio, setTextoCardapio] = useState("");
   const [arquivoCardapio, setArquivoCardapio] = useState<File | null>(null);
   const [importando, setImportando] = useState(false);
+  const [briefingOriginal, setBriefingOriginal] = useState(
+    "Hamburgueria artesanal com lanches, acompanhamentos e bebidas não alcoólicas.",
+  );
+  const [quantidadeOriginal, setQuantidadeOriginal] = useState(8);
+  const [gerandoOriginal, setGerandoOriginal] = useState(false);
+  const [propostasOriginal, setPropostasOriginal] = useState<PropostaProdutoIA[]>([]);
+  const [salvandoProposta, setSalvandoProposta] = useState<number | null>(null);
+  const [erroGeracao, setErroGeracao] = useState<string | null>(null);
+  const [avisoGeracao, setAvisoGeracao] = useState<string | null>(null);
 
   const carregarInsumos = useCallback(async () => {
     setLoading(true);
@@ -156,6 +168,66 @@ export function FichaTecnicaWorkspace({
     }
   }
 
+  async function gerarCardapioOriginal() {
+    setGerandoOriginal(true);
+    setErroGeracao(null);
+    setAvisoGeracao(null);
+    setPropostasOriginal([]);
+    try {
+      const resultado = await gerarCardapioOriginalIA(
+        briefingOriginal,
+        quantidadeOriginal,
+      );
+      setPropostasOriginal(resultado.itens);
+      setAvisoGeracao("Propostas geradas. Revise todos os dados antes de salvar.");
+    } catch {
+      setErroGeracao(
+        "Não foi possível gerar o cardápio. Confira o acesso à IA e tente novamente.",
+      );
+    } finally {
+      setGerandoOriginal(false);
+    }
+  }
+
+  function alterarProposta(index: number, patch: Partial<PropostaProdutoIA>) {
+    setPropostasOriginal((current) => current.map((item, itemIndex) =>
+      itemIndex === index ? { ...item, ...patch } : item,
+    ));
+  }
+
+  async function salvarProposta(index: number) {
+    const proposta = propostasOriginal[index];
+    if (!proposta || !proposta.nome.trim() || !proposta.categoria.trim() ||
+      !Number.isFinite(proposta.preco_sugerido) || proposta.preco_sugerido <= 0) {
+      setErroGeracao("Informe nome, categoria e preço válido antes de salvar.");
+      return;
+    }
+    setSalvandoProposta(index);
+    setErroGeracao(null);
+    try {
+      const criado = await criarProduto({
+        nome: proposta.nome.trim(),
+        categoria: proposta.categoria.trim(),
+        preco: proposta.preco_sugerido,
+        descricao_bruta: proposta.descricao.trim(),
+        ativo: false,
+      });
+      onCreated(criado);
+      setPropostasOriginal((current) =>
+        current.filter((_, itemIndex) => itemIndex !== index),
+      );
+      setAvisoGeracao(
+        "Produto " + criado.nome + " salvo inativo. Monte a ficha técnica antes de ativar para venda.",
+      );
+    } catch {
+      setErroGeracao(
+        "Não foi possível salvar este produto. Confira o catálogo e tente novamente.",
+      );
+    } finally {
+      setSalvandoProposta(null);
+    }
+  }
+
   async function importarCardapio() {
     if (fonteImportacao === "arquivo" && !arquivoCardapio) {
       setErro("Envie uma imagem ou um PDF do cardápio.");
@@ -231,6 +303,130 @@ export function FichaTecnicaWorkspace({
           {importando ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
           Processar Cardápio com IA
         </Button>
+      </section>
+
+      <section className="mt-6 rounded-2xl border border-white/10 bg-zinc-900/70 p-5">
+        <h2 className="flex items-center gap-2 text-lg font-bold text-white">
+          <Sparkles className="size-5 text-amber-300" />
+          Criar cardápio do zero com IA
+        </h2>
+        <p className="mt-1 text-sm text-slate-400">
+          Descreva seu negócio. A IA propõe nomes, descrições e preços estimados.
+          Nenhum produto é cadastrado automaticamente, nem seu custo é inventado.
+        </p>
+        <label className="mt-4 block text-xs font-semibold text-slate-400">
+          Perfil da hamburgueria ou restaurante
+          <textarea
+            value={briefingOriginal}
+            onChange={(event) => setBriefingOriginal(event.target.value)}
+            rows={3}
+            maxLength={3000}
+            className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+          />
+        </label>
+        <div className="mt-3 flex flex-wrap items-end gap-3">
+          <label className="text-xs font-semibold text-slate-400">
+            Quantidade de propostas
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={quantidadeOriginal}
+              onChange={(event) => setQuantidadeOriginal(Number(event.target.value))}
+              className="mt-1 h-10 w-32 rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white"
+            />
+          </label>
+          <Button
+            type="button"
+            onClick={() => void gerarCardapioOriginal()}
+            disabled={
+              gerandoOriginal ||
+              briefingOriginal.trim().length < 20 ||
+              quantidadeOriginal < 1 ||
+              quantidadeOriginal > 20
+            }
+          >
+            {gerandoOriginal ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
+            Gerar propostas
+          </Button>
+        </div>
+        {erroGeracao ? (
+          <p role="alert" className="mt-3 text-sm text-red-300">{erroGeracao}</p>
+        ) : null}
+        {avisoGeracao ? (
+          <p role="status" className="mt-3 text-sm text-emerald-300">{avisoGeracao}</p>
+        ) : null}
+        {propostasOriginal.length > 0 ? (
+          <div className="mt-5 space-y-3">
+            <p className="text-sm font-medium text-amber-200">
+              Os preços sugeridos não representam CMV. Revise cada item. Produtos serão
+              salvos inativos até que a ficha técnica seja conferida.
+            </p>
+            {propostasOriginal.map((item, index) => (
+              <div
+                key={index}
+                className="grid gap-3 rounded-xl border border-slate-700 bg-slate-950/70 p-3 sm:grid-cols-2"
+              >
+                <label className="text-xs text-slate-400">
+                  Nome
+                  <input
+                    value={item.nome}
+                    onChange={(event) => alterarProposta(index, { nome: event.target.value })}
+                    className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 p-2 text-sm text-white"
+                  />
+                </label>
+                <label className="text-xs text-slate-400">
+                  Categoria
+                  <input
+                    value={item.categoria}
+                    onChange={(event) => alterarProposta(index, { categoria: event.target.value })}
+                    className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 p-2 text-sm text-white"
+                  />
+                </label>
+                <label className="text-xs text-slate-400 sm:col-span-2">
+                  Descrição / ingredientes
+                  <textarea
+                    value={item.descricao}
+                    onChange={(event) => alterarProposta(index, { descricao: event.target.value })}
+                    rows={2}
+                    className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 p-2 text-sm text-white"
+                  />
+                </label>
+                <label className="text-xs text-slate-400">
+                  Preço sugerido (R$)
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={item.preco_sugerido}
+                    onChange={(event) => alterarProposta(index, { preco_sugerido: Number(event.target.value) })}
+                    className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 p-2 text-sm text-white"
+                  />
+                </label>
+                <div className="flex items-end gap-2">
+                  <Button
+                    type="button"
+                    disabled={salvandoProposta !== null}
+                    onClick={() => void salvarProposta(index)}
+                  >
+                    {salvandoProposta === index ? <LoaderCircle className="animate-spin" /> : <Plus />}
+                    Salvar rascunho
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={salvandoProposta !== null}
+                    onClick={() => setPropostasOriginal((current) =>
+                      current.filter((_, itemIndex) => itemIndex !== index)
+                    )}
+                  >
+                    Descartar
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(340px,1fr)]">

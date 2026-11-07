@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
+from application.cardapio_criacao_ia import PropostaCardapioInvalida, propor_cardapio_original
 from application.cardapio_importacao_ia import gerar_cardapio_ia_governada
 from application.legacy_cardapio_gemini import AplicacaoImportacaoCardapioGeminiV1
 from application.legacy_cardapio_transacoes import (
@@ -49,6 +50,7 @@ class ProdutoCreateIn(BaseModel):
     nome: str = Field(min_length=1, max_length=240)
     categoria: str = Field(min_length=1, max_length=160)
     preco: float = Field(ge=0)
+    descricao_bruta: str = Field(default="", max_length=4000)
     ativo: bool = True
 
 
@@ -75,6 +77,11 @@ class PratoComFichaCreateIn(BaseModel):
 
 class ImportacaoCardapioTextoIn(BaseModel):
     texto_cardapio: str
+
+
+class GerarCardapioOriginalIn(BaseModel):
+    briefing: str = Field(min_length=20, max_length=3000)
+    quantidade: int = Field(default=8, ge=1, le=20)
 
 
 def _erro(http_status: int, codigo: str) -> JSONResponse:
@@ -196,6 +203,72 @@ def build_catalogo_router(
                 tenant_id=contexto.tenant_id,
                 unidade_id=contexto.unidade_id,
                 produto_id=parsed,
+            )
+
+    @router.post("/propostas-ia")
+    def gerar_propostas_cardapio_ia(
+        payload: GerarCardapioOriginalIn,
+        request: Request,
+    ) -> JSONResponse:
+        """Produz sugestões sem cadastrar produtos ou movimentar estoque."""
+        try:
+            contexto = _contexto(request, exigir_escrita=True)
+
+            def gerar(*, contents: Any) -> Any:
+                return gerar_cardapio_ia_governada(
+                    contexto=contexto,
+                    contents=contents,
+                    session_factory=session_factory,
+                )
+
+            itens = propor_cardapio_original(
+                briefing=payload.briefing,
+                quantidade=payload.quantidade,
+                gerar_conteudo=gerar,
+            )
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "itens": itens,
+                    "requer_revisao": True,
+                    "precos_estimados": True,
+                    "cadastro_automatico": False,
+                },
+            )
+        except CredenciaisInvalidas:
+            return _erro(
+                status.HTTP_401_UNAUTHORIZED,
+                CredenciaisInvalidas.codigo,
+            )
+        except PermissionError as exc:
+            return _erro(
+                status.HTTP_403_FORBIDDEN,
+                str(exc) or "seguranca.permissao_insuficiente",
+            )
+        except (ReferenciaSegredoInvalida, SegredoAusente):
+            return _erro(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "auth.sessao_indisponivel",
+            )
+        except SemRotaCompativel:
+            return _erro(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "catalogo.ia_sem_rota_homologada",
+            )
+        except FalhaRotaTransitoria:
+            return _erro(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "catalogo.ia_temporariamente_indisponivel",
+            )
+        except (PropostaCardapioInvalida, FalhaRotaDefinitiva):
+            return _erro(
+                status.HTTP_502_BAD_GATEWAY,
+                "catalogo.ia_proposta_invalida",
+            )
+        except Exception:  # noqa: BLE001 - não expõe erro ou segredo do provider
+            return _erro(
+                status.HTTP_502_BAD_GATEWAY,
+                "catalogo.ia_geracao_falhou",
             )
 
     @router.post("/importacoes-gemini")
@@ -544,6 +617,7 @@ def build_catalogo_router(
                     "nome": payload.nome.strip(),
                     "categoria": payload.categoria.strip(),
                     "preco_venda": payload.preco,
+                    "descricao_bruta": payload.descricao_bruta.strip(),
                     "ativo": payload.ativo,
                 },
                 itens_ficha=(),

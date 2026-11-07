@@ -12,7 +12,22 @@ export interface CriarProdutoPayload {
   nome: string;
   categoria: string;
   preco: number;
+  descricao_bruta?: string;
   ativo: boolean;
+}
+
+export interface PropostaProdutoIA {
+  nome: string;
+  categoria: string;
+  descricao: string;
+  preco_sugerido: number;
+}
+
+export interface ResultadoPropostaCardapioIA {
+  itens: PropostaProdutoIA[];
+  requer_revisao: boolean;
+  precos_estimados: boolean;
+  cadastro_automatico: boolean;
 }
 
 export interface AtualizarProdutoPayload {
@@ -187,6 +202,16 @@ export function criarPratoComFicha(
     method: "POST",
     headers: { "Idempotency-Key": crypto.randomUUID() },
     body: JSON.stringify(payload),
+  });
+}
+
+export function gerarCardapioOriginalIA(
+  briefing: string,
+  quantidade: number,
+): Promise<ResultadoPropostaCardapioIA> {
+  return catalogoRequest("/v1/catalogo/propostas-ia", {
+    method: "POST",
+    body: JSON.stringify({ briefing, quantidade }),
   });
 }
 

@@ -48,3 +48,18 @@ def test_wp014_ficha_keeps_manual_final_price_and_canonical_persistence() -> Non
     assert "onChange={(event) => setPreco(Number(event.target.value))}" in workspace
     assert "criarPratoComFicha" in workspace
     assert "salvar_prato_com_ficha" in application
+
+
+def test_gerador_cardapio_original_mantem_revisao_e_rascunho_inativo() -> None:
+    workspace = _read(
+        "web/src/features/backoffice/catalogo/components/FichaTecnicaWorkspace.tsx"
+    )
+    api = _read("web/src/features/backoffice/catalogo/services/catalogo-api.ts")
+    backend = _read("http_api/catalogo.py")
+    assert "Criar cardápio do zero com IA" in workspace
+    assert "gerarCardapioOriginalIA" in workspace
+    assert "Salvar rascunho" in workspace
+    assert "ativo: false" in workspace
+    assert '"/v1/catalogo/propostas-ia"' in api
+    assert '@router.post("/propostas-ia")' in backend
+    assert '"cadastro_automatico": False' in backend
