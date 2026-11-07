@@ -367,3 +367,74 @@ def test_checkout_dinheiro_insuficiente_nao_grava_pedido() -> None:
     with Session(engine) as session:
         assert _count(session, PedidoORM) == 0
         assert _count(session, PagamentoORM) == 0
+
+
+def test_cartao_presencial_so_liquida_com_aprovacao_nsu_e_atualiza_ledger() -> None:
+    _, factory, client = _infra()
+    pedido = client.post(
+        "/v1/pdv/checkout",
+        headers=_headers(key="7caecf55-8937-4944-bbd5-3d826506d0d6"),
+        json={**_payload(), "metodo_pagamento": "cartao_credito"},
+    )
+    assert pedido.status_code == 201
+    pagamento = pedido.json()["pagamento"]
+    assert pagamento["status"] == "pendente"
+    alvo = (
+        f"/v1/pdv/pagamentos/{pagamento['id']}/"
+        "confirmar-cartao-terminal"
+    )
+    sem_aprovacao = client.post(
+        alvo,
+        headers=_headers(),
+        json={"referencia_terminal": "NSU-12345678", "autorizado_no_terminal": False},
+    )
+    assert sem_aprovacao.status_code == 409
+    confirmado = client.post(
+        alvo,
+        headers=_headers(),
+        json={"referencia_terminal": "NSU-12345678", "autorizado_no_terminal": True},
+    )
+    assert confirmado.status_code == 200, confirmado.text
+    assert confirmado.json()["status"] == "pago"
+    assert confirmado.json()["idempotente"] is False
+    repetido = client.post(
+        alvo,
+        headers=_headers(),
+        json={"referencia_terminal": "NSU-12345678", "autorizado_no_terminal": True},
+    )
+    assert repetido.status_code == 200
+    assert repetido.json()["idempotente"] is True
+    divergente = client.post(
+        alvo,
+        headers=_headers(),
+        json={"referencia_terminal": "NSU-87654321", "autorizado_no_terminal": True},
+    )
+    assert divergente.status_code == 409
+    with factory() as session:
+        resultado = session.get(PagamentoORM, (pagamento["id"], TENANT, UNIDADE))
+        assert resultado is not None
+        assert resultado.status == "pago"
+        assert resultado.valor_pago == Decimal("30.00")
+
+
+def test_cartao_presencial_nao_liquida_pix_e_nao_cruza_tenants() -> None:
+    _, _, client = _infra()
+    pedido = client.post(
+        "/v1/pdv/checkout",
+        headers=_headers(key="0586f7ca-d312-45f9-b7dc-7c918a6dd757"),
+        json={**_payload(), "metodo_pagamento": "pix"},
+    )
+    pagamento = pedido.json()["pagamento"]
+    alvo = f"/v1/pdv/pagamentos/{pagamento['id']}/confirmar-cartao-terminal"
+    resposta = client.post(
+        alvo,
+        headers=_headers(),
+        json={"referencia_terminal": "NSU-12345678", "autorizado_no_terminal": True},
+    )
+    assert resposta.status_code == 409
+    fora = client.post(
+        "/v1/pdv/pagamentos/pay-outro-tenant/confirmar-cartao-terminal",
+        headers=_headers(),
+        json={"referencia_terminal": "NSU-12345678", "autorizado_no_terminal": True},
+    )
+    assert fora.status_code == 404

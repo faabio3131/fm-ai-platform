@@ -204,3 +204,37 @@ export async function submitCheckout(
 
   return (await response.json()) as CheckoutResponse;
 }
+
+export interface CartaoTerminalConfirmacao {
+  pagamento_id: string;
+  status: string;
+  metodo: string;
+  referencia_terminal: string;
+  idempotente: boolean;
+}
+
+/** Registro da aprovação emitida no POS físico; não captura cartão. */
+export async function confirmarCartaoNoTerminal(
+  pagamentoId: string,
+  referenciaTerminal: string,
+): Promise<CartaoTerminalConfirmacao> {
+  const headers = buildHeaders();
+  headers.set("Content-Type", "application/json");
+  const response = await fetch(
+    `${API_BASE_URL}/v1/pdv/pagamentos/${encodeURIComponent(pagamentoId)}/confirmar-cartao-terminal`,
+    {
+      method: "POST",
+      headers,
+      cache: "no-store",
+      credentials: "include",
+      body: JSON.stringify({
+        referencia_terminal: referenciaTerminal,
+        autorizado_no_terminal: true,
+      }),
+    },
+  );
+  if (response.status !== 200) {
+    throw await readApiError(response);
+  }
+  return (await response.json()) as CartaoTerminalConfirmacao;
+}

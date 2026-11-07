@@ -23,6 +23,7 @@ import {
 import {
   PdvApiError,
   submitCheckout,
+  confirmarCartaoNoTerminal,
   type CheckoutPayload,
   type CheckoutResponse,
   type PaymentMethod,
@@ -61,12 +62,17 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CheckoutResponse | null>(null);
+  const [cartaoReferencia, setCartaoReferencia] = useState("");
+  const [cartaoAprovadoNoTerminal, setCartaoAprovadoNoTerminal] = useState(false);
+  const [cartaoConfirmado, setCartaoConfirmado] = useState(false);
+  const [cartaoBusy, setCartaoBusy] = useState(false);
+  const [cartaoErro, setCartaoErro] = useState<string | null>(null);
 
   const tentativa = useRef<{ payload: string; chave: string } | null>(null);
 
   const changeCents = Math.max(0, receivedCents - totals.totalCents);
   const cashIsEnough = cart.metodoPagamento !== "dinheiro" || receivedCents >= totals.totalCents;
-  const pagamentoLiquidado = result?.pagamento?.status === "pago" || (
+  const pagamentoLiquidado = cartaoConfirmado || result?.pagamento?.status === "pago" || (
     result !== null && result.pagamento === null && Number(result.comanda.total) === 0
   );
 
@@ -123,6 +129,10 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
       const response = await submitCheckout(payload, tentativa.current.chave);
       tentativa.current = null;
       setResult(response);
+      setCartaoConfirmado(false);
+      setCartaoReferencia("");
+      setCartaoAprovadoNoTerminal(false);
+      setCartaoErro(null);
       cartActions.reset();
     } catch (caught) {
       if (caught instanceof PdvApiError) {
@@ -135,12 +145,41 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
     }
   }
 
+  async function registrarCartaoAprovado() {
+    if (!result?.pagamento || cartaoBusy || !cartaoAprovadoNoTerminal) return;
+    setCartaoBusy(true);
+    setCartaoErro(null);
+    try {
+      const retorno = await confirmarCartaoNoTerminal(
+        result.pagamento.id,
+        cartaoReferencia.trim(),
+      );
+      if (retorno.status === "pago") {
+        setCartaoConfirmado(true);
+      } else {
+        setCartaoErro("O comprovante foi registrado, mas a venda ainda não consta como paga.");
+      }
+    } catch (caught) {
+      setCartaoErro(
+        caught instanceof Error
+          ? caught.message
+          : "Não foi possível registrar a confirmação do terminal.",
+      );
+    } finally {
+      setCartaoBusy(false);
+    }
+  }
+
   function handleOpenChange(nextOpen: boolean) {
-    if (!nextOpen && submitting) return;
+    if (!nextOpen && (submitting || cartaoBusy)) return;
     if (!nextOpen) {
       setError(null);
       setResult(null);
       setReceivedCents(0);
+      setCartaoReferencia("");
+      setCartaoAprovadoNoTerminal(false);
+      setCartaoConfirmado(false);
+      setCartaoErro(null);
     }
     onOpenChange(nextOpen);
   }
@@ -178,7 +217,7 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pagamento</p>
-                  <p className="mt-1 font-semibold">{result.pagamento?.status ?? "sem pagamento"}</p>
+                  <p className="mt-1 font-semibold">{cartaoConfirmado ? "pago (terminal presencial)" : result.pagamento?.status ?? "sem pagamento"}</p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total</p>
@@ -194,6 +233,47 @@ export function CheckoutModal({ open, onOpenChange }: CheckoutModalProps) {
                   correlation {result.correlation_id}
                 </Badge>
               </div>
+
+
+              {(result.pagamento?.metodo === "cartao_debito" ||
+                result.pagamento?.metodo === "cartao_credito") && !pagamentoLiquidado ? (
+                <div className="mt-5 w-full space-y-3 rounded-2xl border border-amber-400/30 bg-amber-500/5 p-4 text-left">
+                  <p className="font-semibold text-white">Pagamento em maquininha presencial</p>
+                  <p className="text-sm text-slate-300">
+                    Efetue a cobrança diretamente na maquininha do estabelecimento.
+                    Somente após a tela ou o comprovante apresentar transação APROVADA,
+                    registre abaixo o NSU/código de autorização. Esta opção não
+                    processa o cartão nem consulta automaticamente a adquirente.
+                  </p>
+                  <label className="block text-xs text-slate-200">
+                    NSU / código do comprovante aprovado
+                    <input
+                      value={cartaoReferencia}
+                      maxLength={80}
+                      onChange={(event) => setCartaoReferencia(event.target.value)}
+                      placeholder="Ex.: 12345678"
+                      className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-950 p-2 text-sm text-white"
+                    />
+                  </label>
+                  <label className="flex gap-2 text-xs text-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={cartaoAprovadoNoTerminal}
+                      onChange={(event) => setCartaoAprovadoNoTerminal(event.target.checked)}
+                    />
+                    Confirmo que o terminal físico aprovou integralmente o valor deste pedido.
+                  </label>
+                  <Button
+                    type="button"
+                    onClick={() => void registrarCartaoAprovado()}
+                    disabled={cartaoBusy || !cartaoAprovadoNoTerminal || cartaoReferencia.trim().length < 4}
+                  >
+                    {cartaoBusy ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
+                    Registrar cartão aprovado
+                  </Button>
+                  {cartaoErro ? <p role="alert" className="text-xs text-red-300">{cartaoErro}</p> : null}
+                </div>
+              ) : null}
 
               <Button className="mt-6 h-12 w-full rounded-xl" onClick={() => handleOpenChange(false)}>
                 Nova venda

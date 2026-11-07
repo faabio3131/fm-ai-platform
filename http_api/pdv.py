@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
+from dataclasses import asdict
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -16,6 +17,10 @@ from sqlalchemy.orm import Session
 
 from application.catalogo_estoque_cutover import (
     ErroCatalogoEstoqueCutover,
+)
+from application.pdv_cartao_terminal import (
+    CartaoTerminalInvalido,
+    confirmar_cartao_terminal_pdv,
 )
 from application.checkout import (
     CheckoutInvalido,
@@ -65,6 +70,11 @@ _METODOS_PDV = frozenset(
         MetodoPagamento.DINHEIRO,
     }
 )
+
+
+class PDVCartaoTerminalIn(BaseModel):
+    referencia_terminal: str = Field(min_length=4, max_length=80)
+    autorizado_no_terminal: bool
 
 
 class PDVCheckoutItemIn(BaseModel):
@@ -516,6 +526,43 @@ def build_pdv_router(
             )
             return JSONResponse(status_code=http_status, content=body)
         except Exception as exc:  # noqa: BLE001 - boundary HTTP fail-closed
+            return _erro_http(exc)
+
+    @router.post("/pagamentos/{pagamento_id}/confirmar-cartao-terminal")
+    def confirmar_cartao_terminal(
+        pagamento_id: str,
+        payload: PDVCartaoTerminalIn,
+        request: Request,
+    ) -> JSONResponse:
+        try:
+            with session_factory() as session:
+                contexto = _contexto_pdv(
+                    request,
+                    session,
+                    auth_runtime=auth_runtime,
+                )
+            resultado = confirmar_cartao_terminal_pdv(
+                contexto=contexto,
+                pagamento_id=pagamento_id,
+                referencia_terminal=payload.referencia_terminal,
+                autorizado_no_terminal=payload.autorizado_no_terminal,
+                session_factory=session_factory,
+            )
+            return JSONResponse(
+                status_code=200,
+                content=asdict(resultado),
+            )
+        except CartaoTerminalInvalido as exc:
+            return JSONResponse(
+                status_code=409,
+                content={"erro": str(exc)},
+            )
+        except LookupError:
+            return JSONResponse(
+                status_code=404,
+                content={"erro": "pagamento_nao_encontrado"},
+            )
+        except Exception as exc:  # noqa: BLE001 - boundary autenticada
             return _erro_http(exc)
 
     return router
