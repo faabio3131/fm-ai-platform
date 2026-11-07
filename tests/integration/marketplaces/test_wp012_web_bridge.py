@@ -73,13 +73,15 @@ def _snapshot(
     )
 
 
-def test_catalogo_expoe_ifood_e_keeta_sem_inventar_99food() -> None:
+def test_catalogo_expoe_ifood_keeta_e_99food_configuravel_sem_inventar_api() -> None:
     specs = {
         (item.servico, item.provedor): item for item in CATALOGO_V1.listar()
     }
     assert ("marketplace.pedidos", "ifood") in specs
     assert ("marketplace.pedidos", "keeta") in specs
-    assert ("marketplace.pedidos", "99food") not in specs
+    assert ("marketplace.pedidos", "99food") in specs
+    assert specs[("marketplace.pedidos", "99food")].parametros_obrigatorios == frozenset()
+    assert specs[("marketplace.pedidos", "99food")].credenciais_obrigatorias == frozenset()
     assert specs[("marketplace.pedidos", "ifood")].credenciais_obrigatorias == {
         "client_id",
         "client_secret",
