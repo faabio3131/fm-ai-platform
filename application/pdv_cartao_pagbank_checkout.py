@@ -20,7 +20,6 @@ from core.pagamentos.modelos import (
     TipoTransacao,
     TransacaoPagamento,
 )
-from core.pagamentos.pagbank import CheckoutCartaoPagBank
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.permissoes import Permissao
 from core.seguranca.segredos import SecretStore

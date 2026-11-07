@@ -217,10 +217,10 @@ def _checkout_pay_url(payload: Mapping[str, Any]) -> str:
             or parsed.username is not None
             or parsed.password is not None
             or not (
-                host.endswith(".pagbank.com.br")
-                or host == "pagbank.com.br"
-                or host.endswith(".pagseguro.com.br")
-                or host.endswith(".pagseguro.uol.com.br")
+                host == "pagbank.com.br"
+                or host.endswith(
+                    (".pagbank.com.br", ".pagseguro.com.br", ".pagseguro.uol.com.br")
+                )
             )
         ):
             raise ErroPagBank("Checkout PagBank retornou link não confiável")
