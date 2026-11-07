@@ -6,6 +6,8 @@ export interface CatalogoItem {
   label: string;
   parametros_obrigatorios: string[];
   credenciais_obrigatorias: string[];
+  credenciais_opcionais?: string[];
+  runtime_operacional?: boolean;
   healthcheck_supported: boolean;
 }
 

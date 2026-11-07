@@ -37,10 +37,13 @@ from core.marketplaces.repositorios import (
 )
 from core.marketplaces.retry import PoliticaRetryMarketplace
 from core.marketplaces.runtime import (
+    compor_food99_transporte_verificado,
     compor_ifood_http_real,
     compor_keeta_opendelivery_real,
 )
 from core.marketplaces.servicos import ServicoMarketplaces
+from core.marketplaces.flags import food99_adapter_v1_enabled
+from core.marketplaces.partner_transport import TransporteParceiroNormalizado
 from core.seguranca.contexto import ContextoExecucao
 from core.seguranca.erros import SegredoAusente
 from infra.eventos.adaptador_sqlalchemy import (
@@ -61,6 +64,10 @@ from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
 from infra.transacoes.uow import UnitOfWorkV1
 
 SessionFactory = Callable[[], Session]
+Food99TransportFactory = Callable[
+    [Session, ConfiguracaoServicoExterno, EncryptedSQLAlchemySecretStore],
+    TransporteParceiroNormalizado,
+]
 SERVICO_MARKETPLACE = "marketplace.pedidos"
 
 
@@ -325,9 +332,11 @@ class AplicacaoMarketplacesWebV1:
         session_factory: SessionFactory,
         *,
         master_key: str | None = None,
+        food99_transport_factory: Food99TransportFactory | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._master_key = master_key
+        self._food99_transport_factory = food99_transport_factory
 
     @staticmethod
     def _configs(
@@ -341,7 +350,7 @@ class AplicacaoMarketplacesWebV1:
                 unidade_id=contexto.unidade_id,
             )
             if config.servico == SERVICO_MARKETPLACE
-            and config.provedor in {"ifood", "keeta"}
+            and config.provedor in {"ifood", "keeta", "99food"}
         )
 
     def listar(self, contexto: ContextoExecucao) -> tuple[MarketplaceIntegracaoWeb, ...]:
@@ -373,6 +382,13 @@ class AplicacaoMarketplacesWebV1:
                             config.habilitada
                             and config.homologada
                             and config.evidencia_homologacao_ref
+                            and (
+                                config.provedor != "99food"
+                                or (
+                                    self._food99_transport_factory is not None
+                                    and food99_adapter_v1_enabled()
+                                )
+                            )
                         ),
                     )
                 )
@@ -392,7 +408,7 @@ class AplicacaoMarketplacesWebV1:
         if (
             config is None
             or config.servico != SERVICO_MARKETPLACE
-            or config.provedor not in {"ifood", "keeta"}
+            or config.provedor not in {"ifood", "keeta", "99food"}
         ):
             raise ErroMarketplace("integracao_marketplace_indisponivel")
         if not config.habilitada:
@@ -423,11 +439,23 @@ class AplicacaoMarketplacesWebV1:
                 delegate = compor_ifood_http_real(
                     segredos=_SegredosIfood(session, config, vault)
                 )
-            else:
+            elif config.provedor == "keeta":
                 plataforma = PlataformaMarketplace.KEETA
                 delegate = compor_keeta_opendelivery_real(
                     segredos=_SegredosKeeta(session, config, vault)
                 )
+            elif config.provedor == "99food":
+                plataforma = PlataformaMarketplace.FOOD99
+                if self._food99_transport_factory is None:
+                    raise ErroMarketplace("99food_transporte_certificado_ausente")
+                # O transporte do integrador só é plugado após documentação
+                # oficial de rotas/autenticação e contrato validado.
+                transporte = self._food99_transport_factory(session, config, vault)
+                delegate = compor_food99_transporte_verificado(
+                    transporte=transporte,
+                )
+            else:
+                raise ErroMarketplace("provedor_marketplace_nao_suportado")
 
             uow = UnitOfWorkV1.adotar_session(session)
             adapter = _AdapterCommitAntesAck(delegate, uow)

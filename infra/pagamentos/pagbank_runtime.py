@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from core.pagamentos.pagbank import AdapterPagBank, ConfiguracaoPagBank
 from core.seguranca.segredos import ReferenceSecretStore, SecretStore
+from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
 from infra.seguranca.modelos_orm import CredencialReferenciaORM
 
 
@@ -82,7 +83,14 @@ class PagBankAdapterFactory:
                 "referencia PagBank ativa nao configurada para tenant/unidade"
             )
 
-        token = self._secret_store.resolve(registro.referencia).reveal()
+        # Credenciais cadastradas pela interface comercial usam `vault:*`.
+        # ReferenceSecretStore atende `env:*`, não pode resolver o cofre SQL.
+        store: SecretStore = (
+            EncryptedSQLAlchemySecretStore(session)
+            if registro.referencia.startswith("vault:")
+            else self._secret_store
+        )
+        token = store.resolve(registro.referencia).reveal()
         return AdapterPagBank(
             ConfiguracaoPagBank(
                 token=token,

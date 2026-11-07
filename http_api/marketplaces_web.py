@@ -9,7 +9,10 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
-from application.marketplaces_web import AplicacaoMarketplacesWebV1
+from application.marketplaces_web import (
+    AplicacaoMarketplacesWebV1,
+    Food99TransportFactory,
+)
 from core.marketplaces.erros import ErroMarketplace, ErroMarketplaceTransitorio
 from core.seguranca.erros import CredenciaisInvalidas, ErroSeguranca
 from core.seguranca.permissoes import Permissao
@@ -90,7 +93,7 @@ def _erro_http(exc: Exception) -> JSONResponse:
             status.HTTP_404_NOT_FOUND
             if codigo == "integracao_marketplace_indisponivel"
             else status.HTTP_409_CONFLICT
-            if codigo in {"marketplace_nao_homologado", "integracao_inativa"}
+            if codigo in {"marketplace_nao_homologado", "integracao_inativa", "99food_transporte_certificado_ausente", "99food_adapter_real_nao_habilitado", "contrato_99food_nao_verificado"}
             else status.HTTP_400_BAD_REQUEST
         )
         return JSONResponse(status_code=http_status, content={"erro": codigo})
@@ -105,12 +108,17 @@ def build_marketplaces_web_router(
     session_factory: SessionFactory,
     auth_runtime: AuthSessionRuntime,
     master_key: str | None = None,
+    food99_transport_factory: Food99TransportFactory | None = None,
 ) -> APIRouter:
     router = APIRouter(
         prefix="/v1/marketplaces",
         tags=["central-pedidos-marketplaces"],
     )
-    app = AplicacaoMarketplacesWebV1(session_factory, master_key=master_key)
+    app = AplicacaoMarketplacesWebV1(
+        session_factory,
+        master_key=master_key,
+        food99_transport_factory=food99_transport_factory,
+    )
 
     @router.get("", response_model=MarketplaceIntegracoesOut)
     def listar(request: Request) -> MarketplaceIntegracoesOut | JSONResponse:

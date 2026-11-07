@@ -229,3 +229,85 @@ def test_erro_400_mostra_codigo_e_parametro_sem_descricao_ou_valor() -> None:
     assert "parameter=customer.tax_id" in mensagem
     assert segredo not in mensagem
     assert "campo inválido" not in mensagem
+
+
+
+def _checkout_cartao(*, status: str = "ACTIVE", valor: int = 3890):
+    return {
+        "id": "CHEC_TESTE_SEGURANCA",
+        "reference_id": "pay-cartao",
+        "status": status,
+        "links": [
+            {
+                "rel": "PAY",
+                "href": "https://pagamento.pagbank.com.br/pagamento?code=teste",
+            }
+        ],
+        "payments": (
+            [{
+                "id": "CHAR_CARTAO",
+                "status": status,
+                "amount": {"value": valor},
+                "payment_method": {"type": "CREDIT_CARD"},
+            }] if status != "ACTIVE" else []
+        ),
+    }
+
+
+def test_checkout_cartao_pagbank_cria_link_sem_manipular_pan_ou_cvv() -> None:
+    http = TransporteFake([RespostaFake(200, _checkout_cartao())])
+    adapter = AdapterPagBank(
+        ConfiguracaoPagBank(token="token-sintetico", ambiente="sandbox"),
+        transporte=http,
+    )
+    criado = adapter.criar_checkout_cartao(
+        pagamento_id="pay-cartao",
+        valor=Dinheiro("38.90"),
+        metodo="cartao_credito",
+        idempotency_key="idem-checkout",
+    )
+    assert criado.checkout_id == "CHEC_TESTE_SEGURANCA"
+    assert criado.status == "pendente"
+    assert criado.pagamento_url.startswith("https://pagamento.pagbank.com.br/")
+    chamada = http.chamadas[0]
+    assert chamada["url"] == "https://sandbox.api.pagseguro.com/checkouts"
+    assert chamada["headers"]["x-idempotency-key"] == "idem-checkout"
+    assert chamada["json"]["customer_modifiable"] is True
+    assert chamada["json"]["payment_methods"] == [{"type": "CREDIT_CARD"}]
+    assert chamada["json"]["items"][0]["unit_amount"] == 3890
+    assert "card" not in chamada["json"] and "cvv" not in chamada["json"]
+
+
+def test_checkout_cartao_nao_considera_autorizacao_como_liquidacao() -> None:
+    http = TransporteFake([
+        RespostaFake(200, _checkout_cartao(status="AUTHORIZED")),
+        RespostaFake(200, _checkout_cartao(status="PAID", valor=3800)),
+        RespostaFake(200, _checkout_cartao(status="PAID")),
+    ])
+    adapter = AdapterPagBank(
+        ConfiguracaoPagBank(token="token", ambiente="sandbox"), transporte=http
+    )
+    for esperado in ("pendente", "pendente", "pago"):
+        status = adapter.consultar_checkout_cartao(
+            checkout_id="CHEC_TESTE_SEGURANCA",
+            pagamento_id="pay-cartao",
+            valor=Dinheiro("38.90"),
+            metodo="cartao_credito",
+        )
+        assert status.status == esperado
+
+
+def test_checkout_cartao_recusa_link_pagamento_fora_do_pagbank() -> None:
+    payload = _checkout_cartao()
+    payload["links"][0]["href"] = "https://pagbank.com.br.atacante.example/roubo"
+    http = TransporteFake([RespostaFake(200, payload)])
+    adapter = AdapterPagBank(
+        ConfiguracaoPagBank(token="token"), transporte=http
+    )
+    with pytest.raises(ErroPagBank, match="link não confiável"):
+        adapter.criar_checkout_cartao(
+            pagamento_id="pay-cartao",
+            valor=Dinheiro("38.90"),
+            metodo="cartao_credito",
+            idempotency_key="idem",
+        )
