@@ -1,7 +1,7 @@
 """NFCore S2S Bridge adapter for Kordena Fiscal V1 operations.
 
-Only NFCore is fiscal authority. This module does not sign XML, issue a fiscal
-document, infer jurisdiction readiness or invent SEFAZ authorization.
+Only NFCore is fiscal authority. This module never signs fiscal XML, grants
+production readiness or invents SEFAZ authorization.
 Contract: faabio3131/nf-core-v001/contracts/v1/openapi.json (2026-11-07).
 """
 from __future__ import annotations
@@ -17,12 +17,14 @@ from urllib.request import HTTPRedirectHandler, HTTPSHandler, Request, build_ope
 
 from sqlalchemy.orm import Session
 
+from infra.fiscal.nfcore_issuance_contract import to_nfcore_issuance
 from infra.fiscal.runtime_adapters import (
     FiscalControlPlaneResolver,
     FiscalProviderUnavailableError,
     FiscalRuntimeConfigurationError,
 )
 from infra.seguranca.segredos_sqlalchemy import EncryptedSQLAlchemySecretStore
+from kordena_fiscal.contingency import FiscalOutboxEntry
 from kordena_fiscal.domain import ExecutionScope, FiscalEnvironment
 from kordena_fiscal.gateway import GatewayProviderMetadata
 from kordena_fiscal.operations import (
@@ -214,6 +216,33 @@ class NfcoreFiscalOperationsGateway(FiscalOperationsGateway):
             raise FiscalRuntimeConfigurationError(
                 "NFCore has not approved fiscal homologation for this scope"
             )
+
+    def issue_outbox_entry(self, entry: FiscalOutboxEntry) -> dict[str, Any]:
+        """Submit immutable, source-bound NFC-e to NFCore after readiness gate.
+
+        Accepted/pending is remote receipt, not SEFAZ authorization. The remote
+        request_id must be retained by a durable dispatch/reconciliation worker.
+        """
+        if not isinstance(entry, FiscalOutboxEntry):
+            raise NfcoreBridgeContractError("Fiscal outbox entry required")
+        payload = to_nfcore_issuance(entry)
+        self._capability(entry.scope, "issue", "nfce")
+        data = self._call(
+            scope=entry.scope,
+            path="/v1/issuances",
+            payload=payload,
+            idempotency_key=entry.deduplication_key,
+        )
+        if _require_text(data, "contract_version") != "1.0.0":
+            raise NfcoreBridgeContractError("NFCore issuance contract version mismatch")
+        if data.get("replay") not in (True, False):
+            raise NfcoreBridgeContractError("NFCore issuance replay invalid")
+        if _require_text(data, "status") not in (
+            "accepted", "pending", "authorized", "rejected"
+        ):
+            raise NfcoreBridgeContractError("NFCore issuance status invalid")
+        _require_text(data, "request_id")
+        return data
 
     def query(self, request: FiscalQueryRequest) -> FiscalQueryResult:
         kind = "nfce" if request.access_key.model.value == 65 else "nfe"
